@@ -112,8 +112,8 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 - **2026-09-24:** the 🟨 permissive-with-notice class (BSD, PostgreSQL
   License, ISC) is **allowed**. Ship a `THIRD-PARTY-NOTICES` file with the
   required copyright notices.
-- **2026-09-24:** self-hosting and simplicity are the priority. Being on this
-  list does not mean a package will be used. Every dependency still has to
-  justify itself (see the baseline in
+- **2026-09-24:** self-hosting and practicality are the priority. Being on this
+  list does not mean a package will be used. In-process libraries are
+  welcome when they save code. Extra runtime services must stay optional (see the baseline in
   [dotnet-building-blocks.md](dotnet-building-blocks.md)). The only required
   runtime service is PostgreSQL.

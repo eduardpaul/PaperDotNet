@@ -11,11 +11,16 @@ inspired by Papermerge and SharePoint lists/libraries.
 
 ## Guiding principle
 
-**Self-hosting and simplicity first.** Minimal install = one PaperDotNet
-container + PostgreSQL (+ a files volume), fully working, OCR included.
-Everything else (external IdP, S3, cache server, external search, AI providers,
-separate workers) is optional and off by default. Prefer built-in .NET features
-and a little own code over adding libraries or services.
+**Self-hosting and practicality first** (simplicity = practicality).
+- **Minimal install:** one PaperDotNet container + PostgreSQL (+ a files
+  volume), fully working, OCR included.
+- **Optional, off by default:** external IdP, S3, cache server, external
+  search, AI providers, separate workers.
+- **Libraries:** use mature in-process libraries rather than reinventing them
+  (scheduling, OAuth, query parsing, PDF). Never hand-roll security, protocol
+  or file-format code.
+- **Own code:** only where it is small, core to the product, or no good
+  library exists.
 
 ## Current scope
 

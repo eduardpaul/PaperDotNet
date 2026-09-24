@@ -187,10 +187,14 @@ See [dependency-licenses.md](dependency-licenses.md) for the full register.
 
 ## Recommended baseline for phase 0 (foundation)
 
-Self-hosting and simplicity come first (decided 2026-09-24). The baseline
-runs as **one PaperDotNet container + PostgreSQL**. It uses only built-in .NET
-features plus the few libraries below. Everything marked 🟡 or ⏳ in this doc
-stays out until a concrete need shows it removes more complexity than it adds.
+Self-hosting and practicality come first (decided 2026-09-24). The baseline
+runs as **one PaperDotNet container + PostgreSQL**.
+
+"Simple" means **practical**: the least effort to build, run and maintain.
+
+- **Extra services** (servers, brokers, workers) cost every self-hoster, so they stay optional.
+- **In-process libraries** that run inside the app and store data in PostgreSQL are welcome when they save us code.
+- **Never hand-roll** security, protocol or file-format code.
 
 **Required at runtime:** PostgreSQL. Nothing else.
 
@@ -202,22 +206,27 @@ stays out until a concrete need shows it removes more complexity than it adds.
 - a separate OCR worker (the default is Tesseract in the main image)
 - AI providers
 
-**Simplest-first choices:**
-- **Own outbox + Channels** before Wolverine.
-- **`PeriodicTimer` + a PostgreSQL job table** before Quartz.NET.
-- **A small in-house `ITenantContext`** before Finbuckle.
-- **A Graph-style query subset parser** before full OData, unless the spike shows OData is simpler.
-- **Aspire only as a dev convenience.** The shipped artifact is a Docker image plus a `docker-compose.yml`.
+**Practical choices:**
+
+| Concern | Choice | Why |
+|---|---|---|
+| Scheduling (reminders, recurrence, retention) | **Quartz.NET** (in-process, PostgreSQL job store) | Mature. Writing our own cron/misfire/cluster handling isn't worth it |
+| Outbox + event dispatch | **Own outbox table + Channels**; switch to **Wolverine** if retries, dead-lettering and scheduling start to grow | The basic version is small and core to the event-handler design (idea 0012). Wolverine is the fallback before we reinvent a message bus |
+| Auth server (local accounts, API tokens, MCP OAuth) | **OpenIddict** + ASP.NET Core Identity | OAuth/OIDC must not be hand-rolled, and it needs no extra container |
+| Tenant resolution + per-tenant options/auth | **Finbuckle.MultiTenant** unless the spike shows it gets in the way of our EF rules | It saves writing resolution strategies and per-tenant auth plumbing. Tenant isolation rules in EF stay ours |
+| Graph-style `$filter`/`$select`/`$batch` | **Decide by spike:** OData library vs own subset parser | Pick whichever needs less code for JSON-backed dynamic fields |
+| PDF / image / OCR | PDFsharp, PdfPig, PDFium, SkiaSharp, Tesseract | Never hand-roll file formats |
+| Dev orchestration | Aspire **for development only** | The shipped artifact is a Docker image + `docker-compose.yml` |
 
 Baseline:
 
 - **Runtime and hosting:** .NET 10, the Generic Host, and Aspire for local development only.
 - **Web API:** ASP.NET Core Minimal APIs, built-in OpenAPI and validation, ProblemDetails, rate limiting, health checks.
 - **Data:** EF Core 10 with Npgsql, using named query filters (tenant, soft delete) and interceptors (tenant, audit, outbox).
-- **Background work:** an outbox table, a hosted dispatcher and `System.Threading.Channels`.
+- **Background work:** an outbox table, a hosted dispatcher, `System.Threading.Channels`, and Quartz.NET for schedules.
 - **Security:** JWT/OIDC authentication and dynamic authorization policies for scopes.
 - **Caching and resilience:** HybridCache (in memory), OpenTelemetry (exporter optional), and `Http.Resilience`.
-- **Auth:** built-in local accounts + API tokens, so no external IdP is needed. OIDC is optional.
+- **Auth:** OpenIddict + Identity for built-in local accounts and API tokens, so no external IdP is needed. An external OIDC provider is optional.
 - **Testing:** xUnit v3, Testcontainers, and `FakeTimeProvider`.
 
 Spikes to run before the phases that need them:
@@ -225,8 +234,9 @@ Spikes to run before the phases that need them:
 1. **OData vs a custom Graph-style query parser** over JSON fields (idea 0003).
 2. **`AssemblyLoadContext` extension loading**, including unload and shared contracts (phase 2).
 3. **Sidecar RPC:** gRPC vs StreamJsonRpc, and before-event latency (ideas 0011, 0012).
-4. **Our own outbox vs Wolverine.** Keep our own unless it grows complex.
-5. **OpenIddict** as the built-in auth server, vs plain ASP.NET Core Identity bearer tokens. Pick whichever is simpler for local accounts + API tokens + MCP OAuth.
+4. **Our own outbox vs Wolverine.** Measure how much code our own needs for retries, dead-letter and delays.
+5. **OpenIddict** setup for local accounts, API tokens and MCP OAuth.
+7. **Finbuckle.MultiTenant** together with our EF Core tenant filters.
 6. **Microsoft.Extensions.AI:** auto-tagging from OCR text with structured output (ideas 0008, 0009).
 
 ## Sources

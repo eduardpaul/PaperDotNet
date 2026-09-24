@@ -13,7 +13,9 @@
 > provide everything a future UI needs (e.g. real-time events, thumbnails,
 > view definitions).
 
-> **Guiding principle (decided 2026-09-24): self-hosting and simplicity come first.**
+> **Guiding principle (decided 2026-09-24): self-hosting and practicality come first.**
+> Simplicity here means **practicality**: whatever is easiest to build,
+> run and maintain. It does not mean the fewest dependencies.
 > - The minimal install is **two containers: PaperDotNet + PostgreSQL**, plus a
 >   volume for files. `docker compose up` must give a fully working system.
 > - That includes OCR, search, background jobs, auth (local accounts + API
@@ -21,9 +23,13 @@
 > - Everything else is **optional and off by default**: external IdP, S3
 >   storage, a Redis-protocol cache, external search/vector engines, separate
 >   worker containers, AI providers. None of them may be required to run.
-> - Prefer built-in .NET features and a small amount of our own code over an
->   extra library or service. Add a dependency only when it clearly removes
->   more complexity than it adds.
+> - **Extra services cost self-hosters**, so keep them optional.
+>   **In-process libraries are fine** when they save us writing and
+>   maintaining code. Use a mature library rather than reinventing it
+>   (scheduling, OAuth, query parsing, PDF handling).
+> - **Never hand-roll** security, protocol or file-format code.
+> - Write our own code only where it is small, core to the product, or where
+>   no good library exists.
 
 ## 1. Goal
 
@@ -198,4 +204,4 @@ Key decisions:
 | 5 | License / business model | Decide early. It affects extension licensing (e.g. MIT core with a commercial marketplace) |
 | 6 | Mobile / offline support | **Deferred** with the UI. Out of scope for v1. Keep the API sync-friendly (ETags, `modifiedSince`) |
 | 7 | Dependency licenses | **Decided (2026-09-24):** MIT / Apache-2.0, plus BSD / PostgreSQL License with notice when there is no alternative. See [dependency-licenses.md](dependency-licenses.md) |
-| 8 | Priorities | **Decided (2026-09-24): self-hosting and simplicity first.** Minimal install = PaperDotNet + PostgreSQL. Everything else optional |
+| 8 | Priorities | **Decided (2026-09-24): self-hosting and practicality first.** Minimal install = PaperDotNet + PostgreSQL, everything else optional. Use mature in-process libraries rather than reinventing them |
