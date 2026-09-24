@@ -8,6 +8,7 @@ using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Messaging;
+using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
@@ -28,6 +29,7 @@ internal sealed partial class ItemWriter(
     IUserDirectory users,
     IEnumerable<IItemEventReceiver> receivers,
     IOutbox outbox,
+    ITermStore terms,
     ITenantContext tenant,
     ICurrentUser currentUser,
     ILogger<ItemWriter> logger) : IFieldValidationContext
@@ -190,6 +192,12 @@ internal sealed partial class ItemWriter(
 
     public Task<bool> ItemExistsAsync(Guid listId, Guid itemId, CancellationToken cancellationToken) =>
         db.Items.AnyAsync(i => i.ListId == listId && i.Id == itemId && !i.IsFolder, cancellationToken);
+
+    public async Task<Guid?> ResolveTermAsync(Guid? termSetId, string value, CancellationToken cancellationToken)
+    {
+        var setId = termSetId ?? (await terms.GetKeywordsSetAsync(cancellationToken)).Id;
+        return await terms.ResolveAsync(setId, value, allowCreate: true, cancellationToken);
+    }
 
     /// <summary>All values of an item, including <c>title</c>.</summary>
     internal static JsonObject Values(ListItem item)

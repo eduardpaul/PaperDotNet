@@ -67,5 +67,7 @@ public sealed class ListsUnitTests
         public Task<bool> UserExistsAsync(Guid userId, CancellationToken cancellationToken) => Task.FromResult(false);
 
         public Task<bool> ItemExistsAsync(Guid listId, Guid itemId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task<Guid?> ResolveTermAsync(Guid? termSetId, string value, CancellationToken cancellationToken) => Task.FromResult<Guid?>(null);
     }
 }

@@ -55,7 +55,7 @@ internal static class BulkUpdateEndpoints
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["fields"] = ["A non-empty JSON object is expected."] });
         }
 
-        if (runner.Filtered(schema, request.Filter).Error is { } error)
+        if ((await runner.FilteredAsync(schema, request.Filter, ct)).Error is { } error)
         {
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["filter"] = [error] });
         }
@@ -84,7 +84,7 @@ internal sealed class BulkUpdateOperation(ListSchemaLoader loader, ItemQueryRunn
             throw new InvalidOperationException("The list is no longer accessible.");
         }
 
-        var (query, error) = runner.Filtered(schema, payload.Filter);
+        var (query, error) = await runner.FilteredAsync(schema, payload.Filter, cancellationToken);
         if (query is null)
         {
             throw new InvalidOperationException(error);

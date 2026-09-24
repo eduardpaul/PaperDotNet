@@ -32,6 +32,9 @@ public sealed class FieldDefinition
     /// <summary>Target list of a lookup field.</summary>
     public Guid? LookupListId { get; set; }
 
+    /// <summary>Term set of a managed metadata field.</summary>
+    public Guid? TermSetId { get; set; }
+
     /// <summary>ISO 4217 code of a currency field, e.g. <c>EUR</c>.</summary>
     public string? CurrencyCode { get; set; }
 

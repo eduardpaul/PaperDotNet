@@ -95,6 +95,8 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
 
                             b1.Property<bool>("Required");
 
+                            b1.Property<Guid?>("TermSetId");
+
                             b1.Property<string>("Type")
                                 .IsRequired();
 

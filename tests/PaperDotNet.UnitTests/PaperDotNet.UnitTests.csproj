@@ -15,5 +15,6 @@
     <ProjectReference Include="..\..\src\Modules\Workspaces\PaperDotNet.Workspaces\PaperDotNet.Workspaces.csproj" />
     <ProjectReference Include="..\..\src\Modules\Lists\PaperDotNet.Lists\PaperDotNet.Lists.csproj" />
     <ProjectReference Include="..\..\src\Modules\Jobs\PaperDotNet.Jobs\PaperDotNet.Jobs.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Taxonomy\PaperDotNet.Taxonomy\PaperDotNet.Taxonomy.csproj" />
   </ItemGroup>
 </Project>

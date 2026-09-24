@@ -93,7 +93,7 @@ Legend for the **Use** column:
 | **`ExecuteUpdate` / `ExecuteDelete`** | ✅ | Bulk operations such as term merges (idea 0008) and retention trimming |
 | **Compiled models / compiled queries** | ⏳ | Startup and hot-path speed-ups |
 | **Npgsql EF Core provider** | ✅ | `jsonb`, GIN indexes, full-text search (`EF.Functions.ToTsVector`, `WebSearchToTsQuery`) and arrays. Kept in the PostgreSQL project only |
-| **PostgreSQL `ltree`** (via Npgsql) | 🟡 | Fast subtree queries for folder paths and taxonomy term hierarchies (idea 0008). It is PostgreSQL-specific, so it sits behind a query abstraction |
+| **PostgreSQL `ltree`** (via Npgsql) | ⛔ not needed | Term hierarchies use a provider-neutral materialized path with prefix matching (works on SQLite and PostgreSQL) |
 | **PostgreSQL row-level security** | ✅ | Second line of defense for tenant isolation |
 | **EF Core migrations bundles** | ✅ | Ship migrations as a single executable in the deploy pipeline |
 

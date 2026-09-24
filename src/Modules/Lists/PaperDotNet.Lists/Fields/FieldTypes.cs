@@ -26,12 +26,18 @@ public enum FieldValueKind
     Identifier,
 }
 
-/// <summary>Lookups needed while validating values (users, lookup targets).</summary>
+/// <summary>Lookups needed while validating values (users, lookup targets, terms).</summary>
 public interface IFieldValidationContext
 {
     Task<bool> UserExistsAsync(Guid userId, CancellationToken cancellationToken);
 
     Task<bool> ItemExistsAsync(Guid listId, Guid itemId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves a term id or label to an assignable term of <paramref name="termSetId"/>
+    /// (null = the keywords set); new labels are added to open term sets.
+    /// </summary>
+    Task<Guid?> ResolveTermAsync(Guid? termSetId, string value, CancellationToken cancellationToken);
 }
 
 /// <summary>Result of normalizing one value: the value to store, or an error.</summary>
@@ -386,6 +392,79 @@ internal sealed class LookupFieldType : FieldType
             && await context.ItemExistsAsync(field.LookupListId!.Value, itemId, cancellationToken)
             ? FieldValueResult.Ok(JsonValue.Create(FieldFormats.Identifier(itemId)))
             : FieldValueResult.Fail("The id of an item in the lookup list is expected.");
+}
+
+/// <summary>
+/// Managed metadata: terms of one term set (SharePoint "Managed Metadata"). Values
+/// are term ids; a label is accepted and resolved (and added when the set is open).
+/// Filters on a term also match its descendants.
+/// </summary>
+internal sealed class ManagedMetadataFieldType : FieldType
+{
+    public const string TypeName = "managedMetadata";
+
+    public override string Name => TypeName;
+
+    public override FieldValueKind ValueKind => FieldValueKind.Identifier;
+
+    public override bool SupportsMultiple => true;
+
+    public override EdmPrimitiveTypeKind EdmKind => EdmPrimitiveTypeKind.Guid;
+
+    public override IEnumerable<string> ValidateDefinition(FieldDefinition field)
+    {
+        foreach (var error in base.ValidateDefinition(field))
+        {
+            yield return error;
+        }
+
+        if (field.TermSetId is null)
+        {
+            yield return "termSetId is required.";
+        }
+    }
+
+    protected override async ValueTask<FieldValueResult> NormalizeSingleAsync(JsonElement value, FieldDefinition field, IFieldValidationContext context, CancellationToken cancellationToken) =>
+        value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString())
+            && await context.ResolveTermAsync(field.TermSetId!.Value, value.GetString()!, cancellationToken) is { } termId
+            ? FieldValueResult.Ok(JsonValue.Create(FieldFormats.Identifier(termId)))
+            : FieldValueResult.Fail("The id or label of an active term of the term set is expected.");
+}
+
+/// <summary>
+/// Enterprise keywords (folksonomy): free tags from the tenant's keywords set.
+/// Values are term ids; unknown labels become new keywords.
+/// </summary>
+internal sealed class KeywordsFieldType : FieldType
+{
+    public const string TypeName = "keywords";
+
+    public override string Name => TypeName;
+
+    public override FieldValueKind ValueKind => FieldValueKind.Identifier;
+
+    public override bool SupportsMultiple => true;
+
+    public override EdmPrimitiveTypeKind EdmKind => EdmPrimitiveTypeKind.Guid;
+
+    public override IEnumerable<string> ValidateDefinition(FieldDefinition field)
+    {
+        foreach (var error in base.ValidateDefinition(field))
+        {
+            yield return error;
+        }
+
+        if (field.TermSetId is not null)
+        {
+            yield return "termSetId is not used: keywords always come from the keywords term set.";
+        }
+    }
+
+    protected override async ValueTask<FieldValueResult> NormalizeSingleAsync(JsonElement value, FieldDefinition field, IFieldValidationContext context, CancellationToken cancellationToken) =>
+        value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString())
+            && await context.ResolveTermAsync(null, value.GetString()!, cancellationToken) is { } termId
+            ? FieldValueResult.Ok(JsonValue.Create(FieldFormats.Identifier(termId)))
+            : FieldValueResult.Fail("A keyword (text) or the id of an active keyword is expected.");
 }
 
 /// <summary>All registered field types, by name.</summary>

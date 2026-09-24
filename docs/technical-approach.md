@@ -202,6 +202,14 @@ PaperDotNet.slnx
   - A new provider implements this translation, its model customizer, and
     search.
   - Values are validated by field-type handlers before saving.
+- **Hierarchies** (taxonomy terms, later folders) use a **materialized path**
+  column (`/id/id/`) with a normal index: subtree queries are `StartsWith`,
+  which translates to an indexed prefix match on both providers. PostgreSQL
+  `ltree` is not needed.
+- **Tags** are term ids from the term store (Taxonomy module), stored in
+  `managedMetadata` / `keywords` fields. Labels are resolved on write;
+  filters on a term include its descendants; a merge rewrites stored ids in
+  the background (`TermMerged`).
 - **Reads:** `AsNoTracking` + projection to DTOs, split queries for
   collections, compiled queries on hot paths. **Writes:** `ExecuteUpdate` /
   `ExecuteDelete` for bulk work (term merge, retention). Lazy loading is

@@ -11,6 +11,7 @@ using Microsoft.OData.UriParser;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
+using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.Lists.Querying;
 
@@ -50,14 +51,14 @@ public sealed record ItemPage(
     [property: JsonPropertyName("@odata.nextLink")] string? NextLink);
 
 /// <summary>Parses, validates and runs item queries against one list.</summary>
-internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry fieldTypes)
+internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry fieldTypes, ITermStore terms)
 {
     /// <summary>Checks a <c>$filter</c>/<c>$orderby</c> pair against the list schema; returns an error or null.</summary>
     public string? Validate(ListSchema schema, string? filter, string? orderBy)
     {
         try
         {
-            Parse(schema, filter, orderBy);
+            Parse(schema, filter, orderBy, null);
             return null;
         }
         catch (ODataException ex)
@@ -67,12 +68,13 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
     }
 
     /// <summary>Items of the list matching an OData <c>$filter</c> (null = all), for bulk work.</summary>
-    public (IQueryable<ListItem>? Query, string? Error) Filtered(ListSchema schema, string? filter)
+    public async Task<(IQueryable<ListItem>? Query, string? Error)> FilteredAsync(ListSchema schema, string? filter, CancellationToken ct)
     {
         IQueryable<ListItem> query = db.Items.Where(i => i.ListId == schema.List.Id && !i.IsFolder);
         try
         {
-            var (translator, clause, _) = Parse(schema, filter, null);
+            var hierarchy = await TermHierarchyAsync(schema, [filter], ct);
+            var (translator, clause, _) = Parse(schema, filter, null, hierarchy);
             return (clause is null ? query : query.Where(translator.Filter(clause)), null);
         }
         catch (ODataException ex)
@@ -94,8 +96,9 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         OrderByClause? orderBy;
         try
         {
-            (translator, var viewFilter, var viewOrder) = Parse(schema, view?.Filter, view?.OrderBy);
-            (_, var filter, orderBy) = Parse(schema, options.Filter, options.OrderBy);
+            var hierarchy = await TermHierarchyAsync(schema, [view?.Filter, options.Filter], ct);
+            (translator, var viewFilter, var viewOrder) = Parse(schema, view?.Filter, view?.OrderBy, hierarchy);
+            (_, var filter, orderBy) = Parse(schema, options.Filter, options.OrderBy, hierarchy);
             orderBy ??= viewOrder;
             if (viewFilter is not null)
             {
@@ -146,10 +149,65 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         return (new ItemPage(items.Select(i => ItemResponse.From(i, select)).ToList(), count, nextLink), null);
     }
 
-    private (ItemQueryTranslator Translator, FilterClause? Filter, OrderByClause? OrderBy) Parse(ListSchema schema, string? filter, string? orderBy)
+    /// <summary>
+    /// Descendants of the GUID literals in the filters, when the list has managed
+    /// metadata fields (filtering on a term also matches its child terms).
+    /// </summary>
+    private async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>?> TermHierarchyAsync(ListSchema schema, string?[] filters, CancellationToken ct)
+    {
+        if (!schema.Fields.Values.Any(f => f.Type == ManagedMetadataFieldType.TypeName))
+        {
+            return null;
+        }
+
+        var ids = new HashSet<Guid>();
+        foreach (var filter in filters.Where(f => f is not null))
+        {
+            var (_, clause, _) = Parse(schema, filter, null, null);
+            if (clause is not null)
+            {
+                CollectGuids(clause.Expression, ids);
+            }
+        }
+
+        return ids.Count == 0 ? null : await terms.GetDescendantsAsync(ids, ct);
+    }
+
+    private static void CollectGuids(QueryNode? node, HashSet<Guid> ids)
+    {
+        switch (node)
+        {
+            case ConstantNode { Value: Guid id }:
+                ids.Add(id);
+                break;
+            case ConvertNode convert:
+                CollectGuids(convert.Source, ids);
+                break;
+            case BinaryOperatorNode binary:
+                CollectGuids(binary.Left, ids);
+                CollectGuids(binary.Right, ids);
+                break;
+            case UnaryOperatorNode unary:
+                CollectGuids(unary.Operand, ids);
+                break;
+            case InNode inNode when inNode.Right is CollectionConstantNode values:
+                foreach (var value in values.Collection)
+                {
+                    CollectGuids(value, ids);
+                }
+
+                break;
+            case AnyNode any:
+                CollectGuids(any.Body, ids);
+                break;
+        }
+    }
+
+    private (ItemQueryTranslator Translator, FilterClause? Filter, OrderByClause? OrderBy) Parse(
+        ListSchema schema, string? filter, string? orderBy, IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>? hierarchy)
     {
         var model = ItemEdmModel.Build(schema.Fields, fieldTypes);
-        var translator = new ItemQueryTranslator(model);
+        var translator = new ItemQueryTranslator(model, hierarchy);
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
         if (filter is not null)
         {

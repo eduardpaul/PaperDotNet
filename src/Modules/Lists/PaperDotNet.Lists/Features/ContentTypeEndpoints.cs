@@ -9,6 +9,7 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Fields;
+using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
@@ -25,7 +26,8 @@ public sealed record FieldDefinitionDto(
     IReadOnlyList<string>? Choices = null,
     Guid? LookupListId = null,
     string? CurrencyCode = null,
-    JsonElement? DefaultValue = null)
+    JsonElement? DefaultValue = null,
+    Guid? TermSetId = null)
 {
     internal FieldDefinition ToEntity() => new()
     {
@@ -40,6 +42,7 @@ public sealed record FieldDefinitionDto(
         Maximum = Maximum,
         Choices = Choices?.ToList() ?? [],
         LookupListId = LookupListId,
+        TermSetId = TermSetId,
         CurrencyCode = CurrencyCode,
         DefaultValue = DefaultValue is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined } d ? d.GetRawText() : null,
     };
@@ -47,7 +50,8 @@ public sealed record FieldDefinitionDto(
     internal static FieldDefinitionDto From(FieldDefinition f) => new(
         f.Name, f.DisplayName, f.Type, f.Description, f.Required, f.AllowMultiple, f.MaxLength, f.Minimum, f.Maximum,
         f.Choices.Count > 0 ? f.Choices : null, f.LookupListId, f.CurrencyCode,
-        f.DefaultValue is null ? null : JsonDocument.Parse(f.DefaultValue).RootElement.Clone());
+        f.DefaultValue is null ? null : JsonDocument.Parse(f.DefaultValue).RootElement.Clone(),
+        f.TermSetId);
 }
 
 public sealed record ContentTypeResponse(Guid Id, string Name, string? Description, bool IsBuiltIn, IReadOnlyList<FieldDefinitionDto> Fields);
@@ -91,9 +95,9 @@ internal static class ContentTypeEndpoints
     }
 
     private static async Task<Results<Created<ContentTypeResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
-        ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, HttpResponse response, CancellationToken ct)
+        ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, ITermStore terms, HttpResponse response, CancellationToken ct)
     {
-        if (await ValidateAsync(request, db, registry, null, ct) is { } invalid)
+        if (await ValidateAsync(request, db, registry, terms, null, ct) is { } invalid)
         {
             return invalid;
         }
@@ -122,7 +126,7 @@ internal static class ContentTypeEndpoints
     /// multiplicity (stored values must stay valid); new fields may be added.
     /// </summary>
     private static async Task<Results<Ok<ContentTypeResponse>, ValidationProblem, ProblemHttpResult>> ReplaceAsync(
-        Guid id, ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, HttpRequest http, HttpResponse response, CancellationToken ct)
+        Guid id, ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, ITermStore terms, HttpRequest http, HttpResponse response, CancellationToken ct)
     {
         var contentType = await db.ContentTypes.FirstOrDefaultAsync(c => c.Id == id, ct);
         if (contentType is null)
@@ -140,7 +144,7 @@ internal static class ContentTypeEndpoints
             return ApiErrors.PreconditionFailed();
         }
 
-        if (await ValidateAsync(request, db, registry, contentType, ct) is { } invalid)
+        if (await ValidateAsync(request, db, registry, terms, contentType, ct) is { } invalid)
         {
             return invalid;
         }
@@ -169,7 +173,7 @@ internal static class ContentTypeEndpoints
     }
 
     private static async Task<ValidationProblem?> ValidateAsync(
-        ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, ContentType? existing, CancellationToken ct)
+        ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, ITermStore terms, ContentType? existing, CancellationToken ct)
     {
         if (RequestValidation.Validate(request) is { } invalid)
         {
@@ -200,14 +204,22 @@ internal static class ContentTypeEndpoints
             }
         }
 
+        foreach (var termSetId in fields.Where(f => f.TermSetId is not null).Select(f => f.TermSetId!.Value).Distinct())
+        {
+            if (await terms.GetTermSetAsync(termSetId, ct) is null)
+            {
+                errors.Add($"Term set {termSetId} does not exist.");
+            }
+        }
+
         if (existing is not null)
         {
             foreach (var field in fields)
             {
                 var old = existing.Fields.FirstOrDefault(f => f.Name == field.Name);
-                if (old is not null && (old.Type != field.Type || old.AllowMultiple != field.AllowMultiple))
+                if (old is not null && (old.Type != field.Type || old.AllowMultiple != field.AllowMultiple || old.TermSetId != field.TermSetId))
                 {
-                    errors.Add($"Field '{field.Name}': type and allowMultiple cannot change once created.");
+                    errors.Add($"Field '{field.Name}': type, allowMultiple and termSetId cannot change once created.");
                 }
             }
         }

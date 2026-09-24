@@ -14,6 +14,7 @@ using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.ServiceDefaults;
+using PaperDotNet.Taxonomy;
 using PaperDotNet.Tenancy;
 using PaperDotNet.Workspaces;
 using Wolverine;
@@ -33,6 +34,7 @@ public static class PaperDotNetHost
         new TenancyModule(),
         new IdentityModule(),
         new WorkspacesModule(),
+        new TaxonomyModule(),
         new ListsModule(),
         new JobsModule(),
     ];

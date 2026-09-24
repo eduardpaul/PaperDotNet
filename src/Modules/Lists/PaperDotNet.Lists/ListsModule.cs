@@ -10,6 +10,7 @@ using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
 using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
+using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.Lists;
 
@@ -27,6 +28,7 @@ public sealed class ListsModule : IModule
             new NumberFieldType(), new CurrencyFieldType(), new BooleanFieldType(),
             new DateFieldType(), new DateTimeFieldType(), new ChoiceFieldType(),
             new PersonFieldType(), new LookupFieldType(),
+            new ManagedMetadataFieldType(), new KeywordsFieldType(),
         })
         {
             services.AddSingleton(type);
@@ -42,6 +44,7 @@ public sealed class ListsModule : IModule
         services.AddIntegrationEvent<ItemUpdated>();
         services.AddIntegrationEvent<ItemDeleted>();
         services.AddOperationHandler<BulkUpdateOperation>();
+        services.AddEventSubscriber<TermMerged, TermMergedSubscriber>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

@@ -11,6 +11,7 @@
     <ProjectReference Include="..\..\Modules\Workspaces\PaperDotNet.Workspaces\PaperDotNet.Workspaces.csproj" />
     <ProjectReference Include="..\..\Modules\Lists\PaperDotNet.Lists\PaperDotNet.Lists.csproj" />
     <ProjectReference Include="..\..\Modules\Jobs\PaperDotNet.Jobs\PaperDotNet.Jobs.csproj" />
+    <ProjectReference Include="..\..\Modules\Taxonomy\PaperDotNet.Taxonomy\PaperDotNet.Taxonomy.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />

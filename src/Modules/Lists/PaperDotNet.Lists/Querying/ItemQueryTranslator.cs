@@ -15,9 +15,10 @@ namespace PaperDotNet.Lists.Querying;
 /// Translates parsed OData <c>$filter</c>/<c>$orderby</c> trees into LINQ over
 /// <see cref="ListItem"/>. Field values are read from the JSON document through the
 /// provider-neutral <see cref="JsonFunctions"/>; equality uses JSON containment so
-/// PostgreSQL can use its GIN index.
+/// PostgreSQL can use its GIN index. Equality on a managed metadata field also
+/// matches the term's descendants (<paramref name="termDescendants"/>).
 /// </summary>
-internal sealed class ItemQueryTranslator(ItemEdmModel model)
+internal sealed class ItemQueryTranslator(ItemEdmModel model, IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>? termDescendants = null)
 {
     private static readonly ParameterExpression Item = Expression.Parameter(typeof(ListItem), "i");
     private static readonly MethodInfo JsonText = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Text))!;
@@ -102,7 +103,7 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model)
         // Equality on JSON fields uses containment (@>) so the GIN index applies.
         if (operand.JsonField is { } field && kind is BinaryOperatorKind.Equal or BinaryOperatorKind.NotEqual)
         {
-            var contains = FieldContains(field, JsonLiteral(operand.Kind, constantNode.Value), multiple: false);
+            var contains = Matches(field, operand.Kind, constantNode.Value, multiple: false);
             return kind == BinaryOperatorKind.Equal ? contains : Expression.Not(contains);
         }
 
@@ -171,7 +172,7 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model)
         }
 
         var tests = values.Collection.Select(v => operand.JsonField is { } field
-            ? (Expression)FieldContains(field, JsonLiteral(operand.Kind, v.Value), multiple: false)
+            ? Matches(field, operand.Kind, v.Value, multiple: false)
             : Expression.Equal(operand.Expression, Literal(operand, v.Value)));
         return tests.Aggregate<Expression, Expression>(Expression.Constant(false), Expression.OrElse);
     }
@@ -188,7 +189,7 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model)
         return AnyBody(node.Body, field.Field.Name, field.Type.ValueKind);
     }
 
-    private static Expression AnyBody(QueryNode body, string field, FieldValueKind kind)
+    private Expression AnyBody(QueryNode body, string field, FieldValueKind kind)
     {
         body = Unwrap(body);
         return body switch
@@ -196,9 +197,27 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model)
             BinaryOperatorNode { OperatorKind: BinaryOperatorKind.Or } or => Expression.OrElse(AnyBody(or.Left, field, kind), AnyBody(or.Right, field, kind)),
             BinaryOperatorNode { OperatorKind: BinaryOperatorKind.Equal } eq
                 when Unwrap(eq.Left) is NonResourceRangeVariableReferenceNode && Unwrap(eq.Right) is ConstantNode value
-                => FieldContains(field, JsonLiteral(kind, value.Value), multiple: true),
+                => Matches(field, kind, value.Value, multiple: true),
             _ => throw Unsupported("Inside 'any' only 'eq' comparisons combined with 'or' are supported."),
         };
+    }
+
+    /// <summary>The field holds the value; for managed metadata, the term or one of its descendants.</summary>
+    private Expression Matches(string field, FieldValueKind kind, object? value, bool multiple)
+    {
+        if (value is Guid termId
+            && termDescendants is not null
+            && model.Fields.TryGetValue(field, out var definition)
+            && definition.Type.Name == ManagedMetadataFieldType.TypeName
+            && termDescendants.TryGetValue(termId, out var subtree)
+            && subtree.Count > 0)
+        {
+            return subtree
+                .Select(id => (Expression)FieldContains(field, JsonValue.Create(FieldFormats.Identifier(id)), multiple))
+                .Aggregate(Expression.OrElse);
+        }
+
+        return FieldContains(field, JsonLiteral(kind, value), multiple);
     }
 
     private static MethodCallExpression FieldContains(string field, JsonNode? value, bool multiple)
