@@ -4,7 +4,7 @@
   "name": "Invoices (sample)",
   "version": "1.0.0",
   "publisher": "PaperDotNet",
-  "description": "Sample extension: IBAN field type, approval rules for invoices, stats endpoint and a recurring job.",
+  "description": "Sample extension: IBAN field type, approval rules and approval records for invoices, stats endpoint and a recurring job.",
   "sdkVersion": "1.0",
   "autoEnable": false,
   "scopes": [

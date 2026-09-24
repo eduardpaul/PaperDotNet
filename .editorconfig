@@ -392,3 +392,8 @@ dotnet_naming_style.s_camelcase.capitalization = camel_case
 [src/Migrations/**/Generated/**.cs]
 generated_code = true
 dotnet_analyzer_diagnostic.severity = none
+
+# Migrations of extensions ({extension}.Migrations.Sqlite / .PostgreSql).
+[samples/*.Migrations.*/Generated/**.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none

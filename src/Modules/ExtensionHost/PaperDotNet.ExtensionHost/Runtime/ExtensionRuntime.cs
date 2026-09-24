@@ -12,6 +12,7 @@ using PaperDotNet.Extensions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
+using PaperDotNet.Persistence;
 
 namespace PaperDotNet.ExtensionHost.Runtime;
 
@@ -29,6 +30,9 @@ public sealed class ExtensionContributions
     public List<string> ContentTypes { get; } = [];
 
     public List<string> ListTemplates { get; } = [];
+
+    /// <summary>The extension's own DbContext (EXT-07), if any.</summary>
+    public string? DbContext { get; set; }
 
     public bool Endpoints { get; set; }
 }
@@ -131,6 +135,9 @@ public static class ExtensionRegistration
 /// <summary>Registers contributions; every one is gated by the tenant's enablement of the extension.</summary>
 internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollection services, IConfiguration configuration) : IExtensionBuilder
 {
+    // PostgreSQL identifiers have at most 63 characters; keep room for the table name on SQLite.
+    private const int MaxSchemaLength = 40;
+
     public ExtensionManifest Manifest => extension.Manifest;
 
     public IServiceCollection Services => services;
@@ -199,6 +206,25 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         RequirePrefix(listTemplate.Key, "List template key");
         services.AddSingleton(listTemplate with { ExtensionId = extension.Id });
         extension.Contributions.ListTemplates.Add(listTemplate.Key);
+        return this;
+    }
+
+    public IExtensionBuilder AddDbContext<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TContext>()
+        where TContext : ExtensionDbContext
+    {
+        if (extension.Contributions.DbContext is { } existing)
+        {
+            throw new InvalidOperationException($"Extension {extension.Id} already has a DbContext ({existing}); use one per extension.");
+        }
+
+        var schema = ExtensionDbContext.SchemaFor(extension.Id);
+        if (schema.Length > MaxSchemaLength)
+        {
+            throw new InvalidOperationException($"The schema of extension {extension.Id} ('{schema}') is longer than {MaxSchemaLength} characters; use a shorter id.");
+        }
+
+        services.AddModuleDbContext<TContext>(schema, $"{typeof(TContext).Assembly.GetName().Name}.Migrations");
+        extension.Contributions.DbContext = typeof(TContext).Name;
         return this;
     }
 

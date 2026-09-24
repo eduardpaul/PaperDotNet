@@ -73,14 +73,73 @@ endpoints answer 404 `extensionDisabled`, receivers, subscribers and jobs
 skip, and the field types cannot be used in new content types. Read the
 tenant's settings with `IExtensionState.GetSettingsAsync(id)`.
 
-## 4. Add it to a host build
+## 4. Data (EXT-07)
+
+Two ways to keep data, both inside the tenant's isolation boundary:
+
+**List items** — for data people should see, edit, search and version like any
+other content. Inject `IListItemStore` (Lists.Contracts): it reads and writes
+items through the same pipeline as the API (field validation, receivers,
+versions, events, search). It acts as the current user with their
+permissions; `AsSystem()` gives full control over the tenant's lists for jobs
+and other background work. Filters use the items API's OData syntax.
+
+```csharp
+var result = await items.UpdateAsync(ws, list, itemId, new JsonObject { ["status"] = "approved" }, item.Version, ct);
+if (result.Status == ListItemStatus.VersionMismatch) { /* someone else changed it */ }
+
+var system = items.AsSystem();
+foreach (var l in await system.GetListsAsync(null, "acme.invoices.invoices", ct))
+{
+    var (pending, _) = await system.QueryAsync(l.WorkspaceId, l.Id, new ListItemQuery("fields/status eq 'pendingApproval'"), ct);
+}
+```
+
+**Own tables** — for technical or high-volume data. Derive from
+`ExtensionDbContext`, configure entities in `ConfigureModel` and register it
+with `builder.AddDbContext<TContext>()` (one per extension). The tables go to
+the schema `ext_{id}` (dots and dashes become `_`, e.g. `ext_acme_invoices`;
+on SQLite a table-name prefix). Every entity must implement `ITenantOwned`: the
+tenant query filter, PostgreSQL row-level security and the audit log
+(`/v1.0/auditLog`, entity type `{context name}.{Type}`) apply as for modules;
+`ISoftDeletable`, `IVersioned` and `IAuditable` work too. Data stays when a
+tenant disables the extension.
+
+```csharp
+public sealed class InvoicesDbContext(DbContextOptions<InvoicesDbContext> options, ITenantContext tenant)
+    : ExtensionDbContext(options, tenant)
+{
+    public DbSet<ApprovalRecord> Approvals => Set<ApprovalRecord>();
+
+    protected override void ConfigureModel(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<ApprovalRecord>(b => b.ToTable("approvals"));
+}
+```
+
+Migrations live in two companion projects named
+`{extension assembly}.Migrations.Sqlite` and `.PostgreSql`; they reference the
+extension and `PaperDotNet.Persistence.Sqlite` / `.PostgreSql`, contain an
+`IDesignTimeDbContextFactory` (see `samples/PaperDotNet.Samples.Invoices.Migrations.*`)
+and are generated with
+
+```bash
+dotnet ef migrations add <Name> -p samples/PaperDotNet.Samples.Invoices.Migrations.Sqlite -c InvoicesDbContext -o Generated
+dotnet ef migrations add <Name> -p samples/PaperDotNet.Samples.Invoices.Migrations.PostgreSql -c InvoicesDbContext -o Generated
+```
+
+The host runs them at startup with its own migrations. The extension project
+itself never references a database provider.
+
+## 5. Add it to a host build
 
 Reference the package (or project) from `src/PaperDotNet.Host` (or your own
 host project that references the PaperDotNet host) and rebuild the image. The
 host's source generator finds every referenced assembly with
 `[assembly: PaperDotNetExtension]` at compile time; an invalid extension type
 is a build error (`PDN0001`), an invalid manifest stops startup with a clear
-message. `GET /v1.0/extensions` lists what the build contains.
+message. `GET /v1.0/extensions` lists what the build contains. An extension
+with its own tables also needs its migrations projects referenced; without
+them startup stops with a message naming the missing assembly.
 
 Tests and custom hosts can also add instances to
 `PaperDotNetHost.AdditionalExtensions` before the host is built.

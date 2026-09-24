@@ -70,7 +70,10 @@ public sealed partial class ModuleBoundaryTests
         }
     }
 
-    /// <summary>Extensions see only the SDK: no module implementations, persistence or messaging internals (ADR-0014).</summary>
+    /// <summary>
+    /// Extensions see only the SDK: no module implementations, database providers or messaging internals
+    /// (ADR-0014). Provider-neutral EF Core is allowed for their own tables (EXT-07).
+    /// </summary>
     [Theory]
     [InlineData("PaperDotNet.Extensions.Abstractions")]
     [InlineData("PaperDotNet.Samples.Invoices")]
@@ -79,7 +82,9 @@ public sealed partial class ModuleBoundaryTests
         var references = Load(assembly).GetReferencedAssemblies().Select(a => a.Name!).ToList();
 
         Assert.DoesNotContain(references, r => Modules.Any(m => r == $"PaperDotNet.{m}"));
-        Assert.DoesNotContain(references, r => r is "PaperDotNet.Persistence" or "PaperDotNet.Messaging" || r.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal));
+        Assert.DoesNotContain(references, r => r.StartsWith("PaperDotNet.Persistence.", StringComparison.Ordinal) || r == "PaperDotNet.Messaging");
+        Assert.DoesNotContain(references, r => r.StartsWith("Microsoft.EntityFrameworkCore.", StringComparison.Ordinal) && r != "Microsoft.EntityFrameworkCore.Relational");
+        Assert.DoesNotContain(references, r => r.StartsWith("Npgsql", StringComparison.Ordinal) || r.StartsWith("Microsoft.Data.Sqlite", StringComparison.Ordinal) || r.StartsWith("Wolverine", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -109,7 +114,8 @@ public sealed partial class ModuleBoundaryTests
     private static IEnumerable<string> SourceFiles()
     {
         var root = FindRepositoryRoot();
-        return Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories)
+        return new[] { "src", "samples" }
+            .SelectMany(folder => Directory.EnumerateFiles(Path.Combine(root, folder), "*.cs", SearchOption.AllDirectories))
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                         && !f.Contains($"{Path.DirectorySeparatorChar}Generated{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
     }

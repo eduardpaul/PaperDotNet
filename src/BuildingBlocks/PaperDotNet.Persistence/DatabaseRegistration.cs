@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -14,7 +16,11 @@ public interface IDatabaseProvider
     /// <summary><c>Sqlite</c> or <c>PostgreSql</c>.</summary>
     string Name { get; }
 
-    void Configure(DbContextOptionsBuilder options, string schema);
+    /// <summary>
+    /// Configures <paramref name="options"/> for a context in <paramref name="schema"/>. Migrations come from
+    /// <paramref name="migrationsAssembly"/> (null: the host's <c>PaperDotNet.Migrations.{Name}</c>).
+    /// </summary>
+    void Configure(DbContextOptionsBuilder options, string schema, string? migrationsAssembly = null);
 
     /// <summary>Runs after a module's migrations (e.g. PostgreSQL row-level security policies).</summary>
     Task AfterMigrateAsync(DbContext context, CancellationToken cancellationToken) => Task.CompletedTask;
@@ -40,9 +46,10 @@ public static class DatabaseRegistration
 {
     /// <summary>
     /// Registers a module DbContext in its own schema, configured by the
-    /// provider and with the PaperDotNet interceptors.
+    /// provider and with the PaperDotNet interceptors. Migrations live in
+    /// <c>{migrationsAssemblyPrefix}.{provider}</c> (default: the host's <c>PaperDotNet.Migrations.*</c>).
     /// </summary>
-    public static IServiceCollection AddModuleDbContext<TContext>(this IServiceCollection services, string schema)
+    public static IServiceCollection AddModuleDbContext<TContext>(this IServiceCollection services, string schema, string? migrationsAssemblyPrefix = null)
         where TContext : DbContext, ITenantScopedDbContext
     {
         services.TryAddSingleton(TimeProvider.System);
@@ -52,7 +59,8 @@ public static class DatabaseRegistration
 
         services.AddDbContext<TContext>((sp, options) =>
         {
-            sp.GetRequiredService<IDatabaseProvider>().Configure(options, schema);
+            var provider = sp.GetRequiredService<IDatabaseProvider>();
+            provider.Configure(options, schema, migrationsAssemblyPrefix is null ? null : $"{migrationsAssemblyPrefix}.{provider.Name}");
             options.AddInterceptors(sp.GetRequiredService<AuditingInterceptor>());
         });
 
@@ -82,6 +90,16 @@ public sealed class DatabaseMigrator(IServiceProvider services, ModuleDbContextR
         foreach (var type in registry.Contexts)
         {
             var context = (DbContext)scope.ServiceProvider.GetRequiredService(type);
+            try
+            {
+                _ = context.GetService<IMigrationsAssembly>().Assembly;
+            }
+            catch (FileNotFoundException ex)
+            {
+                throw new InvalidOperationException(
+                    $"The migrations of {type.Name} ({ex.FileName}) are missing: reference the migrations assembly for the {provider.Name} provider in the host.", ex);
+            }
+
             await context.Database.MigrateAsync(cancellationToken);
             await provider.AfterMigrateAsync(context, cancellationToken);
         }

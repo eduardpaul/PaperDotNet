@@ -20,8 +20,11 @@ plugins. The owner wants to keep AOT and other modern build types possible.
 - Only the **operator** installs extension code. **Tenant admins** enable,
   configure and disable installed extensions for their organization; every
   contribution (endpoints, handlers, jobs, field types) is gated per tenant.
-- Extension data: list-based storage and, optionally, an own EF schema with
-  migrations for both providers, run by the host under the tenant rules.
+- Extension data: list-based storage (`IListItemStore`) and, optionally, an
+  own EF schema (`ExtensionDbContext`, schema `ext_{id}`) with migrations for
+  both providers in companion assemblies `{extension}.Migrations.Sqlite` /
+  `.PostgreSql`, run by the host under the tenant rules. The SDK therefore
+  exposes provider-neutral EF Core; provider packages stay out of extensions.
 - Node.js/Python sidecars and remote webhooks (P7) stay the way to add code
   without rebuilding, and work with any build type.
 

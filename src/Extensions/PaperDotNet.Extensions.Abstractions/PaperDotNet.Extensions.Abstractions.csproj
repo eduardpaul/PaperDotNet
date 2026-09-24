@@ -11,6 +11,8 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
+    <!-- Provider-neutral EF Core conventions for ExtensionDbContext; never the provider packages. -->
+    <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
     <ProjectReference Include="..\..\Modules\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Taxonomy\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />

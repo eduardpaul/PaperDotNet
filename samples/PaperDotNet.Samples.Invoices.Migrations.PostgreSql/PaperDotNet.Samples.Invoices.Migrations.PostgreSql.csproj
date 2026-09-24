@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    PostgreSql migrations of the sample extension's own tables (EXT-07). The host references this
+    assembly next to the extension; the runtime finds it by name ({extension assembly}.Migrations.PostgreSql).
+    Add a migration:  dotnet ef migrations add <Name> -p samples/PaperDotNet.Samples.Invoices.Migrations.PostgreSql -c InvoicesDbContext -o Generated
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\PaperDotNet.Samples.Invoices\PaperDotNet.Samples.Invoices.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\PaperDotNet.Persistence.PostgreSql\PaperDotNet.Persistence.PostgreSql.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

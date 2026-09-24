@@ -49,8 +49,8 @@ public static class SqliteServiceCollectionExtensions
     }
 
     /// <summary>Configures options for design-time tooling (dotnet ef).</summary>
-    public static void ConfigureForDesignTime(DbContextOptionsBuilder options, string connectionString, string schema) =>
-        SqliteDatabaseProvider.Configure(options, connectionString, schema);
+    public static void ConfigureForDesignTime(DbContextOptionsBuilder options, string connectionString, string schema, string? migrationsAssembly = null) =>
+        SqliteDatabaseProvider.Configure(options, connectionString, schema, migrationsAssembly);
 }
 
 internal sealed class SqliteHealthCheck(SqliteDatabaseSettings settings) : IHealthCheck

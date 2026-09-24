@@ -14,14 +14,15 @@ internal sealed class SqliteDatabaseProvider(SqliteDatabaseSettings settings) : 
 
     public string Name => ProviderName;
 
-    public void Configure(DbContextOptionsBuilder options, string schema) =>
-        Configure(options, settings.ConnectionString, schema);
+    public void Configure(DbContextOptionsBuilder options, string schema, string? migrationsAssembly = null) =>
+        Configure(options, settings.ConnectionString, schema, migrationsAssembly);
 
-    public static void Configure(DbContextOptionsBuilder options, string connectionString, string schema)
+    public static void Configure(DbContextOptionsBuilder options, string connectionString, string schema, string? migrationsAssembly = null)
     {
         options
+            .UseModuleSchema(schema)
             .UseSqlite(connectionString, sqlite => sqlite
-                .MigrationsAssembly(MigrationsAssembly)
+                .MigrationsAssembly(migrationsAssembly ?? MigrationsAssembly)
                 .MigrationsHistoryTable($"__ef_migrations_history_{schema}"))
             .UseSnakeCaseNamingConvention()
             .AddMethodTranslator<SqliteJsonTranslatorPlugin>()

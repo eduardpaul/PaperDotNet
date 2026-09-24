@@ -77,6 +77,14 @@ public interface IExtensionBuilder
     /// <summary>A list template (LST-16; key starts with <c>{extension id}.</c>), offered where the extension is enabled.</summary>
     IExtensionBuilder AddListTemplate(ListTemplateDefinition listTemplate);
 
+    /// <summary>
+    /// The extension's own tables (EXT-07, one context per extension) in the schema
+    /// <c>ext_{id}</c>. Migrations come from <c>{assembly of TContext}.Migrations.{Sqlite|PostgreSql}</c>
+    /// and run at startup with the host's; data stays when a tenant disables the extension.
+    /// </summary>
+    IExtensionBuilder AddDbContext<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TContext>()
+        where TContext : ExtensionDbContext;
+
     /// <summary>API endpoints under <c>/v1.0/extensions/{id}</c> (404 in tenants where the extension is disabled).</summary>
     IExtensionBuilder MapEndpoints(Action<IEndpointRouteBuilder> map);
 }

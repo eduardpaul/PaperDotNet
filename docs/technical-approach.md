@@ -375,8 +375,14 @@ outbox dispatcher (BackgroundService)
   wrapped with a per-tenant enablement gate.
 - **Tenant state:** `extensions.tenant_extensions` (enabled, settings);
   `/v1.0/extensions` to list, enable, disable and configure. Read per request.
-- **Data (2c):** list-based storage, or an own EF schema with migrations run
-  by the host under the tenant rules (filters, audit, RLS).
+- **Data (2c):** `IListItemStore` (Lists.Contracts) reads and writes items
+  through the API pipeline, as the current user or `AsSystem()`. Own tables:
+  `ExtensionDbContext` registered with `AddDbContext<T>()`, schema `ext_{id}`
+  (passed to the context as an options extension, `ModuleSchema`), entities
+  must be `ITenantOwned`; tenant filter, audit and RLS apply. Migrations in
+  companion assemblies `{extension}.Migrations.{Sqlite|PostgreSql}`, found by
+  name (`AddModuleDbContext(schema, migrationsAssemblyPrefix)`) and run by
+  `DatabaseMigrator` with the host's.
 - **Developer experience (2d):** analyzers and a test host package.
 - **Out-of-process (P7):** host-supervised sidecars and remote webhooks, for
   code that should not be compiled into the host.

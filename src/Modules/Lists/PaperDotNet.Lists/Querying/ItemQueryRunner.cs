@@ -89,6 +89,33 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         }
     }
 
+    /// <summary>Readable items (no folders) matching <paramref name="filter"/>, for code (<c>IListItemStore</c>).</summary>
+    public async Task<(List<ListItem>? Items, string? Error)> ListAsync(ListSchema schema, string? filter, string? orderBy, int top, CancellationToken ct)
+    {
+        IQueryable<ListItem> query = db.Items.AsNoTracking().Where(i => i.ListId == schema.List.Id && !i.IsFolder);
+        if (schema.Access.Filter(WorkspaceAccessLevel.Read) is { } readable)
+        {
+            query = query.Where(readable);
+        }
+
+        try
+        {
+            var hierarchy = await TermHierarchyAsync(schema, [filter], ct);
+            var (translator, filterClause, orderByClause) = Parse(schema, filter, orderBy, hierarchy);
+            if (filterClause is not null)
+            {
+                query = query.Where(translator.Filter(filterClause));
+            }
+
+            var ordered = orderByClause is null ? query.OrderBy(i => i.Id) : translator.OrderBy(query, orderByClause);
+            return (await ordered.Take(Math.Clamp(top, 1, ItemQueryOptions.MaxTop)).ToListAsync(ct), null);
+        }
+        catch (ODataException ex)
+        {
+            return (null, ex.Message);
+        }
+    }
+
     public async Task<(ItemPage? Page, string? Error)> RunAsync(
         ListSchema schema, ItemQueryOptions options, ListView? view, Expression<Func<ListItem, bool>>? scope, HttpRequest request, CancellationToken ct)
     {

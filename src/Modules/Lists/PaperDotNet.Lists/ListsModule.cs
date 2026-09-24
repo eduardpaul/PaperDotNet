@@ -14,6 +14,7 @@ using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
 using PaperDotNet.Search.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
+using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists;
 
@@ -57,6 +58,9 @@ public sealed class ListsModule : IModule
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
         services.AddScoped<ItemQueryRunner>();
+        services.AddScoped<IListItemStore>(sp => new ListItemStore(
+            sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ListSchemaLoader>(), sp.GetRequiredService<ItemQueryRunner>(),
+            sp.GetRequiredService<ItemWriter>(), sp.GetRequiredService<IWorkspaceAccess>()));
         services.AddScoped<ITenantInitializer, ListsTenantInitializer>();
         services.AddScopes(ListScopes.All);
         services.AddIntegrationEvent<ItemAdded>();

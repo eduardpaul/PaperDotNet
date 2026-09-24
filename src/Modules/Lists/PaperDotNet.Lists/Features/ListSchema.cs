@@ -113,6 +113,20 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
         return new ListSchema(list, contentTypes, access);
     }
 
+    /// <summary>Loads a list of the current tenant with full control, without checking the user (system work).</summary>
+    public async Task<ListSchema?> LoadAsSystemAsync(Guid workspaceId, Guid listId, CancellationToken ct, bool tracking = false)
+    {
+        var lists = tracking ? db.Lists : db.Lists.AsNoTracking();
+        var list = await lists.FirstOrDefaultAsync(l => l.Id == listId && l.WorkspaceId == workspaceId, ct);
+        if (list is null)
+        {
+            return null;
+        }
+
+        var contentTypes = await db.ContentTypes.AsNoTracking().Where(c => list.ContentTypeIds.Contains(c.Id)).ToListAsync(ct);
+        return new ListSchema(list, contentTypes, new ListAccess(WorkspaceAccessLevel.Manage, fullControl: true, new Dictionary<Guid, WorkspaceAccessLevel>()));
+    }
+
     /// <summary>Lists of the workspace the user can see (lists with unique permissions need a grant).</summary>
     public async Task<List<ListDefinition>> VisibleListsAsync(Guid workspaceId, WorkspaceAccessLevel workspaceLevel, CancellationToken ct)
     {

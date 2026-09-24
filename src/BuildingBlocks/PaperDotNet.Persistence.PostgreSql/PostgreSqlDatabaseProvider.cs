@@ -18,9 +18,9 @@ internal sealed class PostgreSqlDatabaseProvider(NpgsqlDataSource dataSource, Po
 
     public string Name => ProviderName;
 
-    public void Configure(DbContextOptionsBuilder options, string schema)
+    public void Configure(DbContextOptionsBuilder options, string schema, string? migrationsAssembly = null)
     {
-        Configure(options, dataSource, schema);
+        Configure(options, dataSource, schema, migrationsAssembly);
         if (settings.RowLevelSecurity)
         {
             options.AddInterceptors(TenantSessionInterceptor.Instance);
@@ -30,11 +30,12 @@ internal sealed class PostgreSqlDatabaseProvider(NpgsqlDataSource dataSource, Po
     public Task AfterMigrateAsync(DbContext context, CancellationToken cancellationToken) =>
         settings.RowLevelSecurity ? PostgreSqlRowLevelSecurity.ApplyAsync(context, logger, cancellationToken) : Task.CompletedTask;
 
-    public static void Configure(DbContextOptionsBuilder options, NpgsqlDataSource dataSource, string schema)
+    public static void Configure(DbContextOptionsBuilder options, NpgsqlDataSource dataSource, string schema, string? migrationsAssembly = null)
     {
         options
+            .UseModuleSchema(schema)
             .UseNpgsql(dataSource, npgsql => npgsql
-                .MigrationsAssembly(MigrationsAssembly)
+                .MigrationsAssembly(migrationsAssembly ?? MigrationsAssembly)
                 .MigrationsHistoryTable("__ef_migrations_history", schema))
             .UseSnakeCaseNamingConvention()
             .AddMethodTranslator<PostgreSqlJsonTranslatorPlugin>()

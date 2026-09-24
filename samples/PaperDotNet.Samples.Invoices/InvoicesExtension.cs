@@ -24,6 +24,7 @@ public sealed class InvoicesExtension : IExtension
     public void Configure(IExtensionBuilder builder)
     {
         builder.Services.AddSingleton<InvoiceStats>();
+        builder.AddDbContext<InvoicesDbContext>();
         builder.AddFieldType(new IbanFieldType());
 
         // Provisioned into a tenant when it enables the extension; managed by the extension.
@@ -51,6 +52,7 @@ public sealed class InvoicesExtension : IExtension
         builder.AddRecurringJob<ReminderJob>($"{Id}.reminders", "* * * * * *");
         builder.MapEndpoints(api => api.MapGet("/stats", (InvoiceStats stats, ITenantContext tenant) => TypedResults.Ok(stats.For(tenant.TenantId!.Value)))
             .RequireScope($"{Id}.read"));
+        builder.MapEndpoints(ApprovalEndpoints.Map);
     }
 }
 
@@ -106,7 +108,7 @@ public sealed class ApprovalReceiver(IExtensionState state) : IItemEventReceiver
     }
 }
 
-/// <summary>In-memory statistics per tenant (the sample keeps no data; see extension storage in 2c).</summary>
+/// <summary>In-memory statistics per tenant (lost on restart; durable data goes to <see cref="InvoicesDbContext"/>).</summary>
 public sealed class InvoiceStats
 {
     private readonly ConcurrentDictionary<Guid, Counters> _tenants = new();
@@ -117,14 +119,22 @@ public sealed class InvoiceStats
     {
         private int _itemsAdded;
         private int _reminderRuns;
+        private int _pendingApprovals;
 
         public int ItemsAdded => _itemsAdded;
 
         public int ReminderRuns => _reminderRuns;
 
+        /// <summary>Invoices waiting for approval in all invoice lists, as of the last reminder run.</summary>
+        public int PendingApprovals => _pendingApprovals;
+
         internal void ItemAdded() => Interlocked.Increment(ref _itemsAdded);
 
-        internal void ReminderRan() => Interlocked.Increment(ref _reminderRuns);
+        internal void ReminderRan(int pendingApprovals)
+        {
+            Interlocked.Exchange(ref _pendingApprovals, pendingApprovals);
+            Interlocked.Increment(ref _reminderRuns);
+        }
     }
 }
 
@@ -138,12 +148,22 @@ public sealed class InvoiceCounter(InvoiceStats stats) : IEventSubscriber<ItemAd
     }
 }
 
-/// <summary>Recurring job (every second in this sample): counts its runs per tenant.</summary>
-public sealed class ReminderJob(InvoiceStats stats, ITenantContext tenant) : ITenantRecurringJob
+/// <summary>
+/// Recurring job (every second in this sample): counts invoices waiting for approval in every
+/// invoice list of the tenant. Jobs run without a user, so it reads as the system.
+/// </summary>
+public sealed class ReminderJob(InvoiceStats stats, ITenantContext tenant, IListItemStore items) : ITenantRecurringJob
 {
-    public Task RunAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(CancellationToken cancellationToken)
     {
-        stats.For(tenant.TenantId!.Value).ReminderRan();
-        return Task.CompletedTask;
+        var system = items.AsSystem();
+        var pending = 0;
+        foreach (var list in await system.GetListsAsync(null, $"{InvoicesExtension.Id}.invoices", cancellationToken))
+        {
+            var (found, _) = await system.QueryAsync(list.WorkspaceId, list.Id, new ListItemQuery("fields/status eq 'pendingApproval'", Top: 1000), cancellationToken);
+            pending += found.Count;
+        }
+
+        stats.For(tenant.TenantId!.Value).ReminderRan(pending);
     }
 }

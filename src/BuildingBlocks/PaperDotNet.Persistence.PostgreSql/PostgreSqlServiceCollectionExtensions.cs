@@ -41,8 +41,8 @@ public static class PostgreSqlServiceCollectionExtensions
     }
 
     /// <summary>Configures options for design-time tooling (dotnet ef).</summary>
-    public static void ConfigureForDesignTime(DbContextOptionsBuilder options, string connectionString, string schema) =>
-        PostgreSqlDatabaseProvider.Configure(options, NpgsqlDataSource.Create(connectionString), schema);
+    public static void ConfigureForDesignTime(DbContextOptionsBuilder options, string connectionString, string schema, string? migrationsAssembly = null) =>
+        PostgreSqlDatabaseProvider.Configure(options, NpgsqlDataSource.Create(connectionString), schema, migrationsAssembly);
 }
 
 internal sealed class PostgreSqlHealthCheck(NpgsqlDataSource dataSource) : IHealthCheck
