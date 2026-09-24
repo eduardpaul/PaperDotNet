@@ -5,6 +5,14 @@
 - Papermerge, a document management system (see [papermerge-features.md](papermerge-features.md))
 - SharePoint lists and libraries
 
+> **Current scope (decided 2026-09-24): backend API only.** Work focuses on the
+> ASP.NET Core API, workers, data model, extension runtime (server side), SDK
+> generation and MCP. The web UI, the frontend SDK, UI extension points and the
+> mobile app are **deferred**. The UI-related parts of this document stay as
+> the long-term direction, but no UI work is planned yet. The API must still
+> provide everything a future UI needs (e.g. real-time events, thumbnails,
+> view definitions).
+
 ## 1. Goal
 
 PaperDotNet is a platform for **structured content**. It ships with three built-in apps:
@@ -146,21 +154,21 @@ Key decisions:
 
 | Phase | Deliverable |
 |---|---|
-| **0: Foundation** | Solution skeleton, auth (local + OIDC), workspaces, users/groups/roles, audit columns, OpenAPI, Docker compose |
+| **0: Foundation** | Solution skeleton (API only), auth (local + OIDC), workspaces, users/groups/roles, audit columns, OpenAPI, Docker compose |
 | **1: Lists engine** | Lists, content types, core field types, items CRUD with version history, views (table), filtering/sorting, folders, taxonomy/tags |
-| **2: Extension runtime v1** | Manifest, in-process loading, extension points 1–6 and 11, frontend SDK and host shell. Port the core field types to be extensions |
+| **2: Extension runtime v1** | Manifest, in-process loading, server-side extension points 1–10 and 12–14. Port the core field types to be extensions. *(UI contributions, frontend SDK and host shell: deferred)* |
 | **3: Documents extension** | Libraries, upload, file versions, preview/thumbnails, page operations (Papermerge MVP), OCR worker, full-text search |
-| **4: Tasks + Calendar extensions** | Task and Event content types, board and calendar views, recurrence, reminders, notifications, iCal export, cross-links (lookup) |
-| **5: Automation & sharing** | Rules engine (triggers/actions), sharing, unique permissions, audit log UI |
-| **6: Remote extensions & ecosystem** | Webhooks, scoped app tokens, sandboxed UI, extension catalog, CalDAV/IMAP/S3 connectors |
+| **4: Tasks + Calendar extensions** | Task and Event content types, view definitions (board, calendar) served by the API, recurrence, reminders, notifications, iCal export, cross-links (lookup) |
+| **5: Automation & sharing** | Rules engine (triggers/actions), sharing, unique permissions, audit log API |
+| **6: Remote extensions & ecosystem** | Webhooks, scoped app tokens, extension catalog, *(sandboxed extension UI: deferred)*, CalDAV/IMAP/S3 connectors |
 
 ## 6. Open decisions
 
 | # | Question | Recommendation |
 |---|---|---|
-| 1 | Frontend: React/TypeScript or Blazor? | **React/TS**: a larger extension-developer audience and a mature dynamic-module ecosystem. Parts of Papermerge's UI ideas can be reused |
+| 1 | Frontend: React/TypeScript or Blazor? | **Deferred** (backend-only for now). Leaning **React/TS**: a larger extension-developer audience and a mature dynamic-module ecosystem. Parts of Papermerge's UI ideas can be reused |
 | 2 | Deployment: self-hosted single-tenant, SaaS multi-tenant, or both? | Design for multi-tenant (a tenant id on every row) but ship self-hosted first |
 | 3 | Extension trust: in-process only, or remote from day one? | In-process first (phase 2), with contracts designed so remote can be added in phase 6 |
 | 4 | Database: PostgreSQL only, or also SQL Server/SQLite? | **PostgreSQL only**. JSONB and FTS are central to the design |
 | 5 | License / business model | Decide early. It affects extension licensing (e.g. MIT core with a commercial marketplace) |
-| 6 | Mobile / offline support | Out of scope for v1. Keep the API sync-friendly (ETags, `modifiedSince`) |
+| 6 | Mobile / offline support | **Deferred** with the UI. Out of scope for v1. Keep the API sync-friendly (ETags, `modifiedSince`) |
