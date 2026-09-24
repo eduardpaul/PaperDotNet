@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- How an extension is tested: the real host in-process via PaperDotNet.Extensions.Testing (EXT-05). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- Test names use underscores; tests need no XML docs. -->
+    <NoWarn>$(NoWarn);CA1707;CA1515;CA2007</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Extensions\PaperDotNet.Extensions.Testing\PaperDotNet.Extensions.Testing.csproj" />
+    <ProjectReference Include="..\PaperDotNet.Samples.Invoices\PaperDotNet.Samples.Invoices.csproj" />
+    <ProjectReference Include="..\PaperDotNet.Samples.Invoices.Migrations.Sqlite\PaperDotNet.Samples.Invoices.Migrations.Sqlite.csproj" />
+    <ProjectReference Include="..\PaperDotNet.Samples.Invoices.Migrations.PostgreSql\PaperDotNet.Samples.Invoices.Migrations.PostgreSql.csproj" />
+  </ItemGroup>
+</Project>

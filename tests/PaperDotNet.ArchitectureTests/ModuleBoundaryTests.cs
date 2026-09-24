@@ -102,7 +102,9 @@ public sealed partial class ModuleBoundaryTests
     {
         var offenders = SourceFiles()
             .Where(f => !f.Contains("PaperDotNet.Persistence.PostgreSql", StringComparison.Ordinal)
-                        && !f.Contains("PaperDotNet.Persistence.Sqlite", StringComparison.Ordinal))
+                        && !f.Contains("PaperDotNet.Persistence.Sqlite", StringComparison.Ordinal)
+                        // The extension analyzers name the raw SQL methods in order to forbid them (PDN1003).
+                        && !f.Contains("PaperDotNet.Extensions.Analyzers", StringComparison.Ordinal))
             .Where(f => RawSql().IsMatch(File.ReadAllText(f)))
             .ToList();
 

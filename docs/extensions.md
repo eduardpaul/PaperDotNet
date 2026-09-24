@@ -130,7 +130,52 @@ dotnet ef migrations add <Name> -p samples/PaperDotNet.Samples.Invoices.Migratio
 The host runs them at startup with its own migrations. The extension project
 itself never references a database provider.
 
-## 5. Add it to a host build
+## 5. Analyzers
+
+The SDK package brings analyzers that turn the platform rules into build
+diagnostics (warnings are errors if your project treats them so):
+
+| Rule | Severity | What |
+|------|----------|------|
+| PDN1001 | Error | An entity of an `ExtensionDbContext` does not implement `ITenantOwned` |
+| PDN1002 | Error | `IgnoreQueryFilters()` without filter names, or naming the `Tenant` filter |
+| PDN1003 | Error | Raw SQL (`FromSqlRaw`, `ExecuteSql…`, `SqlQuery…`): use LINQ so both providers and the tenant filter work |
+| PDN1004 | Warning | A class implements `IExtension` but the assembly has no `[assembly: PaperDotNetExtension(typeof(…))]` |
+| PDN1005 | Warning | `DateTime.Now/UtcNow`, `DateTimeOffset.Now/UtcNow`: use `TimeProvider` |
+| PDN1006 | Warning | `Guid.NewGuid()`: use `Ids.New()` (UUIDv7) |
+
+## 6. Testing
+
+`PaperDotNet.Extensions.Testing` runs the real host in-process with your
+extension (migrations, authentication, the extension runtime), on a temporary
+SQLite database by default. It does not depend on a test framework; with
+xUnit v3 share one host per run and give every test its own tenant:
+
+```csharp
+[assembly: AssemblyFixture(typeof(InvoicesHost))]
+
+public sealed class InvoicesHost() : ExtensionTestHost(new InvoicesExtension());
+
+public sealed class InvoicesExtensionTests(InvoicesHost host)
+{
+    [Fact]
+    public async Task Large_invoices_wait_for_approval()
+    {
+        var tenant = await host.CreateTenantAsync();            // admin + extension enabled
+        using var admin = await tenant.CreateClientAsync();     // signed-in API client
+        await tenant.ConfigureAsync("acme.invoices", new { approvalThreshold = 1000 });
+        var item = await tenant.RunAsync(sp => sp.GetRequiredService<IListItemStore>().CreateAsync(...));
+    }
+}
+```
+
+`CreateUserAsync(name)` adds a member and returns their client;
+`RunAsync` runs code inside the tenant as the administrator (or another user).
+For PostgreSQL pass `new ExtensionTestHostOptions { DatabaseProvider = "PostgreSql",
+ConnectionString = ... }`. Reference your migrations projects from the test
+project. See `samples/PaperDotNet.Samples.Invoices.Tests`.
+
+## 7. Add it to a host build
 
 Reference the package (or project) from `src/PaperDotNet.Host` (or your own
 host project that references the PaperDotNet host) and rebuild the image. The

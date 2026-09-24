@@ -307,14 +307,14 @@ Delivered in slices ([ADR-0007](adr/0007-odata-for-item-queries.md), [ADR-0008](
 
 ## Phase 2 status
 
-Build-time extensions ([ADR-0014](adr/0014-build-time-extensions.md)), delivered in slices.
+Build-time extensions ([ADR-0014](adr/0014-build-time-extensions.md)), delivered in slices. **Phase 2 is complete.**
 
 | Slice | Features | Status |
 |---|---|---|
 | **2a Runtime core** | EXT-01 manifest + JSON Schema, EXT-02 build-time .NET extensions (source-generated registration), EXT-03 per-tenant enable/disable/settings (`/v1.0/extensions`), EXT-04 field types, item receivers, event subscribers, jobs, endpoints, IAM-13 extension scopes, EVT-03 receiver sequence and filters; sample extension | ✅ |
 | **2b Templates & content** | LST-16 list templates (built-in Documents, Tasks, Calendar, Contacts, Notes with views; extension templates) at `/v1.0/listTemplates` and `templateKey` on list creation; extension content types provisioned on enable and managed by the extension; receivers filtered by list template (EVT-03); SRC-06 per-field search weight (`none`/`normal`/`high`) | ✅ |
 | **2c Extension data** | EXT-07 `IListItemStore` (items through the API pipeline, as the user or `AsSystem()`); own tables via `ExtensionDbContext` + `AddDbContext<T>()` in schema `ext_{id}` with tenant filter, audit and RLS, migrations in `{extension}.Migrations.Sqlite/.PostgreSql`; sample stores approval records | ✅ |
-| 2d SDK & tooling | EXT-05 analyzers, test host package | planned |
+| **2d SDK & tooling** | EXT-05 analyzers shipped in the SDK package (PDN1001 tenant-owned entities, PDN1002 tenant filter, PDN1003 raw SQL, PDN1004 unregistered extension, PDN1005 TimeProvider, PDN1006 `Ids.New()`); `PaperDotNet.Extensions.Testing` test host (real host in-process, temporary SQLite, tenants with admin and extension enabled, `RunAsync` in a tenant); sample extension tests | ✅ |
 
 ## Idea → feature mapping
 

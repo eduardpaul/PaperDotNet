@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Test host for extensions (EXT-05): runs the real PaperDotNet host in-process with the extension
+    under test, on a temporary SQLite database (or a PostgreSQL connection string). Test-framework neutral.
+  -->
+  <PropertyGroup>
+    <RootNamespace>PaperDotNet.Extensions.Testing</RootNamespace>
+    <PackageId>PaperDotNet.Extensions.Testing</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\PaperDotNet.Host\PaperDotNet.Host.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+</Project>

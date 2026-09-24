@@ -23,4 +23,19 @@
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
   </ItemGroup>
+  <!-- The package carries the extension analyzers (EXT-05), so every extension project gets them. -->
+  <ItemGroup>
+    <ProjectReference Include="..\PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+  <PropertyGroup>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackExtensionAnalyzers</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+  <Target Name="PackExtensionAnalyzers">
+    <MSBuild Projects="..\PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)" RemoveProperties="TargetFramework">
+      <Output TaskParameter="TargetOutputs" ItemName="_ExtensionAnalyzer" />
+    </MSBuild>
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="@(_ExtensionAnalyzer)" PackagePath="analyzers/dotnet/cs" />
+    </ItemGroup>
+  </Target>
 </Project>

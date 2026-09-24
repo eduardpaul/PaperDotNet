@@ -2,6 +2,8 @@
   <!-- Sample extension: references only the SDK. Add it to a host build as a project or package reference. -->
   <ItemGroup>
     <ProjectReference Include="..\..\src\Extensions\PaperDotNet.Extensions.Abstractions\PaperDotNet.Extensions.Abstractions.csproj" />
+    <!-- In this repository the analyzers come as a project; the SDK package brings them automatically. -->
+    <ProjectReference Include="..\..\src\Extensions\PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="extension.json" LogicalName="paperdotnet.extension.json" />

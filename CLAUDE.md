@@ -90,7 +90,9 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   new extension points go on `IExtensionBuilder` and must be gated per tenant
   (`IExtensionState`). Guide: `docs/extensions.md`. Extension data: list items via
   `IListItemStore`, own tables via `ExtensionDbContext` (`ITenantOwned` entities,
-  migrations in `{extension}.Migrations.Sqlite/.PostgreSql`).
+  migrations in `{extension}.Migrations.Sqlite/.PostgreSql`). Extension rules are
+  analyzers (PDN1xxx in `PaperDotNet.Extensions.Analyzers`); extension tests use
+  `PaperDotNet.Extensions.Testing` (`ExtensionTestHost`).
 - Record decisions as ADRs in `docs/adr/`.
 
 ## Ideas workflow

@@ -383,7 +383,12 @@ outbox dispatcher (BackgroundService)
   companion assemblies `{extension}.Migrations.{Sqlite|PostgreSql}`, found by
   name (`AddModuleDbContext(schema, migrationsAssemblyPrefix)`) and run by
   `DatabaseMigrator` with the host's.
-- **Developer experience (2d):** analyzers and a test host package.
+- **Developer experience (2d):** `PaperDotNet.Extensions.Analyzers`
+  (netstandard2.0, packed into the SDK package under `analyzers/dotnet/cs`)
+  enforces tenant-owned entities, no disabled tenant filter, no raw SQL,
+  registration, `TimeProvider` and `Ids.New()`. `PaperDotNet.Extensions.Testing`
+  wraps `WebApplicationFactory` around the real host (temporary SQLite or a
+  PostgreSQL connection string) with tenant, client and in-tenant helpers.
 - **Out-of-process (P7):** host-supervised sidecars and remote webhooks, for
   code that should not be compiled into the host.
 
