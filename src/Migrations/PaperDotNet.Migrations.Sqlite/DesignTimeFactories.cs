@@ -5,6 +5,7 @@ using PaperDotNet.Identity.Data;
 using PaperDotNet.Jobs.Data;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Persistence.Sqlite;
+using PaperDotNet.Search.Data;
 using PaperDotNet.Taxonomy.Data;
 using PaperDotNet.Tenancy.Data;
 using PaperDotNet.Workspaces.Data;
@@ -68,4 +69,10 @@ internal sealed class TaxonomyDesignTimeFactory : IDesignTimeDbContextFactory<Ta
 {
     public TaxonomyDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<TaxonomyDbContext>(TaxonomyDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class SearchDesignTimeFactory : IDesignTimeDbContextFactory<SearchDbContext>
+{
+    public SearchDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<SearchDbContext>(SearchDbContext.Schema), DesignTime.NoTenant);
 }

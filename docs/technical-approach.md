@@ -286,15 +286,22 @@ outbox dispatcher (BackgroundService)
 
 ## 9. Search
 
-- `ISearchProvider` with a **PostgreSQL implementation by default**.
-- **One `search_documents` table** holds rows from all data types: tenant,
-  item id, content type, title, text, a weighted `tsvector`, language,
-  facets, and an ACL principal array.
-  - The **app** maintains it (the indexer consumes outbox events), not DB
-    triggers. That keeps logic portable and lets extensions declare what is
-    indexed (SRC-06).
-- **Security trimming** in SQL: the principal array is intersected with the
-  user's principals (GIN index).
+> **ADR-0012.** Implemented in 1e.3 for SQLite and PostgreSQL.
+
+- `IFullTextSearch` (Persistence) with one implementation per provider:
+  PostgreSQL stored weighted `tsvector` + GIN; SQLite FTS5 external-content
+  table + triggers. Queries are parsed once (`FullTextQuery`) and rendered per
+  provider.
+- **One `search.documents` table** holds rows from all data types: tenant,
+  workspace, container, content type, title, body, author, date; plus
+  `document_principals` (security trimming) and `document_tags` (facets,
+  hierarchical tag filters).
+  - The **app** maintains it: owning modules push documents through
+    `ISearchIndex` from their integration events. That keeps logic portable
+    and lets extensions declare what is indexed (SRC-06).
+- **Security trimming** in SQL: documents store reader principals (user,
+  group, workspace member, workspace owner), matched against the caller's
+  principals with an indexed `EXISTS`.
 - **Vector search (P6):** a `pgvector` column + `Microsoft.Extensions.VectorData`.
   Embeddings come from `IEmbeddingGenerator` (Microsoft.Extensions.AI).
   Chunks keep page numbers. **Hybrid ranking** uses reciprocal rank fusion

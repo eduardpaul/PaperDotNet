@@ -101,6 +101,19 @@ internal sealed class TermStore(TaxonomyDbContext db) : ITermStore
         return result;
     }
 
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetLabelsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken)
+    {
+        if (termIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<string>>();
+        }
+
+        var terms = await db.Terms.AsNoTracking().Where(t => termIds.Contains(t.Id)).ToListAsync(cancellationToken);
+        return terms.ToDictionary(
+            t => t.Id,
+            t => (IReadOnlyList<string>)[t.Name, .. t.Labels.Select(l => l.Name), .. t.Synonyms]);
+    }
+
     /// <summary>Active (not merged) terms whose name, label or synonym equals <paramref name="label"/> (case-insensitive).</summary>
     internal static async Task<List<Term>> FindByLabelAsync(TaxonomyDbContext db, Guid termSetId, string label, CancellationToken ct)
     {

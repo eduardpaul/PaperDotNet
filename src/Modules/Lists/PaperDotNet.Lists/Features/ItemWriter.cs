@@ -184,10 +184,12 @@ internal sealed partial class ItemWriter(
         {
             await AddVersionAsync(schema, item, changed, ct);
         }
+        var scopeMoved = item.IsFolder && oldScopeId != item.ScopeId;
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Updating, item, schema, changed)], cancellationToken: ct);
-        if (item.IsFolder && oldScopeId != item.ScopeId)
+        if (scopeMoved)
         {
             await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
+            await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, currentUser, schema.List.Id)], cancellationToken: ct);
         }
 
         await RunAfterAsync(new ItemChangedContext(ItemEventKind.Updating, scope, item.Id, currentUser.UserId, before, after, changed), ct);
@@ -248,6 +250,7 @@ internal sealed partial class ItemWriter(
         if (item.IsFolder && oldScopeId != item.ScopeId)
         {
             await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
+            await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, currentUser, schema.List.Id)], cancellationToken: ct);
         }
     }
 

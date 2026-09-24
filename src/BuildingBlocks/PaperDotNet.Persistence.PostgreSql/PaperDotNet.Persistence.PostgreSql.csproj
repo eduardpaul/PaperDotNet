@@ -9,4 +9,7 @@
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Npgsql.OpenTelemetry" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+  </ItemGroup>
 </Project>

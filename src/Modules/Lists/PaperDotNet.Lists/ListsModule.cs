@@ -10,6 +10,7 @@ using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
 using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
+using PaperDotNet.Search.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.Lists;
@@ -48,6 +49,14 @@ public sealed class ListsModule : IModule
         services.AddTenantRecurringJob<RecycleBinCleanupJob>(RecycleBinCleanupJob.Name, RecycleBinCleanupJob.Schedule);
         services.AddOperationHandler<BulkUpdateOperation>();
         services.AddEventSubscriber<TermMerged, TermMergedSubscriber>();
+        services.AddIntegrationEvent<ListIndexInvalidated>();
+        services.AddScoped<ListItemSearchDocuments>();
+        services.AddScoped<ISearchSource>(sp => sp.GetRequiredService<ListItemSearchDocuments>());
+        services.AddEventSubscriber<ItemAdded, ItemSearchIndexer>();
+        services.AddEventSubscriber<ItemUpdated, ItemSearchIndexer>();
+        services.AddEventSubscriber<ItemRestored, ItemSearchIndexer>();
+        services.AddEventSubscriber<ItemDeleted, ItemSearchIndexer>();
+        services.AddEventSubscriber<ListIndexInvalidated, ItemSearchIndexer>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

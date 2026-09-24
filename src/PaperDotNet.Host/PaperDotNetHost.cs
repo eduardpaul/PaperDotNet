@@ -14,6 +14,7 @@ using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.Persistence.Sqlite;
+using PaperDotNet.Search;
 using PaperDotNet.ServiceDefaults;
 using PaperDotNet.Taxonomy;
 using PaperDotNet.Tenancy;
@@ -38,6 +39,7 @@ public static class PaperDotNetHost
         new TaxonomyModule(),
         new ListsModule(),
         new JobsModule(),
+        new SearchModule(),
         new AuditModule(),
     ];
 

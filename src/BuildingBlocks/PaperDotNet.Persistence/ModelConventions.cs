@@ -27,6 +27,17 @@ public static class ModelConventions
             b.HasIndex(a => a.EntityId);
         });
 
+        // Full-text hits come from provider queries, so the model needs them as a keyless type (no table).
+        if (modelBuilder.Model.GetEntityTypes().Any(t => t.FindAnnotation(FullTextExtensions.Annotation) is not null))
+        {
+            modelBuilder.Entity<FullTextMatch>(b =>
+            {
+                b.HasNoKey().ToView(null);
+                b.Property(m => m.Id).HasColumnName(FullTextMatch.IdColumn);
+                b.Property(m => m.Rank).HasColumnName(FullTextMatch.RankColumn);
+            });
+        }
+
         var contextExpression = Expression.Constant(context);
         var currentTenant = Expression.Property(contextExpression, nameof(ITenantScopedDbContext.CurrentTenantId));
 

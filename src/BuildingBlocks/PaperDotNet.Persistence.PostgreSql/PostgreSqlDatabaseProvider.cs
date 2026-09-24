@@ -50,5 +50,7 @@ internal sealed class PostgreSqlModelCustomizer(ModelCustomizerDependencies depe
                 index.SetAnnotation("Npgsql:IndexOperators", JsonPathOps);
             }
         }
+
+        PostgreSqlFullTextSearch.Customize(modelBuilder);
     }
 }

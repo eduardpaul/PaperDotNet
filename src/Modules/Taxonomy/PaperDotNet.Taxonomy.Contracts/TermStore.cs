@@ -21,6 +21,9 @@ public interface ITermStore
     /// </summary>
     Task<Guid?> ResolveAsync(Guid termSetId, string value, bool allowCreate, CancellationToken cancellationToken);
 
+    /// <summary>Name, translated labels and synonyms of each term (for search indexing).</summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetLabelsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
+
     /// <summary>Each term with its descendants (including itself); ids that are not terms are omitted.</summary>
     Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> GetDescendantsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
 }

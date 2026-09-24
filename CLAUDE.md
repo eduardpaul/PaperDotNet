@@ -75,6 +75,9 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   references Wolverine.
 - Item access: check `schema.Access.Level(item.ScopeId)` (404 below Read) and
   filter queries with `schema.Access.Filter(level)` (ADR-0011).
+- Searchable content → push `SearchDocumentData` through `ISearchIndex`
+  (Search.Contracts) from an event subscriber, with reader principals
+  (ADR-0012); implement `ISearchSource` for reindexing.
 - Tags/classification → term ids from `ITermStore` (Taxonomy.Contracts) in
   `managedMetadata`/`keywords` fields; never store tag names as values.
 - Long work → `IOperations.StartAsync` + `OperationHandler<T>` (202 + `/operations/{id}`);

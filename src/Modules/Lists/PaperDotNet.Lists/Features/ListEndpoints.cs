@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Lists.Data;
+using PaperDotNet.Messaging;
 using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Features;
@@ -183,7 +184,8 @@ internal static class ListEndpoints
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteAsync(
-        Guid workspaceId, Guid listId, ListSchemaLoader loader, ListsDbContext db, HttpRequest http, CancellationToken ct)
+        Guid workspaceId, Guid listId, ListSchemaLoader loader, ListsDbContext db, IOutbox outbox, ITenantContext tenant, ICurrentUser user,
+        HttpRequest http, CancellationToken ct)
     {
         var (schema, problem) = await LoadForChangeAsync(workspaceId, listId, loader, db, http, ct);
         if (problem is not null)
@@ -197,7 +199,15 @@ internal static class ListEndpoints
         }
 
         db.Lists.Remove(schema.List);
-        return await SaveAsync(db, ct) is { } conflict ? conflict : TypedResults.NoContent();
+        try
+        {
+            await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, listId)], cancellationToken: ct);
+            return TypedResults.NoContent();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return ApiErrors.PreconditionFailed();
+        }
     }
 
     private static async Task<Results<Ok<ListResponse>, ProblemHttpResult>> AddContentTypeAsync(

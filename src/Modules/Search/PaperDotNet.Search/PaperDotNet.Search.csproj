@@ -1,19 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Lists engine: content types, field types, lists/libraries, items, folders, views and Graph-style item queries. -->
+  <!-- Full-text search over all data types with security trimming and facets (SRC-01…04). -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="..\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
+    <ProjectReference Include="..\PaperDotNet.Search.Contracts\PaperDotNet.Search.Contracts.csproj" />
     <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
     <ProjectReference Include="..\..\Taxonomy\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
-    <ProjectReference Include="..\..\Search\PaperDotNet.Search.Contracts\PaperDotNet.Search.Contracts.csproj" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Messaging\PaperDotNet.Messaging.csproj" />
     <ProjectReference Include="..\..\Workspaces\PaperDotNet.Workspaces.Contracts\PaperDotNet.Workspaces.Contracts.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OData" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />

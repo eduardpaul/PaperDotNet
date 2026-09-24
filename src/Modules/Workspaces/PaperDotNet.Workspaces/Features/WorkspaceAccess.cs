@@ -37,6 +37,23 @@ internal sealed class WorkspaceAccess(ICurrentUser user, IEffectiveScopeProvider
             .Select(m => new WorkspaceMemberAccess(m.UserId, LevelOf(m.Role)))
             .ToList();
 
+    public async Task<IReadOnlyList<WorkspaceMembership>> GetMyWorkspacesAsync(CancellationToken cancellationToken)
+    {
+        if (await IsAdministratorAsync(cancellationToken))
+        {
+            return (await db.Workspaces.AsNoTracking().Select(w => w.Id).ToListAsync(cancellationToken))
+                .Select(id => new WorkspaceMembership(id, WorkspaceAccessLevel.Manage))
+                .ToList();
+        }
+
+        var userId = user.UserId;
+        return (await db.Members.AsNoTracking()
+                .Where(m => m.UserId == userId && db.Workspaces.Any(w => w.Id == m.WorkspaceId))
+                .ToListAsync(cancellationToken))
+            .Select(m => new WorkspaceMembership(m.WorkspaceId, LevelOf(m.Role)))
+            .ToList();
+    }
+
     public async Task<Guid> EnsurePersonalWorkspaceAsync(CancellationToken cancellationToken)
     {
         var userId = user.UserId ?? throw new InvalidOperationException("A signed-in user is required.");

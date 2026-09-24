@@ -16,3 +16,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0009](0009-sqlite-default-postgresql-optional.md) | SQLite by default, PostgreSQL optional | Accepted |
 | [0010](0010-recurring-jobs-scheduler.md) | Recurring jobs with a small scheduler + Cronos (instead of Quartz.NET) | Accepted |
 | [0011](0011-permission-scopes.md) | Permission inheritance with security scopes | Accepted |
+| [0012](0012-full-text-search.md) | Full-text search in the database (FTS5 / tsvector) with principal trimming | Accepted |

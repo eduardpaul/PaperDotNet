@@ -31,6 +31,10 @@
     <Project Path="src/Modules/Lists/PaperDotNet.Lists.Contracts/PaperDotNet.Lists.Contracts.csproj" />
     <Project Path="src/Modules/Lists/PaperDotNet.Lists/PaperDotNet.Lists.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Search/">
+    <Project Path="src/Modules/Search/PaperDotNet.Search.Contracts/PaperDotNet.Search.Contracts.csproj" />
+    <Project Path="src/Modules/Search/PaperDotNet.Search/PaperDotNet.Search.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Taxonomy/">
     <Project Path="src/Modules/Taxonomy/PaperDotNet.Taxonomy.Contracts/PaperDotNet.Taxonomy.Contracts.csproj" />
     <Project Path="src/Modules/Taxonomy/PaperDotNet.Taxonomy/PaperDotNet.Taxonomy.csproj" />

@@ -17,6 +17,7 @@
     <ProjectReference Include="..\Modules\Jobs\PaperDotNet.Jobs\PaperDotNet.Jobs.csproj" />
     <ProjectReference Include="..\Modules\Audit\PaperDotNet.Audit\PaperDotNet.Audit.csproj" />
     <ProjectReference Include="..\Modules\Taxonomy\PaperDotNet.Taxonomy\PaperDotNet.Taxonomy.csproj" />
+    <ProjectReference Include="..\Modules\Search\PaperDotNet.Search\PaperDotNet.Search.csproj" />
     <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Messaging\PaperDotNet.Messaging.csproj" />
   </ItemGroup>
   <ItemGroup>

@@ -17,6 +17,8 @@ public enum WorkspaceAccessLevel
 /// <summary>A workspace member and the access its role gives.</summary>
 public sealed record WorkspaceMemberAccess(Guid UserId, WorkspaceAccessLevel Level);
 
+public sealed record WorkspaceMembership(Guid WorkspaceId, WorkspaceAccessLevel Level);
+
 /// <summary>Workspace-level access for other modules (e.g. Lists).</summary>
 public interface IWorkspaceAccess
 {
@@ -28,6 +30,12 @@ public interface IWorkspaceAccess
 
     /// <summary>Members and their access (used when breaking permission inheritance).</summary>
     Task<IReadOnlyList<WorkspaceMemberAccess>> GetMembersAsync(Guid workspaceId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every workspace the current user can access and the level: memberships, or
+    /// all workspaces with Manage for administrators (used by search trimming).
+    /// </summary>
+    Task<IReadOnlyList<WorkspaceMembership>> GetMyWorkspacesAsync(CancellationToken cancellationToken);
 
     /// <summary>The current user's personal workspace ("Home"), created on first use.</summary>
     Task<Guid> EnsurePersonalWorkspaceAsync(CancellationToken cancellationToken);

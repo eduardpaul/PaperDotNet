@@ -8,6 +8,7 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Data;
+using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
 using PaperDotNet.Workspaces.Contracts;
 
@@ -67,7 +68,7 @@ internal static class PermissionEndpoints
 
     private static async Task<Results<Ok<PermissionsResponse>, ProblemHttpResult>> BreakListAsync(
         Guid workspaceId, Guid listId, BreakInheritanceRequest? request, ListSchemaLoader loader, ListsDbContext db,
-        IWorkspaceAccess workspaces, ICurrentUser user, CancellationToken ct)
+        IWorkspaceAccess workspaces, ICurrentUser user, IOutbox outbox, ITenantContext tenant, CancellationToken ct)
     {
         var schema = await loader.LoadAsync(workspaceId, listId, ct, tracking: true);
         if (schema is null)
@@ -88,12 +89,12 @@ internal static class PermissionEndpoints
         var grants = request?.CopyGrants != false ? await ScopeGrantsAsync(db, workspaces, schema.List, null, ct) : [];
         AddGrants(db, schema.List.Id, schema.List.Id, WithManager(grants, user, schema.Access));
         schema.List.HasUniquePermissions = true;
-        await db.SaveChangesAsync(ct);
+        await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, listId)], cancellationToken: ct);
         return TypedResults.Ok(new PermissionsResponse(true, null, null, WorkspaceAccessLevel.Manage, await ScopeGrantsAsync(db, workspaces, schema.List, null, ct)));
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> ResetListAsync(
-        Guid workspaceId, Guid listId, ListSchemaLoader loader, ListsDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid listId, ListSchemaLoader loader, ListsDbContext db, IOutbox outbox, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
     {
         var schema = await loader.LoadAsync(workspaceId, listId, ct, tracking: true);
         if (schema is null)
@@ -110,7 +111,7 @@ internal static class PermissionEndpoints
         {
             db.Grants.RemoveRange(await db.Grants.Where(g => g.ObjectId == listId).ToListAsync(ct));
             schema.List.HasUniquePermissions = false;
-            await db.SaveChangesAsync(ct);
+            await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, listId)], cancellationToken: ct);
         }
 
         return TypedResults.NoContent();
@@ -118,7 +119,7 @@ internal static class PermissionEndpoints
 
     private static async Task<Results<Ok<PermissionsResponse>, ValidationProblem, ProblemHttpResult>> ReplaceListGrantsAsync(
         Guid workspaceId, Guid listId, ReplaceGrantsRequest request, ListSchemaLoader loader, ListsDbContext db,
-        IWorkspaceAccess workspaces, IUserDirectory users, CancellationToken ct)
+        IWorkspaceAccess workspaces, IUserDirectory users, IOutbox outbox, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
     {
         var schema = await loader.LoadAsync(workspaceId, listId, ct);
         if (schema is null)
@@ -136,7 +137,7 @@ internal static class PermissionEndpoints
             return ApiErrors.Conflict("inheritsPermissions", "Break inheritance before changing grants.");
         }
 
-        if (await ReplaceAsync(db, users, listId, listId, request, ct) is { } invalid)
+        if (await ReplaceAsync(db, users, listId, listId, request, ListIndexInvalidated.For(tenant, user, listId), outbox, ct) is { } invalid)
         {
             return invalid;
         }
@@ -166,7 +167,7 @@ internal static class PermissionEndpoints
 
     private static async Task<Results<Ok<PermissionsResponse>, ProblemHttpResult>> BreakItemAsync(
         Guid workspaceId, Guid listId, Guid itemId, BreakInheritanceRequest? request, ListSchemaLoader loader, ListsDbContext db,
-        IWorkspaceAccess workspaces, ICurrentUser user, CancellationToken ct)
+        IWorkspaceAccess workspaces, ICurrentUser user, IOutbox outbox, ITenantContext tenant, CancellationToken ct)
     {
         var (schema, item) = await LoadItemAsync(workspaceId, listId, itemId, loader, db, tracking: true, ct);
         if (item is null)
@@ -200,11 +201,14 @@ internal static class PermissionEndpoints
             await transaction.CommitAsync(ct);
         }
 
+        await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, listId)], cancellationToken: ct);
+
         return TypedResults.Ok(new PermissionsResponse(true, null, null, WorkspaceAccessLevel.Manage, await ScopeGrantsAsync(db, workspaces, schema.List, item.Id, ct)));
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> ResetItemAsync(
-        Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, IOutbox outbox, ITenantContext tenant, ICurrentUser user,
+        CancellationToken ct)
     {
         var (schema, item) = await LoadItemAsync(workspaceId, listId, itemId, loader, db, tracking: true, ct);
         if (item is null)
@@ -239,12 +243,14 @@ internal static class PermissionEndpoints
             await transaction.CommitAsync(ct);
         }
 
+        await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, listId)], cancellationToken: ct);
+
         return TypedResults.NoContent();
     }
 
     private static async Task<Results<Ok<PermissionsResponse>, ValidationProblem, ProblemHttpResult>> ReplaceItemGrantsAsync(
         Guid workspaceId, Guid listId, Guid itemId, ReplaceGrantsRequest request, ListSchemaLoader loader, ListsDbContext db,
-        IWorkspaceAccess workspaces, IUserDirectory users, CancellationToken ct)
+        IWorkspaceAccess workspaces, IUserDirectory users, IOutbox outbox, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
     {
         var (schema, item) = await LoadItemAsync(workspaceId, listId, itemId, loader, db, tracking: false, ct);
         if (item is null)
@@ -263,7 +269,7 @@ internal static class PermissionEndpoints
             return ApiErrors.Conflict("inheritsPermissions", "Break inheritance before changing grants.");
         }
 
-        if (await ReplaceAsync(db, users, listId, itemId, request, ct) is { } invalid)
+        if (await ReplaceAsync(db, users, listId, itemId, request, ListIndexInvalidated.For(tenant, user, listId), outbox, ct) is { } invalid)
         {
             return invalid;
         }
@@ -336,7 +342,8 @@ internal static class PermissionEndpoints
     }
 
     private static async Task<ValidationProblem?> ReplaceAsync(
-        ListsDbContext db, IUserDirectory users, Guid listId, Guid objectId, ReplaceGrantsRequest request, CancellationToken ct)
+        ListsDbContext db, IUserDirectory users, Guid listId, Guid objectId, ReplaceGrantsRequest request,
+        ListIndexInvalidated invalidated, IOutbox outbox, CancellationToken ct)
     {
         var errors = new List<string>();
         foreach (var grant in request.Grants ?? [])
@@ -364,7 +371,7 @@ internal static class PermissionEndpoints
         db.Grants.RemoveRange(await db.Grants.Where(g => g.ObjectId == objectId).ToListAsync(ct));
         await db.SaveChangesAsync(ct);
         AddGrants(db, listId, objectId, request.Grants ?? []);
-        await db.SaveChangesAsync(ct);
+        await outbox.SaveChangesAsync(db, [invalidated], cancellationToken: ct);
         return null;
     }
 }
