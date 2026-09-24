@@ -8,7 +8,7 @@ structure. Later, each idea gets reviewed and mapped to one or more features
 ## How to add an idea
 
 1. Copy [`_template.md`](_template.md) to a new file named
-   `NNNN-short-title.md`. Use the next free number, e.g. `0010-my-idea.md`.
+   `NNNN-short-title.md`. Use the next free number, e.g. `0011-my-idea.md`.
 2. Fill in at least **Title** and **The idea**. Every other section is optional.
    A single sentence is fine.
 3. Add a row to the index below.
@@ -40,6 +40,7 @@ It will be turned into a file during review.
 | [0007](0007-obsidian-vault-sync.md) | Obsidian vault sync | Integrations / Sync | new | |
 | [0008](0008-taxonomy-folksonomy-metadata-service.md) | Taxonomy and folksonomy (managed metadata service) | Platform / Metadata | new | |
 | [0009](0009-automation-rules-engine-elsa.md) | Automation rules engine (tags and other use cases) with Elsa Workflows | Automation / Extensions | new | |
+| [0010](0010-optional-version-history.md) | Optional (opt-in) version history for data | Platform / Data | new | |
 
 ## Quick ideas
 
