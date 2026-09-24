@@ -110,7 +110,7 @@ PaperDotNet.slnx
 |---|---|
 | Framework | **Minimal APIs**, with route groups per module and `TypedResults` for compile-time checked responses |
 | URLs | `/v1.0/...` resource paths: `/me`, `/workspaces/{id}/lists/{id}/items/{id}`, `/drives`-like library access for files, `/search/query`, `/subscriptions`, `/operations/{id}`. A `/beta` group for previews. Extensions live under `/v1.0/ext/{extensionId}/…` |
-| Query options | A Graph-compatible subset: `$filter`, `$select`, `$expand`, `$orderby`, `$top`, `$count`, `$search`. Parsed into an AST, then translated to LINQ or provider-specific SQL for JSON fields. The OData library is used only if the spike shows it handles dynamic JSON fields with less code |
+| Query options | **Decided (ADR-0007):** OData libraries parse and validate `$filter`/`$orderby` against an EDM model built per list at runtime; our translator turns the trees into LINQ over the `jsonb` fields (containment `@>` for equality, via `IJsonQueryFunctions`). `$top`, `$skiptoken`, `$count`, `$select`, saved views. `$expand`/`$batch` later |
 | Paging | **Cursor (keyset) paging** with an opaque `@odata.nextLink`. No offset paging on large lists |
 | Errors | RFC 9457 **ProblemDetails** everywhere (`AddProblemDetails`, exception handler), extended with a Graph-style `error.code`. Canceled before-events map to `409` or `422` with the handler's message |
 | Validation | Built-in Minimal API validation (`AddValidation`, .NET 10) for request DTOs. Field-type validators for dynamic item fields |
@@ -227,9 +227,10 @@ outbox dispatcher (BackgroundService)
 - **At-least-once delivery.** Consumers are idempotent, backed by an inbox
   table for dedup where needed. Failures are retried with exponential
   backoff, then sent to a dead-letter table (visible to admins via API).
-- The provider-specific parts (`LISTEN/NOTIFY`, `SKIP LOCKED`) live in the
-  PostgreSQL project behind `IOutboxStore`.
-- **Wolverine** is the planned replacement if our outbox grows beyond this.
+- **Decided (ADR-0008): Wolverine** provides this pipeline: EF Core
+  transactional outbox with PostgreSQL message storage (same database, no
+  broker), durable local queues, retries and dead-lettering. The diagram above
+  describes the behavior; Wolverine implements the dispatch part.
 - **Scheduling:** **Quartz.NET** in-process, with its clustered ADO job store
   in PostgreSQL. Used for reminders, recurrence, digests, retention and
   cleanup. Jobs always carry `TenantId`.

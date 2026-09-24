@@ -13,7 +13,7 @@ public sealed class TenantFilterModelTests
 {
     private const string Connection = "Host=localhost;Database=model_only";
 
-    public static TheoryData<string> Contexts => ["tenancy", "identity", "workspaces"];
+    public static TheoryData<string> Contexts => ["tenancy", "identity", "workspaces", "lists"];
 
     [Theory]
     [MemberData(nameof(Contexts))]
@@ -42,6 +42,7 @@ public sealed class TenantFilterModelTests
         "tenancy" => new TenancyDbContext(Options<TenancyDbContext>(TenancyDbContext.Schema), NoTenant.Instance),
         "identity" => new IdentityDbContext(Options<IdentityDbContext>(IdentityDbContext.Schema), NoTenant.Instance),
         "workspaces" => new WorkspacesDbContext(Options<WorkspacesDbContext>(WorkspacesDbContext.Schema), NoTenant.Instance),
+        "lists" => new Lists.Data.ListsDbContext(Options<Lists.Data.ListsDbContext>(Lists.Data.ListsDbContext.Schema), NoTenant.Instance),
         _ => throw new ArgumentOutOfRangeException(nameof(module)),
     };
 

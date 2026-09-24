@@ -9,10 +9,10 @@ namespace PaperDotNet.ArchitectureTests;
 /// </summary>
 public sealed partial class ModuleBoundaryTests
 {
-    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces"];
+    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists"];
 
     /// <summary>Modules that expose a contracts assembly.</summary>
-    private static readonly string[] ContractModules = ["Tenancy", "Identity"];
+    private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces"];
 
     private static readonly string[] ProviderAgnostic =
     [

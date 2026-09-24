@@ -75,6 +75,8 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `Microsoft.AspNetCore.Mvc.Testing` | MIT | Integration tests |
 | `xunit.v3.mtp-v2` | Apache-2.0 | Tests on Microsoft.Testing.Platform |
 | `dotnet-ef` (local tool) | MIT | Migrations |
+| `Microsoft.AspNetCore.OData` (+ `Microsoft.OData.Core`, `.Edm`, `.ModelBuilder`, `Microsoft.Spatial`) | MIT | OData query parsing for list items (ADR-0007) |
+| `WolverineFx` (+ `.EntityFrameworkCore`, `.Postgresql`) | MIT | Transactional outbox and durable local queues (ADR-0008, phase 1c) |
 | `CliWrap` | MIT | Running the Tesseract CLI |
 | `TngTech.ArchUnitNET` (+ `.xUnitV3`) | Apache-2.0 | Architecture tests |
 | `OpenIddict.EntityFrameworkCore` | Apache-2.0 | OpenIddict stores |

@@ -12,5 +12,6 @@
     <ProjectReference Include="..\..\src\Modules\Tenancy\PaperDotNet.Tenancy\PaperDotNet.Tenancy.csproj" />
     <ProjectReference Include="..\..\src\Modules\Identity\PaperDotNet.Identity\PaperDotNet.Identity.csproj" />
     <ProjectReference Include="..\..\src\Modules\Workspaces\PaperDotNet.Workspaces\PaperDotNet.Workspaces.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Lists\PaperDotNet.Lists\PaperDotNet.Lists.csproj" />
   </ItemGroup>
 </Project>

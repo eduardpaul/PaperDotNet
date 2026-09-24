@@ -17,11 +17,15 @@
     <Project Path="src/Modules/Identity/PaperDotNet.Identity.Contracts/PaperDotNet.Identity.Contracts.csproj" />
     <Project Path="src/Modules/Identity/PaperDotNet.Identity/PaperDotNet.Identity.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Lists/">
+    <Project Path="src/Modules/Lists/PaperDotNet.Lists/PaperDotNet.Lists.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Tenancy/">
     <Project Path="src/Modules/Tenancy/PaperDotNet.Tenancy.Contracts/PaperDotNet.Tenancy.Contracts.csproj" />
     <Project Path="src/Modules/Tenancy/PaperDotNet.Tenancy/PaperDotNet.Tenancy.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Workspaces/">
+    <Project Path="src/Modules/Workspaces/PaperDotNet.Workspaces.Contracts/PaperDotNet.Workspaces.Contracts.csproj" />
     <Project Path="src/Modules/Workspaces/PaperDotNet.Workspaces/PaperDotNet.Workspaces.csproj" />
   </Folder>
   <Folder Name="/tests/">

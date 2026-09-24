@@ -33,6 +33,7 @@ public static class PostgreSqlServiceCollectionExtensions
             return builder.Build();
         });
         services.AddSingleton<IDatabaseProvider, PostgreSqlDatabaseProvider>();
+        services.AddSingleton<IJsonQueryFunctions, PostgreSqlJsonQueryFunctions>();
         services.AddHealthChecks().AddCheck<PostgreSqlHealthCheck>("postgresql", tags: ["ready"]);
         return services;
     }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Workspaces.Contracts;
 using PaperDotNet.Workspaces.Data;
 
 namespace PaperDotNet.Workspaces.Features;
@@ -9,8 +10,33 @@ namespace PaperDotNet.Workspaces.Features;
 /// and holders of <c>workspace.manage</c> administer all of them. Invisible
 /// workspaces return 404, never 403, so their existence isn't leaked.
 /// </summary>
-internal sealed class WorkspaceAccess(ICurrentUser user, IEffectiveScopeProvider scopes, WorkspacesDbContext db)
+internal sealed class WorkspaceAccess(ICurrentUser user, IEffectiveScopeProvider scopes, WorkspacesDbContext db) : IWorkspaceAccess
 {
+    public async Task<WorkspaceAccessLevel> GetPermissionAsync(Guid workspaceId, CancellationToken cancellationToken)
+    {
+        if (!await db.Workspaces.AnyAsync(w => w.Id == workspaceId, cancellationToken))
+        {
+            return WorkspaceAccessLevel.None;
+        }
+
+        if (await IsAdministratorAsync(cancellationToken))
+        {
+            return WorkspaceAccessLevel.Manage;
+        }
+
+        var userId = user.UserId;
+        var role = await db.Members
+            .Where(m => m.WorkspaceId == workspaceId && m.UserId == userId)
+            .Select(m => (WorkspaceRole?)m.Role)
+            .FirstOrDefaultAsync(cancellationToken);
+        return role switch
+        {
+            WorkspaceRole.Owner => WorkspaceAccessLevel.Manage,
+            WorkspaceRole.Member => WorkspaceAccessLevel.Contribute,
+            _ => WorkspaceAccessLevel.None,
+        };
+    }
+
     public async Task<IQueryable<Workspace>> VisibleAsync(IQueryable<Workspace> query, CancellationToken ct)
     {
         if (await IsAdministratorAsync(ct))

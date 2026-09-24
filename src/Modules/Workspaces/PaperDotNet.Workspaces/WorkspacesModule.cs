@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Persistence;
+using PaperDotNet.Workspaces.Contracts;
 using PaperDotNet.Workspaces.Data;
 using PaperDotNet.Workspaces.Features;
 
@@ -16,6 +17,7 @@ public sealed class WorkspacesModule : IModule
     {
         services.AddModuleDbContext<WorkspacesDbContext>(WorkspacesDbContext.Schema);
         services.AddScoped<WorkspaceAccess>();
+        services.AddScoped<IWorkspaceAccess>(sp => sp.GetRequiredService<WorkspaceAccess>());
         services.AddScopes(WorkspaceScopes.All);
     }
 

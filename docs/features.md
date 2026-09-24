@@ -288,6 +288,19 @@ Implemented in the solution skeleton (see [ADR-0006](adr/0006-phase-0-simplifica
 | API-01 Graph-style conventions | ✅ `/v1.0`, keyset paging + `@odata.nextLink`, ProblemDetails with `code`, ETag/If-Match |
 | API-02 OpenAPI | ✅ `/openapi/v1.json` with bearer security scheme |
 
+## Phase 1 status
+
+Delivered in slices ([ADR-0007](adr/0007-odata-for-item-queries.md), [ADR-0008](adr/0008-wolverine-for-reliable-events.md)).
+
+| Slice | Features | Status |
+|---|---|---|
+| **1a Lists engine** | LST-01 lists & libraries, LST-02 content types, LST-03 field types (text, note, email, url, number, currency, boolean, date, dateTime, choice, person, lookup; managed metadata & keywords come with 1d), LST-04 items with validation, LST-06 folders, LST-08 lookups, LST-15 ETags | ✅ |
+| **1b Queries & views** | LST-10 OData `$filter`/`$orderby`/`$top`/`$skiptoken`/`$count`/`$select`, LST-09 saved views (`?viewId=`) | ✅ |
+| 1c Events & jobs | EVT-01, EVT-02, EVT-04 (Wolverine), EVT-05, EVT-06 | next |
+| 1d Taxonomy | TAX-01…04, TAX-06, TAX-07, managed metadata & keyword fields | planned |
+| 1e History & search | LST-05, LST-11…14, LST-07, IAM-07, SRC-01…04 | planned |
+| 1f Identity hardening | IAM-02 (OpenIddict, passkeys), RLS, Data Protection keys in DB | planned |
+
 ## Idea → feature mapping
 
 | Idea | Mapped to |

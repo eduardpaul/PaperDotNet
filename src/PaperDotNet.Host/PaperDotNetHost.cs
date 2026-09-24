@@ -7,6 +7,7 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Host.Bootstrap;
 using PaperDotNet.Identity;
+using PaperDotNet.Lists;
 using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.ServiceDefaults;
@@ -26,6 +27,7 @@ public static class PaperDotNetHost
         new TenancyModule(),
         new IdentityModule(),
         new WorkspacesModule(),
+        new ListsModule(),
     ];
 
     public static WebApplicationBuilder AddPaperDotNet(this WebApplicationBuilder builder, bool runBootstrap)
