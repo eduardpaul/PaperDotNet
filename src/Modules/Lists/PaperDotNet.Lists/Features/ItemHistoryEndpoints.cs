@@ -104,6 +104,11 @@ internal static class ItemHistoryEndpoints
         try
         {
             var result = await writer.UpdateAsync(schema, item, version.ContentTypeId, Optional<Guid?>.None, document.RootElement, ct);
+            if (result.Forbidden)
+            {
+                return ListEndpoints.Forbidden();
+            }
+
             if (result.Errors is not null)
             {
                 return ApiErrors.Validation(result.Errors);
@@ -134,14 +139,14 @@ internal static class ItemHistoryEndpoints
             return ApiErrors.NotFound();
         }
 
-        if (schema.Permission < WorkspaceAccessLevel.Contribute)
+        var page = PageRequest.From(http);
+        var deleted = Deleted(db).AsNoTracking();
+        if (schema.Access.Filter(WorkspaceAccessLevel.Contribute) is { } writable)
         {
-            return ListEndpoints.Forbidden();
+            deleted = deleted.Where(writable);
         }
 
-        var page = PageRequest.From(http);
-        var items = await Deleted(db)
-            .AsNoTracking()
+        var items = await deleted
             .Where(i => i.ListId == listId)
             .Where(i => page.After == null || i.Id.CompareTo(page.After.Value) > 0)
             .OrderBy(i => i.Id)
@@ -195,13 +200,21 @@ internal static class ItemHistoryEndpoints
             return (null, null, ApiErrors.NotFound());
         }
 
-        return schema!.Permission < required ? (null, null, ListEndpoints.Forbidden()) : (schema, item, null);
+        var level = schema!.Access.Level(item.ScopeId);
+        if (level < WorkspaceAccessLevel.Contribute)
+        {
+            return (null, null, ApiErrors.NotFound());
+        }
+
+        return level < required ? (null, null, ListEndpoints.Forbidden()) : (schema, item, null);
     }
 
-    private static async Task<ListItem?> LoadItemAsync(Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, CancellationToken ct) =>
-        await loader.LoadAsync(workspaceId, listId, ct) is null
-            ? null
-            : await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId && i.ListId == listId, ct);
+    private static async Task<ListItem?> LoadItemAsync(Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, CancellationToken ct)
+    {
+        var schema = await loader.LoadAsync(workspaceId, listId, ct);
+        var item = schema is null ? null : await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId && i.ListId == listId, ct);
+        return item is not null && schema!.Access.Level(item.ScopeId) >= WorkspaceAccessLevel.Read ? item : null;
+    }
 
     private static async Task<int> CurrentNumberAsync(ListsDbContext db, Guid itemId, CancellationToken ct) =>
         await db.ItemVersions.Where(v => v.ItemId == itemId).MaxAsync(v => (int?)v.Number, ct) ?? 0;

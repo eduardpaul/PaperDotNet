@@ -71,6 +71,15 @@ public sealed class ListDefinition : ITenantOwned, IAuditable, ISoftDeletable, I
 
     public ListVersioning Versioning { get; set; }
 
+    /// <summary>The list has its own permission grants instead of the workspace's (IAM-07).</summary>
+    public bool HasUniquePermissions { get; set; }
+
+    /// <summary>Marks lists created by the system, e.g. <see cref="HomeInboxKey"/>; they cannot be deleted.</summary>
+    public string? SystemKey { get; set; }
+
+    public const string HomeInboxKey = "home.inbox";
+    public const string HomeDocumentsKey = "home.documents";
+
     /// <summary>Versions kept per item; older ones are removed.</summary>
     public int MaxVersions { get; set; } = DefaultMaxVersions;
 
@@ -107,6 +116,16 @@ public sealed class ListItem : ITenantOwned, IAuditable, ISoftDeletable, IVersio
     public Guid? ParentId { get; set; }
 
     public bool IsFolder { get; set; }
+
+    /// <summary>The item has its own permission grants (it is then its own <see cref="ScopeId"/>).</summary>
+    public bool HasUniquePermissions { get; set; }
+
+    /// <summary>
+    /// Security scope: the nearest item (this one or a folder above it) with unique
+    /// permissions, or null when permissions come from the list. Lets queries trim
+    /// items the user may not see with a simple <c>IN</c> filter.
+    /// </summary>
+    public Guid? ScopeId { get; set; }
 
     /// <summary>The built-in <c>title</c> field, kept as a column for display, sorting and search.</summary>
     public required string Title { get; set; }
@@ -159,6 +178,35 @@ public sealed class ItemVersion : ITenantOwned
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
+}
+
+public enum PrincipalType
+{
+    User = 0,
+    Group = 1,
+}
+
+/// <summary>
+/// A permission grant on a list or an item with unique permissions (IAM-07).
+/// Levels reuse <see cref="Workspaces.Contracts.WorkspaceAccessLevel"/>: Read, Contribute, Manage.
+/// </summary>
+[NotAudited]
+public sealed class PermissionGrant : ITenantOwned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid ListId { get; set; }
+
+    /// <summary>The list id (list grants) or the item id.</summary>
+    public Guid ObjectId { get; set; }
+
+    public PrincipalType PrincipalType { get; set; }
+
+    public Guid PrincipalId { get; set; }
+
+    public Workspaces.Contracts.WorkspaceAccessLevel Level { get; set; }
 }
 
 public enum ViewLayout

@@ -15,6 +15,11 @@ public interface IUserDirectory
 
     Task<bool> AnyUsersAsync(CancellationToken cancellationToken);
 
+    /// <summary>Groups the user belongs to (for permission checks).</summary>
+    Task<IReadOnlyList<Guid>> GetGroupIdsAsync(Guid userId, CancellationToken cancellationToken);
+
+    Task<bool> GroupExistsAsync(Guid groupId, CancellationToken cancellationToken);
+
     /// <summary>Creates a user in the current tenant with the Member role (and Administrator if requested).</summary>
     Task<Guid> CreateUserAsync(NewUser user, CancellationToken cancellationToken);
 }

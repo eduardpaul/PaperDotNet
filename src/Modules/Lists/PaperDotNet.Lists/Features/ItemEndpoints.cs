@@ -59,7 +59,8 @@ internal static class ItemEndpoints
         HttpRequest http, CancellationToken ct)
     {
         var schema = await loader.LoadAsync(workspaceId, listId, ct);
-        if (schema is null || !await db.Items.AnyAsync(i => i.Id == itemId && i.ListId == listId && i.IsFolder, ct))
+        var folder = schema is null ? null : await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId && i.ListId == listId && i.IsFolder, ct);
+        if (folder is null || schema!.Access.Level(folder.ScopeId) < WorkspaceAccessLevel.Read)
         {
             return ApiErrors.NotFound();
         }
@@ -82,7 +83,7 @@ internal static class ItemEndpoints
     {
         var schema = await loader.LoadAsync(workspaceId, listId, ct);
         var item = schema is null ? null : await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId && i.ListId == listId, ct);
-        if (item is null)
+        if (item is null || schema!.Access.Level(item.ScopeId) < WorkspaceAccessLevel.Read)
         {
             return ApiErrors.NotFound();
         }
@@ -101,12 +102,12 @@ internal static class ItemEndpoints
             return ApiErrors.NotFound();
         }
 
-        if (schema.Permission < WorkspaceAccessLevel.Contribute)
+        var result = await writer.CreateAsync(schema, request.ContentTypeId, request.ParentId, request.IsFolder, request.Fields, ct);
+        if (result.Forbidden)
         {
             return ListEndpoints.Forbidden();
         }
 
-        var result = await writer.CreateAsync(schema, request.ContentTypeId, request.ParentId, request.IsFolder, request.Fields, ct);
         if (result.Errors is not null)
         {
             return ApiErrors.Validation(result.Errors);
@@ -167,6 +168,11 @@ internal static class ItemEndpoints
         try
         {
             var result = await writer.UpdateAsync(schema!, item!, contentTypeId, parentId, fields, ct);
+            if (result.Forbidden)
+            {
+                return ListEndpoints.Forbidden();
+            }
+
             if (result.Errors is not null)
             {
                 return ApiErrors.Validation(result.Errors);
@@ -220,12 +226,13 @@ internal static class ItemEndpoints
     {
         var schema = await loader.LoadAsync(workspaceId, listId, ct);
         var item = schema is null ? null : await db.Items.FirstOrDefaultAsync(i => i.Id == itemId && i.ListId == listId, ct);
-        if (item is null)
+        var level = item is null ? WorkspaceAccessLevel.None : schema!.Access.Level(item.ScopeId);
+        if (level == WorkspaceAccessLevel.None)
         {
             return (null, null, ApiErrors.NotFound());
         }
 
-        if (schema!.Permission < WorkspaceAccessLevel.Contribute)
+        if (level < WorkspaceAccessLevel.Contribute)
         {
             return (null, null, ListEndpoints.Forbidden());
         }
@@ -235,7 +242,7 @@ internal static class ItemEndpoints
             return (null, null, ApiErrors.PreconditionRequired());
         }
 
-        if (version != item.Version)
+        if (version != item!.Version)
         {
             return (null, null, ApiErrors.PreconditionFailed());
         }

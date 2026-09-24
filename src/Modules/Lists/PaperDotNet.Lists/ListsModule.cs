@@ -58,6 +58,8 @@ public sealed class ListsModule : IModule
         BulkUpdateEndpoints.Map(endpoints);
         ViewEndpoints.Map(endpoints);
         ItemHistoryEndpoints.Map(endpoints);
+        PermissionEndpoints.Map(endpoints);
+        HomeEndpoints.Map(endpoints);
     }
 }
 

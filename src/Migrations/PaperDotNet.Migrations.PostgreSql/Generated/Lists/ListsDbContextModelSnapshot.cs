@@ -224,6 +224,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<bool>("HasUniquePermissions")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_unique_permissions");
+
                     b.Property<int>("Kind")
                         .HasColumnType("integer")
                         .HasColumnName("kind");
@@ -237,6 +241,11 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
+
+                    b.Property<string>("SystemKey")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("system_key");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
@@ -274,6 +283,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                     b.HasIndex("TenantId", "WorkspaceId")
                         .HasDatabaseName("ix_lists_tenant_id_workspace_id");
 
+                    b.HasIndex("WorkspaceId", "SystemKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_lists_workspace_id_system_key");
+
                     b.ToTable("lists", "lists");
                 });
 
@@ -310,6 +323,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasColumnName("fields")
                         .HasAnnotation("PaperDotNet:JsonDocument", true);
 
+                    b.Property<bool>("HasUniquePermissions")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_unique_permissions");
+
                     b.Property<bool>("IsFolder")
                         .HasColumnType("boolean")
                         .HasColumnName("is_folder");
@@ -321,6 +338,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                     b.Property<Guid?>("ParentId")
                         .HasColumnType("uuid")
                         .HasColumnName("parent_id");
+
+                    b.Property<Guid?>("ScopeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("scope_id");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
@@ -360,6 +381,9 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
 
                     b.HasIndex("ListId", "ParentId")
                         .HasDatabaseName("ix_items_list_id_parent_id");
+
+                    b.HasIndex("ListId", "ScopeId")
+                        .HasDatabaseName("ix_items_list_id_scope_id");
 
                     b.ToTable("items", "lists");
                 });
@@ -441,6 +465,57 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasDatabaseName("ix_views_tenant_id");
 
                     b.ToTable("views", "lists");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Lists.Data.PermissionGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("level");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("list_id");
+
+                    b.Property<Guid>("ObjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("object_id");
+
+                    b.Property<Guid>("PrincipalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("principal_id");
+
+                    b.Property<string>("PrincipalType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("principal_type");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_permission_grants");
+
+                    b.HasIndex("ListId")
+                        .HasDatabaseName("ix_permission_grants_list_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_permission_grants_tenant_id");
+
+                    b.HasIndex("ObjectId", "PrincipalType", "PrincipalId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_permission_grants_object_id_principal_type_principal_id");
+
+                    b.ToTable("permission_grants", "lists");
                 });
 
             modelBuilder.Entity("PaperDotNet.Persistence.AuditEntry", b =>

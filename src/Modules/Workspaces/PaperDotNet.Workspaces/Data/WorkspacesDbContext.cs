@@ -23,6 +23,7 @@ public sealed class WorkspacesDbContext(DbContextOptions<WorkspacesDbContext> op
             b.Property(w => w.Name).HasMaxLength(200);
             b.Property(w => w.Description).HasMaxLength(2000);
             b.HasMany(w => w.Members).WithOne().HasForeignKey(m => m.WorkspaceId);
+            b.HasIndex(w => new { w.TenantId, w.PersonalOwnerId }).IsUnique();
         });
         modelBuilder.Entity<WorkspaceMember>(b =>
         {

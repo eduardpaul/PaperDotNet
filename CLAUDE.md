@@ -73,6 +73,8 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   background reactions → `IntegrationEvent` + `IEventSubscriber<T>` (idempotent),
   published with `IOutbox.SaveChangesAsync(db, events)`. Only `PaperDotNet.Messaging`
   references Wolverine.
+- Item access: check `schema.Access.Level(item.ScopeId)` (404 below Read) and
+  filter queries with `schema.Access.Filter(level)` (ADR-0011).
 - Tags/classification → term ids from `ITermStore` (Taxonomy.Contracts) in
   `managedMetadata`/`keywords` fields; never store tag names as values.
 - Long work → `IOperations.StartAsync` + `OperationHandler<T>` (202 + `/operations/{id}`);

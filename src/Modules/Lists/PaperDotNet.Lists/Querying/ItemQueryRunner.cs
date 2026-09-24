@@ -12,6 +12,7 @@ using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Taxonomy.Contracts;
+using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Querying;
 
@@ -71,6 +72,11 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
     public async Task<(IQueryable<ListItem>? Query, string? Error)> FilteredAsync(ListSchema schema, string? filter, CancellationToken ct)
     {
         IQueryable<ListItem> query = db.Items.Where(i => i.ListId == schema.List.Id && !i.IsFolder);
+        if (schema.Access.Filter(WorkspaceAccessLevel.Contribute) is { } writable)
+        {
+            query = query.Where(writable);
+        }
+
         try
         {
             var hierarchy = await TermHierarchyAsync(schema, [filter], ct);
@@ -87,6 +93,11 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         ListSchema schema, ItemQueryOptions options, ListView? view, Expression<Func<ListItem, bool>>? scope, HttpRequest request, CancellationToken ct)
     {
         IQueryable<ListItem> query = db.Items.AsNoTracking().Where(i => i.ListId == schema.List.Id);
+        if (schema.Access.Filter(WorkspaceAccessLevel.Read) is { } readable)
+        {
+            query = query.Where(readable);
+        }
+
         if (scope is not null)
         {
             query = query.Where(scope);

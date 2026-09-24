@@ -18,6 +18,12 @@ internal sealed class UserDirectory(
 
     public Task<bool> AnyUsersAsync(CancellationToken cancellationToken) => db.Users.AnyAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Guid>> GetGroupIdsAsync(Guid userId, CancellationToken cancellationToken) =>
+        await db.GroupMembers.Where(m => m.UserId == userId).Select(m => m.GroupId).ToListAsync(cancellationToken);
+
+    public Task<bool> GroupExistsAsync(Guid groupId, CancellationToken cancellationToken) =>
+        db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken);
+
     public async Task<Guid> CreateUserAsync(NewUser request, CancellationToken cancellationToken)
     {
         var tenantId = tenant.TenantId ?? throw new InvalidOperationException("No tenant.");

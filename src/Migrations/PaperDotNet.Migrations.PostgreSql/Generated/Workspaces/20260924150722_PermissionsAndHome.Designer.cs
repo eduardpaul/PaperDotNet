@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PaperDotNet.Workspaces.Data;
@@ -12,9 +13,11 @@ using PaperDotNet.Workspaces.Data;
 namespace PaperDotNet.Migrations.PostgreSql.Generated.Workspaces
 {
     [DbContext(typeof(WorkspacesDbContext))]
-    partial class WorkspacesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260924150722_PermissionsAndHome")]
+    partial class PermissionsAndHome
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -111,6 +111,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workspaces
                         .HasColumnType("TEXT")
                         .HasColumnName("name");
 
+                    b.Property<Guid?>("PersonalOwnerId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("personal_owner_id");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
@@ -133,6 +137,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workspaces
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_workspaces_workspaces_tenant_id");
+
+                    b.HasIndex("TenantId", "PersonalOwnerId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_workspaces_workspaces_tenant_id_personal_owner_id");
 
                     b.ToTable("workspaces_workspaces", (string)null);
                 });

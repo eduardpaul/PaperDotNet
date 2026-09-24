@@ -9,12 +9,16 @@ using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Messaging;
 using PaperDotNet.Taxonomy.Contracts;
+using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
 /// <summary>Outcome of an item write: the item, validation errors, a conflict or a cancellation by a receiver.</summary>
-internal sealed record ItemWriteResult(ListItem? Item, Dictionary<string, string[]>? Errors = null, string? Conflict = null, string? Cancelled = null)
+internal sealed record ItemWriteResult(
+    ListItem? Item, Dictionary<string, string[]>? Errors = null, string? Conflict = null, string? Cancelled = null, bool Forbidden = false)
 {
+    public static readonly ItemWriteResult Denied = new(null, Forbidden: true);
+
     public static ItemWriteResult Invalid(string key, string message) => new(null, new Dictionary<string, string[]> { [key] = [message] });
 }
 
@@ -52,7 +56,8 @@ internal sealed partial class ItemWriter(
             return ItemWriteResult.Invalid("isFolder", "This list does not allow folders.");
         }
 
-        if (await ValidateParentAsync(schema, parentId, null, ct) is { } parentError)
+        var (parentError, scopeId) = await ValidateParentAsync(schema, parentId, null, ct);
+        if (parentError is not null)
         {
             return parentError;
         }
@@ -73,6 +78,7 @@ internal sealed partial class ItemWriter(
             ParentId = parentId,
             IsFolder = isFolder,
             Title = string.Empty,
+            ScopeId = scopeId,
         };
 
         var scope = Scope(schema, item);
@@ -108,9 +114,16 @@ internal sealed partial class ItemWriter(
             return ItemWriteResult.Invalid("contentTypeId", "The content type is not used by this list.");
         }
 
-        if (parentId.HasValue && await ValidateParentAsync(schema, parentId.Value, item, ct) is { } parentError)
+        Guid? newScopeId = item.ScopeId;
+        if (parentId.HasValue)
         {
-            return parentError;
+            (var parentError, var parentScope) = await ValidateParentAsync(schema, parentId.Value, item, ct);
+            if (parentError is not null)
+            {
+                return parentError;
+            }
+
+            newScopeId = item.HasUniquePermissions ? item.ScopeId : parentScope;
         }
 
         var before = Values(item);
@@ -155,9 +168,11 @@ internal sealed partial class ItemWriter(
             return new ItemWriteResult(null, errors);
         }
 
+        var oldScopeId = item.ScopeId;
         if (parentId.HasValue)
         {
             item.ParentId = parentId.Value;
+            item.ScopeId = newScopeId;
         }
 
         var contentTypeChanged = contentType.Id != item.ContentTypeId;
@@ -170,6 +185,11 @@ internal sealed partial class ItemWriter(
             await AddVersionAsync(schema, item, changed, ct);
         }
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Updating, item, schema, changed)], cancellationToken: ct);
+        if (item.IsFolder && oldScopeId != item.ScopeId)
+        {
+            await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
+        }
+
         await RunAfterAsync(new ItemChangedContext(ItemEventKind.Updating, scope, item.Id, currentUser.UserId, before, after, changed), ct);
         return new ItemWriteResult(item);
     }
@@ -201,9 +221,14 @@ internal sealed partial class ItemWriter(
     /// </summary>
     public async Task RestoreAsync(ListSchema schema, ListItem item, CancellationToken ct)
     {
+        var oldScopeId = item.ScopeId;
         if (item.ParentId is { } parentId && !await db.Items.AnyAsync(i => i.Id == parentId && i.IsFolder, ct))
         {
             item.ParentId = null;
+            if (!item.HasUniquePermissions)
+            {
+                item.ScopeId = null;
+            }
         }
 
         item.DeletedAt = null;
@@ -220,6 +245,10 @@ internal sealed partial class ItemWriter(
             IsFolder = item.IsFolder,
         };
         await outbox.SaveChangesAsync(db, [restored], cancellationToken: ct);
+        if (item.IsFolder && oldScopeId != item.ScopeId)
+        {
+            await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
+        }
     }
 
     /// <summary>Deletes recycle-bin items and their versions permanently.</summary>
@@ -488,20 +517,29 @@ internal sealed partial class ItemWriter(
         };
     }
 
-    private async Task<ItemWriteResult?> ValidateParentAsync(ListSchema schema, Guid? parentId, ListItem? moving, CancellationToken ct)
+    /// <summary>
+    /// Checks the target folder (null = list root) and that the user may contribute
+    /// there; returns the security scope items placed there inherit.
+    /// </summary>
+    private async Task<(ItemWriteResult? Error, Guid? ScopeId)> ValidateParentAsync(ListSchema schema, Guid? parentId, ListItem? moving, CancellationToken ct)
     {
         if (parentId is not { } id)
         {
-            return null;
+            return (schema.Access.Level(null) < WorkspaceAccessLevel.Contribute ? ItemWriteResult.Denied : null, null);
         }
 
         var parent = await db.Items.AsNoTracking()
             .Where(i => i.Id == id && i.ListId == schema.List.Id && i.IsFolder)
-            .Select(i => new { i.Id, i.ParentId })
+            .Select(i => new { i.Id, i.ParentId, i.ScopeId })
             .FirstOrDefaultAsync(ct);
-        if (parent is null)
+        if (parent is null || schema.Access.Level(parent.ScopeId) < WorkspaceAccessLevel.Read)
         {
-            return ItemWriteResult.Invalid("parentId", "The parent must be a folder in the same list.");
+            return (ItemWriteResult.Invalid("parentId", "The parent must be a folder in the same list."), null);
+        }
+
+        if (schema.Access.Level(parent.ScopeId) < WorkspaceAccessLevel.Contribute)
+        {
+            return (ItemWriteResult.Denied, null);
         }
 
         if (moving is { IsFolder: true })
@@ -512,7 +550,7 @@ internal sealed partial class ItemWriter(
             {
                 if (current == moving.Id)
                 {
-                    return ItemWriteResult.Invalid("parentId", "A folder cannot be moved into itself.");
+                    return (ItemWriteResult.Invalid("parentId", "A folder cannot be moved into itself."), null);
                 }
 
                 var next = current;
@@ -520,7 +558,7 @@ internal sealed partial class ItemWriter(
             }
         }
 
-        return null;
+        return (null, parent.ScopeId);
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "After-event receiver {Receiver} failed for item {ItemId}.")]

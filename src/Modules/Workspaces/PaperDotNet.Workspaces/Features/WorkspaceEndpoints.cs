@@ -11,7 +11,7 @@ using PaperDotNet.Workspaces.Data;
 
 namespace PaperDotNet.Workspaces.Features;
 
-public sealed record WorkspaceResponse(Guid Id, string Name, string? Description, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+public sealed record WorkspaceResponse(Guid Id, string Name, string? Description, bool IsPersonal, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
 
 public sealed record CreateWorkspaceRequest(
     [property: Required, StringLength(200, MinimumLength = 1)] string Name,
@@ -48,7 +48,7 @@ internal static class WorkspaceEndpoints
             .Where(w => page.After == null || w.Id.CompareTo(page.After.Value) > 0)
             .OrderBy(w => w.Id)
             .Take(page.Top + 1)
-            .Select(w => new WorkspaceResponse(w.Id, w.Name, w.Description, w.CreatedAt, w.UpdatedAt))
+            .Select(w => new WorkspaceResponse(w.Id, w.Name, w.Description, w.PersonalOwnerId != null, w.CreatedAt, w.UpdatedAt))
             .ToListAsync(ct);
         return TypedResults.Ok(Page.Create(items, page, http, w => w.Id));
     }
@@ -121,7 +121,12 @@ internal static class WorkspaceEndpoints
             return problem;
         }
 
-        db.Workspaces.Remove(workspace!);
+        if (workspace!.PersonalOwnerId is not null)
+        {
+            return ApiErrors.Conflict("personalWorkspace", "A personal workspace cannot be deleted.");
+        }
+
+        db.Workspaces.Remove(workspace);
         try
         {
             await db.SaveChangesAsync(ct);
@@ -156,6 +161,11 @@ internal static class WorkspaceEndpoints
         if (!await access.CanManageAsync(id, ct))
         {
             return ApiErrors.NotFound();
+        }
+
+        if (await db.Workspaces.AnyAsync(w => w.Id == id && w.PersonalOwnerId != null, ct))
+        {
+            return ApiErrors.Conflict("personalWorkspace", "Members cannot be added to a personal workspace.");
         }
 
         if (!await users.IsActiveAsync(request.UserId, ct))
@@ -207,5 +217,5 @@ internal static class WorkspaceEndpoints
         return (workspace, null);
     }
 
-    private static WorkspaceResponse ToResponse(Workspace w) => new(w.Id, w.Name, w.Description, w.CreatedAt, w.UpdatedAt);
+    private static WorkspaceResponse ToResponse(Workspace w) => new(w.Id, w.Name, w.Description, w.PersonalOwnerId is not null, w.CreatedAt, w.UpdatedAt);
 }

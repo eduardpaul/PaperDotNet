@@ -21,6 +21,8 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
 
     public DbSet<ItemVersion> ItemVersions => Set<ItemVersion>();
 
+    public DbSet<PermissionGrant> Grants => Set<PermissionGrant>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
@@ -38,6 +40,17 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
             b.Property(l => l.Name).HasMaxLength(200);
             b.HasIndex(l => new { l.TenantId, l.WorkspaceId });
             b.Property(l => l.Versioning).HasConversion<string>().HasMaxLength(20);
+            b.Property(l => l.SystemKey).HasMaxLength(50);
+            b.HasIndex(l => new { l.WorkspaceId, l.SystemKey }).IsUnique();
+        });
+
+        modelBuilder.Entity<PermissionGrant>(b =>
+        {
+            b.ToTable("permission_grants");
+            b.Property(g => g.PrincipalType).HasConversion<string>().HasMaxLength(10);
+            b.Property(g => g.Level).HasConversion<string>().HasMaxLength(20);
+            b.HasIndex(g => new { g.ObjectId, g.PrincipalType, g.PrincipalId }).IsUnique();
+            b.HasIndex(g => g.ListId);
         });
 
         modelBuilder.Entity<ItemVersion>(b =>
@@ -52,6 +65,7 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
             b.ToTable("items");
             b.Property(i => i.Title).HasMaxLength(1024);
             b.HasIndex(i => new { i.ListId, i.ParentId });
+            b.HasIndex(i => new { i.ListId, i.ScopeId });
             b.Property(i => i.Fields).IsJsonDocument();
             b.HasIndex(i => i.Fields).IsJsonContainmentIndex();
         });

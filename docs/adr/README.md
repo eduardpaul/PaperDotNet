@@ -15,3 +15,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0008](0008-wolverine-for-reliable-events.md) | Wolverine for reliable events (outbox) | Accepted |
 | [0009](0009-sqlite-default-postgresql-optional.md) | SQLite by default, PostgreSQL optional | Accepted |
 | [0010](0010-recurring-jobs-scheduler.md) | Recurring jobs with a small scheduler + Cronos (instead of Quartz.NET) | Accepted |
+| [0011](0011-permission-scopes.md) | Permission inheritance with security scopes | Accepted |

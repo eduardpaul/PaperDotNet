@@ -13,6 +13,9 @@ public sealed class Workspace : ITenantOwned, IAuditable, ISoftDeletable, IVersi
 
     public string? Description { get; set; }
 
+    /// <summary>Set for a user's personal workspace (Home); only that user is a member.</summary>
+    public Guid? PersonalOwnerId { get; set; }
+
     public List<WorkspaceMember> Members { get; set; } = [];
 
     public DateTimeOffset CreatedAt { get; set; }
@@ -32,8 +35,14 @@ public sealed class Workspace : ITenantOwned, IAuditable, ISoftDeletable, IVersi
 
 public enum WorkspaceRole
 {
+    /// <summary>Creates and edits content.</summary>
     Member = 0,
+
+    /// <summary>Full control.</summary>
     Owner = 1,
+
+    /// <summary>Reads only.</summary>
+    Visitor = 2,
 }
 
 public sealed class WorkspaceMember : ITenantOwned

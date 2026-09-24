@@ -63,18 +63,17 @@ internal static class ListEndpoints
     }
 
     private static async Task<Results<Ok<List<ListSummary>>, ProblemHttpResult>> ListAsync(
-        Guid workspaceId, IWorkspaceAccess workspaces, ListsDbContext db, CancellationToken ct)
+        Guid workspaceId, IWorkspaceAccess workspaces, ListSchemaLoader loader, CancellationToken ct)
     {
-        if (await workspaces.GetPermissionAsync(workspaceId, ct) == WorkspaceAccessLevel.None)
+        var level = await workspaces.GetPermissionAsync(workspaceId, ct);
+        if (level == WorkspaceAccessLevel.None)
         {
             return ApiErrors.NotFound();
         }
 
-        var lists = await db.Lists.AsNoTracking()
-            .Where(l => l.WorkspaceId == workspaceId)
-            .OrderBy(l => l.Name)
+        var lists = (await loader.VisibleListsAsync(workspaceId, level, ct))
             .Select(l => new ListSummary(l.Id, l.WorkspaceId, l.Name, l.Description, l.Kind, l.AllowFolders, l.CreatedAt, l.UpdatedAt))
-            .ToListAsync(ct);
+            .ToList();
         return TypedResults.Ok(lists);
     }
 
@@ -137,7 +136,7 @@ internal static class ListEndpoints
         db.Lists.Add(list);
         await db.SaveChangesAsync(ct);
         ETags.Set(response, list.Version);
-        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/lists/{list.Id}", ToResponse(new ListSchema(list, contentTypes, permission)));
+        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/lists/{list.Id}", ToResponse(new ListSchema(list, contentTypes, new ListAccess(permission, fullControl: true, new Dictionary<Guid, WorkspaceAccessLevel>()))));
     }
 
     private static async Task<Results<Ok<ListResponse>, ProblemHttpResult>> GetAsync(
@@ -192,7 +191,12 @@ internal static class ListEndpoints
             return problem;
         }
 
-        db.Lists.Remove(schema!.List);
+        if (schema!.List.SystemKey is not null)
+        {
+            return ApiErrors.Conflict("systemList", "This list is part of the system and cannot be deleted.");
+        }
+
+        db.Lists.Remove(schema.List);
         return await SaveAsync(db, ct) is { } conflict ? conflict : TypedResults.NoContent();
     }
 
@@ -305,7 +309,7 @@ internal static class ListEndpoints
     }
 
     /// <summary>The built-in Item content type (created on demand for tenants that predate the Lists module).</summary>
-    private static async Task<Guid> EnsureItemContentTypeAsync(ListsDbContext db, CancellationToken ct)
+    internal static async Task<Guid> EnsureItemContentTypeAsync(ListsDbContext db, CancellationToken ct)
     {
         var id = await db.ContentTypes.Where(c => c.IsBuiltIn && c.Name == ContentType.ItemName).Select(c => (Guid?)c.Id).FirstOrDefaultAsync(ct);
         if (id is { } existing)

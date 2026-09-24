@@ -112,6 +112,7 @@ internal sealed class BulkUpdateOperation(ListSchemaLoader loader, ItemQueryRunn
                 else if (failures.Count < MaxReportedFailures)
                 {
                     failures.Add(new BulkUpdateFailure(id, result.Cancelled
+                        ?? (result.Forbidden ? "Access denied." : null)
                         ?? string.Join(" ", result.Errors?.SelectMany(e => e.Value.Select(v => $"{e.Key}: {v}")) ?? [])));
                 }
             }
