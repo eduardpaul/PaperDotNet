@@ -32,6 +32,7 @@ It will be turned into a file during review.
 | # | Title | Area | Status | Mapped to |
 |---|---|---|---|---|
 | [0001](0001-extensible-dms-productivity-platform.md) | Extensible DMS + productivity platform | Platform | mapped | architecture-vision.md |
+| [0002](0002-email-to-inbox.md) | Email to inbox for documents | Documents | new | |
 
 ## Quick ideas
 
