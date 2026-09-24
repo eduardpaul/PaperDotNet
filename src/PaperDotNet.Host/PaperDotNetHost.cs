@@ -17,6 +17,7 @@ using PaperDotNet.Identity;
 using PaperDotNet.Jobs;
 using PaperDotNet.Lists;
 using PaperDotNet.Messaging;
+using PaperDotNet.Notifications;
 using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.Persistence.Sqlite;
@@ -51,6 +52,7 @@ public static class PaperDotNetHost
         new DocumentsModule(),
         new TasksModule(),
         new CalendarModule(),
+        new NotificationsModule(),
         new AuditModule(),
         new ExtensionHostModule(),
     ];

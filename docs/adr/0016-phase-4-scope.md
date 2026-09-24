@@ -44,6 +44,26 @@ exists for .NET.
   (`/v1.0/calendarFeeds/{tenant}{secret}.ics`, only the hash is stored) that
   act as their owner with the owner's current access.
 
+## Notifications (4c)
+
+- A Notifications module on the SDK owns the inbox, preferences, follows and
+  delivery. Other modules and extensions send through `INotificationSender`
+  (`PaperDotNet.Notifications.Contracts`, part of the SDK); a deduplication key
+  makes recurring jobs (reminders, digests) safe to run again.
+- Reminders are recurring jobs in the modules that own the data: Tasks (due
+  today, every 15 minutes) and Calendar (`reminderMinutes` before each
+  occurrence, every minute, looking ahead 28 days).
+- Follow alerts come from item events; each follower's access is checked in a
+  scope as that follower, and the actor is never notified of their own change.
+  Daily follows collect digest entries, sent at the user's digest hour.
+- Webhooks are signed with a per-user secret (HMAC-SHA256 over
+  `{timestamp}.{body}`, stored with Data Protection), sent only to https URLs
+  that resolve to public addresses (checked at connect time against DNS
+  rebinding), and retried by the dispatcher with its own backoff. The webhook
+  client is therefore not an `IHttpClientFactory` client with the default
+  resilience handler. Quiet hours delay webhook delivery; the inbox always
+  receives.
+
 ## Consequences
 
 - Existing tenants keep their task content type as it was (built-in content

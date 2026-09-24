@@ -23,7 +23,15 @@ public sealed record CalendarEntry(
     bool Recurring,
     DateTimeOffset? OccurrenceStart,
     Guid? MasterItemId,
-    string? Status);
+    string? Status)
+{
+    public IReadOnlyList<Guid> Attendees { get; init; } = [];
+
+    /// <summary>Minutes before the start to remind attendees (CAL-01, NTF-02).</summary>
+    public int? ReminderMinutes { get; init; }
+
+    public Guid? CreatedBy { get; init; }
+}
 
 /// <summary>The time-related values of an event item.</summary>
 internal sealed record EventTimes(DateTimeOffset Start, DateTimeOffset End, bool AllDay)
@@ -184,5 +192,10 @@ internal sealed class CalendarService(IListItemStore items, CalendarDbContext db
 
     private static CalendarEntry Entry(ListData list, ListItemData item, DateTimeOffset start, EventTimes times, bool recurring, DateTimeOffset? occurrence, Guid? master) =>
         new("event", item.WorkspaceId, item.ListId, list.Name, item.Id, Title(item), start, start + times.Duration, times.AllDay,
-            item.Fields["location"] is JsonValue location ? location.GetValue<string>() : null, recurring || master is not null, occurrence, master, null);
+            item.Fields["location"] is JsonValue location ? location.GetValue<string>() : null, recurring || master is not null, occurrence, master, null)
+        {
+            Attendees = item.Fields["attendees"] is JsonArray attendees ? [.. attendees.Select(a => Guid.Parse(a!.GetValue<string>()))] : [],
+            ReminderMinutes = item.Fields["reminderMinutes"] is JsonValue reminder && reminder.TryGetValue<decimal>(out var minutes) ? (int)minutes : null,
+            CreatedBy = item.CreatedBy,
+        };
 }

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Calendar.Data;
 using PaperDotNet.Calendar.Features;
+using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
 
@@ -40,6 +41,7 @@ public sealed class CalendarModule : IModule
         services.AddScoped<CalendarAccess>();
         services.AddScoped<IItemEventReceiver, EventTimesReceiver>();
         services.AddScoped<IEventSubscriber<ItemPurged>, PurgedEventData>();
+        services.AddTenantRecurringJob<EventReminderJob>(EventReminderJob.Name, EventReminderJob.Schedule);
         services.AddScopes(CalendarScopes.All);
     }
 

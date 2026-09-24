@@ -108,6 +108,9 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
             services.AddEventSubscriber<ItemAdded, TestSubscriber>();
             services.AddEventSubscriber<ItemUpdated, TestSubscriber>();
             services.AddTenantRecurringJob<TestRecurringJob>("test.every-second", "* * * * * *");
+
+            // Webhooks go to an in-memory receiver instead of the network.
+            services.AddKeyedSingleton<HttpMessageHandler>(PaperDotNet.Notifications.Features.WebhookDispatcher.HandlerKey, TestWebhookReceiver.Instance);
         });
     }
 

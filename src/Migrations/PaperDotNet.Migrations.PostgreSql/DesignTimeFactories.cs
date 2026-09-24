@@ -7,6 +7,7 @@ using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Jobs.Data;
 using PaperDotNet.Lists.Data;
+using PaperDotNet.Notifications.Data;
 using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.Search.Data;
 using PaperDotNet.Tasks.Data;
@@ -114,4 +115,10 @@ internal sealed class CalendarDesignTimeFactory : IDesignTimeDbContextFactory<Ca
 {
     public CalendarDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<CalendarDbContext>(CalendarDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class NotificationsDesignTimeFactory : IDesignTimeDbContextFactory<NotificationsDbContext>
+{
+    public NotificationsDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<NotificationsDbContext>(NotificationsDbContext.Schema), DesignTime.NoTenant);
 }

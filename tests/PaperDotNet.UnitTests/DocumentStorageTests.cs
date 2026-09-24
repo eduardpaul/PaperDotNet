@@ -56,3 +56,23 @@ public sealed class DocumentStorageTests
         }
     }
 }
+
+public sealed class WebhookNetworkTests
+{
+    [Theory]
+    [InlineData("8.8.8.8", true)]
+    [InlineData("2606:4700:4700::1111", true)]
+    [InlineData("127.0.0.1", false)]
+    [InlineData("10.1.2.3", false)]
+    [InlineData("172.20.0.1", false)]
+    [InlineData("192.168.1.10", false)]
+    [InlineData("169.254.169.254", false)]
+    [InlineData("100.64.0.1", false)]
+    [InlineData("0.0.0.0", false)]
+    [InlineData("::1", false)]
+    [InlineData("fd00::1", false)]
+    [InlineData("fe80::1", false)]
+    [InlineData("::ffff:10.0.0.1", false)]
+    public void Only_public_addresses_are_allowed_for_webhooks(string address, bool isPublic) =>
+        Assert.Equal(isPublic, PaperDotNet.Notifications.Features.WebhookNetwork.IsPublic(System.Net.IPAddress.Parse(address)));
+}

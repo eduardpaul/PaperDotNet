@@ -120,3 +120,21 @@ internal static class Eventually
     public static Task<bool> WaitForAsync(Func<bool> condition, TimeSpan? timeout = null) =>
         WaitForAsync(() => Task.FromResult(condition() ? (bool?)true : null), timeout);
 }
+
+/// <summary>Records webhook requests; hosts starting with <c>fail.</c> answer 500.</summary>
+internal sealed class TestWebhookReceiver : HttpMessageHandler
+{
+    public static readonly TestWebhookReceiver Instance = new();
+
+    public System.Collections.Concurrent.ConcurrentQueue<(Uri Url, Dictionary<string, string> Headers, string Body)> Requests { get; } = new();
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var body = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
+        var headers = request.Headers.ToDictionary(h => h.Key, h => string.Join(",", h.Value), StringComparer.OrdinalIgnoreCase);
+        Requests.Enqueue((request.RequestUri!, headers, body));
+        return new HttpResponseMessage(request.RequestUri!.Host.StartsWith("fail.", StringComparison.Ordinal)
+            ? System.Net.HttpStatusCode.InternalServerError
+            : System.Net.HttpStatusCode.OK);
+    }
+}

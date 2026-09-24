@@ -105,7 +105,10 @@ scope for an active tenant known only by id (e.g. from a token).
 Implement `IItemSearchContributor` to add text (and its language) to items'
 search documents, and call `IListItemStore.ReindexAsync(itemId)` when it
 changes. Push notifications to connected clients with `ILiveEvents.Publish`
-(they arrive on `GET /v1.0/me/events`).
+(they arrive on `GET /v1.0/me/events`). Notify users with
+`INotificationSender.SendAsync(message, userIds)`: the message lands in their
+inbox and goes to their channels (webhook) according to their preferences;
+pass a `DeduplicationKey` so a job that runs again does not notify twice.
 
 **Files** — `IBlobStore` (PaperDotNet.Abstractions) stores binary content on
 the installation's storage (local disk by default). Choose keys under the

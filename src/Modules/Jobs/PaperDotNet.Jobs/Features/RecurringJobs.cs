@@ -145,6 +145,10 @@ internal sealed partial class RecurringJobScheduler(
             {
                 await ((ITenantRecurringJob)scope.ServiceProvider.GetRequiredService(job.JobType)).RunAsync(ct);
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw; // Shutting down: not a tenant failure.
+            }
 #pragma warning disable CA1031 // A failure in one tenant must not skip the others.
             catch (Exception ex)
 #pragma warning restore CA1031

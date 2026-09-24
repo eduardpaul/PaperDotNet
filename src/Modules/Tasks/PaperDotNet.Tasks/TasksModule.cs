@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Tasks.Data;
@@ -37,6 +38,7 @@ public sealed class TasksModule : IModule
         services.AddScoped<TaskAccess>();
         services.AddScoped<IEventSubscriber<ItemUpdated>, RecurringTaskSpawner>();
         services.AddScoped<IEventSubscriber<ItemPurged>, PurgedTaskData>();
+        services.AddTenantRecurringJob<DueTaskReminderJob>(DueTaskReminderJob.Name, DueTaskReminderJob.Schedule);
         services.AddScopes(TaskScopes.All);
     }
 

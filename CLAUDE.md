@@ -93,11 +93,12 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   migrations in `{extension}.Migrations.Sqlite/.PostgreSql`). Extension rules are
   analyzers (PDN1xxx in `PaperDotNet.Extensions.Analyzers`); extension tests use
   `PaperDotNet.Extensions.Testing` (`ExtensionTestHost`).
-- Documents, Tasks (and Calendar) are built on the SDK only (ADR-0015, ADR-0016): add
+- Documents, Tasks, Calendar and Notifications are built on the SDK only (ADR-0015, ADR-0016): add
   missing pieces to the SDK/contracts, never reference module implementations.
   Binary content goes through `IBlobStore`; extra item text for search through
   `IItemSearchContributor`; client notifications through `ILiveEvents`
-  (`/v1.0/me/events`, SSE).
+  (`/v1.0/me/events`, SSE); user notifications (inbox, webhook) through
+  `INotificationSender` (Notifications.Contracts) with a deduplication key.
 - Record decisions as ADRs in `docs/adr/`.
 
 ## Ideas workflow
