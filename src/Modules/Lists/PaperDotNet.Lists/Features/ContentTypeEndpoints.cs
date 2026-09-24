@@ -28,7 +28,8 @@ public sealed record FieldDefinitionDto(
     Guid? LookupListId = null,
     string? CurrencyCode = null,
     JsonElement? DefaultValue = null,
-    Guid? TermSetId = null)
+    Guid? TermSetId = null,
+    FieldSearchWeight? Search = null)
 {
     internal FieldDefinition ToEntity() => new()
     {
@@ -44,6 +45,7 @@ public sealed record FieldDefinitionDto(
         Choices = Choices?.ToList() ?? [],
         LookupListId = LookupListId,
         TermSetId = TermSetId,
+        Search = Search,
         CurrencyCode = CurrencyCode,
         DefaultValue = DefaultValue is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined } d ? d.GetRawText() : null,
     };
@@ -52,10 +54,12 @@ public sealed record FieldDefinitionDto(
         f.Name, f.DisplayName, f.Type, f.Description, f.Required, f.AllowMultiple, f.MaxLength, f.Minimum, f.Maximum,
         f.Choices.Count > 0 ? f.Choices : null, f.LookupListId, f.CurrencyCode,
         f.DefaultValue is null ? null : JsonDocument.Parse(f.DefaultValue).RootElement.Clone(),
-        f.TermSetId);
+        f.TermSetId,
+        f.Search);
 }
 
-public sealed record ContentTypeResponse(Guid Id, string Name, string? Description, bool IsBuiltIn, IReadOnlyList<FieldDefinitionDto> Fields);
+/// <summary>A content type. <c>key</c> is set when it comes from a template; <c>extensionId</c> when an extension manages it (read-only).</summary>
+public sealed record ContentTypeResponse(Guid Id, string Name, string? Description, bool IsBuiltIn, string? Key, string? ExtensionId, IReadOnlyList<FieldDefinitionDto> Fields);
 
 public sealed record ContentTypeRequest(
     [property: Required, StringLength(200, MinimumLength = 1)] string Name,
@@ -133,6 +137,11 @@ internal static class ContentTypeEndpoints
         if (contentType is null)
         {
             return ApiErrors.NotFound();
+        }
+
+        if (contentType.ExtensionId is not null)
+        {
+            return ApiErrors.Conflict("managedByExtension", $"The content type is managed by the extension '{contentType.ExtensionId}'.");
         }
 
         if (!ETags.TryGetIfMatch(http, out var version))
@@ -237,5 +246,5 @@ internal static class ContentTypeEndpoints
     }
 
     internal static ContentTypeResponse ToResponse(ContentType c) =>
-        new(c.Id, c.Name, c.Description, c.IsBuiltIn, c.Fields.Select(FieldDefinitionDto.From).ToList());
+        new(c.Id, c.Name, c.Description, c.IsBuiltIn, c.Key, c.ExtensionId, c.Fields.Select(FieldDefinitionDto.From).ToList());
 }

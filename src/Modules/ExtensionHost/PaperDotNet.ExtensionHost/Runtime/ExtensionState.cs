@@ -14,7 +14,7 @@ namespace PaperDotNet.ExtensionHost.Runtime;
 /// Without a stored row the manifest's <c>autoEnable</c> applies.
 /// </summary>
 internal sealed class ExtensionState(ExtensionsDbContext db, ExtensionCatalog catalog, ITenantContext tenant)
-    : IExtensionState, IFieldTypeAvailability
+    : IExtensionState, IFieldTypeAvailability, IExtensionAvailability
 {
     private Dictionary<string, StateRow>? _rows;
 

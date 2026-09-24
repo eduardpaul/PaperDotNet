@@ -7,11 +7,11 @@ namespace PaperDotNet.Persistence.Sqlite;
 /// <summary>
 /// Full-text search on SQLite with FTS5: an external-content table
 /// <c>{table}_fts</c> kept in sync by triggers, ranked with <c>bm25</c>
-/// (the first column weighs most). Migrations create it with <see cref="CreateIndexSql"/>.
+/// (earlier columns weigh more: 10, 4, 1). Migrations create it with <see cref="CreateIndexSql"/>.
 /// </summary>
 public sealed class SqliteFullTextSearch : IFullTextSearch
 {
-    private static readonly double[] Weights = [10.0, 1.0, 0.5, 0.25];
+    private static readonly double[] Weights = [10.0, 4.0, 1.0, 0.5];
 
     public IQueryable<FullTextMatch> Match<TEntity>(DbContext db, FullTextQuery query)
         where TEntity : class

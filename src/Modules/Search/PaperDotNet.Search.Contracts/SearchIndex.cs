@@ -16,7 +16,11 @@ public sealed record SearchDocumentData(
     IReadOnlyCollection<string> Principals,
     IReadOnlyCollection<Guid> TermIds,
     Guid? CreatedBy,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt)
+{
+    /// <summary>High-weight text (ranks between title and body), e.g. tags or fields marked as important (SRC-06).</summary>
+    public string Keywords { get; init; } = string.Empty;
+}
 
 /// <summary>The search index of the current tenant.</summary>
 public interface ISearchIndex

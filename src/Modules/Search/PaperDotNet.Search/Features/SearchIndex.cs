@@ -35,6 +35,7 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
             document.ContentTypeId = data.ContentTypeId;
             document.Title = data.Title.Length > 1024 ? data.Title[..1024] : data.Title;
             document.Body = data.Body.Length > MaxBodyLength ? data.Body[..MaxBodyLength] : data.Body;
+            document.Keywords = data.Keywords.Length > MaxBodyLength ? data.Keywords[..MaxBodyLength] : data.Keywords;
             document.CreatedBy = data.CreatedBy;
             document.UpdatedAt = data.UpdatedAt;
             db.Principals.AddRange(data.Principals.Distinct(StringComparer.Ordinal).Select(p => new SearchPrincipal { DocumentId = data.Id, Principal = p }));

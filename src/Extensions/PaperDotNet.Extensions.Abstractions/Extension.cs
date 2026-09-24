@@ -68,6 +68,15 @@ public interface IExtensionBuilder
     IExtensionBuilder AddRecurringJob<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TJob>(string name, string cronSchedule)
         where TJob : class, ITenantRecurringJob;
 
+    /// <summary>
+    /// A content type managed by the extension (key starts with <c>{extension id}.</c>). It is
+    /// provisioned into a tenant when the tenant enables the extension, and kept in sync.
+    /// </summary>
+    IExtensionBuilder AddContentType(ContentTypeTemplate contentType);
+
+    /// <summary>A list template (LST-16; key starts with <c>{extension id}.</c>), offered where the extension is enabled.</summary>
+    IExtensionBuilder AddListTemplate(ListTemplateDefinition listTemplate);
+
     /// <summary>API endpoints under <c>/v1.0/extensions/{id}</c> (404 in tenants where the extension is disabled).</summary>
     IExtensionBuilder MapEndpoints(Action<IEndpointRouteBuilder> map);
 }
@@ -83,6 +92,9 @@ public sealed class ItemReceiverOptions
 
     /// <summary>List names.</summary>
     public List<string> Lists { get; } = [];
+
+    /// <summary>Keys of the list templates the list was created from (e.g. <c>tasks</c>).</summary>
+    public List<string> ListTemplates { get; } = [];
 
     public bool IncludeFolders { get; set; }
 

@@ -21,6 +21,14 @@ public sealed class ExtensionTests(PaperDotNetApiFactory factory)
     private static Task<HttpResponseMessage> EnableAsync(HttpClient admin, bool enabled = true) =>
         admin.PostAsync($"/v1.0/extensions/{Id}/{(enabled ? "enable" : "disable")}", null, Ct);
 
+    /// <summary>A list from the extension's template (content type provisioned on enable).</summary>
+    private static async Task<Guid> CreateInvoiceListAsync(HttpClient admin, Guid workspace)
+    {
+        var response = await admin.PostAsJsonAsync($"/v1.0/workspaces/{workspace}/lists", new { name = "Invoices", templateKey = $"{Id}.invoices" }, Ct);
+        Assert.True(response.StatusCode == HttpStatusCode.Created, await response.Content.ReadAsStringAsync(Ct));
+        return (await response.ReadJsonAsync()).GetProperty("id").GetGuid();
+    }
+
     [Fact]
     public async Task Installed_extensions_are_listed_and_disabled_by_default()
     {
@@ -52,15 +60,16 @@ public sealed class ExtensionTests(PaperDotNetApiFactory factory)
         var stats = await admin.GetAsync($"/v1.0/ext/{Id}/stats", Ct);
         Assert.Equal(HttpStatusCode.NotFound, stats.StatusCode);
         Assert.Equal("extensionDisabled", (await stats.ReadJsonAsync()).GetProperty("code").GetString());
-        var blocked = await admin.PostAsJsonAsync("/v1.0/contentTypes", new { name = "Invoice", fields = InvoiceFields }, Ct);
+        var blocked = await admin.PostAsJsonAsync("/v1.0/contentTypes", new { name = "Payment", fields = InvoiceFields }, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, blocked.StatusCode);
+        var templates = await (await admin.GetAsync("/v1.0/listTemplates", Ct)).ReadJsonAsync();
+        Assert.DoesNotContain(templates.EnumerateArray(), t => t.GetProperty("key").GetString() == $"{Id}.invoices");
 
         Assert.Equal(HttpStatusCode.OK, (await EnableAsync(admin)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/v1.0/ext/{Id}/stats", Ct)).StatusCode);
 
         var ws = await admin.CreateWorkspaceAsync("Finance");
-        var contentType = await admin.CreateContentTypeAsync("Invoice", InvoiceFields);
-        var list = await admin.CreateListAsync(ws, "Invoices", contentType);
+        var list = await CreateInvoiceListAsync(admin, ws);
 
         // The extension's field type validates; its receiver applies the approval rule (threshold 1000).
         var badIban = await admin.PostItemAsync(ws, list, new { fields = new { title = "INV-0", amount = 10, iban = "DE00 1234" } });
@@ -108,7 +117,7 @@ public sealed class ExtensionTests(PaperDotNetApiFactory factory)
         Assert.Equal("EUR", (await saved.ReadJsonAsync()).GetProperty("currency").GetString());
 
         var ws = await admin.CreateWorkspaceAsync("Finance");
-        var list = await admin.CreateListAsync(ws, "Invoices", await admin.CreateContentTypeAsync("Invoice", InvoiceFields));
+        var list = await CreateInvoiceListAsync(admin, ws);
         var item = await admin.CreateItemAsync(ws, list, new { fields = new { title = "INV-1", amount = 5000, status = "draft" } });
         Assert.Equal("draft", item.GetProperty("fields").GetProperty("status").GetString());
     }
@@ -162,5 +171,34 @@ public sealed class ExtensionTests(PaperDotNetApiFactory factory)
         var listB = await (await b.GetAsync("/v1.0/extensions", Ct)).ReadJsonAsync();
         Assert.False(listB.EnumerateArray().Single(e => e.GetProperty("id").GetString() == Id).GetProperty("enabled").GetBoolean());
         Assert.Equal(HttpStatusCode.NotFound, (await b.GetAsync("/v1.0/extensions/unknown.extension", Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Extension_content_types_are_provisioned_and_managed_by_the_extension()
+    {
+        await factory.CreateTenantAsync("ext-content");
+        var admin = await ApiClient.CreateAsync(factory, "ext-content");
+        await admin.CreateContentTypeAsync("Invoice", [new { name = "ref", type = "text" }]);
+
+        await EnableAsync(admin);
+
+        var contentTypes = (await (await admin.GetAsync("/v1.0/contentTypes", Ct)).ReadJsonAsync()).EnumerateArray().ToList();
+        var managed = Assert.Single(contentTypes, c => c.TryGetProperty("key", out var key) && key.GetString() == $"{Id}.invoice");
+        Assert.Equal(Id, managed.GetProperty("extensionId").GetString());
+        Assert.Equal("Invoice (2)", managed.GetProperty("name").GetString()); // the tenant's own "Invoice" keeps its name
+
+        var url = $"/v1.0/contentTypes/{managed.GetProperty("id").GetGuid()}";
+        var etag = (await admin.GetAsync(url, Ct)).Headers.ETag!.Tag;
+        var change = await admin.SendWithEtagAsync(HttpMethod.Put, url, etag, new { name = "Mine", fields = Array.Empty<object>() });
+        Assert.Equal(HttpStatusCode.Conflict, change.StatusCode);
+
+        // Enabling again keeps a single, in-sync content type.
+        await EnableAsync(admin);
+        var again = (await (await admin.GetAsync("/v1.0/contentTypes", Ct)).ReadJsonAsync()).EnumerateArray();
+        Assert.Single(again, c => c.TryGetProperty("key", out var key) && key.GetString() == $"{Id}.invoice");
+
+        var templates = await (await admin.GetAsync("/v1.0/listTemplates", Ct)).ReadJsonAsync();
+        var invoices = Assert.Single(templates.EnumerateArray(), t => t.GetProperty("key").GetString() == $"{Id}.invoices");
+        Assert.Equal(["All invoices", "Needs approval"], invoices.GetProperty("views").EnumerateArray().Select(v => v.GetString()));
     }
 }

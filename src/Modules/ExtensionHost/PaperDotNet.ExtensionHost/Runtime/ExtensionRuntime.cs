@@ -26,6 +26,10 @@ public sealed class ExtensionContributions
 
     public List<string> Jobs { get; } = [];
 
+    public List<string> ContentTypes { get; } = [];
+
+    public List<string> ListTemplates { get; } = [];
+
     public bool Endpoints { get; set; }
 }
 
@@ -182,6 +186,22 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
+    public IExtensionBuilder AddContentType(ContentTypeTemplate contentType)
+    {
+        RequirePrefix(contentType.Key, "Content type key");
+        services.AddSingleton(contentType with { ExtensionId = extension.Id });
+        extension.Contributions.ContentTypes.Add(contentType.Key);
+        return this;
+    }
+
+    public IExtensionBuilder AddListTemplate(ListTemplateDefinition listTemplate)
+    {
+        RequirePrefix(listTemplate.Key, "List template key");
+        services.AddSingleton(listTemplate with { ExtensionId = extension.Id });
+        extension.Contributions.ListTemplates.Add(listTemplate.Key);
+        return this;
+    }
+
     public IExtensionBuilder MapEndpoints(Action<IEndpointRouteBuilder> map)
     {
         extension.EndpointMaps.Add(map);
@@ -207,6 +227,7 @@ internal sealed class GatedItemReceiver(string extensionId, ItemReceiverOptions 
         (options.IncludeFolders || !scope.IsFolder)
         && (options.ContentTypes.Count == 0 || (scope.ContentTypeName is { } name && options.ContentTypes.Contains(name, StringComparer.OrdinalIgnoreCase)))
         && (options.Lists.Count == 0 || options.Lists.Contains(scope.ListName, StringComparer.OrdinalIgnoreCase))
+        && (options.ListTemplates.Count == 0 || (scope.ListTemplate is { } template && options.ListTemplates.Contains(template, StringComparer.Ordinal)))
         && (options.Condition?.Invoke(scope) ?? true)
         && inner.AppliesTo(scope);
 

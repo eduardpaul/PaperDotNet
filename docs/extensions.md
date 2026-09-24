@@ -53,9 +53,20 @@ public sealed class InvoicesExtension : IExtension
         builder.AddEventSubscriber<ItemAdded, InvoiceCounter>(); // async, at-least-once
         builder.AddRecurringJob<ReminderJob>("acme.invoices.reminders", "0 7 * * *");
         builder.MapEndpoints(api => api.MapGet("/stats", ...).RequireScope("acme.invoices.read"));
+        builder.AddContentType(new ContentTypeTemplate("acme.invoices.invoice", "Invoice", null, [...fields]));
+        builder.AddListTemplate(new ListTemplateDefinition("acme.invoices.invoices", "Invoices", null,
+            ["acme.invoices.invoice"], [new ViewTemplate("All invoices", ["title", "amount"])]));
     }
 }
 ```
+
+Content types you add are provisioned into a tenant when it enables the
+extension (a name clash gets a suffix, e.g. `Invoice (2)`), stay in sync with
+your definition, and cannot be changed by tenants. List templates appear in
+`GET /v1.0/listTemplates` where the extension is enabled. Receivers can be
+limited to lists created from a template (`o.ListTemplates.Add(...)`). Mark
+how fields count in search with `FieldDefinition.Search` (`None`, `Normal`,
+`High`; SRC-06).
 
 Every contribution is active only in tenants that enabled the extension:
 endpoints answer 404 `extensionDisabled`, receivers, subscribers and jobs

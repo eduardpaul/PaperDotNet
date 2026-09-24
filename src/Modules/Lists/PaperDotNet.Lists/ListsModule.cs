@@ -9,6 +9,7 @@ using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
+using PaperDotNet.Lists.Templates;
 using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
 using PaperDotNet.Search.Contracts;
@@ -39,6 +40,20 @@ public sealed class ListsModule : IModule
 
         services.AddSingleton<FieldTypeRegistry>();
         services.TryAddScoped<IFieldTypeAvailability, AllFieldTypesAvailable>();
+        services.TryAddScoped<IExtensionAvailability, NoExtensions>();
+        foreach (var template in BuiltInTemplates.ContentTypes)
+        {
+            services.AddSingleton(template);
+        }
+
+        foreach (var template in BuiltInTemplates.Lists)
+        {
+            services.AddSingleton(template);
+        }
+
+        services.AddSingleton<ListTemplateRegistry>();
+        services.AddScoped<ContentTypeProvisioner>();
+        services.AddScoped<IContentTypeProvisioning>(sp => sp.GetRequiredService<ContentTypeProvisioner>());
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
         services.AddScoped<ItemQueryRunner>();
@@ -70,6 +85,7 @@ public sealed class ListsModule : IModule
         ViewEndpoints.Map(endpoints);
         ItemHistoryEndpoints.Map(endpoints);
         PermissionEndpoints.Map(endpoints);
+        ListTemplateEndpoints.Map(endpoints);
         HomeEndpoints.Map(endpoints);
     }
 }

@@ -124,11 +124,16 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                         .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
+                    b.Property<string>("Keywords")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("keywords");
+
                     b.Property<NpgsqlTsVector>("SearchVector")
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("tsvector")
                         .HasColumnName("search_vector")
-                        .HasComputedColumnSql("setweight(to_tsvector('simple', regexp_replace(coalesce(\"title\", ''), '[[:punct:][:space:]]+', ' ', 'g')), 'A') || setweight(to_tsvector('simple', regexp_replace(coalesce(\"body\", ''), '[[:punct:][:space:]]+', ' ', 'g')), 'B')", true);
+                        .HasComputedColumnSql("setweight(to_tsvector('simple', regexp_replace(coalesce(\"title\", ''), '[[:punct:][:space:]]+', ' ', 'g')), 'A') || setweight(to_tsvector('simple', regexp_replace(coalesce(\"keywords\", ''), '[[:punct:][:space:]]+', ' ', 'g')), 'B') || setweight(to_tsvector('simple', regexp_replace(coalesce(\"body\", ''), '[[:punct:][:space:]]+', ' ', 'g')), 'C')", true);
 
                     b.Property<string>("SourceType")
                         .IsRequired()
@@ -170,7 +175,7 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
 
                     b.ToTable("documents", "search");
 
-                    b.HasAnnotation("PaperDotNet:FullText", "Title,Body");
+                    b.HasAnnotation("PaperDotNet:FullText", "Title,Keywords,Body");
                 });
 
             modelBuilder.Entity("PaperDotNet.Search.Data.SearchPrincipal", b =>

@@ -19,6 +19,12 @@ public sealed class ContentType : ITenantOwned, IAuditable, IVersioned
     /// <summary>Provided by the system (or an extension); cannot be deleted.</summary>
     public bool IsBuiltIn { get; set; }
 
+    /// <summary>Key of the <see cref="ContentTypeTemplate"/> it was provisioned from (e.g. <c>task</c>).</summary>
+    public string? Key { get; set; }
+
+    /// <summary>Extension that manages the content type (tenants cannot change it).</summary>
+    public string? ExtensionId { get; set; }
+
     public List<FieldDefinition> Fields { get; set; } = [];
 
     public DateTimeOffset CreatedAt { get; set; }
@@ -71,6 +77,9 @@ public sealed class ListDefinition : ITenantOwned, IAuditable, ISoftDeletable, I
     public List<Guid> ContentTypeIds { get; set; } = [];
 
     public ListVersioning Versioning { get; set; }
+
+    /// <summary>Key of the list template the list was created from, if any (LST-16).</summary>
+    public string? TemplateKey { get; set; }
 
     /// <summary>The list has its own permission grants instead of the workspace's (IAM-07).</summary>
     public bool HasUniquePermissions { get; set; }

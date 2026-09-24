@@ -116,11 +116,25 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
         return items.Select(item =>
         {
             var body = new StringBuilder();
+            var keywords = new StringBuilder();
             var itemTerms = new List<Guid>();
             foreach (var field in fields.GetValueOrDefault(item.ContentTypeId, []))
             {
                 var value = values[item.Id][field.Name];
+                var weight = field.Search ?? FieldSearchWeight.Normal;
                 if (value is null)
+                {
+                    continue;
+                }
+
+                if (TermTypes.Contains(field.Type))
+                {
+                    // Tags always count for facets and tag filters, even when not full-text indexed.
+                    itemTerms.AddRange(Ids(value));
+                }
+
+                var target = weight == FieldSearchWeight.High ? keywords : body;
+                if (weight == FieldSearchWeight.None)
                 {
                     continue;
                 }
@@ -129,20 +143,22 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
                 {
                     foreach (var id in Ids(value))
                     {
-                        itemTerms.Add(id);
-                        body.AppendJoin(' ', labels.GetValueOrDefault(id) ?? []).Append('\n');
+                        target.AppendJoin(' ', labels.GetValueOrDefault(id) ?? []).Append('\n');
                     }
                 }
                 else if (TextTypes.Contains(field.Type))
                 {
                     var texts = value is JsonArray array ? array.Select(Text) : [Text(value)];
-                    body.AppendJoin(' ', texts).Append('\n');
+                    target.AppendJoin(' ', texts).Append('\n');
                 }
             }
 
             return new SearchDocumentData(
                 item.Id, ItemSourceType, list.WorkspaceId, list.Id, item.ContentTypeId, item.Title, body.ToString(),
-                Principals(list, item, grants), itemTerms, item.CreatedBy, item.UpdatedAt);
+                Principals(list, item, grants), itemTerms, item.CreatedBy, item.UpdatedAt)
+            {
+                Keywords = keywords.ToString(),
+            };
         }).ToList();
     }
 

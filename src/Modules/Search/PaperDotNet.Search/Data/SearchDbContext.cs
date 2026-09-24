@@ -24,6 +24,9 @@ public sealed class SearchDocument : ITenantOwned
 
     public required string Title { get; set; }
 
+    /// <summary>High-weight text (SRC-06).</summary>
+    public string Keywords { get; set; } = string.Empty;
+
     public string Body { get; set; } = string.Empty;
 
     public Guid? CreatedBy { get; set; }
@@ -75,7 +78,7 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
             b.Property(d => d.SourceType).HasMaxLength(50);
             b.Property(d => d.Title).HasMaxLength(1024);
             b.HasIndex(d => new { d.TenantId, d.ContainerId });
-            b.HasFullTextIndex(nameof(SearchDocument.Title), nameof(SearchDocument.Body));
+            b.HasFullTextIndex(nameof(SearchDocument.Title), nameof(SearchDocument.Keywords), nameof(SearchDocument.Body));
         });
         modelBuilder.Entity<SearchPrincipal>(b =>
         {

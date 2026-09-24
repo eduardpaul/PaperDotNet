@@ -11,6 +11,7 @@ using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.ExtensionHost.Runtime;
 using PaperDotNet.Extensions;
 using PaperDotNet.Identity.Contracts;
+using PaperDotNet.Lists.Contracts;
 
 namespace PaperDotNet.ExtensionHost.Features;
 
@@ -55,9 +56,13 @@ internal static class ExtensionEndpoints
             ? TypedResults.Ok(ToResponse(extension, await state.IsEnabledAsync(id, ct)))
             : ApiErrors.NotFound();
 
-    /// <summary>Enables the extension; its member-default scopes are added to the built-in Member role.</summary>
+    /// <summary>
+    /// Enables the extension: its content types are provisioned and its member-default scopes are
+    /// added to the built-in Member role.
+    /// </summary>
     private static async Task<Results<Ok<ExtensionResponse>, ProblemHttpResult>> EnableAsync(
-        string id, ExtensionCatalog catalog, ExtensionsDbContext db, IRoleProvisioning roles, ExtensionState state, CancellationToken ct)
+        string id, ExtensionCatalog catalog, ExtensionsDbContext db, IRoleProvisioning roles, IContentTypeProvisioning contentTypes,
+        ExtensionState state, CancellationToken ct)
     {
         if (catalog.Find(id) is not { } extension)
         {
@@ -67,6 +72,7 @@ internal static class ExtensionEndpoints
         var row = await RowAsync(db, id, ct);
         row.Enabled = true;
         await SaveAsync(db, state, ct);
+        await contentTypes.ProvisionExtensionAsync(id, ct);
         await roles.GrantToMembersAsync([.. extension.Manifest.Scopes.Where(s => s.GrantedToMembers).Select(s => s.Name)], ct);
         return TypedResults.Ok(ToResponse(extension, enabled: true));
     }

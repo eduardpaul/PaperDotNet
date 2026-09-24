@@ -25,6 +25,23 @@ public sealed class InvoicesExtension : IExtension
     {
         builder.Services.AddSingleton<InvoiceStats>();
         builder.AddFieldType(new IbanFieldType());
+
+        // Provisioned into a tenant when it enables the extension; managed by the extension.
+        builder.AddContentType(new ContentTypeTemplate($"{Id}.invoice", "Invoice", "An invoice with amount, approval status and IBAN.",
+        [
+            new FieldDefinition { Name = "amount", DisplayName = "Amount", Type = "number", Required = true },
+            new FieldDefinition { Name = "status", DisplayName = "Status", Type = "choice", Choices = ["draft", "pendingApproval", "approved"], DefaultValue = "\"draft\"" },
+            new FieldDefinition { Name = "iban", DisplayName = "IBAN", Type = $"{Id}.iban", Search = FieldSearchWeight.High },
+            new FieldDefinition { Name = "internalNote", DisplayName = "Internal note", Type = "note", Search = FieldSearchWeight.None },
+        ]));
+        builder.AddListTemplate(new ListTemplateDefinition($"{Id}.invoices", "Invoices", "Invoices with an approval queue.", [$"{Id}.invoice"],
+        [
+            new ViewTemplate("All invoices", ["title", "amount", "status"], OrderBy: "fields/amount desc", IsDefault: true),
+            new ViewTemplate("Needs approval", ["title", "amount"], "fields/status eq 'pendingApproval'"),
+        ])
+        {
+            Versioning = true,
+        });
         builder.AddItemReceiver<ApprovalReceiver>(o =>
         {
             o.Sequence = 100;

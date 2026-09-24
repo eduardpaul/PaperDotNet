@@ -43,9 +43,19 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<string>("ExtensionId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("extension_id");
+
                     b.Property<bool>("IsBuiltIn")
                         .HasColumnType("boolean")
                         .HasColumnName("is_built_in");
+
+                    b.Property<string>("Key")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("key");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -101,6 +111,8 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
 
                             b1.Property<bool>("Required");
 
+                            b1.Property<int?>("Search");
+
                             b1.Property<Guid?>("TermSetId");
 
                             b1.Property<string>("Type")
@@ -116,6 +128,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_content_types_tenant_id");
+
+                    b.HasIndex("TenantId", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("ix_content_types_tenant_id_key");
 
                     b.HasIndex("TenantId", "Name")
                         .IsUnique()
@@ -246,6 +262,11 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("system_key");
+
+                    b.Property<string>("TemplateKey")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("template_key");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")

@@ -44,6 +44,22 @@ public sealed class FieldDefinition
 
     /// <summary>Default value as JSON text, applied on create when no value is given.</summary>
     public string? DefaultValue { get; set; }
+
+    /// <summary>How the field counts in full-text search (SRC-06); null means <see cref="FieldSearchWeight.Normal"/>.</summary>
+    public FieldSearchWeight? Search { get; set; }
+}
+
+/// <summary>Weight of a field in full-text search (SRC-06).</summary>
+public enum FieldSearchWeight
+{
+    /// <summary>Not indexed.</summary>
+    None = 0,
+
+    /// <summary>Indexed with the body text.</summary>
+    Normal = 1,
+
+    /// <summary>Indexed with high weight (ranks close to the title).</summary>
+    High = 2,
 }
 
 /// <summary>How a field's values are stored in the item JSON and compared in queries.</summary>

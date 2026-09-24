@@ -38,6 +38,7 @@ public sealed class ExtensionHostModule : IModule
         services.AddScoped<ExtensionState>();
         services.AddScoped<IExtensionState>(sp => sp.GetRequiredService<ExtensionState>());
         services.Replace(ServiceDescriptor.Scoped<IFieldTypeAvailability>(sp => sp.GetRequiredService<ExtensionState>()));
+        services.Replace(ServiceDescriptor.Scoped<IExtensionAvailability>(sp => sp.GetRequiredService<ExtensionState>()));
         services.AddScopes(ExtensionScopes.All);
     }
 

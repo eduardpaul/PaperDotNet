@@ -66,3 +66,27 @@ public sealed class ExtensionTests
     public void Sample_iban_field_checks_the_checksum(string iban, bool valid) =>
         Assert.Equal(valid, IbanFieldType.IsValid(iban.Replace(" ", string.Empty, StringComparison.Ordinal)));
 }
+
+public sealed class ReceiverRegistrationTests
+{
+    private sealed class Noop : PaperDotNet.Lists.Contracts.IItemEventReceiver;
+
+    [Fact]
+    public void Receivers_filter_by_content_type_list_and_template()
+    {
+        var options = new ItemReceiverOptions();
+        options.ContentTypes.Add("Invoice");
+        options.ListTemplates.Add("samples.invoices.invoices");
+        var receiver = new PaperDotNet.ExtensionHost.Runtime.GatedItemReceiver("samples.invoices", options, new Noop(), null!);
+        var scope = new PaperDotNet.Lists.Contracts.ItemEventScope(Guid.NewGuid(), Guid.NewGuid(), "Invoices", Guid.NewGuid(), false)
+        {
+            ContentTypeName = "invoice",
+            ListTemplate = "samples.invoices.invoices",
+        };
+
+        Assert.True(receiver.AppliesTo(scope));
+        Assert.False(receiver.AppliesTo(scope with { ListTemplate = "tasks" }));
+        Assert.False(receiver.AppliesTo(scope with { ContentTypeName = "Quote" }));
+        Assert.False(receiver.AppliesTo(scope with { IsFolder = true }));
+    }
+}

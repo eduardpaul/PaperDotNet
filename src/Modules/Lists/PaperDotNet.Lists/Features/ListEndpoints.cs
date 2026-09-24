@@ -8,6 +8,8 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
+using PaperDotNet.Lists.Querying;
+using PaperDotNet.Lists.Templates;
 using PaperDotNet.Messaging;
 using PaperDotNet.Workspaces.Contracts;
 
@@ -25,6 +27,7 @@ public sealed record ListResponse(
     bool AllowFolders,
     ListVersioning Versioning,
     int MaxVersions,
+    string? TemplateKey,
     IReadOnlyList<ContentTypeResponse> ContentTypes,
     IReadOnlyList<FieldDefinitionDto> Columns,
     DateTimeOffset CreatedAt,
@@ -37,7 +40,8 @@ public sealed record CreateListRequest(
     bool AllowFolders = true,
     IReadOnlyList<Guid>? ContentTypeIds = null,
     ListVersioning? Versioning = null,
-    [property: Range(1, ListDefinition.MaxVersionsLimit)] int MaxVersions = ListDefinition.DefaultMaxVersions);
+    [property: Range(1, ListDefinition.MaxVersionsLimit)] int MaxVersions = ListDefinition.DefaultMaxVersions,
+    [property: StringLength(150)] string? TemplateKey = null);
 
 public sealed record UpdateListRequest(
     [property: StringLength(200, MinimumLength = 1)] string? Name,
@@ -79,8 +83,13 @@ internal static class ListEndpoints
         return TypedResults.Ok(lists);
     }
 
+    /// <summary>
+    /// Creates a list from content types, or from a template (<c>templateKey</c>, LST-16), which
+    /// provisions its content types and creates its views.
+    /// </summary>
     private static async Task<Results<Created<ListResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
-        Guid workspaceId, CreateListRequest request, IWorkspaceAccess workspaces, ListsDbContext db, HttpResponse response, CancellationToken ct)
+        Guid workspaceId, CreateListRequest request, IWorkspaceAccess workspaces, ListsDbContext db, ListTemplateRegistry templates,
+        ContentTypeProvisioner provisioner, IExtensionAvailability extensions, ItemQueryRunner runner, HttpResponse response, CancellationToken ct)
     {
         var permission = await workspaces.GetPermissionAsync(workspaceId, ct);
         if (permission == WorkspaceAccessLevel.None)
@@ -98,7 +107,27 @@ internal static class ListEndpoints
             return invalid;
         }
 
+        ListTemplateDefinition? template = null;
+        if (request.TemplateKey is { } templateKey)
+        {
+            template = templates.FindList(templateKey);
+            if (template is null || (template.ExtensionId is { } owner && !await extensions.IsEnabledAsync(owner, ct)))
+            {
+                return ApiErrors.Validation(new Dictionary<string, string[]> { ["templateKey"] = ["Unknown list template."] });
+            }
+
+            if (request.ContentTypeIds is { Count: > 0 })
+            {
+                return ApiErrors.Validation(new Dictionary<string, string[]> { ["contentTypeIds"] = ["Use either a template or content types."] });
+            }
+        }
+
         var contentTypeIds = request.ContentTypeIds?.Distinct().ToList() ?? [];
+        foreach (var key in template?.ContentTypeKeys ?? [])
+        {
+            contentTypeIds.Add((await provisioner.EnsureAsync(templates.FindContentType(key)!, ct)).Id);
+        }
+
         if (contentTypeIds.Count == 0)
         {
             contentTypeIds.Add(await EnsureItemContentTypeAsync(db, ct));
@@ -127,18 +156,24 @@ internal static class ListEndpoints
             WorkspaceId = workspaceId,
             Name = request.Name.Trim(),
             Description = request.Description,
-            Kind = request.Kind,
-            AllowFolders = request.AllowFolders,
+            Kind = template is null ? request.Kind : template.IsLibrary ? ListKind.Library : ListKind.List,
+            AllowFolders = template?.AllowFolders ?? request.AllowFolders,
             ContentTypeIds = contentTypeIds,
-
-            // Libraries keep versions by default (like SharePoint document libraries).
-            Versioning = request.Versioning ?? (request.Kind == ListKind.Library ? ListVersioning.Major : ListVersioning.Off),
+            TemplateKey = template?.Key,
             MaxVersions = request.MaxVersions,
         };
+
+        // Libraries keep versions by default (like SharePoint document libraries).
+        list.Versioning = request.Versioning
+            ?? (template?.Versioning == true || list.Kind == ListKind.Library ? ListVersioning.Major : ListVersioning.Off);
         db.Lists.Add(list);
         await db.SaveChangesAsync(ct);
+        if (template is not null)
+        {
+            await CreateViewsAsync(db, runner, new ListSchema(list, contentTypes, FullAccess), template, ct);
+        }
         ETags.Set(response, list.Version);
-        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/lists/{list.Id}", ToResponse(new ListSchema(list, contentTypes, new ListAccess(permission, fullControl: true, new Dictionary<Guid, WorkspaceAccessLevel>()))));
+        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/lists/{list.Id}", ToResponse(new ListSchema(list, contentTypes, FullAccess)));
     }
 
     private static async Task<Results<Ok<ListResponse>, ProblemHttpResult>> GetAsync(
@@ -334,6 +369,34 @@ internal static class ListEndpoints
         return item.Id;
     }
 
+    private static readonly ListAccess FullAccess = new(WorkspaceAccessLevel.Manage, fullControl: true, new Dictionary<Guid, WorkspaceAccessLevel>());
+
+    private static async Task CreateViewsAsync(ListsDbContext db, ItemQueryRunner runner, ListSchema schema, ListTemplateDefinition template, CancellationToken ct)
+    {
+        foreach (var view in template.Views)
+        {
+            if (runner.Validate(schema, view.Filter, view.OrderBy) is { } error)
+            {
+                throw new InvalidOperationException($"List template '{template.Key}', view '{view.Name}': {error}");
+            }
+
+            db.Views.Add(new ListView
+            {
+                Id = Ids.New(),
+                ListId = schema.List.Id,
+                Name = view.Name,
+                Columns = [.. view.Columns],
+                Filter = view.Filter,
+                OrderBy = view.OrderBy,
+                GroupBy = view.GroupBy,
+                Layout = Enum.Parse<ViewLayout>(view.Layout, ignoreCase: true),
+                IsDefault = view.IsDefault,
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
+
     internal static ProblemHttpResult Forbidden() =>
         ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "You do not have permission for this action in the workspace.");
 
@@ -346,6 +409,7 @@ internal static class ListEndpoints
         schema.List.AllowFolders,
         schema.List.Versioning,
         schema.List.MaxVersions,
+        schema.List.TemplateKey,
         schema.ContentTypes.Select(ContentTypeEndpoints.ToResponse).ToList(),
         [new FieldDefinitionDto("title", "Title", "text", Required: true, MaxLength: ItemWriter.TitleMaxLength), .. schema.Fields.Values.Select(FieldDefinitionDto.From)],
         schema.List.CreatedAt,

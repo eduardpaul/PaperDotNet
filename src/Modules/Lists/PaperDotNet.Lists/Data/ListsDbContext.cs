@@ -31,6 +31,9 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
         {
             b.Property(c => c.Name).HasMaxLength(200);
             b.HasIndex(c => new { c.TenantId, c.Name }).IsUnique();
+            b.Property(c => c.Key).HasMaxLength(150);
+            b.Property(c => c.ExtensionId).HasMaxLength(100);
+            b.HasIndex(c => new { c.TenantId, c.Key }).IsUnique();
             b.ComplexCollection(c => c.Fields, f => f.ToJson());
         });
 
@@ -41,6 +44,7 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
             b.HasIndex(l => new { l.TenantId, l.WorkspaceId });
             b.Property(l => l.Versioning).HasConversion<string>().HasMaxLength(20);
             b.Property(l => l.SystemKey).HasMaxLength(50);
+            b.Property(l => l.TemplateKey).HasMaxLength(150);
             b.HasIndex(l => new { l.WorkspaceId, l.SystemKey }).IsUnique();
         });
 
