@@ -10,7 +10,7 @@ public static class ModelConventions
     /// Applies PaperDotNet conventions to every entity in the model:
     /// the named <c>Tenant</c> filter for <see cref="ITenantOwned"/>, the named
     /// <c>SoftDelete</c> filter for <see cref="ISoftDeletable"/>, a tenant index,
-    /// and row versions for <see cref="IVersioned"/>.
+    /// and concurrency tokens for <see cref="IVersioned"/>.
     /// Call at the end of <c>OnModelCreating</c>.
     /// </summary>
     public static ModelBuilder ApplyPaperDotNetConventions<TContext>(this ModelBuilder modelBuilder, TContext context)
@@ -48,7 +48,7 @@ public static class ModelConventions
 
             if (typeof(IVersioned).IsAssignableFrom(clrType))
             {
-                entity.Property(nameof(IVersioned.Version)).IsRowVersion();
+                entity.Property(nameof(IVersioned.Version)).IsConcurrencyToken();
             }
         }
 

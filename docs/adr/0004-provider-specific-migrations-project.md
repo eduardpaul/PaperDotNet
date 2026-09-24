@@ -8,16 +8,18 @@ module projects would make every module depend on Npgsql and break the
 provider-agnostic rule.
 
 ## Decision
-All PostgreSQL migrations live in `src/Migrations/PaperDotNet.Migrations.PostgreSql`,
-one folder per module under `Generated/`, each with its own history table in
-the module schema. Design-time factories there build the contexts.
+Migrations live in one project per provider (ADR-0009):
+`src/Migrations/PaperDotNet.Migrations.Sqlite` and
+`src/Migrations/PaperDotNet.Migrations.PostgreSql`, one folder per module under
+`Generated/`, each module with its own history table. Design-time factories
+there build the contexts. Every model change needs a migration in **both**.
 
 ```
+dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Sqlite -c <Module>DbContext -o Generated/<Module>
 dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.PostgreSql -c <Module>DbContext -o Generated/<Module>
 ```
 
 CI fails when a model has changes without a migration.
 
 ## Consequences
-A second database provider would add a sibling migrations project; modules stay
-unchanged.
+Adding a provider adds a sibling migrations project; modules stay unchanged.

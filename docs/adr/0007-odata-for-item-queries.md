@@ -17,11 +17,10 @@ between our own parser and the OData libraries; the user chose OData.
   by the standard parser with OData error messages.
 - **Translation** of those trees to LINQ is ours (`ItemQueryTranslator`),
   because OData's `ApplyTo` needs compile-time CLR types:
-  - field values are read via `JsonDocument.RootElement.GetProperty(…)`,
-    which Npgsql translates to `->>` with casts;
-  - equality, `in` and `any` use JSON containment (`@>`) through the
-    provider abstraction `IJsonQueryFunctions`, so the GIN
-    (`jsonb_path_ops`) index is used;
+  - field values are read via the provider-neutral `JsonFunctions`
+    (translated per provider, ADR-0009);
+  - equality, `in` and `any` use `JsonFunctions.Contains` (PostgreSQL `@>`,
+    so the GIN `jsonb_path_ops` index is used; SQLite: `pdn_json_contains`);
   - dates are stored in canonical text forms that sort correctly.
 - Items look like Graph list items: top-level properties (`id`, `parentId`,
   `contentTypeId`, `createdAt`, …) and `fields/<name>`.
@@ -37,5 +36,5 @@ between our own parser and the OData libraries; the user chose OData.
 ## Consequences
 - `$expand`, `$batch` and `$metadata` are not exposed yet; the OData ASP.NET
   Core package is in place for them.
-- A future database provider needs its own `IJsonQueryFunctions` and must
-  translate `JsonElement.GetProperty` (or replace the translator).
+- Each database provider translates `JsonFunctions` with a method-call
+  translator plugin; the query translator itself is provider-neutral.

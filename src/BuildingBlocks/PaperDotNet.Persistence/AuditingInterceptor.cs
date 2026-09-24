@@ -5,7 +5,7 @@ using PaperDotNet.Abstractions;
 namespace PaperDotNet.Persistence;
 
 /// <summary>
-/// Stamps the tenant and audit columns on save, turns deletes of
+/// Stamps the tenant, audit columns and concurrency versions on save, turns deletes of
 /// <see cref="ISoftDeletable"/> into soft deletes, and rejects any write that
 /// would touch another tenant's data.
 /// </summary>
@@ -48,6 +48,11 @@ public sealed class AuditingInterceptor(ITenantContext tenant, ICurrentUser user
                 entry.State = EntityState.Modified;
                 deletable.DeletedAt = now;
                 deletable.DeletedBy = user.UserId;
+            }
+
+            if (entry.Entity is IVersioned versioned)
+            {
+                versioned.Version = entry.State == EntityState.Added ? 1 : versioned.Version + 1;
             }
 
             if (entry.Entity is IAuditable audited)

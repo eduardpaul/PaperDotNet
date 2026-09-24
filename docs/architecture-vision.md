@@ -16,8 +16,9 @@
 > **Guiding principle (decided 2026-09-24): self-hosting and practicality come first.**
 > Simplicity here means **practicality**: whatever is easiest to build,
 > run and maintain. It does not mean the fewest dependencies.
-> - The minimal install is **two containers: PaperDotNet + PostgreSQL**, plus a
->   volume for files. `docker compose up` must give a fully working system.
+> - The minimal install is **one container** (SQLite database on a volume,
+>   ADR-0009). `docker compose up` must give a fully working system.
+>   PostgreSQL is an option for larger installations.
 > - That includes OCR, search, background jobs, auth (local accounts + API
 >   tokens) and the MCP server.
 > - Everything else is **optional and off by default**: external IdP, S3
@@ -177,8 +178,8 @@ The roadmap (phases P0–P7 with the features in each phase) is maintained in
 | 1 | Frontend: React/TypeScript or Blazor? | **Deferred** (backend-only for now). Leaning **React/TS**: a larger extension-developer audience and a mature dynamic-module ecosystem. Parts of Papermerge's UI ideas can be reused |
 | 2 | Deployment: self-hosted single-tenant, SaaS multi-tenant, or both? | **Decided (2026-09-24): multitenancy from the start.** Shared DB with `TenantId` on every row. Self-hosted = one default tenant |
 | 3 | Extension trust: in-process only, or remote from day one? | **Decided (2026-09-24): in-process extensions first** (phase 2). Contracts are designed so remote extensions can be added in phase 6 |
-| 4 | Database: PostgreSQL only, or also SQL Server/SQLite? | **Decided (2026-09-24): PostgreSQL only, through EF Core** from the beginning so the database can be switched later. Provider-specific features stay behind abstractions (see section 4) |
+| 4 | Database: PostgreSQL only, or also SQL Server/SQLite? | **Decided (2026-09-24, ADR-0009): SQLite by default, PostgreSQL optional**, everything through EF Core and working on both. Provider-specific features stay behind abstractions (see section 4) |
 | 5 | License / business model | Decide early. It affects extension licensing (e.g. MIT core with a commercial marketplace) |
 | 6 | Mobile / offline support | **Deferred** with the UI. Out of scope for v1. Keep the API sync-friendly (ETags, `modifiedSince`) |
 | 7 | Dependency licenses | **Decided (2026-09-24):** MIT / Apache-2.0, plus BSD / PostgreSQL License with notice when there is no alternative. See [dependency-licenses.md](dependency-licenses.md) |
-| 8 | Priorities | **Decided (2026-09-24): self-hosting and practicality first.** Minimal install = PaperDotNet + PostgreSQL, everything else optional. Use mature in-process libraries rather than reinventing them |
+| 8 | Priorities | **Decided (2026-09-24): self-hosting and practicality first.** Minimal install = one PaperDotNet container (SQLite), everything else optional. Use mature in-process libraries rather than reinventing them |

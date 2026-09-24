@@ -19,7 +19,7 @@ public sealed class WorkspaceTests(PaperDotNetApiFactory factory)
         Assert.Equal(HttpStatusCode.PreconditionRequired, withoutEtag.StatusCode);
 
         var stale = new HttpRequestMessage(HttpMethod.Patch, $"/v1.0/workspaces/{id}") { Content = JsonContent.Create(new { name = "Renamed" }) };
-        stale.Headers.TryAddWithoutValidation("If-Match", "\"1\"");
+        stale.Headers.TryAddWithoutValidation("If-Match", "\"999\"");
         Assert.Equal(HttpStatusCode.PreconditionFailed, (await client.SendAsync(stale, Ct)).StatusCode);
 
         var current = new HttpRequestMessage(HttpMethod.Patch, $"/v1.0/workspaces/{id}") { Content = JsonContent.Create(new { name = "Renamed" }) };

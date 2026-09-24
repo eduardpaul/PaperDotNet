@@ -12,9 +12,10 @@ using Testcontainers.PostgreSql;
 namespace PaperDotNet.IntegrationTests;
 
 /// <summary>
-/// Runs the real app against PostgreSQL: a Testcontainers instance, or the
-/// server in PAPERDOTNET_TEST_POSTGRES when set (e.g. a local Postgres).
-/// Each test run gets its own database; tests isolate by creating tenants.
+/// Runs the real app against the database chosen by PAPERDOTNET_TEST_PROVIDER:
+/// <c>sqlite</c> (default, a temporary file) or <c>postgresql</c> (the server in
+/// PAPERDOTNET_TEST_POSTGRES, or a Testcontainers instance). Each test run gets
+/// its own database; tests isolate by creating tenants.
 /// </summary>
 public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
@@ -22,18 +23,30 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
     public const string AdminPassword = "integration-admin-password";
     private PostgreSqlContainer? _container;
     private string _connectionString = string.Empty;
+    private string? _sqliteFile;
+
+    public static string Provider { get; } =
+        Environment.GetEnvironmentVariable("PAPERDOTNET_TEST_PROVIDER") is { Length: > 0 } p ? p.ToLowerInvariant() : "sqlite";
 
     public async ValueTask InitializeAsync()
     {
-        var server = Environment.GetEnvironmentVariable("PAPERDOTNET_TEST_POSTGRES");
-        if (string.IsNullOrWhiteSpace(server))
+        if (Provider == "sqlite")
         {
-            _container = new PostgreSqlBuilder("postgres:17-alpine").Build();
-            await _container.StartAsync();
-            server = _container.GetConnectionString();
+            _sqliteFile = Path.Combine(Path.GetTempPath(), $"pdn_test_{Guid.NewGuid():N}.db");
+            _connectionString = $"Data Source={_sqliteFile}";
         }
+        else
+        {
+            var server = Environment.GetEnvironmentVariable("PAPERDOTNET_TEST_POSTGRES");
+            if (string.IsNullOrWhiteSpace(server))
+            {
+                _container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+                await _container.StartAsync();
+                server = _container.GetConnectionString();
+            }
 
-        _connectionString = new NpgsqlConnectionStringBuilder(server) { Database = $"pdn_test_{Guid.NewGuid():N}" }.ConnectionString;
+            _connectionString = new NpgsqlConnectionStringBuilder(server) { Database = $"pdn_test_{Guid.NewGuid():N}" }.ConnectionString;
+        }
 
         // Start the host now so migrations and bootstrap run once.
         _ = Server;
@@ -42,6 +55,7 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting("Database:Provider", Provider == "sqlite" ? "Sqlite" : "PostgreSql");
         builder.UseSetting("ConnectionStrings:PaperDotNet", _connectionString);
         builder.UseSetting("Auth:SigningKey", "integration-tests-signing-key-0123456789abcdef");
         builder.UseSetting("Tenancy:AllowHeader", "true");
@@ -65,6 +79,15 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         if (_container is not null)
         {
             await _container.DisposeAsync();
+        }
+
+        if (_sqliteFile is not null)
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            foreach (var file in new[] { _sqliteFile, _sqliteFile + "-wal", _sqliteFile + "-shm" }.Where(File.Exists))
+            {
+                File.Delete(file);
+            }
         }
     }
 }

@@ -7,7 +7,9 @@
   <ItemGroup>
     <ProjectReference Include="..\PaperDotNet.ServiceDefaults\PaperDotNet.ServiceDefaults.csproj" />
     <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Persistence.PostgreSql\PaperDotNet.Persistence.PostgreSql.csproj" />
+    <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Persistence.Sqlite\PaperDotNet.Persistence.Sqlite.csproj" />
     <ProjectReference Include="..\Migrations\PaperDotNet.Migrations.PostgreSql\PaperDotNet.Migrations.PostgreSql.csproj" />
+    <ProjectReference Include="..\Migrations\PaperDotNet.Migrations.Sqlite\PaperDotNet.Migrations.Sqlite.csproj" />
     <ProjectReference Include="..\Modules\Tenancy\PaperDotNet.Tenancy\PaperDotNet.Tenancy.csproj" />
     <ProjectReference Include="..\Modules\Identity\PaperDotNet.Identity\PaperDotNet.Identity.csproj" />
     <ProjectReference Include="..\Modules\Workspaces\PaperDotNet.Workspaces\PaperDotNet.Workspaces.csproj" />

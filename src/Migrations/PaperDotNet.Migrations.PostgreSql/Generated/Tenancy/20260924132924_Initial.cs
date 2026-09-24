@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace PaperDotNet.Migrations.PostgreSql.Tenancy
+namespace PaperDotNet.Migrations.PostgreSql.Generated.Tenancy
 {
     /// <inheritdoc />
     public partial class Initial : Migration

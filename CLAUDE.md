@@ -14,8 +14,8 @@ inspired by Papermerge and SharePoint lists/libraries.
 ## Guiding principle
 
 **Self-hosting and practicality first** (simplicity = practicality).
-- **Minimal install:** one PaperDotNet container + PostgreSQL (+ a files
-  volume), fully working, OCR included.
+- **Minimal install:** one PaperDotNet container (SQLite on a volume), fully
+  working, OCR included. PostgreSQL is optional.
 - **Optional, off by default:** external IdP, S3, cache server, external
   search, AI providers, separate workers.
 - **Libraries:** use mature in-process libraries rather than reinventing them
@@ -32,10 +32,12 @@ until the user says so. Design the API so a future UI has everything it needs.
 ## Decided
 
 - Multitenancy from the start: shared DB, `TenantId` on every tenant-owned row,
-  enforced via EF Core global query filters (+ PostgreSQL RLS).
-- PostgreSQL only for now, but all data access through EF Core. No raw SQL
-  outside the PostgreSQL persistence project; provider-specific features
-  (full-text search, RLS, special indexes) go behind abstractions.
+  enforced via EF Core global query filters (+ PostgreSQL RLS when used).
+- Databases: **SQLite by default, PostgreSQL optional; everything must work on
+  both** (ADR-0009). All data access through EF Core. No raw SQL or provider
+  packages outside `Persistence.Sqlite` / `Persistence.PostgreSql`;
+  provider-specific features (JSON queries, full-text search, RLS, special
+  indexes) go behind abstractions with an implementation per provider.
 - Extensions run in-process first; remote extensions come later.
 - Dependencies: MIT or Apache-2.0; BSD/PostgreSQL License/ISC allowed with
   notice (THIRD-PARTY-NOTICES). No GPL/AGPL/LGPL/MPL/SSPL/commercial.
@@ -47,9 +49,13 @@ until the user says so. Design the API so a future UI has everything it needs.
 export PATH=$HOME/.dotnet:$PATH DOTNET_ROOT=$HOME/.dotnet   # if the SDK was installed locally
 dotnet build PaperDotNet.slnx                               # warnings are errors
 dotnet format PaperDotNet.slnx --verify-no-changes
-dotnet test --solution PaperDotNet.slnx                     # Testcontainers PostgreSQL
-PAPERDOTNET_TEST_POSTGRES="Host=localhost;Username=postgres;Password=postgres" dotnet test --solution PaperDotNet.slnx
-dotnet tool restore && dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.PostgreSql -c <Module>DbContext -o Generated/<Module>
+dotnet test --solution PaperDotNet.slnx                     # SQLite (default)
+PAPERDOTNET_TEST_PROVIDER=postgresql dotnet test --solution PaperDotNet.slnx   # Testcontainers PostgreSQL
+PAPERDOTNET_TEST_PROVIDER=postgresql PAPERDOTNET_TEST_POSTGRES="Host=localhost;Username=postgres;Password=postgres" dotnet test --solution PaperDotNet.slnx
+# Every model change needs a migration for BOTH providers:
+dotnet tool restore
+dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Sqlite -c <Module>DbContext -o Generated/<Module>
+dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.PostgreSql -c <Module>DbContext -o Generated/<Module>
 ```
 
 ## Code conventions
@@ -57,7 +63,7 @@ dotnet tool restore && dotnet ef migrations add <Name> -p src/Migrations/PaperDo
 - Modules live in `src/Modules/<Name>` with an `IModule`, a DbContext in its own
   schema, feature folders (endpoints + handlers together), and a `.Contracts`
   project only when other modules need it. Modules reference each other only
-  via contracts; never reference Npgsql outside `Persistence.PostgreSql`.
+  via contracts; never reference database provider packages in modules.
 - Tenant-owned entities implement `ITenantOwned`; never disable the `Tenant`
   query filter. Every new endpoint gets a tenant-isolation test.
 - Endpoints: Minimal APIs under `/v1.0`, `TypedResults`, `RequireScope(...)`,

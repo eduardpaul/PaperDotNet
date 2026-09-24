@@ -11,7 +11,6 @@ using Microsoft.OData.UriParser;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
-using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Lists.Querying;
 
@@ -51,7 +50,7 @@ public sealed record ItemPage(
     [property: JsonPropertyName("@odata.nextLink")] string? NextLink);
 
 /// <summary>Parses, validates and runs item queries against one list.</summary>
-internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry fieldTypes, IJsonQueryFunctions json)
+internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry fieldTypes)
 {
     /// <summary>Checks a <c>$filter</c>/<c>$orderby</c> pair against the list schema; returns an error or null.</summary>
     public string? Validate(ListSchema schema, string? filter, string? orderBy)
@@ -135,7 +134,7 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
     private (ItemQueryTranslator Translator, FilterClause? Filter, OrderByClause? OrderBy) Parse(ListSchema schema, string? filter, string? orderBy)
     {
         var model = ItemEdmModel.Build(schema.Fields, fieldTypes);
-        var translator = new ItemQueryTranslator(model, json);
+        var translator = new ItemQueryTranslator(model);
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
         if (filter is not null)
         {
@@ -228,7 +227,7 @@ public sealed record ItemResponse(
     internal static ItemResponse From(ListItem item, IReadOnlyList<string>? select = null)
     {
         var fields = new JsonObject { ["title"] = item.Title };
-        foreach (var property in JsonNode.Parse(item.Fields.RootElement.GetRawText())!.AsObject().ToList())
+        foreach (var property in JsonNode.Parse(item.Fields)!.AsObject().ToList())
         {
             fields[property.Key] = property.Value?.DeepClone();
         }

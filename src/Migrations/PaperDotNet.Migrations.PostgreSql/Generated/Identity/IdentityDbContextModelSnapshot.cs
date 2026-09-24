@@ -9,7 +9,7 @@ using PaperDotNet.Identity.Data;
 
 #nullable disable
 
-namespace PaperDotNet.Migrations.PostgreSql.Identity
+namespace PaperDotNet.Migrations.PostgreSql.Generated.Identity
 {
     [DbContext(typeof(IdentityDbContext))]
     partial class IdentityDbContextModelSnapshot : ModelSnapshot
@@ -214,11 +214,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Identity
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by");
 
-                    b.Property<uint>("Version")
+                    b.Property<long>("Version")
                         .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
 
                     b.HasKey("Id")
                         .HasName("pk_groups");
@@ -306,11 +305,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Identity
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by");
 
-                    b.Property<uint>("Version")
+                    b.Property<long>("Version")
                         .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
 
                     b.HasKey("Id")
                         .HasName("pk_roles");

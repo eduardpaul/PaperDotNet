@@ -10,6 +10,7 @@ using PaperDotNet.Identity;
 using PaperDotNet.Lists;
 using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.PostgreSql;
+using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.ServiceDefaults;
 using PaperDotNet.Tenancy;
 using PaperDotNet.Workspaces;
@@ -40,7 +41,7 @@ public static class PaperDotNetHost
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
         services.AddHybridCache();
-        services.AddPaperDotNetPostgreSql(builder.Configuration);
+        services.AddPaperDotNetDatabase(builder.Configuration);
         services.AddSingleton<DatabaseMigrator>();
         services.AddScopeAuthorization();
 
@@ -108,6 +109,18 @@ public static class PaperDotNetHost
         }
 
         return app;
+    }
+
+    /// <summary>Registers the configured database provider (<c>Database:Provider</c>): SQLite by default, or PostgreSQL.</summary>
+    public static IServiceCollection AddPaperDotNetDatabase(this IServiceCollection services, IConfiguration configuration)
+    {
+        var provider = configuration[$"{DatabaseOptions.Section}:Provider"] is { Length: > 0 } name ? name : "Sqlite";
+        return provider.ToUpperInvariant() switch
+        {
+            "SQLITE" => services.AddPaperDotNetSqlite(configuration),
+            "POSTGRESQL" or "POSTGRES" => services.AddPaperDotNetPostgreSql(configuration),
+            _ => throw new InvalidOperationException($"Unknown Database:Provider '{provider}'. Use Sqlite or PostgreSql."),
+        };
     }
 
     public static string Version { get; } =

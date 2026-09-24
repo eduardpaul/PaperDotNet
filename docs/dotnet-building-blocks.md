@@ -83,7 +83,7 @@ Legend for the **Use** column:
 | **`Microsoft.Extensions.Compliance.Redaction`** | 🟡 | Redacting personal data in logs and audit output |
 | **Multitenancy library** (e.g. Finbuckle.MultiTenant) | 🟡 | Covers tenant resolution strategies and per-tenant options/auth. The alternative is a small in-house `ITenantContext`. The core rules (EF filters, interceptor) stay ours either way |
 
-## 5. Data access (EF Core 10 + PostgreSQL)
+## 5. Data access (EF Core 10 + SQLite or PostgreSQL)
 
 | Building block | Use | Where it fits |
 |---|---|---|
@@ -188,15 +188,15 @@ See [dependency-licenses.md](dependency-licenses.md) for the full register.
 ## Recommended baseline for phase 0 (foundation)
 
 Self-hosting and practicality come first (decided 2026-09-24). The baseline
-runs as **one PaperDotNet container + PostgreSQL**.
+runs as **one PaperDotNet container** with SQLite (PostgreSQL optional, ADR-0009).
 
 "Simple" means **practical**: the least effort to build, run and maintain.
 
 - **Extra services** (servers, brokers, workers) cost every self-hoster, so they stay optional.
-- **In-process libraries** that run inside the app and store data in PostgreSQL are welcome when they save us code.
+- **In-process libraries** that run inside the app and store data in the app's database are welcome when they save us code.
 - **Never hand-roll** security, protocol or file-format code.
 
-**Required at runtime:** PostgreSQL. Nothing else.
+**Required at runtime:** nothing but the container (SQLite file on a volume). PostgreSQL is optional.
 
 **Optional, off by default:**
 - Garnet or another Redis-protocol cache (HybridCache works in memory without it)

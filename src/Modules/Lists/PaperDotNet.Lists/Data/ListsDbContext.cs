@@ -42,6 +42,7 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
             b.ToTable("items");
             b.Property(i => i.Title).HasMaxLength(1024);
             b.HasIndex(i => new { i.ListId, i.ParentId });
+            b.Property(i => i.Fields).IsJsonDocument();
             b.HasIndex(i => i.Fields).IsJsonContainmentIndex();
         });
 

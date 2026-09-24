@@ -10,7 +10,7 @@ public static class PostgreSqlServiceCollectionExtensions
 {
     public const string ConnectionStringName = "PaperDotNet";
 
-    /// <summary>Uses PostgreSQL for every module DbContext.</summary>
+    /// <summary>Uses PostgreSQL for every module DbContext (<c>Database:Provider = PostgreSql</c>).</summary>
     public static IServiceCollection AddPaperDotNetPostgreSql(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString(ConnectionStringName);
@@ -33,7 +33,6 @@ public static class PostgreSqlServiceCollectionExtensions
             return builder.Build();
         });
         services.AddSingleton<IDatabaseProvider, PostgreSqlDatabaseProvider>();
-        services.AddSingleton<IJsonQueryFunctions, PostgreSqlJsonQueryFunctions>();
         services.AddHealthChecks().AddCheck<PostgreSqlHealthCheck>("postgresql", tags: ["ready"]);
         return services;
     }

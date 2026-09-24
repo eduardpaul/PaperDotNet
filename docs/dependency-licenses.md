@@ -70,7 +70,11 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | OpenSearch / Qdrant / Meilisearch Community | Apache-2.0 / Apache-2.0 / MIT | Optional external search/vector engines |
 | SeaweedFS | Apache-2.0 | S3-compatible store for tests |
 | Ollama | MIT | Optional local LLM runtime |
-| `EFCore.NamingConventions` | Apache-2.0 | snake_case table and column names on PostgreSQL |
+| `EFCore.NamingConventions` | Apache-2.0 | snake_case table and column names |
+| `Microsoft.EntityFrameworkCore.Sqlite`, `Microsoft.Data.Sqlite` | MIT | SQLite provider (default database, ADR-0009) |
+| `SQLitePCLRaw.*` (via Microsoft.Data.Sqlite) | Apache-2.0 | Native SQLite bindings |
+| SQLite (native library, bundled) | Public domain | Database engine |
+| `WolverineFx.Sqlite` | MIT | Wolverine message storage on SQLite (phase 1c) |
 | `Microsoft.AspNetCore.Authentication.JwtBearer`, `Microsoft.IdentityModel.JsonWebTokens` | MIT | JWT access tokens (P0) |
 | `Microsoft.AspNetCore.Mvc.Testing` | MIT | Integration tests |
 | `xunit.v3.mtp-v2` | Apache-2.0 | Tests on Microsoft.Testing.Platform |

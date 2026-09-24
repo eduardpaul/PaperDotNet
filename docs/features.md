@@ -57,7 +57,8 @@ Papermerge feature catalog. `AV` is the architecture vision.
 
 | ID | Feature | User story | Prio | Phase | Source |
 |---|---|---|---|---|---|
-| PLT-01 | Two-container self-hosted install | As an **Operator**, I want to run `docker compose up` with only PaperDotNet and PostgreSQL, so that I get a fully working system (OCR included) without extra services | MVP | P0 | AV principle |
+| PLT-01 | Single-container self-hosted install | As an **Operator**, I want to run `docker compose up` with just the PaperDotNet container (SQLite built in), so that I get a fully working system (OCR included) without installing a database server | MVP | P0 | AV principle, ADR-0009 |
+| PLT-14 | PostgreSQL option | As an **Operator** of a larger installation, I want to switch to PostgreSQL with one setting, with every feature working the same, so that I get more concurrency and scale-out | Core | P1 | ADR-0009 |
 | PLT-02 | First-run bootstrap | As an **Operator**, I want the first start to create the default tenant and an admin account from environment variables, so that I can log in right away | MVP | P0 | PM §8 |
 | PLT-03 | Multitenancy | As an **Operator**, I want to host several organizations in one installation with fully isolated data, files, settings and extensions, so that I can serve several customers or teams | MVP | P0 | #0005 |
 | PLT-04 | Tenant resolution | As an **Admin**, I want my tenant reached through its own subdomain or custom domain, so that users land in the right organization | MVP | P0 | #0005 |
@@ -273,7 +274,7 @@ Implemented in the solution skeleton (see [ADR-0006](adr/0006-phase-0-simplifica
 
 | Feature | Status |
 |---|---|
-| PLT-01 Two-container install | ✅ `Dockerfile` + `deploy/docker-compose.yml` |
+| PLT-01 Single-container install | ✅ `Dockerfile` + `deploy/docker-compose.yml` (SQLite); PostgreSQL via override file |
 | PLT-02 First-run bootstrap | ✅ default tenant + admin from configuration |
 | PLT-03, PLT-04 Multitenancy & resolution | ✅ host mapping, host template, header (opt-in), claim, default; EF filters + write guard (RLS in P1) |
 | PLT-05 Tenant lifecycle | 🟡 CLI: list, create, suspend, activate (export/delete later) |
@@ -296,6 +297,7 @@ Delivered in slices ([ADR-0007](adr/0007-odata-for-item-queries.md), [ADR-0008](
 |---|---|---|
 | **1a Lists engine** | LST-01 lists & libraries, LST-02 content types, LST-03 field types (text, note, email, url, number, currency, boolean, date, dateTime, choice, person, lookup; managed metadata & keywords come with 1d), LST-04 items with validation, LST-06 folders, LST-08 lookups, LST-15 ETags | ✅ |
 | **1b Queries & views** | LST-10 OData `$filter`/`$orderby`/`$top`/`$skiptoken`/`$count`/`$select`, LST-09 saved views (`?viewId=`) | ✅ |
+| **Database providers** | PLT-14: SQLite default, PostgreSQL optional, full test suite on both (ADR-0009) | ✅ |
 | 1c Events & jobs | EVT-01, EVT-02, EVT-04 (Wolverine), EVT-05, EVT-06 | next |
 | 1d Taxonomy | TAX-01…04, TAX-06, TAX-07, managed metadata & keyword fields | planned |
 | 1e History & search | LST-05, LST-11…14, LST-07, IAM-07, SRC-01…04 | planned |

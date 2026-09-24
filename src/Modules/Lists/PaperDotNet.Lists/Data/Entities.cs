@@ -1,4 +1,3 @@
-using System.Text.Json;
 using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Lists.Data;
@@ -95,8 +94,8 @@ public sealed class ListItem : ITenantOwned, IAuditable, ISoftDeletable, IVersio
     /// <summary>The built-in <c>title</c> field, kept as a column for display, sorting and search.</summary>
     public required string Title { get; set; }
 
-    /// <summary>All other field values (normalized by their field types).</summary>
-    public JsonDocument Fields { get; set; } = JsonDocument.Parse("{}");
+    /// <summary>All other field values as a JSON object (normalized by their field types).</summary>
+    public string Fields { get; set; } = "{}";
 
     public DateTimeOffset CreatedAt { get; set; }
 

@@ -29,11 +29,13 @@ public sealed partial class ModuleBoundaryTests
 
     [Theory]
     [MemberData(nameof(ProviderAgnosticAssemblies))]
-    public void Only_the_PostgreSql_project_references_the_database_provider(string assembly)
+    public void Only_provider_projects_reference_database_providers(string assembly)
     {
         var references = Load(assembly).GetReferencedAssemblies().Select(a => a.Name!).ToList();
 
-        Assert.DoesNotContain(references, r => r.StartsWith("Npgsql", StringComparison.Ordinal));
+        Assert.DoesNotContain(references, r => r.StartsWith("Npgsql", StringComparison.Ordinal)
+            || r.StartsWith("Microsoft.EntityFrameworkCore.Sqlite", StringComparison.Ordinal)
+            || r.StartsWith("Microsoft.Data.Sqlite", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -69,10 +71,11 @@ public sealed partial class ModuleBoundaryTests
     }
 
     [Fact]
-    public void No_raw_sql_outside_the_PostgreSql_project()
+    public void No_raw_sql_outside_the_provider_projects()
     {
         var offenders = SourceFiles()
-            .Where(f => !f.Contains("PaperDotNet.Persistence.PostgreSql", StringComparison.Ordinal))
+            .Where(f => !f.Contains("PaperDotNet.Persistence.PostgreSql", StringComparison.Ordinal)
+                        && !f.Contains("PaperDotNet.Persistence.Sqlite", StringComparison.Ordinal))
             .Where(f => RawSql().IsMatch(File.ReadAllText(f)))
             .ToList();
 

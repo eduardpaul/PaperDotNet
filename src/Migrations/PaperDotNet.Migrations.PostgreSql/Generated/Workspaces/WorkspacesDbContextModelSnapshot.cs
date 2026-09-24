@@ -8,7 +8,7 @@ using PaperDotNet.Workspaces.Data;
 
 #nullable disable
 
-namespace PaperDotNet.Migrations.PostgreSql.Workspaces
+namespace PaperDotNet.Migrations.PostgreSql.Generated.Workspaces
 {
     [DbContext(typeof(WorkspacesDbContext))]
     partial class WorkspacesDbContextModelSnapshot : ModelSnapshot
@@ -69,11 +69,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Workspaces
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by");
 
-                    b.Property<uint>("Version")
+                    b.Property<long>("Version")
                         .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
 
                     b.HasKey("Id")
                         .HasName("pk_workspaces");

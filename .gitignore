@@ -481,3 +481,9 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 deploy/.env
+
+# Local SQLite databases
+*.db
+*.db-shm
+*.db-wal
+src/PaperDotNet.Host/data/

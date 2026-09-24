@@ -1,47 +1,28 @@
-# Minimal self-hosted PaperDotNet: the app + PostgreSQL. Nothing else is required.
+# Minimal self-hosted PaperDotNet: ONE container, data in SQLite on a volume.
 #   cp deploy/.env.example deploy/.env   # then set the secrets
 #   docker compose -f deploy/docker-compose.yml up -d
+# To use PostgreSQL instead, add the override file:
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.postgres.yml up -d
 name: paperdotnet
 
 services:
-  postgres:
-    # pgvector image: plain PostgreSQL 17 today, ready for semantic search later.
-    image: pgvector/pgvector:pg17
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: paperdotnet
-      POSTGRES_USER: paperdotnet
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U paperdotnet -d paperdotnet"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   paperdotnet:
     image: ${PAPERDOTNET_IMAGE:-paperdotnet:local}
     build:
       context: ..
       dockerfile: Dockerfile
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     ports:
       - "${PAPERDOTNET_PORT:-8080}:8080"
     environment:
-      PAPERDOTNET__ConnectionStrings__PaperDotNet: "Host=postgres;Database=paperdotnet;Username=paperdotnet;Password=${POSTGRES_PASSWORD}"
       PAPERDOTNET__Auth__SigningKey: ${SIGNING_KEY:?set SIGNING_KEY (32+ chars) in .env}
       PAPERDOTNET__Bootstrap__AdminPassword: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       PAPERDOTNET__Tenancy__DefaultTenant: ${DEFAULT_TENANT:-default}
       # Set to true when running behind a reverse proxy (Traefik, Caddy, nginx).
       PAPERDOTNET__ForwardedHeaders__Enabled: ${BEHIND_PROXY:-false}
     volumes:
-      # File storage (used from phase 3).
+      # SQLite database and (from phase 3) stored files.
       - paperdotnet-data:/data
 
 volumes:
-  postgres-data:
   paperdotnet-data:

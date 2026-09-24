@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- SQLite database provider (the default). The ONLY project allowed to reference SQLite packages. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="EFCore.NamingConventions" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+  </ItemGroup>
+</Project>

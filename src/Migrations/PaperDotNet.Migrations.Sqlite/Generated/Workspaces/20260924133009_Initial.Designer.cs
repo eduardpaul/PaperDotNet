@@ -4,117 +4,110 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PaperDotNet.Workspaces.Data;
 
 #nullable disable
 
-namespace PaperDotNet.Migrations.PostgreSql.Workspaces
+namespace PaperDotNet.Migrations.Sqlite.Generated.Workspaces
 {
     [DbContext(typeof(WorkspacesDbContext))]
-    [Migration("20260924120121_Initial")]
+    [Migration("20260924133009_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasDefaultSchema("workspaces")
-                .HasAnnotation("ProductVersion", "10.0.12")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
-
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
             modelBuilder.Entity("PaperDotNet.Workspaces.Data.Workspace", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
                     b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long?>("DeletedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("deleted_at");
 
                     b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("deleted_by");
 
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("description");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("updated_at");
 
                     b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("updated_by");
 
                     b.Property<uint>("Version")
                         .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version");
 
                     b.HasKey("Id")
-                        .HasName("pk_workspaces");
+                        .HasName("pk_workspaces_workspaces");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_workspaces_tenant_id");
+                        .HasDatabaseName("ix_workspaces_workspaces_tenant_id");
 
-                    b.ToTable("workspaces", "workspaces");
+                    b.ToTable("workspaces_workspaces", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Workspaces.Data.WorkspaceMember", b =>
                 {
                     b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("workspace_id");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("user_id");
 
                     b.Property<int>("Role")
-                        .HasColumnType("integer")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("role");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
                     b.HasKey("WorkspaceId", "UserId")
-                        .HasName("pk_members");
+                        .HasName("pk_workspaces_members");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_members_tenant_id");
+                        .HasDatabaseName("ix_workspaces_members_tenant_id");
 
                     b.HasIndex("UserId")
-                        .HasDatabaseName("ix_members_user_id");
+                        .HasDatabaseName("ix_workspaces_members_user_id");
 
-                    b.ToTable("members", "workspaces");
+                    b.ToTable("workspaces_members", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Workspaces.Data.WorkspaceMember", b =>
@@ -124,7 +117,7 @@ namespace PaperDotNet.Migrations.PostgreSql.Workspaces
                         .HasForeignKey("WorkspaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_members_workspaces_workspace_id");
+                        .HasConstraintName("fk_workspaces_members_workspaces_workspaces_workspace_id");
                 });
 
             modelBuilder.Entity("PaperDotNet.Workspaces.Data.Workspace", b =>

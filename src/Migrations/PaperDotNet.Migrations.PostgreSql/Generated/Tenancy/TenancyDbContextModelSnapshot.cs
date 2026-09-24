@@ -9,7 +9,7 @@ using PaperDotNet.Tenancy.Data;
 
 #nullable disable
 
-namespace PaperDotNet.Migrations.PostgreSql.Tenancy
+namespace PaperDotNet.Migrations.PostgreSql.Generated.Tenancy
 {
     [DbContext(typeof(TenancyDbContext))]
     partial class TenancyDbContextModelSnapshot : ModelSnapshot

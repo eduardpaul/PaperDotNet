@@ -9,10 +9,11 @@ The options were our own outbox (+ Channels) or Wolverine; the user chose
 Wolverine.
 
 ## Decision
-- Use **Wolverine** (MIT) with its **PostgreSQL message storage and EF Core
-  transactional outbox**: messages are stored in the same database and
-  transaction as the data. No broker is required, so the self-hosting
-  footprint stays "app + PostgreSQL".
+- Use **Wolverine** (MIT) with its **EF Core transactional outbox** and the
+  message storage matching the database provider (SQLite or PostgreSQL,
+  ADR-0009): messages are stored in the same database and transaction as the
+  data. No broker is required, so the self-hosting footprint stays one
+  container.
 - Local (in-process) durable queues deliver to handlers with retries,
   scheduled retries and dead-lettering. The same messages can later go to a
   broker if PaperDotNet is scaled out.

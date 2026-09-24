@@ -7,10 +7,12 @@
     <Project Path="src/BuildingBlocks/PaperDotNet.Abstractions/PaperDotNet.Abstractions.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Api/PaperDotNet.Api.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.PostgreSql/PaperDotNet.Persistence.PostgreSql.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.Sqlite/PaperDotNet.Persistence.Sqlite.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence/PaperDotNet.Persistence.csproj" />
   </Folder>
   <Folder Name="/src/Migrations/">
     <Project Path="src/Migrations/PaperDotNet.Migrations.PostgreSql/PaperDotNet.Migrations.PostgreSql.csproj" />
+    <Project Path="src/Migrations/PaperDotNet.Migrations.Sqlite/PaperDotNet.Migrations.Sqlite.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Identity/">

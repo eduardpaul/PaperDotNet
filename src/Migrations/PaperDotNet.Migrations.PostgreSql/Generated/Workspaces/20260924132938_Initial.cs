@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace PaperDotNet.Migrations.PostgreSql.Workspaces
+namespace PaperDotNet.Migrations.PostgreSql.Generated.Workspaces
 {
     /// <inheritdoc />
     public partial class Initial : Migration
@@ -29,7 +29,7 @@ namespace PaperDotNet.Migrations.PostgreSql.Workspaces
                     updated_by = table.Column<Guid>(type: "uuid", nullable: true),
                     deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     deleted_by = table.Column<Guid>(type: "uuid", nullable: true),
-                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
+                    version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
                 {

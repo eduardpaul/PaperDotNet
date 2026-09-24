@@ -20,10 +20,14 @@ public interface ISoftDeletable
     Guid? DeletedBy { get; set; }
 }
 
-/// <summary>Entities with an optimistic-concurrency version, surfaced as an ETag.</summary>
+/// <summary>
+/// Entities with an optimistic-concurrency version, surfaced as an ETag. The
+/// persistence layer sets it to 1 on insert and increments it on every update
+/// (works on every database provider).
+/// </summary>
 public interface IVersioned
 {
-    uint Version { get; }
+    uint Version { get; set; }
 }
 
 public static class Ids

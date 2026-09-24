@@ -85,7 +85,7 @@ internal sealed class ItemWriter(ListsDbContext db, FieldTypeRegistry fieldTypes
             item.ParentId = parentId.Value;
         }
 
-        var existing = JsonNode.Parse(item.Fields.RootElement.GetRawText())!.AsObject();
+        var existing = JsonNode.Parse(item.Fields)!.AsObject();
         existing["title"] = item.Title;
         if (contentType.Id != item.ContentTypeId)
         {
@@ -218,7 +218,7 @@ internal sealed class ItemWriter(ListsDbContext db, FieldTypeRegistry fieldTypes
     {
         item.Title = values["title"]!.GetValue<string>();
         values.Remove("title");
-        item.Fields = JsonDocument.Parse(values.ToJsonString());
+        item.Fields = values.ToJsonString();
     }
 
     private async Task<ItemWriteResult?> ValidateParentAsync(ListSchema schema, Guid? parentId, ListItem? moving, CancellationToken ct)

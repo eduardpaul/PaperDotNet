@@ -13,3 +13,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0006](0006-phase-0-simplifications.md) | Phase 0 simplifications and deferrals | Accepted |
 | [0007](0007-odata-for-item-queries.md) | OData libraries for item queries over dynamic fields | Accepted |
 | [0008](0008-wolverine-for-reliable-events.md) | Wolverine for reliable events (outbox) | Accepted (1c) |
+| [0009](0009-sqlite-default-postgresql-optional.md) | SQLite by default, PostgreSQL optional | Accepted |

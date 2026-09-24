@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    SQLite migrations of every module, one folder per module (ADR-0004, ADR-0009).
+    Add a migration:  dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Sqlite -c <Module>DbContext -o Generated/<Module>
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Persistence.Sqlite\PaperDotNet.Persistence.Sqlite.csproj" />
+    <ProjectReference Include="..\..\Modules\Tenancy\PaperDotNet.Tenancy\PaperDotNet.Tenancy.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\PaperDotNet.Identity\PaperDotNet.Identity.csproj" />
+    <ProjectReference Include="..\..\Modules\Workspaces\PaperDotNet.Workspaces\PaperDotNet.Workspaces.csproj" />
+    <ProjectReference Include="..\..\Modules\Lists\PaperDotNet.Lists\PaperDotNet.Lists.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

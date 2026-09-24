@@ -3,7 +3,7 @@
 An extensible document management and productivity platform for .NET:
 documents (DMS), tasks and calendar on a SharePoint-style lists engine,
 inspired by [Papermerge](https://github.com/papermerge/papermerge-core).
-Self-hosted with just **one app container + PostgreSQL**.
+Self-hosted with just **one container** (SQLite built in; PostgreSQL optional).
 
 > **Status:** phase 0 (foundation). A backend API only; no UI yet.
 > See the [roadmap](docs/features.md#roadmap).
@@ -27,8 +27,10 @@ Self-hosted with just **one app container + PostgreSQL**.
 ## Quick start (Docker)
 
 ```bash
-cp deploy/.env.example deploy/.env      # set the passwords and signing key
+cp deploy/.env.example deploy/.env      # set the admin password and signing key
 docker compose -f deploy/docker-compose.yml up -d --build
+# or with PostgreSQL:
+# docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.postgres.yml up -d --build
 curl -s -X POST localhost:8080/v1.0/auth/token \
   -H 'content-type: application/json' \
   -d '{"userName":"admin","password":"<ADMIN_PASSWORD>"}'
@@ -45,22 +47,25 @@ docker compose -f deploy/docker-compose.yml exec paperdotnet dotnet paperdotnet.
 
 Requirements:
 - .NET 10 SDK
-- PostgreSQL 16+ (local, or Docker for the tests)
+- Optional: PostgreSQL 16+ (or Docker) to run against PostgreSQL
 
 ```bash
 dotnet build PaperDotNet.slnx
-dotnet run --project src/PaperDotNet.Host          # Development: localhost PostgreSQL, admin / admin-password-dev
-dotnet test --solution PaperDotNet.slnx            # integration tests start PostgreSQL via Testcontainers
-PAPERDOTNET_TEST_POSTGRES="Host=localhost;Username=postgres;Password=postgres" dotnet test --solution PaperDotNet.slnx
+dotnet run --project src/PaperDotNet.Host          # Development: SQLite in ./data, admin / admin-password-dev
+dotnet test --solution PaperDotNet.slnx            # SQLite
+PAPERDOTNET_TEST_PROVIDER=postgresql dotnet test --solution PaperDotNet.slnx   # PostgreSQL via Testcontainers
 ```
 
 Configuration comes from environment variables `PAPERDOTNET__Section__Key`.
+PostgreSQL: `PAPERDOTNET__Database__Provider=PostgreSql` and
+`PAPERDOTNET__ConnectionStrings__PaperDotNet=Host=…;Database=…;Username=…;Password=…`.
 See `src/PaperDotNet.Host/appsettings.json` for all settings.
 
 Add a migration:
 
 ```bash
 dotnet tool restore
+dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Sqlite -c <Module>DbContext -o Generated/<Module>
 dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.PostgreSql -c <Module>DbContext -o Generated/<Module>
 ```
 
@@ -70,11 +75,11 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
 src/
   PaperDotNet.Host/             composition root, CLI, Dockerfile entry point
   PaperDotNet.ServiceDefaults/  telemetry, health, resilience
-  BuildingBlocks/               Abstractions, Api conventions, Persistence, Persistence.PostgreSql
+  BuildingBlocks/               Abstractions, Api conventions, Persistence, Persistence.Sqlite, Persistence.PostgreSql
   Modules/                      Tenancy, Identity, Workspaces (+ Contracts)
-  Migrations/                   PostgreSQL migrations of all modules
+  Migrations/                   SQLite and PostgreSQL migrations of all modules
 tests/                          unit, architecture and integration tests
-deploy/                         docker-compose for self-hosting
+deploy/                         docker-compose (single container; PostgreSQL override)
 docs/                           vision, features, technical approach, ADRs, licenses
 ideas/                          raw ideas, mapped to features
 ```

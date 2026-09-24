@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.OData;
 using Microsoft.OData.Edm;
@@ -14,16 +13,18 @@ namespace PaperDotNet.Lists.Querying;
 
 /// <summary>
 /// Translates parsed OData <c>$filter</c>/<c>$orderby</c> trees into LINQ over
-/// <see cref="ListItem"/>. Field values are read from the JSON document; equality
-/// uses JSON containment so it can use the GIN index.
+/// <see cref="ListItem"/>. Field values are read from the JSON document through the
+/// provider-neutral <see cref="JsonFunctions"/>; equality uses JSON containment so
+/// PostgreSQL can use its GIN index.
 /// </summary>
-internal sealed class ItemQueryTranslator(ItemEdmModel model, IJsonQueryFunctions json)
+internal sealed class ItemQueryTranslator(ItemEdmModel model)
 {
     private static readonly ParameterExpression Item = Expression.Parameter(typeof(ListItem), "i");
-    private static readonly MethodInfo GetProperty = typeof(JsonElement).GetMethod(nameof(JsonElement.GetProperty), [typeof(string)])!;
-    private static readonly MethodInfo GetString = typeof(JsonElement).GetMethod(nameof(JsonElement.GetString), Type.EmptyTypes)!;
-    private static readonly MethodInfo GetDecimal = typeof(JsonElement).GetMethod(nameof(JsonElement.GetDecimal), Type.EmptyTypes)!;
-    private static readonly MethodInfo GetBoolean = typeof(JsonElement).GetMethod(nameof(JsonElement.GetBoolean), Type.EmptyTypes)!;
+    private static readonly MethodInfo JsonText = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Text))!;
+    private static readonly MethodInfo JsonNumber = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Number))!;
+    private static readonly MethodInfo JsonBoolean = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Boolean))!;
+    private static readonly MethodInfo JsonContains = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Contains))!;
+    private static readonly MethodInfo JsonHasProperty = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.HasProperty))!;
     private static readonly MethodInfo StringCompare = typeof(string).GetMethod(nameof(string.Compare), [typeof(string), typeof(string)])!;
     private static readonly MethodInfo StringContains = typeof(string).GetMethod(nameof(string.Contains), [typeof(string)])!;
     private static readonly MethodInfo StringStartsWith = typeof(string).GetMethod(nameof(string.StartsWith), [typeof(string)])!;
@@ -31,8 +32,7 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model, IJsonQueryFunction
     private static readonly MethodInfo StringToLower = typeof(string).GetMethod(nameof(string.ToLower), Type.EmptyTypes)!;
     private static readonly MethodInfo StringToUpper = typeof(string).GetMethod(nameof(string.ToUpper), Type.EmptyTypes)!;
 
-    private static readonly Expression FieldsRoot =
-        Expression.Property(Expression.Property(Item, nameof(ListItem.Fields)), nameof(JsonDocument.RootElement));
+    private static readonly Expression Document = Expression.Property(Item, nameof(ListItem.Fields));
 
     public Expression<Func<ListItem, bool>> Filter(FilterClause filter) =>
         Expression.Lambda<Func<ListItem, bool>>(Predicate(filter.Expression), Item);
@@ -68,7 +68,7 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model, IJsonQueryFunction
         InNode inNode => In(inNode),
         AnyNode any => Any(any),
         SingleValuePropertyAccessNode => Operand(node) is { Kind: FieldValueKind.Boolean } boolean
-            ? Expression.Equal(boolean.Expression, Expression.Constant(true))
+            ? Expression.Equal(boolean.Expression, Expression.Constant(true, boolean.Expression.Type))
             : throw Unsupported("Only boolean properties can be used as conditions."),
         _ => throw Unsupported($"'{node.Kind}' is not supported in $filter."),
     };
@@ -89,7 +89,7 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model, IJsonQueryFunction
         if (constantNode.Value is null)
         {
             Expression isNull = operand.JsonField is { } nullField
-                ? Expression.Not(json.HasProperty(Expression.Property(Item, nameof(ListItem.Fields)), nullField))
+                ? Expression.Not(Expression.Call(JsonHasProperty, Document, Expression.Constant(nullField)))
                 : Expression.Equal(operand.Expression, Expression.Constant(null, operand.Expression.Type));
             return kind switch
             {
@@ -171,7 +171,7 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model, IJsonQueryFunction
         }
 
         var tests = values.Collection.Select(v => operand.JsonField is { } field
-            ? FieldContains(field, JsonLiteral(operand.Kind, v.Value), multiple: false)
+            ? (Expression)FieldContains(field, JsonLiteral(operand.Kind, v.Value), multiple: false)
             : Expression.Equal(operand.Expression, Literal(operand, v.Value)));
         return tests.Aggregate<Expression, Expression>(Expression.Constant(false), Expression.OrElse);
     }
@@ -188,7 +188,7 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model, IJsonQueryFunction
         return AnyBody(node.Body, field.Field.Name, field.Type.ValueKind);
     }
 
-    private Expression AnyBody(QueryNode body, string field, FieldValueKind kind)
+    private static Expression AnyBody(QueryNode body, string field, FieldValueKind kind)
     {
         body = Unwrap(body);
         return body switch
@@ -201,10 +201,10 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model, IJsonQueryFunction
         };
     }
 
-    private Expression FieldContains(string field, JsonNode? value, bool multiple)
+    private static MethodCallExpression FieldContains(string field, JsonNode? value, bool multiple)
     {
         var fragment = new JsonObject { [field] = multiple ? new JsonArray(value) : value };
-        return json.Contains(Expression.Property(Item, nameof(ListItem.Fields)), fragment.ToJsonString());
+        return Expression.Call(JsonContains, Document, Expression.Constant(fragment.ToJsonString()));
     }
 
     private (Expression Expression, FieldValueKind Kind, string? JsonField) Operand(QueryNode node)
@@ -228,12 +228,12 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model, IJsonQueryFunction
                 throw Unsupported($"Field '{name}' cannot be used here (multi-value fields need 'any').");
             }
 
-            var element = Expression.Call(FieldsRoot, GetProperty, Expression.Constant(name));
+            var fieldName = Expression.Constant(name);
             return field.Type.ValueKind switch
             {
-                FieldValueKind.Number => (Expression.Call(element, GetDecimal), FieldValueKind.Number, name),
-                FieldValueKind.Boolean => (Expression.Call(element, GetBoolean), FieldValueKind.Boolean, name),
-                var kind => (Expression.Call(element, GetString), kind, name),
+                FieldValueKind.Number => (Expression.Call(JsonNumber, Document, fieldName), FieldValueKind.Number, name),
+                FieldValueKind.Boolean => (Expression.Call(JsonBoolean, Document, fieldName), FieldValueKind.Boolean, name),
+                var kind => (Expression.Call(JsonText, Document, fieldName), kind, name),
             };
         }
 
@@ -266,8 +266,8 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model, IJsonQueryFunction
 
         return operand.Kind switch
         {
-            FieldValueKind.Number => Expression.Constant(Convert.ToDecimal(value, CultureInfo.InvariantCulture)),
-            FieldValueKind.Boolean => Expression.Constant(value is bool b ? b : throw Unsupported("true or false is expected.")),
+            FieldValueKind.Number => Expression.Constant(Convert.ToDouble(value, CultureInfo.InvariantCulture), typeof(double?)),
+            FieldValueKind.Boolean => Expression.Constant(value is bool b ? b : throw Unsupported("true or false is expected."), typeof(bool?)),
             _ => Expression.Constant(JsonLiteral(operand.Kind, value)!.GetValue<string>()),
         };
     }

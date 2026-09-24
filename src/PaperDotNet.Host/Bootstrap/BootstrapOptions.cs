@@ -23,6 +23,9 @@ public sealed class DatabaseOptions
 {
     public const string Section = "Database";
 
+    /// <summary><c>Sqlite</c> (default: a single file, nothing to install) or <c>PostgreSql</c>.</summary>
+    public string Provider { get; set; } = "Sqlite";
+
     /// <summary>Apply migrations at startup. Convenient for single-node self-hosting; use `paperdotnet migrate` otherwise.</summary>
     public bool MigrateOnStartup { get; set; } = true;
 }

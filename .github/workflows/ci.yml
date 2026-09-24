@@ -15,6 +15,11 @@ env:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Everything must work on both databases (ADR-0009).
+        provider: [sqlite, postgresql]
     steps:
       - uses: actions/checkout@v4
 
@@ -35,13 +40,17 @@ jobs:
 
       - name: Migrations match the model
         run: |
-          for context in TenancyDbContext IdentityDbContext WorkspacesDbContext ListsDbContext; do
-            dotnet ef migrations has-pending-model-changes \
-              -p src/Migrations/PaperDotNet.Migrations.PostgreSql -c "$context" --configuration Release --no-build
+          for project in PostgreSql Sqlite; do
+            for context in TenancyDbContext IdentityDbContext WorkspacesDbContext ListsDbContext; do
+              dotnet ef migrations has-pending-model-changes \
+                -p "src/Migrations/PaperDotNet.Migrations.$project" -c "$context" --configuration Release --no-build
+            done
           done
 
-      # Integration tests start PostgreSQL with Testcontainers (Docker is available on the runner).
-      - name: Test
+      # PostgreSQL runs in Testcontainers (Docker is available on the runner); SQLite uses a temp file.
+      - name: Test (${{ matrix.provider }})
+        env:
+          PAPERDOTNET_TEST_PROVIDER: ${{ matrix.provider }}
         run: dotnet test --solution PaperDotNet.slnx -c Release --no-build
 
   container:

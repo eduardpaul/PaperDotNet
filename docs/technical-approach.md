@@ -10,7 +10,7 @@ technical decisions.
 - [dependency-licenses.md](dependency-licenses.md): license policy
 
 **Guiding principles**, in priority order:
-1. Self-hosting and practicality: one app container + PostgreSQL, everything else optional.
+1. Self-hosting and practicality: one app container (SQLite by default, PostgreSQL optional), everything else optional.
 2. Security and tenant isolation by default.
 3. Built-in .NET features first, then mature permissive libraries. Never hand-roll security, protocol or file-format code.
 4. Provider-agnostic data access through EF Core. PostgreSQL-specific code is isolated.
@@ -174,7 +174,11 @@ PaperDotNet.slnx
 | Caches, search, events | Keys and indexes are always scoped by tenant |
 | Self-hosted | One default tenant, same code path |
 
-## 6. Data (EF Core 10 + PostgreSQL)
+## 6. Data (EF Core 10 + SQLite or PostgreSQL)
+
+> **ADR-0009:** SQLite is the default provider, PostgreSQL is optional, and
+> every feature works on both. The points below apply to both unless marked;
+> provider differences live only in the provider projects.
 
 - **One database, one `DbContext` per module, one schema per module.**
   Migrations are kept per module and live next to it. They are applied by
@@ -192,10 +196,11 @@ PaperDotNet.slnx
   document column** per item (`jsonb` on PostgreSQL):
   - EF complex types need compile-time CLR types, so dynamic fields are not
     complex types. They are mapped as a JSON document/string.
-  - Filtering on them is translated by an `IItemQueryTranslator` in the
-    PostgreSQL project (`jsonb` operators with a GIN index).
-  - This is the one place dynamic querying is provider-specific. A future
-    provider only has to implement this translator plus search and RLS.
+  - Queries use the provider-neutral `JsonFunctions`; each provider
+    translates them (PostgreSQL: `jsonb` functions and `@>` with a GIN index;
+    SQLite: `json_extract` and a registered containment function).
+  - A new provider implements this translation, its model customizer, and
+    search.
   - Values are validated by field-type handlers before saving.
 - **Reads:** `AsNoTracking` + projection to DTOs, split queries for
   collections, compiled queries on hot paths. **Writes:** `ExecuteUpdate` /

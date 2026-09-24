@@ -5,11 +5,15 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace PaperDotNet.Persistence;
 
 /// <summary>
-/// Configures a module DbContext for the chosen database provider. The only
-/// implementation today is PostgreSQL (PaperDotNet.Persistence.PostgreSql).
+/// Configures a module DbContext for the chosen database provider:
+/// SQLite (default, PaperDotNet.Persistence.Sqlite) or PostgreSQL
+/// (PaperDotNet.Persistence.PostgreSql). Selected with <c>Database:Provider</c>.
 /// </summary>
 public interface IDatabaseProvider
 {
+    /// <summary><c>Sqlite</c> or <c>PostgreSql</c>.</summary>
+    string Name { get; }
+
     void Configure(DbContextOptionsBuilder options, string schema);
 }
 
