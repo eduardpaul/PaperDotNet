@@ -22,6 +22,7 @@ using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Search;
 using PaperDotNet.ServiceDefaults;
 using PaperDotNet.Storage;
+using PaperDotNet.Tasks;
 using PaperDotNet.Taxonomy;
 using PaperDotNet.Tenancy;
 using PaperDotNet.Workspaces;
@@ -47,6 +48,7 @@ public static class PaperDotNetHost
         new JobsModule(),
         new SearchModule(),
         new DocumentsModule(),
+        new TasksModule(),
         new AuditModule(),
         new ExtensionHostModule(),
     ];

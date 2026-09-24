@@ -11,6 +11,9 @@ public sealed record ListData(Guid Id, Guid WorkspaceId, string Name, string? Te
 
     /// <summary>The caller's access to the list (set by <see cref="IListItemStore.GetListAsync"/>).</summary>
     public WorkspaceAccessLevel? Access { get; init; }
+
+    /// <summary>Template keys of the list's content types (e.g. <c>task</c>); custom content types have none.</summary>
+    public IReadOnlyList<string> ContentTypeKeys { get; init; } = [];
 }
 
 /// <summary>The caller's personal workspace with its Documents and Inbox libraries (LST-07).</summary>

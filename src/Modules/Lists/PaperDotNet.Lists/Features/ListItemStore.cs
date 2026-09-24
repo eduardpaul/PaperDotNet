@@ -46,9 +46,17 @@ internal sealed class ListItemStore(
             }
         }
 
+        lists = lists.Where(l => templateKey is null || l.TemplateKey == templateKey).ToList();
+        var contentTypeIds = lists.SelectMany(l => l.ContentTypeIds).Distinct().ToList();
+        var keys = await db.ContentTypes.AsNoTracking()
+            .Where(c => contentTypeIds.Contains(c.Id) && c.Key != null)
+            .ToDictionaryAsync(c => c.Id, c => c.Key!, cancellationToken);
         return lists
-            .Where(l => templateKey is null || l.TemplateKey == templateKey)
-            .Select(l => new ListData(l.Id, l.WorkspaceId, l.Name, l.TemplateKey) { IsLibrary = l.Kind == ListKind.Library })
+            .Select(l => new ListData(l.Id, l.WorkspaceId, l.Name, l.TemplateKey)
+            {
+                IsLibrary = l.Kind == ListKind.Library,
+                ContentTypeKeys = [.. l.ContentTypeIds.Where(keys.ContainsKey).Select(id => keys[id])],
+            })
             .ToList();
     }
 
@@ -61,6 +69,7 @@ internal sealed class ListItemStore(
             {
                 IsLibrary = schema.List.Kind == ListKind.Library,
                 Access = schema.Access.ListLevel,
+                ContentTypeKeys = [.. schema.ContentTypes.Where(c => c.Key is not null).Select(c => c.Key!)],
             };
     }
 

@@ -196,7 +196,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | CAL-02 | Recurrence | As a **Member**, I want repeating events with exceptions (RRULE), so that I can model real schedules | MVP | P4 | AV §2 |
 | CAL-03 | Calendar views & time-range queries | As an **Integrator**, I want to query events and due tasks for a time range, with recurrences expanded, so that calendars can be displayed and synced | MVP | P4 | AV §2 |
 | CAL-04 | iCal import/export & feeds | As a **Member**, I want to import `.ics` files and subscribe to a read-only calendar feed, so that I can exchange calendars with other tools | Core | P4 | AV §3.2 |
-| CAL-05 | CalDAV (events & tasks) | As a **Member**, I want my calendars and task lists to sync two-way with iOS, Android (DAVx⁵) and Thunderbird, so that I can use native apps offline | Core | P4 | #0019 |
+| CAL-05 | CalDAV (events & tasks) | As a **Member**, I want my calendars and task lists to sync two-way with iOS, Android (DAVx⁵) and Thunderbird, so that I can use native apps offline | Core | P5 | #0019 |
 | CAL-06 | CardDAV (contacts) | As a **Member**, I want a contacts list that syncs with my phone's address book, so that contacts live in the same system | Ext | P5 | #0019 |
 
 ## 10. Notifications (NTF)
@@ -206,7 +206,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | NTF-01 | In-app notification inbox | As a **Member**, I want a notification list with read/unread, so that I see what needs my attention | MVP | P4 | #0016 |
 | NTF-02 | Reminders | As a **Member**, I want reminders for due tasks and upcoming events, so that I don't miss deadlines | MVP | P4 | #0016 |
 | NTF-03 | Alerts / subscriptions | As a **Member**, I want to follow an item, folder, list, smart folder or search and be notified of changes, immediately or as a digest, so that I stay informed without checking | Core | P4 | #0016 |
-| NTF-04 | Channels | As a **Member**, I want notifications by email, webhook or self-hosted push (ntfy, Gotify), so that they reach me where I am | Core | P4 | #0016 |
+| NTF-04 | Channels | As a **Member**, I want notifications by email, webhook or self-hosted push (ntfy, Gotify), so that they reach me where I am | Core | P4 (webhook), P5 (email, ntfy, Gotify) | #0016 |
 | NTF-05 | Notification preferences | As a **Member**, I want to choose channels per notification type, quiet hours and digest frequency, so that I'm not overwhelmed | Core | P4 | #0016 |
 | NTF-06 | Channel providers from extensions | As a **Developer**, I want to add channels (Slack, Teams, Matrix, Telegram), so that organizations use their chat tools | Ext | P5 | #0016 |
 
@@ -277,8 +277,8 @@ Configuration only by default; data portability is PLT-13.
 | **P1 Lists engine, taxonomy & events** | Store and organize any data | IAM-02 (OpenIddict, passkeys), LST-01…15, TAX-01…04, TAX-06, TAX-07, IAM-07, EVT-01, EVT-02, EVT-04…06, SRC-01…04, API-01 (queries) |
 | **P2 Extension runtime v1** | Everything below is built as extensions | EXT-01…05, EXT-07, EVT-03, IAM-13, LST-16, SRC-06 |
 | **P3 Documents** | Papermerge-level DMS | DOC-01…04, DOC-07…11, DOC-15 (local disk), SRC-05, SRC-10, API-07, PLT-12, EXT-06 (Documents) |
-| **P4 Tasks, calendar & notifications** | Productivity suite | TSK-01…06, CAL-01…05, NTF-01…05 |
-| **P5 Collaboration, automation & integrations** | Share, automate, connect | IAM-04, IAM-08…12, TAX-05, TAX-08…11, EVT-07…09, DOC-13, DOC-14, LST-17, CAL-06, NTF-06, API-03…06, API-08…10, PLT-06, PRV-01…03, PRV-05, DOC-05, DOC-06 (page operations, deferred from P3), DOC-15 (S3) |
+| **P4 Tasks, calendar & notifications** | Productivity suite | TSK-01…06, CAL-01…04, NTF-01…05 (NTF-04: webhook) |
+| **P5 Collaboration, automation & integrations** | Share, automate, connect | IAM-04, IAM-08…12, TAX-05, TAX-08…11, EVT-07…09, DOC-13, DOC-14, LST-17, CAL-06, NTF-06, API-03…06, API-08…10, PLT-06, PRV-01…03, PRV-05, DOC-05, DOC-06 (page operations, deferred from P3), DOC-15 (S3), CAL-05 (CalDAV, with WebDAV/CardDAV), NTF-04 (email, ntfy, Gotify) |
 | **P6 AI & semantic search** | Understand documents | AI-01…06, SRC-07…09, DOC-12 |
 | **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PRV-04 |
 
@@ -340,6 +340,16 @@ Documents built on the SDK with content-addressed storage ([ADR-0015](adr/0015-d
 | **3b Processing** | Automatic processing per library (`autoProcess`, `ocrMode`, `ocrLanguages`) or on demand (`POST …/file/process`, 202 + operation): PDF text layer (PdfPig), DOC-07 OCR with the Tesseract CLI for images and PDFs without text, DOC-08 result stored as a new searchable PDF version (original kept), DOC-04 page images and thumbnails (PDFium/SkiaSharp, cached), DOC-09 status on each file version and on the operation, API-07 live events (`GET /v1.0/me/events`, server-sent events: operations, document processing), file text in search via `IItemSearchContributor`, SRC-05 stemming in the document language (PostgreSQL per language; SQLite English) | ✅ |
 | 3c Page operations | DOC-05 delete, reorder, rotate pages; DOC-06 move, merge, extract | deferred to P5 |
 | **3d Operations** | PLT-12 `paperdotnet backup` / `restore` (one `.tar.gz`: manifest, database snapshot via SQLite online backup or `pg_dump`, stored files; restore refuses to overwrite data without `--force`, then migrates), SRC-10 reindex with progress (operation) and `paperdotnet reindex [--tenant]` | ✅ |
+
+## Phase 4 status
+
+Tasks and Calendar are modules built on the SDK like Documents ([ADR-0016](adr/0016-phase-4-scope.md)); CalDAV moves to P5.
+
+| Slice | Features | Status |
+|---|---|---|
+| **4a Tasks** | Task content type and Tasks template owned by the Tasks module (TSK-01, now with start date), checklists (`…/items/{id}/checklist`), TSK-02 subtasks and "blocked by" links with cycle checks (`…/links`), TSK-03 `GET /v1.0/me/tasks` (`mine`, `dueThisWeek`, `overdue`, `all`) across every task list, TSK-04 board view in the template, TSK-05 recurring tasks (RRULE via Ical.Net; completing creates the next occurrence), TSK-06 tasks from documents (`…/items/{doc}/tasks`) | ✅ |
+| 4b Calendar | CAL-01 events (attendees, reminders), CAL-02 recurrence with exceptions, CAL-03 time-range queries with expansion (events and due tasks), CAL-04 iCal import/export and read-only feeds | planned |
+| 4c Notifications | NTF-01 inbox, NTF-02 reminders, NTF-03 follow/alerts with digests, NTF-04 webhook channel, NTF-05 preferences | planned |
 
 ## Idea → feature mapping
 

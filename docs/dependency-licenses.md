@@ -54,7 +54,8 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | Tesseract engine and tessdata (container package, run as CLI) | Apache-2.0 (bundles Leptonica, see below) | OCR (3b). No NuGet wrapper: the CLI via `CliWrap` |
 | `AWSSDK.S3` | Apache-2.0 | S3 storage provider |
 | `MailKit` / `MimeKit` | MIT | Email to inbox (idea 0002) |
-| `Ical.Net` | MIT | Recurrence, iCal |
+| `Ical.Net` 5.2 | MIT | RRULE parsing and expansion (4a), iCal import/export (4b) |
+| `NodaTime` (via Ical.Net) | Apache-2.0 | Time zones for Ical.Net |
 | `Fluid.Core` | MIT | Path templates |
 | `Mime` (HeyRed) | MIT (wraps libmagic, see below) | MIME sniffing (optional) |
 | `Novell.Directory.Ldap.NETStandard` | MIT | LDAP (optional) |

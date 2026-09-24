@@ -8,6 +8,7 @@ using PaperDotNet.Jobs.Data;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.Search.Data;
+using PaperDotNet.Tasks.Data;
 using PaperDotNet.Taxonomy.Data;
 using PaperDotNet.Tenancy.Data;
 using PaperDotNet.Workspaces.Data;
@@ -100,4 +101,10 @@ internal sealed class DocumentsDesignTimeFactory : IDesignTimeDbContextFactory<D
 {
     public DocumentsDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<DocumentsDbContext>(DocumentsDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class TasksDesignTimeFactory : IDesignTimeDbContextFactory<TasksDbContext>
+{
+    public TasksDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<TasksDbContext>(TasksDbContext.Schema), DesignTime.NoTenant);
 }

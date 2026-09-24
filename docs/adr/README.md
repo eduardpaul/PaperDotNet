@@ -20,3 +20,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0013](0013-openiddict-passkeys-rls.md) | OpenIddict, passkeys, row-level security and Data Protection in the database | Accepted |
 | [0014](0014-build-time-extensions.md) | Build-time extensions (no runtime plugin loading) | Accepted |
 | [0015](0015-documents-on-the-sdk.md) | Documents built on the SDK, content-addressed file storage | Accepted |
+| [0016](0016-phase-4-scope.md) | Tasks and Calendar on the SDK, CalDAV later | Accepted |

@@ -2,7 +2,10 @@ using PaperDotNet.Lists.Contracts;
 
 namespace PaperDotNet.Lists.Templates;
 
-/// <summary>Built-in content types and list templates (LST-16). Extensions add more through the SDK.</summary>
+/// <summary>
+/// Built-in content types and list templates (LST-16). Apps built on the SDK (Tasks) register theirs
+/// the same way; extensions add more through the SDK.
+/// </summary>
 internal static class BuiltInTemplates
 {
     private static FieldDefinition Field(string name, string displayName, string type, Action<FieldDefinition>? configure = null)
@@ -18,15 +21,6 @@ internal static class BuiltInTemplates
         [
             Field("description", "Description", "note"),
             Field("keywords", "Keywords", "keywords", f => { f.AllowMultiple = true; f.Search = FieldSearchWeight.High; }),
-        ]),
-        new("task", "Task", "Something to do, with status, priority, due date and assignee.",
-        [
-            Field("status", "Status", "choice", f => { f.Choices = ["notStarted", "inProgress", "completed"]; f.DefaultValue = "\"notStarted\""; }),
-            Field("priority", "Priority", "choice", f => { f.Choices = ["low", "normal", "high"]; f.DefaultValue = "\"normal\""; }),
-            Field("dueDate", "Due date", "date"),
-            Field("assignedTo", "Assigned to", "person", f => f.AllowMultiple = true),
-            Field("percentComplete", "% complete", "number", f => { f.Minimum = 0; f.Maximum = 100; }),
-            Field("description", "Description", "note"),
         ]),
         new("event", "Event", "A calendar event.",
         [
@@ -61,12 +55,6 @@ internal static class BuiltInTemplates
             IsLibrary = true,
             Versioning = true,
         },
-        new("tasks", "Tasks", "Tasks with status, priority, due dates and a board.", ["task"],
-        [
-            new ViewTemplate("Active tasks", ["title", "status", "priority", "dueDate", "assignedTo"], "fields/status ne 'completed'", "fields/dueDate", IsDefault: true),
-            new ViewTemplate("Board", ["title", "priority", "dueDate", "assignedTo"], GroupBy: "status", Layout: "board"),
-            new ViewTemplate("Completed", ["title", "dueDate", "assignedTo"], "fields/status eq 'completed'"),
-        ]),
         new("calendar", "Calendar", "Events on a calendar.", ["event"],
         [
             new ViewTemplate("Calendar", ["title", "start", "end", "allDay", "location"], OrderBy: "fields/start", GroupBy: "start", Layout: "calendar", IsDefault: true),
