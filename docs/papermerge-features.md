@@ -16,7 +16,7 @@ indexing and path templates run in separate Celery **worker** services.
 - **Core**: expected in a full product.
 - **Ext**: optional or advanced.
 
-The **.NET hint** column names a likely library or approach.
+The **.NET hint** column names a likely library or approach. Only MIT/Apache-2.0 (or equivalent permissive) libraries are suggested, see [dependency-licenses.md](dependency-licenses.md).
 
 ---
 
@@ -25,15 +25,15 @@ The **.NET hint** column names a likely library or approach.
 | Pick | Feature | What it does in Papermerge | Tier | .NET hint |
 |---|---|---|---|---|
 | [ ] | Document upload | `POST /documents/upload`, max size limit (`max_file_size_mb`), creates document + version 1 | MVP | ASP.NET Core minimal API / controllers, `IFormFile` streaming |
-| [ ] | Supported formats | PDF, TIFF, JPEG, PNG (images converted to PDF via img2pdf) | MVP | PdfSharp / PDFsharp-MigraDoc, ImageSharp, Magick.NET |
-| [ ] | MIME detection | Content-sniffing via libmagic, not by extension | MVP | `MimeDetective` / `HeyRed.Mime` |
-| [ ] | Page count detection | Reads page count from PDF/TIFF | MVP | PdfPig / Magick.NET |
+| [ ] | Supported formats | PDF, TIFF, JPEG, PNG (images converted to PDF via img2pdf) | MVP | PDFsharp (MIT); SkiaSharp (MIT) for JPEG/PNG; LibTiff.Net (BSD-3) for TIFF |
+| [ ] | MIME detection | Content-sniffing via libmagic, not by extension | MVP | Own magic-byte sniffer for the 4 formats; or `Mime` (HeyRed, MIT, wraps libmagic) |
+| [ ] | Page count detection | Reads page count from PDF/TIFF | MVP | PdfPig (Apache-2.0); LibTiff.Net for TIFF |
 | [ ] | Document versioning | Every page operation or OCR creates a new version, and v1 (the original) is always kept (non-destructive) | MVP | Domain model + EF Core |
 | [ ] | List / view / download versions | `GET /documents/{id}/versions`, `/last-version`, `/document-versions/{id}/download-url` | MVP | — |
 | [ ] | Download with OCR text layer | Download the PDF with the OCRed text overlaid (searchable PDF) | Core | Produced by OCR worker |
 | [ ] | Per-version language | `GET/PATCH /document-versions/{id}/lang` (OCR language) | Core | — |
 | [ ] | Rename document | Update title | MVP | — |
-| [ ] | Thumbnails & page previews | Document thumbnail + page images at a configured size, with a thumbnail status endpoint | MVP | Docnet.Core / PDFium (PdfiumViewer) / Magick.NET |
+| [ ] | Thumbnails & page previews | Document thumbnail + page images at a configured size, with a thumbnail status endpoint | MVP | PDFtoImage or Docnet.Core (MIT, bundle PDFium) + SkiaSharp (MIT) |
 | [ ] | Frontend-side rendering | Since 3.5.2, previews are rendered in the browser (pdf.js) to speed up large PDFs | Core | pdf.js in the SPA |
 | [ ] | Soft delete / archive columns | `archived_at/by`, `deleted_at/by` audit columns on entities | Core | EF Core global query filters |
 
@@ -41,7 +41,7 @@ The **.NET hint** column names a likely library or approach.
 
 | Pick | Feature | What it does | Tier | .NET hint |
 |---|---|---|---|---|
-| [ ] | Delete pages | Remove blank or unwanted pages | MVP | PdfSharp / iText 9 / QuestPDF-free alternatives |
+| [ ] | Delete pages | Remove blank or unwanted pages | MVP | PDFsharp (MIT) |
 | [ ] | Reorder pages | Drag-and-drop reordering | MVP | same |
 | [ ] | Rotate pages | 90/180/270 rotation | MVP | same |
 | [ ] | Move pages between documents | `POST /pages/move`, either append/prepend to the target or **replace** the target's pages ("merge documents") | Core | same |
@@ -77,7 +77,7 @@ The **.NET hint** column names a likely library or approach.
 | [ ] | Assign type to document | `PATCH /documents/{id}/type` | Core | — |
 | [ ] | Edit field values | Per-document and **bulk** values update | Core | — |
 | [ ] | Documents-by-type table view | `/documents/type/{id}/` shows a table with custom fields as columns, sortable and filterable | Core | — |
-| [ ] | Path templates | `DocumentType.path_template` auto-moves and renames documents based on their metadata (separate `path-tmpl-worker`) | Ext | Background service + template engine (Scriban/Fluid) |
+| [ ] | Path templates | `DocumentType.path_template` auto-moves and renames documents based on their metadata (separate `path-tmpl-worker`) | Ext | Background service + template engine (Fluid, MIT) |
 
 ## 6. Search
 
@@ -87,18 +87,18 @@ The **.NET hint** column names a likely library or approach.
 | [ ] | Query syntax | Phrases, `|` OR, grouping `( )` | Core | `websearch_to_tsquery` |
 | [ ] | Structured filters | Tags (all/any/not), category (any/not), owner (eq/ne), custom-field operators (eq, ne, gt/gte/lt/lte, ilike, in, any/all, is_null, is_checked…) | Core | Dynamic LINQ expression builder |
 | [ ] | Sort & paginate results | Sort by field/direction, per-user `search_lang` preference | Core | — |
-| [ ] | External search engine (Solr) | Legacy `i3worker` syncs DB → Solr | Ext | Skip, or use Meilisearch/Elastic via a background indexer |
+| [ ] | External search engine (Solr) | Legacy `i3worker` syncs DB → Solr | Ext | Skip, or use Meilisearch (MIT) / OpenSearch (Apache-2.0) via a background indexer |
 
 ## 7. OCR & background processing
 
 | Pick | Feature | What it does | Tier | .NET hint |
 |---|---|---|---|---|
-| [ ] | OCR | Tesseract-based (via OCRmyPDF in the worker), creates a new version with a text layer, and the text is indexed | MVP | Run `ocrmypdf` CLI in a container, or Tesseract .NET wrapper |
+| [ ] | OCR | Tesseract-based (via OCRmyPDF in the worker), creates a new version with a text layer, and the text is indexed | MVP | Tesseract (Apache-2.0) in a worker container: CLI or `Tesseract` NuGet wrapper, text layer merged with PDFsharp. (OCRmyPDF excluded: MPL-2.0 + Ghostscript AGPL) |
 | [ ] | Manual OCR trigger | `POST /tasks/ocr` | Core | — |
 | [ ] | Auto vs manual OCR preference | User setting to OCR on upload or only on demand | Core | — |
 | [ ] | OCR languages | Many Tesseract langs, default language setting (`default_lang`, default `deu`) | Core | — |
 | [ ] | Real-time OCR status | Unknown / scheduled / in-progress / success / failed indicator in UI | Core | SignalR |
-| [ ] | Task queue | Celery + Redis, with named queues for OCR, thumbnails, upload processing and file cleanup | MVP | Hangfire / Quartz.NET / MassTransit + RabbitMQ/Redis, or `Channel<T>` + `BackgroundService` |
+| [ ] | Task queue | Celery + Redis, with named queues for OCR, thumbnails, upload processing and file cleanup | MVP | Outbox + `Channel<T>` + `BackgroundService`; Wolverine (MIT) / Quartz.NET (Apache-2.0) |
 
 ## 8. Users, groups, roles & permissions
 
@@ -130,7 +130,7 @@ The **.NET hint** column names a likely library or approach.
 | [ ] | User preferences | UI language, timezone, date/timestamp/number format, theme (light/dark), default document language, search language | Core | JSON column per user |
 | [ ] | System preferences | Admin-level defaults (`/preferences/system`) | Core | — |
 | [ ] | Liveness probe & version | `/probe`, `/version`, `/scopes` endpoints | MVP | ASP.NET Core Health Checks |
-| [ ] | Redis cache (optional) | Caching layer, off by default | Ext | `IDistributedCache` / HybridCache |
+| [ ] | Redis cache (optional) | Caching layer, off by default | Ext | HybridCache; Garnet (MIT, Redis-compatible) as L2 |
 | [ ] | Multitenant prefix | Storage/key prefix for multi-tenant deployments | Ext | — |
 
 ## 11. Storage

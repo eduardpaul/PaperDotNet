@@ -136,7 +136,7 @@ Key decisions:
 - **.NET 10, ASP.NET Core, modular monolith.** Each module is a separate project with its own EF Core `DbContext` schema. It deploys as a single container, and workers are split out only where needed (OCR).
 - **Data access through Entity Framework Core from day one.** PostgreSQL is the only supported database for now, but all data access goes through EF Core so the database can be switched later. Rules that keep it switchable:
   - No raw SQL in modules. Provider-specific SQL (indexes, full-text search, row-level security) lives only in a `PaperDotNet.Persistence.PostgreSql` project, behind interfaces.
-  - Full-text search is behind an `ISearchProvider` abstraction. The first implementation uses PostgreSQL `tsvector`. Others (SQL Server FTS, Meilisearch, Elastic) can be added later.
+  - Full-text search is behind an `ISearchProvider` abstraction. The first implementation uses PostgreSQL `tsvector`. Others (SQL Server FTS, Meilisearch, OpenSearch) can be added later.
   - Migrations are kept per provider, so a second provider gets its own migration set.
 - **Dynamic schemas.**
   - Fixed tables hold items and their metadata.
@@ -159,7 +159,8 @@ Key decisions:
   - Permissions are inherited down workspace → list → folder → item, with optional unique permissions, as in SharePoint.
   - Sharing works per user and per group.
 - **Events.** Core writes domain events to an **outbox table** in the same transaction. A dispatcher fans them out to in-process handlers, webhooks, automation, search indexing and SignalR (live UI updates such as OCR status).
-- **Jobs.** Hangfire or a simple Postgres-backed queue at first. OCR runs `ocrmypdf`/Tesseract in a worker container.
+- **Jobs.** Own outbox + `System.Threading.Channels` at first (Wolverine or Quartz.NET if needed). OCR runs Tesseract in a worker container.
+- **Dependencies.** Only MIT / Apache-2.0 (or equivalent permissive) licenses, see [dependency-licenses.md](dependency-licenses.md).
 - **API.** OpenAPI-first REST with the same generic endpoints for every list (`/lists/{id}/items?filter=…`), plus typed endpoints from extensions. Personal API tokens and OIDC come from the start.
 
 ## 5. Suggested roadmap

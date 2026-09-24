@@ -44,8 +44,8 @@ file processors, automation activities, API endpoints, jobs and MCP tools.
             process per extension (or per tenant) and talks to it over
             gRPC or JSON-RPC (stdio/socket). Installs like a normal
             extension and stays close to in-process.
-         c. Embedded runtimes: e.g. Jint/ClearScript for JS, pythonnet for
-            Python. Fast, but fragile and hard to sandbox (not recommended
+         c. Embedded runtimes: e.g. ClearScript (MIT) for JS, pythonnet (MIT)
+            for Python. Fast, but fragile and hard to sandbox (not recommended
             as the main path).
      - One language-neutral extension protocol (manifest + RPC contract),
        with the .NET in-process tier as a fast path. Define it early so

@@ -7,6 +7,10 @@ This doc lists the platform features and libraries in modern .NET that fit the
 architecture and the [ideas](../ideas/README.md). Each entry says what it would
 be used for in PaperDotNet.
 
+Every library here passes the license policy in
+[dependency-licenses.md](dependency-licenses.md): MIT or Apache-2.0, or an
+equivalent permissive license. Copyleft and commercial libraries were removed.
+
 Legend for the **Use** column:
 
 - ✅ **adopt**: use from the start
@@ -32,7 +36,7 @@ Legend for the **Use** column:
 | **Dependency injection + keyed services** (.NET 8+) | ✅ | Registries for pluggable implementations resolved by key: field types (`"text"`, `"money"`), storage providers, search providers and auth providers |
 | **Options pattern + validation** (`ValidateOnStart`, source-generated validators) | ✅ | Typed settings. Per-tenant options are resolved via `ITenantContext` (idea 0005) |
 | **`BackgroundService` / `IHostedService`** | ✅ | Outbox dispatcher, schedulers, sidecar supervisor, reindex jobs |
-| **.NET Aspire** | ✅ (dev) / 🟡 (deploy) | Local orchestration of the API, PostgreSQL, the OCR worker container, Node/Python extension sidecars and object storage (MinIO). Its dashboard shows OpenTelemetry out of the box. Also used for integration tests (`Aspire.Hosting.Testing`) |
+| **.NET Aspire** | ✅ (dev) / 🟡 (deploy) | Local orchestration of the API, PostgreSQL, the OCR worker container, Node/Python extension sidecars and object storage (SeaweedFS, Apache-2.0, or the local-disk provider). Its dashboard shows OpenTelemetry out of the box. Also used for integration tests (`Aspire.Hosting.Testing`) |
 | **Feature management** (`Microsoft.FeatureManagement`) | 🟡 | Per-tenant feature flags and staged rollout of extensions |
 
 ## 2. Concurrency, streaming & in-process pipelines
@@ -59,7 +63,7 @@ Legend for the **Use** column:
 | **`Microsoft.AspNetCore.OData` 9.x** (Minimal API support since 9.4, `$batch`) | 🟡 | Graph-style `$filter/$select/$expand/$orderby/$top/$count` and `$batch` (idea 0003). Needs a spike with dynamic (JSON) fields. The alternative is a custom Graph-subset parser that emits LINQ expressions |
 | **`Asp.Versioning.Http`** | 🟡 | `/v1.0` and `/beta` endpoints |
 | **Rate limiting middleware** | ✅ | Partitioned by tenant and token |
-| **HybridCache** (`Microsoft.Extensions.Caching.Hybrid`) | ✅ | A two-level cache (in memory, plus Redis when present) with stampede protection and tag invalidation. Used for schema, content-type and term-store lookups, with keys prefixed by tenant |
+| **HybridCache** (`Microsoft.Extensions.Caching.Hybrid`) | ✅ | A two-level cache (in memory, plus a Redis-protocol server when present: Garnet, MIT) with stampede protection and tag invalidation. Used for schema, content-type and term-store lookups, with keys prefixed by tenant |
 | **Output caching** | 🟡 | Thumbnails and page images |
 | **Server-Sent Events** (`TypedResults.ServerSentEvents`, .NET 10) | ✅ | Simple one-way live events: OCR status, job progress, change notifications |
 | **SignalR** | ⏳ | Two-way real-time, once there is a UI |
@@ -72,7 +76,7 @@ Legend for the **Use** column:
 | Building block | Use | Where it fits |
 |---|---|---|
 | **JWT bearer + OpenID Connect handlers** | ✅ | API authentication. Each tenant can have its own identity provider (idea 0005) |
-| **OpenIddict** (Apache-2.0) | 🟡 | A self-hosted OAuth2/OIDC server for local accounts, API tokens and MCP OAuth (idea 0004). It avoids a separate auth server like Papermerge's. Keycloak/Zitadel stay supported as external providers |
+| **OpenIddict** (Apache-2.0) | 🟡 | A self-hosted OAuth2/OIDC server for local accounts, API tokens and MCP OAuth (idea 0004). It avoids a separate auth server like Papermerge's. Any standard OIDC provider (e.g. Keycloak, Apache-2.0) stays supported as external provider |
 | **ASP.NET Core Identity** | 🟡 | User store for local accounts (pairs with OpenIddict) |
 | **Authorization policies + custom `IAuthorizationPolicyProvider`** | ✅ | Dynamic scopes (`document.download`, extension-declared scopes) become policies on demand. Resource-based handlers check item ACLs |
 | **Data Protection API** | ✅ | Encrypting secrets such as webhook secrets, per-tenant OIDC secrets and extension settings. Keys stored in PostgreSQL through EF Core |
@@ -99,7 +103,7 @@ Legend for the **Use** column:
 |---|---|---|
 | **Own outbox + Channels** | ✅ | The simplest start. The outbox table is written in the same `SaveChanges`. A hosted dispatcher reads it and pushes the events into Channels, and consumers (async after-events, webhooks, indexing, automation) read from there |
 | **Wolverine** (MIT) | 🟡 | A durable EF Core/PostgreSQL outbox, local queues, retries, scheduled messages and a message bus. It could replace the hand-made outbox |
-| **Quartz.NET** (Apache-2.0) / **Hangfire** (LGPL core) | 🟡 | Cron-style schedules such as reminders, recurring tasks and retention. Pick one. Quartz has a clustered PostgreSQL job store |
+| **Quartz.NET** (Apache-2.0) | 🟡 | Cron-style schedules such as reminders, recurring tasks and retention. Has a clustered PostgreSQL job store. (Hangfire excluded: LGPL-3.0 core) |
 | **Elsa Workflows 3** | ⏳ | The automation engine (idea 0009). It consumes after-events from the outbox |
 
 ## 7. Extensibility runtime
@@ -117,7 +121,7 @@ Legend for the **Use** column:
 | Building block | Use | Where it fits |
 |---|---|---|
 | **`Microsoft.Extensions.AI`** (GA): `IChatClient`, `IEmbeddingGenerator`, middleware for function calling, caching, telemetry and rate limits | ✅ | A provider-neutral AI layer: Anthropic, OpenAI, Azure, and Ollama for local models. Used for auto-tagging and classification (ideas 0008, 0009), metadata extraction into custom fields (structured output), summaries and Q&A over documents. Extensions get an `IChatClient` from the host, so they don't bring their own providers. The model is configurable per tenant |
-| **`Microsoft.Extensions.VectorData`** (GA) + PostgreSQL pgvector connector | 🟡 | Semantic and hybrid search next to full-text search, behind the `ISearchProvider` abstraction. Vector stores are swappable (pgvector, Qdrant, SQL Server, Elastic) |
+| **`Microsoft.Extensions.VectorData`** (GA) + PostgreSQL pgvector connector | 🟡 | Semantic and hybrid search next to full-text search, behind the `ISearchProvider` abstraction. Vector stores are swappable (pgvector, Qdrant) |
 | **`Microsoft.Extensions.DataIngestion`** (preview) | 🟡 | Document → chunks → embeddings → vector store pipeline. It fits the file-processing pipeline right after OCR. Wait for GA or wrap it |
 | **MCP C# SDK** (`ModelContextProtocol.AspNetCore`, 1.0 since Feb 2026, now 2.x) | ✅ | The built-in MCP server (idea 0004), hosted in the API with streamable HTTP. Tools come from the lists engine plus extension-contributed `[McpTool]`s. Authorization reuses our OAuth scopes |
 | **Microsoft Agent Framework 1.0** (GA Apr 2026, successor of Semantic Kernel + AutoGen) | ⏳ | Multi-step agents, e.g. an "inbox triage" agent that classifies, tags, files and creates tasks. Only needed beyond single `IChatClient` calls |
@@ -137,9 +141,10 @@ Legend for the **Use** column:
 |---|---|---|---|
 | **PdfPig** | Apache-2.0 | ✅ | PDF text and page count extraction |
 | **PDFsharp** | MIT | ✅ | Page operations: delete, reorder, rotate, merge, extract |
-| **Docnet.Core** (PDFium) | MIT | 🟡 | Rendering PDF pages to images for thumbnails |
-| **Magick.NET** | Apache-2.0 | 🟡 | TIFF, JPEG and PNG handling, and image → PDF |
-| **OCRmyPDF + Tesseract** (container) | MPL/Apache | ✅ | OCR worker, called from a hosted service |
+| **PDFtoImage** or **Docnet.Core** (both bundle PDFium) | MIT (PDFium: BSD-3) | 🟡 | Rendering PDF pages to images for thumbnails and OCR input |
+| **SkiaSharp** | MIT (Skia: BSD-3) | 🟡 | JPEG/PNG decoding, resizing thumbnails |
+| **LibTiff.Net** | BSD-3 | 🟡 | Multi-page TIFF reading, TIFF → PDF |
+| **Tesseract** engine + `Tesseract` NuGet wrapper (container) | Apache-2.0 (Leptonica: BSD-2) | ✅ | OCR worker. Tesseract outputs a text-only PDF layer that PDFsharp merges into the new version |
 | **AWSSDK.S3** | Apache-2.0 | ⏳ | S3 and R2 storage provider |
 | **MailKit / MimeKit** | MIT | ⏳ | Email to inbox (idea 0002): IMAP polling and MIME parsing |
 | **Ical.Net** | MIT | ✅ (phase 4) | RRULE recurrence expansion, and iCal import/export for Calendar |
@@ -153,21 +158,30 @@ Legend for the **Use** column:
 | **xUnit v3** + **`WebApplicationFactory`** | ✅ | Unit and API tests |
 | **Testcontainers for .NET** (PostgreSQL) | ✅ | Real-database tests, needed for JSON, full-text search, RLS and tenant filters |
 | **`Aspire.Hosting.Testing`** | 🟡 | End-to-end tests of API + worker + sidecar |
-| **Verify** (snapshot testing) | 🟡 | Tests that the OpenAPI document, manifests and API responses don't change unexpectedly |
+| **Verify** (snapshot testing, MIT) | 🟡 | Tests that the OpenAPI document, manifests and API responses don't change unexpectedly |
 | **`FakeTimeProvider`** | ✅ | Time-dependent logic |
 
-## 12. Licensing watch-list (avoid or decide consciously)
+## 12. Excluded because of their license
 
-These popular libraries are now **commercial** for some uses. Don't adopt them
-by default:
+See [dependency-licenses.md](dependency-licenses.md) for the full register.
 
-| Library | Situation | Alternative |
+| Excluded | License | Use instead |
 |---|---|---|
-| MediatR, AutoMapper | Commercial license since 2025 | Plain handlers + DI. Manual mapping or Mapperly (source generator, Apache-2.0) |
-| MassTransit v9 | Commercial (v8 stays open source) | Wolverine, or own outbox + Channels |
-| FluentAssertions v8 | Commercial | Shouldly, or plain xUnit asserts |
-| ImageSharp | Six Labors split license (paid above a revenue threshold) | Magick.NET, SkiaSharp |
-| iText | AGPL / commercial | PDFsharp, PdfPig |
+| MediatR, AutoMapper | Commercial since 2025 | Plain handlers + DI; Mapperly (Apache-2.0) |
+| MassTransit v9 | Commercial | Wolverine (MIT) or own outbox + Channels |
+| FluentAssertions v8 | Commercial | AwesomeAssertions (Apache-2.0) or xUnit asserts |
+| Shouldly | BSD-3 (permissive, but not needed) | AwesomeAssertions |
+| ImageSharp | Six Labors split license | SkiaSharp (MIT) |
+| iText, QuestPDF | AGPL / commercial; community license with revenue limit | PDFsharp (MIT), PdfPig (Apache-2.0) |
+| Magick.NET | Apache-2.0 wrapper, but bundles LGPL native delegates (e.g. libheif, libde265) | SkiaSharp + LibTiff.Net + PDFsharp |
+| OCRmyPDF, img2pdf | MPL-2.0 / LGPL-3.0; OCRmyPDF needs Ghostscript (AGPL) | Tesseract (Apache-2.0) + PDFsharp |
+| Hangfire | LGPL-3.0 core, commercial Pro | Quartz.NET (Apache-2.0), Wolverine (MIT) |
+| Mime-Detective | Modified MIT with a redistribution restriction | Own magic-byte sniffer, or `Mime` (MIT) |
+| Scriban | BSD-2 (permissive, but not needed) | Fluid (MIT) |
+| Redis 7.4+ | RSALv2 / SSPL / AGPL | Garnet (MIT), Valkey (BSD-3) |
+| MinIO | AGPL-3.0 | Local-disk provider; SeaweedFS (Apache-2.0) for S3 tests |
+| Elasticsearch | AGPL / SSPL / Elastic License | OpenSearch (Apache-2.0), Meilisearch (MIT) |
+| Zitadel (as a recommended IdP) | AGPL-3.0 | Keycloak (Apache-2.0), OpenIddict (Apache-2.0). Any OIDC provider still works through the standard protocol |
 
 ---
 
