@@ -8,7 +8,7 @@ structure. Later, each idea gets reviewed and mapped to one or more features
 ## How to add an idea
 
 1. Copy [`_template.md`](_template.md) to a new file named
-   `NNNN-short-title.md`. Use the next free number, e.g. `0014-my-idea.md`.
+   `NNNN-short-title.md`. Use the next free number, e.g. `0020-my-idea.md`.
 2. Fill in at least **Title** and **The idea**. Every other section is optional.
    A single sentence is fine.
 3. Add a row to the index below.
@@ -44,6 +44,12 @@ It will be turned into a file during review.
 | [0011](0011-extensions-in-nodejs-and-python.md) | Extensions implemented in Node.js and Python | Extensions | new | |
 | [0012](0012-sharepoint-style-event-handlers.md) | Event handlers like SharePoint event receivers (before / after) | Extensions / Platform | new | refines architecture §3.2 point 5 |
 | [0013](0013-unified-fulltext-and-vector-search.md) | Full-text search across all data types, plus vector search | Search / Platform | new | |
+| [0014](0014-duplicate-detection-content-hashing.md) | Duplicate detection and content hashing | Documents / Storage | new | |
+| [0015](0015-sharing-links-and-guest-access.md) | Sharing links and guest access | Security / Sharing | new | |
+| [0016](0016-notifications-alerts-subscriptions.md) | Notifications, alerts and subscriptions | Platform / Notifications | new | |
+| [0017](0017-ai-metadata-extraction.md) | AI extraction of metadata into custom fields | AI / Documents | new | |
+| [0018](0018-webdav-access-to-libraries.md) | WebDAV access to libraries | Integrations / Documents | new | |
+| [0019](0019-caldav-carddav-server.md) | CalDAV / CardDAV server for tasks, calendar and contacts | Integrations / Calendar / Tasks | new | |
 
 ## Quick ideas
 
