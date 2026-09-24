@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paperdotnet.dev/schemas/extension-manifest.schema.json",
+  "title": "PaperDotNet extension manifest",
+  "description": "extension.json: what an extension is and declares (EXT-01). Language-neutral: .NET extensions embed it; Node.js/Python sidecars (P7) ship it next to their code.",
+  "type": "object",
+  "required": ["id", "name", "version", "sdkVersion"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$",
+      "description": "Reverse-DNS style id, e.g. acme.invoices. Prefixes scopes, field types and routes."
+    },
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$" },
+    "publisher": { "type": "string" },
+    "description": { "type": "string" },
+    "sdkVersion": { "type": "string", "pattern": "^\\d+\\.\\d+$", "description": "SDK major.minor the extension was built against." },
+    "autoEnable": { "type": "boolean", "default": false, "description": "Enable automatically in new tenants." },
+    "scopes": {
+      "type": "array",
+      "description": "Permission scopes added by the extension (IAM-13). Names start with the extension id.",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "grantedToMembers": { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "settings": {
+      "type": "array",
+      "description": "Settings tenant admins can change (PUT /v1.0/extensions/{id}/settings).",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]{0,62}$" },
+          "type": { "enum": ["text", "number", "boolean", "choice"], "default": "text" },
+          "description": { "type": "string" },
+          "required": { "type": "boolean", "default": false },
+          "default": {},
+          "choices": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

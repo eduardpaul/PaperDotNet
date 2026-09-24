@@ -1,4 +1,5 @@
 using Microsoft.OData.Edm;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Fields;
 
@@ -57,7 +58,7 @@ internal sealed class ItemEdmModel
                 continue;
             }
 
-            var primitive = EdmCoreModel.Instance.GetPrimitive(type.EdmKind, isNullable: true);
+            var primitive = EdmCoreModel.Instance.GetPrimitive(EdmKindOf(type.ValueKind), isNullable: true);
             IEdmTypeReference reference = field.AllowMultiple
                 ? new EdmCollectionTypeReference(new EdmCollectionType(primitive))
                 : primitive;
@@ -85,4 +86,15 @@ internal sealed class ItemEdmModel
         var items = container.AddEntitySet("items", itemType);
         return new ItemEdmModel(model, itemType, items, fields);
     }
+
+    /// <summary>The OData type used to parse literals for a field value kind.</summary>
+    internal static EdmPrimitiveTypeKind EdmKindOf(FieldValueKind kind) => kind switch
+    {
+        FieldValueKind.Number => EdmPrimitiveTypeKind.Decimal,
+        FieldValueKind.Boolean => EdmPrimitiveTypeKind.Boolean,
+        FieldValueKind.Date => EdmPrimitiveTypeKind.Date,
+        FieldValueKind.DateTime => EdmPrimitiveTypeKind.DateTimeOffset,
+        FieldValueKind.Identifier => EdmPrimitiveTypeKind.Guid,
+        _ => EdmPrimitiveTypeKind.String,
+    };
 }

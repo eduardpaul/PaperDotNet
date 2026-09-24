@@ -52,6 +52,7 @@ public sealed class IdentityModule : IModule
         services.AddHostedService<FirstPartyClientSync>();
         services.AddScoped<IEffectiveScopeProvider, EffectiveScopeProvider>();
         services.AddScoped<IUserDirectory, UserDirectory>();
+        services.AddScoped<IRoleProvisioning, RoleProvisioning>();
         services.AddScoped<ITenantInitializer, IdentityTenantInitializer>();
         services.AddScopes(IdentityScopes.All);
     }

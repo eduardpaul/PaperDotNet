@@ -15,8 +15,8 @@ public sealed class TenantFilterModelTests
 
     public static TheoryData<string, string> Contexts => new()
     {
-        { "tenancy", "postgresql" }, { "identity", "postgresql" }, { "workspaces", "postgresql" }, { "lists", "postgresql" }, { "jobs", "postgresql" }, { "taxonomy", "postgresql" }, { "search", "postgresql" },
-        { "tenancy", "sqlite" }, { "identity", "sqlite" }, { "workspaces", "sqlite" }, { "lists", "sqlite" }, { "jobs", "sqlite" }, { "taxonomy", "sqlite" }, { "search", "sqlite" },
+        { "tenancy", "postgresql" }, { "identity", "postgresql" }, { "workspaces", "postgresql" }, { "lists", "postgresql" }, { "jobs", "postgresql" }, { "taxonomy", "postgresql" }, { "search", "postgresql" }, { "extensions", "postgresql" },
+        { "tenancy", "sqlite" }, { "identity", "sqlite" }, { "workspaces", "sqlite" }, { "lists", "sqlite" }, { "jobs", "sqlite" }, { "taxonomy", "sqlite" }, { "search", "sqlite" }, { "extensions", "sqlite" },
     };
 
     [Theory]
@@ -47,6 +47,7 @@ public sealed class TenantFilterModelTests
         "identity" => new IdentityDbContext(Options<IdentityDbContext>(IdentityDbContext.Schema, provider), NoTenant.Instance),
         "workspaces" => new WorkspacesDbContext(Options<WorkspacesDbContext>(WorkspacesDbContext.Schema, provider), NoTenant.Instance),
         "jobs" => new Jobs.Data.JobsDbContext(Options<Jobs.Data.JobsDbContext>(Jobs.Data.JobsDbContext.Schema, provider), NoTenant.Instance),
+        "extensions" => new ExtensionHost.Data.ExtensionsDbContext(Options<ExtensionHost.Data.ExtensionsDbContext>(ExtensionHost.Data.ExtensionsDbContext.Schema, provider), NoTenant.Instance),
         "search" => new Search.Data.SearchDbContext(Options<Search.Data.SearchDbContext>(Search.Data.SearchDbContext.Schema, provider), NoTenant.Instance),
         "taxonomy" => new Taxonomy.Data.TaxonomyDbContext(Options<Taxonomy.Data.TaxonomyDbContext>(Taxonomy.Data.TaxonomyDbContext.Schema, provider), NoTenant.Instance),
         "lists" => new Lists.Data.ListsDbContext(Options<Lists.Data.ListsDbContext>(Lists.Data.ListsDbContext.Schema, provider), NoTenant.Instance),

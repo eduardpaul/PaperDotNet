@@ -86,6 +86,9 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `managedMetadata`/`keywords` fields; never store tag names as values.
 - Long work → `IOperations.StartAsync` + `OperationHandler<T>` (202 + `/operations/{id}`);
   recurring work → `ITenantRecurringJob` + `AddTenantRecurringJob` (cron, UTC).
+- Extensions (ADR-0014): compiled in, reference only `PaperDotNet.Extensions.Abstractions`;
+  new extension points go on `IExtensionBuilder` and must be gated per tenant
+  (`IExtensionState`). Guide: `docs/extensions.md`.
 - Record decisions as ADRs in `docs/adr/`.
 
 ## Ideas workflow

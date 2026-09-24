@@ -11,6 +11,10 @@
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.Sqlite/PaperDotNet.Persistence.Sqlite.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence/PaperDotNet.Persistence.csproj" />
   </Folder>
+  <Folder Name="/src/Extensions/">
+    <Project Path="src/Extensions/PaperDotNet.Extensions.Abstractions/PaperDotNet.Extensions.Abstractions.csproj" />
+    <Project Path="src/Extensions/PaperDotNet.Extensions.Generator/PaperDotNet.Extensions.Generator.csproj" />
+  </Folder>
   <Folder Name="/src/Migrations/">
     <Project Path="src/Migrations/PaperDotNet.Migrations.PostgreSql/PaperDotNet.Migrations.PostgreSql.csproj" />
     <Project Path="src/Migrations/PaperDotNet.Migrations.Sqlite/PaperDotNet.Migrations.Sqlite.csproj" />
@@ -18,6 +22,9 @@
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Audit/">
     <Project Path="src/Modules/Audit/PaperDotNet.Audit/PaperDotNet.Audit.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/ExtensionHost/">
+    <Project Path="src/Modules/ExtensionHost/PaperDotNet.ExtensionHost/PaperDotNet.ExtensionHost.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/PaperDotNet.Identity.Contracts/PaperDotNet.Identity.Contracts.csproj" />
@@ -46,6 +53,9 @@
   <Folder Name="/src/Modules/Workspaces/">
     <Project Path="src/Modules/Workspaces/PaperDotNet.Workspaces.Contracts/PaperDotNet.Workspaces.Contracts.csproj" />
     <Project Path="src/Modules/Workspaces/PaperDotNet.Workspaces/PaperDotNet.Workspaces.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/PaperDotNet.Samples.Invoices/PaperDotNet.Samples.Invoices.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PaperDotNet.ArchitectureTests/PaperDotNet.ArchitectureTests.csproj" />

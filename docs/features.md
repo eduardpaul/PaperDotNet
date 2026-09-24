@@ -305,6 +305,17 @@ Delivered in slices ([ADR-0007](adr/0007-odata-for-item-queries.md), [ADR-0008](
 | **1e.3 Search** | SRC-01 unified search over list items (`/v1.0/search`, title/text fields/tag labels), SRC-02 words, phrases, OR, NOT, prefix, SRC-03 filters (workspace, list, content type, hierarchical tag, author, dates) with facet counts, SRC-04 principal-based trimming; FTS5 on SQLite, `tsvector` on PostgreSQL; reindex operation ([ADR-0012](adr/0012-full-text-search.md)) | ✅ |
 | **1f Identity hardening** | IAM-02 OAuth 2.0 / OIDC server (OpenIddict: authorization code + PKCE, refresh, client credentials as service accounts, first-party password grant, `/v1.0/applications`), IAM-01 passkeys and sign-in session, PostgreSQL row-level security on every tenant-owned table, Data Protection keys and server keys in the database ([ADR-0013](adr/0013-openiddict-passkeys-rls.md)). MFA/TOTP and external IdPs later | ✅ |
 
+## Phase 2 status
+
+Build-time extensions ([ADR-0014](adr/0014-build-time-extensions.md)), delivered in slices.
+
+| Slice | Features | Status |
+|---|---|---|
+| **2a Runtime core** | EXT-01 manifest + JSON Schema, EXT-02 build-time .NET extensions (source-generated registration), EXT-03 per-tenant enable/disable/settings (`/v1.0/extensions`), EXT-04 field types, item receivers, event subscribers, jobs, endpoints, IAM-13 extension scopes, EVT-03 receiver sequence and filters; sample extension | ✅ |
+| 2b Templates & content | LST-16 list templates, extension content types, SRC-06 searchable fields | planned |
+| 2c Extension data | EXT-07 list-based storage and own EF schema | planned |
+| 2d SDK & tooling | EXT-05 analyzers, test host package | planned |
+
 ## Idea → feature mapping
 
 | Idea | Mapped to |

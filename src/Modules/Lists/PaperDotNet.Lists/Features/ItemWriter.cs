@@ -282,12 +282,23 @@ internal sealed partial class ItemWriter(
         return values;
     }
 
-    private IEnumerable<IItemEventReceiver> ReceiversFor(ItemEventScope scope) =>
-        receivers.Where(r => r.AppliesTo(scope)).OrderBy(r => r.Sequence);
+    private async Task<List<IItemEventReceiver>> ReceiversForAsync(ItemEventScope scope, CancellationToken ct)
+    {
+        var applicable = new List<IItemEventReceiver>();
+        foreach (var receiver in receivers.OrderBy(r => r.Sequence))
+        {
+            if (await receiver.AppliesToAsync(scope, ct))
+            {
+                applicable.Add(receiver);
+            }
+        }
+
+        return applicable;
+    }
 
     private async Task<ItemWriteResult?> RunBeforeAsync(ItemChangingContext context, CancellationToken ct)
     {
-        foreach (var receiver in ReceiversFor(context.Scope))
+        foreach (var receiver in await ReceiversForAsync(context.Scope, ct))
         {
             await (context.Kind switch
             {
@@ -306,7 +317,7 @@ internal sealed partial class ItemWriter(
 
     private async Task RunAfterAsync(ItemChangedContext context, CancellationToken ct)
     {
-        foreach (var receiver in ReceiversFor(context.Scope))
+        foreach (var receiver in await ReceiversForAsync(context.Scope, ct))
         {
             try
             {
@@ -473,7 +484,10 @@ internal sealed partial class ItemWriter(
             .ToList();
 
     private static ItemEventScope Scope(ListSchema schema, ListItem item) =>
-        new(schema.List.WorkspaceId, schema.List.Id, schema.List.Name, item.ContentTypeId, item.IsFolder);
+        new(schema.List.WorkspaceId, schema.List.Id, schema.List.Name, item.ContentTypeId, item.IsFolder)
+        {
+            ContentTypeName = schema.FindContentType(item.ContentTypeId)?.Name,
+        };
 
     private ItemEvent Event(ItemEventKind kind, ListItem item, ListSchema schema, IReadOnlyList<string> changed)
     {

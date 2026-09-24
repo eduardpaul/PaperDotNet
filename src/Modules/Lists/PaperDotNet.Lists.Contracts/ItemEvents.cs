@@ -11,7 +11,11 @@ public enum ItemEventKind
 }
 
 /// <summary>Where an item event happens; receivers use it to decide whether they apply.</summary>
-public sealed record ItemEventScope(Guid WorkspaceId, Guid ListId, string ListName, Guid ContentTypeId, bool IsFolder);
+public sealed record ItemEventScope(Guid WorkspaceId, Guid ListId, string ListName, Guid ContentTypeId, bool IsFolder)
+{
+    /// <summary>Name of the item's content type (e.g. <c>Invoice</c>).</summary>
+    public string? ContentTypeName { get; init; }
+}
 
 /// <summary>
 /// Context of a synchronous <b>before</b> event (SharePoint "…ing"): runs before
@@ -58,6 +62,9 @@ public interface IItemEventReceiver
     int Sequence => 1000;
 
     bool AppliesTo(ItemEventScope scope) => true;
+
+    /// <summary>Asynchronous variant (e.g. to check per-tenant settings); defaults to <see cref="AppliesTo"/>.</summary>
+    ValueTask<bool> AppliesToAsync(ItemEventScope scope, CancellationToken cancellationToken) => ValueTask.FromResult(AppliesTo(scope));
 
     ValueTask ItemAddingAsync(ItemChangingContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
 

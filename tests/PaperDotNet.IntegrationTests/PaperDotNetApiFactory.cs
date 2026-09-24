@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Host;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
@@ -73,6 +74,12 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
 
             AdminConnectionString = new NpgsqlConnectionStringBuilder(server) { Database = database }.ConnectionString;
             _connectionString = new NpgsqlConnectionStringBuilder(server) { Database = database, Username = role, Password = password }.ConnectionString;
+        }
+
+        // The sample extension, as a custom host build would reference it.
+        if (!PaperDotNetHost.AdditionalExtensions.Any(e => e is PaperDotNet.Samples.Invoices.InvoicesExtension))
+        {
+            PaperDotNetHost.AdditionalExtensions.Add(new PaperDotNet.Samples.Invoices.InvoicesExtension());
         }
 
         // Start the host now so migrations and bootstrap run once.

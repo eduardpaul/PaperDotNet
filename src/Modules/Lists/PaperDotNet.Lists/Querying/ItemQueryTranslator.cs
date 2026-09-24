@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using Microsoft.OData;
 using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Persistence;

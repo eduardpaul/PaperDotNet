@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Sample extension: references only the SDK. Add it to a host build as a project or package reference. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Extensions\PaperDotNet.Extensions.Abstractions\PaperDotNet.Extensions.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="extension.json" LogicalName="paperdotnet.extension.json" />
+  </ItemGroup>
+</Project>

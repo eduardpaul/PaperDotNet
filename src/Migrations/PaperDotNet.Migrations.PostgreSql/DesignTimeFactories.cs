@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Abstractions;
+using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Jobs.Data;
 using PaperDotNet.Lists.Data;
@@ -86,4 +87,10 @@ internal sealed class SearchDesignTimeFactory : IDesignTimeDbContextFactory<Sear
 {
     public SearchDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<SearchDbContext>(SearchDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class ExtensionsDesignTimeFactory : IDesignTimeDbContextFactory<ExtensionsDbContext>
+{
+    public ExtensionsDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<ExtensionsDbContext>(ExtensionsDbContext.Schema), DesignTime.NoTenant);
 }

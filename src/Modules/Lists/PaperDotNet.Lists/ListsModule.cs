@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
@@ -37,6 +38,7 @@ public sealed class ListsModule : IModule
         }
 
         services.AddSingleton<FieldTypeRegistry>();
+        services.TryAddScoped<IFieldTypeAvailability, AllFieldTypesAvailable>();
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
         services.AddScoped<ItemQueryRunner>();
@@ -86,4 +88,10 @@ internal sealed class ListsTenantInitializer(ListsDbContext db) : ITenantInitial
         });
         await db.SaveChangesAsync(cancellationToken);
     }
+}
+
+/// <summary>Default when no extension runtime restricts field types.</summary>
+internal sealed class AllFieldTypesAvailable : IFieldTypeAvailability
+{
+    public ValueTask<bool> IsAvailableAsync(string fieldType, CancellationToken cancellationToken) => ValueTask.FromResult(true);
 }

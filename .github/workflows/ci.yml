@@ -41,7 +41,7 @@ jobs:
       - name: Migrations match the model
         run: |
           for project in PostgreSql Sqlite; do
-            for context in TenancyDbContext IdentityDbContext WorkspacesDbContext ListsDbContext JobsDbContext TaxonomyDbContext SearchDbContext; do
+            for context in TenancyDbContext IdentityDbContext WorkspacesDbContext ListsDbContext JobsDbContext TaxonomyDbContext SearchDbContext ExtensionsDbContext; do
               dotnet ef migrations has-pending-model-changes \
                 -p "src/Migrations/PaperDotNet.Migrations.$project" -c "$context" --configuration Release --no-build
             done

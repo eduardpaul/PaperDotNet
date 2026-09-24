@@ -9,7 +9,7 @@ namespace PaperDotNet.ArchitectureTests;
 /// </summary>
 public sealed partial class ModuleBoundaryTests
 {
-    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search"];
+    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost"];
 
     /// <summary>Modules that expose a contracts assembly.</summary>
     private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Search"];
@@ -19,6 +19,7 @@ public sealed partial class ModuleBoundaryTests
         "PaperDotNet.Abstractions",
         "PaperDotNet.Api",
         "PaperDotNet.Persistence",
+        "PaperDotNet.Extensions.Abstractions",
         .. Modules.Select(m => $"PaperDotNet.{m}"),
         .. ContractModules.Select(m => $"PaperDotNet.{m}.Contracts"),
     ];
@@ -67,6 +68,18 @@ public sealed partial class ModuleBoundaryTests
             var references = Load($"PaperDotNet.{module}.Contracts").GetReferencedAssemblies().Select(a => a.Name!).ToList();
             Assert.DoesNotContain(references, r => Modules.Any(m => r == $"PaperDotNet.{m}"));
         }
+    }
+
+    /// <summary>Extensions see only the SDK: no module implementations, persistence or messaging internals (ADR-0014).</summary>
+    [Theory]
+    [InlineData("PaperDotNet.Extensions.Abstractions")]
+    [InlineData("PaperDotNet.Samples.Invoices")]
+    public void The_sdk_and_extensions_only_reference_contracts(string assembly)
+    {
+        var references = Load(assembly).GetReferencedAssemblies().Select(a => a.Name!).ToList();
+
+        Assert.DoesNotContain(references, r => Modules.Any(m => r == $"PaperDotNet.{m}"));
+        Assert.DoesNotContain(references, r => r is "PaperDotNet.Persistence" or "PaperDotNet.Messaging" || r.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal));
     }
 
     [Fact]

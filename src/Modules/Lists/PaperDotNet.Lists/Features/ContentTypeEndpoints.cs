@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Taxonomy.Contracts;
@@ -95,9 +96,9 @@ internal static class ContentTypeEndpoints
     }
 
     private static async Task<Results<Created<ContentTypeResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
-        ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, ITermStore terms, HttpResponse response, CancellationToken ct)
+        ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, ITermStore terms, IFieldTypeAvailability availability, HttpResponse response, CancellationToken ct)
     {
-        if (await ValidateAsync(request, db, registry, terms, null, ct) is { } invalid)
+        if (await ValidateAsync(request, db, registry, terms, availability, null, ct) is { } invalid)
         {
             return invalid;
         }
@@ -126,7 +127,7 @@ internal static class ContentTypeEndpoints
     /// multiplicity (stored values must stay valid); new fields may be added.
     /// </summary>
     private static async Task<Results<Ok<ContentTypeResponse>, ValidationProblem, ProblemHttpResult>> ReplaceAsync(
-        Guid id, ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, ITermStore terms, HttpRequest http, HttpResponse response, CancellationToken ct)
+        Guid id, ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, ITermStore terms, IFieldTypeAvailability availability, HttpRequest http, HttpResponse response, CancellationToken ct)
     {
         var contentType = await db.ContentTypes.FirstOrDefaultAsync(c => c.Id == id, ct);
         if (contentType is null)
@@ -144,7 +145,7 @@ internal static class ContentTypeEndpoints
             return ApiErrors.PreconditionFailed();
         }
 
-        if (await ValidateAsync(request, db, registry, terms, contentType, ct) is { } invalid)
+        if (await ValidateAsync(request, db, registry, terms, availability, contentType, ct) is { } invalid)
         {
             return invalid;
         }
@@ -173,7 +174,8 @@ internal static class ContentTypeEndpoints
     }
 
     private static async Task<ValidationProblem?> ValidateAsync(
-        ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, ITermStore terms, ContentType? existing, CancellationToken ct)
+        ContentTypeRequest request, ListsDbContext db, FieldTypeRegistry registry, ITermStore terms, IFieldTypeAvailability availability,
+        ContentType? existing, CancellationToken ct)
     {
         if (RequestValidation.Validate(request) is { } invalid)
         {
@@ -182,6 +184,13 @@ internal static class ContentTypeEndpoints
 
         var fields = request.Fields?.Select(f => f.ToEntity()).ToList() ?? [];
         var errors = fields.SelectMany(registry.Validate).ToList();
+        foreach (var type in fields.Select(f => f.Type).Where(t => registry.Find(t) is not null).Distinct(StringComparer.Ordinal))
+        {
+            if (!await availability.IsAvailableAsync(type, ct))
+            {
+                errors.Add($"Field type '{type}' is not enabled for this organization.");
+            }
+        }
         errors.AddRange(fields.GroupBy(f => f.Name, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => $"Field '{g.Key}' is defined more than once."));
 
         foreach (var field in fields.Where(f => f.DefaultValue is not null))

@@ -78,6 +78,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `OpenIddict.Server.AspNetCore`, `.Server.DataProtection`, `.Validation.AspNetCore`, `.Validation.DataProtection`, `.Validation.ServerIntegration`, `.EntityFrameworkCore` (+ `OpenIddict.Abstractions`, `.Core`, `.Server`, `.Validation`, `.EntityFrameworkCore.Models`) | Apache-2.0 | OAuth 2.0 / OpenID Connect server and token validation (1f, ADR-0013) |
 | `Microsoft.AspNetCore.DataProtection.EntityFrameworkCore` | MIT | Data Protection key ring in the database (1f) |
 | `System.Formats.Cbor` | MIT | Tests only: software WebAuthn authenticator |
+| `Microsoft.CodeAnalysis.CSharp` | MIT | Build only: extension registration source generator (ADR-0014) |
 | `Microsoft.AspNetCore.Mvc.Testing` | MIT | Integration tests |
 | `xunit.v3.mtp-v2` | Apache-2.0 | Tests on Microsoft.Testing.Platform |
 | `dotnet-ef` (local tool) | MIT | Migrations |

@@ -18,3 +18,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0011](0011-permission-scopes.md) | Permission inheritance with security scopes | Accepted |
 | [0012](0012-full-text-search.md) | Full-text search in the database (FTS5 / tsvector) with principal trimming | Accepted |
 | [0013](0013-openiddict-passkeys-rls.md) | OpenIddict, passkeys, row-level security and Data Protection in the database | Accepted |
+| [0014](0014-build-time-extensions.md) | Build-time extensions (no runtime plugin loading) | Accepted |

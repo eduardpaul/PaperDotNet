@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The extension SDK: everything an extension may use. Versioned with SemVer (ExtensionSdk.Version);
+    breaking changes need a new major version. Extensions reference only this package (ADR-0014).
+  -->
+  <PropertyGroup>
+    <RootNamespace>PaperDotNet.Extensions</RootNamespace>
+    <PackageId>PaperDotNet.Extensions.Abstractions</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
+    <ProjectReference Include="..\..\Modules\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Taxonomy\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Search\PaperDotNet.Search.Contracts\PaperDotNet.Search.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Workspaces\PaperDotNet.Workspaces.Contracts\PaperDotNet.Workspaces.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+  </ItemGroup>
+</Project>

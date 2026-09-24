@@ -56,3 +56,20 @@ internal sealed class UserDirectory(
         return user.Id;
     }
 }
+
+internal sealed class RoleProvisioning(IdentityDbContext db, ITenantContext tenant, HybridCache cache) : IRoleProvisioning
+{
+    public async Task GrantToMembersAsync(IReadOnlyCollection<string> scopes, CancellationToken cancellationToken)
+    {
+        var member = await db.Roles.FirstOrDefaultAsync(r => r.IsBuiltIn && r.Name == Role.Member, cancellationToken);
+        var missing = scopes.Where(s => member is not null && !member.Scopes.Contains(s)).ToList();
+        if (member is null || missing.Count == 0)
+        {
+            return;
+        }
+
+        member.Scopes = [.. member.Scopes, .. missing];
+        await db.SaveChangesAsync(cancellationToken);
+        await cache.RemoveByTagAsync(EffectiveScopeProvider.TenantTag(tenant.TenantId!.Value), cancellationToken);
+    }
+}

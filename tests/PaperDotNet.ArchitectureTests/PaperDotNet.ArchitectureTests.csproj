@@ -8,5 +8,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\PaperDotNet.Host\PaperDotNet.Host.csproj" />
+    <ProjectReference Include="..\..\samples\PaperDotNet.Samples.Invoices\PaperDotNet.Samples.Invoices.csproj" />
   </ItemGroup>
 </Project>

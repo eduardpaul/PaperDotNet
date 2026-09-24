@@ -354,37 +354,32 @@ outbox dispatcher (BackgroundService)
 
 ## 12. Extension runtime
 
-- **Contracts:**
-  - `PaperDotNet.Extensions.Abstractions` is the only assembly shared
-    between host and extensions. It uses SemVer, and breaking changes need a
-    new major version.
-  - Extensions declare their required range in the manifest.
-- **Loading:** each extension gets its own collectible `AssemblyLoadContext`
-  that shares the framework and the contracts assembly and isolates
-  everything else. Unloading allows upgrades without a restart. Loading is
-  validated against the manifest.
-- **Registration:** `IExtension.Configure(IExtensionBuilder)` registers
-  contributions into registries:
-  - field types, content types and templates
-  - event handlers, file processors, jobs, endpoints
-  - search indexers, MCP tools, scopes, providers
+> **ADR-0014:** extensions are compiled into the host (no runtime plugin
+> loading), so JIT, ReadyToRun, trimmed and future Native AOT hosts all work.
+> Author guide: [extensions.md](extensions.md).
 
-  Registries are frozen after startup (`FrozenDictionary`) and filtered per
-  tenant by enablement.
-- **Manifest:** JSON validated by a published JSON Schema. It is
-  language-neutral so Node/Python sidecars (P7) use the same format.
-- **Data:** extensions can use list-based storage (no migrations), or their
-  own schema with EF migrations run by the host under the tenant rules
-  (interceptors and RLS apply).
-- **Developer experience:**
-  - SDK NuGet with a **source generator** that builds the registration from
-    attributes
-  - **analyzers** for common mistakes (e.g. blocking calls in before-handlers)
-  - a **test host** package
-- **Out-of-process (P7):** a host-supervised sidecar process over gRPC (or
-  StreamJsonRpc) on a Unix socket. Before-handler timeouts use a
-  fail-open/closed policy. Remote webhook extensions use the same contracts
-  as JSON.
+- **Contracts:** `PaperDotNet.Extensions.Abstractions` (SDK, SemVer
+  `ExtensionSdk.Version`) plus the module contracts it exposes (Lists, Jobs,
+  Taxonomy, Search, Workspaces, Identity). Extensions never reference module
+  implementations, persistence or messaging (architecture tests).
+- **Discovery:** `[assembly: PaperDotNetExtension(typeof(X))]` + a **source
+  generator** in the host that emits `ReferencedExtensions.Create()`; no
+  scanning or reflection-based loading.
+- **Manifest:** `extension.json` embedded as `paperdotnet.extension.json`,
+  language-neutral (Node/Python sidecars in P7 use the same format), validated
+  at startup; JSON Schema in `docs/schemas`.
+- **Registration:** `IExtension.Configure(IExtensionBuilder)` registers field
+  types, item receivers (sequence, content type/list filters, conditions),
+  event subscribers, integration events, recurring jobs and endpoints
+  (`/v1.0/ext/{id}`); scopes come from the manifest. Every contribution is
+  wrapped with a per-tenant enablement gate.
+- **Tenant state:** `extensions.tenant_extensions` (enabled, settings);
+  `/v1.0/extensions` to list, enable, disable and configure. Read per request.
+- **Data (2c):** list-based storage, or an own EF schema with migrations run
+  by the host under the tenant rules (filters, audit, RLS).
+- **Developer experience (2d):** analyzers and a test host package.
+- **Out-of-process (P7):** host-supervised sidecars and remote webhooks, for
+  code that should not be compiled into the host.
 
 ## 13. Observability & operations
 

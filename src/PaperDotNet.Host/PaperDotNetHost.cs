@@ -6,6 +6,10 @@ using Microsoft.AspNetCore.HttpOverrides;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
+using PaperDotNet.ExtensionHost;
+using PaperDotNet.ExtensionHost.Runtime;
+using PaperDotNet.Extensions;
+using PaperDotNet.Extensions.Generated;
 using PaperDotNet.Host.Bootstrap;
 using PaperDotNet.Identity;
 using PaperDotNet.Jobs;
@@ -41,7 +45,17 @@ public static class PaperDotNetHost
         new JobsModule(),
         new SearchModule(),
         new AuditModule(),
+        new ExtensionHostModule(),
     ];
+
+    /// <summary>
+    /// Extensions registered in addition to the ones referenced by this build (found by the
+    /// source generator). For tests and custom hosts; set before the host is built.
+    /// </summary>
+    public static List<IExtension> AdditionalExtensions { get; } = [];
+
+    /// <summary>All extensions of this host: referenced at build time plus <see cref="AdditionalExtensions"/>.</summary>
+    public static IReadOnlyList<IExtension> Extensions() => [.. ReferencedExtensions.Create(), .. AdditionalExtensions];
 
     public static WebApplicationBuilder AddPaperDotNet(this WebApplicationBuilder builder, bool runBootstrap)
     {
@@ -73,6 +87,8 @@ public static class PaperDotNetHost
         {
             module.AddServices(services, builder.Configuration);
         }
+
+        services.AddPaperDotNetExtensions(builder.Configuration, Extensions());
 
         services.AddPaperDotNetMessaging(
             options => ConfigureMessageStorage(options, builder.Configuration),
@@ -128,6 +144,8 @@ public static class PaperDotNetHost
         {
             module.MapEndpoints(app);
         }
+
+        app.MapPaperDotNetExtensions();
 
         return app;
     }

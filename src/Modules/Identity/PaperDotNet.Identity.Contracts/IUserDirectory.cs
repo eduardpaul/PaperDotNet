@@ -29,3 +29,10 @@ public sealed class UserCreationException(IReadOnlyList<string> errors)
 {
     public IReadOnlyList<string> Errors { get; } = errors;
 }
+
+/// <summary>Changes to the built-in roles of the current tenant (e.g. when an extension is enabled).</summary>
+public interface IRoleProvisioning
+{
+    /// <summary>Adds scopes to the built-in Member role (no-op for scopes it already has).</summary>
+    Task GrantToMembersAsync(IReadOnlyCollection<string> scopes, CancellationToken cancellationToken);
+}
