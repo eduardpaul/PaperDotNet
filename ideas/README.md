@@ -8,7 +8,7 @@ structure. Later, each idea gets reviewed and mapped to one or more features
 ## How to add an idea
 
 1. Copy [`_template.md`](_template.md) to a new file named
-   `NNNN-short-title.md`. Use the next free number, e.g. `0020-my-idea.md`.
+   `NNNN-short-title.md`. Use the next free number, e.g. `0021-my-idea.md`.
 2. Fill in at least **Title** and **The idea**. Every other section is optional.
    A single sentence is fine.
 3. Add a row to the index below.
@@ -50,6 +50,7 @@ It will be turned into a file during review.
 | [0017](0017-ai-metadata-extraction.md) | AI extraction of metadata into custom fields | AI / Documents | new | |
 | [0018](0018-webdav-access-to-libraries.md) | WebDAV access to libraries | Integrations / Documents | new | |
 | [0019](0019-caldav-carddav-server.md) | CalDAV / CardDAV server for tasks, calendar and contacts | Integrations / Calendar / Tasks | new | |
+| [0020](0020-smart-folders.md) | Smart folders (more than saved searches) | Platform / Navigation / Metadata | new | |
 
 ## Quick ideas
 
