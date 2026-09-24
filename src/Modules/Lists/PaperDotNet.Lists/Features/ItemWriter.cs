@@ -1,24 +1,36 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Identity.Contracts;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Fields;
+using PaperDotNet.Messaging;
 
 namespace PaperDotNet.Lists.Features;
 
-/// <summary>Outcome of an item write: the item, or validation errors, or a conflict.</summary>
-internal sealed record ItemWriteResult(ListItem? Item, Dictionary<string, string[]>? Errors = null, string? Conflict = null)
+/// <summary>Outcome of an item write: the item, validation errors, a conflict or a cancellation by a receiver.</summary>
+internal sealed record ItemWriteResult(ListItem? Item, Dictionary<string, string[]>? Errors = null, string? Conflict = null, string? Cancelled = null)
 {
     public static ItemWriteResult Invalid(string key, string message) => new(null, new Dictionary<string, string[]> { [key] = [message] });
 }
 
 /// <summary>
-/// All item writes go through here: field validation and normalization, folders
-/// and content types. Event handlers (phase 1c) hook in at this point.
+/// All item writes go through here: field validation and normalization, folders,
+/// content types, synchronous before/after receivers (idea 0012) and integration
+/// events published through the transactional outbox.
 /// </summary>
-internal sealed class ItemWriter(ListsDbContext db, FieldTypeRegistry fieldTypes, IUserDirectory users) : IFieldValidationContext
+internal sealed partial class ItemWriter(
+    ListsDbContext db,
+    FieldTypeRegistry fieldTypes,
+    IUserDirectory users,
+    IEnumerable<IItemEventReceiver> receivers,
+    IOutbox outbox,
+    ITenantContext tenant,
+    ICurrentUser currentUser,
+    ILogger<ItemWriter> logger) : IFieldValidationContext
 {
     public const int TitleMaxLength = 1024;
     private const int MaxFolderDepth = 64;
@@ -42,6 +54,14 @@ internal sealed class ItemWriter(ListsDbContext db, FieldTypeRegistry fieldTypes
             return parentError;
         }
 
+        var definitions = isFolder ? [] : contentType.Fields;
+        var errors = new Dictionary<string, string[]>();
+        var values = await NormalizeAsync(definitions, fields, [], applyDefaults: true, errors, ct);
+        if (errors.Count > 0)
+        {
+            return new ItemWriteResult(null, errors);
+        }
+
         var item = new ListItem
         {
             Id = Ids.New(),
@@ -52,8 +72,15 @@ internal sealed class ItemWriter(ListsDbContext db, FieldTypeRegistry fieldTypes
             Title = string.Empty,
         };
 
-        var errors = new Dictionary<string, string[]>();
-        var values = await NormalizeAsync(isFolder ? [] : contentType.Fields, fields, existing: null, errors, ct);
+        var scope = Scope(schema, item);
+        var snapshot = values.ToJsonString();
+        var context = new ItemChangingContext { Kind = ItemEventKind.Adding, Scope = scope, ItemId = item.Id, UserId = currentUser.UserId, After = values };
+        if (await RunBeforeAsync(context, ct) is { } cancelled)
+        {
+            return cancelled;
+        }
+
+        values = await FinalizeAsync(definitions, snapshot, context.After!, errors, ct);
         if (errors.Count > 0)
         {
             return new ItemWriteResult(null, errors);
@@ -61,7 +88,9 @@ internal sealed class ItemWriter(ListsDbContext db, FieldTypeRegistry fieldTypes
 
         ApplyValues(item, values);
         db.Items.Add(item);
-        await db.SaveChangesAsync(ct);
+        var changed = Values(item).Select(p => p.Key).ToList();
+        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Adding, item, schema, changed)], cancellationToken: ct);
+        await RunAfterAsync(new ItemChangedContext(ItemEventKind.Adding, scope, item.Id, currentUser.UserId, null, Values(item), changed), ct);
         return new ItemWriteResult(item);
     }
 
@@ -75,50 +104,85 @@ internal sealed class ItemWriter(ListsDbContext db, FieldTypeRegistry fieldTypes
             return ItemWriteResult.Invalid("contentTypeId", "The content type is not used by this list.");
         }
 
-        if (parentId.HasValue)
+        if (parentId.HasValue && await ValidateParentAsync(schema, parentId.Value, item, ct) is { } parentError)
         {
-            if (await ValidateParentAsync(schema, parentId.Value, item, ct) is { } parentError)
-            {
-                return parentError;
-            }
-
-            item.ParentId = parentId.Value;
+            return parentError;
         }
 
-        var existing = JsonNode.Parse(item.Fields)!.AsObject();
-        existing["title"] = item.Title;
+        var before = Values(item);
+        var current = (JsonObject)before.DeepClone();
         if (contentType.Id != item.ContentTypeId)
         {
             // Changing the content type keeps only the values its fields define.
             var allowed = contentType.Fields.Select(f => f.Name).Append("title").ToHashSet(StringComparer.Ordinal);
-            foreach (var name in existing.Select(p => p.Key).Where(k => !allowed.Contains(k)).ToList())
+            foreach (var name in current.Select(p => p.Key).Where(k => !allowed.Contains(k)).ToList())
             {
-                existing.Remove(name);
+                current.Remove(name);
             }
         }
 
+        var definitions = item.IsFolder ? [] : contentType.Fields;
         var errors = new Dictionary<string, string[]>();
-        var values = await NormalizeAsync(item.IsFolder ? [] : contentType.Fields, fields, existing, errors, ct);
+        var values = await NormalizeAsync(definitions, fields, current, applyDefaults: false, errors, ct);
         if (errors.Count > 0)
         {
             return new ItemWriteResult(null, errors);
         }
 
+        var scope = Scope(schema, item);
+        var snapshot = values.ToJsonString();
+        var context = new ItemChangingContext
+        {
+            Kind = ItemEventKind.Updating,
+            Scope = scope,
+            ItemId = item.Id,
+            UserId = currentUser.UserId,
+            Before = (JsonObject)before.DeepClone(),
+            After = values,
+        };
+        if (await RunBeforeAsync(context, ct) is { } cancelled)
+        {
+            return cancelled;
+        }
+
+        values = await FinalizeAsync(definitions, snapshot, context.After!, errors, ct);
+        if (errors.Count > 0)
+        {
+            return new ItemWriteResult(null, errors);
+        }
+
+        if (parentId.HasValue)
+        {
+            item.ParentId = parentId.Value;
+        }
+
         item.ContentTypeId = contentType.Id;
         ApplyValues(item, values);
-        await db.SaveChangesAsync(ct);
+        var after = Values(item);
+        var changed = ChangedFields(before, after);
+        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Updating, item, schema, changed)], cancellationToken: ct);
+        await RunAfterAsync(new ItemChangedContext(ItemEventKind.Updating, scope, item.Id, currentUser.UserId, before, after, changed), ct);
         return new ItemWriteResult(item);
     }
 
-    public async Task<ItemWriteResult> DeleteAsync(ListItem item, CancellationToken ct)
+    public async Task<ItemWriteResult> DeleteAsync(ListSchema schema, ListItem item, CancellationToken ct)
     {
         if (item.IsFolder && await db.Items.AnyAsync(i => i.ParentId == item.Id, ct))
         {
             return new ItemWriteResult(null, Conflict: "The folder is not empty.");
         }
 
+        var before = Values(item);
+        var scope = Scope(schema, item);
+        var context = new ItemChangingContext { Kind = ItemEventKind.Deleting, Scope = scope, ItemId = item.Id, UserId = currentUser.UserId, Before = before };
+        if (await RunBeforeAsync(context, ct) is { } cancelled)
+        {
+            return cancelled;
+        }
+
         db.Items.Remove(item);
-        await db.SaveChangesAsync(ct);
+        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Deleting, item, schema, [])], cancellationToken: ct);
+        await RunAfterAsync(new ItemChangedContext(ItemEventKind.Deleting, scope, item.Id, currentUser.UserId, before, null, []), ct);
         return new ItemWriteResult(item);
     }
 
@@ -127,14 +191,81 @@ internal sealed class ItemWriter(ListsDbContext db, FieldTypeRegistry fieldTypes
     public Task<bool> ItemExistsAsync(Guid listId, Guid itemId, CancellationToken cancellationToken) =>
         db.Items.AnyAsync(i => i.ListId == listId && i.Id == itemId && !i.IsFolder, cancellationToken);
 
+    /// <summary>All values of an item, including <c>title</c>.</summary>
+    internal static JsonObject Values(ListItem item)
+    {
+        var values = JsonNode.Parse(item.Fields)!.AsObject();
+        values["title"] = item.Title;
+        return values;
+    }
+
+    private IEnumerable<IItemEventReceiver> ReceiversFor(ItemEventScope scope) =>
+        receivers.Where(r => r.AppliesTo(scope)).OrderBy(r => r.Sequence);
+
+    private async Task<ItemWriteResult?> RunBeforeAsync(ItemChangingContext context, CancellationToken ct)
+    {
+        foreach (var receiver in ReceiversFor(context.Scope))
+        {
+            await (context.Kind switch
+            {
+                ItemEventKind.Adding => receiver.ItemAddingAsync(context, ct),
+                ItemEventKind.Updating => receiver.ItemUpdatingAsync(context, ct),
+                _ => receiver.ItemDeletingAsync(context, ct),
+            });
+            if (context.IsCancelled)
+            {
+                return new ItemWriteResult(null, Cancelled: context.CancelMessage);
+            }
+        }
+
+        return null;
+    }
+
+    private async Task RunAfterAsync(ItemChangedContext context, CancellationToken ct)
+    {
+        foreach (var receiver in ReceiversFor(context.Scope))
+        {
+            try
+            {
+                await (context.Kind switch
+                {
+                    ItemEventKind.Adding => receiver.ItemAddedAsync(context, ct),
+                    ItemEventKind.Updating => receiver.ItemUpdatedAsync(context, ct),
+                    _ => receiver.ItemDeletedAsync(context, ct),
+                });
+            }
+#pragma warning disable CA1031 // After receivers must never undo or fail a committed change.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                LogAfterReceiverFailed(ex, receiver.GetType().Name, context.ItemId);
+            }
+        }
+    }
+
+    /// <summary>Re-validates the values only when a before receiver changed them.</summary>
+    private async Task<JsonObject> FinalizeAsync(
+        IReadOnlyList<FieldDefinition> definitions, string validatedSnapshot, JsonObject afterReceivers, Dictionary<string, string[]> errors, CancellationToken ct)
+    {
+        var json = afterReceivers.ToJsonString();
+        if (json == validatedSnapshot)
+        {
+            return afterReceivers;
+        }
+
+        using var document = JsonDocument.Parse(json);
+        return await NormalizeAsync(definitions, document.RootElement, [], applyDefaults: false, errors, ct);
+    }
+
     /// <summary>
-    /// Validates and normalizes field values. <paramref name="existing"/> is the current
-    /// values (update) or null (create: required fields and defaults apply).
+    /// Validates and normalizes <paramref name="input"/> on top of <paramref name="baseValues"/>
+    /// (null in the input removes a value). Required fields and <c>title</c> are enforced.
     /// </summary>
     private async Task<JsonObject> NormalizeAsync(
-        IReadOnlyList<FieldDefinition> definitions, JsonElement? input, JsonObject? existing, Dictionary<string, string[]> errors, CancellationToken ct)
+        IReadOnlyList<FieldDefinition> definitions, JsonElement? input, JsonObject baseValues, bool applyDefaults,
+        Dictionary<string, string[]> errors, CancellationToken ct)
     {
-        var result = existing ?? [];
+        var result = baseValues;
         var byName = definitions.ToDictionary(f => f.Name, StringComparer.Ordinal);
         if (input is { } body)
         {
@@ -188,7 +319,7 @@ internal sealed class ItemWriter(ListsDbContext db, FieldTypeRegistry fieldTypes
             }
         }
 
-        if (existing is null)
+        if (applyDefaults)
         {
             foreach (var definition in definitions.Where(d => d.DefaultValue is not null && !result.ContainsKey(d.Name)))
             {
@@ -216,9 +347,64 @@ internal sealed class ItemWriter(ListsDbContext db, FieldTypeRegistry fieldTypes
 
     private static void ApplyValues(ListItem item, JsonObject values)
     {
-        item.Title = values["title"]!.GetValue<string>();
-        values.Remove("title");
-        item.Fields = values.ToJsonString();
+        var copy = (JsonObject)values.DeepClone();
+        item.Title = copy["title"]!.GetValue<string>();
+        copy.Remove("title");
+        item.Fields = copy.ToJsonString();
+    }
+
+    private static List<string> ChangedFields(JsonObject before, JsonObject after) =>
+        before.Select(p => p.Key).Union(after.Select(p => p.Key))
+            .Where(key => !JsonNode.DeepEquals(before[key], after[key]))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+    private static ItemEventScope Scope(ListSchema schema, ListItem item) =>
+        new(schema.List.WorkspaceId, schema.List.Id, schema.List.Name, item.ContentTypeId, item.IsFolder);
+
+    private ItemEvent Event(ItemEventKind kind, ListItem item, ListSchema schema, IReadOnlyList<string> changed)
+    {
+        var tenantId = tenant.TenantId!.Value;
+        var tenantIdentifier = tenant.TenantIdentifier!;
+        return kind switch
+        {
+            ItemEventKind.Adding => new ItemAdded
+            {
+                TenantId = tenantId,
+                TenantIdentifier = tenantIdentifier,
+                UserId = currentUser.UserId,
+                WorkspaceId = schema.List.WorkspaceId,
+                ListId = schema.List.Id,
+                ItemId = item.Id,
+                ContentTypeId = item.ContentTypeId,
+                IsFolder = item.IsFolder,
+                ChangedFields = changed,
+            },
+            ItemEventKind.Updating => new ItemUpdated
+            {
+                TenantId = tenantId,
+                TenantIdentifier = tenantIdentifier,
+                UserId = currentUser.UserId,
+                WorkspaceId = schema.List.WorkspaceId,
+                ListId = schema.List.Id,
+                ItemId = item.Id,
+                ContentTypeId = item.ContentTypeId,
+                IsFolder = item.IsFolder,
+                ChangedFields = changed,
+            },
+            _ => new ItemDeleted
+            {
+                TenantId = tenantId,
+                TenantIdentifier = tenantIdentifier,
+                UserId = currentUser.UserId,
+                WorkspaceId = schema.List.WorkspaceId,
+                ListId = schema.List.Id,
+                ItemId = item.Id,
+                ContentTypeId = item.ContentTypeId,
+                IsFolder = item.IsFolder,
+                ChangedFields = changed,
+            },
+        };
     }
 
     private async Task<ItemWriteResult?> ValidateParentAsync(ListSchema schema, Guid? parentId, ListItem? moving, CancellationToken ct)
@@ -255,6 +441,9 @@ internal sealed class ItemWriter(ListsDbContext db, FieldTypeRegistry fieldTypes
 
         return null;
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "After-event receiver {Receiver} failed for item {ItemId}.")]
+    private partial void LogAfterReceiverFailed(Exception exception, string receiver, Guid itemId);
 }
 
 /// <summary>Distinguishes "not sent" from "sent as null" in PATCH bodies.</summary>

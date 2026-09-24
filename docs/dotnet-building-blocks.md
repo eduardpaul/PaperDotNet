@@ -103,7 +103,7 @@ Legend for the **Use** column:
 |---|---|---|
 | **Own outbox + Channels** | ✅ | The simplest start. The outbox table is written in the same `SaveChanges`. A hosted dispatcher reads it and pushes the events into Channels, and consumers (async after-events, webhooks, indexing, automation) read from there |
 | **Wolverine** (MIT) | 🟡 | A durable EF Core/PostgreSQL outbox, local queues, retries, scheduled messages and a message bus. It could replace the hand-made outbox |
-| **Quartz.NET** (Apache-2.0) | 🟡 | Cron-style schedules such as reminders, recurring tasks and retention. Has a clustered PostgreSQL job store. (Hangfire excluded: LGPL-3.0 core) |
+| **Quartz.NET** (Apache-2.0) | ❌ superseded | Replaced by Wolverine scheduled messages + a small Cronos-based scheduler (ADR-0010): Quartz's job store needs provider-specific scripts outside EF migrations. (Hangfire excluded: LGPL-3.0 core) |
 | **Elsa Workflows 3** | ⏳ | The automation engine (idea 0009). It consumes after-events from the outbox |
 
 ## 7. Extensibility runtime
@@ -210,7 +210,7 @@ runs as **one PaperDotNet container** with SQLite (PostgreSQL optional, ADR-0009
 
 | Concern | Choice | Why |
 |---|---|---|
-| Scheduling (reminders, recurrence, retention) | **Quartz.NET** (in-process, PostgreSQL job store) | Mature. Writing our own cron/misfire/cluster handling isn't worth it |
+| Scheduling (reminders, recurrence, retention) | **Wolverine scheduled messages + small scheduler with Cronos** (ADR-0010) | Works on SQLite and PostgreSQL through EF migrations; cron parsing is not hand-rolled |
 | Outbox + event dispatch | **Own outbox table + Channels**; switch to **Wolverine** if retries, dead-lettering and scheduling start to grow | The basic version is small and core to the event-handler design (idea 0012). Wolverine is the fallback before we reinvent a message bus |
 | Auth server (local accounts, API tokens, MCP OAuth) | **OpenIddict** + ASP.NET Core Identity | OAuth/OIDC must not be hand-rolled, and it needs no extra container |
 | Tenant resolution + per-tenant options/auth | **Finbuckle.MultiTenant** unless the spike shows it gets in the way of our EF rules | It saves writing resolution strategies and per-tenant auth plumbing. Tenant isolation rules in EF stay ours |
@@ -223,7 +223,7 @@ Baseline:
 - **Runtime and hosting:** .NET 10, the Generic Host, and Aspire for local development only.
 - **Web API:** ASP.NET Core Minimal APIs, built-in OpenAPI and validation, ProblemDetails, rate limiting, health checks.
 - **Data:** EF Core 10 with Npgsql, using named query filters (tenant, soft delete) and interceptors (tenant, audit, outbox).
-- **Background work:** an outbox table, a hosted dispatcher, `System.Threading.Channels`, and Quartz.NET for schedules.
+- **Background work:** Wolverine transactional outbox and durable local queues (ADR-0008), recurring jobs via Cronos (ADR-0010).
 - **Security:** JWT/OIDC authentication and dynamic authorization policies for scopes.
 - **Caching and resilience:** HybridCache (in memory), OpenTelemetry (exporter optional), and `Http.Resilience`.
 - **Auth:** OpenIddict + Identity for built-in local accounts and API tokens, so no external IdP is needed. An external OIDC provider is optional.

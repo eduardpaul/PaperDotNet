@@ -15,8 +15,8 @@ public sealed class TenantFilterModelTests
 
     public static TheoryData<string, string> Contexts => new()
     {
-        { "tenancy", "postgresql" }, { "identity", "postgresql" }, { "workspaces", "postgresql" }, { "lists", "postgresql" },
-        { "tenancy", "sqlite" }, { "identity", "sqlite" }, { "workspaces", "sqlite" }, { "lists", "sqlite" },
+        { "tenancy", "postgresql" }, { "identity", "postgresql" }, { "workspaces", "postgresql" }, { "lists", "postgresql" }, { "jobs", "postgresql" },
+        { "tenancy", "sqlite" }, { "identity", "sqlite" }, { "workspaces", "sqlite" }, { "lists", "sqlite" }, { "jobs", "sqlite" },
     };
 
     [Theory]
@@ -46,6 +46,7 @@ public sealed class TenantFilterModelTests
         "tenancy" => new TenancyDbContext(Options<TenancyDbContext>(TenancyDbContext.Schema, provider), NoTenant.Instance),
         "identity" => new IdentityDbContext(Options<IdentityDbContext>(IdentityDbContext.Schema, provider), NoTenant.Instance),
         "workspaces" => new WorkspacesDbContext(Options<WorkspacesDbContext>(WorkspacesDbContext.Schema, provider), NoTenant.Instance),
+        "jobs" => new Jobs.Data.JobsDbContext(Options<Jobs.Data.JobsDbContext>(Jobs.Data.JobsDbContext.Schema, provider), NoTenant.Instance),
         "lists" => new Lists.Data.ListsDbContext(Options<Lists.Data.ListsDbContext>(Lists.Data.ListsDbContext.Schema, provider), NoTenant.Instance),
         _ => throw new ArgumentOutOfRangeException(nameof(module)),
     };

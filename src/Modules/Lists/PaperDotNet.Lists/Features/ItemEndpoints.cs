@@ -112,6 +112,11 @@ internal static class ItemEndpoints
             return ApiErrors.Validation(result.Errors);
         }
 
+        if (result.Cancelled is not null)
+        {
+            return CancelledByReceiver(result.Cancelled);
+        }
+
         ETags.Set(response, result.Item!.Version);
         return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/lists/{listId}/items/{result.Item.Id}", ItemResponse.From(result.Item));
     }
@@ -167,6 +172,11 @@ internal static class ItemEndpoints
                 return ApiErrors.Validation(result.Errors);
             }
 
+            if (result.Cancelled is not null)
+            {
+                return CancelledByReceiver(result.Cancelled);
+            }
+
             ETags.Set(response, result.Item!.Version);
             return TypedResults.Ok(ItemResponse.From(result.Item));
         }
@@ -180,7 +190,7 @@ internal static class ItemEndpoints
         Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, ItemWriter writer,
         HttpRequest http, CancellationToken ct)
     {
-        var (_, item, problem) = await LoadForChangeAsync(workspaceId, listId, itemId, loader, db, http, ct);
+        var (schema, item, problem) = await LoadForChangeAsync(workspaceId, listId, itemId, loader, db, http, ct);
         if (problem is not null)
         {
             return problem;
@@ -188,14 +198,22 @@ internal static class ItemEndpoints
 
         try
         {
-            var result = await writer.DeleteAsync(item!, ct);
-            return result.Conflict is not null ? ApiErrors.Conflict("folderNotEmpty", result.Conflict) : TypedResults.NoContent();
+            var result = await writer.DeleteAsync(schema!, item!, ct);
+            return result switch
+            {
+                { Conflict: { } conflict } => ApiErrors.Conflict("folderNotEmpty", conflict),
+                { Cancelled: { } message } => CancelledByReceiver(message),
+                _ => TypedResults.NoContent(),
+            };
         }
         catch (DbUpdateConcurrencyException)
         {
             return ApiErrors.PreconditionFailed();
         }
     }
+
+    internal static ProblemHttpResult CancelledByReceiver(string message) =>
+        ApiErrors.Conflict("cancelledByReceiver", message);
 
     private static async Task<(ListSchema? Schema, ListItem? Item, ProblemHttpResult? Problem)> LoadForChangeAsync(
         Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, HttpRequest http, CancellationToken ct)

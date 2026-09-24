@@ -4,9 +4,16 @@ using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Api;
 
-/// <summary>The user of the current HTTP request, or none for background work.</summary>
-public sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentUser
+/// <summary>
+/// The user of the current HTTP request, or the user set explicitly for
+/// background work (<see cref="ICurrentUserOverride"/>).
+/// </summary>
+public sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentUser, ICurrentUserOverride
 {
-    public Guid? UserId =>
-        Guid.TryParse(accessor.HttpContext?.User.FindFirstValue(PaperDotNetClaims.UserId), out var id) ? id : null;
+    private Guid? _explicit;
+
+    public Guid? UserId => _explicit
+        ?? (Guid.TryParse(accessor.HttpContext?.User.FindFirstValue(PaperDotNetClaims.UserId), out var id) ? id : null);
+
+    public void ActAs(Guid userId) => _explicit = userId;
 }

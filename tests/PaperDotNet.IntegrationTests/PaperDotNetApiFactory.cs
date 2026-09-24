@@ -1,9 +1,13 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Identity.Contracts;
+using PaperDotNet.Jobs.Contracts;
+using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Messaging;
 using PaperDotNet.Tenancy.Contracts;
 using Testcontainers.PostgreSql;
 
@@ -60,6 +64,14 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Auth:SigningKey", "integration-tests-signing-key-0123456789abcdef");
         builder.UseSetting("Tenancy:AllowHeader", "true");
         builder.UseSetting("Bootstrap:AdminPassword", AdminPassword);
+        builder.UseSetting("Jobs:SchedulerInterval", "00:00:01");
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddScoped<IItemEventReceiver, TestReceiver>();
+            services.AddEventSubscriber<ItemAdded, TestSubscriber>();
+            services.AddEventSubscriber<ItemUpdated, TestSubscriber>();
+            services.AddTenantRecurringJob<TestRecurringJob>("test.every-second", "* * * * * *");
+        });
     }
 
     /// <summary>Creates a new tenant with its own administrator.</summary>

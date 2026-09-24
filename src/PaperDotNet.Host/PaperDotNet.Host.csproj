@@ -14,10 +14,14 @@
     <ProjectReference Include="..\Modules\Identity\PaperDotNet.Identity\PaperDotNet.Identity.csproj" />
     <ProjectReference Include="..\Modules\Workspaces\PaperDotNet.Workspaces\PaperDotNet.Workspaces.csproj" />
     <ProjectReference Include="..\Modules\Lists\PaperDotNet.Lists\PaperDotNet.Lists.csproj" />
+    <ProjectReference Include="..\Modules\Jobs\PaperDotNet.Jobs\PaperDotNet.Jobs.csproj" />
+    <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Messaging\PaperDotNet.Messaging.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="WolverineFx.Sqlite" />
+    <PackageReference Include="WolverineFx.Postgresql" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />

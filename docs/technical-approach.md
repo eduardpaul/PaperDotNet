@@ -236,9 +236,11 @@ outbox dispatcher (BackgroundService)
   transactional outbox with PostgreSQL message storage (same database, no
   broker), durable local queues, retries and dead-lettering. The diagram above
   describes the behavior; Wolverine implements the dispatch part.
-- **Scheduling:** **Quartz.NET** in-process, with its clustered ADO job store
-  in PostgreSQL. Used for reminders, recurrence, digests, retention and
-  cleanup. Jobs always carry `TenantId`.
+- **Scheduling (ADR-0010):** delayed one-off work via Wolverine scheduled
+  messages; recurring (cron) jobs via a small in-process scheduler with Cronos
+  and an EF-backed state table (claim by optimistic concurrency, runs once per
+  active tenant). Quartz.NET was dropped: its job store needs provider-specific
+  scripts outside EF migrations.
 - **Long-running operations** (EVT-06) are stored as `operations` rows with
   status and progress, driven by jobs or pipeline stages.
 

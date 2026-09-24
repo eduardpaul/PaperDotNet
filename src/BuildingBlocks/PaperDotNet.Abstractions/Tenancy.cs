@@ -17,12 +17,13 @@ public interface ITenantOwned
 }
 
 /// <summary>
-/// Runs code inside an explicit tenant, for background work, the CLI and
-/// bootstrap. Request code gets its tenant from resolution instead.
+/// Runs code inside an explicit tenant (and optionally as a user), for
+/// background work, the CLI and bootstrap. Request code gets both from the
+/// HTTP request instead.
 /// </summary>
 public interface ITenantScopeFactory
 {
-    Microsoft.Extensions.DependencyInjection.AsyncServiceScope CreateScope(Guid tenantId, string tenantIdentifier);
+    Microsoft.Extensions.DependencyInjection.AsyncServiceScope CreateScope(Guid tenantId, string tenantIdentifier, Guid? userId = null);
 }
 
 /// <summary>

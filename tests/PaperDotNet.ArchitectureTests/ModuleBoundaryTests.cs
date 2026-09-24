@@ -9,10 +9,10 @@ namespace PaperDotNet.ArchitectureTests;
 /// </summary>
 public sealed partial class ModuleBoundaryTests
 {
-    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists"];
+    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs"];
 
     /// <summary>Modules that expose a contracts assembly.</summary>
-    private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces"];
+    private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs"];
 
     private static readonly string[] ProviderAgnostic =
     [
@@ -36,6 +36,15 @@ public sealed partial class ModuleBoundaryTests
         Assert.DoesNotContain(references, r => r.StartsWith("Npgsql", StringComparison.Ordinal)
             || r.StartsWith("Microsoft.EntityFrameworkCore.Sqlite", StringComparison.Ordinal)
             || r.StartsWith("Microsoft.Data.Sqlite", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [MemberData(nameof(ProviderAgnosticAssemblies))]
+    public void Only_the_messaging_building_block_references_Wolverine(string assembly)
+    {
+        var references = Load(assembly).GetReferencedAssemblies().Select(a => a.Name!).ToList();
+
+        Assert.DoesNotContain(references, r => r.StartsWith("Wolverine", StringComparison.Ordinal));
     }
 
     [Theory]

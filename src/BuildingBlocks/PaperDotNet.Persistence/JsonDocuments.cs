@@ -39,7 +39,7 @@ public static class JsonDocumentExtensions
     public const string ContainmentIndexAnnotation = "PaperDotNet:JsonContainmentIndex";
 
     /// <summary>Marks a string property as a JSON document column (PostgreSQL: <c>jsonb</c>).</summary>
-    public static PropertyBuilder<string> IsJsonDocument(this PropertyBuilder<string> property) =>
+    public static PropertyBuilder<TProperty> IsJsonDocument<TProperty>(this PropertyBuilder<TProperty> property) =>
         property.HasAnnotation(JsonDocumentAnnotation, true);
 
     /// <summary>

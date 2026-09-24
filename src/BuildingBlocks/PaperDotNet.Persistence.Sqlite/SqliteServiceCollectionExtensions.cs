@@ -19,6 +19,18 @@ public static class SqliteServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddPaperDotNetSqlite(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddSingleton(new SqliteDatabaseSettings(ResolveConnectionString(configuration)));
+        services.AddSingleton<IDatabaseProvider, SqliteDatabaseProvider>();
+        services.AddHealthChecks().AddCheck<SqliteHealthCheck>("sqlite", tags: ["ready"]);
+        return services;
+    }
+
+    /// <summary>
+    /// The SQLite connection string: <c>ConnectionStrings:PaperDotNet</c>, or
+    /// <c>{Storage:DataPath}/paperdotnet.db</c>. Creates the database directory.
+    /// </summary>
+    public static string ResolveConnectionString(IConfiguration configuration)
+    {
         var connectionString = configuration.GetConnectionString(ConnectionStringName);
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -32,10 +44,7 @@ public static class SqliteServiceCollectionExtensions
             Directory.CreateDirectory(directory);
         }
 
-        services.AddSingleton(new SqliteDatabaseSettings(builder.ConnectionString));
-        services.AddSingleton<IDatabaseProvider, SqliteDatabaseProvider>();
-        services.AddHealthChecks().AddCheck<SqliteHealthCheck>("sqlite", tags: ["ready"]);
-        return services;
+        return builder.ConnectionString;
     }
 
     /// <summary>Configures options for design-time tooling (dotnet ef).</summary>

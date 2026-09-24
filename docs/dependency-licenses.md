@@ -74,13 +74,16 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `Microsoft.EntityFrameworkCore.Sqlite`, `Microsoft.Data.Sqlite` | MIT | SQLite provider (default database, ADR-0009) |
 | `SQLitePCLRaw.*` (via Microsoft.Data.Sqlite) | Apache-2.0 | Native SQLite bindings |
 | SQLite (native library, bundled) | Public domain | Database engine |
-| `WolverineFx.Sqlite` | MIT | Wolverine message storage on SQLite (phase 1c) |
 | `Microsoft.AspNetCore.Authentication.JwtBearer`, `Microsoft.IdentityModel.JsonWebTokens` | MIT | JWT access tokens (P0) |
 | `Microsoft.AspNetCore.Mvc.Testing` | MIT | Integration tests |
 | `xunit.v3.mtp-v2` | Apache-2.0 | Tests on Microsoft.Testing.Platform |
 | `dotnet-ef` (local tool) | MIT | Migrations |
 | `Microsoft.AspNetCore.OData` (+ `Microsoft.OData.Core`, `.Edm`, `.ModelBuilder`, `Microsoft.Spatial`) | MIT | OData query parsing for list items (ADR-0007) |
-| `WolverineFx` (+ `.EntityFrameworkCore`, `.Postgresql`) | MIT | Transactional outbox and durable local queues (ADR-0008, phase 1c) |
+| `WolverineFx` (+ `.EntityFrameworkCore`, `.Postgresql`, `.Sqlite`, `.RuntimeCompilation`, `.RDBMS`) | MIT | Transactional outbox and durable local queues (ADR-0008) |
+| `JasperFx` (+ `.Events`, `.RuntimeCompiler`, `.SourceGenerator`), `Weasel.*` (via Wolverine) | MIT | Wolverine code generation and database schema management |
+| `Microsoft.CodeAnalysis.*` (Roslyn, via Wolverine runtime compilation) | MIT | Runtime compilation of message handlers |
+| `FastExpressionCompiler`, `Spectre.Console`, `Newtonsoft.Json` (via Wolverine) | MIT | Wolverine dependencies |
+| `Cronos` | MIT | Cron expressions for recurring jobs (ADR-0010) |
 | `CliWrap` | MIT | Running the Tesseract CLI |
 | `TngTech.ArchUnitNET` (+ `.xUnitV3`) | Apache-2.0 | Architecture tests |
 | `OpenIddict.EntityFrameworkCore` | Apache-2.0 | OpenIddict stores |

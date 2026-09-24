@@ -7,13 +7,18 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Host.Bootstrap;
 using PaperDotNet.Identity;
+using PaperDotNet.Jobs;
 using PaperDotNet.Lists;
+using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.ServiceDefaults;
 using PaperDotNet.Tenancy;
 using PaperDotNet.Workspaces;
+using Wolverine;
+using Wolverine.Postgresql;
+using Wolverine.Sqlite;
 
 namespace PaperDotNet.Host;
 
@@ -29,6 +34,7 @@ public static class PaperDotNetHost
         new IdentityModule(),
         new WorkspacesModule(),
         new ListsModule(),
+        new JobsModule(),
     ];
 
     public static WebApplicationBuilder AddPaperDotNet(this WebApplicationBuilder builder, bool runBootstrap)
@@ -39,16 +45,32 @@ public static class PaperDotNetHost
         var services = builder.Services;
         services.AddSingleton(TimeProvider.System);
         services.AddHttpContextAccessor();
-        services.AddScoped<ICurrentUser, HttpCurrentUser>();
+        services.AddScoped<HttpCurrentUser>();
+        services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<HttpCurrentUser>());
+        services.AddScoped<ICurrentUserOverride>(sp => sp.GetRequiredService<HttpCurrentUser>());
         services.AddHybridCache();
         services.AddPaperDotNetDatabase(builder.Configuration);
         services.AddSingleton<DatabaseMigrator>();
         services.AddScopeAuthorization();
 
+        // Registered first: hosted services start in order, so migrations run before
+        // Wolverine and the job scheduler touch the database.
+        services.AddOptions<BootstrapOptions>().BindConfiguration(BootstrapOptions.Section);
+        services.AddOptions<DatabaseOptions>().BindConfiguration(DatabaseOptions.Section);
+        services.AddScoped<TenantBootstrapper>();
+        if (runBootstrap)
+        {
+            services.AddHostedService<StartupBootstrapService>();
+        }
+
         foreach (var module in Modules)
         {
             module.AddServices(services, builder.Configuration);
         }
+
+        services.AddPaperDotNetMessaging(
+            options => ConfigureMessageStorage(options, builder.Configuration),
+            Modules.Select(m => m.GetType().Assembly).Distinct());
 
         services.AddProblemDetails();
         services.ConfigureHttpJsonOptions(o =>
@@ -74,13 +96,6 @@ public static class PaperDotNetHost
             o.KnownProxies.Clear();
         });
 
-        services.AddOptions<BootstrapOptions>().BindConfiguration(BootstrapOptions.Section);
-        services.AddOptions<DatabaseOptions>().BindConfiguration(DatabaseOptions.Section);
-        services.AddScoped<TenantBootstrapper>();
-        if (runBootstrap)
-        {
-            services.AddHostedService<StartupBootstrapService>();
-        }
 
         return builder;
     }
@@ -122,6 +137,25 @@ public static class PaperDotNetHost
             _ => throw new InvalidOperationException($"Unknown Database:Provider '{provider}'. Use Sqlite or PostgreSql."),
         };
     }
+
+    /// <summary>Wolverine message storage in the same database as the data (no broker needed).</summary>
+    private static void ConfigureMessageStorage(WolverineOptions options, IConfiguration configuration)
+    {
+        if (IsPostgreSql(configuration))
+        {
+            options.PersistMessagesWithPostgresql(configuration.GetConnectionString(PostgreSqlServiceCollectionExtensions.ConnectionStringName)!, "wolverine");
+        }
+        else
+        {
+            options.PersistMessagesWithSqlite(Persistence.Sqlite.SqliteServiceCollectionExtensions.ResolveConnectionString(configuration));
+
+            // SQLite serves a single app instance.
+            options.Durability.Mode = DurabilityMode.Solo;
+        }
+    }
+
+    private static bool IsPostgreSql(IConfiguration configuration) =>
+        configuration[$"{DatabaseOptions.Section}:Provider"]?.ToUpperInvariant() is "POSTGRESQL" or "POSTGRES";
 
     public static string Version { get; } =
         typeof(PaperDotNetHost).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";

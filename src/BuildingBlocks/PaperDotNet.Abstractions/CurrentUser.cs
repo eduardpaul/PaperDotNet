@@ -8,6 +8,12 @@ public interface ICurrentUser
     bool IsAuthenticated => UserId is not null;
 }
 
+/// <summary>Lets background work act as a user (e.g. the user who started an operation).</summary>
+public interface ICurrentUserOverride
+{
+    void ActAs(Guid userId);
+}
+
 /// <summary>Claim types issued by PaperDotNet.</summary>
 public static class PaperDotNetClaims
 {

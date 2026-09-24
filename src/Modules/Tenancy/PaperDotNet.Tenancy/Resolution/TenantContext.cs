@@ -21,10 +21,15 @@ internal sealed class TenantContext(IMultiTenantContextAccessor<PaperDotNetTenan
 
 internal sealed class TenantScopeFactory(IServiceScopeFactory scopes) : ITenantScopeFactory
 {
-    public AsyncServiceScope CreateScope(Guid tenantId, string tenantIdentifier)
+    public AsyncServiceScope CreateScope(Guid tenantId, string tenantIdentifier, Guid? userId = null)
     {
         var scope = scopes.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<TenantContext>().Set(tenantId, tenantIdentifier);
+        if (userId is { } user)
+        {
+            scope.ServiceProvider.GetRequiredService<ICurrentUserOverride>().ActAs(user);
+        }
+
         return scope;
     }
 }

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Identity.Data;
+using PaperDotNet.Jobs.Data;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Tenancy.Data;
@@ -54,4 +55,10 @@ internal sealed class ListsDesignTimeFactory : IDesignTimeDbContextFactory<Lists
 {
     public ListsDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<ListsDbContext>(ListsDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class JobsDesignTimeFactory : IDesignTimeDbContextFactory<JobsDbContext>
+{
+    public JobsDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<JobsDbContext>(JobsDbContext.Schema), DesignTime.NoTenant);
 }

@@ -2,10 +2,13 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Jobs.Contracts;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
+using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Lists;
@@ -35,6 +38,10 @@ public sealed class ListsModule : IModule
         services.AddScoped<ItemQueryRunner>();
         services.AddScoped<ITenantInitializer, ListsTenantInitializer>();
         services.AddScopes(ListScopes.All);
+        services.AddIntegrationEvent<ItemAdded>();
+        services.AddIntegrationEvent<ItemUpdated>();
+        services.AddIntegrationEvent<ItemDeleted>();
+        services.AddOperationHandler<BulkUpdateOperation>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -42,6 +49,7 @@ public sealed class ListsModule : IModule
         ContentTypeEndpoints.Map(endpoints);
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
+        BulkUpdateEndpoints.Map(endpoints);
         ViewEndpoints.Map(endpoints);
     }
 }

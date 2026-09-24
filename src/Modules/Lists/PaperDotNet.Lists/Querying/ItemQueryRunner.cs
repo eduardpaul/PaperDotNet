@@ -66,6 +66,21 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         }
     }
 
+    /// <summary>Items of the list matching an OData <c>$filter</c> (null = all), for bulk work.</summary>
+    public (IQueryable<ListItem>? Query, string? Error) Filtered(ListSchema schema, string? filter)
+    {
+        IQueryable<ListItem> query = db.Items.Where(i => i.ListId == schema.List.Id && !i.IsFolder);
+        try
+        {
+            var (translator, clause, _) = Parse(schema, filter, null);
+            return (clause is null ? query : query.Where(translator.Filter(clause)), null);
+        }
+        catch (ODataException ex)
+        {
+            return (null, ex.Message);
+        }
+    }
+
     public async Task<(ItemPage? Page, string? Error)> RunAsync(
         ListSchema schema, ItemQueryOptions options, ListView? view, Expression<Func<ListItem, bool>>? scope, HttpRequest request, CancellationToken ct)
     {

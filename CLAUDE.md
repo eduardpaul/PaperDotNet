@@ -69,6 +69,12 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
 - Endpoints: Minimal APIs under `/v1.0`, `TypedResults`, `RequireScope(...)`,
   `ApiErrors` for problems, `Page.Create` for lists, ETags for mutable resources.
 - IDs via `Ids.New()` (UUIDv7); time via `TimeProvider`.
+- Events: synchronous before/after logic → `IItemEventReceiver` (Lists.Contracts);
+  background reactions → `IntegrationEvent` + `IEventSubscriber<T>` (idempotent),
+  published with `IOutbox.SaveChangesAsync(db, events)`. Only `PaperDotNet.Messaging`
+  references Wolverine.
+- Long work → `IOperations.StartAsync` + `OperationHandler<T>` (202 + `/operations/{id}`);
+  recurring work → `ITenantRecurringJob` + `AddTenantRecurringJob` (cron, UTC).
 - Record decisions as ADRs in `docs/adr/`.
 
 ## Ideas workflow
