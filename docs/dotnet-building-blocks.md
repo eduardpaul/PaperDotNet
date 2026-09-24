@@ -236,8 +236,8 @@ Spikes to run before the phases that need them:
 3. **Sidecar RPC:** gRPC vs StreamJsonRpc, and before-event latency (ideas 0011, 0012).
 4. **Our own outbox vs Wolverine.** Measure how much code our own needs for retries, dead-letter and delays.
 5. **OpenIddict** setup for local accounts, API tokens and MCP OAuth.
-7. **Finbuckle.MultiTenant** together with our EF Core tenant filters.
-6. **Microsoft.Extensions.AI:** auto-tagging from OCR text with structured output (ideas 0008, 0009).
+6. **Finbuckle.MultiTenant** together with our EF Core tenant filters.
+7. **Microsoft.Extensions.AI:** auto-tagging from OCR text with structured output (ideas 0008, 0009).
 
 ## Sources
 
