@@ -1,0 +1,38 @@
+# Ideas
+
+The inbox for raw ideas. Drop them here quickly, without worrying about
+structure. Later, each idea gets reviewed and mapped to one or more features
+(see [`docs/papermerge-features.md`](../docs/papermerge-features.md) and
+[`docs/architecture-vision.md`](../docs/architecture-vision.md)).
+
+## How to add an idea
+
+1. Copy [`_template.md`](_template.md) to a new file named
+   `NNNN-short-title.md`. Use the next free number, e.g. `0002-email-to-inbox.md`.
+2. Fill in at least **Title** and **The idea**. Every other section is optional.
+   A single sentence is fine.
+3. Add a row to the index below.
+
+Too lazy for a file? Add a one-liner to [Quick ideas](#quick-ideas) at the bottom.
+It will be turned into a file during review.
+
+## Status lifecycle
+
+| Status | Meaning |
+|---|---|
+| `new` | Just captured, not reviewed yet |
+| `discussing` | Being clarified or refined |
+| `mapped` | Linked to one or more features in the feature list or roadmap |
+| `parked` | Good idea, not now |
+| `rejected` | Won't do (reason noted in the file) |
+| `done` | Implemented |
+
+## Index
+
+| # | Title | Area | Status | Mapped to |
+|---|---|---|---|---|
+| [0001](0001-extensible-dms-productivity-platform.md) | Extensible DMS + productivity platform | Platform | mapped | architecture-vision.md |
+
+## Quick ideas
+
+<!-- One line per idea: `- YYYY-MM-DD: idea text` -->
