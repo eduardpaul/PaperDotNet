@@ -219,10 +219,17 @@ PaperDotNet.slnx
   - tenant stamping
   - audit columns
   - soft delete
-  - item version snapshots (only when the list has versioning on, LST-11)
   - outbox writes
-- **Audit log:** an append-only table written by the interceptor in the
-  same transaction.
+- **Audit log:** an append-only `audit_log` table in every module schema
+  (added by `ApplyPaperDotNetConventions`), written by the interceptor in the
+  same transaction as the change: who, when, action (created, updated,
+  deleted, restored, purged), entity and changed properties, plus the trace
+  id. `[NotAudited]` excludes technical state. `GET /v1.0/auditLog` merges
+  all modules by time.
+- **Item versions** (LST-11) are snapshots written by `ItemWriter` in the
+  same transaction when the list has versioning on; old versions are trimmed.
+- **Recycle bin:** soft delete via `ISoftDeletable`; deleting an entity that
+  is already soft-deleted purges it (and is audited as such).
 
 ## 7. Events, outbox & background processing
 

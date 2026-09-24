@@ -6,6 +6,7 @@ using PaperDotNet.Persistence;
 namespace PaperDotNet.Jobs.Data;
 
 /// <summary>A long-running operation (Graph-style <c>/operations/{id}</c>).</summary>
+[NotAudited]
 public sealed class Operation : ITenantOwned, IAuditable, IVersioned
 {
     public Guid Id { get; set; }

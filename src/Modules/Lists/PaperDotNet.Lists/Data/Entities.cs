@@ -40,6 +40,15 @@ public enum ListKind
     Library = 1,
 }
 
+/// <summary>Version history of a list (LST-11). Minor versions (drafts) come with documents.</summary>
+public enum ListVersioning
+{
+    Off = 0,
+
+    /// <summary>Every change creates a version.</summary>
+    Major = 1,
+}
+
 /// <summary>A list or library in a workspace.</summary>
 public sealed class ListDefinition : ITenantOwned, IAuditable, ISoftDeletable, IVersioned
 {
@@ -59,6 +68,14 @@ public sealed class ListDefinition : ITenantOwned, IAuditable, ISoftDeletable, I
 
     /// <summary>Content types allowed in the list; the first is the default.</summary>
     public List<Guid> ContentTypeIds { get; set; } = [];
+
+    public ListVersioning Versioning { get; set; }
+
+    /// <summary>Versions kept per item; older ones are removed.</summary>
+    public int MaxVersions { get; set; } = DefaultMaxVersions;
+
+    public const int DefaultMaxVersions = 50;
+    public const int MaxVersionsLimit = 500;
 
     public DateTimeOffset CreatedAt { get; set; }
 
@@ -110,6 +127,38 @@ public sealed class ListItem : ITenantOwned, IAuditable, ISoftDeletable, IVersio
     public Guid? DeletedBy { get; set; }
 
     public uint Version { get; set; }
+}
+
+/// <summary>
+/// A snapshot of an item after a change (LST-11/12). Numbered from 1 per item;
+/// written in the same transaction as the change.
+/// </summary>
+[NotAudited]
+public sealed class ItemVersion : ITenantOwned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid ItemId { get; set; }
+
+    public Guid ListId { get; set; }
+
+    public int Number { get; set; }
+
+    public Guid ContentTypeId { get; set; }
+
+    public required string Title { get; set; }
+
+    /// <summary>Field values (without <c>title</c>) as JSON, like <see cref="ListItem.Fields"/>.</summary>
+    public string Fields { get; set; } = "{}";
+
+    /// <summary>Fields changed compared with the previous version (all fields for the first).</summary>
+    public List<string> ChangedFields { get; set; } = [];
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Guid? CreatedBy { get; set; }
 }
 
 public enum ViewLayout

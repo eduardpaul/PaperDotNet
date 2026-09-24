@@ -215,7 +215,7 @@ internal static class ItemEndpoints
     internal static ProblemHttpResult CancelledByReceiver(string message) =>
         ApiErrors.Conflict("cancelledByReceiver", message);
 
-    private static async Task<(ListSchema? Schema, ListItem? Item, ProblemHttpResult? Problem)> LoadForChangeAsync(
+    internal static async Task<(ListSchema? Schema, ListItem? Item, ProblemHttpResult? Problem)> LoadForChangeAsync(
         Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, HttpRequest http, CancellationToken ct)
     {
         var schema = await loader.LoadAsync(workspaceId, listId, ct);

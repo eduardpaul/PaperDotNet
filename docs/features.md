@@ -300,7 +300,9 @@ Delivered in slices ([ADR-0007](adr/0007-odata-for-item-queries.md), [ADR-0008](
 | **Database providers** | PLT-14: SQLite default, PostgreSQL optional, full test suite on both (ADR-0009) | ✅ |
 | **1c Events & jobs** | EVT-01 before receivers (modify/cancel), EVT-02 after receivers (sync) + async integration events, EVT-03 ordering & scope filter (per-list registration comes with the extension runtime), EVT-04 Wolverine outbox on SQLite/PostgreSQL, EVT-05 recurring jobs (cron) + delayed messages, EVT-06 operations (`/v1.0/operations/{id}`), LST-05 bulk update as an operation | ✅ |
 | **1d Taxonomy** | TAX-01 term store (`/v1.0/termStore`: groups → sets → hierarchical terms), TAX-02 synonyms, labels per language, colors, descriptions, deprecate, move, merge (term reuse across sets comes later), TAX-03 open/closed sets, TAX-04 keywords set with autocomplete and get-or-create, TAX-06 `managedMetadata` and `keywords` field types on any content type (values by id or label), TAX-07 filtering on a term includes its descendants; merges rewrite stored values in the background (`TermMerged` event) | ✅ |
-| 1e History & search | LST-05, LST-11…14, LST-07, IAM-07, SRC-01…04 | planned |
+| **1e.1 History** | LST-11 versioning per list (off / major, max versions; libraries on by default), LST-12 version list, version details with changed fields, restore, LST-13 recycle bin (restore, purge, 93-day retention job), LST-14 audit log for every module (`/v1.0/auditLog`, same transaction as the change). Minor versions (drafts) come with documents | ✅ |
+| 1e.2 Access | IAM-07 permission inheritance, LST-07 Home & Inbox | planned |
+| 1e.3 Search | SRC-01…04 full-text search with security trimming | planned |
 | 1f Identity hardening | IAM-02 (OpenIddict, passkeys), RLS, Data Protection keys in DB | planned |
 
 ## Idea → feature mapping

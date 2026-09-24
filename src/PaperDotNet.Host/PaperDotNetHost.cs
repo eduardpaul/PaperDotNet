@@ -5,6 +5,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
+using PaperDotNet.Audit;
 using PaperDotNet.Host.Bootstrap;
 using PaperDotNet.Identity;
 using PaperDotNet.Jobs;
@@ -37,6 +38,7 @@ public static class PaperDotNetHost
         new TaxonomyModule(),
         new ListsModule(),
         new JobsModule(),
+        new AuditModule(),
     ];
 
     public static WebApplicationBuilder AddPaperDotNet(this WebApplicationBuilder builder, bool runBootstrap)

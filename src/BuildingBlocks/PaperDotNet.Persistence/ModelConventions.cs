@@ -10,12 +10,23 @@ public static class ModelConventions
     /// Applies PaperDotNet conventions to every entity in the model:
     /// the named <c>Tenant</c> filter for <see cref="ITenantOwned"/>, the named
     /// <c>SoftDelete</c> filter for <see cref="ISoftDeletable"/>, a tenant index,
-    /// and concurrency tokens for <see cref="IVersioned"/>.
+    /// concurrency tokens for <see cref="IVersioned"/>, and the module's
+    /// <c>audit_log</c> table (<see cref="AuditEntry"/>).
     /// Call at the end of <c>OnModelCreating</c>.
     /// </summary>
     public static ModelBuilder ApplyPaperDotNetConventions<TContext>(this ModelBuilder modelBuilder, TContext context)
         where TContext : DbContext, ITenantScopedDbContext
     {
+        modelBuilder.Entity<AuditEntry>(b =>
+        {
+            b.ToTable("audit_log");
+            b.Property(a => a.EntityType).HasMaxLength(200);
+            b.Property(a => a.TraceId).HasMaxLength(32);
+            b.Property(a => a.Action).HasConversion<string>().HasMaxLength(20);
+            b.HasIndex(a => new { a.TenantId, a.At });
+            b.HasIndex(a => a.EntityId);
+        });
+
         var contextExpression = Expression.Constant(context);
         var currentTenant = Expression.Property(contextExpression, nameof(ITenantScopedDbContext.CurrentTenantId));
 

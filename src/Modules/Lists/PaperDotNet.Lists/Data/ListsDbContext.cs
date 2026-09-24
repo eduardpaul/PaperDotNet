@@ -19,6 +19,8 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
 
     public DbSet<ListView> Views => Set<ListView>();
 
+    public DbSet<ItemVersion> ItemVersions => Set<ItemVersion>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
@@ -35,6 +37,14 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
             b.ToTable("lists");
             b.Property(l => l.Name).HasMaxLength(200);
             b.HasIndex(l => new { l.TenantId, l.WorkspaceId });
+            b.Property(l => l.Versioning).HasConversion<string>().HasMaxLength(20);
+        });
+
+        modelBuilder.Entity<ItemVersion>(b =>
+        {
+            b.ToTable("item_versions");
+            b.Property(v => v.Title).HasMaxLength(1024);
+            b.HasIndex(v => new { v.ItemId, v.Number }).IsUnique();
         });
 
         modelBuilder.Entity<ListItem>(b =>

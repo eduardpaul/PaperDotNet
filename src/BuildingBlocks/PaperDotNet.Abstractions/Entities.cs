@@ -35,3 +35,10 @@ public static class Ids
     /// <summary>New time-ordered identifier (UUIDv7), good for index locality and keyset paging.</summary>
     public static Guid New() => Guid.CreateVersion7();
 }
+
+/// <summary>
+/// Excludes an entity type (or a single property) from the audit log, for
+/// technical state that changes often (job progress, last-used timestamps).
+/// </summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, Inherited = false)]
+public sealed class NotAuditedAttribute : Attribute;

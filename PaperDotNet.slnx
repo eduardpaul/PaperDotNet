@@ -16,6 +16,9 @@
     <Project Path="src/Migrations/PaperDotNet.Migrations.Sqlite/PaperDotNet.Migrations.Sqlite.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Audit/">
+    <Project Path="src/Modules/Audit/PaperDotNet.Audit/PaperDotNet.Audit.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/PaperDotNet.Identity.Contracts/PaperDotNet.Identity.Contracts.csproj" />
     <Project Path="src/Modules/Identity/PaperDotNet.Identity/PaperDotNet.Identity.csproj" />

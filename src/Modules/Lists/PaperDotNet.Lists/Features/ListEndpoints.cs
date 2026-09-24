@@ -21,6 +21,8 @@ public sealed record ListResponse(
     string? Description,
     ListKind Kind,
     bool AllowFolders,
+    ListVersioning Versioning,
+    int MaxVersions,
     IReadOnlyList<ContentTypeResponse> ContentTypes,
     IReadOnlyList<FieldDefinitionDto> Columns,
     DateTimeOffset CreatedAt,
@@ -31,12 +33,16 @@ public sealed record CreateListRequest(
     [property: StringLength(2000)] string? Description,
     ListKind Kind = ListKind.List,
     bool AllowFolders = true,
-    IReadOnlyList<Guid>? ContentTypeIds = null);
+    IReadOnlyList<Guid>? ContentTypeIds = null,
+    ListVersioning? Versioning = null,
+    [property: Range(1, ListDefinition.MaxVersionsLimit)] int MaxVersions = ListDefinition.DefaultMaxVersions);
 
 public sealed record UpdateListRequest(
     [property: StringLength(200, MinimumLength = 1)] string? Name,
     [property: StringLength(2000)] string? Description,
-    bool? AllowFolders);
+    bool? AllowFolders,
+    ListVersioning? Versioning = null,
+    [property: Range(1, ListDefinition.MaxVersionsLimit)] int? MaxVersions = null);
 
 public sealed record AddListContentTypeRequest([property: Required] Guid ContentTypeId);
 
@@ -123,6 +129,10 @@ internal static class ListEndpoints
             Kind = request.Kind,
             AllowFolders = request.AllowFolders,
             ContentTypeIds = contentTypeIds,
+
+            // Libraries keep versions by default (like SharePoint document libraries).
+            Versioning = request.Versioning ?? (request.Kind == ListKind.Library ? ListVersioning.Major : ListVersioning.Off),
+            MaxVersions = request.MaxVersions,
         };
         db.Lists.Add(list);
         await db.SaveChangesAsync(ct);
@@ -162,6 +172,8 @@ internal static class ListEndpoints
         list.Name = request.Name?.Trim() ?? list.Name;
         list.Description = request.Description ?? list.Description;
         list.AllowFolders = request.AllowFolders ?? list.AllowFolders;
+        list.Versioning = request.Versioning ?? list.Versioning;
+        list.MaxVersions = request.MaxVersions ?? list.MaxVersions;
         if (await SaveAsync(db, ct) is { } conflict)
         {
             return conflict;
@@ -317,6 +329,8 @@ internal static class ListEndpoints
         schema.List.Description,
         schema.List.Kind,
         schema.List.AllowFolders,
+        schema.List.Versioning,
+        schema.List.MaxVersions,
         schema.ContentTypes.Select(ContentTypeEndpoints.ToResponse).ToList(),
         [new FieldDefinitionDto("title", "Title", "text", Required: true, MaxLength: ItemWriter.TitleMaxLength), .. schema.Fields.Values.Select(FieldDefinitionDto.From)],
         schema.List.CreatedAt,

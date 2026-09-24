@@ -32,6 +32,7 @@ internal sealed partial class ItemWriter(
     ITermStore terms,
     ITenantContext tenant,
     ICurrentUser currentUser,
+    TimeProvider time,
     ILogger<ItemWriter> logger) : IFieldValidationContext
 {
     public const int TitleMaxLength = 1024;
@@ -90,7 +91,8 @@ internal sealed partial class ItemWriter(
 
         ApplyValues(item, values);
         db.Items.Add(item);
-        var changed = Values(item).Select(p => p.Key).ToList();
+        var changed = Values(item).Select(p => p.Key).Order(StringComparer.Ordinal).ToList();
+        await AddVersionAsync(schema, item, changed, ct);
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Adding, item, schema, changed)], cancellationToken: ct);
         await RunAfterAsync(new ItemChangedContext(ItemEventKind.Adding, scope, item.Id, currentUser.UserId, null, Values(item), changed), ct);
         return new ItemWriteResult(item);
@@ -158,10 +160,15 @@ internal sealed partial class ItemWriter(
             item.ParentId = parentId.Value;
         }
 
+        var contentTypeChanged = contentType.Id != item.ContentTypeId;
         item.ContentTypeId = contentType.Id;
         ApplyValues(item, values);
         var after = Values(item);
         var changed = ChangedFields(before, after);
+        if (changed.Count > 0 || contentTypeChanged)
+        {
+            await AddVersionAsync(schema, item, changed, ct);
+        }
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Updating, item, schema, changed)], cancellationToken: ct);
         await RunAfterAsync(new ItemChangedContext(ItemEventKind.Updating, scope, item.Id, currentUser.UserId, before, after, changed), ct);
         return new ItemWriteResult(item);
@@ -186,6 +193,42 @@ internal sealed partial class ItemWriter(
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Deleting, item, schema, [])], cancellationToken: ct);
         await RunAfterAsync(new ItemChangedContext(ItemEventKind.Deleting, scope, item.Id, currentUser.UserId, before, null, []), ct);
         return new ItemWriteResult(item);
+    }
+
+    /// <summary>
+    /// Restores an item from the recycle bin. It returns to its folder when that
+    /// folder is active, otherwise to the list root.
+    /// </summary>
+    public async Task RestoreAsync(ListSchema schema, ListItem item, CancellationToken ct)
+    {
+        if (item.ParentId is { } parentId && !await db.Items.AnyAsync(i => i.Id == parentId && i.IsFolder, ct))
+        {
+            item.ParentId = null;
+        }
+
+        item.DeletedAt = null;
+        item.DeletedBy = null;
+        var restored = new ItemRestored
+        {
+            TenantId = tenant.TenantId!.Value,
+            TenantIdentifier = tenant.TenantIdentifier!,
+            UserId = currentUser.UserId,
+            WorkspaceId = schema.List.WorkspaceId,
+            ListId = schema.List.Id,
+            ItemId = item.Id,
+            ContentTypeId = item.ContentTypeId,
+            IsFolder = item.IsFolder,
+        };
+        await outbox.SaveChangesAsync(db, [restored], cancellationToken: ct);
+    }
+
+    /// <summary>Deletes recycle-bin items and their versions permanently.</summary>
+    public async Task PurgeAsync(IReadOnlyCollection<ListItem> deletedItems, CancellationToken ct)
+    {
+        var ids = deletedItems.Select(i => i.Id).ToList();
+        db.ItemVersions.RemoveRange(await db.ItemVersions.Where(v => ids.Contains(v.ItemId)).ToListAsync(ct));
+        db.Items.RemoveRange(deletedItems);
+        await db.SaveChangesAsync(ct);
     }
 
     public Task<bool> UserExistsAsync(Guid userId, CancellationToken cancellationToken) => users.IsActiveAsync(userId, cancellationToken);
@@ -351,6 +394,36 @@ internal sealed partial class ItemWriter(
         }
 
         return result;
+    }
+
+    /// <summary>Snapshots the item as a new version when the list keeps history, trimming old versions.</summary>
+    private async Task AddVersionAsync(ListSchema schema, ListItem item, IReadOnlyList<string> changed, CancellationToken ct)
+    {
+        if (schema.List.Versioning == ListVersioning.Off || item.IsFolder)
+        {
+            return;
+        }
+
+        var last = await db.ItemVersions.Where(v => v.ItemId == item.Id).MaxAsync(v => (int?)v.Number, ct) ?? 0;
+        db.ItemVersions.Add(new ItemVersion
+        {
+            Id = Ids.New(),
+            ItemId = item.Id,
+            ListId = item.ListId,
+            Number = last + 1,
+            ContentTypeId = item.ContentTypeId,
+            Title = item.Title,
+            Fields = item.Fields,
+            ChangedFields = [.. changed],
+            CreatedAt = time.GetUtcNow(),
+            CreatedBy = currentUser.UserId,
+        });
+
+        var keepFrom = last + 2 - schema.List.MaxVersions;
+        if (keepFrom > 1)
+        {
+            db.ItemVersions.RemoveRange(await db.ItemVersions.Where(v => v.ItemId == item.Id && v.Number < keepFrom).ToListAsync(ct));
+        }
     }
 
     private static void ApplyValues(ListItem item, JsonObject values)

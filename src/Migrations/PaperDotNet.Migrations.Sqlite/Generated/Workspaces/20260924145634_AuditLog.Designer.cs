@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PaperDotNet.Workspaces.Data;
 
@@ -10,9 +11,11 @@ using PaperDotNet.Workspaces.Data;
 namespace PaperDotNet.Migrations.Sqlite.Generated.Workspaces
 {
     [DbContext(typeof(WorkspacesDbContext))]
-    partial class WorkspacesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260924145634_AuditLog")]
+    partial class AuditLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");

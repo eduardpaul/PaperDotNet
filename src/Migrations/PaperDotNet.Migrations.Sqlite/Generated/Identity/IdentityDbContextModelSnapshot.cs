@@ -466,6 +466,66 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                     b.ToTable("identity_users", (string)null);
                 });
 
+            modelBuilder.Entity("PaperDotNet.Persistence.AuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("action");
+
+                    b.Property<long>("At")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("at");
+
+                    b.Property<Guid?>("EntityId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("entity_id");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("entity_type");
+
+                    b.PrimitiveCollection<string>("Properties")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("properties");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TraceId")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("trace_id");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_audit_log");
+
+                    b.HasIndex("EntityId")
+                        .HasDatabaseName("ix_identity_audit_log_entity_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_identity_audit_log_tenant_id");
+
+                    b.HasIndex("TenantId", "At")
+                        .HasDatabaseName("ix_identity_audit_log_tenant_id_at");
+
+                    b.ToTable("identity_audit_log", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
                     b.HasOne("PaperDotNet.Identity.Data.User", null)

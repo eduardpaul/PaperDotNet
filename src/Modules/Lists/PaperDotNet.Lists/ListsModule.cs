@@ -21,6 +21,7 @@ public sealed class ListsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<ListsDbContext>(ListsDbContext.Schema);
+        services.AddOptions<ListsOptions>().BindConfiguration(ListsOptions.Section);
 
         foreach (var type in new IFieldType[]
         {
@@ -43,6 +44,8 @@ public sealed class ListsModule : IModule
         services.AddIntegrationEvent<ItemAdded>();
         services.AddIntegrationEvent<ItemUpdated>();
         services.AddIntegrationEvent<ItemDeleted>();
+        services.AddIntegrationEvent<ItemRestored>();
+        services.AddTenantRecurringJob<RecycleBinCleanupJob>(RecycleBinCleanupJob.Name, RecycleBinCleanupJob.Schedule);
         services.AddOperationHandler<BulkUpdateOperation>();
         services.AddEventSubscriber<TermMerged, TermMergedSubscriber>();
     }
@@ -54,6 +57,7 @@ public sealed class ListsModule : IModule
         ItemEndpoints.Map(endpoints);
         BulkUpdateEndpoints.Map(endpoints);
         ViewEndpoints.Map(endpoints);
+        ItemHistoryEndpoints.Map(endpoints);
     }
 }
 

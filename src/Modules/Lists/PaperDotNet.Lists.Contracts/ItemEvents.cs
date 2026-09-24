@@ -93,3 +93,6 @@ public sealed record ItemAdded : ItemEvent;
 public sealed record ItemUpdated : ItemEvent;
 
 public sealed record ItemDeleted : ItemEvent;
+
+/// <summary>An item was restored from the recycle bin.</summary>
+public sealed record ItemRestored : ItemEvent;

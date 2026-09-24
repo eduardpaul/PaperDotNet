@@ -118,6 +118,70 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                     b.ToTable("lists_content_types", (string)null);
                 });
 
+            modelBuilder.Entity("PaperDotNet.Lists.Data.ItemVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.PrimitiveCollection<string>("ChangedFields")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("changed_fields");
+
+                    b.Property<Guid>("ContentTypeId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("content_type_id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Fields")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("fields");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("item_id");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("list_id");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("number");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id")
+                        .HasName("pk_lists_item_versions");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_lists_item_versions_tenant_id");
+
+                    b.HasIndex("ItemId", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_lists_item_versions_item_id_number");
+
+                    b.ToTable("lists_item_versions", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Lists.Data.ListDefinition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -158,6 +222,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasColumnType("INTEGER")
                         .HasColumnName("kind");
 
+                    b.Property<int>("MaxVersions")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("max_versions");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -180,6 +248,12 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .IsConcurrencyToken()
                         .HasColumnType("INTEGER")
                         .HasColumnName("version");
+
+                    b.Property<string>("Versioning")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("versioning");
 
                     b.Property<Guid>("WorkspaceId")
                         .HasColumnType("TEXT")
@@ -354,6 +428,66 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasDatabaseName("ix_lists_views_tenant_id");
 
                     b.ToTable("lists_views", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Persistence.AuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("action");
+
+                    b.Property<long>("At")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("at");
+
+                    b.Property<Guid?>("EntityId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("entity_id");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("entity_type");
+
+                    b.PrimitiveCollection<string>("Properties")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("properties");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TraceId")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("trace_id");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_lists_audit_log");
+
+                    b.HasIndex("EntityId")
+                        .HasDatabaseName("ix_lists_audit_log_entity_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_lists_audit_log_tenant_id");
+
+                    b.HasIndex("TenantId", "At")
+                        .HasDatabaseName("ix_lists_audit_log_tenant_id_at");
+
+                    b.ToTable("lists_audit_log", (string)null);
                 });
 #pragma warning restore 612, 618
         }
