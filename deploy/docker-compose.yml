@@ -15,7 +15,8 @@ services:
     ports:
       - "${PAPERDOTNET_PORT:-8080}:8080"
     environment:
-      PAPERDOTNET__Auth__SigningKey: ${SIGNING_KEY:?set SIGNING_KEY (32+ chars) in .env}
+      # OAuth over plain HTTP is refused unless TLS ends at a proxy that forwards the scheme (BEHIND_PROXY) or you allow it here.
+      PAPERDOTNET__Auth__RequireHttps: ${REQUIRE_HTTPS:-true}
       PAPERDOTNET__Bootstrap__AdminPassword: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       PAPERDOTNET__Tenancy__DefaultTenant: ${DEFAULT_TENANT:-default}
       # Set to true when running behind a reverse proxy (Traefik, Caddy, nginx).

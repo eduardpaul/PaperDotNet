@@ -12,7 +12,7 @@ public sealed record ScopeRequirement(string Scope) : IAuthorizationRequirement;
 
 /// <summary>
 /// Checks the user's current effective scopes (so role changes apply
-/// immediately) and, for API tokens, the scopes the token was limited to.
+/// immediately) and, for API tokens and limited OAuth tokens, the scopes the token was granted.
 /// </summary>
 public sealed class ScopeAuthorizationHandler(IEffectiveScopeProvider scopes) : AuthorizationHandler<ScopeRequirement>
 {
@@ -25,7 +25,8 @@ public sealed class ScopeAuthorizationHandler(IEffectiveScopeProvider scopes) : 
         }
 
         var tokenScopes = context.User.FindAll(PaperDotNetClaims.TokenScope).Select(c => c.Value).ToList();
-        if (context.User.HasClaim(c => c.Type == PaperDotNetClaims.TokenId) && !tokenScopes.Contains(requirement.Scope))
+        var limited = context.User.HasClaim(c => c.Type is PaperDotNetClaims.TokenId or PaperDotNetClaims.ScopeLimited);
+        if (limited && !tokenScopes.Contains(requirement.Scope))
         {
             return;
         }

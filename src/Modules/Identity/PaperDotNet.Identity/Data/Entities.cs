@@ -11,6 +11,9 @@ public sealed class User : IdentityUser<Guid>, ITenantOwned, IAuditable
 
     public bool IsDisabled { get; set; }
 
+    /// <summary>Identity of an OAuth client application (client credentials); cannot sign in interactively.</summary>
+    public bool IsServiceAccount { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }

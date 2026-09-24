@@ -25,6 +25,17 @@ internal static class DesignTime
         return builder.Options;
     }
 
+    /// <summary>Options for the Identity context: Identity reads its schema version (3: passkeys) from the app services.</summary>
+    public static DbContextOptions<IdentityDbContext> IdentityOptions()
+    {
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        Microsoft.Extensions.DependencyInjection.OptionsServiceCollectionExtensions.Configure<Microsoft.AspNetCore.Identity.IdentityOptions>(
+            services, o => o.Stores.SchemaVersion = Microsoft.AspNetCore.Identity.IdentitySchemaVersions.Version3);
+        var builder = new DbContextOptionsBuilder<IdentityDbContext>(Options<IdentityDbContext>(IdentityDbContext.Schema));
+        builder.UseApplicationServiceProvider(Microsoft.Extensions.DependencyInjection.ServiceCollectionContainerBuilderExtensions.BuildServiceProvider(services));
+        return builder.Options;
+    }
+
     public static readonly ITenantContext NoTenant = new NoTenantContext();
 
     private sealed class NoTenantContext : ITenantContext
@@ -44,7 +55,7 @@ internal sealed class TenancyDesignTimeFactory : IDesignTimeDbContextFactory<Ten
 internal sealed class IdentityDesignTimeFactory : IDesignTimeDbContextFactory<IdentityDbContext>
 {
     public IdentityDbContext CreateDbContext(string[] args) =>
-        new(DesignTime.Options<IdentityDbContext>(IdentityDbContext.Schema), DesignTime.NoTenant);
+        new(DesignTime.IdentityOptions(), DesignTime.NoTenant);
 }
 
 internal sealed class WorkspacesDesignTimeFactory : IDesignTimeDbContextFactory<WorkspacesDbContext>

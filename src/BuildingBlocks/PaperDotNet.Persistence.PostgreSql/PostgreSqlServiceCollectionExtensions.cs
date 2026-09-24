@@ -32,6 +32,8 @@ public static class PostgreSqlServiceCollectionExtensions
 
             return builder.Build();
         });
+        // Row-level security as a second tenant wall (Database:RowLevelSecurity, default on).
+        services.AddSingleton(new PostgreSqlSettings(configuration.GetValue("Database:RowLevelSecurity", defaultValue: true)));
         services.AddSingleton<IDatabaseProvider, PostgreSqlDatabaseProvider>();
         services.AddSingleton<IFullTextSearch, PostgreSqlFullTextSearch>();
         services.AddHealthChecks().AddCheck<PostgreSqlHealthCheck>("postgresql", tags: ["ready"]);

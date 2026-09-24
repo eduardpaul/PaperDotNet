@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace PaperDotNet.Persistence.PostgreSql;
 
-internal sealed class PostgreSqlDatabaseProvider(NpgsqlDataSource dataSource) : IDatabaseProvider
+/// <summary>PostgreSQL settings from configuration (<c>Database</c> section).</summary>
+internal sealed record PostgreSqlSettings(bool RowLevelSecurity);
+
+internal sealed class PostgreSqlDatabaseProvider(NpgsqlDataSource dataSource, PostgreSqlSettings settings, ILogger<PostgreSqlDatabaseProvider> logger) : IDatabaseProvider
 {
     public const string ProviderName = "PostgreSql";
 
@@ -14,8 +18,17 @@ internal sealed class PostgreSqlDatabaseProvider(NpgsqlDataSource dataSource) : 
 
     public string Name => ProviderName;
 
-    public void Configure(DbContextOptionsBuilder options, string schema) =>
+    public void Configure(DbContextOptionsBuilder options, string schema)
+    {
         Configure(options, dataSource, schema);
+        if (settings.RowLevelSecurity)
+        {
+            options.AddInterceptors(TenantSessionInterceptor.Instance);
+        }
+    }
+
+    public Task AfterMigrateAsync(DbContext context, CancellationToken cancellationToken) =>
+        settings.RowLevelSecurity ? PostgreSqlRowLevelSecurity.ApplyAsync(context, logger, cancellationToken) : Task.CompletedTask;
 
     public static void Configure(DbContextOptionsBuilder options, NpgsqlDataSource dataSource, string schema)
     {

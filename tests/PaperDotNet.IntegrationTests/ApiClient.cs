@@ -28,11 +28,22 @@ internal static class ApiClient
 
     public static async Task<string> GetTokenAsync(HttpClient client, string userName, string password)
     {
-        var response = await client.PostAsJsonAsync("/v1.0/auth/token", new { userName, password });
+        var response = await RequestTokenAsync(client, userName, password);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(Json);
-        return body.GetProperty("accessToken").GetString()!;
+        return body.GetProperty("access_token").GetString()!;
     }
+
+    /// <summary>Password grant of the first-party client (<c>/connect/token</c>).</summary>
+    public static Task<HttpResponseMessage> RequestTokenAsync(HttpClient client, string userName, string password, string scope = "api offline_access") =>
+        client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["grant_type"] = "password",
+            ["client_id"] = "paperdotnet",
+            ["username"] = userName,
+            ["password"] = password,
+            ["scope"] = scope,
+        }));
 
     public static async Task<JsonElement> ReadJsonAsync(this HttpResponseMessage response) =>
         await response.Content.ReadFromJsonAsync<JsonElement>(Json);

@@ -23,7 +23,7 @@ public sealed class AuthenticationTests(PaperDotNetApiFactory factory)
     {
         var client = await ApiClient.CreateAsync(factory, userName: null);
 
-        var response = await client.PostAsJsonAsync("/v1.0/auth/token", new { userName = "admin", password = "wrong-password-123" }, Ct);
+        var response = await client.PostAsJsonAsync("/v1.0/auth/login", new { userName = "admin", password = "wrong-password-123" }, Ct);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("invalidCredentials", (await response.ReadJsonAsync()).GetProperty("code").GetString());

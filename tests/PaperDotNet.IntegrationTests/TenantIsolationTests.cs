@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Npgsql;
 
 namespace PaperDotNet.IntegrationTests;
 
@@ -24,6 +25,33 @@ public sealed class TenantIsolationTests(PaperDotNetApiFactory factory)
 
         var usersB = (await (await clientB.GetAsync("/v1.0/users", Ct)).ReadJsonAsync()).GetProperty("value");
         Assert.Equal(1, usersB.GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Postgresql_row_level_security_hides_other_tenants_without_ef()
+    {
+        Assert.SkipUnless(PaperDotNetApiFactory.Provider == "postgresql", "Row-level security is PostgreSQL only.");
+        var a = await factory.CreateTenantAsync("rls-a");
+        var b = await factory.CreateTenantAsync("rls-b");
+        await (await ApiClient.CreateAsync(factory, a.Identifier)).CreateWorkspaceAsync("RLS A");
+        await (await ApiClient.CreateAsync(factory, b.Identifier)).CreateWorkspaceAsync("RLS B");
+
+        // Raw SQL as the app's role: only the database policies protect the data here.
+        await using var connection = new NpgsqlConnection(factory.ConnectionString);
+        await connection.OpenAsync(Ct);
+        async Task<long> ScalarAsync(string sql)
+        {
+            await using var command = new NpgsqlCommand(sql, connection);
+            return Convert.ToInt64(await command.ExecuteScalarAsync(Ct), System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        Assert.Equal(0, await ScalarAsync("SELECT count(*) FROM workspaces.workspaces"));
+        await ScalarAsync($"SELECT count(*) FROM (SELECT set_config('app.tenant_id', '{a.Id}', false)) s");
+        Assert.True(await ScalarAsync("SELECT count(*) FROM workspaces.workspaces") >= 1);
+        Assert.Equal(0, await ScalarAsync($"SELECT count(*) FROM workspaces.workspaces WHERE tenant_id <> '{a.Id}'"));
+
+        await using var update = new NpgsqlCommand($"UPDATE workspaces.workspaces SET name = 'hacked' WHERE tenant_id = '{b.Id}'", connection);
+        Assert.Equal(0, await update.ExecuteNonQueryAsync(Ct));
     }
 
     [Fact]
@@ -65,7 +93,7 @@ public sealed class TenantIsolationTests(PaperDotNetApiFactory factory)
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Tenant", "does-not-exist");
 
-        var response = await client.PostAsJsonAsync("/v1.0/auth/token", new { userName = "admin", password = PaperDotNetApiFactory.AdminPassword }, Ct);
+        var response = await client.PostAsJsonAsync("/v1.0/auth/login", new { userName = "admin", password = PaperDotNetApiFactory.AdminPassword }, Ct);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("tenantNotFound", (await response.ReadJsonAsync()).GetProperty("code").GetString());

@@ -21,7 +21,7 @@ public sealed class HostTests(PaperDotNetApiFactory factory)
         var document = await (await client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken)).ReadJsonAsync();
 
         var paths = document.GetProperty("paths").EnumerateObject().Select(p => p.Name).ToList();
-        Assert.Contains("/v1.0/auth/token", paths);
+        Assert.Contains("/v1.0/auth/login", paths);
         Assert.Contains("/v1.0/me", paths);
         Assert.Contains("/v1.0/workspaces/{id}", paths);
         Assert.True(document.GetProperty("components").GetProperty("securitySchemes").TryGetProperty("bearer", out _));

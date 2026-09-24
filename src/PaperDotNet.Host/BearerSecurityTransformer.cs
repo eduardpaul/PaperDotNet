@@ -16,7 +16,7 @@ internal sealed class BearerSecurityTransformer : IOpenApiDocumentTransformer
         {
             Type = SecuritySchemeType.Http,
             Scheme = "bearer",
-            Description = "Access token from POST /v1.0/auth/token, or a personal API token (pdn_…).",
+            Description = "OAuth access token from /connect/token (authorization code + PKCE, client credentials, refresh, or password for the first-party client), or a personal API token (pdn_…).",
         };
         document.Security ??= [];
         document.Security.Add(new OpenApiSecurityRequirement { [new OpenApiSecuritySchemeReference("bearer", document)] = [] });

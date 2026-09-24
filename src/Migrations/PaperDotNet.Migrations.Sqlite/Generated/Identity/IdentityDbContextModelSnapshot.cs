@@ -17,6 +17,27 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("FriendlyName")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("friendly_name");
+
+                    b.Property<string>("Xml")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("xml");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_data_protection_keys");
+
+                    b.ToTable("identity_data_protection_keys", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
                     b.Property<int>("Id")
@@ -48,10 +69,12 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
                 {
                     b.Property<string>("LoginProvider")
+                        .HasMaxLength(128)
                         .HasColumnType("TEXT")
                         .HasColumnName("login_provider");
 
                     b.Property<string>("ProviderKey")
+                        .HasMaxLength(128)
                         .HasColumnType("TEXT")
                         .HasColumnName("provider_key");
 
@@ -72,6 +95,26 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                     b.ToTable("identity_user_logins", (string)null);
                 });
 
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserPasskey<System.Guid>", b =>
+                {
+                    b.Property<byte[]>("CredentialId")
+                        .HasMaxLength(1024)
+                        .HasColumnType("BLOB")
+                        .HasColumnName("credential_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("CredentialId")
+                        .HasName("pk_identity_user_passkeys");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_identity_user_passkeys_user_id");
+
+                    b.ToTable("identity_user_passkeys", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -79,10 +122,12 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                         .HasColumnName("user_id");
 
                     b.Property<string>("LoginProvider")
+                        .HasMaxLength(128)
                         .HasColumnType("TEXT")
                         .HasColumnName("login_provider");
 
                     b.Property<string>("Name")
+                        .HasMaxLength(128)
                         .HasColumnType("TEXT")
                         .HasColumnName("name");
 
@@ -246,6 +291,299 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                     b.ToTable("identity_group_members", (string)null);
                 });
 
+            modelBuilder.Entity("PaperDotNet.Identity.Data.OAuthApplication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ApplicationType")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("application_type");
+
+                    b.Property<string>("ClientId")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("client_id");
+
+                    b.Property<string>("ClientSecret")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("client_secret");
+
+                    b.Property<string>("ClientType")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("client_type");
+
+                    b.Property<string>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<string>("ConsentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("consent_type");
+
+                    b.Property<string>("DisplayName")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("display_name");
+
+                    b.Property<string>("DisplayNames")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("display_names");
+
+                    b.Property<string>("JsonWebKeySet")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("json_web_key_set");
+
+                    b.Property<string>("Permissions")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("permissions");
+
+                    b.Property<string>("PostLogoutRedirectUris")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("post_logout_redirect_uris");
+
+                    b.Property<string>("Properties")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("properties");
+
+                    b.Property<string>("RedirectUris")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("redirect_uris");
+
+                    b.Property<string>("Requirements")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("requirements");
+
+                    b.Property<Guid?>("ServiceUserId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("service_user_id");
+
+                    b.Property<string>("Settings")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("settings");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_oauth_applications");
+
+                    b.HasIndex("ClientId")
+                        .HasDatabaseName("ix_identity_oauth_applications_client_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_identity_oauth_applications_tenant_id");
+
+                    b.HasIndex("TenantId", "ClientId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_identity_oauth_applications_tenant_id_client_id");
+
+                    b.ToTable("identity_oauth_applications", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Identity.Data.OAuthAuthorization", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ApplicationId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("application_id");
+
+                    b.Property<string>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<DateTime?>("CreationDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creation_date");
+
+                    b.Property<string>("Properties")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("properties");
+
+                    b.Property<string>("Scopes")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("scopes");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("subject");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Type")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_oauth_authorizations");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_identity_oauth_authorizations_tenant_id");
+
+                    b.HasIndex("ApplicationId", "Status", "Subject", "Type")
+                        .HasDatabaseName("ix_identity_oauth_authorizations_application_id_status_subject_type");
+
+                    b.ToTable("identity_oauth_authorizations", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Identity.Data.OAuthScope", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Descriptions")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("descriptions");
+
+                    b.Property<string>("DisplayName")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("display_name");
+
+                    b.Property<string>("DisplayNames")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("display_names");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Properties")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("properties");
+
+                    b.Property<string>("Resources")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("resources");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_oauth_scopes");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_identity_oauth_scopes_name");
+
+                    b.ToTable("identity_oauth_scopes", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Identity.Data.OAuthToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ApplicationId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("application_id");
+
+                    b.Property<Guid?>("AuthorizationId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("authorization_id");
+
+                    b.Property<string>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<DateTime?>("CreationDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("creation_date");
+
+                    b.Property<DateTime?>("ExpirationDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("expiration_date");
+
+                    b.Property<string>("Payload")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("payload");
+
+                    b.Property<string>("Properties")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("properties");
+
+                    b.Property<DateTime?>("RedemptionDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("redemption_date");
+
+                    b.Property<string>("ReferenceId")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("reference_id");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("subject");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Type")
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_oauth_tokens");
+
+                    b.HasIndex("AuthorizationId")
+                        .HasDatabaseName("ix_identity_oauth_tokens_authorization_id");
+
+                    b.HasIndex("ReferenceId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_identity_oauth_tokens_reference_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_identity_oauth_tokens_tenant_id");
+
+                    b.HasIndex("ApplicationId", "Status", "Subject", "Type")
+                        .HasDatabaseName("ix_identity_oauth_tokens_application_id_status_subject_type");
+
+                    b.ToTable("identity_oauth_tokens", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Identity.Data.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -350,6 +688,34 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                     b.ToTable("identity_role_assignments", (string)null);
                 });
 
+            modelBuilder.Entity("PaperDotNet.Identity.Data.ServerKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ProtectedKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("protected_key");
+
+                    b.Property<string>("Use")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("use");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_server_keys");
+
+                    b.ToTable("identity_server_keys", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Identity.Data.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -392,6 +758,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                         .HasColumnType("INTEGER")
                         .HasColumnName("is_disabled");
 
+                    b.Property<bool>("IsServiceAccount")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("is_service_account");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("INTEGER")
                         .HasColumnName("lockout_enabled");
@@ -415,6 +785,7 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                         .HasColumnName("password_hash");
 
                     b.Property<string>("PhoneNumber")
+                        .HasMaxLength(256)
                         .HasColumnType("TEXT")
                         .HasColumnName("phone_number");
 
@@ -546,6 +917,59 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                         .HasConstraintName("fk_identity_user_logins_users_user_id");
                 });
 
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserPasskey<System.Guid>", b =>
+                {
+                    b.HasOne("PaperDotNet.Identity.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_identity_user_passkeys_users_user_id");
+
+                    b.OwnsOne("Microsoft.AspNetCore.Identity.IdentityPasskeyData", "Data", b1 =>
+                        {
+                            b1.Property<byte[]>("IdentityUserPasskeyCredentialId");
+
+                            b1.Property<byte[]>("AttestationObject")
+                                .IsRequired();
+
+                            b1.Property<byte[]>("ClientDataJson")
+                                .IsRequired();
+
+                            b1.Property<DateTimeOffset>("CreatedAt");
+
+                            b1.Property<bool>("IsBackedUp");
+
+                            b1.Property<bool>("IsBackupEligible");
+
+                            b1.Property<bool>("IsUserVerified");
+
+                            b1.Property<string>("Name");
+
+                            b1.Property<byte[]>("PublicKey")
+                                .IsRequired();
+
+                            b1.Property<uint>("SignCount");
+
+                            b1.PrimitiveCollection<string>("Transports");
+
+                            b1.HasKey("IdentityUserPasskeyCredentialId");
+
+                            b1.ToTable("identity_user_passkeys");
+
+                            b1
+                                .ToJson("data")
+                                .HasColumnType("TEXT");
+
+                            b1.WithOwner()
+                                .HasForeignKey("IdentityUserPasskeyCredentialId")
+                                .HasConstraintName("fk_asp_net_user_passkeys_asp_net_user_passkeys_credential_id");
+                        });
+
+                    b.Navigation("Data")
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
                 {
                     b.HasOne("PaperDotNet.Identity.Data.User", null)
@@ -554,6 +978,45 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_identity_user_tokens_users_user_id");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Identity.Data.OAuthAuthorization", b =>
+                {
+                    b.HasOne("PaperDotNet.Identity.Data.OAuthApplication", "Application")
+                        .WithMany("Authorizations")
+                        .HasForeignKey("ApplicationId")
+                        .HasConstraintName("fk_identity_oauth_authorizations_identity_oauth_applications_application_id");
+
+                    b.Navigation("Application");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Identity.Data.OAuthToken", b =>
+                {
+                    b.HasOne("PaperDotNet.Identity.Data.OAuthApplication", "Application")
+                        .WithMany("Tokens")
+                        .HasForeignKey("ApplicationId")
+                        .HasConstraintName("fk_identity_oauth_tokens_identity_oauth_applications_application_id");
+
+                    b.HasOne("PaperDotNet.Identity.Data.OAuthAuthorization", "Authorization")
+                        .WithMany("Tokens")
+                        .HasForeignKey("AuthorizationId")
+                        .HasConstraintName("fk_identity_oauth_tokens_identity_oauth_authorizations_authorization_id");
+
+                    b.Navigation("Application");
+
+                    b.Navigation("Authorization");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Identity.Data.OAuthApplication", b =>
+                {
+                    b.Navigation("Authorizations");
+
+                    b.Navigation("Tokens");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Identity.Data.OAuthAuthorization", b =>
+                {
+                    b.Navigation("Tokens");
                 });
 #pragma warning restore 612, 618
         }

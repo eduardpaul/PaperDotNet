@@ -65,7 +65,11 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   project only when other modules need it. Modules reference each other only
   via contracts; never reference database provider packages in modules.
 - Tenant-owned entities implement `ITenantOwned`; never disable the `Tenant`
-  query filter. Every new endpoint gets a tenant-isolation test.
+  query filter. Every new endpoint gets a tenant-isolation test. On PostgreSQL,
+  RLS policies are generated for them automatically (ADR-0013); only touch
+  tenant-owned tables inside a tenant scope.
+- Auth: callers use OAuth access tokens (`/connect/token`) or API tokens; tests
+  get tokens with `ApiClient` (first-party password grant).
 - Endpoints: Minimal APIs under `/v1.0`, `TypedResults`, `RequireScope(...)`,
   `ApiErrors` for problems, `Page.Create` for lists, ETags for mutable resources.
 - IDs via `Ids.New()` (UUIDv7); time via `TimeProvider`.

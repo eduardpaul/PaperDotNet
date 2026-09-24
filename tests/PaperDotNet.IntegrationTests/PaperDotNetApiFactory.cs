@@ -29,6 +29,12 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
     private string _connectionString = string.Empty;
     private string? _sqliteFile;
 
+    /// <summary>PostgreSQL only: the test database with the server's admin credentials.</summary>
+    public string? AdminConnectionString { get; private set; }
+
+    /// <summary>The connection string the app uses.</summary>
+    public string ConnectionString => _connectionString;
+
     public static string Provider { get; } =
         Environment.GetEnvironmentVariable("PAPERDOTNET_TEST_PROVIDER") is { Length: > 0 } p ? p.ToLowerInvariant() : "sqlite";
 
@@ -49,7 +55,24 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
                 server = _container.GetConnectionString();
             }
 
-            _connectionString = new NpgsqlConnectionStringBuilder(server) { Database = $"pdn_test_{Guid.NewGuid():N}" }.ConnectionString;
+            // The app runs as an ordinary role that owns its database (like production), so
+            // row-level security applies to every test; superusers would bypass it.
+            var suffix = Guid.NewGuid().ToString("N");
+            var role = $"pdn_app_{suffix[..12]}";
+            var password = $"pw_{suffix}";
+            var database = $"pdn_test_{suffix}";
+            await using (var admin = new NpgsqlConnection(server))
+            {
+                await admin.OpenAsync();
+                foreach (var sql in new[] { $"CREATE ROLE {role} LOGIN PASSWORD '{password}' NOSUPERUSER NOCREATEDB NOCREATEROLE", $"CREATE DATABASE {database} OWNER {role}" })
+                {
+                    await using var command = new NpgsqlCommand(sql, admin);
+                    await command.ExecuteNonQueryAsync();
+                }
+            }
+
+            AdminConnectionString = new NpgsqlConnectionStringBuilder(server) { Database = database }.ConnectionString;
+            _connectionString = new NpgsqlConnectionStringBuilder(server) { Database = database, Username = role, Password = password }.ConnectionString;
         }
 
         // Start the host now so migrations and bootstrap run once.
@@ -61,7 +84,8 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseEnvironment("Testing");
         builder.UseSetting("Database:Provider", Provider == "sqlite" ? "Sqlite" : "PostgreSql");
         builder.UseSetting("ConnectionStrings:PaperDotNet", _connectionString);
-        builder.UseSetting("Auth:SigningKey", "integration-tests-signing-key-0123456789abcdef");
+        builder.UseSetting("Auth:RequireHttps", "false");
+        builder.UseSetting("Auth:PasskeyOrigins:0", "http://localhost");
         builder.UseSetting("Tenancy:AllowHeader", "true");
         builder.UseSetting("Bootstrap:AdminPassword", AdminPassword);
         builder.UseSetting("Jobs:SchedulerInterval", "00:00:01");

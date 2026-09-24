@@ -15,6 +15,9 @@ public interface IDatabaseProvider
     string Name { get; }
 
     void Configure(DbContextOptionsBuilder options, string schema);
+
+    /// <summary>Runs after a module's migrations (e.g. PostgreSQL row-level security policies).</summary>
+    Task AfterMigrateAsync(DbContext context, CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
 /// <summary>The module DbContexts registered in this host, in registration order.</summary>
@@ -71,7 +74,7 @@ public static class DatabaseRegistration
 }
 
 /// <summary>Applies pending migrations of every module DbContext.</summary>
-public sealed class DatabaseMigrator(IServiceProvider services, ModuleDbContextRegistry registry)
+public sealed class DatabaseMigrator(IServiceProvider services, ModuleDbContextRegistry registry, IDatabaseProvider provider)
 {
     public async Task MigrateAsync(CancellationToken cancellationToken)
     {
@@ -80,6 +83,7 @@ public sealed class DatabaseMigrator(IServiceProvider services, ModuleDbContextR
         {
             var context = (DbContext)scope.ServiceProvider.GetRequiredService(type);
             await context.Database.MigrateAsync(cancellationToken);
+            await provider.AfterMigrateAsync(context, cancellationToken);
         }
     }
 }

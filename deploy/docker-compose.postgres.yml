@@ -6,13 +6,16 @@ services:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
     environment:
-      POSTGRES_DB: paperdotnet
-      POSTGRES_USER: paperdotnet
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # Admin account (superuser) for maintenance only; the app uses the ordinary
+      # role "paperdotnet" created by postgres-init, so row-level security applies.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?set POSTGRES_ADMIN_PASSWORD in .env}
+      APP_DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U paperdotnet -d paperdotnet"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d paperdotnet"]
       interval: 10s
       timeout: 5s
       retries: 5

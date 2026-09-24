@@ -44,7 +44,9 @@ public sealed class TenancyModule : IModule
             builder.WithHeaderStrategy(options.HeaderName);
         }
 
-        builder.WithClaimStrategy(PaperDotNetClaims.TenantIdentifier);
+        // Tenant from an API token's claim. Only the API token scheme can authenticate this early
+        // (OAuth tokens are validated later by OpenIddict; their clients use host or header).
+        builder.WithClaimStrategy(PaperDotNetClaims.TenantIdentifier, AuthenticationSchemeNames.ApiToken);
         if (!string.IsNullOrWhiteSpace(options.DefaultTenant))
         {
             // The default applies only when no tenant was asked for explicitly:

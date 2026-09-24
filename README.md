@@ -27,13 +27,14 @@ Self-hosted with just **one container** (SQLite built in; PostgreSQL optional).
 ## Quick start (Docker)
 
 ```bash
-cp deploy/.env.example deploy/.env      # set the admin password and signing key
+cp deploy/.env.example deploy/.env      # set the admin password (REQUIRE_HTTPS=false to try it over plain HTTP)
 docker compose -f deploy/docker-compose.yml up -d --build
 # or with PostgreSQL:
 # docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.postgres.yml up -d --build
-curl -s -X POST localhost:8080/v1.0/auth/token \
-  -H 'content-type: application/json' \
-  -d '{"userName":"admin","password":"<ADMIN_PASSWORD>"}'
+# Access token (first-party client, password grant); apps use authorization code + PKCE or client credentials.
+curl -s localhost:8080/connect/token \
+  -d grant_type=password -d client_id=paperdotnet -d scope="api offline_access" \
+  -d username=admin -d password='<ADMIN_PASSWORD>'
 ```
 
 Admin commands run in the same image:

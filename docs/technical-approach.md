@@ -126,8 +126,9 @@ PaperDotNet.slnx
 
 ## 4. Identity & security
 
-- **Staged (ADR-0002):** P0 ships ASP.NET Core Identity local accounts, JWT
-  access tokens from `POST /v1.0/auth/token`, and API tokens. OpenIddict follows in P1.
+- **Staged (ADR-0002):** P0 shipped ASP.NET Core Identity local accounts, JWT
+  access tokens and API tokens. Since 1f, OpenIddict issues all OAuth tokens
+  (ADR-0013); the device code flow and external IdPs are still to come.
 - **Authentication server built in (P1):** **OpenIddict** + **ASP.NET Core Identity**
   (EF Core stores).
   - Flows: authorization code + PKCE, client credentials, refresh tokens,
@@ -147,7 +148,14 @@ PaperDotNet.slnx
   2. **Resource permissions** (ACL with inheritance and sharing) are checked
      by a central `IPermissionService`, cached per user and tenant. The
      permission service is also used to filter queries and search.
-- **Data protection:** the Data Protection key ring is stored in PostgreSQL.
+- **Data protection:** the Data Protection key ring is stored in the database
+  (`identity.data_protection_keys`, both providers).
+- **OAuth / OIDC (1f, ADR-0013):** OpenIddict with Data Protection token format,
+  persisted RSA server keys, tenant-owned clients, service accounts for client
+  credentials, passkeys via ASP.NET Core Identity 10.
+- **Row-level security (PostgreSQL):** `app.tenant_id` set per connection,
+  policies generated from the EF model after migrations. Run the app as an
+  ordinary role (superusers bypass RLS).
   Secrets such as webhook secrets, OIDC client secrets and extension settings
   are encrypted with it.
 - **Secure defaults:**

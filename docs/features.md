@@ -276,14 +276,14 @@ Implemented in the solution skeleton (see [ADR-0006](adr/0006-phase-0-simplifica
 |---|---|
 | PLT-01 Single-container install | ✅ `Dockerfile` + `deploy/docker-compose.yml` (SQLite); PostgreSQL via override file |
 | PLT-02 First-run bootstrap | ✅ default tenant + admin from configuration |
-| PLT-03, PLT-04 Multitenancy & resolution | ✅ host mapping, host template, header (opt-in), claim, default; EF filters + write guard (RLS in P1) |
+| PLT-03, PLT-04 Multitenancy & resolution | ✅ host mapping, host template, header (opt-in), claim, default; EF filters + write guard, PostgreSQL RLS (1f) |
 | PLT-05 Tenant lifecycle | 🟡 CLI: list, create, suspend, activate (export/delete later) |
 | PLT-07 Workspaces | ✅ CRUD, members, owners, ETags, soft delete |
 | PLT-08 Configuration | ✅ `PAPERDOTNET__…` environment variables, validated options |
 | PLT-09 Health & version | ✅ `/health/live`, `/health/ready`, `/version` |
 | PLT-10 Observability | ✅ OpenTelemetry traces, metrics and logs (OTLP when configured) |
 | PLT-11 Admin CLI | ✅ `migrate`, `bootstrap`, `tenant`, `user`, `healthcheck` |
-| IAM-01 Local accounts | 🟡 passwords + lockout; passkeys and MFA in P1 |
+| IAM-01 Local accounts | ✅ passwords + lockout, passkeys (1f); MFA/TOTP later |
 | IAM-03 API tokens | ✅ scoped, expiring, revocable, hashed |
 | IAM-05, IAM-06 Groups, roles & scopes | ✅ built-in Administrator/Member roles, custom roles, group assignment |
 | API-01 Graph-style conventions | ✅ `/v1.0`, keyset paging + `@odata.nextLink`, ProblemDetails with `code`, ETag/If-Match |
@@ -303,7 +303,7 @@ Delivered in slices ([ADR-0007](adr/0007-odata-for-item-queries.md), [ADR-0008](
 | **1e.1 History** | LST-11 versioning per list (off / major, max versions; libraries on by default), LST-12 version list, version details with changed fields, restore, LST-13 recycle bin (restore, purge, 93-day retention job), LST-14 audit log for every module (`/v1.0/auditLog`, same transaction as the change). Minor versions (drafts) come with documents | ✅ |
 | **1e.2 Access** | IAM-07 permission inheritance workspace → list → folder → item with break/reset and user/group grants (Read, Contribute, Manage), security-trimmed queries ([ADR-0011](adr/0011-permission-scopes.md)); workspace visitor role; LST-07 personal Home workspace with Documents and Inbox libraries (`/v1.0/me/home`) | ✅ |
 | **1e.3 Search** | SRC-01 unified search over list items (`/v1.0/search`, title/text fields/tag labels), SRC-02 words, phrases, OR, NOT, prefix, SRC-03 filters (workspace, list, content type, hierarchical tag, author, dates) with facet counts, SRC-04 principal-based trimming; FTS5 on SQLite, `tsvector` on PostgreSQL; reindex operation ([ADR-0012](adr/0012-full-text-search.md)) | ✅ |
-| 1f Identity hardening | IAM-02 (OpenIddict, passkeys), RLS, Data Protection keys in DB | planned |
+| **1f Identity hardening** | IAM-02 OAuth 2.0 / OIDC server (OpenIddict: authorization code + PKCE, refresh, client credentials as service accounts, first-party password grant, `/v1.0/applications`), IAM-01 passkeys and sign-in session, PostgreSQL row-level security on every tenant-owned table, Data Protection keys and server keys in the database ([ADR-0013](adr/0013-openiddict-passkeys-rls.md)). MFA/TOTP and external IdPs later | ✅ |
 
 ## Idea → feature mapping
 

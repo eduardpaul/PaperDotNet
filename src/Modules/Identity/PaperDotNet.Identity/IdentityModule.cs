@@ -18,6 +18,7 @@ public sealed class IdentityModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<AuthOptions>().BindConfiguration(AuthOptions.Section).ValidateDataAnnotations().ValidateOnStart();
+        services.AddHttpContextAccessor();
         services.AddModuleDbContext<IdentityDbContext>(IdentityDbContext.Schema);
 
         services.AddIdentityCore<User>(o =>
@@ -31,11 +32,24 @@ public sealed class IdentityModule : IModule
                 o.Password.RequireLowercase = false;
                 o.Lockout.AllowedForNewUsers = true;
                 o.Lockout.MaxFailedAccessAttempts = 10;
+                o.Stores.SchemaVersion = IdentitySchemaVersions.Version3; // passkeys
             })
             .AddEntityFrameworkStores<IdentityDbContext>();
 
+        services.AddScoped<IPasskeyHandler<User>, PasskeyHandler<User>>();
+        services.AddOptions<IdentityPasskeyOptions>().Configure<Microsoft.Extensions.Options.IOptions<AuthOptions>>((passkeys, auth) =>
+        {
+            passkeys.ServerDomain = auth.Value.PasskeyServerDomain;
+            if (auth.Value.PasskeyOrigins.Count > 0)
+            {
+                var origins = auth.Value.PasskeyOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                passkeys.ValidateOrigin = context => ValueTask.FromResult(!context.CrossOrigin && origins.Contains(context.Origin));
+            }
+        });
+        services.AddSingleton<PasskeyState>();
+
         services.AddPaperDotNetAuthentication();
-        services.AddSingleton<AccessTokenIssuer>();
+        services.AddHostedService<FirstPartyClientSync>();
         services.AddScoped<IEffectiveScopeProvider, EffectiveScopeProvider>();
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<ITenantInitializer, IdentityTenantInitializer>();
@@ -45,6 +59,8 @@ public sealed class IdentityModule : IModule
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         AuthEndpoints.Map(endpoints);
+        OAuthEndpoints.Map(endpoints);
+        ApplicationEndpoints.Map(endpoints);
         MeEndpoints.Map(endpoints);
         DirectoryEndpoints.Map(endpoints);
     }

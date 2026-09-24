@@ -3,8 +3,10 @@ using PaperDotNet.Identity.Data;
 
 namespace PaperDotNet.Identity.Features;
 
-/// <summary>Creates the built-in Administrator and Member roles for a new tenant.</summary>
-internal sealed class IdentityTenantInitializer(IdentityDbContext db, IScopeCatalog catalog) : ITenantInitializer
+/// <summary>Creates the built-in Administrator and Member roles and the first-party OAuth client for a new tenant.</summary>
+internal sealed class IdentityTenantInitializer(
+    IdentityDbContext db, IScopeCatalog catalog, OpenIddict.Abstractions.IOpenIddictApplicationManager applications,
+    Microsoft.Extensions.Options.IOptions<Authentication.AuthOptions> options) : ITenantInitializer
 {
     public async Task InitializeAsync(Guid tenantId, CancellationToken cancellationToken)
     {
@@ -25,5 +27,6 @@ internal sealed class IdentityTenantInitializer(IdentityDbContext db, IScopeCata
             Scopes = catalog.All.Where(s => s.GrantedToMembers).Select(s => s.Name).ToList(),
         });
         await db.SaveChangesAsync(cancellationToken);
+        await FirstPartyClient.EnsureAsync(applications, options.Value, cancellationToken);
     }
 }
