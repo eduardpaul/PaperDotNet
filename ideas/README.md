@@ -8,7 +8,7 @@ structure. Later, each idea gets reviewed and mapped to one or more features
 ## How to add an idea
 
 1. Copy [`_template.md`](_template.md) to a new file named
-   `NNNN-short-title.md`. Use the next free number, e.g. `0007-my-idea.md`.
+   `NNNN-short-title.md`. Use the next free number, e.g. `0008-my-idea.md`.
 2. Fill in at least **Title** and **The idea**. Every other section is optional.
    A single sentence is fine.
 3. Add a row to the index below.
@@ -37,6 +37,7 @@ It will be turned into a file during review.
 | [0004](0004-mcp-server.md) | MCP server (supporting the extensibility features) | API / Integrations / Extensions | new | |
 | [0005](0005-ootb-multitenancy.md) | Out-of-the-box multitenancy support | Platform / Security | new | |
 | [0006](0006-mobile-offline-sync.md) | Offline sync for mobile app | Mobile / Sync | new | |
+| [0007](0007-obsidian-vault-sync.md) | Obsidian vault sync | Integrations / Sync | new | |
 
 ## Quick ideas
 
