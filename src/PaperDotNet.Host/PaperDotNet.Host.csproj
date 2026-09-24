@@ -8,6 +8,7 @@
     <ProjectReference Include="..\PaperDotNet.ServiceDefaults\PaperDotNet.ServiceDefaults.csproj" />
     <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Persistence.PostgreSql\PaperDotNet.Persistence.PostgreSql.csproj" />
     <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Persistence.Sqlite\PaperDotNet.Persistence.Sqlite.csproj" />
+    <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Storage\PaperDotNet.Storage.csproj" />
     <ProjectReference Include="..\Migrations\PaperDotNet.Migrations.PostgreSql\PaperDotNet.Migrations.PostgreSql.csproj" />
     <ProjectReference Include="..\Migrations\PaperDotNet.Migrations.Sqlite\PaperDotNet.Migrations.Sqlite.csproj" />
     <ProjectReference Include="..\Modules\Tenancy\PaperDotNet.Tenancy\PaperDotNet.Tenancy.csproj" />
@@ -18,6 +19,7 @@
     <ProjectReference Include="..\Modules\Audit\PaperDotNet.Audit\PaperDotNet.Audit.csproj" />
     <ProjectReference Include="..\Modules\Taxonomy\PaperDotNet.Taxonomy\PaperDotNet.Taxonomy.csproj" />
     <ProjectReference Include="..\Modules\Search\PaperDotNet.Search\PaperDotNet.Search.csproj" />
+    <ProjectReference Include="..\Modules\Documents\PaperDotNet.Documents\PaperDotNet.Documents.csproj" />
     <ProjectReference Include="..\Modules\ExtensionHost\PaperDotNet.ExtensionHost\PaperDotNet.ExtensionHost.csproj" />
     <!-- Finds referenced extensions at compile time (ADR-0014). Add extensions as package/project references. -->
     <ProjectReference Include="..\Extensions\PaperDotNet.Extensions.Generator\PaperDotNet.Extensions.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />

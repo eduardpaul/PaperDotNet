@@ -106,3 +106,6 @@ public sealed record ItemDeleted : ItemEvent;
 
 /// <summary>An item was restored from the recycle bin.</summary>
 public sealed record ItemRestored : ItemEvent;
+
+/// <summary>An item was deleted permanently (purged from the recycle bin); remove data kept for it.</summary>
+public sealed record ItemPurged : ItemEvent;

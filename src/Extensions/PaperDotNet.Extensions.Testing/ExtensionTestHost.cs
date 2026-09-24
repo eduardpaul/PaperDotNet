@@ -44,6 +44,7 @@ public class ExtensionTestHost : WebApplicationFactory<Program>
     private readonly IReadOnlyList<IExtension> _extensions;
     private readonly string? _sqliteFile;
     private readonly string _connectionString;
+    private readonly string _dataPath = Path.Combine(Path.GetTempPath(), $"pdn_ext_test_data_{Ids.New():N}");
     private int _tenants;
 
     public ExtensionTestHost(params IExtension[] extensions)
@@ -120,6 +121,7 @@ public class ExtensionTestHost : WebApplicationFactory<Program>
         builder.UseSetting("Tenancy:AllowHeader", "true");
         builder.UseSetting("Bootstrap:AdminPassword", _options.AdminPassword);
         builder.UseSetting("Jobs:SchedulerInterval", "00:00:01");
+        builder.UseSetting("Storage:DataPath", _dataPath);
         foreach (var (key, value) in _options.Settings)
         {
             builder.UseSetting(key, value);
@@ -130,6 +132,11 @@ public class ExtensionTestHost : WebApplicationFactory<Program>
     {
         await base.DisposeAsync();
         GC.SuppressFinalize(this);
+        if (Directory.Exists(_dataPath))
+        {
+            Directory.Delete(_dataPath, recursive: true);
+        }
+
         if (_sqliteFile is not null)
         {
             SqliteConnection.ClearAllPools();

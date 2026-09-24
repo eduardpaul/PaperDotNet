@@ -29,12 +29,16 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
     private PostgreSqlContainer? _container;
     private string _connectionString = string.Empty;
     private string? _sqliteFile;
+    private readonly string _dataPath = Path.Combine(Path.GetTempPath(), $"pdn_test_data_{Guid.NewGuid():N}");
 
     /// <summary>PostgreSQL only: the test database with the server's admin credentials.</summary>
     public string? AdminConnectionString { get; private set; }
 
     /// <summary>The connection string the app uses.</summary>
     public string ConnectionString => _connectionString;
+
+    /// <summary>Largest document the test host accepts (small, so the limit can be tested).</summary>
+    public const long DocumentLimit = 2 * 1024 * 1024;
 
     public static string Provider { get; } =
         Environment.GetEnvironmentVariable("PAPERDOTNET_TEST_PROVIDER") is { Length: > 0 } p ? p.ToLowerInvariant() : "sqlite";
@@ -96,6 +100,8 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Tenancy:AllowHeader", "true");
         builder.UseSetting("Bootstrap:AdminPassword", AdminPassword);
         builder.UseSetting("Jobs:SchedulerInterval", "00:00:01");
+        builder.UseSetting("Storage:DataPath", _dataPath);
+        builder.UseSetting("Documents:MaxFileSize", DocumentLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.ConfigureTestServices(services =>
         {
             services.AddScoped<IItemEventReceiver, TestReceiver>();
@@ -122,6 +128,11 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         if (_container is not null)
         {
             await _container.DisposeAsync();
+        }
+
+        if (Directory.Exists(_dataPath))
+        {
+            Directory.Delete(_dataPath, recursive: true);
         }
 
         if (_sqliteFile is not null)

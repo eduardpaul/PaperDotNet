@@ -269,6 +269,10 @@ outbox dispatcher (BackgroundService)
 
 ## 8. Files & document processing
 
+> **ADR-0015.** 3a implemented: Documents module on the SDK, `IBlobStore` with
+> local disk, content-addressed `stored_files`, `file_versions`, duplicate
+> policy per library, orphan cleanup job.
+
 - **Blob store abstraction** (`IBlobStore`):
   - **content-addressed** by SHA-256 under a tenant prefix, which gives exact
     dedup and integrity checks for free (DOC-10/11, idea 0014)

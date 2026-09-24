@@ -330,6 +330,17 @@ Build-time extensions ([ADR-0014](adr/0014-build-time-extensions.md)), delivered
 | **2c Extension data** | EXT-07 `IListItemStore` (items through the API pipeline, as the user or `AsSystem()`); own tables via `ExtensionDbContext` + `AddDbContext<T>()` in schema `ext_{id}` with tenant filter, audit and RLS, migrations in `{extension}.Migrations.Sqlite/.PostgreSql`; sample stores approval records | ✅ |
 | **2d SDK & tooling** | EXT-05 analyzers shipped in the SDK package (PDN1001 tenant-owned entities, PDN1002 tenant filter, PDN1003 raw SQL, PDN1004 unregistered extension, PDN1005 TimeProvider, PDN1006 `Ids.New()`); `PaperDotNet.Extensions.Testing` test host (real host in-process, temporary SQLite, tenants with admin and extension enabled, `RunAsync` in a tenant); sample extension tests | ✅ |
 
+## Phase 3 status
+
+Documents built on the SDK with content-addressed storage ([ADR-0015](adr/0015-documents-on-the-sdk.md)), delivered in slices.
+
+| Slice | Features | Status |
+|---|---|---|
+| **3a Files & storage** | DOC-01 multipart upload into libraries and the Inbox (`/documents`, `/v1.0/me/inbox/documents`, size limit), DOC-02 type detection by content (PDF, TIFF, JPEG, PNG), DOC-03 file versions (download with ranges, version list, restore), DOC-10 exact duplicates per library policy (allow / warn / block), DOC-11 content stored once per tenant with orphan cleanup, DOC-15 blob storage abstraction with local disk (S3 later); Documents module built on the SDK only (EXT-06) | ✅ |
+| 3b Processing | DOC-04 thumbnails, DOC-07 OCR, DOC-08 searchable PDF, DOC-09 processing status, API-07 live events, SRC-05 language-aware search | planned |
+| 3c Page operations | DOC-05 delete, reorder, rotate pages; DOC-06 move, merge, extract | planned |
+| 3d Operations | PLT-12 backup and restore, SRC-10 reindexing | planned |
+
 ## Idea → feature mapping
 
 | Idea | Mapped to |

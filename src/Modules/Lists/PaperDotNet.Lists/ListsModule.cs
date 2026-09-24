@@ -67,6 +67,7 @@ public sealed class ListsModule : IModule
         services.AddIntegrationEvent<ItemUpdated>();
         services.AddIntegrationEvent<ItemDeleted>();
         services.AddIntegrationEvent<ItemRestored>();
+        services.AddIntegrationEvent<ItemPurged>();
         services.AddTenantRecurringJob<RecycleBinCleanupJob>(RecycleBinCleanupJob.Name, RecycleBinCleanupJob.Schedule);
         services.AddOperationHandler<BulkUpdateOperation>();
         services.AddEventSubscriber<TermMerged, TermMergedSubscriber>();

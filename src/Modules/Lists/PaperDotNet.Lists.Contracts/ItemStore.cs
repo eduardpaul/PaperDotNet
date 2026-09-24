@@ -1,9 +1,20 @@
 using System.Text.Json.Nodes;
+using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Contracts;
 
 /// <summary>A list, as seen by <see cref="IListItemStore"/>.</summary>
-public sealed record ListData(Guid Id, Guid WorkspaceId, string Name, string? TemplateKey);
+public sealed record ListData(Guid Id, Guid WorkspaceId, string Name, string? TemplateKey)
+{
+    /// <summary>A document library (items carry files).</summary>
+    public bool IsLibrary { get; init; }
+
+    /// <summary>The caller's access to the list (set by <see cref="IListItemStore.GetListAsync"/>).</summary>
+    public WorkspaceAccessLevel? Access { get; init; }
+}
+
+/// <summary>The caller's personal workspace with its Documents and Inbox libraries (LST-07).</summary>
+public sealed record HomeData(Guid WorkspaceId, Guid DocumentsListId, Guid InboxListId);
 
 /// <summary>An item: <see cref="Fields"/> holds every value, including <c>title</c>.</summary>
 public sealed record ListItemData(
@@ -18,7 +29,11 @@ public sealed record ListItemData(
     Guid? CreatedBy,
     DateTimeOffset UpdatedAt,
     Guid? UpdatedBy,
-    JsonObject Fields);
+    JsonObject Fields)
+{
+    /// <summary>The caller's access to the item (Read or more; Contribute allows changes).</summary>
+    public WorkspaceAccessLevel Access { get; init; } = WorkspaceAccessLevel.Read;
+}
 
 /// <summary>An item query: OData <c>$filter</c>/<c>$orderby</c> over the list's fields (as in the items API).</summary>
 public sealed record ListItemQuery(string? Filter = null, string? OrderBy = null, int Top = 100);
@@ -65,6 +80,12 @@ public interface IListItemStore
 
     /// <summary>Lists the caller can see, optionally in one workspace and created from one template.</summary>
     Task<IReadOnlyList<ListData>> GetListsAsync(Guid? workspaceId, string? templateKey, CancellationToken cancellationToken);
+
+    /// <summary>One list with the caller's access, or null when it is not visible.</summary>
+    Task<ListData?> GetListAsync(Guid workspaceId, Guid listId, CancellationToken cancellationToken);
+
+    /// <summary>The caller's Home workspace and libraries, created on first use (needs a user).</summary>
+    Task<HomeData> EnsureHomeAsync(CancellationToken cancellationToken);
 
     Task<ListItemData?> GetAsync(Guid workspaceId, Guid listId, Guid itemId, CancellationToken cancellationToken);
 

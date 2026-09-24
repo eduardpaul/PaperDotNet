@@ -95,6 +95,15 @@ foreach (var l in await system.GetListsAsync(null, "acme.invoices.invoices", ct)
 }
 ```
 
+`IListItemStore` also gives `GetListAsync` (with the caller's access and
+whether the list is a library), `EnsureHomeAsync` (the caller's Home workspace
+and Inbox) and the caller's access on every item (`ListItemData.Access`).
+`ItemPurged` tells subscribers that an item was deleted permanently.
+
+**Files** — `IBlobStore` (PaperDotNet.Abstractions) stores binary content on
+the installation's storage (local disk by default). Choose keys under the
+tenant id, e.g. `{tenantId:N}/…`.
+
 **Own tables** — for technical or high-volume data. Derive from
 `ExtensionDbContext`, configure entities in `ConfigureModel` and register it
 with `builder.AddDbContext<TContext>()` (one per extension). The tables go to

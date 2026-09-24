@@ -26,12 +26,16 @@ internal static class HomeEndpoints
             .RequireScope(ListScopes.Read)
             .WithName("GetHome");
 
-    private static async Task<Ok<HomeResponse>> GetHomeAsync(IWorkspaceAccess workspaces, ListsDbContext db, CancellationToken ct)
+    private static async Task<Ok<HomeResponse>> GetHomeAsync(IWorkspaceAccess workspaces, ListsDbContext db, CancellationToken ct) =>
+        TypedResults.Ok(await EnsureHomeAsync(workspaces, db, ct));
+
+    /// <summary>The current user's Home workspace with its libraries, created on first use.</summary>
+    internal static async Task<HomeResponse> EnsureHomeAsync(IWorkspaceAccess workspaces, ListsDbContext db, CancellationToken ct)
     {
         var workspaceId = await workspaces.EnsurePersonalWorkspaceAsync(ct);
         var documents = await EnsureLibraryAsync(db, workspaceId, ListDefinition.HomeDocumentsKey, "Documents", "Your documents.", ct);
         var inbox = await EnsureLibraryAsync(db, workspaceId, ListDefinition.HomeInboxKey, "Inbox", "New uploads land here for triage.", ct);
-        return TypedResults.Ok(new HomeResponse(workspaceId, documents, inbox));
+        return new HomeResponse(workspaceId, documents, inbox);
     }
 
     private static async Task<Guid> EnsureLibraryAsync(ListsDbContext db, Guid workspaceId, string key, string name, string description, CancellationToken ct)

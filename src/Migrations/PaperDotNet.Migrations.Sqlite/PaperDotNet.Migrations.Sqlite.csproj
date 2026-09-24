@@ -13,6 +13,7 @@
     <ProjectReference Include="..\..\Modules\Taxonomy\PaperDotNet.Taxonomy\PaperDotNet.Taxonomy.csproj" />
     <ProjectReference Include="..\..\Modules\Search\PaperDotNet.Search\PaperDotNet.Search.csproj" />
     <ProjectReference Include="..\..\Modules\ExtensionHost\PaperDotNet.ExtensionHost\PaperDotNet.ExtensionHost.csproj" />
+    <ProjectReference Include="..\..\Modules\Documents\PaperDotNet.Documents\PaperDotNet.Documents.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />

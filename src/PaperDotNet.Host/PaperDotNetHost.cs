@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
+using PaperDotNet.Documents;
 using PaperDotNet.ExtensionHost;
 using PaperDotNet.ExtensionHost.Runtime;
 using PaperDotNet.Extensions;
@@ -20,6 +21,7 @@ using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Search;
 using PaperDotNet.ServiceDefaults;
+using PaperDotNet.Storage;
 using PaperDotNet.Taxonomy;
 using PaperDotNet.Tenancy;
 using PaperDotNet.Workspaces;
@@ -44,6 +46,7 @@ public static class PaperDotNetHost
         new ListsModule(),
         new JobsModule(),
         new SearchModule(),
+        new DocumentsModule(),
         new AuditModule(),
         new ExtensionHostModule(),
     ];
@@ -70,6 +73,7 @@ public static class PaperDotNetHost
         services.AddScoped<ICurrentUserOverride>(sp => sp.GetRequiredService<HttpCurrentUser>());
         services.AddHybridCache();
         services.AddPaperDotNetDatabase(builder.Configuration);
+        services.AddPaperDotNetStorage(builder.Configuration);
         services.AddSingleton<DatabaseMigrator>();
         services.AddScopeAuthorization();
 

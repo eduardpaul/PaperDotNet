@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Documents.Data;
 using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Jobs.Data;
@@ -93,4 +94,10 @@ internal sealed class ExtensionsDesignTimeFactory : IDesignTimeDbContextFactory<
 {
     public ExtensionsDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<ExtensionsDbContext>(ExtensionsDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class DocumentsDesignTimeFactory : IDesignTimeDbContextFactory<DocumentsDbContext>
+{
+    public DocumentsDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<DocumentsDbContext>(DocumentsDbContext.Schema), DesignTime.NoTenant);
 }

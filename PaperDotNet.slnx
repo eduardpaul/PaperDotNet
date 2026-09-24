@@ -10,6 +10,7 @@
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.PostgreSql/PaperDotNet.Persistence.PostgreSql.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.Sqlite/PaperDotNet.Persistence.Sqlite.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence/PaperDotNet.Persistence.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.Storage/PaperDotNet.Storage.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/">
     <Project Path="src/Extensions/PaperDotNet.Extensions.Abstractions/PaperDotNet.Extensions.Abstractions.csproj" />
@@ -24,6 +25,9 @@
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Audit/">
     <Project Path="src/Modules/Audit/PaperDotNet.Audit/PaperDotNet.Audit.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Documents/">
+    <Project Path="src/Modules/Documents/PaperDotNet.Documents/PaperDotNet.Documents.csproj" />
   </Folder>
   <Folder Name="/src/Modules/ExtensionHost/">
     <Project Path="src/Modules/ExtensionHost/PaperDotNet.ExtensionHost/PaperDotNet.ExtensionHost.csproj" />

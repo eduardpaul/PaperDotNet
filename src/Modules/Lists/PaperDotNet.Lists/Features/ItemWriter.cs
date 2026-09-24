@@ -8,6 +8,7 @@ using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Messaging;
+using PaperDotNet.Persistence;
 using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
@@ -258,9 +259,24 @@ internal sealed partial class ItemWriter(
     public async Task PurgeAsync(IReadOnlyCollection<ListItem> deletedItems, CancellationToken ct)
     {
         var ids = deletedItems.Select(i => i.Id).ToList();
+        var listIds = deletedItems.Select(i => i.ListId).Distinct().ToList();
+        var workspaces = await db.Lists.IgnoreQueryFilters([QueryFilters.SoftDelete])
+            .Where(l => listIds.Contains(l.Id))
+            .ToDictionaryAsync(l => l.Id, l => l.WorkspaceId, ct);
         db.ItemVersions.RemoveRange(await db.ItemVersions.Where(v => ids.Contains(v.ItemId)).ToListAsync(ct));
         db.Items.RemoveRange(deletedItems);
-        await db.SaveChangesAsync(ct);
+        var purged = deletedItems.Select(item => (IntegrationEvent)new ItemPurged
+        {
+            TenantId = tenant.TenantId!.Value,
+            TenantIdentifier = tenant.TenantIdentifier!,
+            UserId = currentUser.UserId,
+            WorkspaceId = workspaces.GetValueOrDefault(item.ListId),
+            ListId = item.ListId,
+            ItemId = item.Id,
+            ContentTypeId = item.ContentTypeId,
+            IsFolder = item.IsFolder,
+        }).ToList();
+        await outbox.SaveChangesAsync(db, purged, cancellationToken: ct);
     }
 
     public Task<bool> UserExistsAsync(Guid userId, CancellationToken cancellationToken) => users.IsActiveAsync(userId, cancellationToken);

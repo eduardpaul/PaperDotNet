@@ -9,7 +9,7 @@ namespace PaperDotNet.ArchitectureTests;
 /// </summary>
 public sealed partial class ModuleBoundaryTests
 {
-    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost"];
+    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents"];
 
     /// <summary>Modules that expose a contracts assembly.</summary>
     private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Search"];
@@ -77,12 +77,13 @@ public sealed partial class ModuleBoundaryTests
     [Theory]
     [InlineData("PaperDotNet.Extensions.Abstractions")]
     [InlineData("PaperDotNet.Samples.Invoices")]
+    [InlineData("PaperDotNet.Documents")] // built on the SDK (EXT-06)
     public void The_sdk_and_extensions_only_reference_contracts(string assembly)
     {
         var references = Load(assembly).GetReferencedAssemblies().Select(a => a.Name!).ToList();
 
         Assert.DoesNotContain(references, r => Modules.Any(m => r == $"PaperDotNet.{m}"));
-        Assert.DoesNotContain(references, r => r.StartsWith("PaperDotNet.Persistence.", StringComparison.Ordinal) || r == "PaperDotNet.Messaging");
+        Assert.DoesNotContain(references, r => r.StartsWith("PaperDotNet.Persistence.", StringComparison.Ordinal) || r is "PaperDotNet.Messaging" or "PaperDotNet.Storage");
         Assert.DoesNotContain(references, r => r.StartsWith("Microsoft.EntityFrameworkCore.", StringComparison.Ordinal) && r != "Microsoft.EntityFrameworkCore.Relational");
         Assert.DoesNotContain(references, r => r.StartsWith("Npgsql", StringComparison.Ordinal) || r.StartsWith("Microsoft.Data.Sqlite", StringComparison.Ordinal) || r.StartsWith("Wolverine", StringComparison.Ordinal));
     }

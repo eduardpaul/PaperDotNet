@@ -2,5 +2,6 @@
   <!-- Public contracts of the lists engine: item event receivers and integration events (extension-facing). -->
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Workspaces\PaperDotNet.Workspaces.Contracts\PaperDotNet.Workspaces.Contracts.csproj" />
   </ItemGroup>
 </Project>

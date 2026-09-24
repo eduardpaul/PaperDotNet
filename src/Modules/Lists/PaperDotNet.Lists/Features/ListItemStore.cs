@@ -45,8 +45,26 @@ internal sealed class ListItemStore(
 
         return lists
             .Where(l => templateKey is null || l.TemplateKey == templateKey)
-            .Select(l => new ListData(l.Id, l.WorkspaceId, l.Name, l.TemplateKey))
+            .Select(l => new ListData(l.Id, l.WorkspaceId, l.Name, l.TemplateKey) { IsLibrary = l.Kind == ListKind.Library })
             .ToList();
+    }
+
+    public async Task<ListData?> GetListAsync(Guid workspaceId, Guid listId, CancellationToken cancellationToken)
+    {
+        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
+        return schema is null
+            ? null
+            : new ListData(schema.List.Id, schema.List.WorkspaceId, schema.List.Name, schema.List.TemplateKey)
+            {
+                IsLibrary = schema.List.Kind == ListKind.Library,
+                Access = schema.Access.ListLevel,
+            };
+    }
+
+    public async Task<HomeData> EnsureHomeAsync(CancellationToken cancellationToken)
+    {
+        var home = await HomeEndpoints.EnsureHomeAsync(workspaces, db, cancellationToken);
+        return new HomeData(home.WorkspaceId, home.DocumentsListId, home.InboxListId);
     }
 
     public async Task<ListItemData?> GetAsync(Guid workspaceId, Guid listId, Guid itemId, CancellationToken cancellationToken)
@@ -162,5 +180,8 @@ internal sealed class ListItemStore(
 
     private static ListItemData ToData(ListSchema schema, ListItem item) => new(
         item.Id, schema.List.WorkspaceId, item.ListId, item.ContentTypeId, item.ParentId, item.IsFolder, item.Version,
-        item.CreatedAt, item.CreatedBy, item.UpdatedAt, item.UpdatedBy, ItemWriter.Values(item));
+        item.CreatedAt, item.CreatedBy, item.UpdatedAt, item.UpdatedBy, ItemWriter.Values(item))
+    {
+        Access = schema.Access.Level(item.ScopeId),
+    };
 }
