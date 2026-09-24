@@ -8,7 +8,7 @@ structure. Later, each idea gets reviewed and mapped to one or more features
 ## How to add an idea
 
 1. Copy [`_template.md`](_template.md) to a new file named
-   `NNNN-short-title.md`. Use the next free number, e.g. `0021-my-idea.md`.
+   `NNNN-short-title.md`. Use the next free number, e.g. `0022-my-idea.md`.
 2. Fill in at least **Title** and **The idea**. Every other section is optional.
    A single sentence is fine.
 3. Add a row to the index below.
@@ -51,6 +51,7 @@ It will be turned into a file during review.
 | [0018](0018-webdav-access-to-libraries.md) | WebDAV access to libraries | Integrations / Documents | mapped | API-10 |
 | [0019](0019-caldav-carddav-server.md) | CalDAV / CardDAV server for tasks, calendar and contacts | Integrations / Calendar / Tasks | mapped | CAL-05, CAL-06 |
 | [0020](0020-smart-folders.md) | Smart folders (more than saved searches) | Platform / Navigation / Metadata | mapped | TAX-08…10, TSK-03 |
+| [0021](0021-portable-configuration-templates.md) | Portable configuration templates (export/import as XML, like PnP provisioning) | Lists/Platform | new | |
 
 ## Quick ideas
 
