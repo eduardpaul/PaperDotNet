@@ -1,9 +1,9 @@
 # 0021: Portable configuration templates (export/import as XML)
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Lists/Platform
 - **Date:** 2026-09-24
-- **Mapped to:** <!-- filled in during review -->
+- **Mapped to:** PRV-01…05 (P5; content in templates P7), related LST-16, PLT-13
 
 ## The idea
 

@@ -253,6 +253,20 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | AI-05 | Ask your documents | As a **Member**, I want to ask questions and get answers with citations to documents and pages, so that I find information instead of files | Ext | P6 | #0013 |
 | AI-06 | AI usage limits & audit | As an **Admin**, I want quotas, caching and an audit of what was sent to which model, so that AI use is controlled | Core | P6 | #0017 |
 
+## 14. Provisioning templates (PRV)
+
+Portable configuration, like the PnP provisioning engine: extract a
+workspace's or tenant's setup into an XML template and apply it elsewhere.
+Configuration only by default; data portability is PLT-13.
+
+| ID | Feature | User story | Prio | Phase | Source |
+|---|---|---|---|---|---|
+| PRV-01 | Extract a template | As an **Owner** or **Admin**, I want to export the configuration of a workspace or tenant (lists and libraries, content types, fields, views, list settings, term sets, groups and permission grants by name, enabled extensions and their settings) to an XML file, so that the setup is portable and can be kept in source control | Core | P5 | #0021 |
+| PRV-02 | Apply a template | As an **Owner** or **Admin**, I want to apply a template to a workspace or tenant, creating what is missing and updating what differs (idempotent), with parameters (e.g. workspace name) and a dry run that lists the planned changes, so that I can move a setup from test to production or reuse it safely | Core | P5 | #0021 |
+| PRV-03 | Published template schema | As an **Integrator**, I want a versioned XML schema (XSD) for templates and clear validation errors with line numbers, so that I can write and check templates with standard tooling | Core | P5 | #0021 |
+| PRV-04 | Templates with content | As an **Owner**, I want to optionally include list items and documents in a template package (XML + files), so that a ready-made solution can ship with sample or reference data | Ext | P7 | #0021 |
+| PRV-05 | Extension template handlers | As a **Developer**, I want my extension to add its own sections to templates (export and apply), so that extension configuration and data travel with the template | Ext | P5 | #0021 |
+
 ---
 
 ## Roadmap
@@ -264,9 +278,9 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | **P2 Extension runtime v1** | Everything below is built as extensions | EXT-01…05, EXT-07, EVT-03, IAM-13, LST-16, SRC-06 |
 | **P3 Documents** | Papermerge-level DMS | DOC-01…11, DOC-15, SRC-05, SRC-10, API-07, PLT-12, EXT-06 |
 | **P4 Tasks, calendar & notifications** | Productivity suite | TSK-01…06, CAL-01…05, NTF-01…05 |
-| **P5 Collaboration, automation & integrations** | Share, automate, connect | IAM-04, IAM-08…12, TAX-05, TAX-08…11, EVT-07…09, DOC-13, DOC-14, LST-17, CAL-06, NTF-06, API-03…06, API-08…10, PLT-06 |
+| **P5 Collaboration, automation & integrations** | Share, automate, connect | IAM-04, IAM-08…12, TAX-05, TAX-08…11, EVT-07…09, DOC-13, DOC-14, LST-17, CAL-06, NTF-06, API-03…06, API-08…10, PLT-06, PRV-01…03, PRV-05 |
 | **P6 AI & semantic search** | Understand documents | AI-01…06, SRC-07…09, DOC-12 |
-| **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13 |
+| **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PRV-04 |
 
 ## Phase 0 status
 
@@ -340,3 +354,4 @@ Build-time extensions ([ADR-0014](adr/0014-build-time-extensions.md)), delivered
 | [0018](../ideas/0018-webdav-access-to-libraries.md) WebDAV | API-10 |
 | [0019](../ideas/0019-caldav-carddav-server.md) CalDAV / CardDAV | CAL-05, CAL-06 |
 | [0020](../ideas/0020-smart-folders.md) Smart folders | TAX-08…10, TSK-03 |
+| [0021](../ideas/0021-portable-configuration-templates.md) Portable configuration templates (XML, PnP-style) | PRV-01…05 (related: LST-16, PLT-13) |
