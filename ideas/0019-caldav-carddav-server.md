@@ -1,9 +1,9 @@
 # 0019: CalDAV / CardDAV server for tasks, calendar and contacts
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Integrations / Calendar / Tasks
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): CAL-05, CAL-06
 
 ## The idea
 

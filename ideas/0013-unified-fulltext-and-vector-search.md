@@ -1,9 +1,9 @@
 # 0013: Full-text search across all data types, plus vector search
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Search / Platform
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): SRC-01…10, AI-05
 
 ## The idea
 

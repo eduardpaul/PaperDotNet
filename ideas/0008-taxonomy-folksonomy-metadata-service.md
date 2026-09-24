@@ -1,9 +1,9 @@
 # 0008: Taxonomy and folksonomy (managed metadata service)
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Platform / Metadata
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): TAX-01…07, TAX-11
 
 ## The idea
 

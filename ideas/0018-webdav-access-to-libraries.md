@@ -1,9 +1,9 @@
 # 0018: WebDAV access to libraries
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Integrations / Documents
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): API-10
 
 ## The idea
 

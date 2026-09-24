@@ -3,7 +3,7 @@
 - **Status:** mapped
 - **Area:** Platform
 - **Date:** 2026-09-24
-- **Mapped to:** [docs/architecture-vision.md](../docs/architecture-vision.md)
+- **Mapped to:** [features.md](../docs/features.md): Whole catalog; LST-01, EXT-01…09
 
 ## The idea
 

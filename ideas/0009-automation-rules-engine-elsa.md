@@ -1,9 +1,9 @@
 # 0009: Automation rules engine (tags and other use cases) with Elsa Workflows
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Automation / Extensions
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): EVT-07…09, TSK-06
 
 ## The idea
 

@@ -88,7 +88,7 @@ Legend for the **Use** column:
 | Building block | Use | Where it fits |
 |---|---|---|
 | **EF Core 10 named query filters** | ✅ | Multiple global filters per entity that can be switched off one at a time: `Tenant` (never disabled in normal code) and `SoftDelete` (disabled for the recycle bin and admin). This is exactly what ideas 0005 and 0010 need |
-| **EF Core 10 complex types mapped to JSON** (incl. `ExecuteUpdate` inside JSON) | ✅ | Item field values stored as a JSON column. This stays portable, which matches the decision to be able to switch databases later |
+| **EF Core 10 complex types mapped to JSON** (incl. `ExecuteUpdate` inside JSON) | ✅ | *Fixed* structured data: view definitions, list settings, manifests. **Not** for user-defined item fields, which need compile-time types. Those are a `jsonb` document with a provider-specific query translator (see [technical-approach.md](technical-approach.md) §6) |
 | **`SaveChanges` interceptors** | ✅ | Stamp `TenantId` and audit columns, write outbox events, capture item versions (idea 0010), run before-event handlers (idea 0012) |
 | **`ExecuteUpdate` / `ExecuteDelete`** | ✅ | Bulk operations such as term merges (idea 0008) and retention trimming |
 | **Compiled models / compiled queries** | ⏳ | Startup and hot-path speed-ups |

@@ -1,9 +1,9 @@
 # 0004: MCP server (supporting the extensibility features)
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** API / Integrations / Extensions
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): API-08, API-09, IAM-02
 
 ## The idea
 

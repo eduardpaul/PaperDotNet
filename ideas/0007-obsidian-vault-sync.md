@@ -1,9 +1,9 @@
 # 0007: Obsidian vault sync
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Integrations / Sync
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): API-11, LST-18
 
 ## The idea
 

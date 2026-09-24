@@ -1,9 +1,9 @@
 # 0006: Offline sync for mobile app
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Mobile / Sync
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): API-05, API-12, LST-15, CAL-05 (mobile app itself deferred with UI)
 
 ## The idea
 

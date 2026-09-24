@@ -149,49 +149,26 @@ The **frontend** is a host shell that loads extension UI bundles dynamically (ES
     tsvector FTS)                                   indexing, reminders, webhooks)
 ```
 
-Key decisions:
+The detailed, current technical decisions are in
+**[technical-approach.md](technical-approach.md)**. In short:
 
-- **.NET 10, ASP.NET Core, modular monolith.** Each module is a separate project with its own EF Core `DbContext` schema. It deploys as a single container, and workers are split out only where needed (OCR).
-- **Data access through Entity Framework Core from day one.** PostgreSQL is the only supported database for now, but all data access goes through EF Core so the database can be switched later. Rules that keep it switchable:
-  - No raw SQL in modules. Provider-specific SQL (indexes, full-text search, row-level security) lives only in a `PaperDotNet.Persistence.PostgreSql` project, behind interfaces.
-  - Full-text search is behind an `ISearchProvider` abstraction. The first implementation uses PostgreSQL `tsvector`. Others (SQL Server FTS, Meilisearch, OpenSearch) can be added later.
-  - Migrations are kept per provider, so a second provider gets its own migration set.
-- **Dynamic schemas.**
-  - Fixed tables hold items and their metadata.
-  - Field values are stored as a JSON column, mapped with EF Core JSON mapping (`jsonb` on PostgreSQL, `json`/`nvarchar` on other providers). Values are validated by the field-type handlers.
-  - Hot fields can be promoted to generated or indexed columns.
-  - On PostgreSQL, GIN indexes serve filtering and `tsvector` serves full-text search.
+- **Modular monolith** on .NET 10 (one container) with vertical slices, and module boundaries enforced by tests.
+- **Data:**
+  - EF Core 10 with PostgreSQL, one schema per module.
+  - Dynamic item fields are stored in a `jsonb` document with a provider-specific query translator.
+  - Complex-type JSON mapping is used for fixed structured data.
+- **Multitenancy:** named query filters, a `SaveChanges` interceptor, and PostgreSQL row-level security.
+- **Events:** a transactional outbox (`SKIP LOCKED` + `LISTEN/NOTIFY`) feeding Channels. Quartz.NET handles schedules.
+- **Files:** content-addressed blob storage. An in-process processing pipeline with Tesseract OCR.
+- **Search:** an app-maintained PostgreSQL full-text index across all data types, with pgvector for semantic search later.
+- **Identity:** OpenIddict + ASP.NET Core Identity, API tokens, and a scope + ACL authorization model.
+- **Item versioning** is optional per list (LST-11). File versions always exist for documents.
+- **Dependencies:** only MIT / Apache-2.0 (or permissive with notice), see [dependency-licenses.md](dependency-licenses.md).
 
-  This avoids the classic entity-attribute-value (EAV) pain and avoids DDL per list.
-- **Multitenancy from the start.** One installation hosts many isolated tenants.
-  - Shared database, with a `TenantId` on every tenant-owned row.
-  - Isolation is enforced in EF Core through global query filters and a `SaveChanges` interceptor that stamps and checks `TenantId`. This works on any provider.
-  - On PostgreSQL, row-level security is added as defense in depth.
-  - The tenant is resolved per request (subdomain, header or token claim) into an `ITenantContext`. Background jobs, events and extensions always run inside a tenant context.
-  - File storage is separated by tenant prefix.
-  - Extensions are installed and configured per tenant.
-  - A self-hosted install is a single default tenant using the same code path.
-- **Versioning at item level.** Every item keeps field-value history. Library items also version their files, which keeps Papermerge's non-destructive page operations.
-- **Security.**
-  - Workspace roles are built from fine-grained scopes, as in Papermerge.
-  - Permissions are inherited down workspace → list → folder → item, with optional unique permissions, as in SharePoint.
-  - Sharing works per user and per group.
-- **Events.** Core writes domain events to an **outbox table** in the same transaction. A dispatcher fans them out to in-process handlers, webhooks, automation, search indexing and SignalR (live UI updates such as OCR status).
-- **Jobs.** Own outbox + `System.Threading.Channels` at first (Wolverine or Quartz.NET if needed). OCR runs Tesseract **inside the main container** by default (bundled in the image). It can be split into a separate worker container for scale.
-- **Dependencies.** Only MIT / Apache-2.0 (or equivalent permissive) licenses, see [dependency-licenses.md](dependency-licenses.md).
-- **API.** OpenAPI-first REST with the same generic endpoints for every list (`/lists/{id}/items?filter=…`), plus typed endpoints from extensions. Personal API tokens and OIDC come from the start.
+## 5. Roadmap
 
-## 5. Suggested roadmap
-
-| Phase | Deliverable |
-|---|---|
-| **0: Foundation** | Solution skeleton (API only), EF Core persistence, multitenancy (tenant resolution, isolation, per-tenant files), auth (local + OIDC), workspaces, users/groups/roles, audit columns, OpenAPI, Docker compose |
-| **1: Lists engine** | Lists, content types, core field types, items CRUD with version history, views (table), filtering/sorting, folders, taxonomy/tags |
-| **2: Extension runtime v1** | Manifest, in-process loading, server-side extension points 1–10 and 12–14. Port the core field types to be extensions. *(UI contributions, frontend SDK and host shell: deferred)* |
-| **3: Documents extension** | Libraries, upload, file versions, preview/thumbnails, page operations (Papermerge MVP), OCR worker, full-text search |
-| **4: Tasks + Calendar extensions** | Task and Event content types, view definitions (board, calendar) served by the API, recurrence, reminders, notifications, iCal export, cross-links (lookup) |
-| **5: Automation & sharing** | Rules engine (triggers/actions), sharing, unique permissions, audit log API |
-| **6: Remote extensions & ecosystem** | Webhooks, scoped app tokens, extension catalog, *(sandboxed extension UI: deferred)*, CalDAV/IMAP/S3 connectors |
+The roadmap (phases P0–P7 with the features in each phase) is maintained in
+**[features.md](features.md#roadmap)**.
 
 ## 6. Decisions
 

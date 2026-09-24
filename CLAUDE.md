@@ -4,6 +4,8 @@ Extensible DMS + productivity platform (documents, tasks, calendar) in .NET,
 inspired by Papermerge and SharePoint lists/libraries.
 
 - Vision and architecture: `docs/architecture-vision.md`
+- **Feature catalog, user stories and roadmap: `docs/features.md`**
+- **Technical approach (source of truth for tech decisions): `docs/technical-approach.md`**
 - Papermerge feature catalog: `docs/papermerge-features.md`
 - .NET building blocks (libraries/platform features to use): `docs/dotnet-building-blocks.md`
 - Dependency license register and policy: `docs/dependency-licenses.md`
@@ -45,3 +47,6 @@ When the user says "Add idea: …":
 1. Create `ideas/NNNN-short-title.md` from `ideas/_template.md` (next free number).
 2. Add a row to the index in `ideas/README.md` and bump the example number.
 3. Commit and push.
+
+When ideas are reviewed, map them to feature IDs in `docs/features.md`
+(add features + user stories as needed) and set the idea status to `mapped`.

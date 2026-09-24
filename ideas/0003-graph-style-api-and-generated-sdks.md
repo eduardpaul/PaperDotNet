@@ -1,9 +1,9 @@
 # 0003: Microsoft Graph-style client API and generated multi-language SDKs
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** API / Integrations
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): API-01…06, LST-10, IAM-02
 
 ## The idea
 

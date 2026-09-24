@@ -3,7 +3,7 @@
 - **Status:** mapped
 - **Area:** Platform / Security
 - **Date:** 2026-09-24
-- **Mapped to:** [architecture-vision.md](../docs/architecture-vision.md) section 4 (Multitenancy), decision 2, roadmap phase 0
+- **Mapped to:** [features.md](../docs/features.md): PLT-03…06, PLT-13, EXT-03, IAM-04
 
 ## The idea
 

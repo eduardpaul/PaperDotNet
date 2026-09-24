@@ -70,13 +70,20 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | OpenSearch / Qdrant / Meilisearch Community | Apache-2.0 / Apache-2.0 / MIT | Optional external search/vector engines |
 | SeaweedFS | Apache-2.0 | S3-compatible store for tests |
 | Ollama | MIT | Optional local LLM runtime |
+| `CliWrap` | MIT | Running the Tesseract CLI |
+| `TngTech.ArchUnitNET` (+ `.xUnitV3`) | Apache-2.0 | Architecture tests |
+| `OpenIddict.EntityFrameworkCore` | Apache-2.0 | OpenIddict stores |
+| `Microsoft.AspNetCore.Identity.EntityFrameworkCore` | MIT | Identity stores |
+| `Quartz.Extensions.Hosting`, `Quartz.Serialization.SystemTextJson` | Apache-2.0 | Quartz hosting |
+| `OpenTelemetry.Extensions.Hosting`, `.Exporter.OpenTelemetryProtocol`, `.Instrumentation.AspNetCore` | Apache-2.0 | Telemetry |
+| `Microsoft.Testing.Platform` | MIT | Test runner |
 
 ### 🟨 Permissive with notice (no MIT/Apache alternative, or core infrastructure)
 
 | Component | License | Why it stays |
 |---|---|---|
 | **PostgreSQL** (incl. `ltree`, row-level security), **pgvector** extension | PostgreSQL License | The chosen database. The license is MIT-like |
-| `Npgsql`, `Npgsql.EntityFrameworkCore.PostgreSQL` | PostgreSQL License | The only production-grade PostgreSQL provider for EF Core |
+| `Npgsql`, `Npgsql.EntityFrameworkCore.PostgreSQL`, `Npgsql.OpenTelemetry` | PostgreSQL License | The only production-grade PostgreSQL provider for EF Core |
 | `Polly.Core` (dependency of `Microsoft.Extensions.Http.Resilience`) | BSD-3-Clause | Pulled in by Microsoft's MIT resilience package |
 | PDFium (bundled by PDFtoImage / Docnet.Core) | BSD-3-Clause (+ Apache-2.0 parts) | The only solid open PDF renderer |
 | Skia (bundled by SkiaSharp) | BSD-3-Clause | Image decoding |

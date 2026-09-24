@@ -1,9 +1,9 @@
 # 0010: Optional (opt-in) version history for data
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Platform / Data
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): LST-11, LST-12
 
 ## The idea
 

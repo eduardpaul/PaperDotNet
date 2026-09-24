@@ -1,9 +1,9 @@
 # 0017: AI extraction of metadata into custom fields
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** AI / Documents
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): AI-01…04, AI-06, TSK-06
 
 ## The idea
 

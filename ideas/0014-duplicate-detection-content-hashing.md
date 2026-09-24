@@ -1,9 +1,9 @@
 # 0014: Duplicate detection and content hashing
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Documents / Storage
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): DOC-10…12
 
 ## The idea
 

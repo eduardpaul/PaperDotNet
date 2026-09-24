@@ -1,9 +1,9 @@
 # 0011: Extensions implemented in Node.js and Python
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Extensions
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): EXT-01, EXT-08
 
 ## The idea
 

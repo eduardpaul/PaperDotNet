@@ -1,9 +1,9 @@
 # 0020: Smart folders (more than saved searches)
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Platform / Navigation / Metadata
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): TAX-08…10, TSK-03
 
 ## The idea
 

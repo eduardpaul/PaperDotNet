@@ -1,0 +1,422 @@
+# PaperDotNet technical approach
+
+**Status:** draft for review (2026-09-24). This replaces section 4 of
+[architecture-vision.md](architecture-vision.md) as the source of truth for
+technical decisions.
+
+**Related docs:**
+- [features.md](features.md): what we build
+- [dotnet-building-blocks.md](dotnet-building-blocks.md): catalog of libraries
+- [dependency-licenses.md](dependency-licenses.md): license policy
+
+**Guiding principles**, in priority order:
+1. Self-hosting and practicality: one app container + PostgreSQL, everything else optional.
+2. Security and tenant isolation by default.
+3. Built-in .NET features first, then mature permissive libraries. Never hand-roll security, protocol or file-format code.
+4. Provider-agnostic data access through EF Core. PostgreSQL-specific code is isolated.
+5. Backend API first. The API must be complete enough for any future UI.
+
+---
+
+## 1. Platform & build baseline
+
+| Topic | Decision |
+|---|---|
+| Runtime | **.NET 10 LTS**, C# 14. Upgrade to the next LTS (.NET 12, Nov 2027). Skip STS releases unless a feature is needed |
+| SDK pinning | `global.json` with `rollForward: latestFeature` |
+| Shared build settings | `Directory.Build.props`: `Nullable=enable`, `ImplicitUsings=enable`, `TreatWarningsAsErrors=true`, `AnalysisLevel=latest-recommended`, deterministic builds, `InvariantGlobalization=false` (we need culture-aware sorting/stemming) |
+| Package versions | **Central Package Management** (`Directory.Packages.props`), plus transitive pinning. NuGet lock files in CI |
+| Code style | `.editorconfig` with `dotnet format` in CI |
+| Tests | xUnit v3 on **Microsoft.Testing.Platform** |
+| Container | Multi-stage `Dockerfile` on the official `mcr.microsoft.com/dotnet/aspnet:10.0` image. Tesseract comes from distro packages. Runs as non-root, with a `HEALTHCHECK`. (SDK container publishing without a Dockerfile can't install Tesseract, so we use a Dockerfile) |
+| Delivery | GitHub Actions on every push: build, test, format check, license check, SBOM, container image. Semantic versioning. Release notes from the changelog |
+| Decisions log | Architecture Decision Records in `docs/adr/`, one short file per decision |
+
+## 2. Architecture style: modular monolith with vertical slices
+
+- **One deployable**, the `PaperDotNet.Host` ASP.NET Core app. It is split into
+  **modules** with hard boundaries, one per bounded context:
+  - Tenancy
+  - Identity
+  - Lists
+  - Taxonomy
+  - Files
+  - Search
+  - Events
+  - Automation
+  - Notifications
+  - Sharing
+  - Dav
+  - Mcp
+  - Extensions
+  - Ai
+- **Inside a module: vertical slices.** Each feature (e.g. `CreateItem`) keeps
+  its endpoint, request/response, validation and handler together in one
+  folder.
+- **No MediatR and no generic repositories.** Endpoints call handlers
+  directly (plain classes resolved from DI). The EF Core `DbContext` *is* the
+  unit of work and repository.
+- **Module boundaries:**
+  - Each module has a small public **contracts** project: interfaces,
+    DTOs and integration events. Its implementation is `internal`.
+  - Other modules only reference contracts.
+  - Synchronous queries across modules go through contract interfaces.
+  - Side effects across modules go through **integration events** via the
+    outbox.
+  - Boundaries are enforced by **architecture tests** (ArchUnitNET, Apache-2.0).
+- **Module registration:** each module exposes `IModule` with
+  `AddServices(IServiceCollection, IConfiguration)` and
+  `MapEndpoints(IEndpointRouteBuilder)`. The host composes them.
+  Extensions use the same shape.
+- **Built-in apps are extensions.** Documents, Tasks and Calendar are built
+  only against the public extension SDK (see section 12).
+
+### Solution layout
+
+```
+PaperDotNet.slnx
+├─ src/
+│  ├─ PaperDotNet.Host/                      # composition root, Program.cs, config, Dockerfile
+│  ├─ PaperDotNet.ServiceDefaults/           # OpenTelemetry, health checks, resilience defaults
+│  ├─ BuildingBlocks/
+│  │  ├─ PaperDotNet.Abstractions/           # IModule, ITenantContext, Result, IDs, clock, errors
+│  │  ├─ PaperDotNet.Persistence/            # EF Core base: interceptors, filters, outbox, conventions
+│  │  └─ PaperDotNet.Persistence.PostgreSql/ # the ONLY provider-specific project (FTS, RLS, jsonb, SKIP LOCKED)
+│  ├─ Modules/
+│  │  ├─ Lists/
+│  │  │  ├─ PaperDotNet.Lists.Contracts/
+│  │  │  └─ PaperDotNet.Lists/               # slices: Features/Items/CreateItem/…, Data/ListsDbContext
+│  │  ├─ Tenancy/  Identity/  Taxonomy/  Files/  Search/  Events/  Automation/
+│  │  └─ Notifications/  Sharing/  Dav/  Mcp/  Extensions/  Ai/
+│  ├─ Sdk/
+│  │  ├─ PaperDotNet.Extensions.Abstractions/   # public, SemVer-stable extension contracts
+│  │  ├─ PaperDotNet.Extensions.Sdk/            # helpers, source generator, analyzers
+│  │  └─ PaperDotNet.Extensions.Testing/        # test host for extension authors
+│  └─ Cli/PaperDotNet.Cli/                    # System.CommandLine admin CLI
+├─ extensions/
+│  ├─ PaperDotNet.Documents/   PaperDotNet.Tasks/   PaperDotNet.Calendar/
+├─ tests/
+│  ├─ PaperDotNet.ArchitectureTests/
+│  ├─ PaperDotNet.IntegrationTests/          # WebApplicationFactory + Testcontainers PostgreSQL
+│  └─ <Module>.Tests/
+├─ deploy/docker-compose.yml                 # paperdotnet + postgres (pgvector image)
+└─ docs/  ideas/
+```
+
+## 3. API design (Graph-style)
+
+| Topic | Decision |
+|---|---|
+| Framework | **Minimal APIs**, with route groups per module and `TypedResults` for compile-time checked responses |
+| URLs | `/v1.0/...` resource paths: `/me`, `/workspaces/{id}/lists/{id}/items/{id}`, `/drives`-like library access for files, `/search/query`, `/subscriptions`, `/operations/{id}`. A `/beta` group for previews. Extensions live under `/v1.0/ext/{extensionId}/…` |
+| Query options | A Graph-compatible subset: `$filter`, `$select`, `$expand`, `$orderby`, `$top`, `$count`, `$search`. Parsed into an AST, then translated to LINQ or provider-specific SQL for JSON fields. The OData library is used only if the spike shows it handles dynamic JSON fields with less code |
+| Paging | **Cursor (keyset) paging** with an opaque `@odata.nextLink`. No offset paging on large lists |
+| Errors | RFC 9457 **ProblemDetails** everywhere (`AddProblemDetails`, exception handler), extended with a Graph-style `error.code`. Canceled before-events map to `409` or `422` with the handler's message |
+| Validation | Built-in Minimal API validation (`AddValidation`, .NET 10) for request DTOs. Field-type validators for dynamic item fields |
+| Concurrency | **ETags** on every resource from PostgreSQL `xmin` (row version). `If-Match` required on updates and deletes. Returns `412` on conflict |
+| Idempotency | An `Idempotency-Key` header on POSTs that create things (uploads, items). Stored for 24 h |
+| Long-running work | `202 Accepted` + `Location: /v1.0/operations/{id}`, plus an SSE notification when done |
+| Real-time | **Server-Sent Events** (`TypedResults.ServerSentEvents`) per user, fed by the event pipeline. SignalR only when a UI needs two-way messaging |
+| Files | Streamed uploads and downloads (no buffering), `Range` support, per-tenant size limits. Resumable uploads (tus) added in P7 for mobile |
+| OpenAPI | Built-in `Microsoft.AspNetCore.OpenApi` (OpenAPI 3.1), with document transformers for extension endpoints. The document is committed and **snapshot-tested** (Verify), so API changes are always visible in review. Kiota generates the SDKs in CI |
+| Versioning | URL segment (`v1.0`, `beta`). Breaking changes only in a new major version |
+| Rate limiting | Built-in rate limiter, partitioned by tenant + client |
+| Caching | `HybridCache` (in memory; optional Redis-protocol L2 such as Garnet) for schemas, term sets and permission lookups. Keys are prefixed by tenant, with tag-based invalidation |
+
+## 4. Identity & security
+
+- **Authentication server built in:** **OpenIddict** + **ASP.NET Core Identity**
+  (EF Core stores).
+  - Flows: authorization code + PKCE, client credentials, refresh tokens,
+    device code (for the CLI).
+  - Local accounts support passwords and **passkeys** (Identity passkey
+    support in .NET 10). MFA via TOTP.
+  - External OIDC providers per tenant are optional (IAM-04).
+- **API tokens / app passwords:**
+  - random, prefixed tokens (`pdn_…`), stored as hashes
+  - scoped and expiring
+  - accepted by the API, WebDAV and CalDAV (basic auth with an app password,
+    for DAV clients)
+- **Authorization:**
+  1. **Scopes** (from roles) are checked by policy on each endpoint. A custom
+     `IAuthorizationPolicyProvider` creates policies for any scope, including
+     scopes declared by extensions.
+  2. **Resource permissions** (ACL with inheritance and sharing) are checked
+     by a central `IPermissionService`, cached per user and tenant. The
+     permission service is also used to filter queries and search.
+- **Data protection:** the Data Protection key ring is stored in PostgreSQL.
+  Secrets such as webhook secrets, OIDC client secrets and extension settings
+  are encrypted with it.
+- **Secure defaults:**
+  - HTTPS assumed behind a reverse proxy, with configurable forwarded headers
+  - HSTS
+  - CORS off unless configured
+  - antiforgery for any cookie-based flow
+  - strict upload limits
+  - content-type sniffing on uploads
+  - no stack traces in responses
+  - redaction of sensitive log fields
+- **Tenant-isolation tests are mandatory.** Every endpoint gets an automated
+  test proving it can't read or write data of another tenant.
+
+## 5. Multitenancy
+
+| Layer | Mechanism |
+|---|---|
+| Resolution | **Finbuckle.MultiTenant** (pending the spike) resolves the tenant from host, header or token claim. The result is exposed as our own `ITenantContext`. Background work gets the tenant from the message, never from ambient state |
+| EF Core | Every tenant-owned entity implements `ITenantOwned`. A **named query filter** `"Tenant"` is applied by convention (EF Core 10 named filters), next to `"SoftDelete"`. Normal code may disable `SoftDelete` but never `Tenant` (enforced by an analyzer/architecture test) |
+| Writes | A `SaveChanges` interceptor stamps `TenantId` and rejects cross-tenant writes |
+| Database | PostgreSQL **row-level security** as defense in depth. A connection interceptor sets `app.tenant_id` on each connection, and policies compare it to `tenant_id` |
+| Files | Blob keys are prefixed by tenant |
+| Caches, search, events | Keys and indexes are always scoped by tenant |
+| Self-hosted | One default tenant, same code path |
+
+## 6. Data (EF Core 10 + PostgreSQL)
+
+- **One database, one `DbContext` per module, one schema per module.**
+  Migrations are kept per module and live next to it. They are applied by
+  `paperdotnet migrate` (EF migration bundle) or optionally at startup for
+  single-node self-hosting.
+- **IDs:** UUIDv7 (`Guid.CreateVersion7()`), which is time-ordered and good
+  for index locality. Strongly-typed ID records (e.g. `ItemId`) with EF value
+  converters.
+- **Time:** `DateTimeOffset` in UTC in storage. `TimeProvider` everywhere
+  instead of `DateTime.Now`, for testability.
+- **Fixed schema** (tenants, lists, content types, terms, ACLs…): normal
+  entities. Structured settings (view definitions, list settings, manifests)
+  are **EF Core 10 complex types mapped to JSON**.
+- **Dynamic item fields** (user-defined columns) are stored in one **JSON
+  document column** per item (`jsonb` on PostgreSQL):
+  - EF complex types need compile-time CLR types, so dynamic fields are not
+    complex types. They are mapped as a JSON document/string.
+  - Filtering on them is translated by an `IItemQueryTranslator` in the
+    PostgreSQL project (`jsonb` operators with a GIN index).
+  - This is the one place dynamic querying is provider-specific. A future
+    provider only has to implement this translator plus search and RLS.
+  - Values are validated by field-type handlers before saving.
+- **Reads:** `AsNoTracking` + projection to DTOs, split queries for
+  collections, compiled queries on hot paths. **Writes:** `ExecuteUpdate` /
+  `ExecuteDelete` for bulk work (term merge, retention). Lazy loading is
+  never used.
+- **Concurrency:** `xmin` as row version (Npgsql), surfaced as ETags.
+- **Interceptors** (in `PaperDotNet.Persistence`) handle:
+  - tenant stamping
+  - audit columns
+  - soft delete
+  - item version snapshots (only when the list has versioning on, LST-11)
+  - outbox writes
+- **Audit log:** an append-only table written by the interceptor in the
+  same transaction.
+
+## 7. Events, outbox & background processing
+
+```
+request → before-handlers (sync, can modify/cancel)
+        → SaveChanges (data + outbox rows + audit, one transaction)
+        → sync after-handlers
+outbox dispatcher (BackgroundService)
+        → woken by PostgreSQL LISTEN/NOTIFY, polling as fallback
+        → claims rows with FOR UPDATE SKIP LOCKED   (multi-node safe)
+        → Channel<T> per consumer group (bounded, back-pressure)
+        → async after-handlers · search indexer · webhooks · notifications · automation · SSE
+```
+
+- **At-least-once delivery.** Consumers are idempotent, backed by an inbox
+  table for dedup where needed. Failures are retried with exponential
+  backoff, then sent to a dead-letter table (visible to admins via API).
+- The provider-specific parts (`LISTEN/NOTIFY`, `SKIP LOCKED`) live in the
+  PostgreSQL project behind `IOutboxStore`.
+- **Wolverine** is the planned replacement if our outbox grows beyond this.
+- **Scheduling:** **Quartz.NET** in-process, with its clustered ADO job store
+  in PostgreSQL. Used for reminders, recurrence, digests, retention and
+  cleanup. Jobs always carry `TenantId`.
+- **Long-running operations** (EVT-06) are stored as `operations` rows with
+  status and progress, driven by jobs or pipeline stages.
+
+## 8. Files & document processing
+
+- **Blob store abstraction** (`IBlobStore`):
+  - **content-addressed** by SHA-256 under a tenant prefix, which gives exact
+    dedup and integrity checks for free (DOC-10/11, idea 0014)
+  - reference-counted, with orphans removed by a background job
+  - **local file system by default**; S3-compatible storage optional (AWSSDK.S3)
+- **Processing pipeline** (in-process, `Channel<T>` stages, bounded
+  concurrency per stage and per tenant):
+  1. **Sniff** the file type by magic bytes (own small code for PDF, TIFF,
+     JPEG and PNG).
+  2. **Normalize:** convert images to PDF with PDFsharp + SkiaSharp
+     (+ LibTiff.Net for TIFF).
+  3. **Extract** existing text with PdfPig. Skip OCR if the text layer is
+     good.
+  4. **Render** pages with PDFium (PDFtoImage/Docnet) to create thumbnails
+     and OCR input.
+  5. **OCR** with the **Tesseract CLI**, run via CliWrap, which is simpler
+     and more robust than native bindings. It produces hOCR/text-only PDF,
+     which PDFsharp merges into a new file version.
+  6. **Index:** hand off to the search indexer.
+- File processors from extensions plug into the same pipeline by MIME type.
+- **Scale-out:** the same pipeline can run in a separate worker container
+  (same image, `--role worker`), coordinated through the outbox and Quartz.
+
+## 9. Search
+
+- `ISearchProvider` with a **PostgreSQL implementation by default**.
+- **One `search_documents` table** holds rows from all data types: tenant,
+  item id, content type, title, text, a weighted `tsvector`, language,
+  facets, and an ACL principal array.
+  - The **app** maintains it (the indexer consumes outbox events), not DB
+    triggers. That keeps logic portable and lets extensions declare what is
+    indexed (SRC-06).
+- **Security trimming** in SQL: the principal array is intersected with the
+  user's principals (GIN index).
+- **Vector search (P6):** a `pgvector` column + `Microsoft.Extensions.VectorData`.
+  Embeddings come from `IEmbeddingGenerator` (Microsoft.Extensions.AI).
+  Chunks keep page numbers. **Hybrid ranking** uses reciprocal rank fusion
+  in SQL. The deploy compose uses the `pgvector/pgvector` PostgreSQL image,
+  so it is still one database container.
+- External engines (OpenSearch, Meilisearch, Qdrant) are optional providers
+  later.
+
+## 10. AI & MCP
+
+- **`Microsoft.Extensions.AI`** abstractions everywhere (`IChatClient`,
+  `IEmbeddingGenerator`).
+  - Built with its middleware pipeline: function invocation, OpenTelemetry,
+    distributed cache keyed by content hash, rate limiting.
+  - Providers are configured per tenant: none, Ollama/ONNX local models, or a
+    cloud provider.
+  - Nothing requires AI.
+- **Structured output** for extraction (AI-03): the JSON Schema of a content
+  type (from field types via `JsonSchemaExporter`) is the response schema.
+  Results go through normal validation and before-event handlers.
+- **MCP server:** `ModelContextProtocol.AspNetCore` mapped at `/mcp`
+  (streamable HTTP).
+  - OAuth via OpenIddict (protected-resource metadata), so the user's
+    permissions apply.
+  - Generic tools (search, get/create/update items, list schemas) come from
+    the lists engine. Extensions contribute tools.
+  - Destructive tools require confirmation.
+- **Agent Framework** only for later multi-step agents (inbox triage).
+
+## 11. DAV protocols (WebDAV, CalDAV, CardDAV)
+
+- One `Dav` module with shared WebDAV plumbing:
+  - PROPFIND, REPORT, ETags, sync-collection (RFC 6578)
+  - well-known discovery
+  - app-password auth
+- It maps to the same services as the REST API, so permissions, events and
+  versioning behave identically.
+- iCalendar/vCard mapping via **Ical.Net** (MIT). vCard via a small
+  serializer, or a permissive library after a license check.
+- Evaluate existing .NET WebDAV server libraries against the license policy
+  before writing our own.
+
+## 12. Extension runtime
+
+- **Contracts:**
+  - `PaperDotNet.Extensions.Abstractions` is the only assembly shared
+    between host and extensions. It uses SemVer, and breaking changes need a
+    new major version.
+  - Extensions declare their required range in the manifest.
+- **Loading:** each extension gets its own collectible `AssemblyLoadContext`
+  that shares the framework and the contracts assembly and isolates
+  everything else. Unloading allows upgrades without a restart. Loading is
+  validated against the manifest.
+- **Registration:** `IExtension.Configure(IExtensionBuilder)` registers
+  contributions into registries:
+  - field types, content types and templates
+  - event handlers, file processors, jobs, endpoints
+  - search indexers, MCP tools, scopes, providers
+
+  Registries are frozen after startup (`FrozenDictionary`) and filtered per
+  tenant by enablement.
+- **Manifest:** JSON validated by a published JSON Schema. It is
+  language-neutral so Node/Python sidecars (P7) use the same format.
+- **Data:** extensions can use list-based storage (no migrations), or their
+  own schema with EF migrations run by the host under the tenant rules
+  (interceptors and RLS apply).
+- **Developer experience:**
+  - SDK NuGet with a **source generator** that builds the registration from
+    attributes
+  - **analyzers** for common mistakes (e.g. blocking calls in before-handlers)
+  - a **test host** package
+- **Out-of-process (P7):** a host-supervised sidecar process over gRPC (or
+  StreamJsonRpc) on a Unix socket. Before-handler timeouts use a
+  fail-open/closed policy. Remote webhook extensions use the same contracts
+  as JSON.
+
+## 13. Observability & operations
+
+- **ServiceDefaults project** (Aspire pattern):
+  - OpenTelemetry traces, metrics and logs, exported over OTLP only when
+    configured
+  - health checks
+  - `Http.Resilience` standard handler for all outgoing HTTP
+- **Logging:** `[LoggerMessage]` source-generated structured logging, with
+  tenant, user, extension and correlation id as scopes. Personal data is
+  redacted.
+- **Configuration:**
+  - `PAPERDOTNET__Section__Key` environment variables
+  - Options classes validated at startup (`ValidateOnStart`, source-generated
+    validators)
+  - Docker secrets supported via key-per-file
+- **Aspire AppHost** for local development: PostgreSQL, the app, optional
+  Garnet/SeaweedFS, and the dashboard. Not required to run in production.
+- **Admin CLI** (System.CommandLine): migrate, tenants, users, reindex,
+  backup/restore, extension install.
+
+## 14. Testing strategy
+
+| Level | Tooling | Notes |
+|---|---|---|
+| Unit | xUnit v3, `FakeTimeProvider` | Domain logic, field types, query parser |
+| Integration | `WebApplicationFactory` + **Testcontainers PostgreSQL** | Real DB for JSON queries, full-text search, RLS and outbox. One container per test run; tests are isolated by tenant (a new tenant per test) instead of DB resets |
+| Contract | Verify snapshots | OpenAPI document, manifest schema, event payloads |
+| Architecture | ArchUnitNET | Module boundaries, no provider-specific code outside the PostgreSQL project, no disabling of the `Tenant` filter |
+| Security | Integration tests | Tenant isolation and permission checks for every endpoint |
+| End-to-end | `Aspire.Hosting.Testing` (optional) | App + worker role + DB |
+
+## 15. Changes compared with earlier drafts
+
+This reanalysis corrects or sharpens these points:
+
+1. **Dynamic fields are not EF complex types.** Complex types need CLR types
+   known at compile time. User-defined fields use a JSON document column plus
+   a provider-specific query translator. Complex-type JSON mapping is used
+   for *fixed* structured data.
+2. **The search index is maintained by the app, not DB triggers.** Triggers
+   are provider-specific and hide logic. An outbox-fed indexer is portable and
+   extensible.
+3. **The outbox design is concrete:** `SKIP LOCKED` claims and
+   `LISTEN/NOTIFY` wake-ups, feeding Channels. This is multi-node safe with
+   no broker.
+4. **Storage is content-addressed**, so deduplication and integrity checks
+   come built in.
+5. **OCR uses the Tesseract CLI via CliWrap** instead of native bindings,
+   which is more robust and easier to upgrade. OCRmyPDF was dropped for
+   licensing reasons.
+6. **Identity:** OpenIddict + Identity with passkeys, and app passwords for
+   DAV clients.
+7. **API details:** keyset paging, `xmin` ETags, idempotency keys, a
+   long-running operations resource, SSE, and a snapshot-tested OpenAPI
+   document.
+8. **Engineering baseline:**
+   - vertical slices, no MediatR, no generic repositories
+   - Central Package Management
+   - architecture tests
+   - UUIDv7 IDs and `TimeProvider`
+9. **One schema per module** in a single database, with migrations per
+   module applied by a migration bundle or the CLI.
+
+## New dependencies introduced here (license-checked)
+
+| Package | License |
+|---|---|
+| CliWrap | MIT |
+| TngTech.ArchUnitNET (+ xUnit v3 integration) | Apache-2.0 |
+| OpenIddict.EntityFrameworkCore | Apache-2.0 |
+| Microsoft.AspNetCore.Identity.EntityFrameworkCore | MIT |
+| Quartz.Extensions.Hosting, Quartz.Serialization.SystemTextJson | Apache-2.0 |
+| OpenTelemetry.Extensions.Hosting / Exporter.OpenTelemetryProtocol / Instrumentation.AspNetCore | Apache-2.0 |
+| Npgsql.OpenTelemetry | PostgreSQL License (🟨 with notice) |
+| Microsoft.Testing.Platform | MIT |

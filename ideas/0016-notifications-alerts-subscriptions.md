@@ -1,9 +1,9 @@
 # 0016: Notifications, alerts and subscriptions
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Platform / Notifications
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): NTF-01…06, API-06
 
 ## The idea
 

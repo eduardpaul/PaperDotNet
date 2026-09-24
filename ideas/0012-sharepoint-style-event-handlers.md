@@ -1,9 +1,9 @@
 # 0012: Event handlers like SharePoint event receivers (before / after)
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Extensions / Platform
 - **Date:** 2026-09-24
-- **Mapped to:** refines extension point 5 in [architecture-vision.md](../docs/architecture-vision.md) section 3.2
+- **Mapped to:** [features.md](../docs/features.md): EVT-01…04
 
 ## The idea
 

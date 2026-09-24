@@ -1,9 +1,9 @@
 # 0015: Sharing links and guest access
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Security / Sharing
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): IAM-09…12
 
 ## The idea
 

@@ -1,9 +1,9 @@
 # 0002: Email to inbox for documents
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Documents
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [features.md](../docs/features.md): DOC-13
 
 ## The idea
 
