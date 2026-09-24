@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+  </ItemGroup>
+</Project>

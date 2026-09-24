@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,6 +1,6 @@
 # PaperDotNet technical approach
 
-**Status:** draft for review (2026-09-24). This replaces section 4 of
+**Status:** accepted; phase 0 implemented (2026-09-24). Decisions are recorded as [ADRs](adr/README.md). This replaces section 4 of
 [architecture-vision.md](architecture-vision.md) as the source of truth for
 technical decisions.
 
@@ -76,10 +76,11 @@ technical decisions.
 ```
 PaperDotNet.slnx
 ├─ src/
-│  ├─ PaperDotNet.Host/                      # composition root, Program.cs, config, Dockerfile
+│  ├─ PaperDotNet.Host/                      # composition root, Program.cs, config, admin CLI (ADR-0001)
 │  ├─ PaperDotNet.ServiceDefaults/           # OpenTelemetry, health checks, resilience defaults
 │  ├─ BuildingBlocks/
-│  │  ├─ PaperDotNet.Abstractions/           # IModule, ITenantContext, Result, IDs, clock, errors
+│  │  ├─ PaperDotNet.Abstractions/           # IModule, ITenantContext, ICurrentUser, scopes, IDs
+│  │  ├─ PaperDotNet.Api/                    # HTTP conventions: paging, ProblemDetails, ETags, scope authorization
 │  │  ├─ PaperDotNet.Persistence/            # EF Core base: interceptors, filters, outbox, conventions
 │  │  └─ PaperDotNet.Persistence.PostgreSql/ # the ONLY provider-specific project (FTS, RLS, jsonb, SKIP LOCKED)
 │  ├─ Modules/
@@ -92,7 +93,7 @@ PaperDotNet.slnx
 │  │  ├─ PaperDotNet.Extensions.Abstractions/   # public, SemVer-stable extension contracts
 │  │  ├─ PaperDotNet.Extensions.Sdk/            # helpers, source generator, analyzers
 │  │  └─ PaperDotNet.Extensions.Testing/        # test host for extension authors
-│  └─ Cli/PaperDotNet.Cli/                    # System.CommandLine admin CLI
+│  └─ Migrations/PaperDotNet.Migrations.PostgreSql/  # provider-specific migrations of all modules (ADR-0004)
 ├─ extensions/
 │  ├─ PaperDotNet.Documents/   PaperDotNet.Tasks/   PaperDotNet.Calendar/
 ├─ tests/
@@ -125,7 +126,9 @@ PaperDotNet.slnx
 
 ## 4. Identity & security
 
-- **Authentication server built in:** **OpenIddict** + **ASP.NET Core Identity**
+- **Staged (ADR-0002):** P0 ships ASP.NET Core Identity local accounts, JWT
+  access tokens from `POST /v1.0/auth/token`, and API tokens. OpenIddict follows in P1.
+- **Authentication server built in (P1):** **OpenIddict** + **ASP.NET Core Identity**
   (EF Core stores).
   - Flows: authorization code + PKCE, client credentials, refresh tokens,
     device code (for the CLI).
@@ -163,10 +166,10 @@ PaperDotNet.slnx
 
 | Layer | Mechanism |
 |---|---|
-| Resolution | **Finbuckle.MultiTenant** (pending the spike) resolves the tenant from host, header or token claim. The result is exposed as our own `ITenantContext`. Background work gets the tenant from the message, never from ambient state |
+| Resolution | **Finbuckle.MultiTenant** (decided, ADR-0003) resolves the tenant from custom host, host template, header (opt-in), token claim, then the default tenant (only when none was requested explicitly). The result is exposed as our own `ITenantContext`. Background work gets the tenant from the message, never from ambient state |
 | EF Core | Every tenant-owned entity implements `ITenantOwned`. A **named query filter** `"Tenant"` is applied by convention (EF Core 10 named filters), next to `"SoftDelete"`. Normal code may disable `SoftDelete` but never `Tenant` (enforced by an analyzer/architecture test) |
 | Writes | A `SaveChanges` interceptor stamps `TenantId` and rejects cross-tenant writes |
-| Database | PostgreSQL **row-level security** as defense in depth. A connection interceptor sets `app.tenant_id` on each connection, and policies compare it to `tenant_id` |
+| Database | *(P1, ADR-0003)* PostgreSQL **row-level security** as defense in depth. A connection interceptor sets `app.tenant_id` on each connection, and policies compare it to `tenant_id` |
 | Files | Blob keys are prefixed by tenant |
 | Caches, search, events | Keys and indexes are always scoped by tenant |
 | Self-hosted | One default tenant, same code path |

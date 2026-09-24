@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Provider-agnostic EF Core conventions: tenant/soft-delete filters, auditing, module DbContext registration. -->
+  <ItemGroup>
+    <ProjectReference Include="..\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+  </ItemGroup>
+</Project>

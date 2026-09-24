@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Shared HTTP API conventions: Graph-style paging, errors, ETags, scope authorization. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

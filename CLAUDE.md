@@ -41,6 +41,30 @@ until the user says so. Design the API so a future UI has everything it needs.
   notice (THIRD-PARTY-NOTICES). No GPL/AGPL/LGPL/MPL/SSPL/commercial.
   Check and record every new dependency in `docs/dependency-licenses.md`.
 
+## Build & test
+
+```bash
+export PATH=$HOME/.dotnet:$PATH DOTNET_ROOT=$HOME/.dotnet   # if the SDK was installed locally
+dotnet build PaperDotNet.slnx                               # warnings are errors
+dotnet format PaperDotNet.slnx --verify-no-changes
+dotnet test --solution PaperDotNet.slnx                     # Testcontainers PostgreSQL
+PAPERDOTNET_TEST_POSTGRES="Host=localhost;Username=postgres;Password=postgres" dotnet test --solution PaperDotNet.slnx
+dotnet tool restore && dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.PostgreSql -c <Module>DbContext -o Generated/<Module>
+```
+
+## Code conventions
+
+- Modules live in `src/Modules/<Name>` with an `IModule`, a DbContext in its own
+  schema, feature folders (endpoints + handlers together), and a `.Contracts`
+  project only when other modules need it. Modules reference each other only
+  via contracts; never reference Npgsql outside `Persistence.PostgreSql`.
+- Tenant-owned entities implement `ITenantOwned`; never disable the `Tenant`
+  query filter. Every new endpoint gets a tenant-isolation test.
+- Endpoints: Minimal APIs under `/v1.0`, `TypedResults`, `RequireScope(...)`,
+  `ApiErrors` for problems, `Page.Create` for lists, ETags for mutable resources.
+- IDs via `Ids.New()` (UUIDv7); time via `TimeProvider`.
+- Record decisions as ADRs in `docs/adr/`.
+
 ## Ideas workflow
 
 When the user says "Add idea: …":

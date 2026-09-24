@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    PostgreSQL migrations of every module, one folder per module. Kept apart
+    from the modules so they stay provider-agnostic (ADR-0004).
+    Add a migration:  dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.PostgreSql -c <Module>DbContext -o Generated/<Module>
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Persistence.PostgreSql\PaperDotNet.Persistence.PostgreSql.csproj" />
+    <ProjectReference Include="..\..\Modules\Tenancy\PaperDotNet.Tenancy\PaperDotNet.Tenancy.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\PaperDotNet.Identity\PaperDotNet.Identity.csproj" />
+    <ProjectReference Include="..\..\Modules\Workspaces\PaperDotNet.Workspaces\PaperDotNet.Workspaces.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

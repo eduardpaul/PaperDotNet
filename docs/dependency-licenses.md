@@ -70,6 +70,11 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | OpenSearch / Qdrant / Meilisearch Community | Apache-2.0 / Apache-2.0 / MIT | Optional external search/vector engines |
 | SeaweedFS | Apache-2.0 | S3-compatible store for tests |
 | Ollama | MIT | Optional local LLM runtime |
+| `EFCore.NamingConventions` | Apache-2.0 | snake_case table and column names on PostgreSQL |
+| `Microsoft.AspNetCore.Authentication.JwtBearer`, `Microsoft.IdentityModel.JsonWebTokens` | MIT | JWT access tokens (P0) |
+| `Microsoft.AspNetCore.Mvc.Testing` | MIT | Integration tests |
+| `xunit.v3.mtp-v2` | Apache-2.0 | Tests on Microsoft.Testing.Platform |
+| `dotnet-ef` (local tool) | MIT | Migrations |
 | `CliWrap` | MIT | Running the Tesseract CLI |
 | `TngTech.ArchUnitNET` (+ `.xUnitV3`) | Apache-2.0 | Architecture tests |
 | `OpenIddict.EntityFrameworkCore` | Apache-2.0 | OpenIddict stores |

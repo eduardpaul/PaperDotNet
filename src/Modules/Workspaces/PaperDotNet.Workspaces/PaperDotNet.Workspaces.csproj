@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+  </ItemGroup>
+</Project>

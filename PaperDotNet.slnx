@@ -1,0 +1,32 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PaperDotNet.Host/PaperDotNet.Host.csproj" />
+    <Project Path="src/PaperDotNet.ServiceDefaults/PaperDotNet.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/PaperDotNet.Abstractions/PaperDotNet.Abstractions.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.Api/PaperDotNet.Api.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.PostgreSql/PaperDotNet.Persistence.PostgreSql.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.Persistence/PaperDotNet.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/src/Migrations/">
+    <Project Path="src/Migrations/PaperDotNet.Migrations.PostgreSql/PaperDotNet.Migrations.PostgreSql.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/PaperDotNet.Identity.Contracts/PaperDotNet.Identity.Contracts.csproj" />
+    <Project Path="src/Modules/Identity/PaperDotNet.Identity/PaperDotNet.Identity.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Tenancy/">
+    <Project Path="src/Modules/Tenancy/PaperDotNet.Tenancy.Contracts/PaperDotNet.Tenancy.Contracts.csproj" />
+    <Project Path="src/Modules/Tenancy/PaperDotNet.Tenancy/PaperDotNet.Tenancy.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Workspaces/">
+    <Project Path="src/Modules/Workspaces/PaperDotNet.Workspaces/PaperDotNet.Workspaces.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PaperDotNet.ArchitectureTests/PaperDotNet.ArchitectureTests.csproj" />
+    <Project Path="tests/PaperDotNet.IntegrationTests/PaperDotNet.IntegrationTests.csproj" />
+    <Project Path="tests/PaperDotNet.UnitTests/PaperDotNet.UnitTests.csproj" />
+  </Folder>
+</Solution>

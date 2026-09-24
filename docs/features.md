@@ -76,7 +76,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | ID | Feature | User story | Prio | Phase | Source |
 |---|---|---|---|---|---|
 | IAM-01 | Local accounts | As a **Member**, I want to sign in with username/email and password or a passkey, so that I can use the app without an external identity provider | MVP | P0 | PM §9 |
-| IAM-02 | Built-in OAuth2/OIDC server | As an **Integrator**, I want standard OAuth2 flows (auth code + PKCE, client credentials), so that apps, SDKs and MCP clients can authenticate securely | MVP | P0 | #0003, #0004 |
+| IAM-02 | Built-in OAuth2/OIDC server | As an **Integrator**, I want standard OAuth2 flows (auth code + PKCE, client credentials), so that apps, SDKs and MCP clients can authenticate securely | MVP | P1 | #0003, #0004, ADR-0002 |
 | IAM-03 | Personal API tokens / app passwords | As a **Member**, I want to create, list and revoke tokens with scopes and expiry, so that scripts, WebDAV and CalDAV clients can access my data | MVP | P0 | PM §9 |
 | IAM-04 | External OIDC login | As an **Admin**, I want to connect my own identity provider (e.g. Keycloak, Entra ID, Google) per tenant, so that users use company SSO | Core | P5 | PM §9, #0005 |
 | IAM-05 | Groups | As an **Admin**, I want groups with members, so that I can grant access to many users at once | MVP | P0 | PM §8 |
@@ -258,14 +258,35 @@ Papermerge feature catalog. `AV` is the architecture vision.
 
 | Phase | Goal | Features |
 |---|---|---|
-| **P0 Foundation** | Deployable, secure, multi-tenant skeleton | PLT-01…11, IAM-01…03, IAM-05, IAM-06, API-01 (conventions), API-02 |
-| **P1 Lists engine, taxonomy & events** | Store and organize any data | LST-01…15, TAX-01…04, TAX-06, TAX-07, IAM-07, EVT-01, EVT-02, EVT-04…06, SRC-01…04, API-01 (queries) |
+| **P0 Foundation** | Deployable, secure, multi-tenant skeleton | PLT-01…11, IAM-01, IAM-03, IAM-05, IAM-06, API-01 (conventions), API-02 |
+| **P1 Lists engine, taxonomy & events** | Store and organize any data | IAM-02 (OpenIddict, passkeys), LST-01…15, TAX-01…04, TAX-06, TAX-07, IAM-07, EVT-01, EVT-02, EVT-04…06, SRC-01…04, API-01 (queries) |
 | **P2 Extension runtime v1** | Everything below is built as extensions | EXT-01…05, EXT-07, EVT-03, IAM-13, LST-16, SRC-06 |
 | **P3 Documents** | Papermerge-level DMS | DOC-01…11, DOC-15, SRC-05, SRC-10, API-07, PLT-12, EXT-06 |
 | **P4 Tasks, calendar & notifications** | Productivity suite | TSK-01…06, CAL-01…05, NTF-01…05 |
 | **P5 Collaboration, automation & integrations** | Share, automate, connect | IAM-04, IAM-08…12, TAX-05, TAX-08…11, EVT-07…09, DOC-13, DOC-14, LST-17, CAL-06, NTF-06, API-03…06, API-08…10, PLT-06 |
 | **P6 AI & semantic search** | Understand documents | AI-01…06, SRC-07…09, DOC-12 |
 | **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13 |
+
+## Phase 0 status
+
+Implemented in the solution skeleton (see [ADR-0006](adr/0006-phase-0-simplifications.md) for deferrals):
+
+| Feature | Status |
+|---|---|
+| PLT-01 Two-container install | ✅ `Dockerfile` + `deploy/docker-compose.yml` |
+| PLT-02 First-run bootstrap | ✅ default tenant + admin from configuration |
+| PLT-03, PLT-04 Multitenancy & resolution | ✅ host mapping, host template, header (opt-in), claim, default; EF filters + write guard (RLS in P1) |
+| PLT-05 Tenant lifecycle | 🟡 CLI: list, create, suspend, activate (export/delete later) |
+| PLT-07 Workspaces | ✅ CRUD, members, owners, ETags, soft delete |
+| PLT-08 Configuration | ✅ `PAPERDOTNET__…` environment variables, validated options |
+| PLT-09 Health & version | ✅ `/health/live`, `/health/ready`, `/version` |
+| PLT-10 Observability | ✅ OpenTelemetry traces, metrics and logs (OTLP when configured) |
+| PLT-11 Admin CLI | ✅ `migrate`, `bootstrap`, `tenant`, `user`, `healthcheck` |
+| IAM-01 Local accounts | 🟡 passwords + lockout; passkeys and MFA in P1 |
+| IAM-03 API tokens | ✅ scoped, expiring, revocable, hashed |
+| IAM-05, IAM-06 Groups, roles & scopes | ✅ built-in Administrator/Member roles, custom roles, group assignment |
+| API-01 Graph-style conventions | ✅ `/v1.0`, keyset paging + `@odata.nextLink`, ProblemDetails with `code`, ETag/If-Match |
+| API-02 OpenAPI | ✅ `/openapi/v1.json` with bearer security scheme |
 
 ## Idea → feature mapping
 
