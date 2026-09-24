@@ -1,9 +1,9 @@
 # 0005: Out-of-the-box multitenancy support
 
-- **Status:** new
+- **Status:** mapped
 - **Area:** Platform / Security
 - **Date:** 2026-09-24
-- **Mapped to:**
+- **Mapped to:** [architecture-vision.md](../docs/architecture-vision.md) section 4 (Multitenancy), decision 2, roadmap phase 0
 
 ## The idea
 

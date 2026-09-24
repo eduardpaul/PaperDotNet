@@ -12,6 +12,15 @@ inspired by Papermerge and SharePoint lists/libraries.
 **Backend API only.** Do not build web UI, frontend SDK or mobile app work
 until the user says so. Design the API so a future UI has everything it needs.
 
+## Decided
+
+- Multitenancy from the start: shared DB, `TenantId` on every tenant-owned row,
+  enforced via EF Core global query filters (+ PostgreSQL RLS).
+- PostgreSQL only for now, but all data access through EF Core. No raw SQL
+  outside the PostgreSQL persistence project; provider-specific features
+  (full-text search, RLS, special indexes) go behind abstractions.
+- Extensions run in-process first; remote extensions come later.
+
 ## Ideas workflow
 
 When the user says "Add idea: …":

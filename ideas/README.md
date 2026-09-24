@@ -35,7 +35,7 @@ It will be turned into a file during review.
 | [0002](0002-email-to-inbox.md) | Email to inbox for documents | Documents | new | |
 | [0003](0003-graph-style-api-and-generated-sdks.md) | Graph-style client API and generated multi-language SDKs | API / Integrations | new | |
 | [0004](0004-mcp-server.md) | MCP server (supporting the extensibility features) | API / Integrations / Extensions | new | |
-| [0005](0005-ootb-multitenancy.md) | Out-of-the-box multitenancy support | Platform / Security | new | |
+| [0005](0005-ootb-multitenancy.md) | Out-of-the-box multitenancy support | Platform / Security | mapped | architecture-vision.md §4, phase 0 |
 | [0006](0006-mobile-offline-sync.md) | Offline sync for mobile app | Mobile / Sync | new | |
 | [0007](0007-obsidian-vault-sync.md) | Obsidian vault sync | Integrations / Sync | new | |
 | [0008](0008-taxonomy-folksonomy-metadata-service.md) | Taxonomy and folksonomy (managed metadata service) | Platform / Metadata | new | |

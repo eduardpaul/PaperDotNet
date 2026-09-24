@@ -134,13 +134,25 @@ The **frontend** is a host shell that loads extension UI bundles dynamically (ES
 Key decisions:
 
 - **.NET 10, ASP.NET Core, modular monolith.** Each module is a separate project with its own EF Core `DbContext` schema. It deploys as a single container, and workers are split out only where needed (OCR).
-- **Dynamic schemas in PostgreSQL.**
+- **Data access through Entity Framework Core from day one.** PostgreSQL is the only supported database for now, but all data access goes through EF Core so the database can be switched later. Rules that keep it switchable:
+  - No raw SQL in modules. Provider-specific SQL (indexes, full-text search, row-level security) lives only in a `PaperDotNet.Persistence.PostgreSql` project, behind interfaces.
+  - Full-text search is behind an `ISearchProvider` abstraction. The first implementation uses PostgreSQL `tsvector`. Others (SQL Server FTS, Meilisearch, Elastic) can be added later.
+  - Migrations are kept per provider, so a second provider gets its own migration set.
+- **Dynamic schemas.**
   - Fixed tables hold items and their metadata.
-  - Field values live in a `jsonb` column, validated by the field-type handlers.
+  - Field values are stored as a JSON column, mapped with EF Core JSON mapping (`jsonb` on PostgreSQL, `json`/`nvarchar` on other providers). Values are validated by the field-type handlers.
   - Hot fields can be promoted to generated or indexed columns.
-  - GIN indexes serve filtering, and `tsvector` serves full-text search.
+  - On PostgreSQL, GIN indexes serve filtering and `tsvector` serves full-text search.
 
   This avoids the classic entity-attribute-value (EAV) pain and avoids DDL per list.
+- **Multitenancy from the start.** One installation hosts many isolated tenants.
+  - Shared database, with a `TenantId` on every tenant-owned row.
+  - Isolation is enforced in EF Core through global query filters and a `SaveChanges` interceptor that stamps and checks `TenantId`. This works on any provider.
+  - On PostgreSQL, row-level security is added as defense in depth.
+  - The tenant is resolved per request (subdomain, header or token claim) into an `ITenantContext`. Background jobs, events and extensions always run inside a tenant context.
+  - File storage is separated by tenant prefix.
+  - Extensions are installed and configured per tenant.
+  - A self-hosted install is a single default tenant using the same code path.
 - **Versioning at item level.** Every item keeps field-value history. Library items also version their files, which keeps Papermerge's non-destructive page operations.
 - **Security.**
   - Workspace roles are built from fine-grained scopes, as in Papermerge.
@@ -154,7 +166,7 @@ Key decisions:
 
 | Phase | Deliverable |
 |---|---|
-| **0: Foundation** | Solution skeleton (API only), auth (local + OIDC), workspaces, users/groups/roles, audit columns, OpenAPI, Docker compose |
+| **0: Foundation** | Solution skeleton (API only), EF Core persistence, multitenancy (tenant resolution, isolation, per-tenant files), auth (local + OIDC), workspaces, users/groups/roles, audit columns, OpenAPI, Docker compose |
 | **1: Lists engine** | Lists, content types, core field types, items CRUD with version history, views (table), filtering/sorting, folders, taxonomy/tags |
 | **2: Extension runtime v1** | Manifest, in-process loading, server-side extension points 1–10 and 12–14. Port the core field types to be extensions. *(UI contributions, frontend SDK and host shell: deferred)* |
 | **3: Documents extension** | Libraries, upload, file versions, preview/thumbnails, page operations (Papermerge MVP), OCR worker, full-text search |
@@ -162,13 +174,13 @@ Key decisions:
 | **5: Automation & sharing** | Rules engine (triggers/actions), sharing, unique permissions, audit log API |
 | **6: Remote extensions & ecosystem** | Webhooks, scoped app tokens, extension catalog, *(sandboxed extension UI: deferred)*, CalDAV/IMAP/S3 connectors |
 
-## 6. Open decisions
+## 6. Decisions
 
-| # | Question | Recommendation |
+| # | Question | Decision / recommendation |
 |---|---|---|
 | 1 | Frontend: React/TypeScript or Blazor? | **Deferred** (backend-only for now). Leaning **React/TS**: a larger extension-developer audience and a mature dynamic-module ecosystem. Parts of Papermerge's UI ideas can be reused |
-| 2 | Deployment: self-hosted single-tenant, SaaS multi-tenant, or both? | Design for multi-tenant (a tenant id on every row) but ship self-hosted first |
-| 3 | Extension trust: in-process only, or remote from day one? | In-process first (phase 2), with contracts designed so remote can be added in phase 6 |
-| 4 | Database: PostgreSQL only, or also SQL Server/SQLite? | **PostgreSQL only**. JSONB and FTS are central to the design |
+| 2 | Deployment: self-hosted single-tenant, SaaS multi-tenant, or both? | **Decided (2026-09-24): multitenancy from the start.** Shared DB with `TenantId` on every row. Self-hosted = one default tenant |
+| 3 | Extension trust: in-process only, or remote from day one? | **Decided (2026-09-24): in-process extensions first** (phase 2). Contracts are designed so remote extensions can be added in phase 6 |
+| 4 | Database: PostgreSQL only, or also SQL Server/SQLite? | **Decided (2026-09-24): PostgreSQL only, through EF Core** from the beginning so the database can be switched later. Provider-specific features stay behind abstractions (see section 4) |
 | 5 | License / business model | Decide early. It affects extension licensing (e.g. MIT core with a commercial marketplace) |
 | 6 | Mobile / offline support | **Deferred** with the UI. Out of scope for v1. Keep the API sync-friendly (ETags, `modifiedSince`) |
