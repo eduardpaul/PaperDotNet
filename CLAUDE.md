@@ -5,6 +5,7 @@ inspired by Papermerge and SharePoint lists/libraries.
 
 - Vision and architecture: `docs/architecture-vision.md`
 - Papermerge feature catalog: `docs/papermerge-features.md`
+- .NET building blocks (libraries/platform features to use): `docs/dotnet-building-blocks.md`
 - Raw ideas (to be mapped to features): `ideas/` (see `ideas/README.md`)
 
 ## Current scope
