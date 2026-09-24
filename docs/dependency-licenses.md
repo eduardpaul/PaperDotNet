@@ -8,7 +8,7 @@ of the latest published version) and the projects' license files.
 | Class | Licenses | Rule |
 |---|---|---|
 | ✅ **Allowed** | MIT, Apache-2.0 | Use freely |
-| 🟨 **Allowed with notice** | BSD-2-Clause, BSD-3-Clause, PostgreSQL, ISC | Permissive with attribution only, equivalent to MIT. Allowed where no MIT/Apache option exists. Listed below so the choice is explicit |
+| 🟨 **Allowed with notice** (decided) | BSD-2-Clause, BSD-3-Clause, PostgreSQL, ISC | Permissive with attribution only, equivalent to MIT. Prefer MIT/Apache when an equally simple option exists. Listed below so the choice is explicit |
 | ⛔ **Not allowed** | GPL, AGPL, LGPL, MPL, SSPL, RSAL, BUSL, Elastic License, "source-available", commercial/dual licenses with revenue limits, and MIT/Apache with added restrictions | Do not add as a dependency, including bundled native libraries |
 
 The policy applies to everything shipped or required to run PaperDotNet: NuGet
@@ -107,9 +107,13 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | Elasticsearch | AGPL / SSPL / Elastic License | OpenSearch, Meilisearch |
 | Zitadel as a recommended IdP | AGPL-3.0 | Keycloak, OpenIddict (any OIDC provider still works via the protocol) |
 
-## Open question
+## Decisions
 
-Should the 🟨 permissive-with-notice class (BSD, PostgreSQL License) be
-allowed? Recommendation: **yes**. These licenses only require keeping the
-copyright notice, like MIT. Excluding them would rule out PostgreSQL itself,
-Npgsql, and the only open PDF and image renderers.
+- **2026-09-24:** the 🟨 permissive-with-notice class (BSD, PostgreSQL
+  License, ISC) is **allowed**. Ship a `THIRD-PARTY-NOTICES` file with the
+  required copyright notices.
+- **2026-09-24:** self-hosting and simplicity are the priority. Being on this
+  list does not mean a package will be used. Every dependency still has to
+  justify itself (see the baseline in
+  [dotnet-building-blocks.md](dotnet-building-blocks.md)). The only required
+  runtime service is PostgreSQL.

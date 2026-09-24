@@ -187,12 +187,37 @@ See [dependency-licenses.md](dependency-licenses.md) for the full register.
 
 ## Recommended baseline for phase 0 (foundation)
 
-- **Runtime and hosting:** .NET 10, the Generic Host, and Aspire for local development.
+Self-hosting and simplicity come first (decided 2026-09-24). The baseline
+runs as **one PaperDotNet container + PostgreSQL**. It uses only built-in .NET
+features plus the few libraries below. Everything marked 🟡 or ⏳ in this doc
+stays out until a concrete need shows it removes more complexity than it adds.
+
+**Required at runtime:** PostgreSQL. Nothing else.
+
+**Optional, off by default:**
+- Garnet or another Redis-protocol cache (HybridCache works in memory without it)
+- S3 storage (the default is a local volume)
+- an external OIDC provider (the default is built-in local accounts)
+- external search or vector engines (the default is PostgreSQL full-text search and pgvector)
+- a separate OCR worker (the default is Tesseract in the main image)
+- AI providers
+
+**Simplest-first choices:**
+- **Own outbox + Channels** before Wolverine.
+- **`PeriodicTimer` + a PostgreSQL job table** before Quartz.NET.
+- **A small in-house `ITenantContext`** before Finbuckle.
+- **A Graph-style query subset parser** before full OData, unless the spike shows OData is simpler.
+- **Aspire only as a dev convenience.** The shipped artifact is a Docker image plus a `docker-compose.yml`.
+
+Baseline:
+
+- **Runtime and hosting:** .NET 10, the Generic Host, and Aspire for local development only.
 - **Web API:** ASP.NET Core Minimal APIs, built-in OpenAPI and validation, ProblemDetails, rate limiting, health checks.
 - **Data:** EF Core 10 with Npgsql, using named query filters (tenant, soft delete) and interceptors (tenant, audit, outbox).
 - **Background work:** an outbox table, a hosted dispatcher and `System.Threading.Channels`.
 - **Security:** JWT/OIDC authentication and dynamic authorization policies for scopes.
-- **Caching and resilience:** HybridCache, OpenTelemetry, and `Http.Resilience`.
+- **Caching and resilience:** HybridCache (in memory), OpenTelemetry (exporter optional), and `Http.Resilience`.
+- **Auth:** built-in local accounts + API tokens, so no external IdP is needed. OIDC is optional.
 - **Testing:** xUnit v3, Testcontainers, and `FakeTimeProvider`.
 
 Spikes to run before the phases that need them:
@@ -200,8 +225,8 @@ Spikes to run before the phases that need them:
 1. **OData vs a custom Graph-style query parser** over JSON fields (idea 0003).
 2. **`AssemblyLoadContext` extension loading**, including unload and shared contracts (phase 2).
 3. **Sidecar RPC:** gRPC vs StreamJsonRpc, and before-event latency (ideas 0011, 0012).
-4. **Wolverine vs our own outbox.**
-5. **OpenIddict** as the built-in auth server.
+4. **Our own outbox vs Wolverine.** Keep our own unless it grows complex.
+5. **OpenIddict** as the built-in auth server, vs plain ASP.NET Core Identity bearer tokens. Pick whichever is simpler for local accounts + API tokens + MCP OAuth.
 6. **Microsoft.Extensions.AI:** auto-tagging from OCR text with structured output (ideas 0008, 0009).
 
 ## Sources

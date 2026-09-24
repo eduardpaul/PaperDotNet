@@ -13,6 +13,18 @@
 > provide everything a future UI needs (e.g. real-time events, thumbnails,
 > view definitions).
 
+> **Guiding principle (decided 2026-09-24): self-hosting and simplicity come first.**
+> - The minimal install is **two containers: PaperDotNet + PostgreSQL**, plus a
+>   volume for files. `docker compose up` must give a fully working system.
+> - That includes OCR, search, background jobs, auth (local accounts + API
+>   tokens) and the MCP server.
+> - Everything else is **optional and off by default**: external IdP, S3
+>   storage, a Redis-protocol cache, external search/vector engines, separate
+>   worker containers, AI providers. None of them may be required to run.
+> - Prefer built-in .NET features and a small amount of our own code over an
+>   extra library or service. Add a dependency only when it clearly removes
+>   more complexity than it adds.
+
 ## 1. Goal
 
 PaperDotNet is a platform for **structured content**. It ships with three built-in apps:
@@ -159,7 +171,7 @@ Key decisions:
   - Permissions are inherited down workspace → list → folder → item, with optional unique permissions, as in SharePoint.
   - Sharing works per user and per group.
 - **Events.** Core writes domain events to an **outbox table** in the same transaction. A dispatcher fans them out to in-process handlers, webhooks, automation, search indexing and SignalR (live UI updates such as OCR status).
-- **Jobs.** Own outbox + `System.Threading.Channels` at first (Wolverine or Quartz.NET if needed). OCR runs Tesseract in a worker container.
+- **Jobs.** Own outbox + `System.Threading.Channels` at first (Wolverine or Quartz.NET if needed). OCR runs Tesseract **inside the main container** by default (bundled in the image). It can be split into a separate worker container for scale.
 - **Dependencies.** Only MIT / Apache-2.0 (or equivalent permissive) licenses, see [dependency-licenses.md](dependency-licenses.md).
 - **API.** OpenAPI-first REST with the same generic endpoints for every list (`/lists/{id}/items?filter=…`), plus typed endpoints from extensions. Personal API tokens and OIDC come from the start.
 
@@ -185,3 +197,5 @@ Key decisions:
 | 4 | Database: PostgreSQL only, or also SQL Server/SQLite? | **Decided (2026-09-24): PostgreSQL only, through EF Core** from the beginning so the database can be switched later. Provider-specific features stay behind abstractions (see section 4) |
 | 5 | License / business model | Decide early. It affects extension licensing (e.g. MIT core with a commercial marketplace) |
 | 6 | Mobile / offline support | **Deferred** with the UI. Out of scope for v1. Keep the API sync-friendly (ETags, `modifiedSince`) |
+| 7 | Dependency licenses | **Decided (2026-09-24):** MIT / Apache-2.0, plus BSD / PostgreSQL License with notice when there is no alternative. See [dependency-licenses.md](dependency-licenses.md) |
+| 8 | Priorities | **Decided (2026-09-24): self-hosting and simplicity first.** Minimal install = PaperDotNet + PostgreSQL. Everything else optional |

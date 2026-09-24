@@ -9,6 +9,14 @@ inspired by Papermerge and SharePoint lists/libraries.
 - Dependency license register and policy: `docs/dependency-licenses.md`
 - Raw ideas (to be mapped to features): `ideas/` (see `ideas/README.md`)
 
+## Guiding principle
+
+**Self-hosting and simplicity first.** Minimal install = one PaperDotNet
+container + PostgreSQL (+ a files volume), fully working, OCR included.
+Everything else (external IdP, S3, cache server, external search, AI providers,
+separate workers) is optional and off by default. Prefer built-in .NET features
+and a little own code over adding libraries or services.
+
 ## Current scope
 
 **Backend API only.** Do not build web UI, frontend SDK or mobile app work
@@ -22,8 +30,8 @@ until the user says so. Design the API so a future UI has everything it needs.
   outside the PostgreSQL persistence project; provider-specific features
   (full-text search, RLS, special indexes) go behind abstractions.
 - Extensions run in-process first; remote extensions come later.
-- Dependencies: MIT or Apache-2.0 only (BSD/PostgreSQL License allowed with
-  notice when there is no alternative). No GPL/AGPL/LGPL/MPL/SSPL/commercial.
+- Dependencies: MIT or Apache-2.0; BSD/PostgreSQL License/ISC allowed with
+  notice (THIRD-PARTY-NOTICES). No GPL/AGPL/LGPL/MPL/SSPL/commercial.
   Check and record every new dependency in `docs/dependency-licenses.md`.
 
 ## Ideas workflow
