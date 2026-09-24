@@ -46,7 +46,8 @@ public interface ISearchSource
 {
     string SourceType { get; }
 
-    Task ReindexAsync(ISearchIndex index, CancellationToken cancellationToken);
+    /// <summary>Writes every document of this source to <paramref name="index"/>, reporting progress (0 to 1).</summary>
+    Task ReindexAsync(ISearchIndex index, Func<double, Task> progress, CancellationToken cancellationToken);
 }
 
 /// <summary>Principal names stored with documents and derived for the caller.</summary>

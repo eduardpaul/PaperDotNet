@@ -8,6 +8,8 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Npgsql.OpenTelemetry" />
+    <!-- Runs pg_dump / pg_restore for backups (PLT-12). -->
+    <PackageReference Include="CliWrap" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />

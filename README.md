@@ -5,24 +5,32 @@ documents (DMS), tasks and calendar on a SharePoint-style lists engine,
 inspired by [Papermerge](https://github.com/papermerge/papermerge-core).
 Self-hosted with just **one container** (SQLite built in; PostgreSQL optional).
 
-> **Status:** phase 0 (foundation). A backend API only; no UI yet.
-> See the [roadmap](docs/features.md#roadmap).
+> **Status:** phases 0–3 done (foundation, lists engine, extensions, documents).
+> A backend API only; no UI yet. See the [roadmap](docs/features.md#roadmap).
 
-## What works today (phase 0)
+## What works today
 
-- Multi-tenant from the start. Tenants are resolved by host, header or token;
-  data is isolated by EF Core filters.
-- Local accounts with JWT access tokens, and personal API tokens (`pdn_…`) with scopes.
-- Users, groups, roles made of fine-grained scopes, and workspaces with members.
-- Graph-style REST API (`/v1.0/...`):
-  - keyset paging with `@odata.nextLink`
-  - ETag / `If-Match` concurrency
-  - RFC 9457 problem responses
-- Operations:
-  - OpenAPI document at `/openapi/v1.json`
-  - health endpoints `/health/live` and `/health/ready`
-  - OpenTelemetry, exported when OTLP is configured
-- Admin CLI in the same binary: `migrate`, `bootstrap`, `tenant`, `user`.
+- **Platform:** multi-tenant from the start (EF Core filters, PostgreSQL
+  row-level security), SQLite by default or PostgreSQL, one container.
+- **Identity:** OAuth 2.0 / OpenID Connect (OpenIddict), passkeys, API tokens,
+  users, groups, roles made of scopes, workspaces with members.
+- **Lists engine:** content types and field types, lists and libraries, items,
+  folders, views, OData queries, versions, recycle bin, permission inheritance,
+  list templates, taxonomy (managed metadata and keywords), audit log.
+- **Documents:** upload into libraries or your Inbox, type detection by
+  content, file versions, deduplicated storage, OCR (Tesseract) into searchable
+  PDFs, thumbnails and page images, processing status.
+- **Search:** full-text across items and document text, stemming, facets,
+  security trimming.
+- **Events & jobs:** before/after item receivers, integration events with a
+  transactional outbox, recurring jobs, long-running operations, live events
+  (server-sent events).
+- **Extensions:** compiled-in extensions with a public SDK, analyzers and a
+  test host ([guide](docs/extensions.md)).
+- **Operations:** Graph-style REST API (`/v1.0/...`, OpenAPI at
+  `/openapi/v1.json`), health endpoints, OpenTelemetry, and an admin CLI in the
+  same binary: `migrate`, `bootstrap`, `tenant`, `user`, `backup`, `restore`,
+  `reindex`.
 
 ## Quick start (Docker)
 
@@ -43,6 +51,18 @@ Admin commands run in the same image:
 docker compose -f deploy/docker-compose.yml exec paperdotnet dotnet paperdotnet.dll tenant list
 docker compose -f deploy/docker-compose.yml exec paperdotnet dotnet paperdotnet.dll tenant create --identifier acme --name "Acme" --host dms.acme.com
 ```
+
+Backup and restore (database and stored files in one archive; backups are safe
+while the server runs, restores need it stopped):
+
+```bash
+docker compose -f deploy/docker-compose.yml exec paperdotnet dotnet paperdotnet.dll backup -o /data/backups/latest.tar.gz
+docker compose -f deploy/docker-compose.yml stop paperdotnet
+docker compose -f deploy/docker-compose.yml run --rm paperdotnet restore /data/backups/latest.tar.gz --force
+docker compose -f deploy/docker-compose.yml start paperdotnet
+```
+
+Keep backups outside the data volume (copy them off, or mount a backup volume).
 
 ## Development
 

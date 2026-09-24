@@ -76,6 +76,7 @@ public static class PaperDotNetHost
         services.AddPaperDotNetStorage(builder.Configuration);
         services.AddSingleton<ILiveEvents, LiveEventHub>();
         services.AddSingleton<DatabaseMigrator>();
+        services.AddScoped<PaperDotNet.Host.Backup.BackupService>();
         services.AddScopeAuthorization();
 
         // Registered first: hosted services start in order, so migrations run before

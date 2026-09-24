@@ -424,7 +424,19 @@ outbox dispatcher (BackgroundService)
 - **Aspire AppHost** for local development: PostgreSQL, the app, optional
   Garnet/SeaweedFS, and the dashboard. Not required to run in production.
 - **Admin CLI** (System.CommandLine): migrate, tenants, users, reindex,
-  backup/restore, extension install.
+  backup/restore (extension install is a rebuild, ADR-0014).
+- **Backup (PLT-12, 3d):** `paperdotnet backup [-o file]` writes one `.tar.gz`
+  with `manifest.json`, a database snapshot (`IDatabaseBackup`: SQLite online
+  backup API; PostgreSQL `pg_dump -Fc --no-owner --no-privileges`) and the
+  stored files (no temp files, no cached page images). The snapshot comes
+  first: stored files are immutable and content-addressed, so everything it
+  refers to exists when the files are copied. Safe while the server runs.
+  `paperdotnet restore <file> [--force]` (server stopped) checks the provider,
+  refuses to replace data without `--force`, restores (`pg_restore --clean`),
+  replaces the files and migrates. PostgreSQL row-level security is forced for
+  the owner role, so the tools run with the session setting
+  `app.maintenance=on` (via `PGOPTIONS`), which the policies accept; the app
+  never sets it.
 
 ## 14. Testing strategy
 

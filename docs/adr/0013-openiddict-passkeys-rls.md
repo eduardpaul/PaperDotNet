@@ -41,6 +41,14 @@ must stay one container without secrets to manage.
   automatically. Superusers bypass RLS: the app warns at startup, and the
   PostgreSQL test run uses an ordinary role that owns the database.
 
+## Addendum (3d): maintenance sessions
+
+Whole-database backup and restore must see every tenant. The policy condition
+is `tenant_id = app.tenant_id OR app.maintenance = 'on'`; only `pg_dump` and
+`pg_restore` started by `paperdotnet backup|restore` set `app.maintenance`
+(through `PGOPTIONS`). Application code never sets it, so a missing tenant
+filter in the app is still caught by RLS.
+
 ## Consequences
 - No secret needs configuring for authentication; keys are generated and
   stored in the database (protect database backups accordingly).

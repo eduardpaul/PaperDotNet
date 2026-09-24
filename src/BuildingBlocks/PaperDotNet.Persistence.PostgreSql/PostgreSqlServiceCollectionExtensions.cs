@@ -36,6 +36,8 @@ public static class PostgreSqlServiceCollectionExtensions
         services.AddSingleton(new PostgreSqlSettings(configuration.GetValue("Database:RowLevelSecurity", defaultValue: true)));
         services.AddSingleton<IDatabaseProvider, PostgreSqlDatabaseProvider>();
         services.AddSingleton<IFullTextSearch, PostgreSqlFullTextSearch>();
+        services.AddSingleton(new PostgreSqlConnection(connectionString));
+        services.AddSingleton<IDatabaseBackup, PostgreSqlDatabaseBackup>();
         services.AddHealthChecks().AddCheck<PostgreSqlHealthCheck>("postgresql", tags: ["ready"]);
         return services;
     }

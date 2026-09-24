@@ -10,9 +10,10 @@ RUN dotnet publish src/PaperDotNet.Host/PaperDotNet.Host.csproj -c Release -o /a
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 # OCR (DOC-07): the Tesseract CLI with English and German; add more tesseract-ocr-<lang> packages as needed.
-# libfontconfig1 is needed by SkiaSharp (page rendering).
+# libfontconfig1 is needed by SkiaSharp (page rendering). postgresql-client (pg_dump/pg_restore, v17 on
+# Debian 13) is used by `paperdotnet backup|restore` with PostgreSQL; it must match the server or be newer.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu libfontconfig1 \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu libfontconfig1 postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app .

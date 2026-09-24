@@ -40,11 +40,13 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
 
     public string SourceType => ItemSourceType;
 
-    public async Task ReindexAsync(ISearchIndex target, CancellationToken cancellationToken)
+    public async Task ReindexAsync(ISearchIndex target, Func<double, Task> progress, CancellationToken cancellationToken)
     {
-        foreach (var listId in await db.Lists.AsNoTracking().OrderBy(l => l.Id).Select(l => l.Id).ToListAsync(cancellationToken))
+        var lists = await db.Lists.AsNoTracking().OrderBy(l => l.Id).Select(l => l.Id).ToListAsync(cancellationToken);
+        for (var i = 0; i < lists.Count; i++)
         {
-            await IndexListAsync(listId, target, cancellationToken);
+            await IndexListAsync(lists[i], target, cancellationToken);
+            await progress((i + 1) / (double)lists.Count);
         }
     }
 

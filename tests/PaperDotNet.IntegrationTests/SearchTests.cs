@@ -158,6 +158,9 @@ public sealed class SearchTests(PaperDotNetApiFactory factory)
         var operation = started.Headers.Location!.ToString();
         await Eventually.WaitForAsync<bool>(async () =>
             (await (await s.Admin.GetAsync(operation, Ct)).ReadJsonAsync()).GetProperty("status").GetString() is "succeeded" ? true : null);
+        var finished = await (await s.Admin.GetAsync(operation, Ct)).ReadJsonAsync();
+        Assert.Equal(100, finished.GetProperty("percentComplete").GetInt32());
+        Assert.Equal("listItem", finished.GetProperty("result").GetProperty("sources")[0].GetString());
         await WaitForAsync(s.Admin, "q=quarterly", "Quarterly report");
 
         await s.Admin.PostAsJsonAsync("/v1.0/users", new { userName = "member", password = "member-password-1" }, Ct);

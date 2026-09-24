@@ -22,7 +22,7 @@ services:
       # Set to true when running behind a reverse proxy (Traefik, Caddy, nginx).
       PAPERDOTNET__ForwardedHeaders__Enabled: ${BEHIND_PROXY:-false}
     volumes:
-      # SQLite database and (from phase 3) stored files.
+      # SQLite database and stored files (back up with `paperdotnet backup`).
       - paperdotnet-data:/data
 
 volumes:

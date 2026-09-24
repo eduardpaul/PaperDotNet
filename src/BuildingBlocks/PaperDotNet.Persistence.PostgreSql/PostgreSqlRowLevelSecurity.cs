@@ -13,10 +13,15 @@ namespace PaperDotNet.Persistence.PostgreSql;
 /// tenant-owned table only shows and accepts rows of the tenant in the session
 /// setting <c>app.tenant_id</c>, which <see cref="TenantSessionInterceptor"/> sets
 /// on every connection. Superusers bypass RLS, so run the app as an ordinary role.
+/// Maintenance sessions (whole-database backup and restore, PLT-12) set
+/// <see cref="MaintenanceSetting"/> to <c>on</c>; application code never sets it.
 /// </summary>
 internal static partial class PostgreSqlRowLevelSecurity
 {
     public const string Setting = "app.tenant_id";
+
+    /// <summary>Session setting that lets <c>pg_dump</c>/<c>pg_restore</c> see all tenants (set through <c>PGOPTIONS</c>).</summary>
+    public const string MaintenanceSetting = "app.maintenance";
     private const string Policy = "pdn_tenant_isolation";
 
     /// <summary>Enables and forces RLS with the tenant policy on the context's tenant-owned tables (idempotent).</summary>
@@ -32,7 +37,7 @@ internal static partial class PostgreSqlRowLevelSecurity
             }
 
             var name = table.Schema is null ? Quote(table.Name) : $"{Quote(table.Schema)}.{Quote(table.Name)}";
-            var condition = $"{Quote(column)} = nullif(current_setting('{Setting}', true), '')::uuid";
+            var condition = $"{Quote(column)} = nullif(current_setting('{Setting}', true), '')::uuid OR current_setting('{MaintenanceSetting}', true) = 'on'";
 #pragma warning disable EF1002 // Identifiers come from the EF model, not from user input.
             await context.Database.ExecuteSqlRawAsync(
                 $"""

@@ -227,23 +227,35 @@ internal static class SearchEndpoints
 
 public sealed record ReindexPayload;
 
-/// <summary>Clears and refills the tenant's index from every <see cref="ISearchSource"/>.</summary>
-internal sealed class ReindexOperation(IEnumerable<ISearchSource> sources, ISearchIndex index) : OperationHandler<ReindexPayload>
+/// <summary>
+/// Clears and refills the current tenant's index from every <see cref="ISearchSource"/> (SRC-10).
+/// Used by the reindex operation and by <c>paperdotnet reindex</c>.
+/// </summary>
+public sealed class SearchReindexer(IEnumerable<ISearchSource> sources, ISearchIndex index)
+{
+    /// <summary>Rebuilds the index; <paramref name="progress"/> receives 0–100. Returns the source types.</summary>
+    public async Task<IReadOnlyList<string>> ReindexAsync(Func<int, Task> progress, CancellationToken cancellationToken)
+    {
+        var all = sources.ToList();
+        for (var i = 0; i < all.Count; i++)
+        {
+            var done = i;
+            await index.DeleteSourceAsync(all[i].SourceType, cancellationToken);
+            await all[i].ReindexAsync(index, fraction => progress((int)((done + fraction) * 100 / all.Count)), cancellationToken);
+        }
+
+        await progress(100);
+        return all.Select(s => s.SourceType).ToList();
+    }
+}
+
+/// <summary>The reindex operation (<c>POST /v1.0/search/reindex</c>), with progress.</summary>
+internal sealed class ReindexOperation(SearchReindexer reindexer) : OperationHandler<ReindexPayload>
 {
     public const string OperationType = "search.reindex";
 
     public override string Type => OperationType;
 
-    protected override async Task<object?> ExecuteAsync(ReindexPayload payload, IOperationProgress progress, CancellationToken cancellationToken)
-    {
-        var all = sources.ToList();
-        for (var i = 0; i < all.Count; i++)
-        {
-            await index.DeleteSourceAsync(all[i].SourceType, cancellationToken);
-            await all[i].ReindexAsync(index, cancellationToken);
-            await progress.ReportAsync((i + 1) * 100 / all.Count, cancellationToken);
-        }
-
-        return new { sources = all.Select(s => s.SourceType).ToList() };
-    }
+    protected override async Task<object?> ExecuteAsync(ReindexPayload payload, IOperationProgress progress, CancellationToken cancellationToken) =>
+        new { sources = await reindexer.ReindexAsync(percent => progress.ReportAsync(percent, cancellationToken), cancellationToken) };
 }

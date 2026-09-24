@@ -165,8 +165,8 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | DOC-02 | File type detection | As a **Member**, I want uploads recognized by content, not by extension, so that wrong or missing extensions don't break processing | MVP | P3 | PM §1 |
 | DOC-03 | File versions | As a **Member**, I want every change to a file (page operations, OCR, re-upload) to create a new version while the original is always kept, so that nothing is ever lost | MVP | P3 | PM §1 |
 | DOC-04 | Thumbnails & page images | As a **Member**, I want thumbnails and page previews generated automatically, so that I recognize documents at a glance | MVP | P3 | PM §1 |
-| DOC-05 | Page operations | As a **Member**, I want to delete, reorder and rotate pages, so that I can fix scanning mistakes | MVP | P3 | PM §2 |
-| DOC-06 | Move, merge & extract pages | As a **Member**, I want to move pages between documents, merge documents and extract pages into new documents, so that I can fix mixed-up scans | Core | P3 | PM §2, merge-docs |
+| DOC-05 | Page operations | As a **Member**, I want to delete, reorder and rotate pages, so that I can fix scanning mistakes | MVP | P5 | PM §2 |
+| DOC-06 | Move, merge & extract pages | As a **Member**, I want to move pages between documents, merge documents and extract pages into new documents, so that I can fix mixed-up scans | Core | P5 | PM §2, merge-docs |
 | DOC-07 | OCR | As a **Member**, I want scanned documents OCRed in my chosen language (automatically or on demand), so that their text becomes searchable | MVP | P3 | PM §7 |
 | DOC-08 | Searchable PDF download | As a **Member**, I want to download the PDF with the OCR text layer, so that I can search it in any PDF reader | Core | P3 | PM §1 |
 | DOC-09 | Processing status | As a **Member**, I want live status for OCR and processing (scheduled, running, done, failed), so that I know when a document is ready | Core | P3 | PM §7 |
@@ -175,7 +175,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | DOC-12 | Near-duplicate detection | As a **Member**, I want to see documents very similar to this one (e.g. re-scans), so that I can merge or clean them up | Ext | P6 | #0014 |
 | DOC-13 | Email to inbox | As a **Member**, I want to forward emails to a personal or group address, so that their attachments arrive as documents in my Inbox | Core | P5 | #0002 |
 | DOC-14 | Path templates | As an **Owner**, I want documents automatically renamed and filed from their metadata (e.g. `/Finance/{Year}/{Counterparty}`), so that the structure maintains itself | Ext | P5 | PM §5 |
-| DOC-15 | Storage providers | As an **Operator**, I want local disk by default and S3-compatible storage optionally, so that I pick storage that fits my setup | Core | P3 | PM §11 |
+| DOC-15 | Storage providers | As an **Operator**, I want local disk by default and S3-compatible storage optionally, so that I pick storage that fits my setup | Core | P3 (local disk), P5 (S3) | PM §11 |
 
 ## 8. Tasks (TSK)
 
@@ -276,9 +276,9 @@ Configuration only by default; data portability is PLT-13.
 | **P0 Foundation** | Deployable, secure, multi-tenant skeleton | PLT-01…11, IAM-01, IAM-03, IAM-05, IAM-06, API-01 (conventions), API-02 |
 | **P1 Lists engine, taxonomy & events** | Store and organize any data | IAM-02 (OpenIddict, passkeys), LST-01…15, TAX-01…04, TAX-06, TAX-07, IAM-07, EVT-01, EVT-02, EVT-04…06, SRC-01…04, API-01 (queries) |
 | **P2 Extension runtime v1** | Everything below is built as extensions | EXT-01…05, EXT-07, EVT-03, IAM-13, LST-16, SRC-06 |
-| **P3 Documents** | Papermerge-level DMS | DOC-01…11, DOC-15, SRC-05, SRC-10, API-07, PLT-12, EXT-06 |
+| **P3 Documents** | Papermerge-level DMS | DOC-01…04, DOC-07…11, DOC-15 (local disk), SRC-05, SRC-10, API-07, PLT-12, EXT-06 (Documents) |
 | **P4 Tasks, calendar & notifications** | Productivity suite | TSK-01…06, CAL-01…05, NTF-01…05 |
-| **P5 Collaboration, automation & integrations** | Share, automate, connect | IAM-04, IAM-08…12, TAX-05, TAX-08…11, EVT-07…09, DOC-13, DOC-14, LST-17, CAL-06, NTF-06, API-03…06, API-08…10, PLT-06, PRV-01…03, PRV-05 |
+| **P5 Collaboration, automation & integrations** | Share, automate, connect | IAM-04, IAM-08…12, TAX-05, TAX-08…11, EVT-07…09, DOC-13, DOC-14, LST-17, CAL-06, NTF-06, API-03…06, API-08…10, PLT-06, PRV-01…03, PRV-05, DOC-05, DOC-06 (page operations, deferred from P3), DOC-15 (S3) |
 | **P6 AI & semantic search** | Understand documents | AI-01…06, SRC-07…09, DOC-12 |
 | **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PRV-04 |
 
@@ -296,7 +296,7 @@ Implemented in the solution skeleton (see [ADR-0006](adr/0006-phase-0-simplifica
 | PLT-08 Configuration | ✅ `PAPERDOTNET__…` environment variables, validated options |
 | PLT-09 Health & version | ✅ `/health/live`, `/health/ready`, `/version` |
 | PLT-10 Observability | ✅ OpenTelemetry traces, metrics and logs (OTLP when configured) |
-| PLT-11 Admin CLI | ✅ `migrate`, `bootstrap`, `tenant`, `user`, `healthcheck` |
+| PLT-11 Admin CLI | ✅ `migrate`, `bootstrap`, `tenant`, `user`, `healthcheck`; `backup`, `restore`, `reindex` (3d) |
 | IAM-01 Local accounts | ✅ passwords + lockout, passkeys (1f); MFA/TOTP later |
 | IAM-03 API tokens | ✅ scoped, expiring, revocable, hashed |
 | IAM-05, IAM-06 Groups, roles & scopes | ✅ built-in Administrator/Member roles, custom roles, group assignment |
@@ -332,14 +332,14 @@ Build-time extensions ([ADR-0014](adr/0014-build-time-extensions.md)), delivered
 
 ## Phase 3 status
 
-Documents built on the SDK with content-addressed storage ([ADR-0015](adr/0015-documents-on-the-sdk.md)), delivered in slices.
+Documents built on the SDK with content-addressed storage ([ADR-0015](adr/0015-documents-on-the-sdk.md)), delivered in slices. **Phase 3 is complete**; page operations (DOC-05, DOC-06) and S3 storage moved to P5.
 
 | Slice | Features | Status |
 |---|---|---|
 | **3a Files & storage** | DOC-01 multipart upload into libraries and the Inbox (`/documents`, `/v1.0/me/inbox/documents`, size limit), DOC-02 type detection by content (PDF, TIFF, JPEG, PNG), DOC-03 file versions (download with ranges, version list, restore), DOC-10 exact duplicates per library policy (allow / warn / block), DOC-11 content stored once per tenant with orphan cleanup, DOC-15 blob storage abstraction with local disk (S3 later); Documents module built on the SDK only (EXT-06) | ✅ |
 | **3b Processing** | Automatic processing per library (`autoProcess`, `ocrMode`, `ocrLanguages`) or on demand (`POST …/file/process`, 202 + operation): PDF text layer (PdfPig), DOC-07 OCR with the Tesseract CLI for images and PDFs without text, DOC-08 result stored as a new searchable PDF version (original kept), DOC-04 page images and thumbnails (PDFium/SkiaSharp, cached), DOC-09 status on each file version and on the operation, API-07 live events (`GET /v1.0/me/events`, server-sent events: operations, document processing), file text in search via `IItemSearchContributor`, SRC-05 stemming in the document language (PostgreSQL per language; SQLite English) | ✅ |
-| 3c Page operations | DOC-05 delete, reorder, rotate pages; DOC-06 move, merge, extract | planned |
-| 3d Operations | PLT-12 backup and restore, SRC-10 reindexing | planned |
+| 3c Page operations | DOC-05 delete, reorder, rotate pages; DOC-06 move, merge, extract | deferred to P5 |
+| **3d Operations** | PLT-12 `paperdotnet backup` / `restore` (one `.tar.gz`: manifest, database snapshot via SQLite online backup or `pg_dump`, stored files; restore refuses to overwrite data without `--force`, then migrates), SRC-10 reindex with progress (operation) and `paperdotnet reindex [--tenant]` | ✅ |
 
 ## Idea → feature mapping
 
