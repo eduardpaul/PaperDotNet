@@ -337,7 +337,7 @@ Documents built on the SDK with content-addressed storage ([ADR-0015](adr/0015-d
 | Slice | Features | Status |
 |---|---|---|
 | **3a Files & storage** | DOC-01 multipart upload into libraries and the Inbox (`/documents`, `/v1.0/me/inbox/documents`, size limit), DOC-02 type detection by content (PDF, TIFF, JPEG, PNG), DOC-03 file versions (download with ranges, version list, restore), DOC-10 exact duplicates per library policy (allow / warn / block), DOC-11 content stored once per tenant with orphan cleanup, DOC-15 blob storage abstraction with local disk (S3 later); Documents module built on the SDK only (EXT-06) | ✅ |
-| 3b Processing | DOC-04 thumbnails, DOC-07 OCR, DOC-08 searchable PDF, DOC-09 processing status, API-07 live events, SRC-05 language-aware search | planned |
+| **3b Processing** | Automatic processing per library (`autoProcess`, `ocrMode`, `ocrLanguages`) or on demand (`POST …/file/process`, 202 + operation): PDF text layer (PdfPig), DOC-07 OCR with the Tesseract CLI for images and PDFs without text, DOC-08 result stored as a new searchable PDF version (original kept), DOC-04 page images and thumbnails (PDFium/SkiaSharp, cached), DOC-09 status on each file version and on the operation, API-07 live events (`GET /v1.0/me/events`, server-sent events: operations, document processing), file text in search via `IItemSearchContributor`, SRC-05 stemming in the document language (PostgreSQL per language; SQLite English) | ✅ |
 | 3c Page operations | DOC-05 delete, reorder, rotate pages; DOC-06 move, merge, extract | planned |
 | 3d Operations | PLT-12 backup and restore, SRC-10 reindexing | planned |
 

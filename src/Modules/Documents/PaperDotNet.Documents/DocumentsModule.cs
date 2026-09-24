@@ -36,6 +36,11 @@ public sealed class DocumentsModule : IModule
         services.AddOptions<DocumentsOptions>().BindConfiguration(DocumentsOptions.Section);
         services.AddScoped<FileIntake>();
         services.AddScoped<DocumentService>();
+        services.AddScoped<ProcessingScheduler>();
+        services.AddScoped<OcrEngine>();
+        services.AddScoped<PageRenderer>();
+        services.AddOperationHandler<DocumentProcessor>();
+        services.AddScoped<IItemSearchContributor, DocumentSearchContent>();
         services.AddScoped<IEventSubscriber<ItemPurged>, PurgedItemFiles>();
         services.AddTenantRecurringJob<StoredFileCleanupJob>(StoredFileCleanupJob.Name, StoredFileCleanupJob.Schedule);
         services.AddScopes(DocumentScopes.All);

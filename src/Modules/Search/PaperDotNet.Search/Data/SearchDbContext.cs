@@ -29,6 +29,9 @@ public sealed class SearchDocument : ITenantOwned
 
     public string Body { get; set; } = string.Empty;
 
+    /// <summary>Language of the text for stemming (SRC-05), e.g. <c>english</c>; null = exact words only.</summary>
+    public string? Language { get; set; }
+
     public Guid? CreatedBy { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
@@ -78,7 +81,9 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
             b.Property(d => d.SourceType).HasMaxLength(50);
             b.Property(d => d.Title).HasMaxLength(1024);
             b.HasIndex(d => new { d.TenantId, d.ContainerId });
+            b.Property(d => d.Language).HasMaxLength(20);
             b.HasFullTextIndex(nameof(SearchDocument.Title), nameof(SearchDocument.Keywords), nameof(SearchDocument.Body));
+            b.HasFullTextLanguage(nameof(SearchDocument.Language));
         });
         modelBuilder.Entity<SearchPrincipal>(b =>
         {

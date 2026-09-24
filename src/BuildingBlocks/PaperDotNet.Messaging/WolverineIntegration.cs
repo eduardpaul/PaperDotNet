@@ -5,6 +5,7 @@ using PaperDotNet.Abstractions;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.ErrorHandling;
+using Wolverine.Runtime;
 
 namespace PaperDotNet.Messaging;
 
@@ -27,6 +28,14 @@ internal sealed class WolverineOutbox(IDbContextOutbox outbox, TimeProvider time
         }
 
         outbox.Enroll(db);
+
+        // One request may save several times (e.g. create an item, then start an operation). By default
+        // Wolverine flushes a context only once and silently drops later messages.
+        if (outbox is MessageContext context)
+        {
+            context.MultiFlushMode = MultiFlushMode.AllowMultiples;
+        }
+
         foreach (var integrationEvent in events)
         {
             var stamped = integrationEvent.OccurredAt == default ? integrationEvent with { OccurredAt = time.GetUtcNow() } : integrationEvent;

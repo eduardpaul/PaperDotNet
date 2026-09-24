@@ -99,6 +99,10 @@ foreach (var l in await system.GetListsAsync(null, "acme.invoices.invoices", ct)
 whether the list is a library), `EnsureHomeAsync` (the caller's Home workspace
 and Inbox) and the caller's access on every item (`ListItemData.Access`).
 `ItemPurged` tells subscribers that an item was deleted permanently.
+Implement `IItemSearchContributor` to add text (and its language) to items'
+search documents, and call `IListItemStore.ReindexAsync(itemId)` when it
+changes. Push notifications to connected clients with `ILiveEvents.Publish`
+(they arrive on `GET /v1.0/me/events`).
 
 **Files** — `IBlobStore` (PaperDotNet.Abstractions) stores binary content on
 the installation's storage (local disk by default). Choose keys under the

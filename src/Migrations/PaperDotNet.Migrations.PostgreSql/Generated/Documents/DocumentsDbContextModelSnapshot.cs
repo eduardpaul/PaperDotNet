@@ -67,6 +67,25 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                         .HasColumnType("integer")
                         .HasColumnName("number");
 
+                    b.Property<Guid?>("OperationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("operation_id");
+
+                    b.Property<int?>("PageCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("page_count");
+
+                    b.Property<string>("ProcessingError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("processing_error");
+
+                    b.Property<string>("ProcessingStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("processing_status");
+
                     b.Property<string>("Sha256")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -90,6 +109,11 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
+
+                    b.Property<string>("TextLanguage")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("text_language");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -129,6 +153,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<bool>("AutoProcess")
+                        .HasColumnType("boolean")
+                        .HasColumnName("auto_process");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -146,6 +174,18 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                     b.Property<Guid>("ListId")
                         .HasColumnType("uuid")
                         .HasColumnName("list_id");
+
+                    b.Property<string>("OcrLanguages")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("ocr_languages");
+
+                    b.Property<string>("OcrMode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("ocr_mode");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
@@ -223,6 +263,34 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                         .HasDatabaseName("ix_stored_files_tenant_id_sha256");
 
                     b.ToTable("stored_files", "documents");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Documents.Data.StoredFilePage", b =>
+                {
+                    b.Property<Guid>("StoredFileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("stored_file_id");
+
+                    b.Property<int>("PageNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("page_number");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.HasKey("StoredFileId", "PageNumber")
+                        .HasName("pk_stored_file_pages");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_stored_file_pages_tenant_id");
+
+                    b.ToTable("stored_file_pages", "documents");
                 });
 
             modelBuilder.Entity("PaperDotNet.Persistence.AuditEntry", b =>

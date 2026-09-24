@@ -45,6 +45,66 @@ public static class FullTextExtensions
     public static EntityTypeBuilder<TEntity> HasFullTextIndex<TEntity>(this EntityTypeBuilder<TEntity> entity, params string[] properties)
         where TEntity : class =>
         entity.HasAnnotation(Annotation, string.Join(',', properties));
+
+    /// <summary>Model annotation: the property holding each row's text language (<see cref="FullTextLanguages"/>).</summary>
+    public const string LanguageAnnotation = "PaperDotNet:FullTextLanguage";
+
+    /// <summary>
+    /// Stems the indexed text in the row's language (SRC-05): <paramref name="property"/> holds a name from
+    /// <see cref="FullTextLanguages.All"/> or null. PostgreSQL stems per row; SQLite stems English for all rows.
+    /// </summary>
+    public static EntityTypeBuilder<TEntity> HasFullTextLanguage<TEntity>(this EntityTypeBuilder<TEntity> entity, string property)
+        where TEntity : class =>
+        entity.HasAnnotation(LanguageAnnotation, property);
+}
+
+/// <summary>Languages with stemming support (the PostgreSQL text search configuration names).</summary>
+public static class FullTextLanguages
+{
+    public static readonly IReadOnlyList<string> All =
+    [
+        "danish", "dutch", "english", "finnish", "french", "german", "hungarian", "italian",
+        "norwegian", "portuguese", "romanian", "russian", "spanish", "swedish", "turkish",
+    ];
+
+    private static readonly Dictionary<string, string> Codes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["da"] = "danish",
+        ["dan"] = "danish",
+        ["nl"] = "dutch",
+        ["nld"] = "dutch",
+        ["en"] = "english",
+        ["eng"] = "english",
+        ["fi"] = "finnish",
+        ["fin"] = "finnish",
+        ["fr"] = "french",
+        ["fra"] = "french",
+        ["de"] = "german",
+        ["deu"] = "german",
+        ["hu"] = "hungarian",
+        ["hun"] = "hungarian",
+        ["it"] = "italian",
+        ["ita"] = "italian",
+        ["no"] = "norwegian",
+        ["nb"] = "norwegian",
+        ["nor"] = "norwegian",
+        ["pt"] = "portuguese",
+        ["por"] = "portuguese",
+        ["ro"] = "romanian",
+        ["ron"] = "romanian",
+        ["ru"] = "russian",
+        ["rus"] = "russian",
+        ["es"] = "spanish",
+        ["spa"] = "spanish",
+        ["sv"] = "swedish",
+        ["swe"] = "swedish",
+        ["tr"] = "turkish",
+        ["tur"] = "turkish",
+    };
+
+    /// <summary>The language for an ISO 639-1 or 639-2 code (e.g. <c>de</c>, <c>deu</c>; Tesseract uses 639-2), or null.</summary>
+    public static string? FromCode(string? code) =>
+        code is null ? null : Codes.GetValueOrDefault(code) ?? (All.Contains(code.ToLowerInvariant()) ? code.ToLowerInvariant() : null);
 }
 
 /// <summary>A search term: one token, or a phrase of several; the last token may be a prefix.</summary>

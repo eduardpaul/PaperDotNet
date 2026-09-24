@@ -1,3 +1,5 @@
+using System.Net.ServerSentEvents;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -57,7 +59,7 @@ internal sealed class OperationService(JobsDbContext db, IOutbox outbox, ITenant
 
 /// <summary>Runs an operation: marks it running, calls its handler, stores the result or error.</summary>
 internal sealed partial class OperationRunner(
-    JobsDbContext db, IEnumerable<IOperationHandler> handlers, TimeProvider time, ILogger<OperationRunner> logger)
+    JobsDbContext db, IEnumerable<IOperationHandler> handlers, TimeProvider time, ILiveEvents live, ILogger<OperationRunner> logger)
 {
     public async Task RunAsync(Guid operationId, CancellationToken ct)
     {
@@ -70,6 +72,7 @@ internal sealed partial class OperationRunner(
         operation.Status = OperationStatus.Running;
         operation.StartedAt ??= time.GetUtcNow();
         await db.SaveChangesAsync(ct);
+        Publish(operation);
 
         var handler = handlers.FirstOrDefault(h => h.Type == operation.Type);
         try
@@ -80,7 +83,7 @@ internal sealed partial class OperationRunner(
             }
 
             var payload = JsonSerializer.Deserialize(operation.Payload, handler.PayloadType, JobsJson.Options)!;
-            var result = await handler.ExecuteAsync(payload, new Progress(db, operation.Id, time), ct);
+            var result = await handler.ExecuteAsync(payload, new Progress(db, operation, time, live), ct);
             await CompleteAsync(operationId, OperationStatus.Succeeded, result is null ? null : JsonSerializer.Serialize(result, result.GetType(), JobsJson.Options), null, ct);
         }
 #pragma warning disable CA1031 // Any handler failure is recorded on the operation instead of retrying it.
@@ -106,12 +109,26 @@ internal sealed partial class OperationRunner(
         }
 
         await db.SaveChangesAsync(ct);
+        Publish(operation);
     }
+
+    /// <summary>Tells the user who started the operation about its status (API-07).</summary>
+    private void Publish(Operation operation) => Publish(live, operation);
+
+    private static void Publish(ILiveEvents live, Operation operation) =>
+        live.Publish(new LiveEvent("operation", operation.TenantId, operation.CreatedBy, new
+        {
+            operation.Id,
+            operation.Type,
+            operation.Status,
+            operation.PercentComplete,
+            operation.Error,
+        }));
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Operation {Type} {OperationId} failed.")]
     private partial void LogOperationFailed(Exception exception, string type, Guid operationId);
 
-    private sealed class Progress(JobsDbContext db, Guid operationId, TimeProvider time) : IOperationProgress
+    private sealed class Progress(JobsDbContext db, Operation operation, TimeProvider time, ILiveEvents live) : IOperationProgress
     {
         private static readonly TimeSpan MinInterval = TimeSpan.FromSeconds(1);
         private DateTimeOffset _lastWrite;
@@ -126,8 +143,10 @@ internal sealed partial class OperationRunner(
 
             _lastWrite = now;
             var value = Math.Clamp(percentComplete, 0, 99);
-            await db.Operations.Where(o => o.Id == operationId)
+            await db.Operations.Where(o => o.Id == operation.Id)
                 .ExecuteUpdateAsync(s => s.SetProperty(o => o.PercentComplete, value), cancellationToken);
+            operation.PercentComplete = value;
+            Publish(live, operation);
         }
     }
 }
@@ -145,10 +164,40 @@ public sealed record OperationResponse(
 
 internal static class OperationEndpoints
 {
-    public static void Map(IEndpointRouteBuilder endpoints) =>
+    public static void Map(IEndpointRouteBuilder endpoints)
+    {
         endpoints.MapV1Group("operations", "Operations")
             .MapGet("/{id:guid}", GetAsync)
             .WithName("GetOperation");
+        endpoints.MapV1Group("me", "Me")
+            .MapGet("/events", Events)
+            .RequireAuthorization()
+            .WithName("StreamEvents");
+    }
+
+    /// <summary>
+    /// Server-sent events for the caller (API-07): <c>operation</c> status and progress, document
+    /// processing, and other live notifications. Clients reconnect when the stream ends.
+    /// </summary>
+    private static Results<ServerSentEventsResult<object>, ProblemHttpResult> Events(ILiveEvents live, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
+    {
+        if (tenant.TenantId is not { } tenantId || user.UserId is not { } userId)
+        {
+            return ApiErrors.Problem(StatusCodes.Status403Forbidden, "userRequired", "Live events need a signed-in user.");
+        }
+
+        return TypedResults.ServerSentEvents(Stream(live, tenantId, userId, ct));
+    }
+
+    private static async IAsyncEnumerable<SseItem<object>> Stream(ILiveEvents live, Guid tenantId, Guid userId, [EnumeratorCancellation] CancellationToken ct)
+    {
+        // A first event tells the client the stream is live.
+        yield return new SseItem<object>(new { tenantId, userId }, "connected");
+        await foreach (var liveEvent in live.SubscribeAsync(tenantId, userId, ct))
+        {
+            yield return new SseItem<object>(liveEvent.Data, liveEvent.Type);
+        }
+    }
 
     /// <summary>Status of an operation started by the caller.</summary>
     private static async Task<Results<Ok<OperationResponse>, ProblemHttpResult>> GetAsync(Guid id, JobsDbContext db, ICurrentUser user, CancellationToken ct)

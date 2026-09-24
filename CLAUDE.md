@@ -95,7 +95,9 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `PaperDotNet.Extensions.Testing` (`ExtensionTestHost`).
 - Documents (`src/Modules/Documents`) is built on the SDK only (ADR-0015): add
   missing pieces to the SDK/contracts, never reference module implementations.
-  Binary content goes through `IBlobStore`.
+  Binary content goes through `IBlobStore`; extra item text for search through
+  `IItemSearchContributor`; client notifications through `ILiveEvents`
+  (`/v1.0/me/events`, SSE).
 - Record decisions as ADRs in `docs/adr/`.
 
 ## Ideas workflow

@@ -35,3 +35,23 @@ See https://github.com/App-vNext/Polly/blob/main/LICENSE for the full text.
 
 PostgreSQL License. Copyright (c) 1996-2025, The PostgreSQL Global Development Group.
 pgvector: PostgreSQL License, Copyright (c) 1996-2025, The PostgreSQL Global Development Group.
+
+## PDFium (via PDFtoImage and bblanchon.PDFium)
+
+BSD 3-Clause License. Copyright 2014 The PDFium Authors.
+See https://pdfium.googlesource.com/pdfium/+/main/LICENSE for the full text.
+PDFium includes third-party libraries under their own permissive licenses:
+FreeType (FreeType License), libjpeg-turbo (IJG / BSD-3-Clause / zlib),
+OpenJPEG (BSD-2-Clause), Little CMS (MIT) and zlib (zlib License); see
+https://github.com/bblanchon/pdfium-binaries for the notices shipped with the binaries.
+
+## Skia (via SkiaSharp)
+
+BSD 3-Clause License. Copyright (c) 2011 Google Inc.
+See https://skia.googlesource.com/skia/+/main/LICENSE for the full text.
+
+## Tesseract OCR and Leptonica (container image)
+
+Tesseract: Apache License 2.0. Leptonica: BSD 2-Clause style license,
+Copyright (C) 2001-2024 Leptonica. See http://leptonica.org/about-the-license.html.
+

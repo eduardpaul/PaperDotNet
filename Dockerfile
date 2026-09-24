@@ -9,10 +9,14 @@ RUN dotnet restore src/PaperDotNet.Host/PaperDotNet.Host.csproj
 RUN dotnet publish src/PaperDotNet.Host/PaperDotNet.Host.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
-# Tesseract (OCR) is added here in phase 3.
+# OCR (DOC-07): the Tesseract CLI with English and German; add more tesseract-ocr-<lang> packages as needed.
+# libfontconfig1 is needed by SkiaSharp (page rendering).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu libfontconfig1 \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app .
-# /data holds the SQLite database (default) and, later, stored files.
+# /data holds the SQLite database (default) and the stored files (/data/blobs).
 RUN mkdir -p /data && chown $APP_UID /data
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     DOTNET_RUNNING_IN_CONTAINER=true \

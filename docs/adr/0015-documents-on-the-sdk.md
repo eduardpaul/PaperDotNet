@@ -39,6 +39,22 @@ can move to S3-compatible storage later.
   detected from the first bytes (PDF, TIFF, JPEG, PNG); the file name only
   supplies the base name.
 
+## Processing (3b)
+
+- Processing runs as an operation per file version (`/v1.0/operations/{id}`,
+  live events), automatically on new versions when the library wants it.
+- PDFs with a usable text layer keep it (PdfPig). Images and scanned PDFs are
+  OCRed with the **Tesseract CLI**: page images (PDFium at 300 dpi) go in as a
+  list, a searchable PDF and plain text come out, and the PDF becomes a new
+  file version (`source: ocr`); the original stays. No PDFsharp merge needed.
+- Page texts are stored per content (`stored_file_pages`), so identical files
+  share them; the lists engine asks Documents for the text of an item's current
+  file when indexing it (`IItemSearchContributor`, SDK).
+- Page images are rendered on demand (200/800/1600 px JPEG) and cached in the
+  blob store by content hash; the thumbnail is rendered ahead of time.
+- Live events are in-process (`ILiveEvents`, server-sent events); with several
+  nodes a client sees events of its node only and should re-read state.
+
 ## Consequences
 
 - The SDK grows with every built-in app; extensions get the same abilities.

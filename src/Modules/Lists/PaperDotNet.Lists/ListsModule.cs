@@ -60,7 +60,7 @@ public sealed class ListsModule : IModule
         services.AddScoped<ItemQueryRunner>();
         services.AddScoped<IListItemStore>(sp => new ListItemStore(
             sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ListSchemaLoader>(), sp.GetRequiredService<ItemQueryRunner>(),
-            sp.GetRequiredService<ItemWriter>(), sp.GetRequiredService<IWorkspaceAccess>()));
+            sp.GetRequiredService<ItemWriter>(), sp.GetRequiredService<IWorkspaceAccess>(), sp.GetRequiredService<ListItemSearchDocuments>()));
         services.AddScoped<ITenantInitializer, ListsTenantInitializer>();
         services.AddScopes(ListScopes.All);
         services.AddIntegrationEvent<ItemAdded>();

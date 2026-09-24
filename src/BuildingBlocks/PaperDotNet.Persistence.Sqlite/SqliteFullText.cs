@@ -7,7 +7,7 @@ namespace PaperDotNet.Persistence.Sqlite;
 /// <summary>
 /// Full-text search on SQLite with FTS5: an external-content table
 /// <c>{table}_fts</c> kept in sync by triggers, ranked with <c>bm25</c>
-/// (earlier columns weigh more: 10, 4, 1). Migrations create it with <see cref="CreateIndexSql"/>.
+/// (earlier columns weigh more: 10, 4, 1). Migrations create it with <see cref="CreateIndexSql(string, bool, string[])"/>.
 /// </summary>
 public sealed class SqliteFullTextSearch : IFullTextSearch
 {
@@ -45,15 +45,22 @@ public sealed class SqliteFullTextSearch : IFullTextSearch
     /// <paramref name="table"/> (SQLite table name, e.g. <c>search_documents</c>) and the sync triggers.
     /// Re-create it after a migration that rebuilds the table.
     /// </summary>
-    public static string CreateIndexSql(string table, params string[] columns)
+    public static string CreateIndexSql(string table, params string[] columns) => CreateIndexSql(table, stemming: false, columns);
+
+    /// <summary>
+    /// Like <see cref="CreateIndexSql(string, string[])"/>; with <paramref name="stemming"/> the index stems
+    /// English words (FTS5 <c>porter</c>; SQLite has no per-row languages, SRC-05).
+    /// </summary>
+    public static string CreateIndexSql(string table, bool stemming, params string[] columns)
     {
+        var tokenizer = stemming ? "porter unicode61 remove_diacritics 0" : "unicode61 remove_diacritics 0";
         var fts = Quote(table + "_fts");
         var list = string.Join(", ", columns.Select(Quote));
         var newValues = string.Join(", ", columns.Select(c => "new." + Quote(c)));
         var oldValues = string.Join(", ", columns.Select(c => "old." + Quote(c)));
         var t = Quote(table);
         return $"""
-            CREATE VIRTUAL TABLE {fts} USING fts5({list}, content='{table}', content_rowid='rowid', tokenize='unicode61 remove_diacritics 0');
+            CREATE VIRTUAL TABLE {fts} USING fts5({list}, content='{table}', content_rowid='rowid', tokenize='{tokenizer}');
             CREATE TRIGGER {Quote(table + "_fts_ai")} AFTER INSERT ON {t} BEGIN
               INSERT INTO {fts}(rowid, {list}) VALUES (new.rowid, {newValues});
             END;

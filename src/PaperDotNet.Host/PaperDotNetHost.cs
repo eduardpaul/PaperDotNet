@@ -74,6 +74,7 @@ public static class PaperDotNetHost
         services.AddHybridCache();
         services.AddPaperDotNetDatabase(builder.Configuration);
         services.AddPaperDotNetStorage(builder.Configuration);
+        services.AddSingleton<ILiveEvents, LiveEventHub>();
         services.AddSingleton<DatabaseMigrator>();
         services.AddScopeAuthorization();
 

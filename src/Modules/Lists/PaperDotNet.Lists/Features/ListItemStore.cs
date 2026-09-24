@@ -13,10 +13,13 @@ namespace PaperDotNet.Lists.Features;
 /// so code gets the API's validation, receivers, versions and events.
 /// </summary>
 internal sealed class ListItemStore(
-    ListsDbContext db, ListSchemaLoader loader, ItemQueryRunner runner, ItemWriter writer, IWorkspaceAccess workspaces, bool system = false)
+    ListsDbContext db, ListSchemaLoader loader, ItemQueryRunner runner, ItemWriter writer, IWorkspaceAccess workspaces,
+    ListItemSearchDocuments search, bool system = false)
     : IListItemStore
 {
-    public IListItemStore AsSystem() => system ? this : new ListItemStore(db, loader, runner, writer, workspaces, system: true);
+    public IListItemStore AsSystem() => system ? this : new ListItemStore(db, loader, runner, writer, workspaces, search, system: true);
+
+    public Task ReindexAsync(Guid itemId, CancellationToken cancellationToken) => search.IndexItemAsync(itemId, cancellationToken);
 
     public async Task<IReadOnlyList<ListData>> GetListsAsync(Guid? workspaceId, string? templateKey, CancellationToken cancellationToken)
     {

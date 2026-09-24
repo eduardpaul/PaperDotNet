@@ -271,7 +271,11 @@ outbox dispatcher (BackgroundService)
 
 > **ADR-0015.** 3a implemented: Documents module on the SDK, `IBlobStore` with
 > local disk, content-addressed `stored_files`, `file_versions`, duplicate
-> policy per library, orphan cleanup job.
+> policy per library, orphan cleanup job. 3b implemented: processing as an
+> operation (`documents.processFile`): PdfPig text, Tesseract CLI OCR (one call
+> over all page images, `pdf` + `txt` output) stored as a new PDF version,
+> PDFtoImage/SkiaSharp page images cached in the blob store, page texts per
+> stored file, `IItemSearchContributor` feeds the item's search document.
 
 - **Blob store abstraction** (`IBlobStore`):
   - **content-addressed** by SHA-256 under a tenant prefix, which gives exact
@@ -297,6 +301,12 @@ outbox dispatcher (BackgroundService)
   (same image, `--role worker`), coordinated through the outbox and Quartz.
 
 ## 9. Search
+
+> **SRC-05 (3b).** Search documents carry a language (e.g. `english`). On
+> PostgreSQL the vector holds exact words (`simple`) plus stems in the row's
+> language, and every query term matches its exact form or any language's stem
+> before AND/OR/NOT are applied. SQLite's FTS5 index uses the `porter`
+> tokenizer (English stems for all rows).
 
 > **ADR-0012.** Implemented in 1e.3 for SQLite and PostgreSQL.
 

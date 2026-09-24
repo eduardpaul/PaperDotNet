@@ -4,6 +4,11 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <!-- Every package must pass docs/dependency-licenses.md. -->
+  <ItemGroup Label="Documents">
+    <PackageVersion Include="PdfPig" Version="0.1.16" />
+    <PackageVersion Include="PDFtoImage" Version="5.4.0" />
+    <PackageVersion Include="CliWrap" Version="3.10.5" />
+  </ItemGroup>
   <ItemGroup Label="Data">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />

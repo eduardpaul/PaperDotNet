@@ -45,4 +45,16 @@ public sealed class FullTextQueryTests
         Assert.Equal("'invoice' & ('due' <-> 'date') & ('paid' | 'open') & 'acc':* & !'draft'", PostgreSqlFullTextSearch.Render(query));
         Assert.Equal("(\"invoice\" AND \"due date\" AND (\"paid\" OR \"open\") AND \"acc\"*) NOT (\"draft\")", SqliteFullTextSearch.Render(query));
     }
+
+    [Fact]
+    public void Language_aware_queries_expand_every_term_before_combining()
+    {
+        var (sql, parameters) = PostgreSqlFullTextSearch.RenderWithLanguages(Parse("chairs OR desk -meeting"));
+
+        Assert.Equal(["'chairs'", "'desk'", "'meeting'"], parameters);
+        Assert.StartsWith("((to_tsquery('simple', {0}) || to_tsquery('danish', {0})", sql, StringComparison.Ordinal);
+        Assert.Contains(") || (to_tsquery('simple', {1})", sql, StringComparison.Ordinal);
+        Assert.Contains(" && !!(to_tsquery('simple', {2})", sql, StringComparison.Ordinal);
+        Assert.Contains("to_tsquery('english', {2})", sql, StringComparison.Ordinal);
+    }
 }

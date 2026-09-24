@@ -9,6 +9,12 @@
     <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Text extraction, page rendering (PDFium + SkiaSharp) and running the Tesseract CLI. -->
+    <PackageReference Include="PdfPig" />
+    <PackageReference Include="PDFtoImage" />
+    <PackageReference Include="CliWrap" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
     <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
   </ItemGroup>

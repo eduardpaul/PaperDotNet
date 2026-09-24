@@ -47,11 +47,11 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `Microsoft.SemanticKernel.Connectors.PgVector`, `Pgvector.EntityFrameworkCore` | MIT | pgvector access |
 | `Microsoft.ML.Tokenizers`, `Microsoft.ML.OnnxRuntime` | MIT | Tokenizing, local models |
 | `OpenTelemetry` | Apache-2.0 | Tracing / metrics |
-| `PdfPig` | Apache-2.0 | PDF text, page count |
+| `PdfPig` 0.1.16 | Apache-2.0 | PDF text layer per page (3b); PDF builder in tests |
 | `PDFsharp` | MIT | Page operations, image → PDF, text-layer merge |
-| `PDFtoImage` / `Docnet.Core` | MIT (bundle PDFium, see below) | Page rendering |
-| `SkiaSharp` | MIT (bundles Skia, see below) | Image decode/resize |
-| `Tesseract` NuGet wrapper, Tesseract engine and tessdata | Apache-2.0 (bundles Leptonica, see below) | OCR |
+| `PDFtoImage` 5.4 (+ `bblanchon.PDFium.*` natives) | MIT (bundles PDFium, see below) | Page rendering for thumbnails, previews and OCR input (3b) |
+| `SkiaSharp` (+ `SkiaSharp.NativeAssets.*`, via PDFtoImage) | MIT (bundles Skia, see below) | JPEG/PNG decode, resize, JPEG encode (3b) |
+| Tesseract engine and tessdata (container package, run as CLI) | Apache-2.0 (bundles Leptonica, see below) | OCR (3b). No NuGet wrapper: the CLI via `CliWrap` |
 | `AWSSDK.S3` | Apache-2.0 | S3 storage provider |
 | `MailKit` / `MimeKit` | MIT | Email to inbox (idea 0002) |
 | `Ical.Net` | MIT | Recurrence, iCal |
@@ -103,7 +103,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | **PostgreSQL** (incl. `ltree`, row-level security), **pgvector** extension | PostgreSQL License | The chosen database. The license is MIT-like |
 | `Npgsql`, `Npgsql.EntityFrameworkCore.PostgreSQL`, `Npgsql.OpenTelemetry` | PostgreSQL License | The only production-grade PostgreSQL provider for EF Core |
 | `Polly.Core` (dependency of `Microsoft.Extensions.Http.Resilience`) | BSD-3-Clause | Pulled in by Microsoft's MIT resilience package |
-| PDFium (bundled by PDFtoImage / Docnet.Core) | BSD-3-Clause (+ Apache-2.0 parts) | The only solid open PDF renderer |
+| PDFium (bundled by PDFtoImage via `bblanchon.PDFium.*`; includes FreeType under its FTL option, libjpeg-turbo, OpenJPEG, lcms, zlib) | BSD-3-Clause (+ Apache-2.0 parts; bundled libraries BSD/FTL/IJG/zlib/MIT) | The only solid open PDF renderer |
 | Skia (bundled by SkiaSharp) | BSD-3-Clause | Image decoding |
 | Leptonica (bundled with Tesseract) | BSD-2-Clause style | Required by Tesseract |
 | libmagic (bundled by `Mime`) | BSD-2-Clause | Only if `Mime` is used; our own sniffer avoids it |

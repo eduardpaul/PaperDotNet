@@ -30,7 +30,7 @@ public sealed record ListIndexInvalidated : IntegrationEvent
 }
 
 /// <summary>Builds search documents for list items: text of the fields, term labels, and who may read them.</summary>
-internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore terms, ISearchIndex index) : ISearchSource
+internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore terms, ISearchIndex index, IEnumerable<IItemSearchContributor> contributors) : ISearchSource
 {
     public const string ItemSourceType = "listItem";
     private const int BatchSize = 200;
@@ -113,6 +113,13 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
         }
 
         var labels = await terms.GetLabelsAsync(termIds, ct);
+        var itemIds = items.Select(i => i.Id).ToList();
+        var extra = new List<IReadOnlyDictionary<Guid, ItemSearchContent>>();
+        foreach (var contributor in contributors)
+        {
+            extra.Add(await contributor.GetContentAsync(itemIds, ct));
+        }
+
         return items.Select(item =>
         {
             var body = new StringBuilder();
@@ -153,11 +160,19 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
                 }
             }
 
+            string? language = null;
+            foreach (var content in extra.Select(e => e.GetValueOrDefault(item.Id)).OfType<ItemSearchContent>())
+            {
+                body.Append(content.Text).Append('\n');
+                language ??= content.Language;
+            }
+
             return new SearchDocumentData(
                 item.Id, ItemSourceType, list.WorkspaceId, list.Id, item.ContentTypeId, item.Title, body.ToString(),
                 Principals(list, item, grants), itemTerms, item.CreatedBy, item.UpdatedAt)
             {
                 Keywords = keywords.ToString(),
+                Language = language,
             };
         }).ToList();
     }

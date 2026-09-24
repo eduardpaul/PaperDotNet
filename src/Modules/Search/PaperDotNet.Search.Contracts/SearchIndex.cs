@@ -20,6 +20,12 @@ public sealed record SearchDocumentData(
 {
     /// <summary>High-weight text (ranks between title and body), e.g. tags or fields marked as important (SRC-06).</summary>
     public string Keywords { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Language of the text, for stemming (SRC-05): a name like <c>english</c> or <c>german</c>
+    /// (see <c>FullTextLanguages.FromCode</c> for ISO codes); null = exact words only.
+    /// </summary>
+    public string? Language { get; init; }
 }
 
 /// <summary>The search index of the current tenant.</summary>

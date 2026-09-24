@@ -18,10 +18,12 @@ using PaperDotNet.Workspaces.Contracts;
 namespace PaperDotNet.Documents.Features;
 
 public sealed record FileVersionResponse(
-    int Number, bool IsCurrent, string FileName, string MediaType, long Size, string Sha256, string Source, DateTimeOffset CreatedAt, Guid? CreatedBy)
+    int Number, bool IsCurrent, string FileName, string MediaType, long Size, string Sha256, string Source, DateTimeOffset CreatedAt, Guid? CreatedBy,
+    ProcessingStatus ProcessingStatus, string? ProcessingError, Guid? OperationId, int? PageCount, string? TextLanguage)
 {
     internal static FileVersionResponse From(FileVersion v) =>
-        new(v.Number, v.IsCurrent, v.FileName, v.MediaType, v.Size, v.Sha256, v.Source, v.CreatedAt, v.CreatedBy);
+        new(v.Number, v.IsCurrent, v.FileName, v.MediaType, v.Size, v.Sha256, v.Source, v.CreatedAt, v.CreatedBy,
+            v.ProcessingStatus, v.ProcessingError, v.OperationId, v.PageCount, v.TextLanguage);
 }
 
 public sealed record FileVersionList([property: JsonPropertyName("value")] IReadOnlyList<FileVersionResponse> Value);
@@ -33,9 +35,19 @@ public sealed record DuplicateResponse(Guid WorkspaceId, Guid ListId, Guid ItemI
 public sealed record DocumentResponse(
     Guid WorkspaceId, Guid ListId, Guid ItemId, uint Version, JsonObject Fields, FileVersionResponse File, IReadOnlyList<DuplicateResponse> Duplicates);
 
-public sealed record LibrarySettingsResponse(Guid ListId, DuplicatePolicy DuplicatePolicy);
+public sealed record LibrarySettingsResponse(Guid ListId, DuplicatePolicy DuplicatePolicy, bool AutoProcess, OcrMode OcrMode, string OcrLanguages)
+{
+    internal static LibrarySettingsResponse From(Guid listId, LibrarySettings? s) =>
+        new(listId, s?.DuplicatePolicy ?? DuplicatePolicy.Warn, s?.AutoProcess ?? true, s?.OcrMode ?? OcrMode.Auto, s?.OcrLanguages ?? LibrarySettings.DefaultOcrLanguages);
+}
 
-public sealed record LibrarySettingsRequest(DuplicatePolicy DuplicatePolicy);
+/// <summary>Library settings; omitted values keep their current value.</summary>
+public sealed record LibrarySettingsRequest(DuplicatePolicy? DuplicatePolicy, bool? AutoProcess, OcrMode? OcrMode, string? OcrLanguages);
+
+/// <summary>On-demand processing: <c>forceOcr</c> runs OCR even when the PDF has text; <c>languages</c> like <c>deu+eng</c>.</summary>
+public sealed record ProcessRequest(bool ForceOcr, string? Languages);
+
+public sealed record ProcessResponse(Guid OperationId);
 
 /// <summary>
 /// Files of library items (DOC-01…03, DOC-10): upload (streamed into a temporary file, hashed and
@@ -61,6 +73,9 @@ internal static class DocumentEndpoints
         file.MapGet("/versions", VersionsAsync).RequireScope(DocumentScopes.Read).WithName("ListFileVersions");
         file.MapGet("/versions/{number:int}", DownloadVersionAsync).RequireScope(DocumentScopes.Read).WithName("DownloadFileVersion");
         file.MapPost("/versions/{number:int}/restore", RestoreAsync).RequireScope(DocumentScopes.Write).WithName("RestoreFileVersion");
+        file.MapPost("/process", ProcessAsync).RequireScope(DocumentScopes.Write).WithName("ProcessFile");
+        file.MapGet("/pages/{page:int}/image", PageImageAsync).RequireScope(DocumentScopes.Read).WithName("GetPageImage");
+        file.MapGet("/thumbnail", ThumbnailAsync).RequireScope(DocumentScopes.Read).WithName("GetThumbnail");
 
         endpoints.MapV1Group("me/inbox", "Documents")
             .MapPost("/documents", UploadToInboxAsync).RequireScope(DocumentScopes.Write).DisableAntiforgery().WithName("UploadToInbox")
@@ -114,6 +129,63 @@ internal static class DocumentEndpoints
         Guid workspaceId, Guid listId, Guid itemId, IFormFile? file, HttpRequest http, DocumentService documents, CancellationToken ct) =>
         documents.ReplaceAsync(workspaceId, listId, itemId, file, http.Headers.IfMatch.ToString(), ct);
 
+    /// <summary>
+    /// Processes the current file again (DOC-07): text extraction, OCR (forced or automatic) and
+    /// thumbnails. Answers 202 with the operation; progress also arrives as live events (API-07).
+    /// </summary>
+    private static async Task<Results<Accepted<ProcessResponse>, ValidationProblem, ProblemHttpResult>> ProcessAsync(
+        Guid workspaceId, Guid listId, Guid itemId, ProcessRequest? request, IListItemStore items, DocumentsDbContext db,
+        ProcessingScheduler scheduler, CancellationToken ct)
+    {
+        if (request?.Languages is { } languages && !ProcessingScheduler.IsValidLanguageList(languages))
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["languages"] = ["Tesseract language codes joined with '+', e.g. 'deu+eng'."] });
+        }
+
+        var item = await items.GetAsync(workspaceId, listId, itemId, ct);
+        var version = item is null ? null : await db.FileVersions.FirstOrDefaultAsync(v => v.ItemId == itemId && v.IsCurrent, ct);
+        if (version is null)
+        {
+            return ApiErrors.NotFound("The item has no file.");
+        }
+
+        if (item!.Access < WorkspaceAccessLevel.Contribute)
+        {
+            return DocumentService.Forbidden();
+        }
+
+        var operationId = await scheduler.ScheduleAsync(version, request?.ForceOcr ?? false, request?.Languages, ct);
+        return TypedResults.Accepted($"{ApiRoutes.V1}/operations/{operationId}", new ProcessResponse(operationId));
+    }
+
+    /// <summary>
+    /// A page as JPEG (DOC-04), <c>width</c> rounded up to 200, 800 or 1600 pixels; <c>version</c>
+    /// selects an older file version. TIFF files can be shown once OCR produced their PDF.
+    /// </summary>
+    private static async Task<Results<FileStreamHttpResult, ProblemHttpResult>> PageImageAsync(
+        Guid workspaceId, Guid listId, Guid itemId, int page, int? width, int? version, IListItemStore items, DocumentsDbContext db,
+        PageRenderer renderer, CancellationToken ct)
+    {
+        var item = await items.GetAsync(workspaceId, listId, itemId, ct);
+        var fileVersion = item is null
+            ? null
+            : await db.FileVersions.AsNoTracking().FirstOrDefaultAsync(v => v.ItemId == itemId && (version == null ? v.IsCurrent : v.Number == version), ct);
+        if (fileVersion is null)
+        {
+            return ApiErrors.NotFound("The item has no file.");
+        }
+
+        var size = PageRenderer.WidthFor(width);
+        var image = await renderer.RenderAsync(fileVersion, page, size, ct);
+        return image is null
+            ? ApiErrors.NotFound("The page cannot be shown (missing page, or a TIFF that is not processed yet).")
+            : TypedResults.File(image, "image/jpeg", entityTag: new EntityTagHeaderValue($"\"{fileVersion.Sha256}-{page}-{size}\""));
+    }
+
+    private static Task<Results<FileStreamHttpResult, ProblemHttpResult>> ThumbnailAsync(
+        Guid workspaceId, Guid listId, Guid itemId, IListItemStore items, DocumentsDbContext db, PageRenderer renderer, CancellationToken ct) =>
+        PageImageAsync(workspaceId, listId, itemId, 1, PageRenderer.Widths[0], null, items, db, renderer, ct);
+
     /// <summary>Makes an earlier version current again, as a new version (the history is kept).</summary>
     private static Task<Results<Ok<FileVersionResponse>, ProblemHttpResult>> RestoreAsync(
         Guid workspaceId, Guid listId, Guid itemId, int number, DocumentService documents, CancellationToken ct) =>
@@ -130,14 +202,19 @@ internal static class DocumentEndpoints
 
         var settings = await db.LibrarySettings.AsNoTracking().FirstOrDefaultAsync(s => s.ListId == listId, ct);
         ETags.Set(response, settings?.Version ?? 0);
-        return TypedResults.Ok(new LibrarySettingsResponse(listId, settings?.DuplicatePolicy ?? DuplicatePolicy.Warn));
+        return TypedResults.Ok(LibrarySettingsResponse.From(listId, settings));
     }
 
     /// <summary>Changes the library's document settings (needs Manage on the library).</summary>
-    private static async Task<Results<Ok<LibrarySettingsResponse>, ProblemHttpResult>> UpdateSettingsAsync(
+    private static async Task<Results<Ok<LibrarySettingsResponse>, ValidationProblem, ProblemHttpResult>> UpdateSettingsAsync(
         Guid workspaceId, Guid listId, LibrarySettingsRequest request, IListItemStore items, DocumentsDbContext db,
         HttpRequest http, HttpResponse response, CancellationToken ct)
     {
+        if (request.OcrLanguages is { } languages && !ProcessingScheduler.IsValidLanguageList(languages))
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["ocrLanguages"] = ["Tesseract language codes joined with '+', e.g. 'deu+eng'."] });
+        }
+
         var list = await items.GetListAsync(workspaceId, listId, ct);
         if (list is not { IsLibrary: true })
         {
@@ -161,7 +238,10 @@ internal static class DocumentEndpoints
             db.LibrarySettings.Add(settings);
         }
 
-        settings.DuplicatePolicy = request.DuplicatePolicy;
+        settings.DuplicatePolicy = request.DuplicatePolicy ?? settings.DuplicatePolicy;
+        settings.AutoProcess = request.AutoProcess ?? settings.AutoProcess;
+        settings.OcrMode = request.OcrMode ?? settings.OcrMode;
+        settings.OcrLanguages = request.OcrLanguages ?? settings.OcrLanguages;
         try
         {
             await db.SaveChangesAsync(ct);
@@ -172,7 +252,7 @@ internal static class DocumentEndpoints
         }
 
         ETags.Set(response, settings.Version);
-        return TypedResults.Ok(new LibrarySettingsResponse(listId, settings.DuplicatePolicy));
+        return TypedResults.Ok(LibrarySettingsResponse.From(listId, settings));
     }
 
     private static async Task<Results<FileStreamHttpResult, ProblemHttpResult>> FileAsync(
@@ -196,11 +276,22 @@ public sealed class DocumentsOptions
 
     /// <summary>Largest accepted file in bytes (default 100 MB).</summary>
     public long MaxFileSize { get; set; } = 100L * 1024 * 1024;
+
+    /// <summary>The Tesseract executable (in the container image; <c>tesseract</c> on the path).</summary>
+    public string TesseractPath { get; set; } = "tesseract";
+
+    /// <summary>Resolution of page images for OCR.</summary>
+    public int OcrDpi { get; set; } = 300;
+
+    /// <summary>Pages of a PDF that are OCRed at most.</summary>
+    public int MaxOcrPages { get; set; } = 500;
+
+    public TimeSpan OcrTimeout { get; set; } = TimeSpan.FromMinutes(30);
 }
 
 /// <summary>Upload, replace and restore: spool, check, store once, then create the item and the version.</summary>
 internal sealed class DocumentService(
-    IListItemStore items, DocumentsDbContext db, FileIntake intake, IOptions<DocumentsOptions> options)
+    IListItemStore items, DocumentsDbContext db, FileIntake intake, ProcessingScheduler processing, IOptions<DocumentsOptions> options)
 {
     private const int MaxDuplicates = 20;
 
@@ -259,6 +350,7 @@ internal sealed class DocumentService(
         var version = NewVersion(item, stored, fileName, number: 1, "upload");
         db.FileVersions.Add(version);
         await db.SaveChangesAsync(ct);
+        await processing.ScheduleIfAutomaticAsync(version, ct);
         return TypedResults.Created(
             $"{ApiRoutes.V1}/workspaces/{workspaceId}/lists/{listId}/items/{item.Id}/file",
             Response(item, version, policy == DuplicatePolicy.Warn ? duplicates : []));
@@ -342,13 +434,15 @@ internal sealed class DocumentService(
         try
         {
             await db.SaveChangesAsync(ct);
-            return version;
         }
         catch (DbUpdateException)
         {
             db.ChangeTracker.Clear();
             return null;
         }
+
+        await processing.ScheduleIfAutomaticAsync(version, ct);
+        return version;
     }
 
     private async Task<SpooledFile> SpoolAsync(IFormFile file, CancellationToken ct)

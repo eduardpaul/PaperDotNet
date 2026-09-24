@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PaperDotNet.Persistence;
 using PaperDotNet.Search.Contracts;
 using PaperDotNet.Search.Data;
 
@@ -36,6 +37,7 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
             document.Title = data.Title.Length > 1024 ? data.Title[..1024] : data.Title;
             document.Body = data.Body.Length > MaxBodyLength ? data.Body[..MaxBodyLength] : data.Body;
             document.Keywords = data.Keywords.Length > MaxBodyLength ? data.Keywords[..MaxBodyLength] : data.Keywords;
+            document.Language = FullTextLanguages.All.Contains(data.Language ?? string.Empty) ? data.Language : null;
             document.CreatedBy = data.CreatedBy;
             document.UpdatedAt = data.UpdatedAt;
             db.Principals.AddRange(data.Principals.Distinct(StringComparer.Ordinal).Select(p => new SearchPrincipal { DocumentId = data.Id, Principal = p }));
