@@ -16,6 +16,9 @@ public sealed record ItemEventScope(Guid WorkspaceId, Guid ListId, string ListNa
     /// <summary>Name of the item's content type (e.g. <c>Invoice</c>).</summary>
     public string? ContentTypeName { get; init; }
 
+    /// <summary>Template key of the item's content type (e.g. <c>event</c>); null for custom content types.</summary>
+    public string? ContentTypeKey { get; init; }
+
     /// <summary>Key of the template the list was created from (e.g. <c>tasks</c>), if any.</summary>
     public string? ListTemplate { get; init; }
 }

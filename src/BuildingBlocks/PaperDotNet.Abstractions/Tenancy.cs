@@ -24,6 +24,12 @@ public interface ITenantOwned
 public interface ITenantScopeFactory
 {
     Microsoft.Extensions.DependencyInjection.AsyncServiceScope CreateScope(Guid tenantId, string tenantIdentifier, Guid? userId = null);
+
+    /// <summary>
+    /// A scope for an active tenant known only by id (e.g. from a token), or null when the tenant
+    /// does not exist or is suspended.
+    /// </summary>
+    Task<Microsoft.Extensions.DependencyInjection.AsyncServiceScope?> CreateScopeAsync(Guid tenantId, Guid? userId, CancellationToken cancellationToken);
 }
 
 /// <summary>

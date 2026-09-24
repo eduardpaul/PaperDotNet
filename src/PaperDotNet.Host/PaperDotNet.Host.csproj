@@ -21,6 +21,7 @@
     <ProjectReference Include="..\Modules\Search\PaperDotNet.Search\PaperDotNet.Search.csproj" />
     <ProjectReference Include="..\Modules\Documents\PaperDotNet.Documents\PaperDotNet.Documents.csproj" />
     <ProjectReference Include="..\Modules\Tasks\PaperDotNet.Tasks\PaperDotNet.Tasks.csproj" />
+    <ProjectReference Include="..\Modules\Calendar\PaperDotNet.Calendar\PaperDotNet.Calendar.csproj" />
     <ProjectReference Include="..\Modules\ExtensionHost\PaperDotNet.ExtensionHost\PaperDotNet.ExtensionHost.csproj" />
     <!-- Finds referenced extensions at compile time (ADR-0014). Add extensions as package/project references. -->
     <ProjectReference Include="..\Extensions\PaperDotNet.Extensions.Generator\PaperDotNet.Extensions.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />

@@ -503,6 +503,7 @@ internal sealed partial class ItemWriter(
         new(schema.List.WorkspaceId, schema.List.Id, schema.List.Name, item.ContentTypeId, item.IsFolder)
         {
             ContentTypeName = schema.FindContentType(item.ContentTypeId)?.Name,
+            ContentTypeKey = schema.FindContentType(item.ContentTypeId)?.Key,
             ListTemplate = schema.List.TemplateKey,
         };
 

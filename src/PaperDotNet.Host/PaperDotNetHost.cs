@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
+using PaperDotNet.Calendar;
 using PaperDotNet.Documents;
 using PaperDotNet.ExtensionHost;
 using PaperDotNet.ExtensionHost.Runtime;
@@ -49,6 +50,7 @@ public static class PaperDotNetHost
         new SearchModule(),
         new DocumentsModule(),
         new TasksModule(),
+        new CalendarModule(),
         new AuditModule(),
         new ExtensionHostModule(),
     ];

@@ -99,6 +99,9 @@ foreach (var l in await system.GetListsAsync(null, "acme.invoices.invoices", ct)
 whether the list is a library), `EnsureHomeAsync` (the caller's Home workspace
 and Inbox) and the caller's access on every item (`ListItemData.Access`).
 `ItemPurged` tells subscribers that an item was deleted permanently.
+Receivers can match content types by template key (`ItemEventScope.ContentTypeKey`,
+e.g. `event`). `ITenantScopeFactory.CreateScopeAsync(tenantId, userId)` opens a
+scope for an active tenant known only by id (e.g. from a token).
 Implement `IItemSearchContributor` to add text (and its language) to items'
 search documents, and call `IListItemStore.ReindexAsync(itemId)` when it
 changes. Push notifications to connected clients with `ILiveEvents.Publish`

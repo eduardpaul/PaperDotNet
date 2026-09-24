@@ -26,6 +26,9 @@
   <Folder Name="/src/Modules/Audit/">
     <Project Path="src/Modules/Audit/PaperDotNet.Audit/PaperDotNet.Audit.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Calendar/">
+    <Project Path="src/Modules/Calendar/PaperDotNet.Calendar/PaperDotNet.Calendar.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Documents/">
     <Project Path="src/Modules/Documents/PaperDotNet.Documents/PaperDotNet.Documents.csproj" />
   </Folder>

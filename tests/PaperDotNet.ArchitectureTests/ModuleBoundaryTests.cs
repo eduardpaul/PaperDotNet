@@ -9,7 +9,7 @@ namespace PaperDotNet.ArchitectureTests;
 /// </summary>
 public sealed partial class ModuleBoundaryTests
 {
-    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents", "Tasks"];
+    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents", "Tasks", "Calendar"];
 
     /// <summary>Modules that expose a contracts assembly.</summary>
     private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Search"];
@@ -79,6 +79,7 @@ public sealed partial class ModuleBoundaryTests
     [InlineData("PaperDotNet.Samples.Invoices")]
     [InlineData("PaperDotNet.Documents")] // built on the SDK (EXT-06)
     [InlineData("PaperDotNet.Tasks")]
+    [InlineData("PaperDotNet.Calendar")]
     public void The_sdk_and_extensions_only_reference_contracts(string assembly)
     {
         var references = Load(assembly).GetReferencedAssemblies().Select(a => a.Name!).ToList();

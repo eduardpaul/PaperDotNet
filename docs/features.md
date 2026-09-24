@@ -348,7 +348,7 @@ Tasks and Calendar are modules built on the SDK like Documents ([ADR-0016](adr/0
 | Slice | Features | Status |
 |---|---|---|
 | **4a Tasks** | Task content type and Tasks template owned by the Tasks module (TSK-01, now with start date), checklists (`…/items/{id}/checklist`), TSK-02 subtasks and "blocked by" links with cycle checks (`…/links`), TSK-03 `GET /v1.0/me/tasks` (`mine`, `dueThisWeek`, `overdue`, `all`) across every task list, TSK-04 board view in the template, TSK-05 recurring tasks (RRULE via Ical.Net; completing creates the next occurrence), TSK-06 tasks from documents (`…/items/{doc}/tasks`) | ✅ |
-| 4b Calendar | CAL-01 events (attendees, reminders), CAL-02 recurrence with exceptions, CAL-03 time-range queries with expansion (events and due tasks), CAL-04 iCal import/export and read-only feeds | planned |
+| **4b Calendar** | Calendar module on the SDK owns the event content type and Calendar template: CAL-01 events with attendees and a reminder offset, consistent times (all-day, default end, end ≥ start); CAL-02 recurrence (RRULE in an IANA time zone, DST-correct) with cancelled and moved occurrences (`…/items/{id}/series`, `…/series/occurrences/{start}`); CAL-03 `GET /v1.0/me/calendar` and `…/lists/{id}/calendar` (range ≤ 366 days, series expanded, due tasks included); CAL-04 iCalendar export (`calendar.ics`, VEVENT with RRULE/EXDATE/RECURRENCE-ID, VTODO) and import (idempotent by UID), read-only feeds with secret URLs (`/v1.0/me/calendarFeeds`) | ✅ |
 | 4c Notifications | NTF-01 inbox, NTF-02 reminders, NTF-03 follow/alerts with digests, NTF-04 webhook channel, NTF-05 preferences | planned |
 
 ## Idea → feature mapping

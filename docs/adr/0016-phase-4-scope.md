@@ -30,6 +30,20 @@ exists for .NET.
 - **Notification channels in Phase 4:** in-app and webhook. Email (MailKit)
   and ntfy/Gotify follow in P5.
 
+## Calendar (4b)
+
+- Event times are normalized by a before-receiver (all-day events span whole
+  UTC days; a missing end is start + 1 hour; end before start is rejected).
+- A series is the event item plus an RRULE and an IANA time zone; expansion
+  uses Ical.Net, so local times survive DST changes. Cancelled occurrences and
+  moved ones (their own event items) are stored as occurrence changes.
+- Time ranges are at most 366 days and 2000 entries; due tasks appear as
+  all-day entries.
+- iCalendar export writes VEVENT (RRULE, EXDATE, RECURRENCE-ID, VTIMEZONE) and
+  VTODO; import is idempotent by UID per list. Feeds are secret URLs
+  (`/v1.0/calendarFeeds/{tenant}{secret}.ics`, only the hash is stored) that
+  act as their owner with the owner's current access.
+
 ## Consequences
 
 - Existing tenants keep their task content type as it was (built-in content

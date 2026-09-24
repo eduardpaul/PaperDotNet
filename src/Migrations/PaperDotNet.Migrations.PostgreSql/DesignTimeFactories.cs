@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Calendar.Data;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Identity.Data;
@@ -107,4 +108,10 @@ internal sealed class TasksDesignTimeFactory : IDesignTimeDbContextFactory<Tasks
 {
     public TasksDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<TasksDbContext>(TasksDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class CalendarDesignTimeFactory : IDesignTimeDbContextFactory<CalendarDbContext>
+{
+    public CalendarDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<CalendarDbContext>(CalendarDbContext.Schema), DesignTime.NoTenant);
 }

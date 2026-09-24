@@ -21,6 +21,14 @@ internal sealed class TenantContext(IMultiTenantContextAccessor<PaperDotNetTenan
 
 internal sealed class TenantScopeFactory(IServiceScopeFactory scopes) : ITenantScopeFactory
 {
+    public async Task<AsyncServiceScope?> CreateScopeAsync(Guid tenantId, Guid? userId, CancellationToken cancellationToken)
+    {
+        await using var lookup = scopes.CreateAsyncScope();
+        var tenant = (await lookup.ServiceProvider.GetRequiredService<PaperDotNet.Tenancy.Contracts.ITenantDirectory>().ListAsync(cancellationToken))
+            .FirstOrDefault(t => t.Id == tenantId && t.Status == PaperDotNet.Tenancy.Contracts.TenantStatus.Active);
+        return tenant is null ? null : CreateScope(tenant.Id, tenant.Identifier, userId);
+    }
+
     public AsyncServiceScope CreateScope(Guid tenantId, string tenantIdentifier, Guid? userId = null)
     {
         var scope = scopes.CreateAsyncScope();

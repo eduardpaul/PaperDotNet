@@ -3,7 +3,7 @@ using PaperDotNet.Lists.Contracts;
 namespace PaperDotNet.Lists.Templates;
 
 /// <summary>
-/// Built-in content types and list templates (LST-16). Apps built on the SDK (Tasks) register theirs
+/// Built-in content types and list templates (LST-16). Apps built on the SDK (Tasks, Calendar) register theirs
 /// the same way; extensions add more through the SDK.
 /// </summary>
 internal static class BuiltInTemplates
@@ -21,14 +21,6 @@ internal static class BuiltInTemplates
         [
             Field("description", "Description", "note"),
             Field("keywords", "Keywords", "keywords", f => { f.AllowMultiple = true; f.Search = FieldSearchWeight.High; }),
-        ]),
-        new("event", "Event", "A calendar event.",
-        [
-            Field("start", "Start", "dateTime", f => f.Required = true),
-            Field("end", "End", "dateTime"),
-            Field("allDay", "All day", "boolean"),
-            Field("location", "Location", "text"),
-            Field("description", "Description", "note"),
         ]),
         new("contact", "Contact", "A person or organization to contact.",
         [
@@ -55,11 +47,6 @@ internal static class BuiltInTemplates
             IsLibrary = true,
             Versioning = true,
         },
-        new("calendar", "Calendar", "Events on a calendar.", ["event"],
-        [
-            new ViewTemplate("Calendar", ["title", "start", "end", "allDay", "location"], OrderBy: "fields/start", GroupBy: "start", Layout: "calendar", IsDefault: true),
-            new ViewTemplate("All events", ["title", "start", "end", "location"], OrderBy: "fields/start desc"),
-        ]),
         new("contacts", "Contacts", "People and organizations.", ["contact"],
         [
             new ViewTemplate("All contacts", ["title", "company", "email", "phone"], OrderBy: "fields/title", IsDefault: true),
