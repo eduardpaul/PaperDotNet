@@ -8,7 +8,7 @@ structure. Later, each idea gets reviewed and mapped to one or more features
 ## How to add an idea
 
 1. Copy [`_template.md`](_template.md) to a new file named
-   `NNNN-short-title.md`. Use the next free number, e.g. `0002-email-to-inbox.md`.
+   `NNNN-short-title.md`. Use the next free number, e.g. `0004-my-idea.md`.
 2. Fill in at least **Title** and **The idea**. Every other section is optional.
    A single sentence is fine.
 3. Add a row to the index below.
@@ -33,6 +33,7 @@ It will be turned into a file during review.
 |---|---|---|---|---|
 | [0001](0001-extensible-dms-productivity-platform.md) | Extensible DMS + productivity platform | Platform | mapped | architecture-vision.md |
 | [0002](0002-email-to-inbox.md) | Email to inbox for documents | Documents | new | |
+| [0003](0003-graph-style-api-and-generated-sdks.md) | Graph-style client API and generated multi-language SDKs | API / Integrations | new | |
 
 ## Quick ideas
 
