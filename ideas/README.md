@@ -8,7 +8,7 @@ structure. Later, each idea gets reviewed and mapped to one or more features
 ## How to add an idea
 
 1. Copy [`_template.md`](_template.md) to a new file named
-   `NNNN-short-title.md`. Use the next free number, e.g. `0012-my-idea.md`.
+   `NNNN-short-title.md`. Use the next free number, e.g. `0013-my-idea.md`.
 2. Fill in at least **Title** and **The idea**. Every other section is optional.
    A single sentence is fine.
 3. Add a row to the index below.
@@ -42,6 +42,7 @@ It will be turned into a file during review.
 | [0009](0009-automation-rules-engine-elsa.md) | Automation rules engine (tags and other use cases) with Elsa Workflows | Automation / Extensions | new | |
 | [0010](0010-optional-version-history.md) | Optional (opt-in) version history for data | Platform / Data | new | |
 | [0011](0011-extensions-in-nodejs-and-python.md) | Extensions implemented in Node.js and Python | Extensions | new | |
+| [0012](0012-sharepoint-style-event-handlers.md) | Event handlers like SharePoint event receivers (before / after) | Extensions / Platform | new | refines architecture §3.2 point 5 |
 
 ## Quick ideas
 

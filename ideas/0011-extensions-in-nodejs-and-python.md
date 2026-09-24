@@ -50,8 +50,9 @@ file processors, automation activities, API endpoints, jobs and MCP tools.
      - One language-neutral extension protocol (manifest + RPC contract),
        with the .NET in-process tier as a fast path. Define it early so
        decision 3 (in-process first) doesn't lock the design to .NET.
-     - Synchronous "before" handlers need low latency: sidecar RPC with
-       timeouts, or allow only async handlers for non-.NET extensions?
+     - Before/after handlers must work the same as for .NET extensions
+       (idea 0012). Synchronous "before" handlers need low latency, so use
+       sidecar RPC with short timeouts and a fail-open/fail-closed policy.
      - Packaging: the manifest declares "runtime": "dotnet" | "node" | "python",
        the entry point and dependencies (npm / pip). Should the host run
        npm/pip install, or require prebuilt container images?
