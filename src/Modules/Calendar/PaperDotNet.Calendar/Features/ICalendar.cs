@@ -24,22 +24,37 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
     public const int MaxImportedComponents = 2000;
     private const string UidSuffix = "@paperdotnet";
 
-    /// <summary>A calendar with the events and tasks of <paramref name="lists"/>.</summary>
-    public async Task<string> ExportAsync(IReadOnlyList<ListData> lists, CancellationToken ct)
+    /// <summary>A calendar with the events and tasks of <paramref name="lists"/>. The error is an item query the lists rejected.</summary>
+    public async Task<(string? Text, string? Error)> ExportAsync(IReadOnlyList<ListData> lists, CancellationToken ct)
     {
+        var eventLists = lists.Where(l => l.ContentTypeKeys.Contains(CalendarService.EventKey)).ToList();
+        var taskLists = lists.Where(l => l.ContentTypeKeys.Contains(CalendarService.TaskKey)).ToList();
+        var (events, eventError) = await items.QueryAsync(eventLists, new ListItemQuery(null, "fields/start desc", MaxExportedItems), ct);
+        if (eventError is not null)
+        {
+            return (null, eventError);
+        }
+
+        var (tasks, taskError) = await items.QueryAsync(taskLists, new ListItemQuery(null, "fields/dueDate desc", MaxExportedItems), ct);
+        if (taskError is not null)
+        {
+            return (null, taskError);
+        }
+
+        var eventsByList = events.ToDictionary(page => page.List.Id);
+        var tasksByList = tasks.ToDictionary(page => page.List.Id);
         var calendar = new IcalCalendar { ProductId = "-//PaperDotNet//Calendar//EN" };
         var zones = new HashSet<string>(StringComparer.Ordinal);
         foreach (var list in lists)
         {
-            if (list.ContentTypeKeys.Contains(CalendarService.EventKey))
+            if (eventsByList.TryGetValue(list.Id, out var page))
             {
-                await ExportEventsAsync(list, calendar, zones, ct);
+                await ExportEventsAsync(page.Items, calendar, zones, ct);
             }
 
-            if (list.ContentTypeKeys.Contains(CalendarService.TaskKey))
+            if (tasksByList.TryGetValue(list.Id, out var due))
             {
-                var (tasks, _) = await items.QueryAsync(list.WorkspaceId, list.Id, new ListItemQuery(null, "fields/dueDate desc", MaxExportedItems), ct);
-                foreach (var task in tasks)
+                foreach (var task in due.Items)
                 {
                     calendar.Todos.Add(Todo(task));
                 }
@@ -51,12 +66,11 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
             calendar.AddTimeZone(zone);
         }
 
-        return new CalendarSerializer(calendar).SerializeToString() ?? string.Empty;
+        return (new CalendarSerializer(calendar).SerializeToString() ?? string.Empty, null);
     }
 
-    private async Task ExportEventsAsync(ListData list, IcalCalendar calendar, HashSet<string> zones, CancellationToken ct)
+    private async Task ExportEventsAsync(IReadOnlyList<ListItemData> events, IcalCalendar calendar, HashSet<string> zones, CancellationToken ct)
     {
-        var (events, _) = await items.QueryAsync(list.WorkspaceId, list.Id, new ListItemQuery(null, "fields/start desc", MaxExportedItems), ct);
         var ids = events.Select(e => e.Id).ToList();
         var recurrences = await db.Recurrences.AsNoTracking().Where(r => ids.Contains(r.ItemId)).ToDictionaryAsync(r => r.ItemId, ct);
         var exceptions = await db.OccurrenceChanges.AsNoTracking().Where(e => ids.Contains(e.MasterItemId)).ToListAsync(ct);

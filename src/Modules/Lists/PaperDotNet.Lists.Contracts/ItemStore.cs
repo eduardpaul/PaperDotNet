@@ -47,6 +47,9 @@ public sealed record ListItemData(
 /// <summary>An item query: OData <c>$filter</c>/<c>$orderby</c> over the list's fields (as in the items API).</summary>
 public sealed record ListItemQuery(string? Filter = null, string? OrderBy = null, int Top = 100);
 
+/// <summary>One list's page from a query run against several lists.</summary>
+public sealed record ListQueryResult(ListData List, IReadOnlyList<ListItemData> Items);
+
 public enum ListItemStatus
 {
     Ok,
@@ -101,13 +104,25 @@ public interface IListItemStore
     /// <summary>Items matching the query (up to <see cref="ListItemQuery.Top"/>, max 1000); folders are excluded.</summary>
     Task<(IReadOnlyList<ListItemData> Items, string? Error)> QueryAsync(Guid workspaceId, Guid listId, ListItemQuery query, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Runs <paramref name="query"/> against each list. The first error stops the rest.
+    /// Each list contributes at most <see cref="ListItemQuery.Top"/> items, in that list's order; the caller merges them.
+    /// </summary>
+    Task<(IReadOnlyList<ListQueryResult> Results, string? Error)> QueryAsync(IReadOnlyList<ListData> lists, ListItemQuery query, CancellationToken cancellationToken);
+
     Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken);
+
+    /// <summary>Creates the item in <paramref name="parentId"/> (null: the list root). The parent must be a folder of the list.</summary>
+    Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, Guid? parentId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates the item with <paramref name="itemId"/> (e.g. a stable id of an operation that may be repeated). When that
     /// item already exists in the list it is returned unchanged, so repeating the call creates nothing.
     /// </summary>
     Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken);
+
+    /// <summary>As <see cref="CreateAsync(Guid, Guid, Guid, JsonObject, Guid?, CancellationToken)"/>, placed in <paramref name="parentId"/>.</summary>
+    Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, Guid? contentTypeId, Guid? parentId, CancellationToken cancellationToken);
 
     /// <summary>Merges <paramref name="fields"/> into the item (null removes a value); checks <paramref name="expectedVersion"/> when given.</summary>
     Task<ListItemResult> UpdateAsync(Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, uint? expectedVersion, CancellationToken cancellationToken);

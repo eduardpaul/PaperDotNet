@@ -103,7 +103,36 @@ internal enum OpCode
     Jump,
 }
 
-internal sealed record Instruction(OpCode Op, AutomationStep Step, string StepName, int Target = -1);
+internal sealed record Instruction(OpCode Op, StepNode Step, string StepName, int Target = -1);
+
+/// <summary>A step after <see cref="AutomationStep"/> is read: only the fields of its type exist.</summary>
+internal abstract record StepNode(string? Name);
+
+internal sealed record ActionNode(string? Name, string? Action, JsonObject? Inputs) : StepNode(Name);
+
+internal sealed record ApprovalNode(string? Name, IReadOnlyList<string>? Assignees, string? Title, double? DueInHours, IReadOnlyList<string>? EscalateTo) : StepNode(Name);
+
+internal sealed record DelayNode(string? Name, double? Hours) : StepNode(Name);
+
+internal sealed record ConditionNode(
+    string? Name, string? ApprovalName, string? Outcome, string? Filter, IReadOnlyList<StepNode> Then, IReadOnlyList<StepNode> Else) : StepNode(Name);
+
+internal sealed record UnknownNode(string? Name, string Type) : StepNode(Name);
+
+internal static class StepNodes
+{
+    public static StepNode Bind(AutomationStep step) => step.Type switch
+    {
+        StepTypes.Action => new ActionNode(step.Name, step.Action, step.Inputs),
+        StepTypes.Approval => new ApprovalNode(step.Name, step.Assignees, step.Title, step.DueInHours, step.EscalateTo),
+        StepTypes.Delay => new DelayNode(step.Name, step.Hours),
+        StepTypes.Condition => new ConditionNode(step.Name, step.Step, step.Is, step.Filter, BindAll(step.Then), BindAll(step.Else)),
+        _ => new UnknownNode(step.Name, step.Type),
+    };
+
+    public static IReadOnlyList<StepNode> BindAll(IReadOnlyList<AutomationStep>? steps) =>
+        steps is null ? [] : [.. steps.Select(Bind)];
+}
 
 /// <summary>Checks definitions and compiles their steps.</summary>
 internal static class Definitions
@@ -146,7 +175,10 @@ internal static class Definitions
         return errors;
     }
 
-    public static List<string> ValidateSteps(IReadOnlyList<AutomationStep>? steps, ActionCatalog actions)
+    public static List<string> ValidateSteps(IReadOnlyList<AutomationStep>? steps, ActionCatalog actions) =>
+        ValidateNodes(StepNodes.BindAll(steps), actions);
+
+    private static List<string> ValidateNodes(IReadOnlyList<StepNode> steps, ActionCatalog actions)
     {
         var errors = new List<string>();
         if (steps is not { Count: > 0 })
@@ -157,7 +189,7 @@ internal static class Definitions
 
         var names = new HashSet<string>(StringComparer.Ordinal);
         var count = 0;
-        void Check(IReadOnlyList<AutomationStep> steps, string path, int depth)
+        void Check(IReadOnlyList<StepNode> steps, string path, int depth)
         {
             if (depth > MaxDepth)
             {
@@ -179,54 +211,54 @@ internal static class Definitions
                     errors.Add($"{at}: the step name '{name}' is used twice.");
                 }
 
-                switch (step.Type)
+                switch (step)
                 {
-                    case StepTypes.Action:
-                        errors.AddRange(actions.Validate(new ActionDefinition(step.Action ?? string.Empty, step.Inputs)).Select(e => $"{at}: {e}"));
+                    case ActionNode action:
+                        errors.AddRange(actions.Validate(new ActionDefinition(action.Action ?? string.Empty, action.Inputs)).Select(e => $"{at}: {e}"));
                         break;
-                    case StepTypes.Approval:
-                        if (step.Name is null)
+                    case ApprovalNode approval:
+                        if (approval.Name is null)
                         {
                             errors.Add($"{at}: approval steps need a name (conditions refer to their outcome).");
                         }
 
-                        if (step.Assignees is not { Count: > 0 })
+                        if (approval.Assignees is not { Count: > 0 })
                         {
                             errors.Add($"{at}: assignees are required.");
                         }
 
-                        if (step.DueInHours is <= 0)
+                        if (approval.DueInHours is <= 0)
                         {
                             errors.Add($"{at}: dueInHours must be positive.");
                         }
 
                         break;
-                    case StepTypes.Delay:
-                        if (step.Hours is not > 0)
+                    case DelayNode delay:
+                        if (delay.Hours is not > 0)
                         {
                             errors.Add($"{at}: hours must be positive.");
                         }
 
                         break;
-                    case StepTypes.Condition:
-                        if ((step.Step is null) == (step.Filter is null))
+                    case ConditionNode condition:
+                        if ((condition.ApprovalName is null) == (condition.Filter is null))
                         {
                             errors.Add($"{at}: use either step (with is) or filter.");
                         }
-                        else if (step.Step is { } target && !names.Contains(target))
+                        else if (condition.ApprovalName is { } target && !names.Contains(target))
                         {
                             errors.Add($"{at}: step '{target}' is not an earlier approval step.");
                         }
-                        else if (step.Step is not null && step.Is is not (ApprovalOutcomes.Approved or ApprovalOutcomes.Rejected))
+                        else if (condition.ApprovalName is not null && condition.Outcome is not (ApprovalOutcomes.Approved or ApprovalOutcomes.Rejected))
                         {
                             errors.Add($"{at}: is must be approved or rejected.");
                         }
 
-                        Check(step.Then ?? [], $"{at}.then", depth + 1);
-                        Check(step.Else ?? [], $"{at}.else", depth + 1);
+                        Check(condition.Then, $"{at}.then", depth + 1);
+                        Check(condition.Else, $"{at}.else", depth + 1);
                         break;
-                    default:
-                        errors.Add($"{at}: unknown step type '{step.Type}' (use {string.Join(", ", StepTypes.All)}).");
+                    case UnknownNode unknown:
+                        errors.Add($"{at}: unknown step type '{unknown.Type}' (use {string.Join(", ", StepTypes.All)}).");
                         break;
                 }
             }
@@ -237,33 +269,35 @@ internal static class Definitions
     }
 
     /// <summary>Flattens the steps: a condition becomes Branch(else) + then + Jump(end) + else.</summary>
-    public static List<Instruction> Compile(IReadOnlyList<AutomationStep> steps)
+    public static List<Instruction> Compile(IReadOnlyList<AutomationStep> steps) => CompileNodes(StepNodes.BindAll(steps));
+
+    private static List<Instruction> CompileNodes(IReadOnlyList<StepNode> steps)
     {
         var program = new List<Instruction>();
-        void Emit(IReadOnlyList<AutomationStep> steps, string path)
+        void Emit(IReadOnlyList<StepNode> steps, string path)
         {
             foreach (var (step, index) in steps.Select((s, i) => (s, i)))
             {
                 var name = step.Name ?? $"{path}{index + 1}";
-                switch (step.Type)
+                switch (step)
                 {
-                    case StepTypes.Action:
+                    case ActionNode:
                         program.Add(new Instruction(OpCode.Action, step, name));
                         break;
-                    case StepTypes.Approval:
+                    case ApprovalNode:
                         program.Add(new Instruction(OpCode.Approval, step, name));
                         break;
-                    case StepTypes.Delay:
+                    case DelayNode:
                         program.Add(new Instruction(OpCode.Delay, step, name));
                         break;
-                    case StepTypes.Condition:
+                    case ConditionNode condition:
                         var branch = program.Count;
                         program.Add(new Instruction(OpCode.Branch, step, name));
-                        Emit(step.Then ?? [], $"{name}.then.");
+                        Emit(condition.Then, $"{name}.then.");
                         var jump = program.Count;
                         program.Add(new Instruction(OpCode.Jump, step, name));
                         program[branch] = program[branch] with { Target = program.Count };
-                        Emit(step.Else ?? [], $"{name}.else.");
+                        Emit(condition.Else, $"{name}.else.");
                         program[jump] = program[jump] with { Target = program.Count };
                         break;
                 }

@@ -371,25 +371,13 @@ internal sealed class DocumentService(
         var stored = await intake.StoreAsync(spooled, ct);
         var fileName = FileName(file.FileName, spooled.MediaType!);
         var fields = new JsonObject { ["title"] = string.IsNullOrWhiteSpace(title) ? Path.GetFileNameWithoutExtension(fileName) : title };
-        var created = await items.CreateAsync(workspaceId, listId, fields, contentTypeId, ct);
+        var created = await items.CreateAsync(workspaceId, listId, fields, contentTypeId, folderId, ct);
         if (!created.Succeeded)
         {
             return ItemProblem(created);
         }
 
         var item = created.Item!;
-        if (folderId is not null)
-        {
-            var moved = await items.MoveAsync(workspaceId, listId, item.Id, folderId, ct);
-            if (!moved.Succeeded)
-            {
-                await items.AsSystem().DeleteAsync(workspaceId, listId, item.Id, null, ct);
-                return ItemProblem(moved);
-            }
-
-            item = moved.Item!;
-        }
-
         var version = NewVersion(item, stored, fileName, number: 1, "upload", Languages(languages));
         db.FileVersions.Add(version);
         await db.SaveChangesAsync(ct);
@@ -615,24 +603,13 @@ internal sealed class DocumentService(
         Guid workspaceId, Guid listId, Guid? folderId, string title, StoredFile stored, FileVersion from, IReadOnlyList<string> pageTexts,
         CancellationToken ct)
     {
-        var created = await items.CreateAsync(workspaceId, listId, new JsonObject { ["title"] = title }, null, ct);
+        var created = await items.CreateAsync(workspaceId, listId, new JsonObject { ["title"] = title }, null, folderId, ct);
         if (!created.Succeeded)
         {
             return (null, null, created);
         }
 
         var item = created.Item!;
-        if (folderId is not null)
-        {
-            var moved = await items.MoveAsync(workspaceId, listId, item.Id, folderId, ct);
-            if (!moved.Succeeded)
-            {
-                return (null, null, moved);
-            }
-
-            item = moved.Item!;
-        }
-
         await SavePagesAsync(stored.Id, pageTexts, ct);
         var version = NewVersion(item, stored, Path.ChangeExtension(from.FileName, ".pdf"), number: 1, "pages", from.Languages);
         Complete(version, from, pageTexts.Count);

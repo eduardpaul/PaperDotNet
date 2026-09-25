@@ -102,7 +102,29 @@ internal sealed class ListItemStore(
         return items is null ? ([], error) : (items.Select(i => ToData(schema, i)).ToList(), null);
     }
 
-    public async Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken)
+    public async Task<(IReadOnlyList<ListQueryResult> Results, string? Error)> QueryAsync(
+        IReadOnlyList<ListData> lists, ListItemQuery query, CancellationToken cancellationToken)
+    {
+        var results = new List<ListQueryResult>(lists.Count);
+        foreach (var list in lists)
+        {
+            var (items, error) = await QueryAsync(list.WorkspaceId, list.Id, query, cancellationToken);
+            if (error is not null)
+            {
+                return ([], error);
+            }
+
+            results.Add(new ListQueryResult(list, items));
+        }
+
+        return (results, null);
+    }
+
+    public Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken) =>
+        CreateAsync(workspaceId, listId, fields, contentTypeId, null, cancellationToken);
+
+    public async Task<ListItemResult> CreateAsync(
+        Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, Guid? parentId, CancellationToken cancellationToken)
     {
         var schema = await LoadAsync(workspaceId, listId, cancellationToken);
         if (schema is null)
@@ -110,11 +132,15 @@ internal sealed class ListItemStore(
             return new ListItemResult(ListItemStatus.NotFound);
         }
 
-        return ToResult(schema, await writer.CreateAsync(schema, contentTypeId, null, isFolder: false, Element(fields), cancellationToken));
+        return ToResult(schema, await writer.CreateAsync(schema, contentTypeId, parentId, isFolder: false, Element(fields), cancellationToken));
     }
 
+    public Task<ListItemResult> CreateAsync(
+        Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken) =>
+        CreateAsync(workspaceId, listId, itemId, fields, contentTypeId, null, cancellationToken);
+
     public async Task<ListItemResult> CreateAsync(
-        Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken)
+        Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, Guid? contentTypeId, Guid? parentId, CancellationToken cancellationToken)
     {
         var schema = await LoadAsync(workspaceId, listId, cancellationToken);
         if (schema is null)
@@ -130,7 +156,7 @@ internal sealed class ListItemStore(
                 : new ListItemResult(ListItemStatus.Rejected, Message: "An item with this id exists in another list or was deleted.");
         }
 
-        return ToResult(schema, await writer.CreateAsync(schema, contentTypeId, null, isFolder: false, Element(fields), itemId, cancellationToken));
+        return ToResult(schema, await writer.CreateAsync(schema, contentTypeId, parentId, isFolder: false, Element(fields), itemId, cancellationToken));
     }
 
     public async Task<ListItemResult> UpdateAsync(

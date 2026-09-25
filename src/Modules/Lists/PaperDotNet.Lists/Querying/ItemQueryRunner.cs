@@ -118,54 +118,22 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         }
     }
 
-    /// <summary>
-    /// Readable items matching <paramref name="filter"/> and <paramref name="extra"/>, most recently changed first,
-    /// after a keyset position (smart folders, TAX-08).
-    /// </summary>
-    public async Task<(List<ListItem>? Items, string? Error)> RecentAsync(
-        ListSchema schema, string? filter, Expression<Func<ListItem, bool>>? extra, (DateTimeOffset At, Guid Id)? after, int take, CancellationToken ct)
-    {
-        var (query, error) = await ReadableAsync(schema, filter, extra, ct);
-        if (query is null)
-        {
-            return (null, error);
-        }
+    /// <summary>Readable items of the list matching <paramref name="filter"/> and <paramref name="extra"/>.</summary>
+    internal Task<(IQueryable<ListItem>? Query, string? Error)> MatchingAsync(
+        ListSchema schema, string? filter, Expression<Func<ListItem, bool>>? extra, CancellationToken ct) =>
+        ReadableAsync(schema, filter, extra, ct);
 
-        if (after is { } position)
-        {
-            var at = position.At;
-            var id = position.Id;
-            query = query.Where(i => i.UpdatedAt < at || (i.UpdatedAt == at && i.Id.CompareTo(id) < 0));
-        }
-
-        return (await query.OrderByDescending(i => i.UpdatedAt).ThenByDescending(i => i.Id).Take(take).ToListAsync(ct), null);
-    }
-
-    /// <summary>Counts of readable matching items per value of <paramref name="key"/> (metadata navigation, TAX-10).</summary>
-    public async Task<(Dictionary<string, int>? Groups, int Empty, string? Error)> GroupAsync(
-        ListSchema schema, string? filter, Expression<Func<ListItem, bool>>? extra, Expression<Func<ListItem, string?>> key, CancellationToken ct)
-    {
-        var (query, error) = await ReadableAsync(schema, filter, extra, ct);
-        if (query is null)
-        {
-            return (null, 0, error);
-        }
-
-        var groups = await query.GroupBy(key).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(ct);
-        return (groups.Where(g => g.Key is not null).ToDictionary(g => g.Key!, g => g.Count), groups.Where(g => g.Key is null).Sum(g => g.Count), null);
-    }
-
-    /// <summary>The settable <c>eq</c> conditions of a filter as field values (drop to classify, TAX-09).</summary>
-    public (JsonObject? Values, string? Error) Equalities(ListSchema schema, string? filter)
+    /// <summary>Parses a filter for callers that need the translator (smart-folder classification). No term expansion.</summary>
+    internal (ItemQueryTranslator? Translator, FilterClause? Clause, string? Error) TryFilter(ListSchema schema, string? filter)
     {
         try
         {
             var (translator, clause, _) = Parse(schema, filter, null, null);
-            return (clause is null ? [] : translator.Equalities(clause), null);
+            return (translator, clause, null);
         }
         catch (ODataException ex)
         {
-            return (null, ex.Message);
+            return (null, null, ex.Message);
         }
     }
 

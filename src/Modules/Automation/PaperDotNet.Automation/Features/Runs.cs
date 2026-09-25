@@ -355,10 +355,10 @@ internal sealed partial class AutomationInterpreter(
             }
 
             var instruction = program[run.Position];
-            var step = instruction.Step;
             switch (instruction.Op)
             {
                 case OpCode.Action:
+                    var action = (ActionNode)instruction.Step;
                     if (run.StepExecutionId is null)
                     {
                         // Stable across retries of this step: actions use it to be safe to repeat.
@@ -367,15 +367,15 @@ internal sealed partial class AutomationInterpreter(
                     }
 
                     var result = await executor.ExecuteAsync(
-                        new ActionDefinition(step.Action!, step.Inputs), run.WorkspaceId, item, run.StartedBy, data, outcomes,
+                        new ActionDefinition(action.Action!, action.Inputs), run.WorkspaceId, item, run.StartedBy, data, outcomes,
                         $"automation:{automation.Name}", $"run:{run.Id:N}:{run.Position}", run.StepExecutionId.Value, ct);
                     if (!result.Succeeded)
                     {
-                        await FailAsync($"{instruction.StepName} ({step.Action}): {result.Error}");
+                        await FailAsync($"{instruction.StepName} ({action.Action}): {result.Error}");
                         return;
                     }
 
-                    Log($"{instruction.StepName}: {step.Action} done");
+                    Log($"{instruction.StepName}: {action.Action} done");
                     Advance(run.Position + 1);
                     break;
                 case OpCode.Approval:
@@ -400,15 +400,17 @@ internal sealed partial class AutomationInterpreter(
                     await SaveAsync([new NotifyApproval(approval.Id, false, tenant.TenantId!.Value, tenant.TenantIdentifier!)]);
                     return;
                 case OpCode.Delay:
+                    var delay = (DelayNode)instruction.Step;
                     run.Status = RunStatus.Waiting;
                     run.WaitingFor = DelayKey(run.Id, run.Position);
-                    run.ResumeAt = time.GetUtcNow().AddHours(step.Hours!.Value);
+                    run.ResumeAt = time.GetUtcNow().AddHours(delay.Hours!.Value);
                     run.NextCheckAt = null;
-                    Log($"{instruction.StepName}: waiting {step.Hours} hours");
+                    Log($"{instruction.StepName}: waiting {delay.Hours} hours");
                     await SaveAsync();
                     return;
                 case OpCode.Branch:
-                    var (holds, error) = await EvaluateAsync(step, item, outcomes, ct);
+                    var condition = (ConditionNode)instruction.Step;
+                    var (holds, error) = await EvaluateAsync(condition, item, outcomes, ct);
                     if (error is not null)
                     {
                         await FailAsync($"{instruction.StepName}: {error}");
@@ -437,11 +439,11 @@ internal sealed partial class AutomationInterpreter(
 
     public static string Truncate(string text) => text.Length > 2000 ? text[..2000] : text;
 
-    private async Task<(bool Holds, string? Error)> EvaluateAsync(AutomationStep step, AutomationItem? item, Dictionary<string, string> outcomes, CancellationToken ct)
+    private async Task<(bool Holds, string? Error)> EvaluateAsync(ConditionNode step, AutomationItem? item, Dictionary<string, string> outcomes, CancellationToken ct)
     {
-        if (step.Step is { } name)
+        if (step.ApprovalName is { } name)
         {
-            return (outcomes.TryGetValue(name, out var outcome) && outcome == step.Is, null);
+            return (outcomes.TryGetValue(name, out var outcome) && outcome == step.Outcome, null);
         }
 
         if (item is null)
@@ -462,7 +464,7 @@ internal sealed partial class AutomationInterpreter(
             return existing;
         }
 
-        var step = instruction.Step;
+        var step = (ApprovalNode)instruction.Step;
         var current = await items.AsSystem().GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
         var (assignees, _) = await recipients.ResolveAsync(step.Assignees ?? [], current, run.StartedBy, ct);
         if (assignees.Count == 0)

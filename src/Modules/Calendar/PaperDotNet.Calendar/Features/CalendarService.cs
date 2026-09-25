@@ -84,34 +84,52 @@ internal sealed class CalendarService(IListItemStore items, CalendarDbContext db
     public static bool IsCalendarOrTaskList(ListData list) => list.ContentTypeKeys.Contains(EventKey) || list.ContentTypeKeys.Contains(TaskKey);
 
     /// <summary>Events overlapping [<paramref name="from"/>, <paramref name="to"/>) and, when asked, tasks due in it; sorted by start.</summary>
-    public async Task<List<CalendarEntry>> RangeAsync(IReadOnlyList<ListData> lists, DateTimeOffset from, DateTimeOffset to, bool includeTasks, CancellationToken ct)
+    public async Task<(List<CalendarEntry> Entries, string? Error)> RangeAsync(IReadOnlyList<ListData> lists, DateTimeOffset from, DateTimeOffset to, bool includeTasks, CancellationToken ct)
     {
+        var eventLists = lists.Where(l => l.ContentTypeKeys.Contains(EventKey)).ToList();
+        var taskLists = includeTasks ? lists.Where(l => l.ContentTypeKeys.Contains(TaskKey)).ToList() : [];
+        var eventFilter = $"fields/start lt {Literal(to)} and (fields/end gt {Literal(from)} or fields/start ge {Literal(from)})";
+        var (events, eventError) = await items.QueryAsync(eventLists, new ListItemQuery(eventFilter, "fields/start", 1000), ct);
+        if (eventError is not null)
+        {
+            return ([], eventError);
+        }
+
+        var first = DateOnly.FromDateTime(from.UtcDateTime);
+        var last = DateOnly.FromDateTime(to.UtcDateTime.AddTicks(-1));
+        var taskFilter = $"fields/dueDate ge {first:yyyy-MM-dd} and fields/dueDate le {last:yyyy-MM-dd}";
+        var (tasks, taskError) = await items.QueryAsync(taskLists, new ListItemQuery(taskFilter, "fields/dueDate", 1000), ct);
+        if (taskError is not null)
+        {
+            return ([], taskError);
+        }
+
+        var eventsByList = events.ToDictionary(p => p.List.Id);
+        var tasksByList = tasks.ToDictionary(p => p.List.Id);
         var entries = new List<CalendarEntry>();
         foreach (var list in lists)
         {
-            if (list.ContentTypeKeys.Contains(EventKey))
+            if (eventsByList.TryGetValue(list.Id, out var page))
             {
-                await AddEventsAsync(list, from, to, entries, ct);
+                await AddEventsAsync(list, page.Items, from, to, entries, ct);
             }
 
-            if (includeTasks && list.ContentTypeKeys.Contains(TaskKey))
+            if (tasksByList.TryGetValue(list.Id, out var due))
             {
-                await AddTasksAsync(list, from, to, entries, ct);
+                AddTasks(list, due.Items, entries);
             }
         }
 
-        return [.. entries.OrderBy(e => e.Start).ThenBy(e => e.Title, StringComparer.CurrentCulture).Take(MaxEntries)];
+        return ([.. entries.OrderBy(e => e.Start).ThenBy(e => e.Title, StringComparer.CurrentCulture).Take(MaxEntries)], null);
     }
 
-    private async Task AddEventsAsync(ListData list, DateTimeOffset from, DateTimeOffset to, List<CalendarEntry> entries, CancellationToken ct)
+    private async Task AddEventsAsync(ListData list, IReadOnlyList<ListItemData> found, DateTimeOffset from, DateTimeOffset to, List<CalendarEntry> entries, CancellationToken ct)
     {
         var recurrences = await db.Recurrences.AsNoTracking().Where(r => r.ListId == list.Id).ToListAsync(ct);
         var masterIds = recurrences.Select(r => r.ItemId).ToList();
         var exceptions = await db.OccurrenceChanges.AsNoTracking().Where(e => masterIds.Contains(e.MasterItemId)).ToListAsync(ct);
         var overrides = exceptions.Where(e => e.OverrideItemId is not null).ToDictionary(e => e.OverrideItemId!.Value, e => e.MasterItemId);
 
-        var filter = $"fields/start lt {Literal(to)} and (fields/end gt {Literal(from)} or fields/start ge {Literal(from)})";
-        var (found, _) = await items.QueryAsync(list.WorkspaceId, list.Id, new ListItemQuery(filter, "fields/start", 1000), ct);
         foreach (var item in found.Where(i => !masterIds.Contains(i.Id)))
         {
             if (EventTimes.From(item.Fields) is { } times)
@@ -139,12 +157,8 @@ internal sealed class CalendarService(IListItemStore items, CalendarDbContext db
         }
     }
 
-    private async Task AddTasksAsync(ListData list, DateTimeOffset from, DateTimeOffset to, List<CalendarEntry> entries, CancellationToken ct)
+    private static void AddTasks(ListData list, IReadOnlyList<ListItemData> found, List<CalendarEntry> entries)
     {
-        var first = DateOnly.FromDateTime(from.UtcDateTime);
-        var last = DateOnly.FromDateTime(to.UtcDateTime.AddTicks(-1));
-        var filter = $"fields/dueDate ge {first:yyyy-MM-dd} and fields/dueDate le {last:yyyy-MM-dd}";
-        var (found, _) = await items.QueryAsync(list.WorkspaceId, list.Id, new ListItemQuery(filter, "fields/dueDate", 1000), ct);
         foreach (var task in found)
         {
             if (task.Fields["dueDate"] is JsonValue due && DateOnly.TryParse(due.GetValue<string>(), CultureInfo.InvariantCulture, out var day))

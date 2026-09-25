@@ -1,6 +1,5 @@
 using System.Buffers.Text;
 using System.Globalization;
-using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -17,7 +16,6 @@ using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
-using PaperDotNet.Persistence;
 using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
@@ -245,7 +243,12 @@ internal static class SmartFolders
 
         var page = PageRequest.From(http);
         var after = http.Query.TryGetValue("$skiptoken", out var token) ? DecodeCursor(token.ToString()) : null;
-        var entries = await folders.ItemsAsync(folder, definition, path ?? [], after, page.Top + 1, ct);
+        var (entries, error) = await folders.ItemsAsync(folder, definition, path ?? [], after, page.Top + 1, ct);
+        if (error is not null)
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["filter"] = [error] });
+        }
+
         var value = entries.Take(page.Top).Select(e => new SmartFolderEntry(e.WorkspaceId, e.ListName, ItemResponse.From(e.Item))).ToList();
         string? nextLink = null;
         if (entries.Count > page.Top)
@@ -284,7 +287,10 @@ internal static class SmartFolders
         }
 
         var level = levels[path.Length];
-        return TypedResults.Ok(new SmartFolderGroupsResponse(await folders.GroupsAsync(folder, definition, path, level, ct), level.Field, level.By));
+        var (groups, error) = await folders.GroupsAsync(folder, definition, path, level, ct);
+        return error is null
+            ? TypedResults.Ok(new SmartFolderGroupsResponse(groups, level.Field, level.By))
+            : ApiErrors.Validation(new Dictionary<string, string[]> { ["filter"] = [error] });
     }
 
     private static async Task<Results<Ok<SmartFolderEntry>, Created<SmartFolderEntry>, ValidationProblem, ProblemHttpResult>> DropAsync(
@@ -453,368 +459,4 @@ internal static class SmartFolders
 
     internal static bool IsGroupable(FieldDefinition field, FieldTypeRegistry types) =>
         !field.AllowMultiple && types.Find(field.Type) is { } type && GroupableKinds.Contains(type.ValueKind);
-}
-
-/// <summary>Runs smart folder definitions over the caller's lists.</summary>
-internal sealed class SmartFolderQuery(
-    ListSchemaLoader loader, ItemQueryRunner runner, IWorkspaceAccess workspaces, IListItemStore items,
-    ITermStore terms, IUserDirectory users, FieldTypeRegistry fieldTypes)
-{
-    internal sealed record Candidate(Guid WorkspaceId, ListSchema Schema);
-
-    internal sealed record Found(Guid WorkspaceId, string ListName, ListItem Item);
-
-    /// <summary>The lists the folder covers that the caller can read (at most <see cref="SmartFolders.MaxLists"/>).</summary>
-    public async Task<List<Candidate>> ListsAsync(SmartFolder folder, SmartFolderDefinition definition, CancellationToken ct)
-    {
-        var memberships = await workspaces.GetMyWorkspacesAsync(ct);
-        var workspaceIds = folder.WorkspaceId is { } ws
-            ? memberships.Where(m => m.WorkspaceId == ws).ToList()
-            : memberships.ToList();
-        var candidates = new List<Candidate>();
-        foreach (var membership in workspaceIds)
-        {
-            foreach (var list in await loader.VisibleListsAsync(membership.WorkspaceId, membership.Level, ct))
-            {
-                if (definition.Lists is { Count: > 0 } names && !names.Contains(list.Name, StringComparer.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (definition.ListTemplates is { Count: > 0 } templates && !templates.Contains(list.TemplateKey ?? "", StringComparer.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (await loader.LoadAsync(membership.WorkspaceId, list.Id, ct) is not { } schema)
-                {
-                    continue;
-                }
-
-                if (definition.ContentTypes is { Count: > 0 } && ContentTypeIds(schema, definition).Count == 0)
-                {
-                    continue;
-                }
-
-                candidates.Add(new Candidate(membership.WorkspaceId, schema));
-                if (candidates.Count >= SmartFolders.MaxLists)
-                {
-                    return candidates;
-                }
-            }
-        }
-
-        return candidates;
-    }
-
-    public async Task<List<Found>> ItemsAsync(SmartFolder folder, SmartFolderDefinition definition, string?[] path, (DateTimeOffset At, Guid Id)? after, int take, CancellationToken ct)
-    {
-        var termInfo = await TermsAsync(definition, ct);
-        var found = new List<Found>();
-        foreach (var candidate in await ListsAsync(folder, definition, ct))
-        {
-            if (Filter(candidate.Schema, definition, termInfo) is not { } filter)
-            {
-                continue;
-            }
-
-            var (listItems, _) = await runner.RecentAsync(candidate.Schema, filter.Length == 0 ? null : filter, Extra(definition, path), after, take, ct);
-            found.AddRange((listItems ?? []).Select(i => new Found(candidate.WorkspaceId, candidate.Schema.List.Name, i)));
-        }
-
-        return found.OrderByDescending(f => f.Item.UpdatedAt).ThenByDescending(f => f.Item.Id).Take(take).ToList();
-    }
-
-    public async Task<List<SmartFolderGroup>> GroupsAsync(SmartFolder folder, SmartFolderDefinition definition, string?[] path, SmartFolderGroupBy level, CancellationToken ct)
-    {
-        var termInfo = await TermsAsync(definition, ct);
-        var counts = new Dictionary<string, int>();
-        var empty = 0;
-        FieldDefinition? sample = null;
-        foreach (var candidate in await ListsAsync(folder, definition, ct))
-        {
-            if (Filter(candidate.Schema, definition, termInfo) is not { } filter)
-            {
-                continue;
-            }
-
-            if (candidate.Schema.Fields.TryGetValue(level.Field, out var field) && !SmartFolders.IsGroupable(field, fieldTypes))
-            {
-                continue;
-            }
-
-            sample ??= field;
-            var (groups, none, _) = await runner.GroupAsync(candidate.Schema, filter.Length == 0 ? null : filter, Extra(definition, path), Key(level), ct);
-            foreach (var (value, count) in groups ?? [])
-            {
-                counts[value] = counts.GetValueOrDefault(value) + count;
-            }
-
-            empty += none;
-        }
-
-        var labels = await LabelsAsync(sample, counts.Keys.ToList(), ct);
-        var result = counts
-            .Select(c => new SmartFolderGroup(c.Key, labels.GetValueOrDefault(c.Key, c.Key), c.Value))
-            .OrderBy(g => g.Label, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        if (empty > 0)
-        {
-            result.Add(new SmartFolderGroup(null, "(empty)", empty));
-        }
-
-        return result;
-    }
-
-    /// <summary>Applies the folder's classification to an existing or new item of one of its lists.</summary>
-    public async Task<(ListItemResult? Result, bool Created, string? Error)> ClassifyAsync(
-        SmartFolder folder, SmartFolderDefinition definition, SmartFolderDropRequest request, CancellationToken ct)
-    {
-        var candidate = (await ListsAsync(folder, definition, ct)).FirstOrDefault(c => c.Schema.List.Id == request.ListId && c.WorkspaceId == request.WorkspaceId);
-        if (candidate is null)
-        {
-            return (null, false, "The list is not part of this smart folder.");
-        }
-
-        ListItemData? current = null;
-        if (request.ItemId is { } itemId)
-        {
-            current = await items.GetAsync(request.WorkspaceId, request.ListId, itemId, ct);
-            if (current is null)
-            {
-                return (new ListItemResult(ListItemStatus.NotFound), false, null);
-            }
-        }
-
-        var (values, error) = await ClassificationAsync(candidate.Schema, definition, request.Path ?? [], current?.Fields ?? request.Fields!, add: true, ct);
-        if (values is null)
-        {
-            return (null, false, error);
-        }
-
-        if (current is not null)
-        {
-            return (await items.UpdateAsync(request.WorkspaceId, request.ListId, current.Id, values, null, ct), false, null);
-        }
-
-        var fields = request.Fields!.DeepClone().AsObject();
-        foreach (var (name, value) in values)
-        {
-            fields[name] = value?.DeepClone();
-        }
-
-        var contentTypeId = definition.ContentTypes is { Count: > 0 } ? ContentTypeIds(candidate.Schema, definition).FirstOrDefault() : (Guid?)null;
-        return (await items.CreateAsync(request.WorkspaceId, request.ListId, fields, contentTypeId, ct), true, null);
-    }
-
-    public async Task<(ListItemResult? Result, string? Error)> UnclassifyAsync(
-        SmartFolder folder, SmartFolderDefinition definition, Guid workspaceId, Guid listId, Guid itemId, CancellationToken ct)
-    {
-        var candidate = (await ListsAsync(folder, definition, ct)).FirstOrDefault(c => c.Schema.List.Id == listId && c.WorkspaceId == workspaceId);
-        if (candidate is null)
-        {
-            return (null, "The list is not part of this smart folder.");
-        }
-
-        var current = await items.GetAsync(workspaceId, listId, itemId, ct);
-        if (current is null)
-        {
-            return (new ListItemResult(ListItemStatus.NotFound), null);
-        }
-
-        var (values, error) = await ClassificationAsync(candidate.Schema, definition, [], current.Fields, add: false, ct);
-        return values is null ? (null, error) : (await items.UpdateAsync(workspaceId, listId, itemId, values, null, ct), null);
-    }
-
-    /// <summary>
-    /// Field changes that put an item into the folder (<paramref name="add"/>) or take it out: its terms go into
-    /// the matching term fields, <c>eq</c> conditions and sub-folder values become field values.
-    /// </summary>
-    private async Task<(JsonObject? Values, string? Error)> ClassificationAsync(
-        ListSchema schema, SmartFolderDefinition definition, IReadOnlyList<string?> path, JsonObject current, bool add, CancellationToken ct)
-    {
-        var values = new JsonObject();
-        foreach (var term in await TermsAsync(definition, ct))
-        {
-            var field = schema.Fields.Values.FirstOrDefault(f =>
-                (f.Type == ManagedMetadataFieldType.TypeName && f.TermSetId == term.TermSetId) || (f.Type == KeywordsFieldType.TypeName && term.IsKeyword));
-            if (field is null)
-            {
-                return (null, $"The list '{schema.List.Name}' has no field for the term '{term.Name}'.");
-            }
-
-            var id = term.Id.ToString();
-            if (field.AllowMultiple)
-            {
-                var existing = (values[field.Name] ?? current[field.Name]) is JsonArray array
-                    ? array.Select(v => v?.GetValue<string>()).Where(v => v is not null).Select(v => v!).ToList()
-                    : [];
-                existing = add ? [.. existing.Where(v => v != id), id] : existing.Where(v => v != id).ToList();
-                values[field.Name] = new JsonArray([.. existing.Select(v => (JsonNode?)JsonValue.Create(v))]);
-            }
-            else if (add)
-            {
-                values[field.Name] = id;
-            }
-            else if (current[field.Name]?.GetValue<string>() == id)
-            {
-                values[field.Name] = null;
-            }
-        }
-
-        var (equalities, error) = runner.Equalities(schema, definition.Filter);
-        if (equalities is null)
-        {
-            return (null, error);
-        }
-
-        foreach (var (name, value) in equalities)
-        {
-            if (add)
-            {
-                values[name] = value?.DeepClone();
-            }
-            else if (value is not null && JsonNode.DeepEquals(current[name], value) && name != "title")
-            {
-                values[name] = null;
-            }
-        }
-
-        for (var level = 0; add && level < path.Count && level < (definition.GroupBy?.Count ?? 0); level++)
-        {
-            var group = definition.GroupBy![level];
-            if (group.By is null && schema.Fields.ContainsKey(group.Field))
-            {
-                values[group.Field] = path[level] is { Length: > 0 } value ? value : null;
-            }
-        }
-
-        return (values, null);
-    }
-
-    /// <summary>The OData filter of the folder for one list; null when the list cannot match (e.g. no term field).</summary>
-    private static string? Filter(ListSchema schema, SmartFolderDefinition definition, IReadOnlyList<TermInfo> termInfo)
-    {
-        var parts = new List<string>();
-        if (!definition.IncludeFolders)
-        {
-            parts.Add("isFolder eq false");
-        }
-
-        if (definition.ContentTypes is { Count: > 0 })
-        {
-            parts.Add("(" + string.Join(" or ", ContentTypeIds(schema, definition).Select(id => $"contentTypeId eq {id}")) + ")");
-        }
-
-        var termConditions = new List<string>();
-        foreach (var term in termInfo)
-        {
-            var fields = schema.Fields.Values
-                .Where(f => (f.Type == ManagedMetadataFieldType.TypeName && f.TermSetId == term.TermSetId) || (f.Type == KeywordsFieldType.TypeName && term.IsKeyword))
-                .Select(f => f.AllowMultiple ? $"fields/{f.Name}/any(t: t eq {term.Id})" : $"fields/{f.Name} eq {term.Id}")
-                .ToList();
-            if (fields.Count > 0)
-            {
-                termConditions.Add("(" + string.Join(" or ", fields) + ")");
-            }
-            else if (definition.TermMatch != "any")
-            {
-                return null;
-            }
-        }
-
-        if (termInfo.Count > 0)
-        {
-            if (termConditions.Count == 0)
-            {
-                return null;
-            }
-
-            parts.Add("(" + string.Join(definition.TermMatch == "any" ? " or " : " and ", termConditions) + ")");
-        }
-
-        if (!string.IsNullOrWhiteSpace(definition.Filter))
-        {
-            parts.Add("(" + definition.Filter + ")");
-        }
-
-        return string.Join(" and ", parts);
-    }
-
-    /// <summary>Conditions of the sub-folder <paramref name="path"/> (values of the groupBy levels).</summary>
-    private static Expression<Func<ListItem, bool>>? Extra(SmartFolderDefinition definition, string?[] path)
-    {
-        Expression<Func<ListItem, bool>>? result = null;
-        for (var level = 0; level < path.Length && level < (definition.GroupBy?.Count ?? 0); level++)
-        {
-            var group = definition.GroupBy![level];
-            var key = Key(group);
-            var parameter = key.Parameters[0];
-
-            // "(empty)": the field is not set (the JSON functions are not null-aware in comparisons).
-            Expression body = path[level] is { Length: > 0 } value
-                ? Expression.Equal(key.Body, Expression.Constant(value, typeof(string)))
-                : Expression.Not(Expression.Call(
-                    typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.HasProperty))!,
-                    Expression.Property(parameter, nameof(ListItem.Fields)), Expression.Constant(group.Field)));
-            var condition = Expression.Lambda<Func<ListItem, bool>>(body, parameter);
-            result = result is null ? condition : And(result, condition);
-        }
-
-        return result;
-    }
-
-    private static Expression<Func<ListItem, bool>> And(Expression<Func<ListItem, bool>> left, Expression<Func<ListItem, bool>> right)
-    {
-        var body = new ReplaceParameter(right.Parameters[0], left.Parameters[0]).Visit(right.Body);
-        return Expression.Lambda<Func<ListItem, bool>>(Expression.AndAlso(left.Body, body), left.Parameters[0]);
-    }
-
-    private sealed class ReplaceParameter(ParameterExpression from, ParameterExpression to) : ExpressionVisitor
-    {
-        protected override Expression VisitParameter(ParameterExpression node) => node == from ? to : base.VisitParameter(node);
-    }
-
-    /// <summary>The grouping key: the field's stored text, or its year/month prefix for dates.</summary>
-    private static Expression<Func<ListItem, string?>> Key(SmartFolderGroupBy level)
-    {
-        // Built as a tree so the field name is a constant (JSON paths cannot be query parameters).
-        var item = Expression.Parameter(typeof(ListItem), "i");
-        Expression text = Expression.Call(
-            typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Text))!, Expression.Property(item, nameof(ListItem.Fields)), Expression.Constant(level.Field));
-        if (level.By is "year" or "month")
-        {
-            text = Expression.Call(text, typeof(string).GetMethod(nameof(string.Substring), [typeof(int), typeof(int)])!,
-                Expression.Constant(0), Expression.Constant(level.By == "year" ? 4 : 7));
-        }
-
-        return Expression.Lambda<Func<ListItem, string?>>(text, item);
-    }
-
-    private static List<Guid> ContentTypeIds(ListSchema schema, SmartFolderDefinition definition) =>
-        schema.ContentTypes
-            .Where(c => definition.ContentTypes!.Any(n => string.Equals(n, c.Name, StringComparison.OrdinalIgnoreCase) || string.Equals(n, c.Key, StringComparison.OrdinalIgnoreCase)))
-            .Select(c => c.Id)
-            .ToList();
-
-    private async Task<IReadOnlyList<TermInfo>> TermsAsync(SmartFolderDefinition definition, CancellationToken ct) =>
-        definition.Terms is { Count: > 0 } ids ? await terms.GetTermsAsync(ids, ct) : [];
-
-    /// <summary>Display names for group values: term and user names for managed metadata and person fields.</summary>
-    private async Task<Dictionary<string, string>> LabelsAsync(FieldDefinition? field, List<string> values, CancellationToken ct)
-    {
-        var ids = values.Select(v => Guid.TryParse(v, out var id) ? id : (Guid?)null).Where(id => id is not null).Select(id => id!.Value).ToList();
-        if (field is null || ids.Count == 0)
-        {
-            return [];
-        }
-
-        IReadOnlyDictionary<Guid, string> names = field.Type switch
-        {
-            ManagedMetadataFieldType.TypeName => (await terms.GetTermsAsync(ids, ct)).ToDictionary(t => t.Id, t => t.Name),
-            "person" => await users.GetUserNamesAsync(ids, ct),
-            _ => new Dictionary<Guid, string>(),
-        };
-        return values.Where(v => Guid.TryParse(v, out var id) && names.ContainsKey(id)).ToDictionary(v => v, v => names[Guid.Parse(v)]);
-    }
 }
