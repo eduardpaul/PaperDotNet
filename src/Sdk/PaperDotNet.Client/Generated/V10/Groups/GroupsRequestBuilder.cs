@@ -20,14 +20,14 @@ namespace PaperDotNet.Client.V10.Groups
     {
         /// <summary>Gets an item from the PaperDotNet.Client.v10.groups.item collection</summary>
         /// <param name="position">Unique identifier of the item</param>
-        /// <returns>A <see cref="global::PaperDotNet.Client.V10.Groups.Item.GroupsItemRequestBuilder"/></returns>
-        public global::PaperDotNet.Client.V10.Groups.Item.GroupsItemRequestBuilder this[Guid position]
+        /// <returns>A <see cref="global::PaperDotNet.Client.V10.Groups.Item.GroupItemRequestBuilder"/></returns>
+        public global::PaperDotNet.Client.V10.Groups.Item.GroupItemRequestBuilder this[Guid position]
         {
             get
             {
                 var urlTplParams = new Dictionary<string, object>(PathParameters);
-                urlTplParams.Add("id", position);
-                return new global::PaperDotNet.Client.V10.Groups.Item.GroupsItemRequestBuilder(urlTplParams, RequestAdapter);
+                urlTplParams.Add("group%2Did", position);
+                return new global::PaperDotNet.Client.V10.Groups.Item.GroupItemRequestBuilder(urlTplParams, RequestAdapter);
             }
         }
         /// <summary>

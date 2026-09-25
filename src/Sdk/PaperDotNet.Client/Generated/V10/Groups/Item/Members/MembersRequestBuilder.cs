@@ -13,7 +13,7 @@ using System;
 namespace PaperDotNet.Client.V10.Groups.Item.Members
 {
     /// <summary>
-    /// Builds and executes requests for operations under \v1.0\groups\{id}\members
+    /// Builds and executes requests for operations under \v1.0\groups\{group-id}\members
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class MembersRequestBuilder : BaseRequestBuilder
@@ -35,7 +35,7 @@ namespace PaperDotNet.Client.V10.Groups.Item.Members
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public MembersRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/groups/{id}/members", pathParameters)
+        public MembersRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/groups/{group%2Did}/members", pathParameters)
         {
         }
         /// <summary>
@@ -43,7 +43,7 @@ namespace PaperDotNet.Client.V10.Groups.Item.Members
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public MembersRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/groups/{id}/members", rawUrl)
+        public MembersRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/groups/{group%2Did}/members", rawUrl)
         {
         }
         /// <returns>A List&lt;global::PaperDotNet.Client.Models.UserResponse&gt;</returns>

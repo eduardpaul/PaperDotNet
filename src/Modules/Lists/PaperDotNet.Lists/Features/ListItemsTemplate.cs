@@ -71,9 +71,11 @@ internal sealed class ListItemsTemplateHandler(
             {
                 entry["folder"] = true;
             }
-            else
+
+            var converted = converter.Convert(values[item.Id], fields.GetValueOrDefault(item.ContentTypeId, []));
+            if (!item.IsFolder || converted.Count > 0)
             {
-                entry["fields"] = converter.Convert(values[item.Id], fields.GetValueOrDefault(item.ContentTypeId, []));
+                entry["fields"] = converted; // Folders only when they have values (LST-19).
             }
 
             exported.Add(entry);
@@ -118,7 +120,7 @@ internal sealed class ListItemsTemplateHandler(
             var keywordIds = new HashSet<Guid>();
             var userIds = new HashSet<Guid>();
             var lookupLists = new Dictionary<Guid, string>();
-            foreach (var item in items.Where(i => !i.IsFolder))
+            foreach (var item in items)
             {
                 foreach (var field in fields.GetValueOrDefault(item.ContentTypeId, []))
                 {

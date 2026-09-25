@@ -6,7 +6,6 @@ from kiota_abstractions.base_request_configuration import RequestConfiguration
 from kiota_abstractions.default_query_parameters import QueryParameters
 from kiota_abstractions.get_path_parameters import get_path_parameters
 from kiota_abstractions.method import Method
-from kiota_abstractions.multipart_body import MultipartBody
 from kiota_abstractions.request_adapter import RequestAdapter
 from kiota_abstractions.request_information import RequestInformation
 from kiota_abstractions.request_option import RequestOption
@@ -17,6 +16,7 @@ from warnings import warn
 if TYPE_CHECKING:
     from .........models.document_response import DocumentResponse
     from .........models.http_validation_problem_details import HttpValidationProblemDetails
+    from .file_put_request_body import FilePutRequestBody
     from .pages.pages_request_builder import PagesRequestBuilder
     from .process.process_request_builder import ProcessRequestBuilder
     from .thumbnail.thumbnail_request_builder import ThumbnailRequestBuilder
@@ -47,7 +47,7 @@ class FileRequestBuilder(BaseRequestBuilder):
             raise Exception("Http core is null") 
         return await self.request_adapter.send_primitive_async(request_info, "bytes", None)
     
-    async def put(self,body: MultipartBody, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[DocumentResponse]:
+    async def put(self,body: FilePutRequestBody, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[DocumentResponse]:
         """
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -78,7 +78,7 @@ class FileRequestBuilder(BaseRequestBuilder):
         request_info.configure(request_configuration)
         return request_info
     
-    def to_put_request_information(self,body: MultipartBody, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_put_request_information(self,body: FilePutRequestBody, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.

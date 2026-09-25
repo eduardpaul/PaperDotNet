@@ -3,6 +3,7 @@ using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Provisioning.Contracts;
 
@@ -10,9 +11,10 @@ namespace PaperDotNet.Documents.Features;
 
 /// <summary>
 /// Template section <c>LibrarySettings</c> in <c>urn:paperdotnet:documents:1</c> (PRV-05): a library's
-/// duplicate policy and processing settings. Contributed through the SDK like an extension section.
+/// duplicate policy and processing settings, and the group whose inbox it is (<c>GroupInbox</c>, by name). Contributed
+/// through the SDK like an extension section.
 /// </summary>
-internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db) : ITemplateHandler
+internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db, IUserDirectory directory) : ITemplateHandler
 {
     public static readonly XNamespace Ns = "urn:paperdotnet:documents:1";
 
@@ -25,11 +27,19 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db) : IT
     public async Task<XElement?> ExportAsync(TemplateContext context, CancellationToken cancellationToken)
     {
         var settings = await db.LibrarySettings.AsNoTracking().FirstOrDefaultAsync(s => s.ListId == context.ListId, cancellationToken);
-        return settings is null ? null : new XElement(Element)
-            .With("DuplicatePolicy", settings.DuplicatePolicy)
-            .With("AutoProcess", settings.AutoProcess)
-            .With("OcrMode", settings.OcrMode)
-            .With("OcrLanguages", settings.OcrLanguages);
+        var inbox = await db.GroupInboxes.AsNoTracking().FirstOrDefaultAsync(g => g.ListId == context.ListId, cancellationToken);
+        var group = inbox is null ? null : (await directory.GetGroupNamesAsync([inbox.GroupId], cancellationToken)).GetValueOrDefault(inbox.GroupId);
+        if (settings is null && group is null)
+        {
+            return null;
+        }
+
+        return new XElement(Element)
+            .With("DuplicatePolicy", settings?.DuplicatePolicy)
+            .With("AutoProcess", settings?.AutoProcess)
+            .With("OcrMode", settings?.OcrMode)
+            .With("OcrLanguages", settings?.OcrLanguages)
+            .With("GroupInbox", group);
     }
 
     public async Task ApplyAsync(XElement section, TemplateContext context, CancellationToken cancellationToken)
@@ -69,10 +79,47 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db) : IT
             settings.OcrLanguages = wanted.OcrLanguages;
         }
 
+        await ApplyGroupInboxAsync(section, context, name, cancellationToken);
         if (!context.DryRun)
         {
             await db.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    /// <summary>Makes the library the inbox of the named group (DOC-16); a group's inbox moves here if it was elsewhere.</summary>
+    private async Task ApplyGroupInboxAsync(XElement section, TemplateContext context, string name, CancellationToken ct)
+    {
+        if (section.Attr("GroupInbox") is not { } groupName)
+        {
+            return;
+        }
+
+        if (await directory.FindGroupAsync(groupName, ct) is not { } groupId)
+        {
+            context.Warn($"{name}: the group '{groupName}' does not exist, so the library is not its inbox.", section);
+            return;
+        }
+
+        var inbox = await db.GroupInboxes.FirstOrDefaultAsync(g => g.GroupId == groupId, ct);
+        if (inbox is not null && inbox.ListId == context.ListId)
+        {
+            return;
+        }
+
+        context.Updated(TemplateKinds.Settings, $"{name}: inbox of group {groupName}");
+        if (context.DryRun)
+        {
+            return;
+        }
+
+        if (inbox is null)
+        {
+            inbox = new GroupInbox { Id = Ids.New(), GroupId = groupId };
+            db.GroupInboxes.Add(inbox);
+        }
+
+        inbox.WorkspaceId = context.WorkspaceId!.Value;
+        inbox.ListId = context.ListId!.Value;
     }
 }
 

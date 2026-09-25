@@ -11,6 +11,7 @@ using PaperDotNet.Client.V10.Me.CalendarFeeds;
 using PaperDotNet.Client.V10.Me.Events;
 using PaperDotNet.Client.V10.Me.Home;
 using PaperDotNet.Client.V10.Me.Inbox;
+using PaperDotNet.Client.V10.Me.Inboxes;
 using PaperDotNet.Client.V10.Me.NotificationSettings;
 using PaperDotNet.Client.V10.Me.Notifications;
 using PaperDotNet.Client.V10.Me.Passkeys;
@@ -65,6 +66,11 @@ namespace PaperDotNet.Client.V10.Me
         public global::PaperDotNet.Client.V10.Me.Inbox.InboxRequestBuilder Inbox
         {
             get => new global::PaperDotNet.Client.V10.Me.Inbox.InboxRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The inboxes property</summary>
+        public global::PaperDotNet.Client.V10.Me.Inboxes.InboxesRequestBuilder Inboxes
+        {
+            get => new global::PaperDotNet.Client.V10.Me.Inboxes.InboxesRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The notifications property</summary>
         public global::PaperDotNet.Client.V10.Me.Notifications.NotificationsRequestBuilder Notifications

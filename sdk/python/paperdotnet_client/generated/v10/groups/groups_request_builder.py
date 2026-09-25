@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from ...models.group_response import GroupResponse
     from ...models.http_validation_problem_details import HttpValidationProblemDetails
     from ...models.page_of_group_response import PageOfGroupResponse
-    from .item.groups_item_request_builder import GroupsItemRequestBuilder
+    from .item.group_item_request_builder import GroupItemRequestBuilder
 
 class GroupsRequestBuilder(BaseRequestBuilder):
     """
@@ -34,19 +34,19 @@ class GroupsRequestBuilder(BaseRequestBuilder):
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/groups", path_parameters)
     
-    def by_id(self,id: UUID) -> GroupsItemRequestBuilder:
+    def by_group_id(self,group_id: UUID) -> GroupItemRequestBuilder:
         """
         Gets an item from the paperdotnet_client.generated.v10.groups.item collection
-        param id: Unique identifier of the item
-        Returns: GroupsItemRequestBuilder
+        param group_id: Unique identifier of the item
+        Returns: GroupItemRequestBuilder
         """
-        if id is None:
-            raise TypeError("id cannot be null.")
-        from .item.groups_item_request_builder import GroupsItemRequestBuilder
+        if group_id is None:
+            raise TypeError("group_id cannot be null.")
+        from .item.group_item_request_builder import GroupItemRequestBuilder
 
         url_tpl_params = get_path_parameters(self.path_parameters)
-        url_tpl_params["id"] = id
-        return GroupsItemRequestBuilder(self.request_adapter, url_tpl_params)
+        url_tpl_params["group%2Did"] = group_id
+        return GroupItemRequestBuilder(self.request_adapter, url_tpl_params)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[PageOfGroupResponse]:
         """

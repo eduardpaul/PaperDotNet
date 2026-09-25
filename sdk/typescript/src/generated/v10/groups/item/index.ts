@@ -4,14 +4,20 @@
 // @ts-ignore
 import { createGroupResponseFromDiscriminatorValue, createHttpValidationProblemDetailsFromDiscriminatorValue, serializeGroupResponse, serializeUpdateGroupRequest, type GroupResponse, type HttpValidationProblemDetails, type UpdateGroupRequest } from '../../../models/index.js';
 // @ts-ignore
+import { InboxRequestBuilderNavigationMetadata, InboxRequestBuilderRequestsMetadata, type InboxRequestBuilder } from './inbox/index.js';
+// @ts-ignore
 import { MembersRequestBuilderNavigationMetadata, MembersRequestBuilderRequestsMetadata, type MembersRequestBuilder } from './members/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/groups/{id}
+ * Builds and executes requests for operations under /v1.0/groups/{group-id}
  */
-export interface GroupsItemRequestBuilder extends BaseRequestBuilder<GroupsItemRequestBuilder> {
+export interface GroupItemRequestBuilder extends BaseRequestBuilder<GroupItemRequestBuilder> {
+    /**
+     * The inbox property
+     */
+    get inbox(): InboxRequestBuilder;
     /**
      * The members property
      */
@@ -42,11 +48,15 @@ export interface GroupsItemRequestBuilder extends BaseRequestBuilder<GroupsItemR
 /**
  * Uri template for the request builder.
  */
-export const GroupsItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups/{id}";
+export const GroupItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups/{group%2Did}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */
-export const GroupsItemRequestBuilderNavigationMetadata: Record<Exclude<keyof GroupsItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+export const GroupItemRequestBuilderNavigationMetadata: Record<Exclude<keyof GroupItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+    inbox: {
+        requestsMetadata: InboxRequestBuilderRequestsMetadata,
+        navigationMetadata: InboxRequestBuilderNavigationMetadata,
+    },
     members: {
         requestsMetadata: MembersRequestBuilderRequestsMetadata,
         navigationMetadata: MembersRequestBuilderNavigationMetadata,
@@ -55,13 +65,13 @@ export const GroupsItemRequestBuilderNavigationMetadata: Record<Exclude<keyof Gr
 /**
  * Metadata for all the requests in the request builder.
  */
-export const GroupsItemRequestBuilderRequestsMetadata: RequestsMetadata = {
+export const GroupItemRequestBuilderRequestsMetadata: RequestsMetadata = {
     delete: {
-        uriTemplate: GroupsItemRequestBuilderUriTemplate,
+        uriTemplate: GroupItemRequestBuilderUriTemplate,
         adapterMethodName: "sendNoResponseContent",
     },
     patch: {
-        uriTemplate: GroupsItemRequestBuilderUriTemplate,
+        uriTemplate: GroupItemRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
             400: createHttpValidationProblemDetailsFromDiscriminatorValue as ParsableFactory<Parsable>,

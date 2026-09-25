@@ -67,9 +67,10 @@ internal sealed class ItemWriter(
             return parentError;
         }
 
-        var definitions = isFolder ? [] : contentType.Fields;
+        // Folders hold values of their content type's fields too (LST-19), but required fields and defaults are for items.
+        var definitions = contentType.Fields;
         var errors = new Dictionary<string, string[]>();
-        var values = await NormalizeAsync(definitions, fields, [], applyDefaults: true, errors, ct);
+        var values = await NormalizeAsync(definitions, fields, [], applyDefaults: !isFolder, enforceRequired: !isFolder, errors, ct);
         if (errors.Count > 0)
         {
             return new ItemWriteResult(null, errors);
@@ -94,7 +95,7 @@ internal sealed class ItemWriter(
             return cancelled;
         }
 
-        values = await FinalizeAsync(definitions, snapshot, context.After!, errors, ct);
+        values = await FinalizeAsync(definitions, snapshot, context.After!, !isFolder, errors, ct);
         if (errors.Count > 0)
         {
             return new ItemWriteResult(null, errors);
@@ -142,9 +143,9 @@ internal sealed class ItemWriter(
             }
         }
 
-        var definitions = item.IsFolder ? [] : contentType.Fields;
+        var definitions = contentType.Fields;
         var errors = new Dictionary<string, string[]>();
-        var values = await NormalizeAsync(definitions, fields, current, applyDefaults: false, errors, ct);
+        var values = await NormalizeAsync(definitions, fields, current, applyDefaults: false, enforceRequired: !item.IsFolder, errors, ct);
         if (errors.Count > 0)
         {
             return new ItemWriteResult(null, errors);
@@ -166,7 +167,7 @@ internal sealed class ItemWriter(
             return cancelled;
         }
 
-        values = await FinalizeAsync(definitions, snapshot, context.After!, errors, ct);
+        values = await FinalizeAsync(definitions, snapshot, context.After!, !item.IsFolder, errors, ct);
         if (errors.Count > 0)
         {
             return new ItemWriteResult(null, errors);
@@ -335,7 +336,8 @@ internal sealed class ItemWriter(
 
     /// <summary>Re-validates the values only when a mutator changed them.</summary>
     private async Task<JsonObject> FinalizeAsync(
-        IReadOnlyList<FieldDefinition> definitions, string validatedSnapshot, JsonObject mutated, Dictionary<string, string[]> errors, CancellationToken ct)
+        IReadOnlyList<FieldDefinition> definitions, string validatedSnapshot, JsonObject mutated, bool enforceRequired,
+        Dictionary<string, string[]> errors, CancellationToken ct)
     {
         var json = mutated.ToJsonString();
         if (json == validatedSnapshot)
@@ -344,15 +346,15 @@ internal sealed class ItemWriter(
         }
 
         using var document = JsonDocument.Parse(json);
-        return await NormalizeAsync(definitions, document.RootElement, [], applyDefaults: false, errors, ct);
+        return await NormalizeAsync(definitions, document.RootElement, [], applyDefaults: false, enforceRequired, errors, ct);
     }
 
     /// <summary>
     /// Validates and normalizes <paramref name="input"/> on top of <paramref name="baseValues"/>
-    /// (null in the input removes a value). Required fields and <c>title</c> are enforced.
+    /// (null in the input removes a value). <c>title</c> is always required; required fields when <paramref name="enforceRequired"/>.
     /// </summary>
     private async Task<JsonObject> NormalizeAsync(
-        IReadOnlyList<FieldDefinition> definitions, JsonElement? input, JsonObject baseValues, bool applyDefaults,
+        IReadOnlyList<FieldDefinition> definitions, JsonElement? input, JsonObject baseValues, bool applyDefaults, bool enforceRequired,
         Dictionary<string, string[]> errors, CancellationToken ct)
     {
         var result = baseValues;
@@ -427,7 +429,7 @@ internal sealed class ItemWriter(
             errors["fields.title"] = ["title is required."];
         }
 
-        foreach (var definition in definitions.Where(d => d.Required && !result.ContainsKey(d.Name)))
+        foreach (var definition in definitions.Where(d => enforceRequired && d.Required && !result.ContainsKey(d.Name)))
         {
             errors.TryAdd($"fields.{definition.Name}", ["This field is required."]);
         }

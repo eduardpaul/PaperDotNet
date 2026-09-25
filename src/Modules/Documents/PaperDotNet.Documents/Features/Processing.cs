@@ -108,7 +108,11 @@ internal sealed partial class DocumentProcessor(
     {
         var stored = await db.StoredFiles.FirstAsync(f => f.Id == version.StoredFileId, ct);
         var settings = await db.LibrarySettings.AsNoTracking().FirstOrDefaultAsync(s => s.ListId == version.ListId, ct);
-        var languages = payload.Languages ?? settings?.OcrLanguages ?? (await preferences.GetDefaultsAsync(ct)).DocumentLanguages;
+        // DOC-17: the request, the file, the library, then the uploader's (or the organization's) document languages.
+        var languages = payload.Languages ?? version.Languages ?? settings?.OcrLanguages
+            ?? (version.CreatedBy is { } uploader
+                ? (await preferences.GetAsync(uploader, ct)).DocumentLanguages
+                : (await preferences.GetDefaultsAsync(ct)).DocumentLanguages);
         var ocrMode = settings?.OcrMode ?? OcrMode.Auto;
 
         var work = Directory.CreateTempSubdirectory("pdn_process_");
@@ -198,6 +202,7 @@ internal sealed partial class DocumentProcessor(
             ProcessingStatus = ProcessingStatus.Succeeded,
             PageCount = pages.Count,
             TextLanguage = FirstLanguage(languages),
+            Languages = version.Languages,
         };
         db.FileVersions.Add(ocrVersion);
         return ocrVersion;

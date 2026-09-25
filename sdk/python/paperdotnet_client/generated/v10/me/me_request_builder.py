@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from .events.events_request_builder import EventsRequestBuilder
     from .home.home_request_builder import HomeRequestBuilder
     from .inbox.inbox_request_builder import InboxRequestBuilder
+    from .inboxes.inboxes_request_builder import InboxesRequestBuilder
     from .notifications.notifications_request_builder import NotificationsRequestBuilder
     from .notification_settings.notification_settings_request_builder import NotificationSettingsRequestBuilder
     from .passkeys.passkeys_request_builder import PasskeysRequestBuilder
@@ -139,6 +140,15 @@ class MeRequestBuilder(BaseRequestBuilder):
         from .inbox.inbox_request_builder import InboxRequestBuilder
 
         return InboxRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def inboxes(self) -> InboxesRequestBuilder:
+        """
+        The inboxes property
+        """
+        from .inboxes.inboxes_request_builder import InboxesRequestBuilder
+
+        return InboxesRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def notification_settings(self) -> NotificationSettingsRequestBuilder:

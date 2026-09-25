@@ -8,6 +8,7 @@
     <PackageVersion Include="Ical.Net" Version="5.2.3" />
   </ItemGroup>
   <ItemGroup Label="Documents">
+    <PackageVersion Include="PDFsharp" Version="6.2.4" />
     <PackageVersion Include="PdfPig" Version="0.1.16" />
     <PackageVersion Include="PDFtoImage" Version="5.4.0" />
     <PackageVersion Include="CliWrap" Version="3.10.5" />

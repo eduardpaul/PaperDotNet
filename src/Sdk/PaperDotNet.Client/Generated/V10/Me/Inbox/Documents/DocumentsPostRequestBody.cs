@@ -22,6 +22,14 @@ namespace PaperDotNet.Client.V10.Me.Inbox.Documents
 #else
         public byte[] File { get; set; }
 #endif
+        /// <summary>The languages property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Languages { get; set; }
+#nullable restore
+#else
+        public string Languages { get; set; }
+#endif
         /// <summary>The title property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -56,6 +64,7 @@ namespace PaperDotNet.Client.V10.Me.Inbox.Documents
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "file", n => { File = n.GetByteArrayValue(); } },
+                { "languages", n => { Languages = n.GetStringValue(); } },
                 { "title", n => { Title = n.GetStringValue(); } },
             };
         }
@@ -67,6 +76,7 @@ namespace PaperDotNet.Client.V10.Me.Inbox.Documents
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteByteArrayValue("file", File);
+            writer.WriteStringValue("languages", Languages);
             writer.WriteStringValue("title", Title);
             writer.WriteAdditionalData(AdditionalData);
         }

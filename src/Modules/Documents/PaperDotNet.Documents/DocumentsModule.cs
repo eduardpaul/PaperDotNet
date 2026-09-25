@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.Documents.Features;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
@@ -37,17 +38,24 @@ public sealed class DocumentsModule : IModule
         services.AddOptions<DocumentsOptions>().BindConfiguration(DocumentsOptions.Section);
         services.AddScoped<FileIntake>();
         services.AddScoped<DocumentService>();
+        services.AddScoped<PageEditor>();
         services.AddScoped<ProcessingScheduler>();
         services.AddScoped<OcrEngine>();
         services.AddScoped<PageRenderer>();
         services.AddOperationHandler<DocumentProcessor>();
         services.AddScoped<IItemSearchContributor, DocumentSearchContent>();
         services.AddEventSubscriber<ItemPurged, PurgedItemFiles>();
+        services.AddEventSubscriber<PrincipalDeleted, DeletedGroupInbox>();
         services.AddTenantRecurringJob<StoredFileCleanupJob>(StoredFileCleanupJob.Name, StoredFileCleanupJob.Schedule);
         services.AddScoped<ITemplateHandler, LibrarySettingsTemplateHandler>();
         services.AddScoped<ITemplateHandler, DocumentFilesTemplateHandler>();
         services.AddScopes(DocumentScopes.All);
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) => DocumentEndpoints.Map(endpoints);
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        DocumentEndpoints.Map(endpoints);
+        GroupInboxEndpoints.Map(endpoints);
+        PageOperationEndpoints.Map(endpoints);
+    }
 }

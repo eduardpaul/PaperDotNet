@@ -168,7 +168,7 @@ public sealed class ListsTests(PaperDotNetApiFactory factory)
         var children = (await (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{folder}/children", Ct)).ReadJsonAsync())
             .GetProperty("value").EnumerateArray().Select(i => i.GetProperty("fields").GetProperty("title").GetString()).ToList();
         Assert.Equal(["Q1", "INV-1"], children);
-        Assert.Equal(HttpStatusCode.BadRequest, folderFields.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, folderFields.StatusCode); // Folders hold field values too (LST-19).
 
         var folderUrl = $"/v1.0/workspaces/{ws}/lists/{list}/items/{folder}";
         var etag = (await client.GetAsync(folderUrl, Ct)).Headers.ETag!.Tag;

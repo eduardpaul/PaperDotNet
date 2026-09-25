@@ -4945,6 +4945,14 @@
                         "format": "uuid"
                       }
                     }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "languages": {
+                        "type": "string"
+                      }
+                    }
                   }
                 ]
               }
@@ -5154,11 +5162,24 @@
             "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "file": {
-                    "$ref": "#/components/schemas/IFormFile"
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "$ref": "#/components/schemas/IFormFile"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "languages": {
+                        "type": "string"
+                      }
+                    }
                   }
-                }
+                ]
               }
             }
           },
@@ -5568,6 +5589,14 @@
                         "type": "string"
                       }
                     }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "languages": {
+                        "type": "string"
+                      }
+                    }
                   }
                 ]
               }
@@ -5582,6 +5611,415 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DocumentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/groups/{groupId}/inbox": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "operationId": "GetGroupInbox",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupInboxResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Documents"
+        ],
+        "operationId": "SetGroupInbox",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupInboxRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupInboxResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Documents"
+        ],
+        "operationId": "RemoveGroupInbox",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/groups/{groupId}/inbox/documents": {
+      "post": {
+        "tags": [
+          "Documents"
+        ],
+        "operationId": "UploadToGroupInbox",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "$ref": "#/components/schemas/IFormFile"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "languages": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/me/inboxes": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "operationId": "ListMyInboxes",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InboxResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages": {
+      "put": {
+        "tags": [
+          "Documents"
+        ],
+        "operationId": "EditPages",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditPagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileVersionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/extract": {
+      "post": {
+        "tags": [
+          "Documents"
+        ],
+        "operationId": "ExtractPages",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtractPagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/move": {
+      "post": {
+        "tags": [
+          "Documents"
+        ],
+        "operationId": "MovePages",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MovePagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOperationResponse"
                 }
               }
             }
@@ -11002,6 +11440,24 @@
         },
         "description": "An existing document with the same content (DOC-10), among those the caller can read."
       },
+      "EditPagesRequest": {
+        "required": [
+          "pages"
+        ],
+        "type": "object",
+        "properties": {
+          "pages": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/PageSpec"
+            }
+          }
+        },
+        "description": "The pages of the new version in order: pages left out are deleted (DOC-05)."
+      },
       "ExportRequest": {
         "required": [
           "workspaceId"
@@ -11309,6 +11765,64 @@
           "choice"
         ]
       },
+      "ExtractPagesRequest": {
+        "required": [
+          "pages"
+        ],
+        "type": "object",
+        "properties": {
+          "pages": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          "separate": {
+            "type": "boolean",
+            "default": false
+          },
+          "remove": {
+            "type": "boolean",
+            "default": false
+          },
+          "workspaceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "folderId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "Extracts pages into new documents (DOC-06): one document, or one per page with \u0060separate\u0060. The target library and\nfolder default to the source\u0027s library and folder; \u0060remove\u0060 also deletes the pages from the source."
+      },
       "FacetValue": {
         "required": [
           "value",
@@ -11560,7 +12074,8 @@
           "processingError",
           "operationId",
           "pageCount",
-          "textLanguage"
+          "textLanguage",
+          "languages"
         ],
         "type": "object",
         "properties": {
@@ -11632,6 +12147,65 @@
             "format": "int32"
           },
           "textLanguage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "languages": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "GroupInboxRequest": {
+        "required": [
+          "workspaceId",
+          "listId"
+        ],
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "GroupInboxResponse": {
+        "required": [
+          "groupId",
+          "groupName",
+          "workspaceId",
+          "listId",
+          "listName"
+        ],
+        "type": "object",
+        "properties": {
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listName": {
             "type": [
               "null",
               "string"
@@ -11798,6 +12372,47 @@
             }
           }
         }
+      },
+      "InboxResponse": {
+        "required": [
+          "kind",
+          "workspaceId",
+          "listId",
+          "listName",
+          "groupId",
+          "groupName"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listName": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "An inbox the caller can upload into: \u0060personal\u0060 (Home/Inbox) or \u0060group\u0060."
       },
       "ItemPage": {
         "required": [
@@ -12405,6 +13020,49 @@
             "format": "uuid"
           }
         }
+      },
+      "MovePagesRequest": {
+        "required": [
+          "targetWorkspaceId",
+          "targetListId",
+          "targetItemId"
+        ],
+        "type": "object",
+        "properties": {
+          "targetWorkspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetListId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pages": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          "position": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "Moves pages (all when omitted) into another document (DOC-06): \u0060append\u0060 (default), \u0060prepend\u0060, or \u0060replace\u0060\nits pages. A source left without pages goes to the recycle bin, so moving all pages merges two documents."
       },
       "MyTask": {
         "required": [
@@ -13091,6 +13749,73 @@
           }
         },
         "description": "A page of results in Graph/OData shape."
+      },
+      "PageOperationResponse": {
+        "required": [
+          "source",
+          "sourceDeleted",
+          "documents",
+          "target"
+        ],
+        "type": "object",
+        "properties": {
+          "source": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FileVersionResponse"
+              }
+            ]
+          },
+          "sourceDeleted": {
+            "type": "boolean"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentResponse"
+            }
+          },
+          "target": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FileVersionResponse"
+              }
+            ]
+          }
+        },
+        "description": "The result: the source\u0027s new version (null when it was deleted), new documents, the target\u0027s new version."
+      },
+      "PageSpec": {
+        "required": [
+          "page"
+        ],
+        "type": "object",
+        "properties": {
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rotate": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
+          }
+        },
+        "description": "A page of the result: its number in the current file, turned clockwise by \u0060rotate\u0060 degrees (0, 90, 180, 270)."
       },
       "PasskeyLoginOptionsRequest": {
         "required": [

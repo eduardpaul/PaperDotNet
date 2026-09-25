@@ -4,7 +4,7 @@
 // @ts-ignore
 import { createGroupResponseFromDiscriminatorValue, createHttpValidationProblemDetailsFromDiscriminatorValue, createPageOfGroupResponseFromDiscriminatorValue, serializeCreateGroupRequest, serializeGroupResponse, type CreateGroupRequest, type GroupResponse, type HttpValidationProblemDetails, type PageOfGroupResponse } from '../../models/index.js';
 // @ts-ignore
-import { GroupsItemRequestBuilderNavigationMetadata, GroupsItemRequestBuilderRequestsMetadata, type GroupsItemRequestBuilder } from './item/index.js';
+import { GroupItemRequestBuilderNavigationMetadata, GroupItemRequestBuilderRequestsMetadata, type GroupItemRequestBuilder } from './item/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -14,10 +14,10 @@ import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMeta
 export interface GroupsRequestBuilder extends BaseRequestBuilder<GroupsRequestBuilder> {
     /**
      * Gets an item from the paperdotnet.v10.groups.item collection
-     * @param id Unique identifier of the item
-     * @returns {GroupsItemRequestBuilder}
+     * @param groupId Unique identifier of the item
+     * @returns {GroupItemRequestBuilder}
      */
-     byId(id: Guid) : GroupsItemRequestBuilder;
+     byGroupId(groupId: Guid) : GroupItemRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PageOfGroupResponse>}
@@ -50,10 +50,10 @@ export const GroupsRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups";
  * Metadata for all the navigation properties in the request builder.
  */
 export const GroupsRequestBuilderNavigationMetadata: Record<Exclude<keyof GroupsRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
-    byId: {
-        requestsMetadata: GroupsItemRequestBuilderRequestsMetadata,
-        navigationMetadata: GroupsItemRequestBuilderNavigationMetadata,
-        pathParametersMappings: ["id"],
+    byGroupId: {
+        requestsMetadata: GroupItemRequestBuilderRequestsMetadata,
+        navigationMetadata: GroupItemRequestBuilderNavigationMetadata,
+        pathParametersMappings: ["group%2Did"],
     },
 };
 /**

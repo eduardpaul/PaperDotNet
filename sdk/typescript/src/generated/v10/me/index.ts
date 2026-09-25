@@ -18,6 +18,8 @@ import { HomeRequestBuilderRequestsMetadata, type HomeRequestBuilder } from './h
 // @ts-ignore
 import { InboxRequestBuilderNavigationMetadata, type InboxRequestBuilder } from './inbox/index.js';
 // @ts-ignore
+import { InboxesRequestBuilderRequestsMetadata, type InboxesRequestBuilder } from './inboxes/index.js';
+// @ts-ignore
 import { NotificationsRequestBuilderNavigationMetadata, NotificationsRequestBuilderRequestsMetadata, type NotificationsRequestBuilder } from './notifications/index.js';
 // @ts-ignore
 import { NotificationSettingsRequestBuilderNavigationMetadata, NotificationSettingsRequestBuilderRequestsMetadata, type NotificationSettingsRequestBuilder } from './notificationSettings/index.js';
@@ -66,6 +68,10 @@ export interface MeRequestBuilder extends BaseRequestBuilder<MeRequestBuilder> {
      * The inbox property
      */
     get inbox(): InboxRequestBuilder;
+    /**
+     * The inboxes property
+     */
+    get inboxes(): InboxesRequestBuilder;
     /**
      * The notifications property
      */
@@ -136,6 +142,9 @@ export const MeRequestBuilderNavigationMetadata: Record<Exclude<keyof MeRequestB
     },
     inbox: {
         navigationMetadata: InboxRequestBuilderNavigationMetadata,
+    },
+    inboxes: {
+        requestsMetadata: InboxesRequestBuilderRequestsMetadata,
     },
     notifications: {
         requestsMetadata: NotificationsRequestBuilderRequestsMetadata,

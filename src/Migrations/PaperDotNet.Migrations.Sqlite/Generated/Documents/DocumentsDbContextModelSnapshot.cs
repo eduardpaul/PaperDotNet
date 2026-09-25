@@ -46,6 +46,11 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Documents
                         .HasColumnType("TEXT")
                         .HasColumnName("item_id");
 
+                    b.Property<string>("Languages")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("languages");
+
                     b.Property<Guid>("ListId")
                         .HasColumnType("TEXT")
                         .HasColumnName("list_id");
@@ -137,6 +142,58 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Documents
                         .HasDatabaseName("ix_documents_file_versions_tenant_id_sha256_is_current");
 
                     b.ToTable("documents_file_versions", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Documents.Data.GroupInbox", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("group_id");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("list_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_documents_group_inboxes");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_documents_group_inboxes_tenant_id");
+
+                    b.HasIndex("TenantId", "GroupId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_documents_group_inboxes_tenant_id_group_id");
+
+                    b.ToTable("documents_group_inboxes", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Documents.Data.LibrarySettings", b =>

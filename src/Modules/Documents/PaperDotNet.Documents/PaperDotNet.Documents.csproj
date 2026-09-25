@@ -10,6 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Text extraction, page rendering (PDFium + SkiaSharp) and running the Tesseract CLI. -->
+    <PackageReference Include="PDFsharp" />
     <PackageReference Include="PdfPig" />
     <PackageReference Include="PDFtoImage" />
     <PackageReference Include="CliWrap" />

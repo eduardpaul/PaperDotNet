@@ -24,6 +24,7 @@ export function createDocumentsPostRequestBodyFromDiscriminatorValue(parseNode: 
 export function deserializeIntoDocumentsPostRequestBody(documentsPostRequestBody: Partial<DocumentsPostRequestBody> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "file": n => { documentsPostRequestBody.file = n.getByteArrayValue(); },
+        "languages": n => { documentsPostRequestBody.languages = n.getStringValue(); },
         "title": n => { documentsPostRequestBody.title = n.getStringValue(); },
     }
 }
@@ -32,6 +33,10 @@ export interface DocumentsPostRequestBody extends AdditionalDataHolder, Parsable
      * The file property
      */
     file?: ArrayBuffer | null;
+    /**
+     * The languages property
+     */
+    languages?: string | null;
     /**
      * The title property
      */
@@ -65,6 +70,7 @@ export interface DocumentsRequestBuilder extends BaseRequestBuilder<DocumentsReq
 export function serializeDocumentsPostRequestBody(writer: SerializationWriter, documentsPostRequestBody: Partial<DocumentsPostRequestBody> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!documentsPostRequestBody || isSerializingDerivedType) { return; }
     writer.writeByteArrayValue("file", documentsPostRequestBody.file);
+    writer.writeStringValue("languages", documentsPostRequestBody.languages);
     writer.writeStringValue("title", documentsPostRequestBody.title);
     writer.writeAdditionalData(documentsPostRequestBody.additionalData);
 }

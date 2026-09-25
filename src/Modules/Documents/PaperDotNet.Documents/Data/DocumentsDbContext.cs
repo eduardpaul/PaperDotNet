@@ -108,6 +108,12 @@ public sealed class FileVersion : ITenantOwned, IAuditable
     /// <summary>Language of the text (Tesseract code, e.g. <c>eng</c>), from OCR or the library settings.</summary>
     public string? TextLanguage { get; set; }
 
+    /// <summary>
+    /// Languages chosen for this file (DOC-17), e.g. <c>fra+eng</c>; null uses the library's languages, then the
+    /// uploader's document languages. New versions of the item keep them.
+    /// </summary>
+    public string? Languages { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
@@ -163,6 +169,28 @@ public sealed class LibrarySettings : ITenantOwned, IAuditable, IVersioned
     public Guid? UpdatedBy { get; set; }
 }
 
+/// <summary>The library that is a group's inbox (DOC-16): members upload into it and find it in their inboxes.</summary>
+public sealed class GroupInbox : ITenantOwned, IAuditable
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid GroupId { get; set; }
+
+    public Guid WorkspaceId { get; set; }
+
+    public Guid ListId { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Guid? CreatedBy { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public Guid? UpdatedBy { get; set; }
+}
+
 public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> options, ITenantContext tenant) : ExtensionDbContext(options, tenant)
 {
     public const string Schema = "documents";
@@ -172,6 +200,8 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
     public DbSet<FileVersion> FileVersions => Set<FileVersion>();
 
     public DbSet<LibrarySettings> LibrarySettings => Set<LibrarySettings>();
+
+    public DbSet<GroupInbox> GroupInboxes => Set<GroupInbox>();
 
     public DbSet<StoredFilePage> Pages => Set<StoredFilePage>();
 
@@ -194,6 +224,7 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
             b.Property(v => v.ProcessingStatus).HasConversion<string>().HasMaxLength(20);
             b.Property(v => v.ProcessingError).HasMaxLength(1000);
             b.Property(v => v.TextLanguage).HasMaxLength(20);
+            b.Property(v => v.Languages).HasMaxLength(100);
             b.HasIndex(v => new { v.ItemId, v.Number }).IsUnique();
             b.HasIndex(v => new { v.TenantId, v.Sha256, v.IsCurrent });
             b.HasIndex(v => v.StoredFileId);
@@ -210,6 +241,11 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
             b.Property(s => s.OcrMode).HasConversion<string>().HasMaxLength(20);
             b.Property(s => s.OcrLanguages).HasMaxLength(100);
             b.HasIndex(s => new { s.TenantId, s.ListId }).IsUnique();
+        });
+        modelBuilder.Entity<GroupInbox>(b =>
+        {
+            b.ToTable("group_inboxes");
+            b.HasIndex(g => new { g.TenantId, g.GroupId }).IsUnique();
         });
     }
 }

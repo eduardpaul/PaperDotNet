@@ -20,11 +20,11 @@ namespace PaperDotNet.Documents.Features;
 
 public sealed record FileVersionResponse(
     int Number, bool IsCurrent, string FileName, string MediaType, long Size, string Sha256, string Source, DateTimeOffset CreatedAt, Guid? CreatedBy,
-    ProcessingStatus ProcessingStatus, string? ProcessingError, Guid? OperationId, int? PageCount, string? TextLanguage)
+    ProcessingStatus ProcessingStatus, string? ProcessingError, Guid? OperationId, int? PageCount, string? TextLanguage, string? Languages)
 {
     internal static FileVersionResponse From(FileVersion v) =>
         new(v.Number, v.IsCurrent, v.FileName, v.MediaType, v.Size, v.Sha256, v.Source, v.CreatedAt, v.CreatedBy,
-            v.ProcessingStatus, v.ProcessingError, v.OperationId, v.PageCount, v.TextLanguage);
+            v.ProcessingStatus, v.ProcessingError, v.OperationId, v.PageCount, v.TextLanguage, v.Languages);
 }
 
 public sealed record FileVersionList([property: JsonPropertyName("value")] IReadOnlyList<FileVersionResponse> Value);
@@ -86,18 +86,21 @@ internal static class DocumentEndpoints
             .WithMetadata(new RequestSizeLimitAttribute(limit)).WithFormOptions(multipartBodyLengthLimit: limit);
     }
 
-    /// <summary>Multipart upload (<c>file</c>, optional <c>title</c> and <c>contentTypeId</c>) that creates a library item.</summary>
+    /// <summary>
+    /// Multipart upload (<c>file</c>, optional <c>title</c>, <c>contentTypeId</c> and <c>languages</c> for OCR, e.g.
+    /// <c>fra+eng</c>) that creates a library item.
+    /// </summary>
     private static Task<Results<Created<DocumentResponse>, ValidationProblem, ProblemHttpResult>> UploadAsync(
-        Guid workspaceId, Guid listId, IFormFile? file, [FromForm] string? title, [FromForm] Guid? contentTypeId,
+        Guid workspaceId, Guid listId, IFormFile? file, [FromForm] string? title, [FromForm] Guid? contentTypeId, [FromForm] string? languages,
         DocumentService documents, CancellationToken ct) =>
-        documents.UploadAsync(workspaceId, listId, file, title, contentTypeId, ct);
+        documents.UploadAsync(workspaceId, listId, file, title, contentTypeId, languages, ct);
 
     /// <summary>Uploads into the caller's Inbox library (LST-07), created on first use.</summary>
     private static async Task<Results<Created<DocumentResponse>, ValidationProblem, ProblemHttpResult>> UploadToInboxAsync(
-        IFormFile? file, [FromForm] string? title, IListItemStore items, DocumentService documents, CancellationToken ct)
+        IFormFile? file, [FromForm] string? title, [FromForm] string? languages, IListItemStore items, DocumentService documents, CancellationToken ct)
     {
         var home = await items.EnsureHomeAsync(ct);
-        return await documents.UploadAsync(home.WorkspaceId, home.InboxListId, file, title, null, ct);
+        return await documents.UploadAsync(home.WorkspaceId, home.InboxListId, file, title, null, languages, ct);
     }
 
     private static async Task<Results<FileStreamHttpResult, ProblemHttpResult>> DownloadAsync(
@@ -130,8 +133,9 @@ internal static class DocumentEndpoints
 
     /// <summary>A new file version for an existing item; <c>If-Match</c> with the file's ETag is checked when sent.</summary>
     private static Task<Results<Ok<DocumentResponse>, ValidationProblem, ProblemHttpResult>> ReplaceAsync(
-        Guid workspaceId, Guid listId, Guid itemId, IFormFile? file, HttpRequest http, DocumentService documents, CancellationToken ct) =>
-        documents.ReplaceAsync(workspaceId, listId, itemId, file, http.Headers.IfMatch.ToString(), ct);
+        Guid workspaceId, Guid listId, Guid itemId, IFormFile? file, [FromForm] string? languages, HttpRequest http, DocumentService documents,
+        CancellationToken ct) =>
+        documents.ReplaceAsync(workspaceId, listId, itemId, file, languages, http.Headers.IfMatch.ToString(), ct);
 
     /// <summary>
     /// Processes the current file again (DOC-07): text extraction, OCR (forced or automatic) and
@@ -156,6 +160,11 @@ internal static class DocumentEndpoints
         if (item!.Access < WorkspaceAccessLevel.Contribute)
         {
             return DocumentService.Forbidden();
+        }
+
+        if (request?.Languages is { } chosen)
+        {
+            version.Languages = chosen; // DOC-17: kept for this file and its next versions.
         }
 
         var operationId = await scheduler.ScheduleAsync(version, request?.ForceOcr ?? false, request?.Languages, ct);
@@ -305,11 +314,16 @@ internal sealed class DocumentService(
         ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "You do not have permission for this action in the workspace.");
 
     public async Task<Results<Created<DocumentResponse>, ValidationProblem, ProblemHttpResult>> UploadAsync(
-        Guid workspaceId, Guid listId, IFormFile? file, string? title, Guid? contentTypeId, CancellationToken ct)
+        Guid workspaceId, Guid listId, IFormFile? file, string? title, Guid? contentTypeId, string? languages, CancellationToken ct)
     {
         if (file is null)
         {
             return MissingFile();
+        }
+
+        if (InvalidLanguages(languages) is { } invalidLanguages)
+        {
+            return invalidLanguages;
         }
 
         var list = await items.GetListAsync(workspaceId, listId, ct);
@@ -351,7 +365,7 @@ internal sealed class DocumentService(
         }
 
         var item = created.Item!;
-        var version = NewVersion(item, stored, fileName, number: 1, "upload");
+        var version = NewVersion(item, stored, fileName, number: 1, "upload", Languages(languages));
         db.FileVersions.Add(version);
         await db.SaveChangesAsync(ct);
         await processing.ScheduleIfAutomaticAsync(version, ct);
@@ -361,11 +375,16 @@ internal sealed class DocumentService(
     }
 
     public async Task<Results<Ok<DocumentResponse>, ValidationProblem, ProblemHttpResult>> ReplaceAsync(
-        Guid workspaceId, Guid listId, Guid itemId, IFormFile? file, string? ifMatch, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, IFormFile? file, string? languages, string? ifMatch, CancellationToken ct)
     {
         if (file is null)
         {
             return MissingFile();
+        }
+
+        if (InvalidLanguages(languages) is { } invalidLanguages)
+        {
+            return invalidLanguages;
         }
 
         var item = await items.GetAsync(workspaceId, listId, itemId, ct);
@@ -399,7 +418,7 @@ internal sealed class DocumentService(
         }
 
         var stored = await intake.StoreAsync(spooled, ct);
-        var version = await AddVersionAsync(item, current, stored, FileName(file.FileName, spooled.MediaType!), "upload", ct);
+        var version = await AddVersionAsync(item, current, stored, FileName(file.FileName, spooled.MediaType!), "upload", Languages(languages), ct);
         return version is null
             ? ApiErrors.Conflict("concurrentChange", "The file was changed at the same time; try again.")
             : TypedResults.Ok(Response(item, version, policy == DuplicatePolicy.Warn ? duplicates : []));
@@ -422,7 +441,7 @@ internal sealed class DocumentService(
 
         var current = await db.FileVersions.FirstOrDefaultAsync(v => v.ItemId == itemId && v.IsCurrent, ct);
         var stored = await db.StoredFiles.FirstAsync(f => f.Id == source.StoredFileId, ct);
-        var version = await AddVersionAsync(item, current, stored, source.FileName, "restore", ct);
+        var version = await AddVersionAsync(item, current, stored, source.FileName, "restore", null, ct);
         return version is null
             ? ApiErrors.Conflict("concurrentChange", "The file was changed at the same time; try again.")
             : TypedResults.Ok(FileVersionResponse.From(version));
@@ -451,16 +470,21 @@ internal sealed class DocumentService(
         }
 
         var stored = await intake.StoreAsync(spooled, ct);
-        var version = await AddVersionAsync(item, null, stored, FileName(fileName, spooled.MediaType), "import", ct);
+        var version = await AddVersionAsync(item, null, stored, FileName(fileName, spooled.MediaType), "import", null, ct);
         return version is null ? "the item's file was changed at the same time" : null;
     }
 
-    /// <summary>Adds the next version and makes it current; null when another change won the race.</summary>
-    private async Task<FileVersion?> AddVersionAsync(ListItemData item, FileVersion? current, StoredFile stored, string fileName, string source, CancellationToken ct)
+    /// <summary>
+    /// Adds the next version and makes it current; null when another change won the race. The new version keeps
+    /// the current one's languages unless <paramref name="languages"/> are given.
+    /// </summary>
+    private async Task<FileVersion?> AddVersionAsync(
+        ListItemData item, FileVersion? current, StoredFile stored, string fileName, string source, string? languages, CancellationToken ct,
+        bool process = true)
     {
         var number = (await db.FileVersions.Where(v => v.ItemId == item.Id).MaxAsync(v => (int?)v.Number, ct) ?? 0) + 1;
         current?.IsCurrent = false;
-        var version = NewVersion(item, stored, fileName, number, source);
+        var version = NewVersion(item, stored, fileName, number, source, languages ?? current?.Languages);
         db.FileVersions.Add(version);
         try
         {
@@ -472,8 +496,97 @@ internal sealed class DocumentService(
             return null;
         }
 
-        await processing.ScheduleIfAutomaticAsync(version, ct);
+        if (process)
+        {
+            await processing.ScheduleIfAutomaticAsync(version, ct);
+        }
+
         return version;
+    }
+
+    /// <summary>
+    /// A new current version made from the current one (page operations, DOC-05/06), with the given page texts.
+    /// It is complete already, so it is not processed again. Null when another change won the race.
+    /// </summary>
+    internal async Task<FileVersion?> AddDerivedVersionAsync(
+        ListItemData item, FileVersion current, StoredFile stored, IReadOnlyList<string> pageTexts, CancellationToken ct)
+    {
+        await SavePagesAsync(stored.Id, pageTexts, ct);
+        var version = await AddVersionAsync(item, current, stored, Path.ChangeExtension(current.FileName, ".pdf"), "pages", null, ct, process: false);
+        if (version is not null)
+        {
+            Complete(version, current, pageTexts.Count);
+            await db.SaveChangesAsync(ct);
+            await FinishAsync(item.Id, version, ct);
+        }
+
+        return version;
+    }
+
+    /// <summary>
+    /// A new document in a library from pages of another file (extract, DOC-06): created like an upload, in
+    /// <paramref name="folderId"/> when given, with the given page texts and without processing it again.
+    /// </summary>
+    internal async Task<(ListItemData? Item, FileVersion? Version, ListItemResult? Problem)> CreateDerivedAsync(
+        Guid workspaceId, Guid listId, Guid? folderId, string title, StoredFile stored, FileVersion from, IReadOnlyList<string> pageTexts,
+        CancellationToken ct)
+    {
+        var created = await items.CreateAsync(workspaceId, listId, new JsonObject { ["title"] = title }, null, ct);
+        if (!created.Succeeded)
+        {
+            return (null, null, created);
+        }
+
+        var item = created.Item!;
+        if (folderId is not null)
+        {
+            var moved = await items.MoveAsync(workspaceId, listId, item.Id, folderId, ct);
+            if (!moved.Succeeded)
+            {
+                return (null, null, moved);
+            }
+
+            item = moved.Item!;
+        }
+
+        await SavePagesAsync(stored.Id, pageTexts, ct);
+        var version = NewVersion(item, stored, Path.ChangeExtension(from.FileName, ".pdf"), number: 1, "pages", from.Languages);
+        Complete(version, from, pageTexts.Count);
+        db.FileVersions.Add(version);
+        await db.SaveChangesAsync(ct);
+        await FinishAsync(item.Id, version, ct);
+        return (item, version, null);
+    }
+
+    /// <summary>Indexes the item; a version whose source was never processed is processed like an upload.</summary>
+    private async Task FinishAsync(Guid itemId, FileVersion version, CancellationToken ct)
+    {
+        if (version.ProcessingStatus == ProcessingStatus.Succeeded)
+        {
+            await items.ReindexAsync(itemId, ct);
+        }
+        else
+        {
+            await processing.ScheduleIfAutomaticAsync(version, ct);
+        }
+    }
+
+    private static void Complete(FileVersion version, FileVersion from, int pageCount)
+    {
+        version.PageCount = pageCount;
+        version.TextLanguage = from.TextLanguage;
+        version.ProcessingStatus = from.ProcessingStatus == ProcessingStatus.Succeeded ? ProcessingStatus.Succeeded : ProcessingStatus.None;
+    }
+
+    private async Task SavePagesAsync(Guid storedFileId, IReadOnlyList<string> pageTexts, CancellationToken ct)
+    {
+        if (pageTexts.All(string.IsNullOrEmpty) || await db.Pages.AnyAsync(p => p.StoredFileId == storedFileId, ct))
+        {
+            return;
+        }
+
+        db.Pages.AddRange(pageTexts.Select((text, index) => new StoredFilePage { StoredFileId = storedFileId, PageNumber = index + 1, Text = text }));
+        await db.SaveChangesAsync(ct);
     }
 
     private async Task<SpooledFile> SpoolAsync(IFormFile file, CancellationToken ct)
@@ -514,8 +627,16 @@ internal sealed class DocumentService(
         await db.LibrarySettings.AsNoTracking().Where(s => s.ListId == listId).Select(s => (DuplicatePolicy?)s.DuplicatePolicy).FirstOrDefaultAsync(ct)
         ?? DuplicatePolicy.Warn;
 
-    private static FileVersion NewVersion(ListItemData item, StoredFile stored, string fileName, int number, string source) => new()
+    private static string? Languages(string? languages) => string.IsNullOrWhiteSpace(languages) ? null : languages.Trim();
+
+    private static ValidationProblem? InvalidLanguages(string? languages) =>
+        Languages(languages) is { } value && !ProcessingScheduler.IsValidLanguageList(value)
+            ? ApiErrors.Validation(new Dictionary<string, string[]> { ["languages"] = ["Tesseract language codes joined with '+', e.g. 'deu+eng'."] })
+            : null;
+
+    private static FileVersion NewVersion(ListItemData item, StoredFile stored, string fileName, int number, string source, string? languages) => new()
     {
+        Languages = languages,
         Id = Ids.New(),
         WorkspaceId = item.WorkspaceId,
         ListId = item.ListId,

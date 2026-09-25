@@ -4,6 +4,7 @@ using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
+using PaperDotNet.Client.V10.Groups.Item.Inbox;
 using PaperDotNet.Client.V10.Groups.Item.Members;
 using System.Collections.Generic;
 using System.IO;
@@ -13,30 +14,35 @@ using System;
 namespace PaperDotNet.Client.V10.Groups.Item
 {
     /// <summary>
-    /// Builds and executes requests for operations under \v1.0\groups\{id}
+    /// Builds and executes requests for operations under \v1.0\groups\{group-id}
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    public partial class GroupsItemRequestBuilder : BaseRequestBuilder
+    public partial class GroupItemRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The inbox property</summary>
+        public global::PaperDotNet.Client.V10.Groups.Item.Inbox.InboxRequestBuilder Inbox
+        {
+            get => new global::PaperDotNet.Client.V10.Groups.Item.Inbox.InboxRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The members property</summary>
         public global::PaperDotNet.Client.V10.Groups.Item.Members.MembersRequestBuilder Members
         {
             get => new global::PaperDotNet.Client.V10.Groups.Item.Members.MembersRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
-        /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Groups.Item.GroupsItemRequestBuilder"/> and sets the default values.
+        /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Groups.Item.GroupItemRequestBuilder"/> and sets the default values.
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public GroupsItemRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/groups/{id}", pathParameters)
+        public GroupItemRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/groups/{group%2Did}", pathParameters)
         {
         }
         /// <summary>
-        /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Groups.Item.GroupsItemRequestBuilder"/> and sets the default values.
+        /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Groups.Item.GroupItemRequestBuilder"/> and sets the default values.
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public GroupsItemRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/groups/{id}", rawUrl)
+        public GroupItemRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/groups/{group%2Did}", rawUrl)
         {
         }
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -112,11 +118,11 @@ namespace PaperDotNet.Client.V10.Groups.Item
         /// <summary>
         /// Returns a request builder with the provided arbitrary URL. Using this method means any other path or query parameters are ignored.
         /// </summary>
-        /// <returns>A <see cref="global::PaperDotNet.Client.V10.Groups.Item.GroupsItemRequestBuilder"/></returns>
+        /// <returns>A <see cref="global::PaperDotNet.Client.V10.Groups.Item.GroupItemRequestBuilder"/></returns>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
-        public global::PaperDotNet.Client.V10.Groups.Item.GroupsItemRequestBuilder WithUrl(string rawUrl)
+        public global::PaperDotNet.Client.V10.Groups.Item.GroupItemRequestBuilder WithUrl(string rawUrl)
         {
-            return new global::PaperDotNet.Client.V10.Groups.Item.GroupsItemRequestBuilder(rawUrl, RequestAdapter);
+            return new global::PaperDotNet.Client.V10.Groups.Item.GroupItemRequestBuilder(rawUrl, RequestAdapter);
         }
     }
 }

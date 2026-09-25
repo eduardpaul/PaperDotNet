@@ -28,6 +28,14 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The isCurrent property</summary>
         public bool? IsCurrent { get; set; }
+        /// <summary>The languages property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Languages { get; set; }
+#nullable restore
+#else
+        public string Languages { get; set; }
+#endif
         /// <summary>The mediaType property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -107,6 +115,7 @@ namespace PaperDotNet.Client.Models
                 { "createdBy", n => { CreatedBy = n.GetGuidValue(); } },
                 { "fileName", n => { FileName = n.GetStringValue(); } },
                 { "isCurrent", n => { IsCurrent = n.GetBoolValue(); } },
+                { "languages", n => { Languages = n.GetStringValue(); } },
                 { "mediaType", n => { MediaType = n.GetStringValue(); } },
                 { "number", n => { Number = n.GetIntValue(); } },
                 { "operationId", n => { OperationId = n.GetGuidValue(); } },
@@ -130,6 +139,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteGuidValue("createdBy", CreatedBy);
             writer.WriteStringValue("fileName", FileName);
             writer.WriteBoolValue("isCurrent", IsCurrent);
+            writer.WriteStringValue("languages", Languages);
             writer.WriteStringValue("mediaType", MediaType);
             writer.WriteIntValue("number", Number);
             writer.WriteGuidValue("operationId", OperationId);

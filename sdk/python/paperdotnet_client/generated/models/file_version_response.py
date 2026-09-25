@@ -22,6 +22,8 @@ class FileVersionResponse(AdditionalDataHolder, Parsable):
     file_name: Optional[str] = None
     # The isCurrent property
     is_current: Optional[bool] = None
+    # The languages property
+    languages: Optional[str] = None
     # The mediaType property
     media_type: Optional[str] = None
     # The number property
@@ -68,6 +70,7 @@ class FileVersionResponse(AdditionalDataHolder, Parsable):
             "createdBy": lambda n : setattr(self, 'created_by', n.get_uuid_value()),
             "fileName": lambda n : setattr(self, 'file_name', n.get_str_value()),
             "isCurrent": lambda n : setattr(self, 'is_current', n.get_bool_value()),
+            "languages": lambda n : setattr(self, 'languages', n.get_str_value()),
             "mediaType": lambda n : setattr(self, 'media_type', n.get_str_value()),
             "number": lambda n : setattr(self, 'number', n.get_int_value()),
             "operationId": lambda n : setattr(self, 'operation_id', n.get_uuid_value()),
@@ -93,6 +96,7 @@ class FileVersionResponse(AdditionalDataHolder, Parsable):
         writer.write_uuid_value("createdBy", self.created_by)
         writer.write_str_value("fileName", self.file_name)
         writer.write_bool_value("isCurrent", self.is_current)
+        writer.write_str_value("languages", self.languages)
         writer.write_str_value("mediaType", self.media_type)
         writer.write_int_value("number", self.number)
         writer.write_uuid_value("operationId", self.operation_id)

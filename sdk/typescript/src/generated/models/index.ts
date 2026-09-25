@@ -1402,6 +1402,15 @@ export function createDuplicateResponseFromDiscriminatorValue(parseNode: ParseNo
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {EditPagesRequest}
+ */
+// @ts-ignore
+export function createEditPagesRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoEditPagesRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ExportRequest}
  */
 // @ts-ignore
@@ -1452,6 +1461,15 @@ export function createExtensionScopeFromDiscriminatorValue(parseNode: ParseNode 
 // @ts-ignore
 export function createExtensionSettingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoExtensionSetting;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ExtractPagesRequest}
+ */
+// @ts-ignore
+export function createExtractPagesRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoExtractPagesRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1516,6 +1534,24 @@ export function createFileVersionListFromDiscriminatorValue(parseNode: ParseNode
 export function createFileVersionResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoFileVersionResponse;
 }
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {GroupInboxRequest}
+ */
+// @ts-ignore
+export function createGroupInboxRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoGroupInboxRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {GroupInboxResponse}
+ */
+// @ts-ignore
+export function createGroupInboxResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoGroupInboxResponse;
+}
 export interface CreateGroupRequest extends AdditionalDataHolder, Parsable {
     /**
      * The description property
@@ -1579,6 +1615,15 @@ export function createImportResponseFromDiscriminatorValue(parseNode: ParseNode 
 // @ts-ignore
 export function createImportResultFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoImportResult;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {InboxResponse}
+ */
+// @ts-ignore
+export function createInboxResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoInboxResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1787,6 +1832,15 @@ export function createMeResponseFromDiscriminatorValue(parseNode: ParseNode | un
 // @ts-ignore
 export function createMergeTermRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoMergeTermRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {MovePagesRequest}
+ */
+// @ts-ignore
+export function createMovePagesRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoMovePagesRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2012,6 +2066,24 @@ export function createPageOfUserResponseFromDiscriminatorValue(parseNode: ParseN
 // @ts-ignore
 export function createPageOfWorkspaceResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoPageOfWorkspaceResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PageOperationResponse}
+ */
+// @ts-ignore
+export function createPageOperationResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageOperationResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PageSpec}
+ */
+// @ts-ignore
+export function createPageSpecFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageSpec;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -3609,6 +3681,17 @@ export function deserializeIntoDuplicateResponse(duplicateResponse: Partial<Dupl
 }
 /**
  * The deserialization information for the current model
+ * @param EditPagesRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoEditPagesRequest(editPagesRequest: Partial<EditPagesRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "pages": n => { editPagesRequest.pages = n.getCollectionOfObjectValues<PageSpec>(createPageSpecFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ExportRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -3705,6 +3788,23 @@ export function deserializeIntoExtensionSetting(extensionSetting: Partial<Extens
         "name": n => { extensionSetting.name = n.getStringValue(); },
         "required": n => { extensionSetting.required = n.getBooleanValue(); },
         "type": n => { extensionSetting.type = n.getEnumValue<ExtensionSettingType>(ExtensionSettingTypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ExtractPagesRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoExtractPagesRequest(extractPagesRequest: Partial<ExtractPagesRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "folderId": n => { extractPagesRequest.folderId = n.getGuidValue(); },
+        "listId": n => { extractPagesRequest.listId = n.getGuidValue(); },
+        "pages": n => { extractPagesRequest.pages = n.getCollectionOfPrimitiveValues<number>("number"); },
+        "remove": n => { extractPagesRequest.remove = n.getBooleanValue() ?? false; },
+        "separate": n => { extractPagesRequest.separate = n.getBooleanValue() ?? false; },
+        "title": n => { extractPagesRequest.title = n.getStringValue(); },
+        "workspaceId": n => { extractPagesRequest.workspaceId = n.getGuidValue(); },
     }
 }
 /**
@@ -3808,6 +3908,7 @@ export function deserializeIntoFileVersionResponse(fileVersionResponse: Partial<
         "createdBy": n => { fileVersionResponse.createdBy = n.getGuidValue(); },
         "fileName": n => { fileVersionResponse.fileName = n.getStringValue(); },
         "isCurrent": n => { fileVersionResponse.isCurrent = n.getBooleanValue(); },
+        "languages": n => { fileVersionResponse.languages = n.getStringValue(); },
         "mediaType": n => { fileVersionResponse.mediaType = n.getStringValue(); },
         "number": n => { fileVersionResponse.number = n.getNumberValue(); },
         "operationId": n => { fileVersionResponse.operationId = n.getGuidValue(); },
@@ -3818,6 +3919,33 @@ export function deserializeIntoFileVersionResponse(fileVersionResponse: Partial<
         "size": n => { fileVersionResponse.size = n.getNumberValue(); },
         "source": n => { fileVersionResponse.source = n.getStringValue(); },
         "textLanguage": n => { fileVersionResponse.textLanguage = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param GroupInboxRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoGroupInboxRequest(groupInboxRequest: Partial<GroupInboxRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "listId": n => { groupInboxRequest.listId = n.getGuidValue(); },
+        "workspaceId": n => { groupInboxRequest.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param GroupInboxResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoGroupInboxResponse(groupInboxResponse: Partial<GroupInboxResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "groupId": n => { groupInboxResponse.groupId = n.getGuidValue(); },
+        "groupName": n => { groupInboxResponse.groupName = n.getStringValue(); },
+        "listId": n => { groupInboxResponse.listId = n.getGuidValue(); },
+        "listName": n => { groupInboxResponse.listName = n.getStringValue(); },
+        "workspaceId": n => { groupInboxResponse.workspaceId = n.getGuidValue(); },
     }
 }
 /**
@@ -3897,6 +4025,22 @@ export function deserializeIntoImportResult(importResult: Partial<ImportResult> 
         "errors": n => { importResult.errors = n.getCollectionOfPrimitiveValues<string>("string"); },
         "skipped": n => { importResult.skipped = n.getNumberValue(); },
         "updated": n => { importResult.updated = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param InboxResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoInboxResponse(inboxResponse: Partial<InboxResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "groupId": n => { inboxResponse.groupId = n.getGuidValue(); },
+        "groupName": n => { inboxResponse.groupName = n.getStringValue(); },
+        "kind": n => { inboxResponse.kind = n.getStringValue(); },
+        "listId": n => { inboxResponse.listId = n.getGuidValue(); },
+        "listName": n => { inboxResponse.listName = n.getStringValue(); },
+        "workspaceId": n => { inboxResponse.workspaceId = n.getGuidValue(); },
     }
 }
 /**
@@ -4150,6 +4294,21 @@ export function deserializeIntoMeResponse(meResponse: Partial<MeResponse> | unde
 export function deserializeIntoMergeTermRequest(mergeTermRequest: Partial<MergeTermRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "targetTermId": n => { mergeTermRequest.targetTermId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param MovePagesRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoMovePagesRequest(movePagesRequest: Partial<MovePagesRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "pages": n => { movePagesRequest.pages = n.getCollectionOfPrimitiveValues<number>("number"); },
+        "position": n => { movePagesRequest.position = n.getStringValue(); },
+        "targetItemId": n => { movePagesRequest.targetItemId = n.getGuidValue(); },
+        "targetListId": n => { movePagesRequest.targetListId = n.getGuidValue(); },
+        "targetWorkspaceId": n => { movePagesRequest.targetWorkspaceId = n.getGuidValue(); },
     }
 }
 /**
@@ -4472,6 +4631,32 @@ export function deserializeIntoPageOfWorkspaceResponse(pageOfWorkspaceResponse: 
     return {
         "@odata.nextLink": n => { pageOfWorkspaceResponse.odataNextLink = n.getStringValue(); },
         "value": n => { pageOfWorkspaceResponse.value = n.getCollectionOfObjectValues<WorkspaceResponse>(createWorkspaceResponseFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PageOperationResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPageOperationResponse(pageOperationResponse: Partial<PageOperationResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "documents": n => { pageOperationResponse.documents = n.getCollectionOfObjectValues<DocumentResponse>(createDocumentResponseFromDiscriminatorValue); },
+        "source": n => { pageOperationResponse.source = n.getObjectValue<FileVersionResponse>(createFileVersionResponseFromDiscriminatorValue); },
+        "sourceDeleted": n => { pageOperationResponse.sourceDeleted = n.getBooleanValue(); },
+        "target": n => { pageOperationResponse.target = n.getObjectValue<FileVersionResponse>(createFileVersionResponseFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PageSpec The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPageSpec(pageSpec: Partial<PageSpec> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "page": n => { pageSpec.page = n.getNumberValue(); },
+        "rotate": n => { pageSpec.rotate = n.getNumberValue() ?? 0; },
     }
 }
 /**
@@ -5470,6 +5655,15 @@ export interface DuplicateResponse extends AdditionalDataHolder, Parsable {
      */
     workspaceId?: Guid | null;
 }
+/**
+ * The pages of the new version in order: pages left out are deleted (DOC-05).
+ */
+export interface EditPagesRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The pages property
+     */
+    pages?: PageSpec[] | null;
+}
 export interface ExportRequest extends AdditionalDataHolder, Parsable {
     /**
      * The workspaceId property
@@ -5649,6 +5843,39 @@ export interface ExtensionSetting extends AdditionalDataHolder, Parsable {
     type?: ExtensionSettingType | null;
 }
 export type ExtensionSettingType = (typeof ExtensionSettingTypeObject)[keyof typeof ExtensionSettingTypeObject];
+/**
+ * Extracts pages into new documents (DOC-06): one document, or one per page with `separate`. The target library andfolder default to the source's library and folder; `remove` also deletes the pages from the source.
+ */
+export interface ExtractPagesRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The folderId property
+     */
+    folderId?: Guid | null;
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
+    /**
+     * The pages property
+     */
+    pages?: number[] | null;
+    /**
+     * The remove property
+     */
+    remove?: boolean | null;
+    /**
+     * The separate property
+     */
+    separate?: boolean | null;
+    /**
+     * The title property
+     */
+    title?: string | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
 export interface FacetValue extends AdditionalDataHolder, Parsable {
     /**
      * The count property
@@ -5799,6 +6026,10 @@ export interface FileVersionResponse extends AdditionalDataHolder, Parsable {
      */
     isCurrent?: boolean | null;
     /**
+     * The languages property
+     */
+    languages?: string | null;
+    /**
      * The mediaType property
      */
     mediaType?: string | null;
@@ -5838,6 +6069,38 @@ export interface FileVersionResponse extends AdditionalDataHolder, Parsable {
      * The textLanguage property
      */
     textLanguage?: string | null;
+}
+export interface GroupInboxRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
+export interface GroupInboxResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The groupId property
+     */
+    groupId?: Guid | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
+    /**
+     * The listName property
+     */
+    listName?: string | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
 }
 export interface GroupResponse extends AdditionalDataHolder, Parsable {
     /**
@@ -5929,6 +6192,35 @@ export interface ImportResult extends AdditionalDataHolder, Parsable {
      * The updated property
      */
     updated?: number | null;
+}
+/**
+ * An inbox the caller can upload into: `personal` (Home/Inbox) or `group`.
+ */
+export interface InboxResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The groupId property
+     */
+    groupId?: Guid | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The kind property
+     */
+    kind?: string | null;
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
+    /**
+     * The listName property
+     */
+    listName?: string | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
 }
 /**
  * A page of items in Graph/OData shape.
@@ -6321,6 +6613,31 @@ export interface MergeTermRequest extends AdditionalDataHolder, Parsable {
      * The targetTermId property
      */
     targetTermId?: Guid | null;
+}
+/**
+ * Moves pages (all when omitted) into another document (DOC-06): `append` (default), `prepend`, or `replace`its pages. A source left without pages goes to the recycle bin, so moving all pages merges two documents.
+ */
+export interface MovePagesRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The pages property
+     */
+    pages?: number[] | null;
+    /**
+     * The position property
+     */
+    position?: string | null;
+    /**
+     * The targetItemId property
+     */
+    targetItemId?: Guid | null;
+    /**
+     * The targetListId property
+     */
+    targetListId?: Guid | null;
+    /**
+     * The targetWorkspaceId property
+     */
+    targetWorkspaceId?: Guid | null;
 }
 /**
  * A task in a cross-list view (TSK-03).
@@ -6718,6 +7035,40 @@ export interface PageOfWorkspaceResponse extends AdditionalDataHolder, Parsable 
      * The value property
      */
     value?: WorkspaceResponse[] | null;
+}
+/**
+ * The result: the source's new version (null when it was deleted), new documents, the target's new version.
+ */
+export interface PageOperationResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The documents property
+     */
+    documents?: DocumentResponse[] | null;
+    /**
+     * The source property
+     */
+    source?: FileVersionResponse | null;
+    /**
+     * The sourceDeleted property
+     */
+    sourceDeleted?: boolean | null;
+    /**
+     * The target property
+     */
+    target?: FileVersionResponse | null;
+}
+/**
+ * A page of the result: its number in the current file, turned clockwise by `rotate` degrees (0, 90, 180, 270).
+ */
+export interface PageSpec extends AdditionalDataHolder, Parsable {
+    /**
+     * The page property
+     */
+    page?: number | null;
+    /**
+     * The rotate property
+     */
+    rotate?: number | null;
 }
 export interface PasskeyLoginOptionsRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -8081,6 +8432,18 @@ export function serializeDuplicateResponse(writer: SerializationWriter, duplicat
 }
 /**
  * Serializes information the current object
+ * @param EditPagesRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeEditPagesRequest(writer: SerializationWriter, editPagesRequest: Partial<EditPagesRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!editPagesRequest || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<PageSpec>("pages", editPagesRequest.pages, serializePageSpec);
+    writer.writeAdditionalData(editPagesRequest.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param ExportRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -8184,6 +8547,24 @@ export function serializeExtensionSetting(writer: SerializationWriter, extension
     writer.writeBooleanValue("required", extensionSetting.required);
     writer.writeEnumValue<ExtensionSettingType>("type", extensionSetting.type);
     writer.writeAdditionalData(extensionSetting.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ExtractPagesRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeExtractPagesRequest(writer: SerializationWriter, extractPagesRequest: Partial<ExtractPagesRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!extractPagesRequest || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("folderId", extractPagesRequest.folderId);
+    writer.writeGuidValue("listId", extractPagesRequest.listId);
+    writer.writeCollectionOfPrimitiveValues<number>("pages", extractPagesRequest.pages);
+    writer.writeBooleanValue("remove", extractPagesRequest.remove ?? false);
+    writer.writeBooleanValue("separate", extractPagesRequest.separate ?? false);
+    writer.writeStringValue("title", extractPagesRequest.title);
+    writer.writeGuidValue("workspaceId", extractPagesRequest.workspaceId);
+    writer.writeAdditionalData(extractPagesRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -8293,6 +8674,7 @@ export function serializeFileVersionResponse(writer: SerializationWriter, fileVe
     writer.writeGuidValue("createdBy", fileVersionResponse.createdBy);
     writer.writeStringValue("fileName", fileVersionResponse.fileName);
     writer.writeBooleanValue("isCurrent", fileVersionResponse.isCurrent);
+    writer.writeStringValue("languages", fileVersionResponse.languages);
     writer.writeStringValue("mediaType", fileVersionResponse.mediaType);
     writer.writeNumberValue("number", fileVersionResponse.number);
     writer.writeGuidValue("operationId", fileVersionResponse.operationId);
@@ -8304,6 +8686,35 @@ export function serializeFileVersionResponse(writer: SerializationWriter, fileVe
     writer.writeStringValue("source", fileVersionResponse.source);
     writer.writeStringValue("textLanguage", fileVersionResponse.textLanguage);
     writer.writeAdditionalData(fileVersionResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param GroupInboxRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeGroupInboxRequest(writer: SerializationWriter, groupInboxRequest: Partial<GroupInboxRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!groupInboxRequest || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("listId", groupInboxRequest.listId);
+    writer.writeGuidValue("workspaceId", groupInboxRequest.workspaceId);
+    writer.writeAdditionalData(groupInboxRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param GroupInboxResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeGroupInboxResponse(writer: SerializationWriter, groupInboxResponse: Partial<GroupInboxResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!groupInboxResponse || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("groupId", groupInboxResponse.groupId);
+    writer.writeStringValue("groupName", groupInboxResponse.groupName);
+    writer.writeGuidValue("listId", groupInboxResponse.listId);
+    writer.writeStringValue("listName", groupInboxResponse.listName);
+    writer.writeGuidValue("workspaceId", groupInboxResponse.workspaceId);
+    writer.writeAdditionalData(groupInboxResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -8389,6 +8800,23 @@ export function serializeImportResult(writer: SerializationWriter, importResult:
     writer.writeNumberValue("skipped", importResult.skipped);
     writer.writeNumberValue("updated", importResult.updated);
     writer.writeAdditionalData(importResult.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param InboxResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeInboxResponse(writer: SerializationWriter, inboxResponse: Partial<InboxResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!inboxResponse || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("groupId", inboxResponse.groupId);
+    writer.writeStringValue("groupName", inboxResponse.groupName);
+    writer.writeStringValue("kind", inboxResponse.kind);
+    writer.writeGuidValue("listId", inboxResponse.listId);
+    writer.writeStringValue("listName", inboxResponse.listName);
+    writer.writeGuidValue("workspaceId", inboxResponse.workspaceId);
+    writer.writeAdditionalData(inboxResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -8659,6 +9087,22 @@ export function serializeMergeTermRequest(writer: SerializationWriter, mergeTerm
     if (!mergeTermRequest || isSerializingDerivedType) { return; }
     writer.writeGuidValue("targetTermId", mergeTermRequest.targetTermId);
     writer.writeAdditionalData(mergeTermRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param MovePagesRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeMovePagesRequest(writer: SerializationWriter, movePagesRequest: Partial<MovePagesRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!movePagesRequest || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<number>("pages", movePagesRequest.pages);
+    writer.writeStringValue("position", movePagesRequest.position);
+    writer.writeGuidValue("targetItemId", movePagesRequest.targetItemId);
+    writer.writeGuidValue("targetListId", movePagesRequest.targetListId);
+    writer.writeGuidValue("targetWorkspaceId", movePagesRequest.targetWorkspaceId);
+    writer.writeAdditionalData(movePagesRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -9006,6 +9450,34 @@ export function serializePageOfWorkspaceResponse(writer: SerializationWriter, pa
     writer.writeStringValue("@odata.nextLink", pageOfWorkspaceResponse.odataNextLink);
     writer.writeCollectionOfObjectValues<WorkspaceResponse>("value", pageOfWorkspaceResponse.value, serializeWorkspaceResponse);
     writer.writeAdditionalData(pageOfWorkspaceResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PageOperationResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePageOperationResponse(writer: SerializationWriter, pageOperationResponse: Partial<PageOperationResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageOperationResponse || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<DocumentResponse>("documents", pageOperationResponse.documents, serializeDocumentResponse);
+    writer.writeObjectValue<FileVersionResponse>("source", pageOperationResponse.source, serializeFileVersionResponse);
+    writer.writeBooleanValue("sourceDeleted", pageOperationResponse.sourceDeleted);
+    writer.writeObjectValue<FileVersionResponse>("target", pageOperationResponse.target, serializeFileVersionResponse);
+    writer.writeAdditionalData(pageOperationResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PageSpec The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePageSpec(writer: SerializationWriter, pageSpec: Partial<PageSpec> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageSpec || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("page", pageSpec.page);
+    writer.writeNumberValue("rotate", pageSpec.rotate ?? 0);
+    writer.writeAdditionalData(pageSpec.additionalData);
 }
 /**
  * Serializes information the current object

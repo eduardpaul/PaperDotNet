@@ -25,6 +25,7 @@ export function deserializeIntoDocumentsPostRequestBody(documentsPostRequestBody
     return {
         "contentTypeId": n => { documentsPostRequestBody.contentTypeId = n.getGuidValue(); },
         "file": n => { documentsPostRequestBody.file = n.getByteArrayValue(); },
+        "languages": n => { documentsPostRequestBody.languages = n.getStringValue(); },
         "title": n => { documentsPostRequestBody.title = n.getStringValue(); },
     }
 }
@@ -37,6 +38,10 @@ export interface DocumentsPostRequestBody extends AdditionalDataHolder, Parsable
      * The file property
      */
     file?: ArrayBuffer | null;
+    /**
+     * The languages property
+     */
+    languages?: string | null;
     /**
      * The title property
      */
@@ -71,6 +76,7 @@ export function serializeDocumentsPostRequestBody(writer: SerializationWriter, d
     if (!documentsPostRequestBody || isSerializingDerivedType) { return; }
     writer.writeGuidValue("contentTypeId", documentsPostRequestBody.contentTypeId);
     writer.writeByteArrayValue("file", documentsPostRequestBody.file);
+    writer.writeStringValue("languages", documentsPostRequestBody.languages);
     writer.writeStringValue("title", documentsPostRequestBody.title);
     writer.writeAdditionalData(documentsPostRequestBody.additionalData);
 }

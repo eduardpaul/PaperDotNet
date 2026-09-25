@@ -53,6 +53,11 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                         .HasColumnType("uuid")
                         .HasColumnName("item_id");
 
+                    b.Property<string>("Languages")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("languages");
+
                     b.Property<Guid>("ListId")
                         .HasColumnType("uuid")
                         .HasColumnName("list_id");
@@ -144,6 +149,58 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                         .HasDatabaseName("ix_file_versions_tenant_id_sha256_is_current");
 
                     b.ToTable("file_versions", "documents");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Documents.Data.GroupInbox", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("list_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_group_inboxes");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_group_inboxes_tenant_id");
+
+                    b.HasIndex("TenantId", "GroupId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_group_inboxes_tenant_id_group_id");
+
+                    b.ToTable("group_inboxes", "documents");
                 });
 
             modelBuilder.Entity("PaperDotNet.Documents.Data.LibrarySettings", b =>

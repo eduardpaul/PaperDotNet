@@ -47,7 +47,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `Microsoft.ML.Tokenizers`, `Microsoft.ML.OnnxRuntime` | MIT | Tokenizing, local models |
 | `OpenTelemetry` | Apache-2.0 | Tracing / metrics |
 | `PdfPig` 0.1.16 | Apache-2.0 | PDF text layer per page (3b); PDF builder in tests |
-| `PDFsharp` | MIT | Page operations, image → PDF, text-layer merge |
+| `PDFsharp` 6.2.4 (+ `System.Security.Cryptography.Pkcs`, `Microsoft.Extensions.Logging.Abstractions`) | MIT | Page operations: delete, reorder, rotate, extract, move (7f) |
 | `PDFtoImage` 5.4 (+ `bblanchon.PDFium.*` natives) | MIT (bundles PDFium, see below) | Page rendering for thumbnails, previews and OCR input (3b) |
 | `SkiaSharp` (+ `SkiaSharp.NativeAssets.*`, via PDFtoImage) | MIT (bundles Skia, see below) | JPEG/PNG decode, resize, JPEG encode (3b) |
 | Tesseract engine and tessdata (container package, run as CLI) | Apache-2.0 (bundles Leptonica, see below) | OCR (3b). No NuGet wrapper: the CLI via `CliWrap` |
