@@ -42,6 +42,8 @@ import { ScopesRequestBuilderRequestsMetadata, type ScopesRequestBuilder } from 
 // @ts-ignore
 import { SearchRequestBuilderNavigationMetadata, SearchRequestBuilderRequestsMetadata, type SearchRequestBuilder } from './search/index.js';
 // @ts-ignore
+import { SmartFoldersRequestBuilderNavigationMetadata, SmartFoldersRequestBuilderRequestsMetadata, type SmartFoldersRequestBuilder } from './smartFolders/index.js';
+// @ts-ignore
 import { TermStoreRequestBuilderNavigationMetadata, type TermStoreRequestBuilder } from './termStore/index.js';
 // @ts-ignore
 import { type UsersRequestBuilder, UsersRequestBuilderNavigationMetadata, UsersRequestBuilderRequestsMetadata } from './users/index.js';
@@ -135,6 +137,10 @@ export interface V10RequestBuilder extends BaseRequestBuilder<V10RequestBuilder>
      */
     get search(): SearchRequestBuilder;
     /**
+     * The smartFolders property
+     */
+    get smartFolders(): SmartFoldersRequestBuilder;
+    /**
      * The termStore property
      */
     get termStore(): TermStoreRequestBuilder;
@@ -222,6 +228,10 @@ export const V10RequestBuilderNavigationMetadata: Record<Exclude<keyof V10Reques
     search: {
         requestsMetadata: SearchRequestBuilderRequestsMetadata,
         navigationMetadata: SearchRequestBuilderNavigationMetadata,
+    },
+    smartFolders: {
+        requestsMetadata: SmartFoldersRequestBuilderRequestsMetadata,
+        navigationMetadata: SmartFoldersRequestBuilderNavigationMetadata,
     },
     termStore: {
         navigationMetadata: TermStoreRequestBuilderNavigationMetadata,

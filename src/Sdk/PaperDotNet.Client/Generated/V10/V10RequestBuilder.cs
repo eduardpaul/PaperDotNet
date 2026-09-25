@@ -22,6 +22,7 @@ using PaperDotNet.Client.V10.Provisioning;
 using PaperDotNet.Client.V10.Roles;
 using PaperDotNet.Client.V10.Scopes;
 using PaperDotNet.Client.V10.Search;
+using PaperDotNet.Client.V10.SmartFolders;
 using PaperDotNet.Client.V10.TermStore;
 using PaperDotNet.Client.V10.Users;
 using PaperDotNet.Client.V10.Workspaces;
@@ -136,6 +137,11 @@ namespace PaperDotNet.Client.V10
         public global::PaperDotNet.Client.V10.Search.SearchRequestBuilder Search
         {
             get => new global::PaperDotNet.Client.V10.Search.SearchRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The smartFolders property</summary>
+        public global::PaperDotNet.Client.V10.SmartFolders.SmartFoldersRequestBuilder SmartFolders
+        {
+            get => new global::PaperDotNet.Client.V10.SmartFolders.SmartFoldersRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The termStore property</summary>
         public global::PaperDotNet.Client.V10.TermStore.TermStoreRequestBuilder TermStore

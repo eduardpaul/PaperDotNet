@@ -145,6 +145,7 @@ internal sealed class TermGroupTemplateHandler(TaxonomyDbContext db) : ITemplate
                 Set(term, description, color, sortOrder, deprecated, labels, synonyms);
             }
 
+            context.Register(TemplateKinds.Term, $"{setKey}/{path}", term.Id);
             ApplyTerms(element, setId, term, path, setKey, existing, context);
         }
     }

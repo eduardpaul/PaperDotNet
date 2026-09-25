@@ -11,12 +11,15 @@ from kiota_abstractions.request_information import RequestInformation
 from kiota_abstractions.request_option import RequestOption
 from kiota_abstractions.serialization import Parsable, ParsableFactory
 from typing import Any, Optional, TYPE_CHECKING, Union
+from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
     from ....models.http_validation_problem_details import HttpValidationProblemDetails
     from ....models.keyword_request import KeywordRequest
     from ....models.term_response import TermResponse
+    from .item.with_term_item_request_builder import WithTermItemRequestBuilder
+    from .popular.popular_request_builder import PopularRequestBuilder
 
 class KeywordsRequestBuilder(BaseRequestBuilder):
     """
@@ -30,6 +33,20 @@ class KeywordsRequestBuilder(BaseRequestBuilder):
         Returns: None
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/termStore/keywords{?search*}", path_parameters)
+    
+    def by_term_id(self,term_id: UUID) -> WithTermItemRequestBuilder:
+        """
+        Gets an item from the paperdotnet_client.generated.v10.termStore.keywords.item collection
+        param term_id: Unique identifier of the item
+        Returns: WithTermItemRequestBuilder
+        """
+        if term_id is None:
+            raise TypeError("term_id cannot be null.")
+        from .item.with_term_item_request_builder import WithTermItemRequestBuilder
+
+        url_tpl_params = get_path_parameters(self.path_parameters)
+        url_tpl_params["termId"] = term_id
+        return WithTermItemRequestBuilder(self.request_adapter, url_tpl_params)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[KeywordsRequestBuilderGetQueryParameters]] = None) -> Optional[list[TermResponse]]:
         """
@@ -100,6 +117,15 @@ class KeywordsRequestBuilder(BaseRequestBuilder):
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
         return KeywordsRequestBuilder(self.request_adapter, raw_url)
+    
+    @property
+    def popular(self) -> PopularRequestBuilder:
+        """
+        The popular property
+        """
+        from .popular.popular_request_builder import PopularRequestBuilder
+
+        return PopularRequestBuilder(self.request_adapter, self.path_parameters)
     
     @dataclass
     class KeywordsRequestBuilderGetQueryParameters():

@@ -1703,6 +1703,24 @@ export function createPageOfRunResponseFromDiscriminatorValue(parseNode: ParseNo
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PageOfSmartFolderEntry}
+ */
+// @ts-ignore
+export function createPageOfSmartFolderEntryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageOfSmartFolderEntry;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PageOfSmartFolderResponse}
+ */
+// @ts-ignore
+export function createPageOfSmartFolderResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageOfSmartFolderResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PageOfTermGroupResponse}
  */
 // @ts-ignore
@@ -1811,6 +1829,24 @@ export function createPermissionsResponseFromDiscriminatorValue(parseNode: Parse
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PopularKeyword}
+ */
+// @ts-ignore
+export function createPopularKeywordFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPopularKeyword;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PopularKeywordsResponse}
+ */
+// @ts-ignore
+export function createPopularKeywordsResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPopularKeywordsResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ProcessRequest}
  */
 // @ts-ignore
@@ -1825,6 +1861,24 @@ export function createProcessRequestFromDiscriminatorValue(parseNode: ParseNode 
 // @ts-ignore
 export function createProcessResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoProcessResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromoteKeywordRequest}
+ */
+// @ts-ignore
+export function createPromoteKeywordRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromoteKeywordRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromoteKeywordResponse}
+ */
+// @ts-ignore
+export function createPromoteKeywordResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromoteKeywordResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2041,6 +2095,78 @@ export function createSettingsResponseFromDiscriminatorValue(parseNode: ParseNod
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SmartFolderDefinition}
+ */
+// @ts-ignore
+export function createSmartFolderDefinitionFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSmartFolderDefinition;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SmartFolderDropRequest}
+ */
+// @ts-ignore
+export function createSmartFolderDropRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSmartFolderDropRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SmartFolderEntry}
+ */
+// @ts-ignore
+export function createSmartFolderEntryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSmartFolderEntry;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SmartFolderGroupBy}
+ */
+// @ts-ignore
+export function createSmartFolderGroupByFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSmartFolderGroupBy;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SmartFolderGroup}
+ */
+// @ts-ignore
+export function createSmartFolderGroupFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSmartFolderGroup;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SmartFolderGroupsResponse}
+ */
+// @ts-ignore
+export function createSmartFolderGroupsResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSmartFolderGroupsResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SmartFolderRequest}
+ */
+// @ts-ignore
+export function createSmartFolderRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSmartFolderRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SmartFolderResponse}
+ */
+// @ts-ignore
+export function createSmartFolderResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSmartFolderResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {StartWorkflowRequest}
  */
 // @ts-ignore
@@ -2166,6 +2292,15 @@ export interface CreateTermRequest extends AdditionalDataHolder, Parsable {
 // @ts-ignore
 export function createTermResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoTermResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TermSetImportResponse}
+ */
+// @ts-ignore
+export function createTermSetImportResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTermSetImportResponse;
 }
 export interface CreateTermSetRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -3174,6 +3309,7 @@ export function deserializeIntoExtensionContributions(extensionContributions: Pa
         "listTemplates": n => { extensionContributions.listTemplates = n.getCollectionOfPrimitiveValues<string>("string"); },
         "mcpTools": n => { extensionContributions.mcpTools = n.getCollectionOfPrimitiveValues<string>("string"); },
         "templateHandlers": n => { extensionContributions.templateHandlers = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "termSets": n => { extensionContributions.termSets = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
 /**
@@ -3868,6 +4004,30 @@ export function deserializeIntoPageOfRunResponse(pageOfRunResponse: Partial<Page
 }
 /**
  * The deserialization information for the current model
+ * @param PageOfSmartFolderEntry The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPageOfSmartFolderEntry(pageOfSmartFolderEntry: Partial<PageOfSmartFolderEntry> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "@odata.nextLink": n => { pageOfSmartFolderEntry.odataNextLink = n.getStringValue(); },
+        "value": n => { pageOfSmartFolderEntry.value = n.getCollectionOfObjectValues<SmartFolderEntry>(createSmartFolderEntryFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PageOfSmartFolderResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPageOfSmartFolderResponse(pageOfSmartFolderResponse: Partial<PageOfSmartFolderResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "@odata.nextLink": n => { pageOfSmartFolderResponse.odataNextLink = n.getStringValue(); },
+        "value": n => { pageOfSmartFolderResponse.value = n.getCollectionOfObjectValues<SmartFolderResponse>(createSmartFolderResponseFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param PageOfTermGroupResponse The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -4018,6 +4178,30 @@ export function deserializeIntoPermissionsResponse(permissionsResponse: Partial<
 }
 /**
  * The deserialization information for the current model
+ * @param PopularKeyword The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPopularKeyword(popularKeyword: Partial<PopularKeyword> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "id": n => { popularKeyword.id = n.getGuidValue(); },
+        "name": n => { popularKeyword.name = n.getStringValue(); },
+        "usage": n => { popularKeyword.usage = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PopularKeywordsResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPopularKeywordsResponse(popularKeywordsResponse: Partial<PopularKeywordsResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "value": n => { popularKeywordsResponse.value = n.getCollectionOfObjectValues<PopularKeyword>(createPopularKeywordFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ProcessRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -4037,6 +4221,32 @@ export function deserializeIntoProcessRequest(processRequest: Partial<ProcessReq
 export function deserializeIntoProcessResponse(processResponse: Partial<ProcessResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "operationId": n => { processResponse.operationId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PromoteKeywordRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromoteKeywordRequest(promoteKeywordRequest: Partial<PromoteKeywordRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "parentId": n => { promoteKeywordRequest.parentId = n.getGuidValue(); },
+        "termSetId": n => { promoteKeywordRequest.termSetId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PromoteKeywordResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromoteKeywordResponse(promoteKeywordResponse: Partial<PromoteKeywordResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "merged": n => { promoteKeywordResponse.merged = n.getBooleanValue(); },
+        "name": n => { promoteKeywordResponse.name = n.getStringValue(); },
+        "termId": n => { promoteKeywordResponse.termId = n.getGuidValue(); },
+        "termSetId": n => { promoteKeywordResponse.termSetId = n.getGuidValue(); },
     }
 }
 /**
@@ -4354,6 +4564,124 @@ export function deserializeIntoSettingsResponse_channels(settingsResponse_channe
 }
 /**
  * The deserialization information for the current model
+ * @param SmartFolderDefinition The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSmartFolderDefinition(smartFolderDefinition: Partial<SmartFolderDefinition> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "contentTypes": n => { smartFolderDefinition.contentTypes = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "filter": n => { smartFolderDefinition.filter = n.getStringValue(); },
+        "groupBy": n => { smartFolderDefinition.groupBy = n.getCollectionOfObjectValues<SmartFolderGroupBy>(createSmartFolderGroupByFromDiscriminatorValue); },
+        "includeFolders": n => { smartFolderDefinition.includeFolders = n.getBooleanValue() ?? false; },
+        "lists": n => { smartFolderDefinition.lists = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "listTemplates": n => { smartFolderDefinition.listTemplates = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "termMatch": n => { smartFolderDefinition.termMatch = n.getStringValue(); },
+        "terms": n => { smartFolderDefinition.terms = n.getCollectionOfPrimitiveValues<Guid>("string"); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SmartFolderDropRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSmartFolderDropRequest(smartFolderDropRequest: Partial<SmartFolderDropRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "fields": n => { smartFolderDropRequest.fields = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "itemId": n => { smartFolderDropRequest.itemId = n.getGuidValue(); },
+        "listId": n => { smartFolderDropRequest.listId = n.getGuidValue(); },
+        "path": n => { smartFolderDropRequest.path = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "workspaceId": n => { smartFolderDropRequest.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SmartFolderEntry The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSmartFolderEntry(smartFolderEntry: Partial<SmartFolderEntry> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "item": n => { smartFolderEntry.item = n.getObjectValue<ItemResponse>(createItemResponseFromDiscriminatorValue); },
+        "listName": n => { smartFolderEntry.listName = n.getStringValue(); },
+        "workspaceId": n => { smartFolderEntry.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SmartFolderGroup The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSmartFolderGroup(smartFolderGroup: Partial<SmartFolderGroup> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "count": n => { smartFolderGroup.count = n.getNumberValue(); },
+        "label": n => { smartFolderGroup.label = n.getStringValue(); },
+        "value": n => { smartFolderGroup.value = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SmartFolderGroupBy The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSmartFolderGroupBy(smartFolderGroupBy: Partial<SmartFolderGroupBy> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "by": n => { smartFolderGroupBy.by = n.getStringValue(); },
+        "field": n => { smartFolderGroupBy.field = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SmartFolderGroupsResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSmartFolderGroupsResponse(smartFolderGroupsResponse: Partial<SmartFolderGroupsResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "by": n => { smartFolderGroupsResponse.by = n.getStringValue(); },
+        "field": n => { smartFolderGroupsResponse.field = n.getStringValue(); },
+        "value": n => { smartFolderGroupsResponse.value = n.getCollectionOfObjectValues<SmartFolderGroup>(createSmartFolderGroupFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SmartFolderRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSmartFolderRequest(smartFolderRequest: Partial<SmartFolderRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "definition": n => { smartFolderRequest.definition = n.getObjectValue<SmartFolderDefinition>(createSmartFolderDefinitionFromDiscriminatorValue); },
+        "description": n => { smartFolderRequest.description = n.getStringValue(); },
+        "name": n => { smartFolderRequest.name = n.getStringValue(); },
+        "personal": n => { smartFolderRequest.personal = n.getBooleanValue(); },
+        "workspaceId": n => { smartFolderRequest.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SmartFolderResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSmartFolderResponse(smartFolderResponse: Partial<SmartFolderResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "createdAt": n => { smartFolderResponse.createdAt = n.getDateValue(); },
+        "createdBy": n => { smartFolderResponse.createdBy = n.getGuidValue(); },
+        "definition": n => { smartFolderResponse.definition = n.getObjectValue<SmartFolderDefinition>(createSmartFolderDefinitionFromDiscriminatorValue); },
+        "description": n => { smartFolderResponse.description = n.getStringValue(); },
+        "id": n => { smartFolderResponse.id = n.getGuidValue(); },
+        "name": n => { smartFolderResponse.name = n.getStringValue(); },
+        "personal": n => { smartFolderResponse.personal = n.getBooleanValue(); },
+        "updatedAt": n => { smartFolderResponse.updatedAt = n.getDateValue(); },
+        "workspaceId": n => { smartFolderResponse.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param StartWorkflowRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -4512,6 +4840,19 @@ export function deserializeIntoTermResponse(termResponse: Partial<TermResponse> 
         "synonyms": n => { termResponse.synonyms = n.getCollectionOfPrimitiveValues<string>("string"); },
         "termSetId": n => { termResponse.termSetId = n.getGuidValue(); },
         "updatedAt": n => { termResponse.updatedAt = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TermSetImportResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTermSetImportResponse(termSetImportResponse: Partial<TermSetImportResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "created": n => { termSetImportResponse.created = n.getBooleanValue(); },
+        "termsCreated": n => { termSetImportResponse.termsCreated = n.getNumberValue(); },
+        "termSetId": n => { termSetImportResponse.termSetId = n.getGuidValue(); },
     }
 }
 /**
@@ -4846,6 +5187,10 @@ export interface ExtensionContributions extends AdditionalDataHolder, Parsable {
      * The templateHandlers property
      */
     templateHandlers?: string[] | null;
+    /**
+     * The termSets property
+     */
+    termSets?: string[] | null;
 }
 export interface ExtensionResponse extends AdditionalDataHolder, Parsable {
     /**
@@ -5855,6 +6200,32 @@ export interface PageOfRunResponse extends AdditionalDataHolder, Parsable {
 /**
  * A page of results in Graph/OData shape.
  */
+export interface PageOfSmartFolderEntry extends AdditionalDataHolder, Parsable {
+    /**
+     * The OdataNextLink property
+     */
+    odataNextLink?: string | null;
+    /**
+     * The value property
+     */
+    value?: SmartFolderEntry[] | null;
+}
+/**
+ * A page of results in Graph/OData shape.
+ */
+export interface PageOfSmartFolderResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The OdataNextLink property
+     */
+    odataNextLink?: string | null;
+    /**
+     * The value property
+     */
+    value?: SmartFolderResponse[] | null;
+}
+/**
+ * A page of results in Graph/OData shape.
+ */
 export interface PageOfTermGroupResponse extends AdditionalDataHolder, Parsable {
     /**
      * The OdataNextLink property
@@ -6017,6 +6388,26 @@ export interface PermissionsResponse extends AdditionalDataHolder, Parsable {
      */
     inheritsFromId?: Guid | null;
 }
+export interface PopularKeyword extends AdditionalDataHolder, Parsable {
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The usage property
+     */
+    usage?: number | null;
+}
+export interface PopularKeywordsResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The value property
+     */
+    value?: PopularKeyword[] | null;
+}
 export type PrincipalType = (typeof PrincipalTypeObject)[keyof typeof PrincipalTypeObject];
 export type ProcessingStatus = (typeof ProcessingStatusObject)[keyof typeof ProcessingStatusObject];
 /**
@@ -6037,6 +6428,40 @@ export interface ProcessResponse extends AdditionalDataHolder, Parsable {
      * The operationId property
      */
     operationId?: Guid | null;
+}
+/**
+ * Promotes a keyword into `termSetId` (under `parentId`, optional).
+ */
+export interface PromoteKeywordRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The parentId property
+     */
+    parentId?: Guid | null;
+    /**
+     * The termSetId property
+     */
+    termSetId?: Guid | null;
+}
+/**
+ * Result of a promotion: the term, and whether the keyword was merged into an existing term.
+ */
+export interface PromoteKeywordResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The merged property
+     */
+    merged?: boolean | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The termId property
+     */
+    termId?: Guid | null;
+    /**
+     * The termSetId property
+     */
+    termSetId?: Guid | null;
 }
 export interface RecurrenceRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -7204,6 +7629,7 @@ export function serializeExtensionContributions(writer: SerializationWriter, ext
     writer.writeCollectionOfPrimitiveValues<string>("listTemplates", extensionContributions.listTemplates);
     writer.writeCollectionOfPrimitiveValues<string>("mcpTools", extensionContributions.mcpTools);
     writer.writeCollectionOfPrimitiveValues<string>("templateHandlers", extensionContributions.templateHandlers);
+    writer.writeCollectionOfPrimitiveValues<string>("termSets", extensionContributions.termSets);
     writer.writeAdditionalData(extensionContributions.additionalData);
 }
 /**
@@ -7947,6 +8373,32 @@ export function serializePageOfRunResponse(writer: SerializationWriter, pageOfRu
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PageOfSmartFolderEntry The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePageOfSmartFolderEntry(writer: SerializationWriter, pageOfSmartFolderEntry: Partial<PageOfSmartFolderEntry> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageOfSmartFolderEntry || isSerializingDerivedType) { return; }
+    writer.writeStringValue("@odata.nextLink", pageOfSmartFolderEntry.odataNextLink);
+    writer.writeCollectionOfObjectValues<SmartFolderEntry>("value", pageOfSmartFolderEntry.value, serializeSmartFolderEntry);
+    writer.writeAdditionalData(pageOfSmartFolderEntry.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PageOfSmartFolderResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePageOfSmartFolderResponse(writer: SerializationWriter, pageOfSmartFolderResponse: Partial<PageOfSmartFolderResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageOfSmartFolderResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("@odata.nextLink", pageOfSmartFolderResponse.odataNextLink);
+    writer.writeCollectionOfObjectValues<SmartFolderResponse>("value", pageOfSmartFolderResponse.value, serializeSmartFolderResponse);
+    writer.writeAdditionalData(pageOfSmartFolderResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PageOfTermGroupResponse The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -8109,6 +8561,32 @@ export function serializePermissionsResponse(writer: SerializationWriter, permis
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PopularKeyword The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePopularKeyword(writer: SerializationWriter, popularKeyword: Partial<PopularKeyword> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!popularKeyword || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("id", popularKeyword.id);
+    writer.writeStringValue("name", popularKeyword.name);
+    writer.writeNumberValue("usage", popularKeyword.usage);
+    writer.writeAdditionalData(popularKeyword.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PopularKeywordsResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePopularKeywordsResponse(writer: SerializationWriter, popularKeywordsResponse: Partial<PopularKeywordsResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!popularKeywordsResponse || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<PopularKeyword>("value", popularKeywordsResponse.value, serializePopularKeyword);
+    writer.writeAdditionalData(popularKeywordsResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param ProcessRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -8130,6 +8608,34 @@ export function serializeProcessResponse(writer: SerializationWriter, processRes
     if (!processResponse || isSerializingDerivedType) { return; }
     writer.writeGuidValue("operationId", processResponse.operationId);
     writer.writeAdditionalData(processResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromoteKeywordRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromoteKeywordRequest(writer: SerializationWriter, promoteKeywordRequest: Partial<PromoteKeywordRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!promoteKeywordRequest || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("parentId", promoteKeywordRequest.parentId);
+    writer.writeGuidValue("termSetId", promoteKeywordRequest.termSetId);
+    writer.writeAdditionalData(promoteKeywordRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromoteKeywordResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromoteKeywordResponse(writer: SerializationWriter, promoteKeywordResponse: Partial<PromoteKeywordResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!promoteKeywordResponse || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("merged", promoteKeywordResponse.merged);
+    writer.writeStringValue("name", promoteKeywordResponse.name);
+    writer.writeGuidValue("termId", promoteKeywordResponse.termId);
+    writer.writeGuidValue("termSetId", promoteKeywordResponse.termSetId);
+    writer.writeAdditionalData(promoteKeywordResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -8469,6 +8975,132 @@ export function serializeSettingsResponse_channels(writer: SerializationWriter, 
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SmartFolderDefinition The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSmartFolderDefinition(writer: SerializationWriter, smartFolderDefinition: Partial<SmartFolderDefinition> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!smartFolderDefinition || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("contentTypes", smartFolderDefinition.contentTypes);
+    writer.writeStringValue("filter", smartFolderDefinition.filter);
+    writer.writeCollectionOfObjectValues<SmartFolderGroupBy>("groupBy", smartFolderDefinition.groupBy, serializeSmartFolderGroupBy);
+    writer.writeBooleanValue("includeFolders", smartFolderDefinition.includeFolders ?? false);
+    writer.writeCollectionOfPrimitiveValues<string>("lists", smartFolderDefinition.lists);
+    writer.writeCollectionOfPrimitiveValues<string>("listTemplates", smartFolderDefinition.listTemplates);
+    writer.writeStringValue("termMatch", smartFolderDefinition.termMatch);
+    writer.writeCollectionOfPrimitiveValues<Guid>("terms", smartFolderDefinition.terms);
+    writer.writeAdditionalData(smartFolderDefinition.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SmartFolderDropRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSmartFolderDropRequest(writer: SerializationWriter, smartFolderDropRequest: Partial<SmartFolderDropRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!smartFolderDropRequest || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<JsonObject>("fields", smartFolderDropRequest.fields, serializeJsonObject);
+    writer.writeGuidValue("itemId", smartFolderDropRequest.itemId);
+    writer.writeGuidValue("listId", smartFolderDropRequest.listId);
+    writer.writeCollectionOfPrimitiveValues<string>("path", smartFolderDropRequest.path);
+    writer.writeGuidValue("workspaceId", smartFolderDropRequest.workspaceId);
+    writer.writeAdditionalData(smartFolderDropRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SmartFolderEntry The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSmartFolderEntry(writer: SerializationWriter, smartFolderEntry: Partial<SmartFolderEntry> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!smartFolderEntry || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<ItemResponse>("item", smartFolderEntry.item, serializeItemResponse);
+    writer.writeStringValue("listName", smartFolderEntry.listName);
+    writer.writeGuidValue("workspaceId", smartFolderEntry.workspaceId);
+    writer.writeAdditionalData(smartFolderEntry.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SmartFolderGroup The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSmartFolderGroup(writer: SerializationWriter, smartFolderGroup: Partial<SmartFolderGroup> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!smartFolderGroup || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("count", smartFolderGroup.count);
+    writer.writeStringValue("label", smartFolderGroup.label);
+    writer.writeStringValue("value", smartFolderGroup.value);
+    writer.writeAdditionalData(smartFolderGroup.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SmartFolderGroupBy The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSmartFolderGroupBy(writer: SerializationWriter, smartFolderGroupBy: Partial<SmartFolderGroupBy> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!smartFolderGroupBy || isSerializingDerivedType) { return; }
+    writer.writeStringValue("by", smartFolderGroupBy.by);
+    writer.writeStringValue("field", smartFolderGroupBy.field);
+    writer.writeAdditionalData(smartFolderGroupBy.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SmartFolderGroupsResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSmartFolderGroupsResponse(writer: SerializationWriter, smartFolderGroupsResponse: Partial<SmartFolderGroupsResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!smartFolderGroupsResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("by", smartFolderGroupsResponse.by);
+    writer.writeStringValue("field", smartFolderGroupsResponse.field);
+    writer.writeCollectionOfObjectValues<SmartFolderGroup>("value", smartFolderGroupsResponse.value, serializeSmartFolderGroup);
+    writer.writeAdditionalData(smartFolderGroupsResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SmartFolderRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSmartFolderRequest(writer: SerializationWriter, smartFolderRequest: Partial<SmartFolderRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!smartFolderRequest || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<SmartFolderDefinition>("definition", smartFolderRequest.definition, serializeSmartFolderDefinition);
+    writer.writeStringValue("description", smartFolderRequest.description);
+    writer.writeStringValue("name", smartFolderRequest.name);
+    writer.writeBooleanValue("personal", smartFolderRequest.personal);
+    writer.writeGuidValue("workspaceId", smartFolderRequest.workspaceId);
+    writer.writeAdditionalData(smartFolderRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SmartFolderResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSmartFolderResponse(writer: SerializationWriter, smartFolderResponse: Partial<SmartFolderResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!smartFolderResponse || isSerializingDerivedType) { return; }
+    writer.writeDateValue("createdAt", smartFolderResponse.createdAt);
+    writer.writeGuidValue("createdBy", smartFolderResponse.createdBy);
+    writer.writeObjectValue<SmartFolderDefinition>("definition", smartFolderResponse.definition, serializeSmartFolderDefinition);
+    writer.writeStringValue("description", smartFolderResponse.description);
+    writer.writeGuidValue("id", smartFolderResponse.id);
+    writer.writeStringValue("name", smartFolderResponse.name);
+    writer.writeBooleanValue("personal", smartFolderResponse.personal);
+    writer.writeDateValue("updatedAt", smartFolderResponse.updatedAt);
+    writer.writeGuidValue("workspaceId", smartFolderResponse.workspaceId);
+    writer.writeAdditionalData(smartFolderResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param StartWorkflowRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -8638,6 +9270,20 @@ export function serializeTermResponse(writer: SerializationWriter, termResponse:
     writer.writeGuidValue("termSetId", termResponse.termSetId);
     writer.writeDateValue("updatedAt", termResponse.updatedAt);
     writer.writeAdditionalData(termResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TermSetImportResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTermSetImportResponse(writer: SerializationWriter, termSetImportResponse: Partial<TermSetImportResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!termSetImportResponse || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("created", termSetImportResponse.created);
+    writer.writeNumberValue("termsCreated", termSetImportResponse.termsCreated);
+    writer.writeGuidValue("termSetId", termSetImportResponse.termSetId);
+    writer.writeAdditionalData(termSetImportResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -8944,6 +9590,189 @@ export interface SettingsResponse extends AdditionalDataHolder, Parsable {
 }
 export interface SettingsResponse_channels extends AdditionalDataHolder, Parsable {
 }
+/**
+ * What a smart folder shows (TAX-08). All parts are optional and combine with "and":`lists` (list names), `listTemplates` (e.g. `tasks`, `events`), `contentTypes` (names or keys),`terms` (term ids, with their child terms; `termMatch``all` or `any`), and an OData`filter` over fields (with `@me`, `@today`, …). `groupBy` adds virtual sub-folders (TAX-10).
+ */
+export interface SmartFolderDefinition extends AdditionalDataHolder, Parsable {
+    /**
+     * The contentTypes property
+     */
+    contentTypes?: string[] | null;
+    /**
+     * The filter property
+     */
+    filter?: string | null;
+    /**
+     * The groupBy property
+     */
+    groupBy?: SmartFolderGroupBy[] | null;
+    /**
+     * The includeFolders property
+     */
+    includeFolders?: boolean | null;
+    /**
+     * The lists property
+     */
+    lists?: string[] | null;
+    /**
+     * The listTemplates property
+     */
+    listTemplates?: string[] | null;
+    /**
+     * The termMatch property
+     */
+    termMatch?: string | null;
+    /**
+     * The terms property
+     */
+    terms?: Guid[] | null;
+}
+/**
+ * Drop to classify (TAX-09): an existing item (`itemId`) gets the folder's terms and the values of its`eq` conditions (and of the sub-folder `path`); or a new item is created with them (`fields`).
+ */
+export interface SmartFolderDropRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The fields property
+     */
+    fields?: JsonObject | null;
+    /**
+     * The itemId property
+     */
+    itemId?: Guid | null;
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
+    /**
+     * The path property
+     */
+    path?: string[] | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
+/**
+ * An item in a smart folder, with where it lives.
+ */
+export interface SmartFolderEntry extends AdditionalDataHolder, Parsable {
+    /**
+     * A list item as returned by the API. `fields` contains `title` and all field values.
+     */
+    item?: ItemResponse | null;
+    /**
+     * The listName property
+     */
+    listName?: string | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
+export interface SmartFolderGroup extends AdditionalDataHolder, Parsable {
+    /**
+     * The count property
+     */
+    count?: number | null;
+    /**
+     * The label property
+     */
+    label?: string | null;
+    /**
+     * The value property
+     */
+    value?: string | null;
+}
+/**
+ * One level of metadata navigation: a field, optionally by `year` or `month` (date fields).
+ */
+export interface SmartFolderGroupBy extends AdditionalDataHolder, Parsable {
+    /**
+     * The by property
+     */
+    by?: string | null;
+    /**
+     * The field property
+     */
+    field?: string | null;
+}
+export interface SmartFolderGroupsResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The by property
+     */
+    by?: string | null;
+    /**
+     * The field property
+     */
+    field?: string | null;
+    /**
+     * The value property
+     */
+    value?: SmartFolderGroup[] | null;
+}
+/**
+ * Create/update body. `personal` folders belong to the caller; others to `workspaceId` (Manage needed).
+ */
+export interface SmartFolderRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The definition property
+     */
+    definition?: SmartFolderDefinition | null;
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The personal property
+     */
+    personal?: boolean | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
+export interface SmartFolderResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The createdBy property
+     */
+    createdBy?: Guid | null;
+    /**
+     * What a smart folder shows (TAX-08). All parts are optional and combine with "and":`lists` (list names), `listTemplates` (e.g. `tasks`, `events`), `contentTypes` (names or keys),`terms` (term ids, with their child terms; `termMatch``all` or `any`), and an OData`filter` over fields (with `@me`, `@today`, …). `groupBy` adds virtual sub-folders (TAX-10).
+     */
+    definition?: SmartFolderDefinition | null;
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The personal property
+     */
+    personal?: boolean | null;
+    /**
+     * The updatedAt property
+     */
+    updatedAt?: Date | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
 export interface StartWorkflowRequest extends AdditionalDataHolder, Parsable {
     /**
      * The workflow property
@@ -9184,6 +10013,20 @@ export interface TermResponse extends AdditionalDataHolder, Parsable {
      * The updatedAt property
      */
     updatedAt?: Date | null;
+}
+export interface TermSetImportResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The created property
+     */
+    created?: boolean | null;
+    /**
+     * The termsCreated property
+     */
+    termsCreated?: number | null;
+    /**
+     * The termSetId property
+     */
+    termSetId?: Guid | null;
 }
 export interface TermSetResponse extends AdditionalDataHolder, Parsable {
     /**

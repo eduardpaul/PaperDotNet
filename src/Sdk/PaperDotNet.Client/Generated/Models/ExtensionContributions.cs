@@ -105,6 +105,14 @@ namespace PaperDotNet.Client.Models
 #else
         public List<string> TemplateHandlers { get; set; }
 #endif
+        /// <summary>The termSets property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<string>? TermSets { get; set; }
+#nullable restore
+#else
+        public List<string> TermSets { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.ExtensionContributions"/> and sets the default values.
         /// </summary>
@@ -142,6 +150,7 @@ namespace PaperDotNet.Client.Models
                 { "listTemplates", n => { ListTemplates = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "mcpTools", n => { McpTools = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "templateHandlers", n => { TemplateHandlers = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
+                { "termSets", n => { TermSets = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
             };
         }
         /// <summary>
@@ -163,6 +172,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteCollectionOfPrimitiveValues<string>("listTemplates", ListTemplates);
             writer.WriteCollectionOfPrimitiveValues<string>("mcpTools", McpTools);
             writer.WriteCollectionOfPrimitiveValues<string>("templateHandlers", TemplateHandlers);
+            writer.WriteCollectionOfPrimitiveValues<string>("termSets", TermSets);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

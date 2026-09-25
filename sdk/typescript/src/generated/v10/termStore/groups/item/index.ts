@@ -4,12 +4,18 @@
 // @ts-ignore
 import { createHttpValidationProblemDetailsFromDiscriminatorValue, createTermGroupResponseFromDiscriminatorValue, serializeTermGroupRequest, serializeTermGroupResponse, type HttpValidationProblemDetails, type TermGroupRequest, type TermGroupResponse } from '../../../../models/index.js';
 // @ts-ignore
-import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
+import { ImportRequestBuilderRequestsMetadata, type ImportRequestBuilder } from './importEscaped/index.js';
+// @ts-ignore
+import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
  * Builds and executes requests for operations under /v1.0/termStore/groups/{groupId}
  */
 export interface WithGroupItemRequestBuilder extends BaseRequestBuilder<WithGroupItemRequestBuilder> {
+    /**
+     * The import property
+     */
+    get importEscaped(): ImportRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      */
@@ -47,6 +53,14 @@ export interface WithGroupItemRequestBuilder extends BaseRequestBuilder<WithGrou
  * Uri template for the request builder.
  */
 export const WithGroupItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/termStore/groups/{groupId}";
+/**
+ * Metadata for all the navigation properties in the request builder.
+ */
+export const WithGroupItemRequestBuilderNavigationMetadata: Record<Exclude<keyof WithGroupItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+    importEscaped: {
+        requestsMetadata: ImportRequestBuilderRequestsMetadata,
+    },
+};
 /**
  * Metadata for all the requests in the request builder.
  */

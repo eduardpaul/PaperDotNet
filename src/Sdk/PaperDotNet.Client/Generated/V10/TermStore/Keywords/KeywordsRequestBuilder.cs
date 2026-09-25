@@ -4,6 +4,8 @@ using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
+using PaperDotNet.Client.V10.TermStore.Keywords.Item;
+using PaperDotNet.Client.V10.TermStore.Keywords.Popular;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -17,6 +19,23 @@ namespace PaperDotNet.Client.V10.TermStore.Keywords
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class KeywordsRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The popular property</summary>
+        public global::PaperDotNet.Client.V10.TermStore.Keywords.Popular.PopularRequestBuilder Popular
+        {
+            get => new global::PaperDotNet.Client.V10.TermStore.Keywords.Popular.PopularRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>Gets an item from the PaperDotNet.Client.v10.termStore.keywords.item collection</summary>
+        /// <param name="position">Unique identifier of the item</param>
+        /// <returns>A <see cref="global::PaperDotNet.Client.V10.TermStore.Keywords.Item.WithTermItemRequestBuilder"/></returns>
+        public global::PaperDotNet.Client.V10.TermStore.Keywords.Item.WithTermItemRequestBuilder this[Guid position]
+        {
+            get
+            {
+                var urlTplParams = new Dictionary<string, object>(PathParameters);
+                urlTplParams.Add("termId", position);
+                return new global::PaperDotNet.Client.V10.TermStore.Keywords.Item.WithTermItemRequestBuilder(urlTplParams, RequestAdapter);
+            }
+        }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.TermStore.Keywords.KeywordsRequestBuilder"/> and sets the default values.
         /// </summary>

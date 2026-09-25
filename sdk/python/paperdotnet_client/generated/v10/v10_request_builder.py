@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from .roles.roles_request_builder import RolesRequestBuilder
     from .scopes.scopes_request_builder import ScopesRequestBuilder
     from .search.search_request_builder import SearchRequestBuilder
+    from .smart_folders.smart_folders_request_builder import SmartFoldersRequestBuilder
     from .term_store.term_store_request_builder import TermStoreRequestBuilder
     from .users.users_request_builder import UsersRequestBuilder
     from .workspaces.workspaces_request_builder import WorkspacesRequestBuilder
@@ -222,6 +223,15 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .search.search_request_builder import SearchRequestBuilder
 
         return SearchRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def smart_folders(self) -> SmartFoldersRequestBuilder:
+        """
+        The smartFolders property
+        """
+        from .smart_folders.smart_folders_request_builder import SmartFoldersRequestBuilder
+
+        return SmartFoldersRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def term_store(self) -> TermStoreRequestBuilder:

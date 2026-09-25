@@ -26,3 +26,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0019](0019-workflows-on-wolverine.md) | Workflow runs resumed through Wolverine messages (replaces WorkflowCore) | Accepted |
 | [0020](0020-sync-api.md) | Comments and activity on the SDK; change log for delta, change subscriptions, `$batch` | Accepted |
 | [0021](0021-mcp-and-sdks.md) | MCP server with the official C# SDK and our own tool contract; SDKs generated with Kiota | Accepted |
+| [0022](0022-smart-folders.md) | Smart folders on the item query engine; OData aliases for relative values; keyword promotion keeps ids | Accepted |

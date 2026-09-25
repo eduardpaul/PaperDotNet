@@ -36,6 +36,8 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
     mcp_tools: Optional[list[str]] = None
     # The templateHandlers property
     template_handlers: Optional[list[str]] = None
+    # The termSets property
+    term_sets: Optional[list[str]] = None
     
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> ExtensionContributions:
@@ -66,6 +68,7 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
             "listTemplates": lambda n : setattr(self, 'list_templates', n.get_collection_of_primitive_values(str)),
             "mcpTools": lambda n : setattr(self, 'mcp_tools', n.get_collection_of_primitive_values(str)),
             "templateHandlers": lambda n : setattr(self, 'template_handlers', n.get_collection_of_primitive_values(str)),
+            "termSets": lambda n : setattr(self, 'term_sets', n.get_collection_of_primitive_values(str)),
         }
         return fields
     
@@ -89,6 +92,7 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
         writer.write_collection_of_primitive_values("listTemplates", self.list_templates)
         writer.write_collection_of_primitive_values("mcpTools", self.mcp_tools)
         writer.write_collection_of_primitive_values("templateHandlers", self.template_handlers)
+        writer.write_collection_of_primitive_values("termSets", self.term_sets)
         writer.write_additional_data_value(self.additional_data)
     
 

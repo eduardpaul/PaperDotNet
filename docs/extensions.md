@@ -112,6 +112,8 @@ pass a `DeduplicationKey` so a job that runs again does not notify twice.
 Add entries to an item's activity timeline (`GET …/items/{id}/activity`) with
 `IItemActivity.RecordAsync(new(workspaceId, listId, itemId, "{extension id}.signed", summary, key))`
 (Collaboration.Contracts); item changes and comments are recorded for you.
+Ship vocabularies with `builder.AddTermSet(new TermSetTemplate(…) { Key = "{extension id}.…" })`: the term
+set is created when a tenant enables the extension (missing terms are added later, none removed).
 Offer tools to AI assistants with `builder.AddMcpTool<TTool>()` (implement
 `IMcpTool` from Mcp.Contracts; names start with the extension id, `.` and `-`
 as `_`, e.g. `samples_invoices_pending`); see [mcp.md](mcp.md).

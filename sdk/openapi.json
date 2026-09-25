@@ -1854,6 +1854,142 @@
         }
       }
     },
+    "/v1.0/termStore/keywords/popular": {
+      "get": {
+        "tags": [
+          "Term store"
+        ],
+        "operationId": "ListPopularKeywords",
+        "parameters": [
+          {
+            "name": "top",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PopularKeywordsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/termStore/keywords/{termId}/promote": {
+      "post": {
+        "tags": [
+          "Term store"
+        ],
+        "operationId": "PromoteKeyword",
+        "parameters": [
+          {
+            "name": "termId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoteKeywordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromoteKeywordResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/termStore/groups/{groupId}/import": {
+      "post": {
+        "tags": [
+          "Term store"
+        ],
+        "operationId": "ImportTermSet",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "text/csv": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermSetImportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/contentTypes": {
       "get": {
         "tags": [
@@ -2686,6 +2822,405 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeltaPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/smartFolders": {
+      "get": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "ListSmartFolders",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfSmartFolderResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "CreateSmartFolder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmartFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/smartFolders/{id}": {
+      "get": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "GetSmartFolder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "UpdateSmartFolder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmartFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "DeleteSmartFolder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/smartFolders/{id}/items": {
+      "get": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "ListSmartFolderItems",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfSmartFolderEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "AddToSmartFolder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmartFolderDropRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderEntry"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/smartFolders/{id}/groups": {
+      "get": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "ListSmartFolderGroups",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderGroupsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/smartFolders/{id}/items/{itemId}": {
+      "delete": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "RemoveFromSmartFolder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderEntry"
                 }
               }
             }
@@ -9782,6 +10317,15 @@
               "type": "string"
             }
           },
+          "termSets": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
           "dbContext": {
             "type": [
               "null",
@@ -11464,6 +12008,50 @@
         },
         "description": "A page of results in Graph/OData shape."
       },
+      "PageOfSmartFolderEntry": {
+        "required": [
+          "value",
+          "@odata.nextLink"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SmartFolderEntry"
+            }
+          },
+          "@odata.nextLink": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "A page of results in Graph/OData shape."
+      },
+      "PageOfSmartFolderResponse": {
+        "required": [
+          "value",
+          "@odata.nextLink"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SmartFolderResponse"
+            }
+          },
+          "@odata.nextLink": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "A page of results in Graph/OData shape."
+      },
       "PageOfTermGroupResponse": {
         "required": [
           "value",
@@ -11731,6 +12319,45 @@
         },
         "description": "Permissions of a list or item. \u0060inheritsFrom\u0060 names where they come from:\n\u0060workspace\u0060, \u0060list\u0060 or \u0060item\u0060 (with \u0060inheritsFromId\u0060), or null when unique.\nGrants are shown to managers only."
       },
+      "PopularKeyword": {
+        "required": [
+          "id",
+          "name",
+          "usage"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "usage": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PopularKeywordsResponse": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PopularKeyword"
+            }
+          }
+        }
+      },
       "PrincipalType": {
         "enum": [
           "user",
@@ -11777,6 +12404,53 @@
             "format": "uuid"
           }
         }
+      },
+      "PromoteKeywordRequest": {
+        "required": [
+          "termSetId",
+          "parentId"
+        ],
+        "type": "object",
+        "properties": {
+          "termSetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        },
+        "description": "Promotes a keyword into \u0060termSetId\u0060 (under \u0060parentId\u0060, optional)."
+      },
+      "PromoteKeywordResponse": {
+        "required": [
+          "termId",
+          "termSetId",
+          "name",
+          "merged"
+        ],
+        "type": "object",
+        "properties": {
+          "termId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "termSetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "merged": {
+            "type": "boolean"
+          }
+        },
+        "description": "Result of a promotion: the term, and whether the keyword was merged into an existing term."
       },
       "RecurrenceRequest": {
         "required": [
@@ -12494,6 +13168,317 @@
         },
         "description": "Settings; string? SettingsResponse.WebhookSecret is only returned when a secret was created (shown once)."
       },
+      "SmartFolderDefinition": {
+        "type": "object",
+        "properties": {
+          "lists": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "listTemplates": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "contentTypes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "terms": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "termMatch": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "filter": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupBy": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SmartFolderGroupBy"
+            }
+          },
+          "includeFolders": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "description": "What a smart folder shows (TAX-08). All parts are optional and combine with \u0022and\u0022:\n\u0060lists\u0060 (list names), \u0060listTemplates\u0060 (e.g. \u0060tasks\u0060, \u0060events\u0060), \u0060contentTypes\u0060 (names or keys),\n\u0060terms\u0060 (term ids, with their child terms; \u0060termMatch\u0060\u0060all\u0060 or \u0060any\u0060), and an OData\n\u0060filter\u0060 over fields (with \u0060@me\u0060, \u0060@today\u0060, \u2026). \u0060groupBy\u0060 adds virtual sub-folders (TAX-10)."
+      },
+      "SmartFolderDropRequest": {
+        "required": [
+          "workspaceId",
+          "listId",
+          "itemId",
+          "fields",
+          "path"
+        ],
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "fields": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "path": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "Drop to classify (TAX-09): an existing item (\u0060itemId\u0060) gets the folder\u0027s terms and the values of its\n\u0060eq\u0060 conditions (and of the sub-folder \u0060path\u0060); or a new item is created with them (\u0060fields\u0060)."
+      },
+      "SmartFolderEntry": {
+        "required": [
+          "workspaceId",
+          "listName",
+          "item"
+        ],
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listName": {
+            "type": "string"
+          },
+          "item": {
+            "$ref": "#/components/schemas/ItemResponse"
+          }
+        },
+        "description": "An item in a smart folder, with where it lives."
+      },
+      "SmartFolderGroup": {
+        "required": [
+          "value",
+          "label",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "SmartFolderGroupBy": {
+        "required": [
+          "field"
+        ],
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "by": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "One level of metadata navigation: a field, optionally by \u0060year\u0060 or \u0060month\u0060 (date fields)."
+      },
+      "SmartFolderGroupsResponse": {
+        "required": [
+          "value",
+          "field",
+          "by"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SmartFolderGroup"
+            }
+          },
+          "field": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "by": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SmartFolderRequest": {
+        "required": [
+          "name",
+          "description",
+          "workspaceId",
+          "personal",
+          "definition"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workspaceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "personal": {
+            "type": "boolean"
+          },
+          "definition": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SmartFolderDefinition"
+              }
+            ]
+          }
+        },
+        "description": "Create/update body. \u0060personal\u0060 folders belong to the caller; others to \u0060workspaceId\u0060 (Manage needed)."
+      },
+      "SmartFolderResponse": {
+        "required": [
+          "id",
+          "name",
+          "description",
+          "workspaceId",
+          "personal",
+          "definition",
+          "createdAt",
+          "createdBy",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workspaceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "personal": {
+            "type": "boolean"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/SmartFolderDefinition"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "SseItemOfObject": {
         "type": "object",
         "properties": {
@@ -12923,6 +13908,31 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "TermSetImportResponse": {
+        "required": [
+          "termSetId",
+          "created",
+          "termsCreated"
+        ],
+        "type": "object",
+        "properties": {
+          "termSetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created": {
+            "type": "boolean"
+          },
+          "termsCreated": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -13672,6 +14682,9 @@
     },
     {
       "name": "Items"
+    },
+    {
+      "name": "Smart folders"
     },
     {
       "name": "Views"

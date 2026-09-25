@@ -4,7 +4,7 @@
 // @ts-ignore
 import { createHttpValidationProblemDetailsFromDiscriminatorValue, createPageOfTermGroupResponseFromDiscriminatorValue, createTermGroupResponseFromDiscriminatorValue, serializeTermGroupRequest, serializeTermGroupResponse, type HttpValidationProblemDetails, type PageOfTermGroupResponse, type TermGroupRequest, type TermGroupResponse } from '../../../models/index.js';
 // @ts-ignore
-import { type WithGroupItemRequestBuilder, WithGroupItemRequestBuilderRequestsMetadata } from './item/index.js';
+import { type WithGroupItemRequestBuilder, WithGroupItemRequestBuilderNavigationMetadata, WithGroupItemRequestBuilderRequestsMetadata } from './item/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -52,6 +52,7 @@ export const GroupsRequestBuilderUriTemplate = "{+baseurl}/v1.0/termStore/groups
 export const GroupsRequestBuilderNavigationMetadata: Record<Exclude<keyof GroupsRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     byGroupId: {
         requestsMetadata: WithGroupItemRequestBuilderRequestsMetadata,
+        navigationMetadata: WithGroupItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["groupId"],
     },
 };

@@ -4,12 +4,26 @@
 // @ts-ignore
 import { createHttpValidationProblemDetailsFromDiscriminatorValue, createTermResponseFromDiscriminatorValue, serializeKeywordRequest, serializeTermResponse, type HttpValidationProblemDetails, type KeywordRequest, type TermResponse } from '../../../models/index.js';
 // @ts-ignore
-import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
+import { type WithTermItemRequestBuilder, WithTermItemRequestBuilderNavigationMetadata } from './item/index.js';
+// @ts-ignore
+import { PopularRequestBuilderRequestsMetadata, type PopularRequestBuilder } from './popular/index.js';
+// @ts-ignore
+import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
  * Builds and executes requests for operations under /v1.0/termStore/keywords
  */
 export interface KeywordsRequestBuilder extends BaseRequestBuilder<KeywordsRequestBuilder> {
+    /**
+     * The popular property
+     */
+    get popular(): PopularRequestBuilder;
+    /**
+     * Gets an item from the paperdotnet.v10.termStore.keywords.item collection
+     * @param termId Unique identifier of the item
+     * @returns {WithTermItemRequestBuilder}
+     */
+     byTermId(termId: Guid) : WithTermItemRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<TermResponse[]>}
@@ -41,6 +55,18 @@ export interface KeywordsRequestBuilderGetQueryParameters {
  * Uri template for the request builder.
  */
 export const KeywordsRequestBuilderUriTemplate = "{+baseurl}/v1.0/termStore/keywords{?search*}";
+/**
+ * Metadata for all the navigation properties in the request builder.
+ */
+export const KeywordsRequestBuilderNavigationMetadata: Record<Exclude<keyof KeywordsRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+    byTermId: {
+        navigationMetadata: WithTermItemRequestBuilderNavigationMetadata,
+        pathParametersMappings: ["termId"],
+    },
+    popular: {
+        requestsMetadata: PopularRequestBuilderRequestsMetadata,
+    },
+};
 /**
  * Metadata for all the requests in the request builder.
  */

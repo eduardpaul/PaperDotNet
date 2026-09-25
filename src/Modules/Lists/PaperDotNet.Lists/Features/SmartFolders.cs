@@ -335,8 +335,10 @@ internal static class SmartFolders
 
     // ---- Helpers ----------------------------------------------------------------------------
 
-    internal static SmartFolderDefinition Definition(SmartFolder folder) =>
-        JsonSerializer.Deserialize<SmartFolderDefinition>(folder.Definition, Json) ?? new SmartFolderDefinition();
+    internal static SmartFolderDefinition Definition(SmartFolder folder) => ParseDefinition(folder.Definition);
+
+    internal static SmartFolderDefinition ParseDefinition(string json) =>
+        JsonSerializer.Deserialize<SmartFolderDefinition>(json, Json) ?? new SmartFolderDefinition();
 
     internal static string Serialize(SmartFolderDefinition definition) => JsonSerializer.Serialize(definition, Json);
 

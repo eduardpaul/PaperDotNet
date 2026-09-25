@@ -74,7 +74,9 @@ public sealed class SmartFolderTests(PaperDotNetApiFactory factory)
 
         var folder = await PostIdAsync(s.Admin, "/v1.0/smartFolders", new
         {
-            name = "Project Apollo", workspaceId = s.Workspace, definition = new { terms = new[] { s.Apollo } },
+            name = "Project Apollo",
+            workspaceId = s.Workspace,
+            definition = new { terms = new[] { s.Apollo } },
         });
         Assert.Equal(["Apollo budget", "Lander spec", "Launch plan"], await TitlesAsync(s.Admin, $"/v1.0/smartFolders/{folder}/items"));
 
@@ -103,7 +105,8 @@ public sealed class SmartFolderTests(PaperDotNetApiFactory factory)
 
         var folder = await PostIdAsync(s.Admin, "/v1.0/smartFolders", new
         {
-            name = "Due this week", personal = true,
+            name = "Due this week",
+            personal = true,
             definition = new { lists = new[] { "Jobs" }, filter = "fields/status eq 'open' and fields/assignedTo eq @me and fields/due le @next7Days" },
         });
         Assert.Equal(["Mine soon"], await TitlesAsync(s.Admin, $"/v1.0/smartFolders/{folder}/items"));
@@ -128,7 +131,8 @@ public sealed class SmartFolderTests(PaperDotNetApiFactory factory)
         var task = await ItemAsync(s.Admin, s.Workspace, s.Tasks, new { title = "Loose task", status = "done" });
         var folder = await PostIdAsync(s.Admin, "/v1.0/smartFolders", new
         {
-            name = "Apollo open", workspaceId = s.Workspace,
+            name = "Apollo open",
+            workspaceId = s.Workspace,
             definition = new { terms = new[] { s.Apollo }, filter = "fields/status eq 'open'", listTemplates = Array.Empty<string>() },
         });
 
@@ -165,7 +169,8 @@ public sealed class SmartFolderTests(PaperDotNetApiFactory factory)
         await ItemAsync(s.Admin, s.Workspace, s.Docs, new { title = "N1" });
         var folder = await PostIdAsync(s.Admin, "/v1.0/smartFolders", new
         {
-            name = "By year", workspaceId = s.Workspace,
+            name = "By year",
+            workspaceId = s.Workspace,
             definition = new { lists = new[] { "Papers" }, groupBy = new object[] { new { field = "issued", by = "year" }, new { field = "counterparty" } } },
         });
 
@@ -187,6 +192,40 @@ public sealed class SmartFolderTests(PaperDotNetApiFactory factory)
             new { workspaceId = s.Workspace, listId = s.Docs, fields = new { title = "B2", issued = "2026-06-01" }, path = new[] { "2026", "Beta" } }, Ct);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         Assert.Equal([("ACME", 1), ("Beta", 2)], await GroupsAsync("?path=2026"));
+    }
+
+    [Fact]
+    public async Task Shared_smart_folders_travel_with_workspace_templates()
+    {
+        var s = await SetupAsync("smart-template-a");
+        await PostIdAsync(s.Admin, "/v1.0/smartFolders", new
+        {
+            name = "Apollo work",
+            workspaceId = s.Workspace,
+            definition = new { lists = new[] { "Jobs" }, terms = new[] { s.Apollo }, filter = "fields/status eq 'open'" },
+        });
+        await PostIdAsync(s.Admin, "/v1.0/smartFolders", new { name = "Private", personal = true, workspaceId = s.Workspace, definition = new { } });
+        var xml = await (await s.Admin.GetAsync($"/v1.0/provisioning/export?workspaceId={s.Workspace}", Ct)).Content.ReadAsStringAsync(Ct);
+        Assert.Contains("urn:paperdotnet:smartfolders:1", xml, StringComparison.Ordinal);
+        Assert.Contains("Work/Projects/Apollo", xml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Private", xml, StringComparison.Ordinal);
+
+        await factory.CreateTenantAsync("smart-template-b");
+        var other = await ApiClient.CreateAsync(factory, "smart-template-b");
+        var apply = await other.PostAsync("/v1.0/provisioning/apply", new StringContent(xml, System.Text.Encoding.UTF8, "application/xml"), Ct);
+        Assert.True(apply.IsSuccessStatusCode, await apply.Content.ReadAsStringAsync(Ct));
+        var folder = (await (await other.GetAsync("/v1.0/smartFolders", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray().Single();
+        Assert.Equal("Apollo work", folder.GetProperty("name").GetString());
+        var term = folder.GetProperty("definition").GetProperty("terms")[0].GetGuid();
+        Assert.NotEqual(s.Apollo, term);
+        var workspace = folder.GetProperty("workspaceId").GetGuid();
+        var jobs = (await (await other.GetAsync($"/v1.0/workspaces/{workspace}/lists", Ct)).ReadJsonAsync()).EnumerateArray()
+            .Single(l => l.GetProperty("name").GetString() == "Jobs").GetProperty("id").GetGuid();
+        await ItemAsync(other, workspace, jobs, new { title = "Imported", project = "Apollo", status = "open" });
+        Assert.Equal(["Imported"], await TitlesAsync(other, $"/v1.0/smartFolders/{folder.GetProperty("id").GetGuid()}/items"));
+
+        var again = await other.PostAsync("/v1.0/provisioning/apply", new StringContent(xml, System.Text.Encoding.UTF8, "application/xml"), Ct);
+        Assert.Empty((await again.ReadJsonAsync()).GetProperty("changes").EnumerateArray());
     }
 
     [Fact]

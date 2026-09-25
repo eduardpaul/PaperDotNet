@@ -4,7 +4,7 @@
 // @ts-ignore
 import { GroupsRequestBuilderNavigationMetadata, GroupsRequestBuilderRequestsMetadata, type GroupsRequestBuilder } from './groups/index.js';
 // @ts-ignore
-import { KeywordsRequestBuilderRequestsMetadata, type KeywordsRequestBuilder } from './keywords/index.js';
+import { KeywordsRequestBuilderNavigationMetadata, KeywordsRequestBuilderRequestsMetadata, type KeywordsRequestBuilder } from './keywords/index.js';
 // @ts-ignore
 import { SetsRequestBuilderNavigationMetadata, SetsRequestBuilderRequestsMetadata, type SetsRequestBuilder } from './sets/index.js';
 // @ts-ignore
@@ -41,6 +41,7 @@ export const TermStoreRequestBuilderNavigationMetadata: Record<Exclude<keyof Ter
     },
     keywords: {
         requestsMetadata: KeywordsRequestBuilderRequestsMetadata,
+        navigationMetadata: KeywordsRequestBuilderNavigationMetadata,
     },
     sets: {
         requestsMetadata: SetsRequestBuilderRequestsMetadata,

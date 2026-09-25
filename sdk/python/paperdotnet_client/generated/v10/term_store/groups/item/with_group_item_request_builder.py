@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from .....models.http_validation_problem_details import HttpValidationProblemDetails
     from .....models.term_group_request import TermGroupRequest
     from .....models.term_group_response import TermGroupResponse
+    from .import_.import_request_builder import ImportRequestBuilder
 
 class WithGroupItemRequestBuilder(BaseRequestBuilder):
     """
@@ -121,6 +122,15 @@ class WithGroupItemRequestBuilder(BaseRequestBuilder):
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
         return WithGroupItemRequestBuilder(self.request_adapter, raw_url)
+    
+    @property
+    def import_(self) -> ImportRequestBuilder:
+        """
+        The import property
+        """
+        from .import_.import_request_builder import ImportRequestBuilder
+
+        return ImportRequestBuilder(self.request_adapter, self.path_parameters)
     
     @dataclass
     class WithGroupItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):
