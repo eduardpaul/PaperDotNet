@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Jobs.Contracts;
+using PaperDotNet.Mcp.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Search.Contracts;
 using PaperDotNet.Search.Data;
@@ -32,6 +33,7 @@ public sealed class SearchModule : IModule
         services.AddScoped<ISearchIndex, SearchIndex>();
         services.AddScopes(SearchScopes.All);
         services.AddScoped<SearchReindexer>();
+        services.AddScoped<IMcpTool, SearchTool>();
         services.AddOperationHandler<ReindexOperation>();
     }
 

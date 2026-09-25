@@ -169,7 +169,7 @@ internal static class SearchEndpoints
     }
 
     /// <summary>The caller's principals: user, groups, and workspace memberships (owners also as owners).</summary>
-    private static async Task<List<string>> PrincipalsAsync(IWorkspaceAccess workspaces, IUserDirectory users, ICurrentUser user, CancellationToken ct)
+    internal static async Task<List<string>> PrincipalsAsync(IWorkspaceAccess workspaces, IUserDirectory users, ICurrentUser user, CancellationToken ct)
     {
         if (user.UserId is not { } userId)
         {

@@ -88,6 +88,8 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `Microsoft.CodeAnalysis.*` (Roslyn, via Wolverine runtime compilation) | MIT | Runtime compilation of message handlers |
 | `FastExpressionCompiler`, `Spectre.Console`, `Newtonsoft.Json` (via Wolverine) | MIT | Wolverine dependencies |
 | `Cronos` | MIT | Cron expressions for recurring jobs (ADR-0010) |
+| `ModelContextProtocol.AspNetCore` (+ `ModelContextProtocol`, `ModelContextProtocol.Core`) | Apache-2.0 | MCP server for AI assistants (API-08/09); the official C# SDK |
+| `Microsoft.Extensions.AI.Abstractions` | MIT | Dependency of the MCP SDK |
 | `CliWrap` | MIT | Running the Tesseract CLI |
 | `TngTech.ArchUnitNET` (+ `.xUnitV3`) | Apache-2.0 | Architecture tests |
 | `OpenIddict.EntityFrameworkCore` | Apache-2.0 | OpenIddict stores |

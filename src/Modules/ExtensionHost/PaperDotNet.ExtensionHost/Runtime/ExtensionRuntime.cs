@@ -39,6 +39,8 @@ public sealed class ExtensionContributions
 
     public List<string> AutomationTriggers { get; } = [];
 
+    public List<string> McpTools { get; } = [];
+
     /// <summary>The extension's own DbContext (EXT-07), if any.</summary>
     public string? DbContext { get; set; }
 
@@ -246,6 +248,16 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
+    public IExtensionBuilder AddMcpTool<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTool>()
+        where TTool : class, Mcp.Contracts.IMcpTool
+    {
+        var id = extension.Id;
+        services.TryAddScoped<TTool>();
+        services.AddScoped<Mcp.Contracts.IMcpTool>(sp => new GatedMcpTool(id, sp.GetRequiredService<TTool>(), sp.GetRequiredService<IExtensionState>()));
+        extension.Contributions.McpTools.Add(typeof(TTool).Name);
+        return this;
+    }
+
     public IExtensionBuilder AddAutomationTrigger(AutomationTriggerDefinition trigger)
     {
         RequirePrefix(trigger.Key, "Automation trigger key");
@@ -384,4 +396,30 @@ internal sealed class GatedAutomationAction(string extensionId, IAutomationActio
         await state.IsEnabledAsync(extensionId, cancellationToken)
             ? await inner.ExecuteAsync(context, cancellationToken)
             : AutomationActionResult.Fail($"The extension '{extensionId}' is not enabled.");
+}
+
+/// <summary>An extension's MCP tool: offered only where the extension is enabled; the name carries the extension id.</summary>
+internal sealed class GatedMcpTool(string extensionId, Mcp.Contracts.IMcpTool inner, IExtensionState state) : Mcp.Contracts.IMcpTool
+{
+    public static string Prefix(string extensionId) => extensionId.Replace('.', '_').Replace('-', '_') + "_";
+
+    public string Name => inner.Name.StartsWith(Prefix(extensionId), StringComparison.Ordinal)
+        ? inner.Name
+        : throw new InvalidOperationException($"MCP tool '{inner.Name}' of extension {extensionId} must start with '{Prefix(extensionId)}'.");
+
+    public string Description => inner.Description;
+
+    public System.Text.Json.JsonElement InputSchema => inner.InputSchema;
+
+    public string? RequiredScope => inner.RequiredScope;
+
+    public bool IsReadOnly => inner.IsReadOnly;
+
+    public async ValueTask<bool> IsAvailableAsync(CancellationToken cancellationToken) =>
+        await state.IsEnabledAsync(extensionId, cancellationToken) && await inner.IsAvailableAsync(cancellationToken);
+
+    public async Task<Mcp.Contracts.McpToolResult> CallAsync(Mcp.Contracts.McpArguments arguments, CancellationToken cancellationToken) =>
+        await state.IsEnabledAsync(extensionId, cancellationToken)
+            ? await inner.CallAsync(arguments, cancellationToken)
+            : Mcp.Contracts.McpToolResult.Error($"The extension '{extensionId}' is not enabled.");
 }

@@ -18,6 +18,7 @@ using PaperDotNet.Host.Bootstrap;
 using PaperDotNet.Identity;
 using PaperDotNet.Jobs;
 using PaperDotNet.Lists;
+using PaperDotNet.Mcp;
 using PaperDotNet.Messaging;
 using PaperDotNet.Notifications;
 using PaperDotNet.Persistence;
@@ -57,6 +58,7 @@ public static class PaperDotNetHost
         new CalendarModule(),
         new NotificationsModule(),
         new CollaborationModule(),
+        new McpModule(),
         new ProvisioningModule(),
         new AutomationModule(),
         new AuditModule(),

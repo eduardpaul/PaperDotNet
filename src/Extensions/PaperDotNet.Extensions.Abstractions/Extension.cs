@@ -101,6 +101,14 @@ public interface IExtensionBuilder
     /// <summary>A trigger for rules (EVT-09; key starts with <c>{extension id}.</c>); raise it with <see cref="IAutomationTriggers"/>.</summary>
     IExtensionBuilder AddAutomationTrigger(AutomationTriggerDefinition trigger);
 
+    /// <summary>
+    /// A tool for AI assistants on the MCP endpoint (API-09). The name must start with the extension id
+    /// with <c>.</c> and <c>-</c> replaced by <c>_</c>, then <c>_</c> (e.g. <c>acme_invoices_approve</c>);
+    /// the tool is offered only in tenants that enabled the extension.
+    /// </summary>
+    IExtensionBuilder AddMcpTool<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTool>()
+        where TTool : class, Mcp.Contracts.IMcpTool;
+
     /// <summary>API endpoints under <c>/v1.0/extensions/{id}</c> (404 in tenants where the extension is disabled).</summary>
     IExtensionBuilder MapEndpoints(Action<IEndpointRouteBuilder> map);
 }
