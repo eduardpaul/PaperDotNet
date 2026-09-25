@@ -153,9 +153,14 @@ internal sealed class DigestJob(NotificationsDbContext db, INotificationSender s
     }
 }
 
-/// <summary>Removes follows of permanently deleted items.</summary>
+/// <summary>Removes follows and change subscriptions of permanently deleted items.</summary>
 internal sealed class PurgedFollows(NotificationsDbContext db) : IEventSubscriber<ItemPurged>
 {
-    public Task HandleAsync(ItemPurged integrationEvent, CancellationToken cancellationToken) =>
-        db.Subscriptions.Where(s => s.ItemId == integrationEvent.ItemId).ExecuteDeleteAsync(cancellationToken);
+    public async Task HandleAsync(ItemPurged integrationEvent, CancellationToken cancellationToken)
+    {
+        await db.Subscriptions.Where(s => s.ItemId == integrationEvent.ItemId).ExecuteDeleteAsync(cancellationToken);
+        var changes = db.ChangeSubscriptions.Where(s => s.ItemId == integrationEvent.ItemId).Select(s => s.Id);
+        await db.ChangeDeliveries.Where(d => changes.Contains(d.SubscriptionId)).ExecuteDeleteAsync(cancellationToken);
+        await db.ChangeSubscriptions.Where(s => s.ItemId == integrationEvent.ItemId).ExecuteDeleteAsync(cancellationToken);
+    }
 }

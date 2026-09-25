@@ -16,11 +16,13 @@ public static class NotificationScopes
 {
     public const string Read = "notification.read";
     public const string Write = "notification.write";
+    public const string ChangeSubscriptions = "changeSubscription.manage";
 
     public static readonly ScopeDefinition[] All =
     [
         new(Read, "Read your notifications, settings and follows.", GrantedToMembers: true),
         new(Write, "Mark notifications read, change your settings and follow lists or items.", GrantedToMembers: true),
+        new(ChangeSubscriptions, "Subscribe to changes of lists and items you can read (signed HTTP notifications).", GrantedToMembers: true),
     ];
 }
 
@@ -49,8 +51,18 @@ public sealed class NotificationsModule : IModule
         services.AddScoped<IEventSubscriber<ItemUpdated>>(sp => sp.GetRequiredService<AlertSubscriber>());
         services.AddScoped<IEventSubscriber<ItemDeleted>>(sp => sp.GetRequiredService<AlertSubscriber>());
         services.AddScoped<IEventSubscriber<ItemPurged>, PurgedFollows>();
+        services.AddScoped<ChangeNotifier>();
+        services.AddScoped<IEventSubscriber<ItemAdded>>(sp => sp.GetRequiredService<ChangeNotifier>());
+        services.AddScoped<IEventSubscriber<ItemUpdated>>(sp => sp.GetRequiredService<ChangeNotifier>());
+        services.AddScoped<IEventSubscriber<ItemDeleted>>(sp => sp.GetRequiredService<ChangeNotifier>());
+        services.AddTenantRecurringJob<ChangeDispatcher>(ChangeDispatcher.Name, ChangeDispatcher.Schedule);
+        services.AddTenantRecurringJob<ChangeSubscriptionCleanupJob>(ChangeSubscriptionCleanupJob.Name, ChangeSubscriptionCleanupJob.Schedule);
         services.AddScopes(NotificationScopes.All);
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) => NotificationEndpoints.Map(endpoints);
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        NotificationEndpoints.Map(endpoints);
+        ChangeNotifications.Map(endpoints);
+    }
 }

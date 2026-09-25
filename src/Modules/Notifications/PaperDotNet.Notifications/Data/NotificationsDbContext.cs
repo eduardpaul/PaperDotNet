@@ -174,8 +174,30 @@ public sealed class NotificationsDbContext(DbContextOptions<NotificationsDbConte
 
     public DbSet<DigestEntry> Digest => Set<DigestEntry>();
 
+    public DbSet<ChangeSubscription> ChangeSubscriptions => Set<ChangeSubscription>();
+
+    public DbSet<ChangeDelivery> ChangeDeliveries => Set<ChangeDelivery>();
+
     protected override void ConfigureModel(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<ChangeSubscription>(b =>
+        {
+            b.ToTable("change_subscriptions");
+            b.Property(c => c.NotificationUrl).HasMaxLength(2000);
+            b.Property(c => c.ClientState).HasMaxLength(ChangeSubscription.MaxClientState);
+            b.Property(c => c.Secret).HasMaxLength(1000);
+            b.HasIndex(c => new { c.TenantId, c.ListId, c.ExpiresAt });
+            b.HasIndex(c => new { c.TenantId, c.UserId });
+        });
+        modelBuilder.Entity<ChangeDelivery>(b =>
+        {
+            b.ToTable("change_deliveries");
+            b.Property(d => d.Status).HasConversion<string>().HasMaxLength(20);
+            b.Property(d => d.ChangeType).HasMaxLength(20);
+            b.Property(d => d.LastError).HasMaxLength(500);
+            b.HasIndex(d => new { d.SubscriptionId, d.EventId }).IsUnique();
+            b.HasIndex(d => new { d.TenantId, d.Status, d.NextAttemptAt });
+        });
         modelBuilder.Entity<Notification>(b =>
         {
             b.ToTable("notifications");
@@ -216,4 +238,84 @@ public sealed class NotificationsDbContext(DbContextOptions<NotificationsDbConte
             b.HasIndex(d => d.UserId);
         });
     }
+}
+
+/// <summary>
+/// A change subscription (API-06): an API client gets a signed POST to <see cref="NotificationUrl"/>
+/// when items of a list (or one item) are created, updated or deleted, if the owner can read them.
+/// </summary>
+public sealed class ChangeSubscription : ITenantOwned, IAuditable, IVersioned
+{
+    public const int MaxClientState = 255;
+
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    /// <summary>The owner: notifications only name items this user can read.</summary>
+    public Guid UserId { get; set; }
+
+    public Guid WorkspaceId { get; set; }
+
+    public Guid ListId { get; set; }
+
+    /// <summary>Null when the whole list is watched.</summary>
+    public Guid? ItemId { get; set; }
+
+    /// <summary><c>created</c>, <c>updated</c>, <c>deleted</c>.</summary>
+    public List<string> ChangeTypes { get; set; } = [];
+
+    public required string NotificationUrl { get; set; }
+
+    /// <summary>Echoed in every notification so the receiver can check it.</summary>
+    public string? ClientState { get; set; }
+
+    /// <summary>The signing secret, protected with ASP.NET Core data protection.</summary>
+    public required string Secret { get; set; }
+
+    public DateTimeOffset ExpiresAt { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Guid? CreatedBy { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public Guid? UpdatedBy { get; set; }
+
+    public uint Version { get; set; }
+}
+
+/// <summary>A change to post to a subscription's URL; retried with backoff.</summary>
+[NotAudited]
+public sealed class ChangeDelivery : ITenantOwned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid SubscriptionId { get; set; }
+
+    /// <summary>The item event (one delivery per subscription and event).</summary>
+    public Guid EventId { get; set; }
+
+    public required string ChangeType { get; set; }
+
+    public Guid WorkspaceId { get; set; }
+
+    public Guid ListId { get; set; }
+
+    public Guid ItemId { get; set; }
+
+    public DateTimeOffset OccurredAt { get; set; }
+
+    public DeliveryStatus Status { get; set; }
+
+    public int Attempts { get; set; }
+
+    public DateTimeOffset NextAttemptAt { get; set; }
+
+    public DateTimeOffset? DeliveredAt { get; set; }
+
+    public string? LastError { get; set; }
 }

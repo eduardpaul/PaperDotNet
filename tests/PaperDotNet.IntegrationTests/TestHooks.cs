@@ -121,7 +121,7 @@ internal static class Eventually
         WaitForAsync(() => Task.FromResult(condition() ? (bool?)true : null), timeout);
 }
 
-/// <summary>Records webhook requests; hosts starting with <c>fail.</c> answer 500.</summary>
+/// <summary>Records webhook requests; hosts starting with <c>fail.</c> answer 500; validation requests get their token back.</summary>
 internal sealed class TestWebhookReceiver : HttpMessageHandler
 {
     public static readonly TestWebhookReceiver Instance = new();
@@ -133,6 +133,13 @@ internal sealed class TestWebhookReceiver : HttpMessageHandler
         var body = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
         var headers = request.Headers.ToDictionary(h => h.Key, h => string.Join(",", h.Value), StringComparer.OrdinalIgnoreCase);
         Requests.Enqueue((request.RequestUri!, headers, body));
+        var validationToken = System.Web.HttpUtility.ParseQueryString(request.RequestUri!.Query)["validationToken"];
+        if (validationToken is not null && !request.RequestUri.Host.StartsWith("fail.", StringComparison.Ordinal))
+        {
+            // Change subscription handshake: echo the token (API-06).
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(validationToken) };
+        }
+
         return new HttpResponseMessage(request.RequestUri!.Host.StartsWith("fail.", StringComparison.Ordinal)
             ? System.Net.HttpStatusCode.InternalServerError
             : System.Net.HttpStatusCode.OK);

@@ -17,6 +17,175 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Notifications
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("PaperDotNet.Notifications.Data.ChangeDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("ChangeType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("change_type");
+
+                    b.Property<long?>("DeliveredAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("delivered_at");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("event_id");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("item_id");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("last_error");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("list_id");
+
+                    b.Property<long>("NextAttemptAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<long>("OccurredAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("subscription_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notifications_change_deliveries");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_notifications_change_deliveries_tenant_id");
+
+                    b.HasIndex("SubscriptionId", "EventId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_notifications_change_deliveries_subscription_id_event_id");
+
+                    b.HasIndex("TenantId", "Status", "NextAttemptAt")
+                        .HasDatabaseName("ix_notifications_change_deliveries_tenant_id_status_next_attempt_at");
+
+                    b.ToTable("notifications_change_deliveries", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Notifications.Data.ChangeSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.PrimitiveCollection<string>("ChangeTypes")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("change_types");
+
+                    b.Property<string>("ClientState")
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("client_state");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_by");
+
+                    b.Property<long>("ExpiresAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("item_id");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("list_id");
+
+                    b.Property<string>("NotificationUrl")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("notification_url");
+
+                    b.Property<string>("Secret")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("secret");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("user_id");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notifications_change_subscriptions");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_notifications_change_subscriptions_tenant_id");
+
+                    b.HasIndex("TenantId", "UserId")
+                        .HasDatabaseName("ix_notifications_change_subscriptions_tenant_id_user_id");
+
+                    b.HasIndex("TenantId", "ListId", "ExpiresAt")
+                        .HasDatabaseName("ix_notifications_change_subscriptions_tenant_id_list_id_expires_at");
+
+                    b.ToTable("notifications_change_subscriptions", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Notifications.Data.DigestEntry", b =>
                 {
                     b.Property<Guid>("Id")
