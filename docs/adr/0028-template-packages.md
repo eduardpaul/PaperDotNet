@@ -1,6 +1,6 @@
 # ADR-0028: Template packages for content (and export/import)
 
-- **Status:** Accepted
+- **Status:** Accepted; extended by [ADR-0029](0029-papermerge-import.md) (all file versions, page texts, stamps, item permissions)
 - **Date:** 2026-09-25
 
 ## Context

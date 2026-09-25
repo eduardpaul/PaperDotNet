@@ -57,7 +57,7 @@ internal sealed class UserDirectory(
             DisplayName = request.DisplayName ?? request.UserName,
         };
 
-        var result = await users.CreateAsync(user, request.Password);
+        var result = request.Password is null ? await users.CreateAsync(user) : await users.CreateAsync(user, request.Password);
         if (!result.Succeeded)
         {
             throw new UserCreationException(result.Errors.Select(e => e.Description).ToList());

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Papermerge import (PLT-15, ADR-0029): reads a Papermerge 3.6 database and media folder and writes a
+    PaperDotNet package. A tool, not a module: its own read-only EF Core model of Papermerge's schema.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+</Project>

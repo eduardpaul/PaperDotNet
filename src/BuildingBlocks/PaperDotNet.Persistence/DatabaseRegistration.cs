@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Persistence;
 
@@ -53,6 +54,7 @@ public static class DatabaseRegistration
         where TContext : DbContext, ITenantScopedDbContext
     {
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddScoped<AuditOverrides>();
         services.TryAddScoped<AuditingInterceptor>();
         var registry = GetRegistry(services);
         registry.Add(typeof(TContext));

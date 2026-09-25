@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
+using PaperDotNet.Abstractions;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
@@ -17,10 +18,13 @@ namespace PaperDotNet.Lists.Features;
 /// are portable: terms as <c>Group/Set/Term</c> paths, keywords as text, people as user names, lookups as
 /// <c>{ "list": "Workspace/List", "key": … }</c>. Apply creates the items that are missing, each with an id derived from
 /// the list and its key (applying again creates nothing twice; existing items are never changed), through the normal
-/// write path (validation, mutators, events); lookups are set once every list of the template is filled.
+/// write path (validation, mutators, events); lookups are set once every list of the template is filled. Entries also
+/// carry when and by whom items were created and changed (<c>created</c>, <c>createdBy</c>, <c>modified</c>,
+/// <c>modifiedBy</c>, kept on import) and unique permissions (<c>permissions</c>: user or group names with a level).
 /// </summary>
 internal sealed class ListItemsTemplateHandler(
-    ListsDbContext db, ListSchemaLoader loader, ItemWriter writer, ListTemplateLookups lookups, ITermStore terms, IUserDirectory users) : ITemplateHandler
+    ListsDbContext db, ListSchemaLoader loader, ItemWriter writer, ListTemplateLookups lookups, ITermStore terms, IUserDirectory users,
+    AuditOverrides stamps) : ITemplateHandler
 {
     public const string Kind = "items";
 
@@ -52,6 +56,12 @@ internal sealed class ListItemsTemplateHandler(
         var values = ordered.ToDictionary(i => i.Id, i => JsonNode.Parse(i.Fields)!.AsObject());
         var fields = schema.ContentTypes.ToDictionary(c => c.Id, c => (IReadOnlyList<FieldDefinition>)c.Fields);
         var converter = await ExportConverter.CreateAsync(ordered, values, fields, terms, users, lookups, cancellationToken);
+        var unique = ordered.Where(i => i.HasUniquePermissions).Select(i => i.Id).ToList();
+        var grants = unique.Count == 0 ? [] : await db.Grants.AsNoTracking().Where(g => unique.Contains(g.ObjectId)).ToListAsync(cancellationToken);
+        var people = await users.GetUserNamesAsync(
+            [.. ordered.SelectMany(i => new[] { i.CreatedBy, i.UpdatedBy }).OfType<Guid>().Concat(grants.Where(g => g.PrincipalType == PrincipalType.User).Select(g => g.PrincipalId)).Distinct()],
+            cancellationToken);
+        var groups = await users.GetGroupNamesAsync([.. grants.Where(g => g.PrincipalType == PrincipalType.Group).Select(g => g.PrincipalId).Distinct()], cancellationToken);
         var exported = new JsonArray();
         foreach (var item in ordered)
         {
@@ -76,6 +86,19 @@ internal sealed class ListItemsTemplateHandler(
             if (!item.IsFolder || converted.Count > 0)
             {
                 entry["fields"] = converted; // Folders only when they have values (LST-19).
+            }
+
+            entry["created"] = item.CreatedAt;
+            entry["createdBy"] = item.CreatedBy is { } creator ? people.GetValueOrDefault(creator) : null;
+            entry["modified"] = item.UpdatedAt;
+            entry["modifiedBy"] = item.UpdatedBy is { } editor ? people.GetValueOrDefault(editor) : null;
+            if (item.HasUniquePermissions)
+            {
+                entry["permissions"] = new JsonArray([.. grants.Where(g => g.ObjectId == item.Id)
+                    .Select(g => (g.PrincipalType == PrincipalType.User ? people : groups).GetValueOrDefault(g.PrincipalId) is { } principal
+                        ? new JsonObject { [g.PrincipalType == PrincipalType.User ? "user" : "group"] = principal, ["level"] = g.Level.ToString() }
+                        : null)
+                    .OfType<JsonObject>()]);
             }
 
             exported.Add(entry);
@@ -256,8 +279,14 @@ internal sealed class ListItemsTemplateHandler(
             values["title"] = entry["title"]?.DeepClone();
             var parentId = entry["parent"] is JsonValue parent ? TemplateContent.ItemId(listId, parent.ToString()) : (Guid?)null;
             var id = TemplateContent.ItemId(listId, key);
+            if (await StampAsync(entry, cancellationToken) is { } stamp)
+            {
+                stamps.Set(id, stamp);
+            }
+
+            var permissions = entry["permissions"] is JsonArray granted ? await GrantsAsync(granted, context, name, key, cancellationToken) : null;
             using var json = JsonDocument.Parse(values.ToJsonString());
-            var result = await writer.CreateAsync(schema, contentType.Id, parentId, isFolder, json.RootElement, id, cancellationToken);
+            var result = await writer.CreateAsync(schema, contentType.Id, parentId, isFolder, json.RootElement, id, cancellationToken, permissions);
             if (result.Item is null)
             {
                 context.Warn($"{name}: item {key} ('{entry["title"]}') was skipped: {Describe(result)}", section);
@@ -275,6 +304,49 @@ internal sealed class ListItemsTemplateHandler(
             var workspaceId = context.WorkspaceId!.Value;
             context.Defer(ct => SetLookupsAsync(workspaceId, listId, name, lookupsToSet, context, ct));
         }
+    }
+
+    /// <summary>The original created and changed stamps of an entry, when it has them (authors by user name).</summary>
+    private async Task<AuditStamp?> StampAsync(JsonObject entry, CancellationToken ct)
+    {
+        if (entry["created"] is not JsonValue created || !created.TryGetValue<DateTimeOffset>(out var createdAt))
+        {
+            return null;
+        }
+
+        async Task<Guid?> UserAsync(string property) =>
+            entry[property]?.ToString() is { Length: > 0 } userName ? await users.FindUserAsync(userName, ct) : null;
+
+        DateTimeOffset? modifiedAt = entry["modified"] is JsonValue modified && modified.TryGetValue<DateTimeOffset>(out var at) ? at : null;
+        return new AuditStamp(createdAt, await UserAsync("createdBy"), modifiedAt, await UserAsync("modifiedBy"));
+    }
+
+    /// <summary>Unique permissions of an entry: principals by name; unknown ones are left out with a warning.</summary>
+    private async Task<List<PermissionGrantDto>> GrantsAsync(JsonArray entries, TemplateContext context, string name, string key, CancellationToken ct)
+    {
+        var grants = new List<PermissionGrantDto>();
+        foreach (var grant in entries.OfType<JsonObject>())
+        {
+            var isGroup = grant["group"] is not null;
+            var principal = (grant["group"] ?? grant["user"])?.ToString();
+            if (principal is null || !Enum.TryParse<Workspaces.Contracts.WorkspaceAccessLevel>(grant["level"]?.ToString(), ignoreCase: true, out var level)
+                || level is not (Workspaces.Contracts.WorkspaceAccessLevel.Read or Workspaces.Contracts.WorkspaceAccessLevel.Contribute or Workspaces.Contracts.WorkspaceAccessLevel.Manage))
+            {
+                context.Warn($"{name}: item {key} has a permission without a user or group and a level (Read, Contribute, Manage).");
+                continue;
+            }
+
+            var id = isGroup ? await users.FindGroupAsync(principal, ct) : await users.FindUserAsync(principal, ct);
+            if (id is null)
+            {
+                context.Warn($"{name}: item {key}: the {(isGroup ? "group" : "user")} '{principal}' does not exist, so it gets no permission.");
+                continue;
+            }
+
+            grants.Add(new PermissionGrantDto(isGroup ? PrincipalType.Group : PrincipalType.User, id.Value, level));
+        }
+
+        return grants;
     }
 
     /// <summary>Values of an item from the package: names back to ids; lookups are returned separately.</summary>

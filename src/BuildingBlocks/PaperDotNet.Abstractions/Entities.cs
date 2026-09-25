@@ -42,3 +42,19 @@ public static class Ids
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, Inherited = false)]
 public sealed class NotAuditedAttribute : Attribute;
+
+/// <summary>Original creation and change stamps of an imported entity (PRV-04 packages, PLT-15).</summary>
+public sealed record AuditStamp(DateTimeOffset CreatedAt, Guid? CreatedBy, DateTimeOffset? UpdatedAt = null, Guid? UpdatedBy = null);
+
+/// <summary>
+/// Stamps to keep when entities are added in this scope (scoped service): imports register the original created and
+/// changed values of what they create, by entity id, instead of "now" and the importing user.
+/// </summary>
+public sealed class AuditOverrides
+{
+    private readonly Dictionary<Guid, AuditStamp> _stamps = [];
+
+    public void Set(Guid entityId, AuditStamp stamp) => _stamps[entityId] = stamp;
+
+    public bool TryGet(Guid entityId, [System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out AuditStamp stamp) => _stamps.TryGetValue(entityId, out stamp);
+}

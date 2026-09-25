@@ -14,7 +14,7 @@ namespace PaperDotNet.Persistence;
 /// entity purges it), writes <see cref="AuditEntry"/> records in the same
 /// transaction, and rejects any write that would touch another tenant's data.
 /// </summary>
-public sealed class AuditingInterceptor(ITenantContext tenant, ICurrentUser user, TimeProvider time) : SaveChangesInterceptor
+public sealed class AuditingInterceptor(ITenantContext tenant, ICurrentUser user, TimeProvider time, AuditOverrides overrides) : SaveChangesInterceptor
 {
     /// <summary>Columns maintained by this interceptor; never reported as changes.</summary>
     private static readonly HashSet<string> TechnicalProperties =
@@ -75,16 +75,19 @@ public sealed class AuditingInterceptor(ITenantContext tenant, ICurrentUser user
 
             if (entry.Entity is IAuditable audited)
             {
+                // Imports keep the original stamps of what they create (AuditOverrides).
+                var stamp = entry.Metadata.FindProperty("Id") is { ClrType: var idType } && idType == typeof(Guid)
+                    && overrides.TryGet((Guid)entry.Property("Id").CurrentValue!, out var imported) ? imported : null;
                 if (entry.State == EntityState.Added)
                 {
-                    audited.CreatedAt = now;
-                    audited.CreatedBy = user.UserId;
+                    audited.CreatedAt = stamp?.CreatedAt ?? now;
+                    audited.CreatedBy = stamp is null ? user.UserId : stamp.CreatedBy;
                 }
 
                 if (entry.State is EntityState.Added or EntityState.Modified)
                 {
-                    audited.UpdatedAt = now;
-                    audited.UpdatedBy = user.UserId;
+                    audited.UpdatedAt = stamp?.UpdatedAt ?? stamp?.CreatedAt ?? now;
+                    audited.UpdatedBy = stamp is null ? user.UserId : stamp.UpdatedBy ?? stamp.CreatedBy;
                 }
             }
         }

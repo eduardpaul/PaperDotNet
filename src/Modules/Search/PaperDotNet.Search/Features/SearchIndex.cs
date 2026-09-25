@@ -18,6 +18,24 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
             return;
         }
 
+        // The same item can be indexed from two places at once (e.g. an event subscriber and a request): the loser of
+        // the race hits a key conflict and simply writes again on top of the winner.
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await WriteAsync(documents, cancellationToken);
+                return;
+            }
+            catch (DbUpdateException) when (attempt < 3)
+            {
+                db.ChangeTracker.Clear();
+            }
+        }
+    }
+
+    private async Task WriteAsync(IReadOnlyCollection<SearchDocumentData> documents, CancellationToken cancellationToken)
+    {
         var ids = documents.Select(d => d.Id).ToList();
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Principals.Where(p => ids.Contains(p.DocumentId)).ExecuteDeleteAsync(cancellationToken);

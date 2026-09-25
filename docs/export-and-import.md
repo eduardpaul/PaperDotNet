@@ -12,10 +12,12 @@ for its contents and [ADR-0028](adr/0028-template-packages.md) for the design.
   term sets, groups, roles, workspaces with members, lists with views and
   permissions, library settings, smart folders, automations and extension
   settings.
-- **Content:** list items and folders, and the current file of each document.
+- **Content:** list items and folders, with who created and changed them and
+  their unique permissions. Documents come with every file version and its
+  page texts.
 - **Not included:**
-  - file versions other than the current one, item history and comments;
-  - item-level permissions and personal workspaces;
+  - item history (field changes) and comments;
+  - personal workspaces;
   - users. People are referenced by user name, so create the users on the
     target first.
 

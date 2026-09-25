@@ -304,7 +304,8 @@ public sealed class DocumentsOptions
 
 /// <summary>Upload, replace and restore: spool, check, store once, then create the item and the version.</summary>
 internal sealed class DocumentService(
-    IListItemStore items, DocumentsDbContext db, FileIntake intake, ProcessingScheduler processing, IOptions<DocumentsOptions> options)
+    IListItemStore items, DocumentsDbContext db, FileIntake intake, ProcessingScheduler processing, IOptions<DocumentsOptions> options,
+    AuditOverrides stamps)
 {
     private const int MaxDuplicates = 20;
 
@@ -493,16 +494,75 @@ internal sealed class DocumentService(
     }
 
     /// <summary>
+    /// Adds an imported version to an item (packages, PLT-13/15): checked like an upload, with its original source, languages
+    /// and stamps. With page texts it counts as processed; otherwise only the last (current) version is processed.
+    /// Returns an error message, or null.
+    /// </summary>
+    public async Task<string?> ImportVersionAsync(
+        ListItemData item, Stream content, string fileName, ImportedVersion imported, bool isCurrent, CancellationToken ct)
+    {
+        await using var spooled = await FileIntake.SpoolAsync(content, options.Value.MaxFileSize, ct);
+        if (spooled.TooLarge)
+        {
+            return $"the file has more than {options.Value.MaxFileSize} bytes";
+        }
+
+        if (spooled.MediaType is null)
+        {
+            return "only PDF, TIFF, JPEG and PNG files are supported";
+        }
+
+        var stored = await intake.StoreAsync(spooled, ct);
+        var current = await db.FileVersions.FirstOrDefaultAsync(v => v.ItemId == item.Id && v.IsCurrent, ct);
+        var hasText = imported.Pages is { Count: > 0 };
+        var version = await AddVersionAsync(
+            item, current, stored, FileName(fileName, spooled.MediaType), imported.Source ?? "import", imported.Languages, ct,
+            process: isCurrent && !hasText && !imported.Processed, stamp: imported.Stamp);
+        if (version is null)
+        {
+            return "the item's file was changed at the same time";
+        }
+
+        if (!hasText && imported.Processed)
+        {
+            // Processed at the source without text (e.g. the original of an OCR version).
+            version.TextLanguage = imported.TextLanguage;
+            version.ProcessingStatus = ProcessingStatus.Succeeded;
+            await db.SaveChangesAsync(ct);
+        }
+
+        if (hasText)
+        {
+            await SavePagesAsync(stored.Id, imported.Pages!, ct);
+            version.PageCount = imported.Pages!.Count;
+            version.TextLanguage = imported.TextLanguage;
+            version.ProcessingStatus = ProcessingStatus.Succeeded;
+            await db.SaveChangesAsync(ct);
+            if (isCurrent)
+            {
+                await items.ReindexAsync(item.Id, ct);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Adds the next version and makes it current; null when another change won the race. The new version keeps
     /// the current one's languages unless <paramref name="languages"/> are given.
     /// </summary>
     private async Task<FileVersion?> AddVersionAsync(
         ListItemData item, FileVersion? current, StoredFile stored, string fileName, string source, string? languages, CancellationToken ct,
-        bool process = true)
+        bool process = true, AuditStamp? stamp = null)
     {
         var number = (await db.FileVersions.Where(v => v.ItemId == item.Id).MaxAsync(v => (int?)v.Number, ct) ?? 0) + 1;
         current?.IsCurrent = false;
         var version = NewVersion(item, stored, fileName, number, source, languages ?? current?.Languages);
+        if (stamp is not null)
+        {
+            stamps.Set(version.Id, stamp);
+        }
+
         db.FileVersions.Add(version);
         try
         {

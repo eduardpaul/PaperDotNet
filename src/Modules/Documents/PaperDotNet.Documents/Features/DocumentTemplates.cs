@@ -123,14 +123,19 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db, IUse
     }
 }
 
+/// <summary>What a package says about one file version (PLT-13/15).</summary>
+internal sealed record ImportedVersion(
+    string? Source, string? Languages, string? TextLanguage, IReadOnlyList<string>? Pages, AuditStamp? Stamp, bool Processed = false);
+
 /// <summary>
 /// List section <c>Files</c> in <c>urn:paperdotnet:documents:1</c> (PRV-04): the current file of each document, in the
 /// template package (content stored once) with a JSON document mapping item keys to files. Apply gives the items created
 /// from the package's <c>Items</c> section their file, unless they have one; files are checked and processed like uploads.
-/// Earlier versions are not included.
+/// Each entry also lists all <c>versions</c>, oldest first, with source, languages, stamps and page texts (a JSON array of
+/// strings stored as a package file): versions with texts are not processed again.
 /// </summary>
-internal sealed class DocumentFilesTemplateHandler(DocumentsDbContext db, IBlobStore blobs, IListItemStore items, DocumentService documents)
-    : ITemplateHandler
+internal sealed class DocumentFilesTemplateHandler(
+    DocumentsDbContext db, IBlobStore blobs, IListItemStore items, DocumentService documents, IUserDirectory directory) : ITemplateHandler
 {
     public XName Element => LibrarySettingsTemplateHandler.Ns + "Files";
 
@@ -148,26 +153,73 @@ internal sealed class DocumentFilesTemplateHandler(DocumentsDbContext db, IBlobS
 
         var listId = context.ListId!.Value;
         var versions = await (from v in db.FileVersions.AsNoTracking()
-                              where v.ListId == listId && v.IsCurrent
+                              where v.ListId == listId
                               join f in db.StoredFiles.AsNoTracking() on v.StoredFileId equals f.Id
-                              orderby v.ItemId
-                              select new { v.ItemId, v.FileName, File = f })
+                              orderby v.ItemId, v.Number
+                              select new { Version = v, File = f })
             .ToListAsync(cancellationToken);
+        var people = await directory.GetUserNamesAsync([.. versions.Select(v => v.Version.CreatedBy).OfType<Guid>().Distinct()], cancellationToken);
         var entries = new JsonArray();
-        foreach (var version in versions)
+        foreach (var item in versions.GroupBy(v => v.Version.ItemId))
         {
-            await using var content = await blobs.OpenReadAsync(version.File.BlobKey, cancellationToken);
-            if (content is null)
+            var exported = new JsonArray();
+            foreach (var (version, stored) in item.Select(v => (v.Version, v.File)))
             {
-                context.Warn($"{context.WorkspaceName}/{context.ListName}: the file '{version.FileName}' is missing in storage and was left out.");
+                await using var content = await blobs.OpenReadAsync(stored.BlobKey, cancellationToken);
+                if (content is null)
+                {
+                    context.Warn($"{context.WorkspaceName}/{context.ListName}: the file '{version.FileName}' (version {version.Number}) is missing in storage and was left out.");
+                    continue;
+                }
+
+                var texts = await db.Pages.AsNoTracking().Where(p => p.StoredFileId == stored.Id).OrderBy(p => p.PageNumber).ToListAsync(cancellationToken);
+                string? pages = null;
+                if (texts.Count > 0)
+                {
+                    var array = new JsonArray();
+                    var number = 1;
+                    foreach (var page in texts)
+                    {
+                        while (number++ < page.PageNumber)
+                        {
+                            array.Add(string.Empty);
+                        }
+
+                        array.Add(page.Text);
+                    }
+
+                    using var json = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(array.ToJsonString()));
+                    pages = await package.AddFileAsync(json, cancellationToken);
+                }
+
+                exported.Add(new JsonObject
+                {
+                    ["file"] = await package.AddFileAsync(content, cancellationToken),
+                    ["name"] = version.FileName,
+                    ["source"] = version.Source,
+                    ["created"] = version.CreatedAt,
+                    ["createdBy"] = version.CreatedBy is { } by ? people.GetValueOrDefault(by) : null,
+                    ["languages"] = version.Languages,
+                    ["textLanguage"] = version.TextLanguage,
+                    ["pages"] = pages,
+                    ["processed"] = version.ProcessingStatus == ProcessingStatus.Succeeded ? true : null,
+                    ["current"] = version.IsCurrent ? true : null,
+                });
+            }
+
+            if (exported.Count == 0)
+            {
                 continue;
             }
 
+            // The current file stays at the top level, so older readers still find it.
+            var current = exported.OfType<JsonObject>().LastOrDefault(v => v["current"] is not null) ?? (JsonObject)exported[^1]!;
             entries.Add(new JsonObject
             {
-                ["key"] = version.ItemId.ToString("N"),
-                ["file"] = await package.AddFileAsync(content, cancellationToken),
-                ["name"] = version.FileName,
+                ["key"] = item.Key.ToString("N"),
+                ["file"] = current["file"]!.DeepClone(),
+                ["name"] = current["name"]!.DeepClone(),
+                ["versions"] = exported,
             });
         }
 
@@ -216,10 +268,27 @@ internal sealed class DocumentFilesTemplateHandler(DocumentsDbContext db, IBlobS
             }
 
             var item = await items.AsSystem().GetAsync(context.WorkspaceId!.Value, listId, itemId, cancellationToken);
-            await using var content = package.OpenFile(path);
-            if (item is null || content is null)
+            if (item is null)
             {
-                context.Warn($"{name}: the file of item {key} was skipped: {(item is null ? "the item was not created" : $"the package has no {path}")}.");
+                context.Warn($"{name}: the file of item {key} was skipped: the item was not created.");
+                continue;
+            }
+
+            if (entry["versions"] is JsonArray versions && versions.Count > 0)
+            {
+                if (await ImportVersionsAsync(item, versions.OfType<JsonObject>().ToList(), package, cancellationToken) is { } versionError)
+                {
+                    context.Warn($"{name}: the file of item {key} was not completely imported: {versionError}.");
+                }
+
+                added++;
+                continue;
+            }
+
+            await using var content = package.OpenFile(path);
+            if (content is null)
+            {
+                context.Warn($"{name}: the file of item {key} was skipped: the package has no {path}.");
                 continue;
             }
 
@@ -237,4 +306,50 @@ internal sealed class DocumentFilesTemplateHandler(DocumentsDbContext db, IBlobS
             context.Created("files", name, $"{added} files");
         }
     }
+
+    /// <summary>Imports every version in order (the last one becomes current); returns the first error.</summary>
+    private async Task<string?> ImportVersionsAsync(ListItemData item, List<JsonObject> versions, ITemplatePackage package, CancellationToken ct)
+    {
+        for (var index = 0; index < versions.Count; index++)
+        {
+            var version = versions[index];
+            if (version["file"]?.ToString() is not { Length: > 0 } path || package.OpenFile(path) is not { } content)
+            {
+                return $"version {index + 1} has no file in the package";
+            }
+
+            await using (content)
+            {
+                IReadOnlyList<string>? pages = null;
+                if (version["pages"]?.ToString() is { Length: > 0 } pagesPath && package.OpenFile(pagesPath) is { } pagesStream)
+                {
+                    await using (pagesStream)
+                    {
+                        pages = (await JsonNode.ParseAsync(pagesStream, cancellationToken: ct) as JsonArray)?.Select(p => p?.ToString() ?? string.Empty).ToList();
+                    }
+                }
+
+                var languages = version["languages"]?.ToString();
+                var textLanguage = version["textLanguage"]?.ToString();
+                var imported = new ImportedVersion(
+                    version["source"]?.ToString(),
+                    languages is not null && ProcessingScheduler.IsValidLanguageList(languages) ? languages : null,
+                    textLanguage is { Length: > 0 and <= 20 } ? textLanguage : null,
+                    pages,
+                    await StampAsync(version, ct),
+                    version["processed"] is JsonValue processed && processed.TryGetValue<bool>(out var done) && done);
+                if (await documents.ImportVersionAsync(item, content, version["name"]?.ToString() ?? "document", imported, index == versions.Count - 1, ct) is { } error)
+                {
+                    return $"version {index + 1}: {error}";
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<AuditStamp?> StampAsync(JsonObject version, CancellationToken ct) =>
+        version["created"] is JsonValue created && created.TryGetValue<DateTimeOffset>(out var at)
+            ? new AuditStamp(at, version["createdBy"]?.ToString() is { Length: > 0 } userName ? await directory.FindUserAsync(userName, ct) : null)
+            : null;
 }

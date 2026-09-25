@@ -10,10 +10,10 @@ using PaperDotNet.Tenancy.Contracts;
 
 namespace PaperDotNet.Host.Cli;
 
-/// <summary>Admin commands: <c>paperdotnet migrate | bootstrap | tenant … | user … | backup | restore | reindex | export | import</c>.</summary>
+/// <summary>Admin commands: <c>paperdotnet migrate | bootstrap | tenant … | user … | backup | restore | reindex | export | import | import-papermerge</c>.</summary>
 internal static class AdminCli
 {
-    private static readonly string[] Commands = ["migrate", "bootstrap", "tenant", "user", "backup", "restore", "reindex", "export", "import", "--help", "-h", "-?"];
+    private static readonly string[] Commands = ["migrate", "bootstrap", "tenant", "user", "backup", "restore", "reindex", "export", "import", "import-papermerge", "--help", "-h", "-?"];
 
     public static bool IsCommand(string[] args) => args.Length > 0 && Commands.Contains(args[0]);
 
@@ -51,6 +51,7 @@ internal static class AdminCli
         root.Subcommands.Add(BuildReindexCommand(services));
         root.Subcommands.Add(BuildExportCommand(services));
         root.Subcommands.Add(BuildImportCommand(services));
+        root.Subcommands.Add(BuildPapermergeCommand(services));
         return root;
     }
 
@@ -168,6 +169,140 @@ internal static class AdminCli
             }
         });
         return import;
+    }
+
+    /// <summary>
+    /// PLT-15 (ADR-0029): converts a Papermerge 3.6 database and media folder into a package, creates its users (without
+    /// passwords) and imports it; with <c>--output</c> it only writes the package.
+    /// </summary>
+    private static Command BuildPapermergeCommand(IServiceProvider services)
+    {
+        var dbOption = new Option<string>("--db") { Description = "Connection string of the Papermerge PostgreSQL database.", Required = true };
+        var mediaOption = new Option<string>("--media") { Description = "Papermerge's media_root folder (with docvers/).", Required = true };
+        var tenantOption = new Option<string?>("--tenant") { Description = "The tenant to import into (identifier)." };
+        var userOption = new Option<string?>("--user") { Description = "Import as this user (an administrator)." };
+        var workspaceOption = new Option<string>("--workspace") { Description = "Name of the workspace to create.", DefaultValueFactory = _ => "Papermerge" };
+        var libraryOption = new Option<string>("--library") { Description = "Name of the library to create.", DefaultValueFactory = _ => "Documents" };
+        var output = new Option<string?>("--output", "-o") { Description = "Only write the package to this file (import it later with 'paperdotnet import')." };
+        var dryRun = new Option<bool>("--dry-run") { Description = "Convert and list the changes without making them." };
+        var unsupported = new Option<bool>("--allow-unsupported-version") { Description = "Read a Papermerge schema version that was not tested." };
+        var command = new Command("import-papermerge", "Import a Papermerge 3.6 archive: folders, documents with all versions and OCR text, tags, types, users and sharing (PLT-15).")
+        {
+            dbOption, mediaOption, tenantOption, userOption, workspaceOption, libraryOption, output, dryRun, unsupported,
+        };
+        command.SetAction(async (parse, ct) =>
+        {
+            var options = new PaperDotNet.Import.Papermerge.PapermergeImportOptions(parse.GetRequiredValue(dbOption), parse.GetRequiredValue(mediaOption))
+            {
+                WorkspaceName = parse.GetRequiredValue(workspaceOption),
+                LibraryName = parse.GetRequiredValue(libraryOption),
+                AllowUnsupportedVersion = parse.GetValue(unsupported),
+            };
+            var target = parse.GetValue(output);
+            if (target is null && (parse.GetValue(tenantOption) is null || parse.GetValue(userOption) is null))
+            {
+                Console.Error.WriteLine("Give --tenant and --user to import, or --output to only write the package.");
+                return 1;
+            }
+
+            var path = target ?? Path.Combine(Path.GetTempPath(), $"papermerge-{Guid.CreateVersion7():N}.zip");
+            try
+            {
+                PaperDotNet.Import.Papermerge.PapermergeConversion conversion;
+                try
+                {
+                    await using var file = File.Create(path);
+                    conversion = await PaperDotNet.Import.Papermerge.PapermergeConverter.ConvertAsync(options, file, ct);
+                }
+                catch (PaperDotNet.Import.Papermerge.PapermergeImportException ex)
+                {
+                    Console.Error.WriteLine(ex.Message);
+                    return 1;
+                }
+
+                Console.WriteLine($"Papermerge schema {conversion.SchemaVersion}: {conversion.Folders} folders, {conversion.Documents} documents, " +
+                                  $"{conversion.Versions} file versions, {conversion.Tags} tags, {conversion.Users.Count} users.");
+                foreach (var warning in conversion.Warnings)
+                {
+                    Console.WriteLine($"warning: {warning}");
+                }
+
+                if (target is not null)
+                {
+                    Console.WriteLine($"Package written to {target}. Create the users, then run 'paperdotnet import'.");
+                    return 0;
+                }
+
+                var (scope, error) = await UserScopeAsync(services, parse.GetValue(tenantOption)!, parse.GetValue(userOption)!, ct);
+                if (scope is not { } userScope)
+                {
+                    Console.Error.WriteLine(error);
+                    return 1;
+                }
+
+                await using (userScope)
+                {
+                    var directory = userScope.ServiceProvider.GetRequiredService<IUserDirectory>();
+                    foreach (var user in conversion.Users)
+                    {
+                        if (await directory.FindUserAsync(user.UserName, ct) is not null)
+                        {
+                            continue;
+                        }
+
+                        if (parse.GetValue(dryRun))
+                        {
+                            Console.WriteLine($"Create user {user.UserName}");
+                            continue;
+                        }
+
+                        try
+                        {
+                            await directory.CreateUserAsync(new NewUser(user.UserName, null, user.DisplayName, user.Email), ct);
+                            Console.WriteLine($"Created user {user.UserName} (no password yet: reset it to let them sign in).");
+                        }
+                        catch (UserCreationException ex)
+                        {
+                            Console.WriteLine($"warning: user {user.UserName} was not created: {string.Join(" ", ex.Errors)}");
+                        }
+                    }
+
+                    await using var package = File.OpenRead(path);
+                    var (result, errors) = await userScope.ServiceProvider.GetRequiredService<PortabilityService>()
+                        .ImportAsync(package, null, parse.GetValue(dryRun), new Dictionary<string, string>(), ct);
+                    if (result is null)
+                    {
+                        foreach (var problem in errors)
+                        {
+                            Console.Error.WriteLine(problem);
+                        }
+
+                        return 1;
+                    }
+
+                    foreach (var change in result.Changes)
+                    {
+                        Console.WriteLine($"{change.Action} {change.Kind} {change.Name}{(change.Detail is null ? string.Empty : $" ({change.Detail})")}");
+                    }
+
+                    foreach (var warning in result.Warnings)
+                    {
+                        Console.WriteLine($"warning: {warning}");
+                    }
+
+                    Console.WriteLine(result.DryRun ? $"Dry run: {result.Changes.Count} changes planned." : $"Imported: {result.Changes.Count} changes.");
+                    return 0;
+                }
+            }
+            finally
+            {
+                if (target is null)
+                {
+                    File.Delete(path);
+                }
+            }
+        });
+        return command;
     }
 
     private static Command BuildBackupCommand(IServiceProvider services)

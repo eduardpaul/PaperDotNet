@@ -1,6 +1,6 @@
 # ADR-0029: Import from Papermerge through a converter to a package
 
-- **Status:** Proposed (not implemented yet)
+- **Status:** Accepted (implemented in slice 7d; see "As built" below)
 - **Date:** 2026-09-25
 
 ## Context
@@ -110,3 +110,54 @@ fields), and Papermerge OCRs the documents again.
   stays under the 4 GB upload limit. The CLI import has no such limit.
 - **Lossy parts are reported:** passwords, complex path templates and roles
   that don't map cleanly are listed as warnings in the dry run.
+
+## As built (slice 7d)
+
+The implementation follows the decision, with these differences:
+
+- **Location and command:**
+  - The converter is `src/Tools/PaperDotNet.Import.Papermerge`.
+  - `paperdotnet import-papermerge --db --media --tenant --user` creates the
+    users and imports the package. `--output` only writes the package.
+- **Supported versions:** papermerge-core 3.6, Alembic revisions `a07f7fbbcca8`
+  to `bb19aac50bca` (the head). Earlier versions are refused unless
+  `--allow-unsupported-version` is given.
+- **S3:** files are read from `media_root`; copy an S3 bucket to a folder
+  first.
+- **Layout: one workspace, not one per owner.**
+  - The import creates one workspace (default `Papermerge`) with one library.
+  - Each owner gets a top folder with unique permissions: the user's name
+    (Manage), or `<group> (group)` (Contribute for the group).
+  - The home folder becomes that folder, and the inbox becomes its `Inbox`
+    sub-folder.
+  - Users are workspace Visitors, so they only see their own folders and what
+    is shared with them.
+  - This keeps sharing between owners possible, which separate workspaces
+    would not.
+- **Sharing:**
+  - A shared node gets unique permissions: the owner's grant, the shares
+    inherited from above, and its own shares.
+  - A role with any of `node.update`, `node.create`, `node.delete` or
+    `node.move` gives Contribute; any other role gives Read.
+- **Tags:**
+  - Tags become terms of `Papermerge/Tags` with color and description, set in
+    a multi-value `tags` field (managed metadata).
+  - Tags with the same name are merged.
+  - `/` in names becomes `-` (it separates term paths).
+- **Path templates** are not converted: each is reported, so it can be set up
+  as an automation with the `item.file` action.
+- **Deleted nodes** are skipped. There is no `--include-deleted`, because
+  packages do not carry recycle-bin state.
+- **Package format additions:**
+  - **Versions:** `doc:Files` entries have `versions` (file, name, source,
+    created, createdBy, languages, textLanguage, pages, processed).
+  - **Page texts:** stored as a JSON array in a package file. Versions with
+    texts or marked `processed` are not processed again.
+  - **Items:** entries carry `created`, `createdBy`, `modified`, `modifiedBy`
+    (kept through `AuditOverrides`) and `permissions` (user or group names
+    with levels). The item is created with its own permissions in the same
+    save, so it is never visible with inherited ones.
+  - **Who may keep stamps:** only callers who may apply packages
+    (`template.manage`).
+- **No `--split-by-owner`:** the CLI import has no size limit, so large
+  archives use it.

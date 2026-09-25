@@ -1,8 +1,9 @@
 namespace PaperDotNet.Identity.Contracts;
 
+/// <summary>A user to create; without <paramref name="Password"/> the user signs in only after a reset (imports, PLT-15).</summary>
 public sealed record NewUser(
     string UserName,
-    string Password,
+    string? Password,
     string? DisplayName = null,
     string? Email = null,
     bool Administrator = false);

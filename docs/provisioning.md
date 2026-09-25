@@ -22,7 +22,7 @@ Extensions add their own sections in their own XML namespaces.
 
 Templates never contain the following:
 - items or documents, unless exported as a package (below);
-- item-level permissions;
+- item-level permissions (packages carry them, below);
 - personal workspaces or system lists;
 - secrets.
 
@@ -63,10 +63,19 @@ exports of whole tenants, go through [export and import](export-and-import.md).
 - **Order:** folders come before their contents. Lookups are set once every
   list of the package is filled.
 
+**History and access** ([ADR-0029](adr/0029-papermerge-import.md)):
+- **Stamps:** items keep who created and changed them, and when
+  (`created`, `createdBy`, `modified`, `modifiedBy`).
+- **Permissions:** items and folders with unique permissions carry them as
+  user or group names with a level.
+
 **Files:**
-- Only the current version of each document is included.
-- Files are checked and processed like uploads (type, size, OCR).
-- An item that already has a file keeps it.
+- **Versions:** every file version is included, oldest first, with its
+  source, languages, stamps and page texts.
+- **Processing:** versions with page texts, or that were processed at the
+  source, are not processed again. Otherwise files are checked and processed
+  like uploads (type, size, OCR).
+- **Existing files:** an item that already has a file keeps it.
 
 **Checks:** an `Items` or `doc:Files` section in a plain XML template (no
 package) is an error, and so is a package that lacks a document its template

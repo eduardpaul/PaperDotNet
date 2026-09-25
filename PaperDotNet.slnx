@@ -69,6 +69,7 @@
   </Folder>
   <Folder Name="/src/Tools/">
     <Project Path="src/Tools/PaperDotNet.Cli/PaperDotNet.Cli.csproj" />
+    <Project Path="src/Tools/PaperDotNet.Import.Papermerge/PaperDotNet.Import.Papermerge.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Notifications/">
     <Project Path="src/Modules/Notifications/PaperDotNet.Notifications.Contracts/PaperDotNet.Notifications.Contracts.csproj" />

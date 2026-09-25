@@ -46,9 +46,13 @@ internal sealed class ItemWriter(
         ListSchema schema, Guid? contentTypeId, Guid? parentId, bool isFolder, JsonElement? fields, CancellationToken ct) =>
         CreateAsync(schema, contentTypeId, parentId, isFolder, fields, Ids.New(), ct);
 
-    /// <summary>Creates the item with the given <paramref name="itemId"/>.</summary>
+    /// <summary>
+    /// Creates the item with the given <paramref name="itemId"/>. With <paramref name="uniqueGrants"/> (imports) it starts
+    /// with its own permissions, saved together with the item so it is never visible with inherited ones.
+    /// </summary>
     public async Task<ItemWriteResult> CreateAsync(
-        ListSchema schema, Guid? contentTypeId, Guid? parentId, bool isFolder, JsonElement? fields, Guid itemId, CancellationToken ct)
+        ListSchema schema, Guid? contentTypeId, Guid? parentId, bool isFolder, JsonElement? fields, Guid itemId, CancellationToken ct,
+        IReadOnlyList<PermissionGrantDto>? uniqueGrants = null)
     {
         var contentType = contentTypeId is { } id ? schema.FindContentType(id) : schema.DefaultContentType;
         if (contentType is null)
@@ -102,6 +106,21 @@ internal sealed class ItemWriter(
         }
 
         ApplyValues(item, values);
+        if (uniqueGrants is not null)
+        {
+            item.HasUniquePermissions = true;
+            item.ScopeId = item.Id;
+            db.Grants.AddRange(uniqueGrants.DistinctBy(g => (g.PrincipalType, g.PrincipalId)).Select(g => new PermissionGrant
+            {
+                Id = Ids.New(),
+                ListId = schema.List.Id,
+                ObjectId = item.Id,
+                PrincipalType = g.PrincipalType,
+                PrincipalId = g.PrincipalId,
+                Level = g.Level,
+            }));
+        }
+
         db.Items.Add(item);
         var changed = Values(item).Select(p => p.Key).Order(StringComparer.Ordinal).ToList();
         await AddVersionAsync(schema, item, changed, ct);
