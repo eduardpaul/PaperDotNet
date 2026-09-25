@@ -43,7 +43,8 @@ files/<sha256>                 file contents, each stored once
 returns `application/zip`.
 
 **Apply:** `POST /v1.0/provisioning/apply` with the zip as `application/zip`
-(up to 512 MB) takes the same options as for XML.
+(up to 512 MB) takes the same options as for XML. Larger packages, and
+exports of whole tenants, go through [export and import](export-and-import.md).
 
 **Items:**
 - **Values are portable:**

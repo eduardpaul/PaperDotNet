@@ -34,6 +34,8 @@ import { OperationsRequestBuilderNavigationMetadata, type OperationsRequestBuild
 // @ts-ignore
 import { OrganizationRequestBuilderRequestsMetadata, type OrganizationRequestBuilder } from './organization/index.js';
 // @ts-ignore
+import { PortabilityRequestBuilderNavigationMetadata, type PortabilityRequestBuilder } from './portability/index.js';
+// @ts-ignore
 import { ProvisioningRequestBuilderNavigationMetadata, type ProvisioningRequestBuilder } from './provisioning/index.js';
 // @ts-ignore
 import { RolesRequestBuilderNavigationMetadata, RolesRequestBuilderRequestsMetadata, type RolesRequestBuilder } from './roles/index.js';
@@ -120,6 +122,10 @@ export interface V10RequestBuilder extends BaseRequestBuilder<V10RequestBuilder>
      * The organization property
      */
     get organization(): OrganizationRequestBuilder;
+    /**
+     * The portability property
+     */
+    get portability(): PortabilityRequestBuilder;
     /**
      * The provisioning property
      */
@@ -214,6 +220,9 @@ export const V10RequestBuilderNavigationMetadata: Record<Exclude<keyof V10Reques
     },
     organization: {
         requestsMetadata: OrganizationRequestBuilderRequestsMetadata,
+    },
+    portability: {
+        navigationMetadata: PortabilityRequestBuilderNavigationMetadata,
     },
     provisioning: {
         navigationMetadata: ProvisioningRequestBuilderNavigationMetadata,

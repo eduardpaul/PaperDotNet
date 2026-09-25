@@ -15,7 +15,7 @@ public sealed record TemplateResult(bool DryRun, IReadOnlyList<TemplateChange> C
 /// Exports and applies templates (PRV-01/02) by running the sections of every module in order.
 /// Apply always runs a dry run first and writes only when it succeeds.
 /// </summary>
-internal sealed class TemplateEngine(ITenantScopeFactory scopes, ITenantContext tenant, ICurrentUser user)
+public sealed class TemplateEngine(ITenantScopeFactory scopes, ITenantContext tenant, ICurrentUser user)
 {
     private static readonly XName WorkspacesName = TemplateXml.Name("Workspaces");
     private static readonly XName WorkspaceName = TemplateXml.Name("Workspace");

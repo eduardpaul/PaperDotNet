@@ -12,6 +12,7 @@ using PaperDotNet.Lists.Data;
 using PaperDotNet.Notes.Data;
 using PaperDotNet.Notifications.Data;
 using PaperDotNet.Persistence.PostgreSql;
+using PaperDotNet.Provisioning.Data;
 using PaperDotNet.Search.Data;
 using PaperDotNet.Tasks.Data;
 using PaperDotNet.Taxonomy.Data;
@@ -118,6 +119,12 @@ internal sealed class NotesDesignTimeFactory : IDesignTimeDbContextFactory<Notes
 {
     public NotesDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<NotesDbContext>(NotesDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class ProvisioningDesignTimeFactory : IDesignTimeDbContextFactory<ProvisioningDbContext>
+{
+    public ProvisioningDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<ProvisioningDbContext>(ProvisioningDbContext.Schema), DesignTime.NoTenant);
 }
 
 internal sealed class CalendarDesignTimeFactory : IDesignTimeDbContextFactory<CalendarDbContext>

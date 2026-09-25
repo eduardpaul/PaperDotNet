@@ -4,15 +4,16 @@ using PaperDotNet.Host.Backup;
 using PaperDotNet.Host.Bootstrap;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Features;
 using PaperDotNet.Search.Features;
 using PaperDotNet.Tenancy.Contracts;
 
 namespace PaperDotNet.Host.Cli;
 
-/// <summary>Admin commands: <c>paperdotnet migrate | bootstrap | tenant … | user … | backup | restore | reindex</c>.</summary>
+/// <summary>Admin commands: <c>paperdotnet migrate | bootstrap | tenant … | user … | backup | restore | reindex | export | import</c>.</summary>
 internal static class AdminCli
 {
-    private static readonly string[] Commands = ["migrate", "bootstrap", "tenant", "user", "backup", "restore", "reindex", "--help", "-h", "-?"];
+    private static readonly string[] Commands = ["migrate", "bootstrap", "tenant", "user", "backup", "restore", "reindex", "export", "import", "--help", "-h", "-?"];
 
     public static bool IsCommand(string[] args) => args.Length > 0 && Commands.Contains(args[0]);
 
@@ -48,7 +49,125 @@ internal static class AdminCli
         root.Subcommands.Add(BuildBackupCommand(services));
         root.Subcommands.Add(BuildRestoreCommand(services));
         root.Subcommands.Add(BuildReindexCommand(services));
+        root.Subcommands.Add(BuildExportCommand(services));
+        root.Subcommands.Add(BuildImportCommand(services));
         return root;
+    }
+
+    /// <summary>A scope in the tenant, acting as the named user (exports and imports see and create what that user may).</summary>
+    private static async Task<(AsyncServiceScope? Scope, string? Error)> UserScopeAsync(IServiceProvider services, string tenantIdentifier, string userName, CancellationToken ct)
+    {
+        TenantSummary? tenant;
+        await using (var lookup = services.CreateAsyncScope())
+        {
+            tenant = await lookup.ServiceProvider.GetRequiredService<ITenantDirectory>().FindAsync(tenantIdentifier, ct);
+        }
+
+        if (tenant is null)
+        {
+            return (null, $"Tenant '{tenantIdentifier}' does not exist.");
+        }
+
+        Guid? userId;
+        await using (var tenantScope = services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier))
+        {
+            userId = await tenantScope.ServiceProvider.GetRequiredService<IUserDirectory>().FindUserAsync(userName, ct);
+        }
+
+        return userId is null
+            ? (null, $"User '{userName}' does not exist in tenant '{tenantIdentifier}'.")
+            : (services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier, userId), null);
+    }
+
+    private static Command BuildExportCommand(IServiceProvider services)
+    {
+        var tenantOption = new Option<string>("--tenant") { Description = "The tenant (identifier).", Required = true };
+        var userOption = new Option<string>("--user") { Description = "Export as this user (an administrator for a whole tenant).", Required = true };
+        var workspaceOption = new Option<string>("--workspace") { Description = "Only this workspace (name); default: the whole tenant." };
+        var output = new Option<string>("--output", "-o") { Description = "Package to write (default: <tenant>-export-<UTC time>.zip)." };
+        var export = new Command("export", "Export a tenant or workspace with its content as a package (PLT-13).") { tenantOption, userOption, workspaceOption, output };
+        export.SetAction(async (parse, ct) =>
+        {
+            var tenant = parse.GetRequiredValue(tenantOption);
+            var (scope, error) = await UserScopeAsync(services, tenant, parse.GetRequiredValue(userOption), ct);
+            if (scope is not { } userScope)
+            {
+                Console.Error.WriteLine(error);
+                return 1;
+            }
+
+            await using (userScope)
+            {
+                Guid? workspaceId = null;
+                if (parse.GetValue(workspaceOption) is { } name)
+                {
+                    workspaceId = await userScope.ServiceProvider.GetRequiredService<PaperDotNet.Workspaces.Contracts.IWorkspaceAccess>().FindSharedAsync(name, ct);
+                    if (workspaceId is null)
+                    {
+                        Console.Error.WriteLine($"Workspace '{name}' does not exist.");
+                        return 1;
+                    }
+                }
+
+                var path = parse.GetValue(output) ?? $"{tenant}-export-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip";
+                await using (var file = File.Create(path))
+                {
+                    await userScope.ServiceProvider.GetRequiredService<PortabilityService>().ExportAsync(workspaceId, file, ct);
+                }
+
+                Console.WriteLine($"Package written to {path} ({new FileInfo(path).Length} bytes).");
+                return 0;
+            }
+        });
+        return export;
+    }
+
+    private static Command BuildImportCommand(IServiceProvider services)
+    {
+        var file = new Argument<string>("file") { Description = "A package from 'paperdotnet export' or an export download." };
+        var tenantOption = new Option<string>("--tenant") { Description = "The tenant (identifier).", Required = true };
+        var userOption = new Option<string>("--user") { Description = "Import as this user (an administrator).", Required = true };
+        var dryRun = new Option<bool>("--dry-run") { Description = "List the changes without making them." };
+        var import = new Command("import", "Import a package into a tenant: creates what is missing, changes nothing that exists (PLT-13).") { file, tenantOption, userOption, dryRun };
+        import.SetAction(async (parse, ct) =>
+        {
+            var (scope, error) = await UserScopeAsync(services, parse.GetRequiredValue(tenantOption), parse.GetRequiredValue(userOption), ct);
+            if (scope is not { } userScope)
+            {
+                Console.Error.WriteLine(error);
+                return 1;
+            }
+
+            await using (userScope)
+            {
+                await using var package = File.OpenRead(parse.GetRequiredValue(file));
+                var (result, errors) = await userScope.ServiceProvider.GetRequiredService<PortabilityService>()
+                    .ImportAsync(package, null, parse.GetValue(dryRun), new Dictionary<string, string>(), ct);
+                if (result is null)
+                {
+                    foreach (var problem in errors)
+                    {
+                        Console.Error.WriteLine(problem);
+                    }
+
+                    return 1;
+                }
+
+                foreach (var change in result.Changes)
+                {
+                    Console.WriteLine($"{change.Action} {change.Kind} {change.Name}{(change.Detail is null ? string.Empty : $" ({change.Detail})")}");
+                }
+
+                foreach (var warning in result.Warnings)
+                {
+                    Console.WriteLine($"warning: {warning}");
+                }
+
+                Console.WriteLine(result.DryRun ? $"Dry run: {result.Changes.Count} changes planned." : $"Imported: {result.Changes.Count} changes.");
+                return 0;
+            }
+        });
+        return import;
     }
 
     private static Command BuildBackupCommand(IServiceProvider services)

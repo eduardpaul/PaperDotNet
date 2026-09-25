@@ -18,6 +18,7 @@ using PaperDotNet.Client.V10.ListTemplates;
 using PaperDotNet.Client.V10.Me;
 using PaperDotNet.Client.V10.Operations;
 using PaperDotNet.Client.V10.Organization;
+using PaperDotNet.Client.V10.Portability;
 using PaperDotNet.Client.V10.Provisioning;
 using PaperDotNet.Client.V10.Roles;
 using PaperDotNet.Client.V10.Scopes;
@@ -117,6 +118,11 @@ namespace PaperDotNet.Client.V10
         public global::PaperDotNet.Client.V10.Organization.OrganizationRequestBuilder Organization
         {
             get => new global::PaperDotNet.Client.V10.Organization.OrganizationRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The portability property</summary>
+        public global::PaperDotNet.Client.V10.Portability.PortabilityRequestBuilder Portability
+        {
+            get => new global::PaperDotNet.Client.V10.Portability.PortabilityRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The provisioning property</summary>
         public global::PaperDotNet.Client.V10.Provisioning.ProvisioningRequestBuilder Provisioning

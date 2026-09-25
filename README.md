@@ -30,7 +30,7 @@ Self-hosted with just **one container** (SQLite built in; PostgreSQL optional).
 - **Operations:** Graph-style REST API (`/v1.0/...`, OpenAPI at
   `/openapi/v1.json`), health endpoints, OpenTelemetry, and an admin CLI in the
   same binary: `migrate`, `bootstrap`, `tenant`, `user`, `backup`, `restore`,
-  `reindex`.
+  `reindex`, `export`, `import` (see `docs/export-and-import.md`).
 
 ## Quick start (Docker)
 

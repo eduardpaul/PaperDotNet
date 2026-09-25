@@ -1383,6 +1383,24 @@ export function createDuplicateResponseFromDiscriminatorValue(parseNode: ParseNo
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ExportRequest}
+ */
+// @ts-ignore
+export function createExportRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoExportRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ExportResponse}
+ */
+// @ts-ignore
+export function createExportResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoExportResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ExtensionContributions}
  */
 // @ts-ignore
@@ -1524,6 +1542,15 @@ export function createHttpValidationProblemDetails_errorsFromDiscriminatorValue(
 // @ts-ignore
 export function createHttpValidationProblemDetailsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoHttpValidationProblemDetails;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ImportResponse}
+ */
+// @ts-ignore
+export function createImportResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoImportResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -3506,6 +3533,35 @@ export function deserializeIntoDuplicateResponse(duplicateResponse: Partial<Dupl
 }
 /**
  * The deserialization information for the current model
+ * @param ExportRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoExportRequest(exportRequest: Partial<ExportRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "workspaceId": n => { exportRequest.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ExportResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoExportResponse(exportResponse: Partial<ExportResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "createdAt": n => { exportResponse.createdAt = n.getDateValue(); },
+        "expiresAt": n => { exportResponse.expiresAt = n.getDateValue(); },
+        "id": n => { exportResponse.id = n.getGuidValue(); },
+        "operationId": n => { exportResponse.operationId = n.getGuidValue(); },
+        "packageUrl": n => { exportResponse.packageUrl = n.getStringValue(); },
+        "ready": n => { exportResponse.ready = n.getBooleanValue(); },
+        "size": n => { exportResponse.size = n.getNumberValue(); },
+        "workspaceId": n => { exportResponse.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ExtensionContributions The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -3739,6 +3795,18 @@ export function deserializeIntoHttpValidationProblemDetails(httpValidationProble
 // @ts-ignore
 export function deserializeIntoHttpValidationProblemDetails_errors(httpValidationProblemDetails_errors: Partial<HttpValidationProblemDetails_errors> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ImportResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoImportResponse(importResponse: Partial<ImportResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "id": n => { importResponse.id = n.getGuidValue(); },
+        "operationId": n => { importResponse.operationId = n.getGuidValue(); },
     }
 }
 /**
@@ -5260,6 +5328,46 @@ export interface DuplicateResponse extends AdditionalDataHolder, Parsable {
      */
     workspaceId?: Guid | null;
 }
+export interface ExportRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
+export interface ExportResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The expiresAt property
+     */
+    expiresAt?: Date | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The operationId property
+     */
+    operationId?: Guid | null;
+    /**
+     * The packageUrl property
+     */
+    packageUrl?: string | null;
+    /**
+     * The ready property
+     */
+    ready?: boolean | null;
+    /**
+     * The size property
+     */
+    size?: number | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
 /**
  * What an extension contributes (for the catalog API and validation).
  */
@@ -5651,6 +5759,16 @@ export interface HttpValidationProblemDetails extends AdditionalDataHolder, ApiE
     type?: string | null;
 }
 export interface HttpValidationProblemDetails_errors extends AdditionalDataHolder, Parsable {
+}
+export interface ImportResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The operationId property
+     */
+    operationId?: Guid | null;
 }
 export interface ImportResult extends AdditionalDataHolder, Parsable {
     /**
@@ -7764,6 +7882,37 @@ export function serializeDuplicateResponse(writer: SerializationWriter, duplicat
 }
 /**
  * Serializes information the current object
+ * @param ExportRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeExportRequest(writer: SerializationWriter, exportRequest: Partial<ExportRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!exportRequest || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("workspaceId", exportRequest.workspaceId);
+    writer.writeAdditionalData(exportRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ExportResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeExportResponse(writer: SerializationWriter, exportResponse: Partial<ExportResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!exportResponse || isSerializingDerivedType) { return; }
+    writer.writeDateValue("createdAt", exportResponse.createdAt);
+    writer.writeDateValue("expiresAt", exportResponse.expiresAt);
+    writer.writeGuidValue("id", exportResponse.id);
+    writer.writeGuidValue("operationId", exportResponse.operationId);
+    writer.writeStringValue("packageUrl", exportResponse.packageUrl);
+    writer.writeBooleanValue("ready", exportResponse.ready);
+    writer.writeNumberValue("size", exportResponse.size);
+    writer.writeGuidValue("workspaceId", exportResponse.workspaceId);
+    writer.writeAdditionalData(exportResponse.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param ExtensionContributions The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -8013,6 +8162,19 @@ export function serializeHttpValidationProblemDetails(writer: SerializationWrite
 export function serializeHttpValidationProblemDetails_errors(writer: SerializationWriter, httpValidationProblemDetails_errors: Partial<HttpValidationProblemDetails_errors> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!httpValidationProblemDetails_errors || isSerializingDerivedType) { return; }
     writer.writeAdditionalData(httpValidationProblemDetails_errors.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ImportResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeImportResponse(writer: SerializationWriter, importResponse: Partial<ImportResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!importResponse || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("id", importResponse.id);
+    writer.writeGuidValue("operationId", importResponse.operationId);
+    writer.writeAdditionalData(importResponse.additionalData);
 }
 /**
  * Serializes information the current object

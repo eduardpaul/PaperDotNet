@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from .me.me_request_builder import MeRequestBuilder
     from .operations.operations_request_builder import OperationsRequestBuilder
     from .organization.organization_request_builder import OrganizationRequestBuilder
+    from .portability.portability_request_builder import PortabilityRequestBuilder
     from .provisioning.provisioning_request_builder import ProvisioningRequestBuilder
     from .roles.roles_request_builder import RolesRequestBuilder
     from .scopes.scopes_request_builder import ScopesRequestBuilder
@@ -187,6 +188,15 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .organization.organization_request_builder import OrganizationRequestBuilder
 
         return OrganizationRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def portability(self) -> PortabilityRequestBuilder:
+        """
+        The portability property
+        """
+        from .portability.portability_request_builder import PortabilityRequestBuilder
+
+        return PortabilityRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def provisioning(self) -> ProvisioningRequestBuilder:

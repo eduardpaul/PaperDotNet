@@ -291,7 +291,7 @@ Implemented in the solution skeleton (see [ADR-0006](adr/0006-phase-0-simplifica
 | PLT-01 Single-container install | ✅ `Dockerfile` + `deploy/docker-compose.yml` (SQLite); PostgreSQL via override file |
 | PLT-02 First-run bootstrap | ✅ default tenant + admin from configuration |
 | PLT-03, PLT-04 Multitenancy & resolution | ✅ host mapping, host template, header (opt-in), claim, default; EF filters + write guard, PostgreSQL RLS (1f) |
-| PLT-05 Tenant lifecycle | 🟡 CLI: list, create, suspend, activate (export/delete later) |
+| PLT-05 Tenant lifecycle | 🟡 CLI: list, create, suspend, activate; export/import (7c, PLT-13); delete later |
 | PLT-07 Workspaces | ✅ CRUD, members, owners, ETags, soft delete |
 | PLT-08 Configuration | ✅ `PAPERDOTNET__…` environment variables, validated options |
 | PLT-09 Health & version | ✅ `/health/live`, `/health/ready`, `/version` |
@@ -389,6 +389,7 @@ Content and portability first; the rest of P7 (extensions in other languages, sy
 |---|---|---|
 | **7a Notes** | Guide [notes.md](notes.md). LST-18 Notes module on the SDK (takes over the `note` content type and `notes` template): `#tags` in the Markdown body become keywords; `[[wiki links]]` (headings, aliases, embeds) resolve to notes of the workspace by title, wait for missing titles, and are rewritten when the target is renamed; `GET …/items/{id}/noteLinks` and `…/backlinks` (only readable notes) | ✅ |
 | **7b Templates with content** | [provisioning.md](provisioning.md#packages-with-content-prv-04), [ADR-0028](adr/0028-template-packages.md). PRV-04 packages (zip: `template.xml`, `content/*.json`, `files/<sha256>`): `export?includeContent=true`; `apply` takes `application/zip`. List section `Items` (Lists): items and folders with portable values (term paths, keyword text, user names, lookups by list and key), created with ids derived from list and key (idempotent, additive), lookups set after all lists. Library section `doc:Files` (Documents): current files, checked and processed like uploads | ✅ |
+| **7c Export & import** | Guide [export-and-import.md](export-and-import.md), [ADR-0028](adr/0028-template-packages.md). PLT-13 `/v1.0/portability/exports` (operation, download for 7 days, creator only) and `/v1.0/portability/imports` (upload a package up to 4 GB, applied as an operation with dry run and parameters); CLI `paperdotnet export` / `import` (as a named user). The package is the open PRV-04 format (XML + JSON + files) | ✅ |
 
 ## Idea → feature mapping
 

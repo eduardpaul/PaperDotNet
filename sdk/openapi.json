@@ -7366,6 +7366,187 @@
         }
       }
     },
+    "/v1.0/portability/exports": {
+      "post": {
+        "tags": [
+          "Portability"
+        ],
+        "operationId": "StartExport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ExportRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Portability"
+        ],
+        "operationId": "ListExports",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExportResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/portability/exports/{id}": {
+      "get": {
+        "tags": [
+          "Portability"
+        ],
+        "operationId": "GetExport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Portability"
+        ],
+        "operationId": "DeleteExport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/portability/exports/{id}/package": {
+      "get": {
+        "tags": [
+          "Portability"
+        ],
+        "operationId": "DownloadExport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1.0/portability/imports": {
+      "post": {
+        "tags": [
+          "Portability"
+        ],
+        "operationId": "StartImport",
+        "parameters": [
+          {
+            "name": "dryRun",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workspaces/{workspaceId}/automations": {
       "get": {
         "tags": [
@@ -10359,6 +10540,76 @@
         },
         "description": "An existing document with the same content (DOC-10), among those the caller can read."
       },
+      "ExportRequest": {
+        "required": [
+          "workspaceId"
+        ],
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "ExportResponse": {
+        "required": [
+          "id",
+          "operationId",
+          "workspaceId",
+          "ready",
+          "size",
+          "createdAt",
+          "expiresAt",
+          "packageUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "size": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "packageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ExtensionContributions": {
         "type": "object",
         "properties": {
@@ -11027,6 +11278,23 @@
       "IFormFile": {
         "type": "string",
         "format": "binary"
+      },
+      "ImportResponse": {
+        "required": [
+          "id",
+          "operationId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       },
       "ImportResult": {
         "required": [
@@ -14575,6 +14843,9 @@
     },
     {
       "name": "Provisioning"
+    },
+    {
+      "name": "Portability"
     },
     {
       "name": "Automation"
