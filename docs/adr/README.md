@@ -22,4 +22,5 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0015](0015-documents-on-the-sdk.md) | Documents built on the SDK, content-addressed file storage | Accepted |
 | [0016](0016-phase-4-scope.md) | Tasks and Calendar on the SDK, CalDAV later | Accepted |
 | [0017](0017-phase-5-scope.md) | Phase 5 scope; provisioning templates with per-module handlers | Accepted |
-| [0018](0018-automation-workflowcore.md) | Automation: own rules engine, workflows on WorkflowCore (instead of Elsa) | Accepted |
+| [0018](0018-automation-workflowcore.md) | Automation: own rules engine, workflows on WorkflowCore (instead of Elsa) | Superseded in part by 0019 |
+| [0019](0019-workflows-on-wolverine.md) | Workflow runs resumed through Wolverine messages (replaces WorkflowCore) | Accepted |

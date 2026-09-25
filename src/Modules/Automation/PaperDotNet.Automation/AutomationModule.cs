@@ -10,7 +10,6 @@ using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
 using PaperDotNet.Provisioning.Contracts;
-using PaperDotNet.Workflows;
 
 namespace PaperDotNet.Automation;
 
@@ -27,8 +26,8 @@ public static class AutomationScopes
 }
 
 /// <summary>
-/// Automation (phase 5b, ADR-0018): rules on item events and extension triggers, workflows with approvals
-/// and timers on WorkflowCore, built-in and extension actions, path templates.
+/// Automation (phase 5b, ADR-0018/0019): rules on item events and extension triggers, workflows with approvals
+/// and delays (resumed through durable messages), built-in and extension actions, path templates.
 /// </summary>
 public sealed class AutomationModule : IModule
 {
@@ -60,9 +59,7 @@ public sealed class AutomationModule : IModule
         services.AddScoped<WorkflowStarter>();
         services.AddScoped<WorkflowInterpreter>();
         services.AddScoped<ApprovalService>();
-        services.AddTransient<InterpretStep>();
-        services.AddPaperDotNetWorkflow<AutomationWorkflow, AutomationRunState>();
-        services.AddTenantRecurringJob<ApprovalEscalationJob>(ApprovalEscalationJob.Name, ApprovalEscalationJob.Schedule);
+        services.AddTenantRecurringJob<AutomationTimerJob>(AutomationTimerJob.Name, AutomationTimerJob.Schedule);
 
         services.AddScoped<ITemplateHandler, AutomationTemplateHandler>();
         services.AddScopes(AutomationScopes.All);

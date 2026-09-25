@@ -1,6 +1,6 @@
 # ADR-0018: Automation with rules and WorkflowCore
 
-- **Status:** Accepted
+- **Status:** Accepted; the engine part is superseded by [ADR-0019](0019-workflows-on-wolverine.md) (no WorkflowCore)
 - **Date:** 2026-09-25
 
 ## Context

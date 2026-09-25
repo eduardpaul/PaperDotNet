@@ -396,11 +396,6 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                         .HasColumnType("INTEGER")
                         .HasColumnName("depth");
 
-                    b.Property<string>("EngineId")
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("engine_id");
-
                     b.Property<string>("Error")
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT")
@@ -427,6 +422,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                     b.Property<int>("Position")
                         .HasColumnType("INTEGER")
                         .HasColumnName("position");
+
+                    b.Property<long?>("ResumeAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("resume_at");
 
                     b.Property<long>("StartedAt")
                         .HasColumnType("INTEGER")
@@ -465,6 +464,9 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_automation_workflow_runs_tenant_id");
+
+                    b.HasIndex("Status", "ResumeAt")
+                        .HasDatabaseName("ix_automation_workflow_runs_status_resume_at");
 
                     b.HasIndex("TenantId", "ItemId")
                         .HasDatabaseName("ix_automation_workflow_runs_tenant_id_item_id");

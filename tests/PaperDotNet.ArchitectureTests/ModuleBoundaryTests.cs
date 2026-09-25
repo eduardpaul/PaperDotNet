@@ -48,19 +48,6 @@ public sealed partial class ModuleBoundaryTests
         Assert.DoesNotContain(references, r => r.StartsWith("Wolverine", StringComparison.Ordinal));
     }
 
-    /// <summary>WorkflowCore is used by the workflows building block and the Automation module only (ADR-0018).</summary>
-    [Theory]
-    [MemberData(nameof(ProviderAgnosticAssemblies))]
-    public void Only_automation_references_WorkflowCore(string assembly)
-    {
-        var references = Load(assembly).GetReferencedAssemblies().Select(a => a.Name!).ToList();
-
-        if (assembly != "PaperDotNet.Automation")
-        {
-            Assert.DoesNotContain(references, r => r.StartsWith("WorkflowCore", StringComparison.Ordinal));
-        }
-    }
-
     [Theory]
     [MemberData(nameof(ModuleAssemblies))]
     public void Modules_only_reference_other_modules_through_contracts(string module)

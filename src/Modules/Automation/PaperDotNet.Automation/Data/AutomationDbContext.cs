@@ -151,11 +151,11 @@ public sealed class WorkflowRun : ITenantOwned, IVersioned
 
     public string? Error { get; set; }
 
-    /// <summary>The WorkflowCore instance that drives the run.</summary>
-    public string? EngineId { get; set; }
-
-    /// <summary>Event key the run waits for (approval), if any.</summary>
+    /// <summary>The wait the run is in (an approval or a delay), if any; resume messages must name it.</summary>
     public string? WaitingFor { get; set; }
+
+    /// <summary>When a delay is over (the minute job resumes the run then).</summary>
+    public DateTimeOffset? ResumeAt { get; set; }
 
     public int Depth { get; set; }
 
@@ -278,10 +278,10 @@ public sealed class AutomationDbContext(DbContextOptions<AutomationDbContext> op
             b.ToTable("workflow_runs");
             b.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
             b.Property(r => r.Error).HasMaxLength(2000);
-            b.Property(r => r.EngineId).HasMaxLength(100);
             b.Property(r => r.WaitingFor).HasMaxLength(100);
             b.HasIndex(r => new { r.TenantId, r.ItemId });
             b.HasIndex(r => new { r.TenantId, r.DefinitionId, r.StartedAt });
+            b.HasIndex(r => new { r.Status, r.ResumeAt });
         });
         modelBuilder.Entity<ApprovalRequest>(b =>
         {

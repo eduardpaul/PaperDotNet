@@ -403,11 +403,6 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Automation
                         .HasColumnType("integer")
                         .HasColumnName("depth");
 
-                    b.Property<string>("EngineId")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("engine_id");
-
                     b.Property<string>("Error")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
@@ -434,6 +429,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Automation
                     b.Property<int>("Position")
                         .HasColumnType("integer")
                         .HasColumnName("position");
+
+                    b.Property<DateTimeOffset?>("ResumeAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resume_at");
 
                     b.Property<DateTimeOffset>("StartedAt")
                         .HasColumnType("timestamp with time zone")
@@ -472,6 +471,9 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Automation
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_workflow_runs_tenant_id");
+
+                    b.HasIndex("Status", "ResumeAt")
+                        .HasDatabaseName("ix_workflow_runs_status_resume_at");
 
                     b.HasIndex("TenantId", "ItemId")
                         .HasDatabaseName("ix_workflow_runs_tenant_id_item_id");

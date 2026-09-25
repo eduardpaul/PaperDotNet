@@ -74,5 +74,6 @@ workflow engine for .NET. It powers:
 
 ## Outcome
 
-Implemented in phase 5b with WorkflowCore instead of Elsa (ADR-0018): current Elsa
+Implemented in phase 5b without Elsa (ADR-0018, ADR-0019: our own interpreter, resumed through
+Wolverine messages): current Elsa
 versions depend on a package with a revenue-dependent maintenance fee.

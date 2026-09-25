@@ -101,7 +101,7 @@ Term values become term names and person values become user names. `{{` and
   - Needs a `name`: later conditions and tokens refer to it.
 - `condition`: either `step` + `is` (an approval outcome) or `filter` (OData
   on the item), then `then` / `else` steps.
-- `delay`: waits `hours`.
+- `delay`: waits `hours` (the run continues within a minute of the time).
 - `action`: runs an action with `inputs`.
 
 **Running workflows:**

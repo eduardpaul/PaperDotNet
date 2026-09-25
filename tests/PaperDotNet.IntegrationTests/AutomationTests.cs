@@ -197,7 +197,7 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
             var pending = await db.Approvals.SingleAsync(a => a.RunId == secondRun, Ct);
             pending.DueAt = DateTimeOffset.UtcNow.AddMinutes(-1);
             await db.SaveChangesAsync(Ct);
-            await scope.ServiceProvider.GetRequiredService<ApprovalEscalationJob>().RunAsync(Ct);
+            await scope.ServiceProvider.GetRequiredService<AutomationTimerJob>().RunAsync(Ct);
         }
 
         var escalated = Values(await GetAsync(bob, "/v1.0/me/approvals")).Single();
@@ -219,6 +219,34 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
         Assert.Equal(1, cancelled.GetProperty("workflowVersion").GetInt32());
         Assert.Empty(Values(await GetAsync(alice, "/v1.0/me/approvals")));
         Assert.Equal(3, Values(await GetAsync(s.Admin, $"{s.Automation}/runs?workflowId={workflow}")).Count);
+
+        // Delays: the minute job resumes runs whose time has come.
+        await PostIdAsync(s.Admin, $"{s.Automation}/workflows", new
+        {
+            name = "Later",
+            steps = new object[]
+            {
+                new { type = "delay", hours = 24 },
+                new { type = "action", action = "item.update", inputs = new { fields = new { note = "a day later" } } },
+            },
+        });
+        var later = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "Bill 4", amount = 1 } })).GetProperty("id").GetGuid();
+        var laterRun = await PostIdAsync(s.Admin, $"{s.Item(later)}/workflows", new { workflow = "Later" });
+        await WaitAsync(s.Admin, $"{s.Automation}/runs/{laterRun}", r => Status(r) == "waiting");
+        await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(s.Tenant.Id, s.Tenant.Identifier))
+        {
+            var job = scope.ServiceProvider.GetRequiredService<AutomationTimerJob>();
+            await job.RunAsync(Ct);
+            var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+            var run = await db.Runs.SingleAsync(r => r.Id == laterRun, Ct);
+            Assert.Equal(RunStatus.Waiting, run.Status);
+            run.ResumeAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+            await db.SaveChangesAsync(Ct);
+            await job.RunAsync(Ct);
+        }
+
+        await WaitAsync(s.Admin, $"{s.Automation}/runs/{laterRun}", r => Status(r) == "completed");
+        Assert.Equal("a day later", (await GetAsync(s.Admin, s.Item(later))).GetProperty("fields").GetProperty("note").GetString());
     }
 
     [Fact]

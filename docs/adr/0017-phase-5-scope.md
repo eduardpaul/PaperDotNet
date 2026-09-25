@@ -20,7 +20,8 @@ touch the configuration of almost every module.
   collaboration and sync API, notification channels, smart folders, page
   operations and S3, MCP and SDKs, external OIDC and quotas.
 - **Workflows (EVT-08)** are part of P5. The engine was planned to be Elsa 3; ADR-0018
-  replaces it with WorkflowCore (Elsa's current dependencies are not license-compatible).
+  replaces it (Elsa's current dependencies are not license-compatible); ADR-0019 runs workflows
+  on our existing messaging without an engine.
 - **WebDAV, CalDAV and CardDAV (API-10, CAL-05, CAL-06) move to P7.**
 - **Email to inbox (DOC-13) moves to the backlog.** The email notification
   channel (NTF-04) stays in P5.

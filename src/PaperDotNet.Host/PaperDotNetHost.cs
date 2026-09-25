@@ -29,7 +29,6 @@ using PaperDotNet.Storage;
 using PaperDotNet.Tasks;
 using PaperDotNet.Taxonomy;
 using PaperDotNet.Tenancy;
-using PaperDotNet.Workflows;
 using PaperDotNet.Workspaces;
 using Wolverine;
 using Wolverine.Postgresql;
@@ -112,13 +111,6 @@ public static class PaperDotNetHost
             options => ConfigureMessageStorage(options, builder.Configuration),
             Modules.Select(m => m.GetType().Assembly).Distinct());
 
-        services.AddPaperDotNetWorkflows(builder.Configuration, options => ConfigureWorkflowStorage(options, builder.Configuration));
-        if (!IsPostgreSql(builder.Configuration))
-        {
-            var sqlite = Persistence.Sqlite.SqliteServiceCollectionExtensions.ResolveConnectionString(builder.Configuration);
-            services.AddSingleton(new WorkflowStoreInitializer(ct => Persistence.Sqlite.SqliteWorkflowTables.EnsureAsync(sqlite, ct)));
-        }
-
         services.AddProblemDetails();
         services.ConfigureHttpJsonOptions(o =>
         {
@@ -200,22 +192,6 @@ public static class PaperDotNetHost
 
             // SQLite serves a single app instance.
             options.Durability.Mode = DurabilityMode.Solo;
-        }
-    }
-
-    /// <summary>
-    /// WorkflowCore storage in the same database: its own tables and migrations (schema <c>wfc</c>) on PostgreSQL;
-    /// on SQLite the tables are created by <c>SqliteWorkflowTables</c> (the provider has no migrations).
-    /// </summary>
-    private static void ConfigureWorkflowStorage(WorkflowCore.Models.WorkflowOptions options, IConfiguration configuration)
-    {
-        if (IsPostgreSql(configuration))
-        {
-            options.UsePostgreSQL(configuration.GetConnectionString(PostgreSqlServiceCollectionExtensions.ConnectionStringName)!, canCreateDB: false, canMigrateDB: true);
-        }
-        else
-        {
-            options.UseSqlite(Persistence.Sqlite.SqliteServiceCollectionExtensions.ResolveConnectionString(configuration), canCreateDB: false);
         }
     }
 

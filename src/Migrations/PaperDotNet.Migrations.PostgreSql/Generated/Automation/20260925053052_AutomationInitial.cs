@@ -127,8 +127,8 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Automation
                     outcomes = table.Column<string>(type: "text", nullable: false),
                     log = table.Column<string>(type: "text", nullable: false),
                     error = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
-                    engine_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     waiting_for = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    resume_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     depth = table.Column<int>(type: "integer", nullable: false),
                     started_by = table.Column<Guid>(type: "uuid", nullable: true),
                     started_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -254,6 +254,12 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Automation
                 schema: "automation",
                 table: "rules",
                 columns: new[] { "tenant_id", "workspace_id", "trigger" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_workflow_runs_status_resume_at",
+                schema: "automation",
+                table: "workflow_runs",
+                columns: new[] { "status", "resume_at" });
 
             migrationBuilder.CreateIndex(
                 name: "ix_workflow_runs_tenant_id",

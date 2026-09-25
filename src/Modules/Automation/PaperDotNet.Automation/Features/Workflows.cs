@@ -7,94 +7,30 @@ using PaperDotNet.Automation.Contracts;
 using PaperDotNet.Automation.Data;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Messaging;
 using PaperDotNet.Notifications.Contracts;
-using WorkflowCore.Interface;
-using WorkflowCore.Models;
 
 namespace PaperDotNet.Automation.Features;
 
 /// <summary>
-/// State kept by WorkflowCore for one run: only what the engine needs to wait and resume. Everything
-/// else lives in the tenant-owned <see cref="WorkflowRun"/>.
+/// Resumes a workflow run (ADR-0019): sent with the run when it starts, with a decision when an approval is
+/// decided, and by the minute job when a delay is over. <see cref="WaitKey"/> names the wait it ends (null for
+/// the start); messages for a wait the run no longer has are ignored, so duplicates and stale ones are harmless.
 /// </summary>
-public sealed class AutomationRunState
+public sealed record ResumeRun(Guid RunId, string? WaitKey, Guid TenantId, string TenantIdentifier, Guid? UserId = null) : ITenantMessage;
+
+/// <summary>Wolverine handler for <see cref="ResumeRun"/> (discovered by convention).</summary>
+public static class ResumeRunHandler
 {
-    public Guid TenantId { get; set; }
-
-    public string TenantIdentifier { get; set; } = string.Empty;
-
-    public Guid RunId { get; set; }
-
-    public bool Finished { get; set; }
-
-    /// <summary>Event key to wait for (an approval decision).</summary>
-    public string? WaitEvent { get; set; }
-
-    /// <summary>Events published from this moment on count (a decision can come before the engine subscribes).</summary>
-    public DateTime WaitSince { get; set; }
-
-    /// <summary>Time to wait until (UTC).</summary>
-    public DateTime? WaitUntil { get; set; }
-
-    public string? EventData { get; set; }
-}
-
-/// <summary>
-/// The one WorkflowCore workflow behind every automation workflow (ADR-0018): the interpreter runs the
-/// definition's steps until it has to wait; the engine then waits durably for the approval event or the
-/// timer and calls the interpreter again. Definitions stay in our tables (versioned, tenant-owned).
-/// </summary>
-public sealed class AutomationWorkflow : IWorkflow<AutomationRunState>
-{
-    public const string WorkflowId = "paperdotnet.automation";
-    public const string EventName = "paperdotnet.automation";
-
-    public string Id => WorkflowId;
-
-    public int Version => 1;
-
-    public void Build(IWorkflowBuilder<AutomationRunState> builder) => builder
-        .StartWith<InterpretStep>()
-        .While(d => !d.Finished)
-        .Do(loop => loop
-            .StartWith(_ => ExecutionResult.Next())
-            .If(d => d.WaitEvent != null)
-            .Do(wait => wait
-                .StartWith(_ => ExecutionResult.Next())
-                .WaitFor(EventName, (d, _) => d.WaitEvent!, d => d.WaitSince)
-                .Output(d => d.EventData, s => s.EventData))
-            .If(d => d.WaitUntil != null)
-            .Do(wait => wait
-                .StartWith(_ => ExecutionResult.Next())
-                .Delay(d => d.WaitUntil!.Value > DateTime.UtcNow ? d.WaitUntil.Value - DateTime.UtcNow : TimeSpan.Zero))
-            .Then<InterpretStep>());
-}
-
-/// <summary>Runs the interpreter inside the run's tenant.</summary>
-public sealed class InterpretStep(ITenantScopeFactory scopes) : StepBodyAsync
-{
-    public override async Task<ExecutionResult> RunAsync(IStepExecutionContext context)
+    public static async Task Handle(ResumeRun message, ITenantScopeFactory scopes, CancellationToken cancellationToken)
     {
-        var state = (AutomationRunState)context.Workflow.Data;
-        await using var scope = scopes.CreateScope(state.TenantId, state.TenantIdentifier);
-        var result = await scope.ServiceProvider.GetRequiredService<WorkflowInterpreter>()
-            .RunAsync(state.RunId, context.Workflow.Id, state.EventData, context.CancellationToken);
-        state.EventData = null;
-        state.Finished = result.Finished;
-        state.WaitEvent = result.WaitEvent;
-        state.WaitSince = result.WaitSince;
-        state.WaitUntil = result.WaitUntil;
-        return ExecutionResult.Next();
+        await using var scope = scopes.CreateScope(message.TenantId, message.TenantIdentifier);
+        await scope.ServiceProvider.GetRequiredService<WorkflowInterpreter>().RunAsync(message.RunId, message.WaitKey, cancellationToken);
     }
 }
 
-internal sealed record InterpretResult(bool Finished, string? WaitEvent = null, DateTime WaitSince = default, DateTime? WaitUntil = null)
-{
-    public static readonly InterpretResult Done = new(true);
-}
-
 /// <summary>Starts runs of a workspace's workflows on items.</summary>
-internal sealed class WorkflowStarter(AutomationDbContext db, IWorkflowController engine, EventCausation causation, ITenantContext tenant, TimeProvider time)
+internal sealed class WorkflowStarter(AutomationDbContext db, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time)
 {
     public async Task<(WorkflowRun? Run, string? Error)> StartAsync(AutomationItem item, string workflowName, Guid? startedBy, CancellationToken ct)
     {
@@ -123,11 +59,9 @@ internal sealed class WorkflowStarter(AutomationDbContext db, IWorkflowControlle
             StartedAt = time.GetUtcNow(),
         };
         db.Runs.Add(run);
-        await db.SaveChangesAsync(ct);
 
-        // The engine may run the first step at once; that step records the engine id (no second write here).
-        await engine.StartWorkflow(AutomationWorkflow.WorkflowId, 1,
-            new AutomationRunState { TenantId = tenant.TenantId!.Value, TenantIdentifier = tenant.TenantIdentifier!, RunId = run.Id }, run.Id.ToString());
+        // The run and the message that starts it are stored together (transactional outbox).
+        await outbox.SaveChangesAsync(db, [], [new ResumeRun(run.Id, null, tenant.TenantId!.Value, tenant.TenantIdentifier!)], ct);
         return (run, null);
     }
 }
@@ -150,15 +84,19 @@ internal sealed partial class WorkflowInterpreter(
     private const int MaxInstructionsPerRun = 500;
     private const int MaxLogEntries = 100;
 
-    public async Task<InterpretResult> RunAsync(Guid runId, string engineId, string? eventData, CancellationToken ct)
+    /// <summary>Continues the run when <paramref name="waitKey"/> is the wait it is in (null: not started or running).</summary>
+    public async Task RunAsync(Guid runId, string? waitKey, CancellationToken ct)
     {
         var run = await db.Runs.FirstOrDefaultAsync(r => r.Id == runId, ct);
-        if (run is null || run.Status is RunStatus.Completed or RunStatus.Failed or RunStatus.Cancelled)
+        if (run is null || run.Status is RunStatus.Completed or RunStatus.Failed or RunStatus.Cancelled || run.WaitingFor != waitKey)
         {
-            return InterpretResult.Done;
+            return;
         }
 
-        run.EngineId ??= engineId;
+        if (run.ResumeAt is { } resumeAt && resumeAt > time.GetUtcNow())
+        {
+            return;
+        }
 
         causation.Depth = run.Depth + 1;
         var definition = await db.Workflows.AsNoTracking().FirstAsync(w => w.Id == run.DefinitionId, ct);
@@ -179,16 +117,16 @@ internal sealed partial class WorkflowInterpreter(
             run.Outcomes = DefinitionJson.Serialize(outcomes);
         }
 
-        async Task<InterpretResult> FailAsync(string error)
+        async Task FailAsync(string error)
         {
             Log($"Failed: {error}");
             run.Status = RunStatus.Failed;
             run.Error = RuleRunner.Truncate(error);
             run.WaitingFor = null;
+            run.ResumeAt = null;
             run.CompletedAt = time.GetUtcNow();
             await db.SaveChangesAsync(ct);
             LogRunFailed(run.Id, error);
-            return InterpretResult.Done;
         }
 
         if (run.Status == RunStatus.Waiting && run.Position < program.Count)
@@ -196,18 +134,21 @@ internal sealed partial class WorkflowInterpreter(
             var waiting = program[run.Position];
             if (waiting.Op == OpCode.Approval)
             {
-                if (eventData is not (ApprovalOutcomes.Approved or ApprovalOutcomes.Rejected))
+                var decided = await db.Approvals.AsNoTracking().FirstOrDefaultAsync(a => a.RunId == run.Id && a.StepName == waiting.StepName && a.Status != ApprovalStatus.Pending && a.Status != ApprovalStatus.Cancelled, ct);
+                if (decided is null)
                 {
-                    return new InterpretResult(false, run.WaitingFor, time.GetUtcNow().UtcDateTime.AddMinutes(-5));
+                    return;
                 }
 
-                outcomes[waiting.StepName] = eventData;
-                Log($"{waiting.StepName}: {eventData}");
+                var outcome = decided.Status == ApprovalStatus.Approved ? ApprovalOutcomes.Approved : ApprovalOutcomes.Rejected;
+                outcomes[waiting.StepName] = outcome;
+                Log($"{waiting.StepName}: {outcome}");
             }
 
             run.Position++;
             run.Status = RunStatus.Running;
             run.WaitingFor = null;
+            run.ResumeAt = null;
             await db.SaveChangesAsync(ct);
         }
 
@@ -215,7 +156,8 @@ internal sealed partial class WorkflowInterpreter(
         {
             if (executed >= MaxInstructionsPerRun)
             {
-                return await FailAsync("The workflow ran too many steps.");
+                await FailAsync("The workflow ran too many steps.");
+                return;
             }
 
             var instruction = program[run.Position];
@@ -228,7 +170,8 @@ internal sealed partial class WorkflowInterpreter(
                         $"workflow:{definition.Name}", $"run:{run.Id:N}:{run.Position}", ct);
                     if (!result.Succeeded)
                     {
-                        return await FailAsync($"{instruction.StepName} ({step.Action}): {result.Error}");
+                        await FailAsync($"{instruction.StepName} ({step.Action}): {result.Error}");
+                        return;
                     }
 
                     Log($"{instruction.StepName}: {step.Action} done");
@@ -238,24 +181,28 @@ internal sealed partial class WorkflowInterpreter(
                     var approval = await CreateApprovalAsync(run, instruction, outcomes, ct);
                     if (approval is null)
                     {
-                        return await FailAsync($"{instruction.StepName}: no assignee could be found.");
+                        await FailAsync($"{instruction.StepName}: no assignee could be found.");
+                        return;
                     }
 
                     run.Status = RunStatus.Waiting;
                     run.WaitingFor = WaitKey(approval.Id);
                     Log($"{instruction.StepName}: waiting for approval");
                     await db.SaveChangesAsync(ct);
-                    return new InterpretResult(false, run.WaitingFor, approval.CreatedAt.UtcDateTime.AddMinutes(-5));
+                    return;
                 case OpCode.Delay:
                     run.Status = RunStatus.Waiting;
+                    run.WaitingFor = DelayKey(run.Id, run.Position);
+                    run.ResumeAt = time.GetUtcNow().AddHours(step.Hours!.Value);
                     Log($"{instruction.StepName}: waiting {step.Hours} hours");
                     await db.SaveChangesAsync(ct);
-                    return new InterpretResult(false, WaitUntil: time.GetUtcNow().UtcDateTime.AddHours(step.Hours!.Value));
+                    return;
                 case OpCode.Branch:
                     var (holds, error) = await EvaluateAsync(step, item, outcomes, ct);
                     if (error is not null)
                     {
-                        return await FailAsync($"{instruction.StepName}: {error}");
+                        await FailAsync($"{instruction.StepName}: {error}");
+                        return;
                     }
 
                     run.Position = holds ? run.Position + 1 : instruction.Target;
@@ -272,10 +219,11 @@ internal sealed partial class WorkflowInterpreter(
         run.CompletedAt = time.GetUtcNow();
         Log("Completed");
         await db.SaveChangesAsync(ct);
-        return InterpretResult.Done;
     }
 
     public static string WaitKey(Guid approvalId) => $"approval:{approvalId:N}";
+
+    public static string DelayKey(Guid runId, int position) => $"delay:{runId:N}:{position}";
 
     private async Task<(bool Holds, string? Error)> EvaluateAsync(WorkflowStep step, AutomationItem item, Dictionary<string, string> outcomes, CancellationToken ct)
     {
@@ -338,7 +286,7 @@ internal sealed partial class WorkflowInterpreter(
 }
 
 /// <summary>Decisions on approvals and cancelling runs.</summary>
-internal sealed class ApprovalService(AutomationDbContext db, IWorkflowController engine, TimeProvider time)
+internal sealed class ApprovalService(AutomationDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time)
 {
     public enum DecisionResult
     {
@@ -347,7 +295,7 @@ internal sealed class ApprovalService(AutomationDbContext db, IWorkflowControlle
         AlreadyDecided,
     }
 
-    /// <summary>Records the decision of an assignee and resumes the run.</summary>
+    /// <summary>Records the decision of an assignee; the message that resumes the run is stored with it.</summary>
     public async Task<DecisionResult> DecideAsync(Guid approvalId, Guid userId, string outcome, string? comment, CancellationToken ct)
     {
         var approval = await db.Approvals.FirstOrDefaultAsync(a => a.Id == approvalId, ct);
@@ -367,24 +315,21 @@ internal sealed class ApprovalService(AutomationDbContext db, IWorkflowControlle
         approval.Comment = comment;
         try
         {
-            await db.SaveChangesAsync(ct);
+            await outbox.SaveChangesAsync(db, [], [Resume(approval.RunId, WorkflowInterpreter.WaitKey(approval.Id))], ct);
         }
         catch (DbUpdateConcurrencyException)
         {
             return DecisionResult.AlreadyDecided;
         }
 
-        await PublishAsync(approval);
         return DecisionResult.Ok;
     }
 
-    public Task PublishAsync(ApprovalRequest approval) =>
-        engine.PublishEvent(AutomationWorkflow.EventName, WorkflowInterpreter.WaitKey(approval.Id),
-            approval.Status == ApprovalStatus.Approved ? ApprovalOutcomes.Approved : ApprovalOutcomes.Rejected);
+    public ResumeRun Resume(Guid runId, string? waitKey) => new(runId, waitKey, tenant.TenantId!.Value, tenant.TenantIdentifier!);
 
     /// <summary>
-    /// Stops a run: its engine instance ends and pending approvals are cancelled. Retries when the run was
-    /// changed concurrently (the interpreter may be saving it); an interpreter that runs later sees the status.
+    /// Stops a run and cancels its pending approvals. Retries when the run was changed concurrently (the
+    /// interpreter may be saving it); messages for the run that arrive later find it cancelled and do nothing.
     /// </summary>
     public async Task CancelAsync(WorkflowRun run, CancellationToken ct)
     {
@@ -392,6 +337,7 @@ internal sealed class ApprovalService(AutomationDbContext db, IWorkflowControlle
         {
             run.Status = RunStatus.Cancelled;
             run.WaitingFor = null;
+            run.ResumeAt = null;
             run.CompletedAt = time.GetUtcNow();
             foreach (var approval in await db.Approvals.Where(a => a.RunId == run.Id && a.Status == ApprovalStatus.Pending).ToListAsync(ct))
             {
@@ -401,7 +347,7 @@ internal sealed class ApprovalService(AutomationDbContext db, IWorkflowControlle
             try
             {
                 await db.SaveChangesAsync(ct);
-                break;
+                return;
             }
             catch (DbUpdateConcurrencyException) when (attempt < 3)
             {
@@ -413,26 +359,28 @@ internal sealed class ApprovalService(AutomationDbContext db, IWorkflowControlle
                 }
             }
         }
-
-        if (run.EngineId is { } engineId)
-        {
-            await engine.TerminateWorkflow(engineId);
-        }
     }
 }
 
 /// <summary>
-/// Every minute: escalates overdue approvals (adds <c>escalateTo</c> as assignees and notifies them and the
-/// original assignees) and publishes decisions again whose run still waits (the event was lost, e.g. in a crash).
+/// Every minute: resumes runs whose delay is over, and escalates overdue approvals (adds <c>escalateTo</c> as
+/// assignees and notifies them and the original assignees).
 /// </summary>
-internal sealed class ApprovalEscalationJob(AutomationDbContext db, ApprovalService approvals, INotificationSender notifications, TimeProvider time) : ITenantRecurringJob
+internal sealed class AutomationTimerJob(AutomationDbContext db, ApprovalService approvals, IOutbox outbox, INotificationSender notifications, TimeProvider time) : ITenantRecurringJob
 {
-    public const string Name = "automation.approvals";
+    public const string Name = "automation.timers";
     public const string Schedule = "* * * * *";
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         var now = time.GetUtcNow();
+        var due = await db.Runs.AsNoTracking().Where(r => r.Status == RunStatus.Waiting && r.ResumeAt != null && r.ResumeAt <= now)
+            .Select(r => new { r.Id, r.WaitingFor }).Take(500).ToListAsync(cancellationToken);
+        if (due.Count > 0)
+        {
+            await outbox.SaveChangesAsync(db, [], [.. due.Select(r => approvals.Resume(r.Id, r.WaitingFor))], cancellationToken);
+        }
+
         var overdue = await db.Approvals.Where(a => a.Status == ApprovalStatus.Pending && !a.Escalated && a.DueAt != null && a.DueAt <= now)
             .Take(100).ToListAsync(cancellationToken);
         foreach (var approval in overdue)
@@ -445,16 +393,6 @@ internal sealed class ApprovalEscalationJob(AutomationDbContext db, ApprovalServ
             await notifications.SendAsync(
                 new NotificationMessage(NotificationTypes.Automation, $"Overdue: {approval.Title}", "The approval is overdue.", link, $"approval:{approval.Id:N}:overdue"),
                 approval.Assignees, cancellationToken);
-        }
-
-        var stale = now.AddMinutes(-1);
-        var decided = await db.Approvals
-            .Where(a => (a.Status == ApprovalStatus.Approved || a.Status == ApprovalStatus.Rejected) && a.DecidedAt != null && a.DecidedAt < stale)
-            .Join(db.Runs.Where(r => r.Status == RunStatus.Waiting), a => a.RunId, r => r.Id, (a, r) => new { Approval = a, r.WaitingFor })
-            .Take(100).ToListAsync(cancellationToken);
-        foreach (var entry in decided.Where(e => e.WaitingFor == WorkflowInterpreter.WaitKey(e.Approval.Id)))
-        {
-            await approvals.PublishAsync(entry.Approval);
         }
     }
 }

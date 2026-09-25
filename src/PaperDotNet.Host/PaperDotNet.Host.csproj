@@ -29,7 +29,6 @@
     <!-- Finds referenced extensions at compile time (ADR-0014). Add extensions as package/project references. -->
     <ProjectReference Include="..\Extensions\PaperDotNet.Extensions.Generator\PaperDotNet.Extensions.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Messaging\PaperDotNet.Messaging.csproj" />
-    <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Workflows\PaperDotNet.Workflows.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />

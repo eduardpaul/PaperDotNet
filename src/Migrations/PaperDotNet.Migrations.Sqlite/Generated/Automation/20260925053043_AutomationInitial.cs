@@ -118,8 +118,8 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                     outcomes = table.Column<string>(type: "TEXT", nullable: false),
                     log = table.Column<string>(type: "TEXT", nullable: false),
                     error = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: true),
-                    engine_id = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
                     waiting_for = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
+                    resume_at = table.Column<long>(type: "INTEGER", nullable: true),
                     depth = table.Column<int>(type: "INTEGER", nullable: false),
                     started_by = table.Column<Guid>(type: "TEXT", nullable: true),
                     started_at = table.Column<long>(type: "INTEGER", nullable: false),
@@ -231,6 +231,11 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                 name: "ix_automation_rules_tenant_id_workspace_id_trigger",
                 table: "automation_rules",
                 columns: new[] { "tenant_id", "workspace_id", "trigger" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_automation_workflow_runs_status_resume_at",
+                table: "automation_workflow_runs",
+                columns: new[] { "status", "resume_at" });
 
             migrationBuilder.CreateIndex(
                 name: "ix_automation_workflow_runs_tenant_id",

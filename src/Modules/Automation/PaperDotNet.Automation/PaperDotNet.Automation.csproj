@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Automation (phase 5b): rules, workflows on WorkflowCore (via PaperDotNet.Workflows), approvals,
-    actions and triggers from extensions, path templates (EVT-07…09, DOC-14; ADR-0018).
+    Automation (phase 5b): rules, workflows (resumed through Wolverine messages), approvals,
+    actions and triggers from extensions, path templates (EVT-07…09, DOC-14; ADR-0018, ADR-0019).
   -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
@@ -16,7 +16,6 @@
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Messaging\PaperDotNet.Messaging.csproj" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Workflows\PaperDotNet.Workflows.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
