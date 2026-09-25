@@ -89,7 +89,10 @@ public static class PaperDotNetHost
         services.AddHybridCache();
         services.AddPaperDotNetDatabase(builder.Configuration);
         services.AddPaperDotNetStorage(builder.Configuration);
-        services.AddSingleton<ILiveEvents, LiveEventHub>();
+        services.AddSingleton<ILiveEvents>(sp => new LiveEventHub(
+            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>>(),
+            sp.GetRequiredService<ILogger<LiveEventHub>>(),
+            sp.GetService<ILiveEventBackplane>()));
         services.AddSingleton<DatabaseMigrator>();
         services.AddScoped<PaperDotNet.Host.Backup.BackupService>();
         services.AddScopeAuthorization();

@@ -30,3 +30,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0023](0023-item-mutators-and-event-reactions.md) | Item mutators before the save; events for everything after it; one message per subscriber | Accepted |
 | [0024](0024-one-automation-model.md) | One automation model: rules and workflows merged; runs started through the outbox | Accepted |
 | [0025](0025-reliable-runs-on-several-servers.md) | Reliable automation runs and folder moves on several servers (leases, recovery, atomic hand-offs) | Accepted |
+| [0026](0026-live-events-across-servers.md) | Live events across servers with PostgreSQL LISTEN/NOTIFY | Accepted |

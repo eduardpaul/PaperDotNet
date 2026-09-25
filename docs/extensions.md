@@ -105,7 +105,8 @@ scope for an active tenant known only by id (e.g. from a token).
 Implement `IItemSearchContributor` to add text (and its language) to items'
 search documents, and call `IListItemStore.ReindexAsync(itemId)` when it
 changes. Push notifications to connected clients with `ILiveEvents.Publish`
-(they arrive on `GET /v1.0/me/events`). Notify users with
+(they arrive on `GET /v1.0/me/events`, on every server with PostgreSQL; keep
+the data small, under about 7 KB as JSON). Notify users with
 `INotificationSender.SendAsync(message, userIds)`: the message lands in their
 inbox and goes to their channels (webhook) according to their preferences;
 pass a `DeduplicationKey` so a job that runs again does not notify twice.

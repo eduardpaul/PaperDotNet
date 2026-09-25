@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
+using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Persistence.PostgreSql;
 
@@ -39,6 +40,11 @@ public static class PostgreSqlServiceCollectionExtensions
         services.AddSingleton(new PostgreSqlConnection(connectionString));
         services.AddSingleton<IDatabaseBackup, PostgreSqlDatabaseBackup>();
         services.AddHealthChecks().AddCheck<PostgreSqlHealthCheck>("postgresql", tags: ["ready"]);
+
+        // Live events reach clients on every server (ADR-0026).
+        services.AddSingleton<PostgreSqlLiveEventBackplane>();
+        services.AddSingleton<ILiveEventBackplane>(sp => sp.GetRequiredService<PostgreSqlLiveEventBackplane>());
+        services.AddHostedService(sp => sp.GetRequiredService<PostgreSqlLiveEventBackplane>());
         return services;
     }
 

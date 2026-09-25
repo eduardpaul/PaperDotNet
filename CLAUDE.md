@@ -98,7 +98,7 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   missing pieces to the SDK/contracts, never reference module implementations.
   Binary content goes through `IBlobStore`; extra item text for search through
   `IItemSearchContributor`; client notifications through `ILiveEvents`
-  (`/v1.0/me/events`, SSE); user notifications (inbox, webhook) through
+  (`/v1.0/me/events`, SSE; across servers via LISTEN/NOTIFY on PostgreSQL, ADR-0026); user notifications (inbox, webhook) through
   `INotificationSender` (Notifications.Contracts) with a deduplication key.
 - Automation (ADR-0019, ADR-0024): one model, automations (trigger + condition + steps); actions
   implement `IAutomationAction` (safe to repeat with `ExecutionKey`) and triggers are raised with

@@ -71,6 +71,5 @@ servers could lose or repeat work:
 - Actions from extensions should use `ExecutionId` or `ExecutionKey` to be
   safe to repeat. The rare repeat after a crash between an action and the
   save of its step remains.
-- Still open for multi-server deployments: live events (`/v1.0/me/events`)
-  reach only clients connected to the server that raised them. That needs a
-  shared channel, such as PostgreSQL LISTEN/NOTIFY.
+- Live events (`/v1.0/me/events`) across servers are handled by
+  [ADR-0026](0026-live-events-across-servers.md) (PostgreSQL LISTEN/NOTIFY).
