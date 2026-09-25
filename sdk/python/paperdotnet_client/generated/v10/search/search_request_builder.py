@@ -31,7 +31,7 @@ class SearchRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/search{?containerId*,contentTypeId*,createdBy*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/search{?containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}", path_parameters)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[SearchRequestBuilderGetQueryParameters]] = None) -> Optional[SearchResponse]:
         """
@@ -105,6 +105,8 @@ class SearchRequestBuilder(BaseRequestBuilder):
                 return "updatedTo"
             if original_name == "workspace_id":
                 return "workspaceId"
+            if original_name == "mode":
+                return "mode"
             if original_name == "q":
                 return "q"
             return original_name
@@ -114,6 +116,8 @@ class SearchRequestBuilder(BaseRequestBuilder):
         content_type_id: Optional[UUID] = None
 
         created_by: Optional[UUID] = None
+
+        mode: Optional[str] = None
 
         q: Optional[str] = None
 

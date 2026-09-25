@@ -4339,6 +4339,13 @@
             }
           },
           {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "workspaceId",
             "in": "query",
             "schema": {
@@ -12829,15 +12836,40 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "matchedBy": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
-        }
+        },
+        "description": "A search result. string? SearchHit.Snippet comes from the passage that matched best and int? SearchHit.Page is its page\n(SRC-09; null when the match is not on a page). IReadOnlyList\u0026lt;string\u0026gt; SearchHit.MatchedBy says how it was found:\n\u0060keyword\u0060, \u0060semantic\u0060 or both."
+      },
+      "SearchMode": {
+        "enum": [
+          "keyword",
+          "semantic",
+          "hybrid"
+        ],
+        "description": "How results are found (SRC-08)."
       },
       "SearchResponse": {
         "required": [
           "value",
           "@odata.count",
           "facets",
-          "@odata.nextLink"
+          "@odata.nextLink",
+          "mode"
         ],
         "type": "object",
         "properties": {
@@ -12863,8 +12895,12 @@
               "null",
               "string"
             ]
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SearchMode"
           }
-        }
+        },
+        "description": "Results; \u0060mode\u0060 is how they were found. In \u0060semantic\u0060 and \u0060hybrid\u0060 mode the count and facets cover the\nbest candidates only (see \u0060Search:CandidateLimit\u0060)."
       },
       "SettingsRequest": {
         "required": [

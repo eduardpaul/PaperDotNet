@@ -8,6 +8,9 @@ from uuid import UUID
 
 @dataclass
 class SearchHit(AdditionalDataHolder, Parsable):
+    """
+    A search result. string? SearchHit.Snippet comes from the passage that matched best and int? SearchHit.Page is its page(SRC-09; null when the match is not on a page). IReadOnlyList&lt;string&gt; SearchHit.MatchedBy says how it was found:`keyword`, `semantic` or both.
+    """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
@@ -19,6 +22,10 @@ class SearchHit(AdditionalDataHolder, Parsable):
     created_by: Optional[UUID] = None
     # The id property
     id: Optional[UUID] = None
+    # The matchedBy property
+    matched_by: Optional[list[str]] = None
+    # The page property
+    page: Optional[int] = None
     # The rank property
     rank: Optional[float] = None
     # The snippet property
@@ -53,6 +60,8 @@ class SearchHit(AdditionalDataHolder, Parsable):
             "contentTypeId": lambda n : setattr(self, 'content_type_id', n.get_uuid_value()),
             "createdBy": lambda n : setattr(self, 'created_by', n.get_uuid_value()),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
+            "matchedBy": lambda n : setattr(self, 'matched_by', n.get_collection_of_primitive_values(str)),
+            "page": lambda n : setattr(self, 'page', n.get_int_value()),
             "rank": lambda n : setattr(self, 'rank', n.get_float_value()),
             "snippet": lambda n : setattr(self, 'snippet', n.get_str_value()),
             "sourceType": lambda n : setattr(self, 'source_type', n.get_str_value()),
@@ -74,6 +83,8 @@ class SearchHit(AdditionalDataHolder, Parsable):
         writer.write_uuid_value("contentTypeId", self.content_type_id)
         writer.write_uuid_value("createdBy", self.created_by)
         writer.write_uuid_value("id", self.id)
+        writer.write_collection_of_primitive_values("matchedBy", self.matched_by)
+        writer.write_int_value("page", self.page)
         writer.write_float_value("rank", self.rank)
         writer.write_str_value("snippet", self.snippet)
         writer.write_str_value("sourceType", self.source_type)

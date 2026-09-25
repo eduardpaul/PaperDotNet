@@ -10,6 +10,7 @@
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.PostgreSql/PaperDotNet.Persistence.PostgreSql.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.Sqlite/PaperDotNet.Persistence.Sqlite.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence/PaperDotNet.Persistence.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.AI/PaperDotNet.AI.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Storage/PaperDotNet.Storage.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/">

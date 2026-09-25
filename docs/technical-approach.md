@@ -323,11 +323,15 @@ outbox dispatcher (BackgroundService)
 - **Security trimming** in SQL: documents store reader principals (user,
   group, workspace member, workspace owner), matched against the caller's
   principals with an indexed `EXISTS`.
-- **Vector search (P6):** a `pgvector` column + `Microsoft.Extensions.VectorData`.
-  Embeddings come from `IEmbeddingGenerator` (Microsoft.Extensions.AI).
-  Chunks keep page numbers. **Hybrid ranking** uses reciprocal rank fusion
-  in SQL. The deploy compose uses the `pgvector/pgvector` PostgreSQL image,
-  so it is still one database container.
+- **Vector search (P6, [ADR-0027](adr/0027-semantic-and-hybrid-search.md)):**
+  documents are split into passages that keep page numbers (with their own
+  full-text index for page hits). Embeddings come from `IEmbeddingGenerator`
+  (Microsoft.Extensions.AI, any OpenAI-compatible endpoint, off by default),
+  computed by a background job and stored with the passages. They are searched
+  by an in-process index per tenant, the same on SQLite and PostgreSQL.
+  **Hybrid ranking** fuses keyword and semantic candidates with reciprocal
+  rank fusion. pgvector or an external engine can replace the in-process index
+  for very large tenants.
 - External engines (OpenSearch, Meilisearch, Qdrant) are optional providers
   later.
 

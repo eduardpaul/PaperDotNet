@@ -78,6 +78,7 @@ PAPERDOTNET_TEST_PROVIDER=postgresql dotnet test --solution PaperDotNet.slnx   #
 ```
 
 Configuration comes from environment variables `PAPERDOTNET__Section__Key`.
+Semantic search needs an embedding model (optional; see `docs/search.md`).
 PostgreSQL: `PAPERDOTNET__Database__Provider=PostgreSql` and
 `PAPERDOTNET__ConnectionStrings__PaperDotNet=Host=…;Database=…;Username=…;Password=…`.
 See `src/PaperDotNet.Host/appsettings.json` for all settings.

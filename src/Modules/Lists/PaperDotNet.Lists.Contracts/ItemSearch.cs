@@ -1,9 +1,13 @@
 namespace PaperDotNet.Lists.Contracts;
 
 /// <summary>Extra searchable content of an item, e.g. the text of its file.</summary>
-/// <param name="Text">Text added to the item's search body.</param>
+/// <param name="Text">Text added to the item's search body (ignored when <see cref="Pages"/> is set).</param>
 /// <param name="Language">Language of the text for stemming (e.g. <c>english</c>), or null.</param>
-public sealed record ItemSearchContent(string Text, string? Language);
+public sealed record ItemSearchContent(string Text, string? Language)
+{
+    /// <summary>The text page by page (page 1 first), e.g. of a PDF, so search can point to the matching page (SRC-09).</summary>
+    public IReadOnlyList<string>? Pages { get; init; }
+}
 
 /// <summary>
 /// Adds content to the search documents of list items (SRC-01): Documents contributes the

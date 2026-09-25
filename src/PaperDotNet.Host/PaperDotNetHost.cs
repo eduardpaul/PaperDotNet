@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using PaperDotNet.Abstractions;
+using PaperDotNet.AI;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
 using PaperDotNet.Automation;
@@ -89,6 +90,7 @@ public static class PaperDotNetHost
         services.AddHybridCache();
         services.AddPaperDotNetDatabase(builder.Configuration);
         services.AddPaperDotNetStorage(builder.Configuration);
+        services.AddPaperDotNetAI(builder.Configuration);
         services.AddSingleton<ILiveEvents>(sp => new LiveEventHub(
             sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>>(),
             sp.GetRequiredService<ILogger<LiveEventHub>>(),

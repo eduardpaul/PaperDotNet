@@ -7,10 +7,11 @@ using System.IO;
 using System;
 namespace PaperDotNet.Client.Models
 {
+    /// <summary>
+    /// Results; `mode` is how they were found. In `semantic` and `hybrid` mode the count and facets cover thebest candidates only (see `Search:CandidateLimit`).
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
     public partial class SearchResponse : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
@@ -22,6 +23,8 @@ namespace PaperDotNet.Client.Models
 #else
         public global::PaperDotNet.Client.Models.SearchFacets Facets { get; set; }
 #endif
+        /// <summary>How results are found (SRC-08).</summary>
+        public global::PaperDotNet.Client.Models.SearchMode? Mode { get; set; }
         /// <summary>The OdataCount property</summary>
         public int? OdataCount { get; set; }
         /// <summary>The OdataNextLink property</summary>
@@ -66,6 +69,7 @@ namespace PaperDotNet.Client.Models
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "facets", n => { Facets = n.GetObjectValue<global::PaperDotNet.Client.Models.SearchFacets>(global::PaperDotNet.Client.Models.SearchFacets.CreateFromDiscriminatorValue); } },
+                { "mode", n => { Mode = n.GetEnumValue<global::PaperDotNet.Client.Models.SearchMode>(); } },
                 { "@odata.count", n => { OdataCount = n.GetIntValue(); } },
                 { "@odata.nextLink", n => { OdataNextLink = n.GetStringValue(); } },
                 { "value", n => { Value = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.SearchHit>(global::PaperDotNet.Client.Models.SearchHit.CreateFromDiscriminatorValue)?.AsList(); } },
@@ -79,6 +83,7 @@ namespace PaperDotNet.Client.Models
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.SearchFacets>("facets", Facets);
+            writer.WriteEnumValue<global::PaperDotNet.Client.Models.SearchMode>("mode", Mode);
             writer.WriteIntValue("@odata.count", OdataCount);
             writer.WriteStringValue("@odata.nextLink", OdataNextLink);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.SearchHit>("value", Value);

@@ -4573,6 +4573,8 @@ export function deserializeIntoSearchHit(searchHit: Partial<SearchHit> | undefin
         "contentTypeId": n => { searchHit.contentTypeId = n.getGuidValue(); },
         "createdBy": n => { searchHit.createdBy = n.getGuidValue(); },
         "id": n => { searchHit.id = n.getGuidValue(); },
+        "matchedBy": n => { searchHit.matchedBy = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "page": n => { searchHit.page = n.getNumberValue(); },
         "rank": n => { searchHit.rank = n.getNumberValue(); },
         "snippet": n => { searchHit.snippet = n.getStringValue(); },
         "sourceType": n => { searchHit.sourceType = n.getStringValue(); },
@@ -4590,6 +4592,7 @@ export function deserializeIntoSearchHit(searchHit: Partial<SearchHit> | undefin
 export function deserializeIntoSearchResponse(searchResponse: Partial<SearchResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "facets": n => { searchResponse.facets = n.getObjectValue<SearchFacets>(createSearchFacetsFromDiscriminatorValue); },
+        "mode": n => { searchResponse.mode = n.getEnumValue<SearchMode>(SearchModeObject); },
         "@odata.count": n => { searchResponse.odataCount = n.getNumberValue(); },
         "@odata.nextLink": n => { searchResponse.odataNextLink = n.getStringValue(); },
         "value": n => { searchResponse.value = n.getCollectionOfObjectValues<SearchHit>(createSearchHitFromDiscriminatorValue); },
@@ -6672,6 +6675,9 @@ export interface SearchFacets extends AdditionalDataHolder, Parsable {
      */
     workspace?: FacetValue[] | null;
 }
+/**
+ * A search result. string? SearchHit.Snippet comes from the passage that matched best and int? SearchHit.Page is its page(SRC-09; null when the match is not on a page). IReadOnlyList&lt;string&gt; SearchHit.MatchedBy says how it was found:`keyword`, `semantic` or both.
+ */
 export interface SearchHit extends AdditionalDataHolder, Parsable {
     /**
      * The containerId property
@@ -6689,6 +6695,14 @@ export interface SearchHit extends AdditionalDataHolder, Parsable {
      * The id property
      */
     id?: Guid | null;
+    /**
+     * The matchedBy property
+     */
+    matchedBy?: string[] | null;
+    /**
+     * The page property
+     */
+    page?: number | null;
     /**
      * The rank property
      */
@@ -6714,11 +6728,19 @@ export interface SearchHit extends AdditionalDataHolder, Parsable {
      */
     workspaceId?: Guid | null;
 }
+export type SearchMode = (typeof SearchModeObject)[keyof typeof SearchModeObject];
+/**
+ * Results; `mode` is how they were found. In `semantic` and `hybrid` mode the count and facets cover thebest candidates only (see `Search:CandidateLimit`).
+ */
 export interface SearchResponse extends AdditionalDataHolder, Parsable {
     /**
      * The facets property
      */
     facets?: SearchFacets | null;
+    /**
+     * How results are found (SRC-08).
+     */
+    mode?: SearchMode | null;
     /**
      * The OdataCount property
      */
@@ -8786,6 +8808,8 @@ export function serializeSearchHit(writer: SerializationWriter, searchHit: Parti
     writer.writeGuidValue("contentTypeId", searchHit.contentTypeId);
     writer.writeGuidValue("createdBy", searchHit.createdBy);
     writer.writeGuidValue("id", searchHit.id);
+    writer.writeCollectionOfPrimitiveValues<string>("matchedBy", searchHit.matchedBy);
+    writer.writeNumberValue("page", searchHit.page);
     writer.writeNumberValue("rank", searchHit.rank);
     writer.writeStringValue("snippet", searchHit.snippet);
     writer.writeStringValue("sourceType", searchHit.sourceType);
@@ -8804,6 +8828,7 @@ export function serializeSearchHit(writer: SerializationWriter, searchHit: Parti
 export function serializeSearchResponse(writer: SerializationWriter, searchResponse: Partial<SearchResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!searchResponse || isSerializingDerivedType) { return; }
     writer.writeObjectValue<SearchFacets>("facets", searchResponse.facets, serializeSearchFacets);
+    writer.writeEnumValue<SearchMode>("mode", searchResponse.mode);
     writer.writeNumberValue("@odata.count", searchResponse.odataCount);
     writer.writeStringValue("@odata.nextLink", searchResponse.odataNextLink);
     writer.writeCollectionOfObjectValues<SearchHit>("value", searchResponse.value, serializeSearchHit);
@@ -10206,6 +10231,14 @@ export const RunStatusObject = {
     Completed: "completed",
     Failed: "failed",
     Cancelled: "cancelled",
+} as const;
+/**
+ * How results are found (SRC-08).
+ */
+export const SearchModeObject = {
+    Keyword: "keyword",
+    Semantic: "semantic",
+    Hybrid: "hybrid",
 } as const;
 /**
  * How two items are related (TSK-02, TSK-06).

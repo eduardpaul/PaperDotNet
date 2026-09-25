@@ -26,6 +26,12 @@ public sealed record SearchDocumentData(
     /// (see <c>FullTextLanguages.FromCode</c> for ISO codes); null = exact words only.
     /// </summary>
     public string? Language { get; init; }
+
+    /// <summary>
+    /// Text with page numbers (page 1 first), e.g. of a document's file: searched like the body, and hits point to
+    /// the matching page (SRC-09).
+    /// </summary>
+    public IReadOnlyList<string> Pages { get; init; } = [];
 }
 
 /// <summary>The search index of the current tenant.</summary>

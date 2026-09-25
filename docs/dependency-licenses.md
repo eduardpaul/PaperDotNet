@@ -89,7 +89,9 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `FastExpressionCompiler`, `Spectre.Console`, `Newtonsoft.Json` (via Wolverine) | MIT | Wolverine dependencies |
 | `Cronos` | MIT | Cron expressions for recurring jobs (ADR-0010) |
 | `ModelContextProtocol.AspNetCore` (+ `ModelContextProtocol`, `ModelContextProtocol.Core`) | Apache-2.0 | MCP server for AI assistants (API-08/09); the official C# SDK |
-| `Microsoft.Extensions.AI.Abstractions` | MIT | Dependency of the MCP SDK |
+| `Microsoft.Extensions.AI.Abstractions` | MIT | AI abstractions (`IEmbeddingGenerator`); also a dependency of the MCP SDK |
+| `Microsoft.Extensions.AI`, `Microsoft.Extensions.AI.OpenAI` (+ `OpenAI`, `System.ClientModel`) | MIT | Embedding providers for semantic search: any OpenAI-compatible API, e.g. Ollama or OpenAI (ADR-0027) |
+| `System.Numerics.Tensors` | MIT | Vector similarity (`TensorPrimitives`) for semantic search |
 | `Microsoft.Kiota.Bundle` (+ `.Abstractions`, `.Http.HttpClientLibrary`, `.Serialization.*`) | MIT | Runtime of the generated C# SDK (API-03) |
 | `Microsoft.OpenApi.Kiota` (.NET tool) | MIT | Generates the SDKs; build time only |
 | `@microsoft/kiota-bundle` (npm), `microsoft-kiota-bundle` (PyPI, with `httpx`: BSD-3-Clause) | MIT | Runtime of the TypeScript and Python SDKs (separate packages, not in the server) |

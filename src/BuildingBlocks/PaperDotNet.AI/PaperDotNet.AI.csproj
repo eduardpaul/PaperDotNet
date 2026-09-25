@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- AI providers (P6, ADR-0027): Microsoft.Extensions.AI abstractions, created from configuration. Off by default. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.Extensions.AI" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+  </ItemGroup>
+</Project>

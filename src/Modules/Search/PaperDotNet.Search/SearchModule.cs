@@ -36,6 +36,15 @@ public sealed class SearchModule : IModule
         services.AddScoped<SearchReindexer>();
         services.AddScoped<IMcpTool, SearchTool>();
         services.AddOperationHandler<ReindexOperation>();
+
+        // Semantic and hybrid search (SRC-07, SRC-08); active when an embedding provider is configured (AI:Embeddings).
+        services.Configure<SearchOptions>(configuration.GetSection(SearchOptions.Section));
+        services.AddMemoryCache();
+        services.AddSingleton<VectorIndex>();
+        services.AddScoped<SemanticSearch>();
+        services.AddScoped<SearchService>();
+        services.AddTenantRecurringJob<EmbeddingJob>(
+            EmbeddingJob.Name, configuration[$"{SearchOptions.Section}:{nameof(SearchOptions.EmbeddingSchedule)}"] ?? new SearchOptions().EmbeddingSchedule);
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => SearchEndpoints.Map(endpoints);

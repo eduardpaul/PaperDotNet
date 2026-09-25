@@ -163,9 +163,18 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
             }
 
             string? language = null;
+            List<string> pages = [];
             foreach (var content in extra.Select(e => e.GetValueOrDefault(item.Id)).OfType<ItemSearchContent>())
             {
-                body.Append(content.Text).Append('\n');
+                if (content.Pages is { } contentPages && pages.Count == 0)
+                {
+                    pages = [.. contentPages];
+                }
+                else
+                {
+                    body.Append(content.Pages is { } other ? string.Join('\n', other) : content.Text).Append('\n');
+                }
+
                 language ??= content.Language;
             }
 
@@ -175,6 +184,7 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
             {
                 Keywords = keywords.ToString(),
                 Language = language,
+                Pages = pages,
             };
         }).ToList();
     }

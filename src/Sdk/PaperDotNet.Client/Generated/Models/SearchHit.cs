@@ -7,10 +7,11 @@ using System.IO;
 using System;
 namespace PaperDotNet.Client.Models
 {
+    /// <summary>
+    /// A search result. string? SearchHit.Snippet comes from the passage that matched best and int? SearchHit.Page is its page(SRC-09; null when the match is not on a page). IReadOnlyList&amp;lt;string&amp;gt; SearchHit.MatchedBy says how it was found:`keyword`, `semantic` or both.
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
     public partial class SearchHit : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
@@ -22,6 +23,16 @@ namespace PaperDotNet.Client.Models
         public Guid? CreatedBy { get; set; }
         /// <summary>The id property</summary>
         public Guid? Id { get; set; }
+        /// <summary>The matchedBy property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<string>? MatchedBy { get; set; }
+#nullable restore
+#else
+        public List<string> MatchedBy { get; set; }
+#endif
+        /// <summary>The page property</summary>
+        public int? Page { get; set; }
         /// <summary>The rank property</summary>
         public double? Rank { get; set; }
         /// <summary>The snippet property</summary>
@@ -81,6 +92,8 @@ namespace PaperDotNet.Client.Models
                 { "contentTypeId", n => { ContentTypeId = n.GetGuidValue(); } },
                 { "createdBy", n => { CreatedBy = n.GetGuidValue(); } },
                 { "id", n => { Id = n.GetGuidValue(); } },
+                { "matchedBy", n => { MatchedBy = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
+                { "page", n => { Page = n.GetIntValue(); } },
                 { "rank", n => { Rank = n.GetDoubleValue(); } },
                 { "snippet", n => { Snippet = n.GetStringValue(); } },
                 { "sourceType", n => { SourceType = n.GetStringValue(); } },
@@ -100,6 +113,8 @@ namespace PaperDotNet.Client.Models
             writer.WriteGuidValue("contentTypeId", ContentTypeId);
             writer.WriteGuidValue("createdBy", CreatedBy);
             writer.WriteGuidValue("id", Id);
+            writer.WriteCollectionOfPrimitiveValues<string>("matchedBy", MatchedBy);
+            writer.WriteIntValue("page", Page);
             writer.WriteDoubleValue("rank", Rank);
             writer.WriteStringValue("snippet", Snippet);
             writer.WriteStringValue("sourceType", SourceType);

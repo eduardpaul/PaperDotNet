@@ -32,6 +32,7 @@ export interface SearchRequestBuilderGetQueryParameters {
     containerId?: Guid;
     contentTypeId?: Guid;
     createdBy?: Guid;
+    mode?: string;
     q?: string;
     termId?: Guid;
     updatedFrom?: Date;
@@ -41,7 +42,7 @@ export interface SearchRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const SearchRequestBuilderUriTemplate = "{+baseurl}/v1.0/search{?containerId*,contentTypeId*,createdBy*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}";
+export const SearchRequestBuilderUriTemplate = "{+baseurl}/v1.0/search{?containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

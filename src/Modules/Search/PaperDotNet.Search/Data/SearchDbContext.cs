@@ -59,6 +59,43 @@ public sealed class SearchTag : ITenantOwned
     public Guid TenantId { get; set; }
 }
 
+/// <summary>
+/// A passage of a document (SRC-07, SRC-09): a window of its text with the page it is on (null for text that is not
+/// on a page, like the title and fields). Passages have their own full-text index, so keyword hits can point to a
+/// page, and an embedding for semantic search, computed in the background.
+/// </summary>
+[NotAudited]
+public sealed class SearchPassage : ITenantOwned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid DocumentId { get; set; }
+
+    /// <summary>Position in the document (0 first).</summary>
+    public int Ordinal { get; set; }
+
+    /// <summary>1-based page number, or null.</summary>
+    public int? Page { get; set; }
+
+    public string Text { get; set; } = string.Empty;
+
+    public string? Language { get; set; }
+
+    /// <summary>SHA-256 (hex) of the text that is embedded (title and passage): an unchanged passage keeps its embedding.</summary>
+    public required string ContentHash { get; set; }
+
+    /// <summary>The normalized embedding as little-endian float32 values, or null until computed.</summary>
+    public byte[]? Embedding { get; set; }
+
+    /// <summary>The model <see cref="Embedding"/> comes from; a different configured model means it is embedded again.</summary>
+    public string? EmbeddingModel { get; set; }
+
+    /// <summary>When the embedding was stored (UTC ticks), so vector indexes in memory load only what changed.</summary>
+    public long VectorStamp { get; set; }
+}
+
 public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, ITenantContext tenant)
     : DbContext(options), ITenantScopedDbContext
 {
@@ -71,6 +108,8 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
     public DbSet<SearchPrincipal> Principals => Set<SearchPrincipal>();
 
     public DbSet<SearchTag> Tags => Set<SearchTag>();
+
+    public DbSet<SearchPassage> Passages => Set<SearchPassage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -97,6 +136,17 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
             b.ToTable("document_tags");
             b.HasKey(t => new { t.DocumentId, t.TermId });
             b.HasIndex(t => new { t.TermId, t.DocumentId });
+        });
+        modelBuilder.Entity<SearchPassage>(b =>
+        {
+            b.ToTable("passages");
+            b.Property(p => p.Language).HasMaxLength(20);
+            b.Property(p => p.ContentHash).HasMaxLength(64);
+            b.Property(p => p.EmbeddingModel).HasMaxLength(200);
+            b.HasIndex(p => new { p.TenantId, p.DocumentId });
+            b.HasIndex(p => new { p.TenantId, p.EmbeddingModel, p.VectorStamp });
+            b.HasFullTextIndex(nameof(SearchPassage.Text));
+            b.HasFullTextLanguage(nameof(SearchPassage.Language));
         });
         modelBuilder.ApplyPaperDotNetConventions(this);
     }

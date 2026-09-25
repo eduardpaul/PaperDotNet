@@ -453,6 +453,26 @@ internal sealed class DocumentSearchContent(DocumentsDbContext db) : IItemSearch
             .Where(v => pages[v.StoredFileId].Any())
             .ToDictionary(
                 v => v.ItemId,
-                v => new ItemSearchContent(string.Join('\n', pages[v.StoredFileId].Select(p => p.Text)), FullTextLanguages.FromCode(v.TextLanguage)));
+                v => new ItemSearchContent(string.Join('\n', pages[v.StoredFileId].Select(p => p.Text)), FullTextLanguages.FromCode(v.TextLanguage))
+                {
+                    Pages = PageTexts(pages[v.StoredFileId].Select(p => (p.PageNumber, p.Text))),
+                });
+    }
+
+    /// <summary>Texts indexed by page number (missing pages become empty).</summary>
+    private static List<string> PageTexts(IEnumerable<(int Number, string Text)> pages)
+    {
+        var texts = new List<string>();
+        foreach (var (number, text) in pages)
+        {
+            while (texts.Count < number - 1)
+            {
+                texts.Add(string.Empty);
+            }
+
+            texts.Add(text);
+        }
+
+        return texts;
     }
 }

@@ -7,14 +7,20 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 if TYPE_CHECKING:
     from .search_facets import SearchFacets
     from .search_hit import SearchHit
+    from .search_mode import SearchMode
 
 @dataclass
 class SearchResponse(AdditionalDataHolder, Parsable):
+    """
+    Results; `mode` is how they were found. In `semantic` and `hybrid` mode the count and facets cover thebest candidates only (see `Search:CandidateLimit`).
+    """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
     # The facets property
     facets: Optional[SearchFacets] = None
+    # How results are found (SRC-08).
+    mode: Optional[SearchMode] = None
     # The OdataCount property
     odata_count: Optional[int] = None
     # The OdataNextLink property
@@ -40,12 +46,15 @@ class SearchResponse(AdditionalDataHolder, Parsable):
         """
         from .search_facets import SearchFacets
         from .search_hit import SearchHit
+        from .search_mode import SearchMode
 
         from .search_facets import SearchFacets
         from .search_hit import SearchHit
+        from .search_mode import SearchMode
 
         fields: dict[str, Callable[[Any], None]] = {
             "facets": lambda n : setattr(self, 'facets', n.get_object_value(SearchFacets)),
+            "mode": lambda n : setattr(self, 'mode', n.get_enum_value(SearchMode)),
             "@odata.count": lambda n : setattr(self, 'odata_count', n.get_int_value()),
             "@odata.nextLink": lambda n : setattr(self, 'odata_next_link', n.get_str_value()),
             "value": lambda n : setattr(self, 'value', n.get_collection_of_object_values(SearchHit)),
@@ -61,6 +70,7 @@ class SearchResponse(AdditionalDataHolder, Parsable):
         if writer is None:
             raise TypeError("writer cannot be null.")
         writer.write_object_value("facets", self.facets)
+        writer.write_enum_value("mode", self.mode)
         writer.write_int_value("@odata.count", self.odata_count)
         writer.write_str_value("@odata.nextLink", self.odata_next_link)
         writer.write_collection_of_object_values("value", self.value)

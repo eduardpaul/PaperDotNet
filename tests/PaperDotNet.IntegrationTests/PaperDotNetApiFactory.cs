@@ -101,11 +101,16 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Bootstrap:AdminPassword", AdminPassword);
         builder.UseSetting("Jobs:SchedulerInterval", "00:00:01");
         builder.UseSetting("Lists:DeltaSafetyWindow", "00:00:00");
+
+        // Semantic search with a deterministic model; tests ask for it explicitly (mode=semantic|hybrid).
+        builder.UseSetting("Search:DefaultMode", "Keyword");
+        builder.UseSetting("Search:MinSimilarity", "0.15");
         builder.UseSetting("Storage:DataPath", _dataPath);
         builder.UseSetting("Documents:MaxFileSize", DocumentLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.ConfigureTestServices(services =>
         {
             services.AddScoped<IItemMutator, TestMutator>();
+            services.AddSingleton<Microsoft.Extensions.AI.IEmbeddingGenerator<string, Microsoft.Extensions.AI.Embedding<float>>>(ConceptEmbeddingGenerator.Instance);
             services.AddEventSubscriber<ItemAdded, TestSubscriber>();
             services.AddEventSubscriber<ItemUpdated, TestSubscriber>();
             services.AddEventSubscriber<ItemAdded, FailingSubscriber>();
