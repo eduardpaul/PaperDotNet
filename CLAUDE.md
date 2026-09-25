@@ -74,8 +74,9 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `ApiErrors` for problems, `Page.Create` for lists, ETags for mutable resources.
 - IDs via `Ids.New()` (UUIDv7); time via `TimeProvider`.
 - Events: changing or rejecting an item write → `IItemMutator` (Lists.Contracts, runs
-  before the save, ADR-0023); every reaction to a saved change → `IntegrationEvent` + `IEventSubscriber<T>` (idempotent),
-  published with `IOutbox.SaveChangesAsync(db, events)`. Only `PaperDotNet.Messaging`
+  before the save, ADR-0023); every reaction to a saved change → `IntegrationEvent` +
+  `IEventSubscriber<T>` (idempotent, registered with `services.AddEventSubscriber<TEvent, TSubscriber>()`,
+  one message per subscriber), published with `IOutbox.SaveChangesAsync(db, events)`. Only `PaperDotNet.Messaging`
   references Wolverine.
 - Item access: check `schema.Access.Level(item.ScopeId)` (404 below Read) and
   filter queries with `schema.Access.Filter(level)` (ADR-0011).

@@ -38,11 +38,11 @@ public sealed class CollaborationModule : IModule
         services.AddScoped<CommentMentions>();
         services.AddScoped<IItemSearchContributor, CommentSearchContent>();
         services.AddScoped<ItemActivityRecorder>();
-        services.AddScoped<IEventSubscriber<ItemAdded>>(sp => sp.GetRequiredService<ItemActivityRecorder>());
-        services.AddScoped<IEventSubscriber<ItemUpdated>>(sp => sp.GetRequiredService<ItemActivityRecorder>());
-        services.AddScoped<IEventSubscriber<ItemDeleted>>(sp => sp.GetRequiredService<ItemActivityRecorder>());
-        services.AddScoped<IEventSubscriber<ItemRestored>>(sp => sp.GetRequiredService<ItemActivityRecorder>());
-        services.AddScoped<IEventSubscriber<ItemPurged>>(sp => sp.GetRequiredService<ItemActivityRecorder>());
+        services.AddEventSubscriber<ItemAdded, ItemActivityRecorder>();
+        services.AddEventSubscriber<ItemUpdated, ItemActivityRecorder>();
+        services.AddEventSubscriber<ItemDeleted, ItemActivityRecorder>();
+        services.AddEventSubscriber<ItemRestored, ItemActivityRecorder>();
+        services.AddEventSubscriber<ItemPurged, ItemActivityRecorder>();
         services.AddScopes(CollaborationScopes.All);
     }
 

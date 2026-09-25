@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Lists.Contracts;
 
 namespace PaperDotNet.IntegrationTests;
@@ -76,6 +77,22 @@ public sealed class EventsAndJobsTests(PaperDotNetApiFactory factory)
         Assert.Equal(added.Event.TenantId, added.ResolvedTenant);
         Assert.Equal(tenant, added.Event.TenantIdentifier);
         Assert.Equal(["amount"], updated.Event.ChangedFields);
+    }
+
+    [Fact]
+    public async Task A_failing_subscriber_does_not_affect_the_others()
+    {
+        var (client, ws, list, _) = await SetupAsync("events-isolated", listName: "Plain");
+        FailingSubscriber.FailingLists[list] = true;
+        var id = (await client.CreateItemAsync(ws, list, new { fields = new { title = "Shared event" } })).GetProperty("id").GetGuid();
+
+        // The broken subscriber is retried on its own; the others got the event exactly once.
+        await Eventually.WaitForAsync(() => FailingSubscriber.Attempts.GetValueOrDefault(id) >= 3);
+        Assert.Single(TestSubscriber.Received, r => r.Event.ItemId == id && r.Event is ItemAdded);
+
+        // Every subscriber is registered by name (an unnamed registration would never receive events).
+        using var scope = factory.Services.CreateScope();
+        Assert.Empty(scope.ServiceProvider.GetServices<PaperDotNet.Abstractions.IEventSubscriber<ItemAdded>>());
     }
 
     [Fact]

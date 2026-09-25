@@ -182,7 +182,7 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
     {
         var id = extension.Id;
         services.TryAddScoped<TSubscriber>();
-        services.AddScoped<IEventSubscriber<TEvent>>(sp => new GatedEventSubscriber<TEvent>(id, sp.GetRequiredService<TSubscriber>(), sp.GetRequiredService<IExtensionState>()));
+        services.AddEventSubscriber<TEvent>(typeof(TSubscriber).FullName!, sp => new GatedEventSubscriber<TEvent>(id, sp.GetRequiredService<TSubscriber>(), sp.GetRequiredService<IExtensionState>()));
         extension.Contributions.EventSubscribers.Add($"{typeof(TEvent).Name}: {typeof(TSubscriber).Name}");
         return this;
     }

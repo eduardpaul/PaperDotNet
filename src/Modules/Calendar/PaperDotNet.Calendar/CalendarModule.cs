@@ -40,7 +40,7 @@ public sealed class CalendarModule : IModule
         services.AddScoped<ICalendarService>();
         services.AddScoped<CalendarAccess>();
         services.AddScoped<IItemMutator, EventTimesMutator>();
-        services.AddScoped<IEventSubscriber<ItemPurged>, PurgedEventData>();
+        services.AddEventSubscriber<ItemPurged, PurgedEventData>();
         services.AddTenantRecurringJob<EventReminderJob>(EventReminderJob.Name, EventReminderJob.Schedule);
         services.AddScopes(CalendarScopes.All);
     }

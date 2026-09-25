@@ -51,10 +51,10 @@ public sealed class AutomationModule : IModule
         services.AddIntegrationEvent<AutomationTriggerRaised>();
         services.AddScoped<IAutomationTriggers, AutomationTriggerPublisher>();
         services.AddScoped<RuleRunner>();
-        services.AddScoped<IEventSubscriber<ItemAdded>>(sp => sp.GetRequiredService<RuleRunner>());
-        services.AddScoped<IEventSubscriber<ItemUpdated>>(sp => sp.GetRequiredService<RuleRunner>());
-        services.AddScoped<IEventSubscriber<ItemDeleted>>(sp => sp.GetRequiredService<RuleRunner>());
-        services.AddScoped<IEventSubscriber<AutomationTriggerRaised>>(sp => sp.GetRequiredService<RuleRunner>());
+        services.AddEventSubscriber<ItemAdded, RuleRunner>();
+        services.AddEventSubscriber<ItemUpdated, RuleRunner>();
+        services.AddEventSubscriber<ItemDeleted, RuleRunner>();
+        services.AddEventSubscriber<AutomationTriggerRaised, RuleRunner>();
 
         services.AddScoped<WorkflowStarter>();
         services.AddScoped<WorkflowInterpreter>();

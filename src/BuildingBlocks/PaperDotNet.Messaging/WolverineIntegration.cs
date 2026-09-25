@@ -16,7 +16,7 @@ public static class EventEnvelopeHandler
         dispatcher.DispatchAsync(envelope, cancellationToken);
 }
 
-internal sealed class WolverineOutbox(IDbContextOutbox outbox, TimeProvider time) : IOutbox
+internal sealed class WolverineOutbox(IDbContextOutbox outbox, EventSubscriberRegistry subscribers, TimeProvider time) : IOutbox
 {
     public async Task SaveChangesAsync(
         DbContext db, IReadOnlyCollection<IntegrationEvent> events, IReadOnlyCollection<ITenantMessage>? messages = null, CancellationToken cancellationToken = default)
@@ -36,14 +36,16 @@ internal sealed class WolverineOutbox(IDbContextOutbox outbox, TimeProvider time
             context.MultiFlushMode = MultiFlushMode.AllowMultiples;
         }
 
+        // One message per subscriber: each is retried and dead-lettered on its own.
         foreach (var integrationEvent in events)
         {
             var stamped = integrationEvent.OccurredAt == default ? integrationEvent with { OccurredAt = time.GetUtcNow() } : integrationEvent;
-            await outbox.PublishAsync(new EventEnvelope(
-                EventTypeRegistry.NameOf(stamped.GetType()),
-                JsonSerializer.Serialize(stamped, stamped.GetType(), MessagingJson.Options),
-                stamped.TenantId,
-                stamped.TenantIdentifier));
+            var type = EventTypeRegistry.NameOf(stamped.GetType());
+            var payload = JsonSerializer.Serialize(stamped, stamped.GetType(), MessagingJson.Options);
+            foreach (var subscriber in subscribers.For(stamped.GetType()))
+            {
+                await outbox.PublishAsync(new EventEnvelope(type, payload, stamped.TenantId, stamped.TenantIdentifier, subscriber));
+            }
         }
 
         foreach (var message in messages ?? [])
@@ -72,6 +74,7 @@ public static class MessagingServiceCollectionExtensions
         this IServiceCollection services, Action<WolverineOptions> configureStorage, IEnumerable<System.Reflection.Assembly> handlerAssemblies)
     {
         services.AddSingleton<EventTypeRegistry>();
+        services.AddSingleton<EventSubscriberRegistry>();
         services.AddSingleton<EventDispatcher>();
         services.AddScoped<IOutbox, WolverineOutbox>();
         services.AddScoped<IMessageScheduler, WolverineMessageScheduler>();
@@ -101,15 +104,6 @@ public static class MessagingServiceCollectionExtensions
         where TEvent : IntegrationEvent
     {
         services.AddSingleton(new EventTypeRegistration(EventTypeRegistry.NameOf(typeof(TEvent)), typeof(TEvent)));
-        return services;
-    }
-
-    /// <summary>Registers a subscriber for an integration event.</summary>
-    public static IServiceCollection AddEventSubscriber<TEvent, TSubscriber>(this IServiceCollection services)
-        where TEvent : IntegrationEvent
-        where TSubscriber : class, IEventSubscriber<TEvent>
-    {
-        services.AddScoped<IEventSubscriber<TEvent>, TSubscriber>();
         return services;
     }
 }

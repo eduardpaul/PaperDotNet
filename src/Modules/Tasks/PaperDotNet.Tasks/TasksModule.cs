@@ -36,8 +36,8 @@ public sealed class TasksModule : IModule
         services.AddSingleton(TaskTemplates.ContentType);
         services.AddSingleton(TaskTemplates.List);
         services.AddScoped<TaskAccess>();
-        services.AddScoped<IEventSubscriber<ItemUpdated>, RecurringTaskSpawner>();
-        services.AddScoped<IEventSubscriber<ItemPurged>, PurgedTaskData>();
+        services.AddEventSubscriber<ItemUpdated, RecurringTaskSpawner>();
+        services.AddEventSubscriber<ItemPurged, PurgedTaskData>();
         services.AddTenantRecurringJob<DueTaskReminderJob>(DueTaskReminderJob.Name, DueTaskReminderJob.Schedule);
         services.AddScopes(TaskScopes.All);
     }

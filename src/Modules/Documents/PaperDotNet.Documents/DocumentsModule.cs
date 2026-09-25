@@ -42,7 +42,7 @@ public sealed class DocumentsModule : IModule
         services.AddScoped<PageRenderer>();
         services.AddOperationHandler<DocumentProcessor>();
         services.AddScoped<IItemSearchContributor, DocumentSearchContent>();
-        services.AddScoped<IEventSubscriber<ItemPurged>, PurgedItemFiles>();
+        services.AddEventSubscriber<ItemPurged, PurgedItemFiles>();
         services.AddTenantRecurringJob<StoredFileCleanupJob>(StoredFileCleanupJob.Name, StoredFileCleanupJob.Schedule);
         services.AddScoped<ITemplateHandler, LibrarySettingsTemplateHandler>();
         services.AddScopes(DocumentScopes.All);

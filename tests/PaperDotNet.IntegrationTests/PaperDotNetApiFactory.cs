@@ -108,6 +108,7 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
             services.AddScoped<IItemMutator, TestMutator>();
             services.AddEventSubscriber<ItemAdded, TestSubscriber>();
             services.AddEventSubscriber<ItemUpdated, TestSubscriber>();
+            services.AddEventSubscriber<ItemAdded, FailingSubscriber>();
             services.AddTenantRecurringJob<TestRecurringJob>("test.every-second", "* * * * * *");
 
             // Webhooks go to an in-memory receiver instead of the network.

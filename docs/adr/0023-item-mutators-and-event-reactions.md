@@ -1,4 +1,4 @@
-# ADR-0023: Item mutators before the save, events for everything after it
+# ADR-0023: Item mutators before the save, events for everything after it; one message per subscriber
 
 - **Status:** Accepted
 - **Date:** 2026-09-25
@@ -32,6 +32,15 @@ Nothing in the product used them; only a test did.
   handled in the background: `IEventSubscriber<T>` for code, automations for
   configuration. They are durable (transactional outbox), retried and
   dead-lettered.
+- **One message per subscriber.** Before, one Wolverine message carried an
+  event to all its subscribers in a loop: one failing subscriber made the
+  others run again on every retry, and in the end dead-lettered the event for
+  all of them (search, notifications, automation). Now the outbox publishes one
+  `EventEnvelope` per subscriber (`Subscriber` = its registered name) in the
+  same transaction as the change. Subscribers are registered with
+  `AddEventSubscriber<TEvent, TSubscriber>()` (PaperDotNet.Abstractions) as
+  keyed services named after their type; a message for a subscriber that no
+  longer exists is dropped with a warning.
 - **Extensions:** `AddItemReceiver`/`ItemReceiverOptions` become
   `AddItemMutator`/`ItemMutatorOptions`; the extension listing reports
   `itemMutators`.
@@ -41,5 +50,9 @@ Nothing in the product used them; only a test did.
 - There is a single, reliable model for "after": events. Code that must see
   the change immediately in the same request should be a mutator; everything
   else accepts eventual consistency.
+- Each subscriber is retried, dead-lettered and replayed on its own. An event
+  with n subscribers is stored as n messages (small JSON payloads).
+- Renaming a subscriber class changes its name: messages queued under the old
+  name are dropped. Keep names stable, or drain the queues before deploying.
 - Breaking change for extensions and API clients (error code, contribution
   name); acceptable before the first release.

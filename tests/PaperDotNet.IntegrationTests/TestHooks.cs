@@ -69,6 +69,25 @@ internal sealed class TestSubscriber(ITenantContext tenant) : IEventSubscriber<I
     }
 }
 
+/// <summary>Always fails for items in <see cref="FailingLists"/>; other subscribers must still get those events, once.</summary>
+internal sealed class FailingSubscriber : IEventSubscriber<ItemAdded>
+{
+    public static readonly ConcurrentDictionary<Guid, bool> FailingLists = new();
+
+    public static readonly ConcurrentDictionary<Guid, int> Attempts = new();
+
+    public Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken)
+    {
+        if (!FailingLists.ContainsKey(integrationEvent.ListId))
+        {
+            return Task.CompletedTask;
+        }
+
+        Attempts.AddOrUpdate(integrationEvent.ItemId, 1, (_, count) => count + 1);
+        throw new InvalidOperationException("This subscriber is broken.");
+    }
+}
+
 /// <summary>Recurring test job (every second): counts runs per tenant.</summary>
 internal sealed class TestRecurringJob(ITenantContext tenant) : ITenantRecurringJob
 {
