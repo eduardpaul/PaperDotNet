@@ -263,3 +263,39 @@ public sealed class ListView : ITenantOwned, IAuditable, IVersioned
 
     public uint Version { get; set; }
 }
+
+public enum ItemChangeKind
+{
+    /// <summary>The item was added, changed or restored.</summary>
+    Upserted = 0,
+
+    /// <summary>The item was moved to the recycle bin or purged.</summary>
+    Deleted = 1,
+
+    /// <summary>Permissions of the list changed: delta clients must sync again.</summary>
+    Reset = 2,
+}
+
+/// <summary>
+/// One entry of a list's change log (API-05), written in the same transaction as the change.
+/// The sequence orders changes; delta tokens point into it.
+/// </summary>
+[NotAudited]
+public sealed class ItemChange : ITenantOwned
+{
+    public long Sequence { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid ListId { get; set; }
+
+    /// <summary>Null for <see cref="ItemChangeKind.Reset"/>.</summary>
+    public Guid? ItemId { get; set; }
+
+    /// <summary>The item's security scope at the time of the change (checks access after a purge).</summary>
+    public Guid? ScopeId { get; set; }
+
+    public ItemChangeKind Kind { get; set; }
+
+    public DateTimeOffset At { get; set; }
+}

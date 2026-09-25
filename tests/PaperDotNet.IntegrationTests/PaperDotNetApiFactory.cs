@@ -100,6 +100,7 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Tenancy:AllowHeader", "true");
         builder.UseSetting("Bootstrap:AdminPassword", AdminPassword);
         builder.UseSetting("Jobs:SchedulerInterval", "00:00:01");
+        builder.UseSetting("Lists:DeltaSafetyWindow", "00:00:00");
         builder.UseSetting("Storage:DataPath", _dataPath);
         builder.UseSetting("Documents:MaxFileSize", DocumentLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.ConfigureTestServices(services =>

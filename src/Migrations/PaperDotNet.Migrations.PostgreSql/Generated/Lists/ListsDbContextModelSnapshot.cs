@@ -140,6 +140,54 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                     b.ToTable("content_types", "lists");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Lists.Data.ItemChange", b =>
+                {
+                    b.Property<long>("Sequence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("sequence");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Sequence"));
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("list_id");
+
+                    b.Property<Guid?>("ScopeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("scope_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Sequence")
+                        .HasName("pk_item_changes");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_item_changes_tenant_id");
+
+                    b.HasIndex("ListId", "Sequence")
+                        .HasDatabaseName("ix_item_changes_list_id_sequence");
+
+                    b.HasIndex("TenantId", "At")
+                        .HasDatabaseName("ix_item_changes_tenant_id_at");
+
+                    b.ToTable("item_changes", "lists");
+                });
+
             modelBuilder.Entity("PaperDotNet.Lists.Data.ItemVersion", b =>
                 {
                     b.Property<Guid>("Id")

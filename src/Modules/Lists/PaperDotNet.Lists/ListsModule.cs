@@ -73,6 +73,7 @@ public sealed class ListsModule : IModule
         services.AddIntegrationEvent<ItemRestored>();
         services.AddIntegrationEvent<ItemPurged>();
         services.AddTenantRecurringJob<RecycleBinCleanupJob>(RecycleBinCleanupJob.Name, RecycleBinCleanupJob.Schedule);
+        services.AddTenantRecurringJob<ItemChangeCleanupJob>(ItemChangeCleanupJob.Name, ItemChangeCleanupJob.Schedule);
         services.AddOperationHandler<BulkUpdateOperation>();
         services.AddEventSubscriber<TermMerged, TermMergedSubscriber>();
         services.AddIntegrationEvent<ListIndexInvalidated>();
@@ -90,6 +91,7 @@ public sealed class ListsModule : IModule
         ContentTypeEndpoints.Map(endpoints);
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
+        DeltaEndpoints.Map(endpoints);
         BulkUpdateEndpoints.Map(endpoints);
         ViewEndpoints.Map(endpoints);
         ItemHistoryEndpoints.Map(endpoints);

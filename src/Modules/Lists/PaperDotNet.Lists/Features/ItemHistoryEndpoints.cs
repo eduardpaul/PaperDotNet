@@ -262,4 +262,13 @@ public sealed class ListsOptions
 
     /// <summary>Days an item stays in the recycle bin before it is deleted permanently (SharePoint default: 93).</summary>
     public int RecycleBinRetentionDays { get; set; } = 93;
+
+    /// <summary>Days changes stay in the delta change log; older delta tokens get 410 (resync).</summary>
+    public int DeltaRetentionDays { get; set; } = 30;
+
+    /// <summary>
+    /// Delta only returns changes older than this, so changes of transactions that commit late
+    /// (with a lower sequence) are not skipped.
+    /// </summary>
+    public TimeSpan DeltaSafetyWindow { get; set; } = TimeSpan.FromSeconds(2);
 }

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PaperDotNet.Lists.Data;
 
@@ -11,9 +12,11 @@ using PaperDotNet.Lists.Data;
 namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
 {
     [DbContext(typeof(ListsDbContext))]
-    partial class ListsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260925054817_ItemChangeLog")]
+    partial class ItemChangeLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
