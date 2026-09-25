@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Automation.Contracts;
 using PaperDotNet.Automation.Data;
+using PaperDotNet.Collaboration.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
@@ -286,7 +287,7 @@ internal sealed partial class WorkflowInterpreter(
 }
 
 /// <summary>Decisions on approvals and cancelling runs.</summary>
-internal sealed class ApprovalService(AutomationDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time)
+internal sealed class ApprovalService(AutomationDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time, IItemActivity activity)
 {
     public enum DecisionResult
     {
@@ -322,6 +323,9 @@ internal sealed class ApprovalService(AutomationDbContext db, IOutbox outbox, IT
             return DecisionResult.AlreadyDecided;
         }
 
+        var summary = $"{approval.StepName}: {(approval.Status == ApprovalStatus.Approved ? "approved" : "rejected")}" + (comment is { Length: > 0 } ? $" ({comment})" : "");
+        await activity.RecordAsync(
+            new ItemActivityEntry(approval.WorkspaceId, approval.ListId, approval.ItemId, ActivityKinds.Approval, summary, $"approval:{approval.Id:N}"), ct);
         return DecisionResult.Ok;
     }
 

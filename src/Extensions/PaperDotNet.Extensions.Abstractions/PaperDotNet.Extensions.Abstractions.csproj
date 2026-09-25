@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\Modules\Notifications\PaperDotNet.Notifications.Contracts\PaperDotNet.Notifications.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Automation\PaperDotNet.Automation.Contracts\PaperDotNet.Automation.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Collaboration\PaperDotNet.Collaboration.Contracts\PaperDotNet.Collaboration.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />

@@ -11,6 +11,7 @@ using PaperDotNet.Lists.Data;
 using PaperDotNet.Notifications.Data;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Search.Data;
+using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Tasks.Data;
 using PaperDotNet.Taxonomy.Data;
 using PaperDotNet.Tenancy.Data;
@@ -128,4 +129,10 @@ internal sealed class AutomationDesignTimeFactory : IDesignTimeDbContextFactory<
 {
     public AutomationDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<AutomationDbContext>(AutomationDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class CollaborationDesignTimeFactory : IDesignTimeDbContextFactory<CollaborationDbContext>
+{
+    public CollaborationDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<CollaborationDbContext>(CollaborationDbContext.Schema), DesignTime.NoTenant);
 }

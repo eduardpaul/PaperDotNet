@@ -8,6 +8,7 @@ public static class NotificationTypes
     public const string Digest = "digest";
     public const string System = "system";
     public const string Automation = "automation";
+    public const string Mention = "mention";
 }
 
 /// <summary>What a notification points to.</summary>
