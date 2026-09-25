@@ -24,6 +24,22 @@ internal sealed class UserDirectory(
     public Task<bool> GroupExistsAsync(Guid groupId, CancellationToken cancellationToken) =>
         db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken);
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetUserNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken) =>
+        await db.Users.Where(u => userIds.Contains(u.Id) && u.UserName != null)
+            .ToDictionaryAsync(u => u.Id, u => u.UserName!, cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, string>> GetGroupNamesAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken cancellationToken) =>
+        await db.Groups.Where(g => groupIds.Contains(g.Id)).ToDictionaryAsync(g => g.Id, g => g.Name, cancellationToken);
+
+    public async Task<Guid?> FindUserAsync(string userName, CancellationToken cancellationToken)
+    {
+        var normalized = users.NormalizeName(userName);
+        return await db.Users.Where(u => u.NormalizedUserName == normalized).Select(u => (Guid?)u.Id).FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<Guid?> FindGroupAsync(string name, CancellationToken cancellationToken) =>
+        await db.Groups.Where(g => g.Name == name).Select(g => (Guid?)g.Id).FirstOrDefaultAsync(cancellationToken);
+
     public async Task<Guid> CreateUserAsync(NewUser request, CancellationToken cancellationToken)
     {
         var tenantId = tenant.TenantId ?? throw new InvalidOperationException("No tenant.");

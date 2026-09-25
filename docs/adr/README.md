@@ -21,3 +21,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0014](0014-build-time-extensions.md) | Build-time extensions (no runtime plugin loading) | Accepted |
 | [0015](0015-documents-on-the-sdk.md) | Documents built on the SDK, content-addressed file storage | Accepted |
 | [0016](0016-phase-4-scope.md) | Tasks and Calendar on the SDK, CalDAV later | Accepted |
+| [0017](0017-phase-5-scope.md) | Phase 5 scope; provisioning templates with per-module handlers | Accepted |

@@ -2,6 +2,7 @@
   <!-- Lists engine: content types, field types, lists/libraries, items, folders, views and Graph-style item queries. -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
     <ProjectReference Include="..\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
     <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />

@@ -37,6 +37,12 @@ public interface IWorkspaceAccess
     /// </summary>
     Task<IReadOnlyList<WorkspaceMembership>> GetMyWorkspacesAsync(CancellationToken cancellationToken);
 
+    /// <summary>Names of workspaces by id (unknown ids are left out), e.g. to reference lists by name in templates.</summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetNamesAsync(IReadOnlyCollection<Guid> workspaceIds, CancellationToken cancellationToken);
+
+    /// <summary>The shared (non-personal) workspace with this name, if any.</summary>
+    Task<Guid?> FindSharedAsync(string name, CancellationToken cancellationToken);
+
     /// <summary>The current user's personal workspace ("Home"), created on first use.</summary>
     Task<Guid> EnsurePersonalWorkspaceAsync(CancellationToken cancellationToken);
 }

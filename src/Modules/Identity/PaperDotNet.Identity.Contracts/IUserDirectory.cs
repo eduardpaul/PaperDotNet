@@ -20,6 +20,18 @@ public interface IUserDirectory
 
     Task<bool> GroupExistsAsync(Guid groupId, CancellationToken cancellationToken);
 
+    /// <summary>User names by id (unknown ids are left out), e.g. to reference users by name in templates.</summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetUserNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
+
+    /// <summary>Group names by id (unknown ids are left out).</summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetGroupNamesAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken cancellationToken);
+
+    /// <summary>The user with this user name in the current tenant, if any.</summary>
+    Task<Guid?> FindUserAsync(string userName, CancellationToken cancellationToken);
+
+    /// <summary>The group with this name in the current tenant, if any.</summary>
+    Task<Guid?> FindGroupAsync(string name, CancellationToken cancellationToken);
+
     /// <summary>Creates a user in the current tenant with the Member role (and Administrator if requested).</summary>
     Task<Guid> CreateUserAsync(NewUser user, CancellationToken cancellationToken);
 }

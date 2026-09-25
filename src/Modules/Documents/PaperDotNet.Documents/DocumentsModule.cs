@@ -7,6 +7,7 @@ using PaperDotNet.Documents.Features;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 
 namespace PaperDotNet.Documents;
 
@@ -43,6 +44,7 @@ public sealed class DocumentsModule : IModule
         services.AddScoped<IItemSearchContributor, DocumentSearchContent>();
         services.AddScoped<IEventSubscriber<ItemPurged>, PurgedItemFiles>();
         services.AddTenantRecurringJob<StoredFileCleanupJob>(StoredFileCleanupJob.Name, StoredFileCleanupJob.Schedule);
+        services.AddScoped<ITemplateHandler, LibrarySettingsTemplateHandler>();
         services.AddScopes(DocumentScopes.All);
     }
 

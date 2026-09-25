@@ -138,3 +138,35 @@ internal sealed class TestWebhookReceiver : HttpMessageHandler
             : System.Net.HttpStatusCode.OK);
     }
 }
+
+/// <summary>
+/// A template section of the sample extension (PRV-05) in <c>urn:test:marker</c>: records the values it
+/// applies per tenant and exports the last one. Registered gated like an extension's section.
+/// </summary>
+internal sealed class TestTemplateHandler(PaperDotNet.Abstractions.ITenantContext tenant) : PaperDotNet.Provisioning.Contracts.ITemplateHandler
+{
+    public static readonly System.Xml.Linq.XNamespace Ns = "urn:test:marker";
+
+    public static System.Collections.Concurrent.ConcurrentDictionary<Guid, string> Applied { get; } = new();
+
+    public System.Xml.Linq.XName Element => Ns + "Marker";
+
+    public PaperDotNet.Provisioning.Contracts.TemplateLevel Level => PaperDotNet.Provisioning.Contracts.TemplateLevel.Tenant;
+
+    public int Order => 1000;
+
+    public Task<System.Xml.Linq.XElement?> ExportAsync(PaperDotNet.Provisioning.Contracts.TemplateContext context, CancellationToken cancellationToken) =>
+        Task.FromResult(Applied.TryGetValue(tenant.TenantId!.Value, out var value)
+            ? new System.Xml.Linq.XElement(Element, new System.Xml.Linq.XAttribute("Value", value))
+            : null);
+
+    public Task ApplyAsync(System.Xml.Linq.XElement section, PaperDotNet.Provisioning.Contracts.TemplateContext context, CancellationToken cancellationToken)
+    {
+        if (!context.DryRun)
+        {
+            Applied[tenant.TenantId!.Value] = (string?)section.Attribute("Value") ?? string.Empty;
+        }
+
+        return Task.CompletedTask;
+    }
+}

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Provisioning.Contracts;
 
 namespace PaperDotNet.Extensions;
 
@@ -84,6 +85,13 @@ public interface IExtensionBuilder
     /// </summary>
     IExtensionBuilder AddDbContext<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TContext>()
         where TContext : ExtensionDbContext;
+
+    /// <summary>
+    /// A provisioning template section (PRV-05) in the extension's own XML namespace: exported and
+    /// applied with the rest of a template in tenants that enabled the extension.
+    /// </summary>
+    IExtensionBuilder AddTemplateHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
+        where THandler : class, ITemplateHandler;
 
     /// <summary>API endpoints under <c>/v1.0/extensions/{id}</c> (404 in tenants where the extension is disabled).</summary>
     IExtensionBuilder MapEndpoints(Action<IEndpointRouteBuilder> map);

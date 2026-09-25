@@ -9,10 +9,10 @@ namespace PaperDotNet.ArchitectureTests;
 /// </summary>
 public sealed partial class ModuleBoundaryTests
 {
-    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents", "Tasks", "Calendar", "Notifications"];
+    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents", "Tasks", "Calendar", "Notifications", "Provisioning"];
 
     /// <summary>Modules that expose a contracts assembly.</summary>
-    private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Search", "Notifications"];
+    private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Search", "Notifications", "Provisioning"];
 
     private static readonly string[] ProviderAgnostic =
     [
@@ -81,6 +81,7 @@ public sealed partial class ModuleBoundaryTests
     [InlineData("PaperDotNet.Tasks")]
     [InlineData("PaperDotNet.Calendar")]
     [InlineData("PaperDotNet.Notifications")]
+    [InlineData("PaperDotNet.Provisioning")]
     public void The_sdk_and_extensions_only_reference_contracts(string assembly)
     {
         var references = Load(assembly).GetReferencedAssemblies().Select(a => a.Name!).ToList();

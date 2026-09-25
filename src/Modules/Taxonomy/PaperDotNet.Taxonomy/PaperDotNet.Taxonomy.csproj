@@ -2,6 +2,7 @@
   <!-- Term store: groups, term sets, hierarchical terms, keywords (folksonomy). -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
     <ProjectReference Include="..\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />

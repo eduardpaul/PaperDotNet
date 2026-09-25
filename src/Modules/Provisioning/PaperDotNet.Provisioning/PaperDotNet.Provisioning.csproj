@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Provisioning templates (phase 5a, PRV-01…05): export and apply configuration as XML.
+    Modules and extensions contribute sections through ITemplateHandler; this module only
+    orchestrates. Built on the public extension SDK only (enforced by the architecture tests).
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Abstractions\PaperDotNet.Extensions.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Schema\template-1.0.xsd" LogicalName="PaperDotNet.Provisioning.Schema.template-1.0.xsd" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+  </ItemGroup>
+</Project>

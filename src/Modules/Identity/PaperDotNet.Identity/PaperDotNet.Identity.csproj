@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
     <ProjectReference Include="..\..\Tenancy\PaperDotNet.Tenancy.Contracts\PaperDotNet.Tenancy.Contracts.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />

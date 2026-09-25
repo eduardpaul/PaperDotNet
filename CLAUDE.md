@@ -99,6 +99,9 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `IItemSearchContributor`; client notifications through `ILiveEvents`
   (`/v1.0/me/events`, SSE); user notifications (inbox, webhook) through
   `INotificationSender` (Notifications.Contracts) with a deduplication key.
+- Configuration must be portable (PRV, ADR-0017): a module with its own configuration
+  implements `ITemplateHandler` (Provisioning.Contracts) for its template section,
+  referencing other objects by name and honoring `TemplateContext.DryRun`.
 - Record decisions as ADRs in `docs/adr/`.
 
 ## Ideas workflow

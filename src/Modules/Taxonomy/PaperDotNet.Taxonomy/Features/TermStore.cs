@@ -16,6 +16,16 @@ internal sealed class TermStore(TaxonomyDbContext db) : ITermStore
             .Select(s => new TermSetInfo(s.Id, s.GroupId, s.Name, s.IsOpen, s.IsKeywords))
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<string?> GetTermSetPathAsync(Guid termSetId, CancellationToken cancellationToken) =>
+        await db.TermSets.AsNoTracking().Where(s => s.Id == termSetId)
+            .Join(db.Groups, s => s.GroupId, g => g.Id, (s, g) => g.Name + "/" + s.Name)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<Guid?> FindTermSetAsync(string groupName, string setName, CancellationToken cancellationToken) =>
+        await db.TermSets.AsNoTracking().Where(s => s.Name == setName)
+            .Join(db.Groups.Where(g => g.Name == groupName), s => s.GroupId, g => g.Id, (s, g) => (Guid?)s.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<TermSetInfo> GetKeywordsSetAsync(CancellationToken cancellationToken)
     {
         var set = await EnsureKeywordsSetAsync(db, cancellationToken);

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
     <ProjectReference Include="..\PaperDotNet.Workspaces.Contracts\PaperDotNet.Workspaces.Contracts.csproj" />
     <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />

@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PaperDotNet provisioning template, schema version 1.0 (PRV-03).
+  Objects are referenced by name: content types by name or key, term sets as "Group/Set",
+  lookup lists as "Workspace/List", groups by name and users by user name.
+  "{parameter:Name}" tokens are replaced before validation.
+  Sections of modules and extensions in their own namespaces are allowed where xs:any appears.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns="urn:paperdotnet:template:1"
+           xmlns:t="urn:paperdotnet:template:1"
+           targetNamespace="urn:paperdotnet:template:1"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified"
+           version="1.0">
+
+  <xs:element name="Template">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Description" type="xs:string" minOccurs="0" />
+        <xs:element name="Parameters" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Parameter" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:attribute name="Name" type="ParameterName" use="required" />
+                  <xs:attribute name="Default" type="xs:string" />
+                  <xs:attribute name="Description" type="xs:string" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+          <xs:unique name="UniqueParameter">
+            <xs:selector xpath="t:Parameter" />
+            <xs:field xpath="@Name" />
+          </xs:unique>
+        </xs:element>
+        <xs:element name="Extensions" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Extension" type="Extension" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="Groups" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Group" type="Group" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="Roles" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Role" type="Role" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="TermGroups" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="TermGroup" type="TermGroup" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="ContentTypes" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="ContentType" type="ContentType" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded" />
+        <xs:element name="Workspaces" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Workspace" type="Workspace" minOccurs="0" maxOccurs="unbounded" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="SchemaVersion" type="xs:string" use="required" fixed="1.0" />
+      <xs:attribute name="Scope" type="Scope" use="required" />
+      <xs:attribute name="Name" type="xs:string" />
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Tenant level -->
+
+  <xs:complexType name="Extension">
+    <xs:sequence>
+      <!-- The setting's value as JSON, e.g. "EUR", 30 or true. -->
+      <xs:element name="Setting" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:simpleContent>
+            <xs:extension base="xs:string">
+              <xs:attribute name="Name" type="xs:string" use="required" />
+            </xs:extension>
+          </xs:simpleContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="Id" type="xs:string" use="required" />
+    <xs:attribute name="Enabled" type="xs:boolean" default="true" />
+  </xs:complexType>
+
+  <xs:complexType name="Group">
+    <xs:sequence>
+      <xs:element name="Member" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="User" type="Name" use="required" />
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required" />
+    <xs:attribute name="Description" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="Role">
+    <xs:sequence>
+      <xs:element name="Scope" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+      <xs:element name="Assignment" type="Principal" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required" />
+    <xs:attribute name="Description" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="Principal">
+    <xs:attribute name="User" type="Name" />
+    <xs:attribute name="Group" type="Name" />
+  </xs:complexType>
+
+  <xs:complexType name="TermGroup">
+    <xs:sequence>
+      <xs:element name="TermSet" type="TermSet" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required" />
+    <xs:attribute name="Description" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="TermSet">
+    <xs:sequence>
+      <xs:element name="Term" type="Term" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required" />
+    <xs:attribute name="Description" type="xs:string" />
+    <xs:attribute name="Open" type="xs:boolean" default="false" />
+  </xs:complexType>
+
+  <xs:complexType name="Term">
+    <xs:sequence>
+      <xs:element name="Label" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:attribute name="Language" type="xs:language" use="required" />
+          <xs:attribute name="Name" type="Name" use="required" />
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="Synonym" type="Name" minOccurs="0" maxOccurs="unbounded" />
+      <xs:element name="Term" type="Term" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required" />
+    <xs:attribute name="Description" type="xs:string" />
+    <xs:attribute name="Color" type="Color" />
+    <xs:attribute name="SortOrder" type="xs:int" />
+    <xs:attribute name="Deprecated" type="xs:boolean" default="false" />
+  </xs:complexType>
+
+  <!-- A custom content type (with fields), or a reference to a built-in or extension one by Key. -->
+  <xs:complexType name="ContentType">
+    <xs:sequence>
+      <xs:element name="Field" type="Field" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required" />
+    <xs:attribute name="Key" type="xs:string" />
+    <xs:attribute name="Description" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="Field">
+    <xs:sequence>
+      <xs:element name="Choice" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="Name" type="xs:string" use="required" />
+    <xs:attribute name="DisplayName" type="xs:string" />
+    <xs:attribute name="Type" type="xs:string" use="required" />
+    <xs:attribute name="Description" type="xs:string" />
+    <xs:attribute name="Required" type="xs:boolean" default="false" />
+    <xs:attribute name="AllowMultiple" type="xs:boolean" default="false" />
+    <xs:attribute name="MaxLength" type="xs:int" />
+    <xs:attribute name="Minimum" type="xs:decimal" />
+    <xs:attribute name="Maximum" type="xs:decimal" />
+    <xs:attribute name="CurrencyCode" type="xs:string" />
+    <!-- "Group/Set" of a managedMetadata field. -->
+    <xs:attribute name="TermSet" type="xs:string" />
+    <!-- "Workspace/List" of a lookup field. -->
+    <xs:attribute name="LookupList" type="xs:string" />
+    <!-- Default value as JSON. -->
+    <xs:attribute name="DefaultValue" type="xs:string" />
+    <xs:attribute name="Search" type="SearchWeight" />
+  </xs:complexType>
+
+  <!-- Workspace level -->
+
+  <xs:complexType name="Workspace">
+    <xs:sequence>
+      <xs:element name="Members" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Member" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="User" type="Name" use="required" />
+                <xs:attribute name="Role" type="WorkspaceRole" default="Member" />
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded" />
+      <xs:element name="Lists" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="List" type="List" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+        <xs:unique name="UniqueList">
+          <xs:selector xpath="t:List" />
+          <xs:field xpath="@Name" />
+        </xs:unique>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required" />
+    <xs:attribute name="Description" type="xs:string" />
+  </xs:complexType>
+
+  <!-- List level -->
+
+  <xs:complexType name="List">
+    <xs:sequence>
+      <xs:element name="ContentTypes" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <!-- By Name, or by Key for built-in and extension content types. The first is the default. -->
+            <xs:element name="ContentTypeRef" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:attribute name="Name" type="Name" />
+                <xs:attribute name="Key" type="xs:string" />
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="Views" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="View" type="View" minOccurs="0" maxOccurs="unbounded" />
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="Permissions" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Grant" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:complexContent>
+                  <xs:extension base="Principal">
+                    <xs:attribute name="Level" type="AccessLevel" use="required" />
+                  </xs:extension>
+                </xs:complexContent>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+          <!-- false: the list inherits the workspace's permissions (grants are ignored). -->
+          <xs:attribute name="Unique" type="xs:boolean" use="required" />
+        </xs:complexType>
+      </xs:element>
+      <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required" />
+    <xs:attribute name="Description" type="xs:string" />
+    <xs:attribute name="Kind" type="ListKind" default="List" />
+    <xs:attribute name="AllowFolders" type="xs:boolean" default="true" />
+    <xs:attribute name="Versioning" type="Versioning" />
+    <xs:attribute name="MaxVersions" type="VersionCount" />
+    <!-- Key of the list template it was created from (informational; views come from the template). -->
+    <xs:attribute name="Template" type="xs:string" />
+  </xs:complexType>
+
+  <xs:complexType name="View">
+    <xs:sequence>
+      <xs:element name="Column" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="Name" type="Name" use="required" />
+    <xs:attribute name="Layout" type="ViewLayout" default="Table" />
+    <xs:attribute name="Default" type="xs:boolean" default="false" />
+    <xs:attribute name="Filter" type="xs:string" />
+    <xs:attribute name="OrderBy" type="xs:string" />
+    <xs:attribute name="GroupBy" type="xs:string" />
+  </xs:complexType>
+
+  <!-- Simple types -->
+
+  <xs:simpleType name="Name">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1" />
+      <xs:maxLength value="255" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ParameterName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Za-z][A-Za-z0-9_]*" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Color">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="#[0-9a-fA-F]{6}" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="VersionCount">
+    <xs:restriction base="xs:int">
+      <xs:minInclusive value="1" />
+      <xs:maxInclusive value="500" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Scope">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Tenant" />
+      <xs:enumeration value="Workspace" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ListKind">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="List" />
+      <xs:enumeration value="Library" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Versioning">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Off" />
+      <xs:enumeration value="Major" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ViewLayout">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Table" />
+      <xs:enumeration value="Board" />
+      <xs:enumeration value="Calendar" />
+      <xs:enumeration value="Gallery" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="AccessLevel">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Read" />
+      <xs:enumeration value="Contribute" />
+      <xs:enumeration value="Manage" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="WorkspaceRole">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Owner" />
+      <xs:enumeration value="Member" />
+      <xs:enumeration value="Visitor" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="SearchWeight">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="None" />
+      <xs:enumeration value="Normal" />
+      <xs:enumeration value="High" />
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

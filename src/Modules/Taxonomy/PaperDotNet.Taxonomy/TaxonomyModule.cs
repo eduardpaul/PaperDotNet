@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Taxonomy.Data;
 using PaperDotNet.Taxonomy.Features;
@@ -19,6 +20,7 @@ public sealed class TaxonomyModule : IModule
         services.AddModuleDbContext<TaxonomyDbContext>(TaxonomyDbContext.Schema);
         services.AddScoped<ITermStore, TermStore>();
         services.AddScoped<ITenantInitializer, TaxonomyTenantInitializer>();
+        services.AddScoped<ITemplateHandler, TermGroupTemplateHandler>();
         services.AddScopes(TaxonomyScopes.All);
         services.AddIntegrationEvent<TermMerged>();
     }

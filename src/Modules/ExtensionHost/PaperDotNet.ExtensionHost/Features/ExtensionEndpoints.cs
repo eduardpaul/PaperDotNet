@@ -69,12 +69,18 @@ internal static class ExtensionEndpoints
             return ApiErrors.NotFound();
         }
 
-        var row = await RowAsync(db, id, ct);
+        await EnableExtensionAsync(extension, db, roles, contentTypes, state, ct);
+        return TypedResults.Ok(ToResponse(extension, enabled: true));
+    }
+
+    internal static async Task EnableExtensionAsync(
+        LoadedExtension extension, ExtensionsDbContext db, IRoleProvisioning roles, IContentTypeProvisioning contentTypes, ExtensionState state, CancellationToken ct)
+    {
+        var row = await RowAsync(db, extension.Id, ct);
         row.Enabled = true;
         await SaveAsync(db, state, ct);
-        await contentTypes.ProvisionExtensionAsync(id, ct);
+        await contentTypes.ProvisionExtensionAsync(extension.Id, ct);
         await roles.GrantToMembersAsync([.. extension.Manifest.Scopes.Where(s => s.GrantedToMembers).Select(s => s.Name)], ct);
-        return TypedResults.Ok(ToResponse(extension, enabled: true));
     }
 
     /// <summary>Disables the extension: its endpoints, handlers and jobs stop in this tenant; data stays.</summary>
@@ -109,6 +115,21 @@ internal static class ExtensionEndpoints
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["settings"] = ["A JSON object is expected."] });
         }
 
+        var (stored, effective, errors) = CheckSettings(extension, body);
+        if (errors.Count > 0)
+        {
+            return ApiErrors.Validation(errors);
+        }
+
+        var row = await RowAsync(db, id, ct, enabledIfNew: extension.Manifest.AutoEnable);
+        row.Settings = stored.ToJsonString();
+        await SaveAsync(db, state, ct);
+        return TypedResults.Ok(effective);
+    }
+
+    /// <summary>Checks settings values (a JSON object) against the manifest: the values to store, the effective settings and problems.</summary>
+    internal static (JsonObject Stored, JsonObject Effective, Dictionary<string, string[]> Errors) CheckSettings(LoadedExtension extension, JsonElement body)
+    {
         var definitions = extension.Manifest.Settings.ToDictionary(s => s.Name, StringComparer.Ordinal);
         var errors = new Dictionary<string, string[]>();
         var stored = new JsonObject();
@@ -137,18 +158,10 @@ internal static class ExtensionEndpoints
             errors.TryAdd(missing.Name, ["This setting is required."]);
         }
 
-        if (errors.Count > 0)
-        {
-            return ApiErrors.Validation(errors);
-        }
-
-        var row = await RowAsync(db, id, ct, enabledIfNew: extension.Manifest.AutoEnable);
-        row.Settings = stored.ToJsonString();
-        await SaveAsync(db, state, ct);
-        return TypedResults.Ok(effective);
+        return (stored, effective, errors);
     }
 
-    private static async Task<TenantExtension> RowAsync(ExtensionsDbContext db, string id, CancellationToken ct, bool enabledIfNew = false)
+    internal static async Task<TenantExtension> RowAsync(ExtensionsDbContext db, string id, CancellationToken ct, bool enabledIfNew = false)
     {
         var row = await db.TenantExtensions.FirstOrDefaultAsync(e => e.ExtensionId == id, ct);
         if (row is null)
@@ -160,7 +173,7 @@ internal static class ExtensionEndpoints
         return row;
     }
 
-    private static async Task SaveAsync(ExtensionsDbContext db, ExtensionState state, CancellationToken ct)
+    internal static async Task SaveAsync(ExtensionsDbContext db, ExtensionState state, CancellationToken ct)
     {
         await db.SaveChangesAsync(ct);
         state.Reset();

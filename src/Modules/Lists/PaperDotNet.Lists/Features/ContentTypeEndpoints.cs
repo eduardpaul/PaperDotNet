@@ -192,25 +192,12 @@ internal static class ContentTypeEndpoints
         }
 
         var fields = request.Fields?.Select(f => f.ToEntity()).ToList() ?? [];
-        var errors = fields.SelectMany(registry.Validate).ToList();
+        var errors = FieldErrors(fields, registry);
         foreach (var type in fields.Select(f => f.Type).Where(t => registry.Find(t) is not null).Distinct(StringComparer.Ordinal))
         {
             if (!await availability.IsAvailableAsync(type, ct))
             {
                 errors.Add($"Field type '{type}' is not enabled for this organization.");
-            }
-        }
-        errors.AddRange(fields.GroupBy(f => f.Name, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => $"Field '{g.Key}' is defined more than once."));
-
-        foreach (var field in fields.Where(f => f.DefaultValue is not null))
-        {
-            try
-            {
-                using var _ = JsonDocument.Parse(field.DefaultValue!);
-            }
-            catch (JsonException)
-            {
-                errors.Add($"Field '{field.Name}': defaultValue is not valid JSON.");
             }
         }
 
@@ -243,6 +230,26 @@ internal static class ContentTypeEndpoints
         }
 
         return errors.Count == 0 ? null : ApiErrors.Validation(new Dictionary<string, string[]> { ["fields"] = [.. errors] });
+    }
+
+    /// <summary>Problems in field definitions that need no lookups: types and settings, duplicates, default values.</summary>
+    internal static List<string> FieldErrors(IReadOnlyList<FieldDefinition> fields, FieldTypeRegistry registry)
+    {
+        var errors = fields.SelectMany(registry.Validate).ToList();
+        errors.AddRange(fields.GroupBy(f => f.Name, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => $"Field '{g.Key}' is defined more than once."));
+        foreach (var field in fields.Where(f => f.DefaultValue is not null))
+        {
+            try
+            {
+                using var _ = JsonDocument.Parse(field.DefaultValue!);
+            }
+            catch (JsonException)
+            {
+                errors.Add($"Field '{field.Name}': defaultValue is not valid JSON.");
+            }
+        }
+
+        return errors;
     }
 
     internal static ContentTypeResponse ToResponse(ContentType c) =>

@@ -173,7 +173,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | DOC-10 | Exact duplicate detection | As a **Member**, I want to be warned (or blocked, per library rule) when I upload a file that already exists, so that I don't store the same document twice | Core | P3 | #0014 |
 | DOC-11 | Deduplicated storage | As an **Operator**, I want identical files stored once, so that storage use stays low | Core | P3 | #0014 |
 | DOC-12 | Near-duplicate detection | As a **Member**, I want to see documents very similar to this one (e.g. re-scans), so that I can merge or clean them up | Ext | P6 | #0014 |
-| DOC-13 | Email to inbox | As a **Member**, I want to forward emails to a personal or group address, so that their attachments arrive as documents in my Inbox | Core | P5 | #0002 |
+| DOC-13 | Email to inbox | As a **Member**, I want to forward emails to a personal or group address, so that their attachments arrive as documents in my Inbox | Core | Backlog | #0002 |
 | DOC-14 | Path templates | As an **Owner**, I want documents automatically renamed and filed from their metadata (e.g. `/Finance/{Year}/{Counterparty}`), so that the structure maintains itself | Ext | P5 | PM §5 |
 | DOC-15 | Storage providers | As an **Operator**, I want local disk by default and S3-compatible storage optionally, so that I pick storage that fits my setup | Core | P3 (local disk), P5 (S3) | PM §11 |
 
@@ -196,8 +196,8 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | CAL-02 | Recurrence | As a **Member**, I want repeating events with exceptions (RRULE), so that I can model real schedules | MVP | P4 | AV §2 |
 | CAL-03 | Calendar views & time-range queries | As an **Integrator**, I want to query events and due tasks for a time range, with recurrences expanded, so that calendars can be displayed and synced | MVP | P4 | AV §2 |
 | CAL-04 | iCal import/export & feeds | As a **Member**, I want to import `.ics` files and subscribe to a read-only calendar feed, so that I can exchange calendars with other tools | Core | P4 | AV §3.2 |
-| CAL-05 | CalDAV (events & tasks) | As a **Member**, I want my calendars and task lists to sync two-way with iOS, Android (DAVx⁵) and Thunderbird, so that I can use native apps offline | Core | P5 | #0019 |
-| CAL-06 | CardDAV (contacts) | As a **Member**, I want a contacts list that syncs with my phone's address book, so that contacts live in the same system | Ext | P5 | #0019 |
+| CAL-05 | CalDAV (events & tasks) | As a **Member**, I want my calendars and task lists to sync two-way with iOS, Android (DAVx⁵) and Thunderbird, so that I can use native apps offline | Core | P7 | #0019 |
+| CAL-06 | CardDAV (contacts) | As a **Member**, I want a contacts list that syncs with my phone's address book, so that contacts live in the same system | Ext | P7 | #0019 |
 
 ## 10. Notifications (NTF)
 
@@ -238,7 +238,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | API-07 | Live events stream | As an **Integrator**, I want a server-sent events stream for my changes and job status, so that a future UI updates live | Core | P3 | PM §7 |
 | API-08 | MCP server | As an **Integrator** using an AI assistant, I want an MCP endpoint with tools for searching, reading, creating and updating items, documents, tasks and events, so that assistants can work with my data within my permissions | Core | P5 | #0004 |
 | API-09 | MCP tools from extensions | As a **Developer**, I want my extension's commands to appear as MCP tools automatically, so that AI agents can use my features | Core | P5 | #0004 |
-| API-10 | WebDAV for libraries | As a **Member**, I want to mount libraries as a network drive and open or save files from desktop apps, with saves creating versions, so that I can work with my usual tools | Core | P5 | #0018 |
+| API-10 | WebDAV for libraries | As a **Member**, I want to mount libraries as a network drive and open or save files from desktop apps, with saves creating versions, so that I can work with my usual tools | Core | P7 | #0018 |
 | API-11 | Obsidian vault sync | As a **Member**, I want my Obsidian vault to sync with a Notes list (frontmatter → fields, tags → terms, links → relations, attachments → documents), so that my notes join the rest of my data | Ext | P7 | #0007 |
 | API-12 | Offline-ready API for mobile | As a **Member** on the go, I want a future mobile app to work offline and sync via delta, ETags and resumable uploads, so that I can capture and read documents without a connection | Ext | P7 | #0006 |
 
@@ -278,9 +278,9 @@ Configuration only by default; data portability is PLT-13.
 | **P2 Extension runtime v1** | Everything below is built as extensions | EXT-01…05, EXT-07, EVT-03, IAM-13, LST-16, SRC-06 |
 | **P3 Documents** | Papermerge-level DMS | DOC-01…04, DOC-07…11, DOC-15 (local disk), SRC-05, SRC-10, API-07, PLT-12, EXT-06 (Documents) |
 | **P4 Tasks, calendar & notifications** | Productivity suite | TSK-01…06, CAL-01…04, NTF-01…05 (NTF-04: webhook) |
-| **P5 Collaboration, automation & integrations** | Share, automate, connect | IAM-04, IAM-08…12, TAX-05, TAX-08…11, EVT-07…09, DOC-13, DOC-14, LST-17, CAL-06, NTF-06, API-03…06, API-08…10, PLT-06, PRV-01…03, PRV-05, DOC-05, DOC-06 (page operations, deferred from P3), DOC-15 (S3), CAL-05 (CalDAV, with WebDAV/CardDAV), NTF-04 (email, ntfy, Gotify) |
+| **P5 Collaboration, automation & integrations** | Share, automate, connect | PRV-01…03, PRV-05 (first), EVT-07…09 (rules and Elsa workflows), IAM-04, IAM-08…12, TAX-05, TAX-08…11, DOC-14, LST-17, NTF-06, API-03…06, API-08, API-09, PLT-06, DOC-05, DOC-06 (page operations, deferred from P3), DOC-15 (S3), NTF-04 (email, ntfy, Gotify) |
 | **P6 AI & semantic search** | Understand documents | AI-01…06, SRC-07…09, DOC-12 |
-| **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PRV-04 |
+| **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PRV-04, API-10 (WebDAV), CAL-05 (CalDAV), CAL-06 (CardDAV) |
 
 ## Phase 0 status
 
@@ -351,7 +351,24 @@ Tasks and Calendar are modules built on the SDK like Documents ([ADR-0016](adr/0
 | **4b Calendar** | Calendar module on the SDK owns the event content type and Calendar template: CAL-01 events with attendees and a reminder offset, consistent times (all-day, default end, end ≥ start); CAL-02 recurrence (RRULE in an IANA time zone, DST-correct) with cancelled and moved occurrences (`…/items/{id}/series`, `…/series/occurrences/{start}`); CAL-03 `GET /v1.0/me/calendar` and `…/lists/{id}/calendar` (range ≤ 366 days, series expanded, due tasks included); CAL-04 iCalendar export (`calendar.ics`, VEVENT with RRULE/EXDATE/RECURRENCE-ID, VTODO) and import (idempotent by UID), read-only feeds with secret URLs (`/v1.0/me/calendarFeeds`) | ✅ |
 | **4c Notifications** | Notifications module on the SDK; other modules send through `INotificationSender` (Notifications.Contracts, deduplicated per user by key). NTF-01 inbox (`GET /v1.0/me/notifications`, `unreadCount`, mark read, delete; live event `notification`); NTF-02 reminders for tasks due today and for events `reminderMinutes` before each occurrence (to attendees, else the creator); NTF-03 follow a list or item (`/v1.0/me/subscriptions`, immediate or daily digest at the user's hour; only items the follower can read, never their own changes); NTF-04 signed webhooks (`X-PaperDotNet-Signature: sha256=HMAC(secret, "{timestamp}.{body}")`, https only, public addresses only, retries with backoff up to 12 h); NTF-05 preferences (`/v1.0/me/notificationSettings`: channels per notification type, quiet hours in the user's time zone, digest hour, webhook secret rotation, test) | ✅ |
 
-Phase 4 is complete. Email and ntfy/Gotify channels and CalDAV follow in P5.
+Phase 4 is complete. Email and ntfy/Gotify channels follow in P5; CalDAV moved to P7.
+
+## Phase 5 status
+
+Delivered in slices, provisioning first ([ADR-0017](adr/0017-phase-5-scope.md)). WebDAV, CalDAV and
+CardDAV moved to P7; email to inbox (DOC-13) is in the backlog.
+
+| Slice | Features | Status |
+|---|---|---|
+| **5a Provisioning** | PRV-01 `GET /v1.0/provisioning/export[?workspaceId=]`: tenant or workspace (with the content types, term sets, groups and extensions it uses) as XML, references by name. PRV-02 `POST /v1.0/provisioning/apply` (XML body; `dryRun`, `workspaceId`, `parameters[Name]`): additive and idempotent, always validated by a dry run before anything is written, lookups completed after the lists. PRV-03 XSD at `/v1.0/provisioning/schema`, errors with line numbers. PRV-05 `ITemplateHandler` sections from modules (e.g. Documents library settings) and extensions (`AddTemplateHandler`). Scopes `template.read`, `template.manage`. Guide: [provisioning.md](provisioning.md) | ✅ |
+| 5b Automation | EVT-07 rules, EVT-08 workflows (Elsa), EVT-09 triggers and actions from extensions, DOC-14 path templates | planned |
+| 5c Sharing | IAM-08 internal sharing, IAM-09 links, IAM-10 file requests, IAM-11 guests, IAM-12 policies | planned |
+| 5d Collaboration & sync API | LST-17 comments and activity, API-04 `$batch`, API-05 delta, API-06 change notifications | planned |
+| 5e Channels | NTF-04 email, ntfy, Gotify; NTF-06 channels from extensions | planned |
+| 5f Smart folders & taxonomy | TAX-05, TAX-08…11 | planned |
+| 5g Documents & storage | DOC-05, DOC-06 page operations; DOC-15 S3 | planned |
+| 5h MCP & SDKs | API-08, API-09, API-03 | planned |
+| 5i Identity & limits | IAM-04 external OIDC, PLT-06 quotas | planned |
 
 ## Idea → feature mapping
 

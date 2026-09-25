@@ -9,6 +9,7 @@ using PaperDotNet.ExtensionHost.Runtime;
 using PaperDotNet.Extensions;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 
 namespace PaperDotNet.ExtensionHost;
 
@@ -39,6 +40,7 @@ public sealed class ExtensionHostModule : IModule
         services.AddScoped<IExtensionState>(sp => sp.GetRequiredService<ExtensionState>());
         services.Replace(ServiceDescriptor.Scoped<IFieldTypeAvailability>(sp => sp.GetRequiredService<ExtensionState>()));
         services.Replace(ServiceDescriptor.Scoped<IExtensionAvailability>(sp => sp.GetRequiredService<ExtensionState>()));
+        services.AddScoped<ITemplateHandler, ExtensionTemplateHandler>();
         services.AddScopes(ExtensionScopes.All);
     }
 

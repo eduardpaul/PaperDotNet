@@ -111,6 +111,12 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
 
             // Webhooks go to an in-memory receiver instead of the network.
             services.AddKeyedSingleton<HttpMessageHandler>(PaperDotNet.Notifications.Features.WebhookDispatcher.HandlerKey, TestWebhookReceiver.Instance);
+
+            // A template section of the sample extension (runs only where it is enabled).
+            services.AddScoped<PaperDotNet.Provisioning.Contracts.ITemplateHandler>(sp => new PaperDotNet.ExtensionHost.Runtime.GatedTemplateHandler(
+                "samples.invoices",
+                new TestTemplateHandler(sp.GetRequiredService<PaperDotNet.Abstractions.ITenantContext>()),
+                sp.GetRequiredService<PaperDotNet.Extensions.IExtensionState>()));
         });
     }
 

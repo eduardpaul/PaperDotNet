@@ -9,6 +9,12 @@ public interface ITermStore
 {
     Task<TermSetInfo?> GetTermSetAsync(Guid termSetId, CancellationToken cancellationToken);
 
+    /// <summary>The term set's path <c>Group/Set</c> (how templates reference term sets), or null.</summary>
+    Task<string?> GetTermSetPathAsync(Guid termSetId, CancellationToken cancellationToken);
+
+    /// <summary>The term set named <paramref name="setName"/> in the group <paramref name="groupName"/>, if any.</summary>
+    Task<Guid?> FindTermSetAsync(string groupName, string setName, CancellationToken cancellationToken);
+
     /// <summary>The tenant's keywords (folksonomy) term set; created on first use.</summary>
     Task<TermSetInfo> GetKeywordsSetAsync(CancellationToken cancellationToken);
 

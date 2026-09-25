@@ -8,6 +8,7 @@ using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Identity.Features;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 
 namespace PaperDotNet.Identity;
 
@@ -54,6 +55,8 @@ public sealed class IdentityModule : IModule
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<IRoleProvisioning, RoleProvisioning>();
         services.AddScoped<ITenantInitializer, IdentityTenantInitializer>();
+        services.AddScoped<ITemplateHandler, GroupTemplateHandler>();
+        services.AddScoped<ITemplateHandler, RoleTemplateHandler>();
         services.AddScopes(IdentityScopes.All);
     }
 

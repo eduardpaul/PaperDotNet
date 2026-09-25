@@ -13,6 +13,7 @@ using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 
 namespace PaperDotNet.ExtensionHost.Runtime;
 
@@ -30,6 +31,8 @@ public sealed class ExtensionContributions
     public List<string> ContentTypes { get; } = [];
 
     public List<string> ListTemplates { get; } = [];
+
+    public List<string> TemplateHandlers { get; } = [];
 
     /// <summary>The extension's own DbContext (EXT-07), if any.</summary>
     public string? DbContext { get; set; }
@@ -228,6 +231,16 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
+    public IExtensionBuilder AddTemplateHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
+        where THandler : class, ITemplateHandler
+    {
+        var id = extension.Id;
+        services.TryAddScoped<THandler>();
+        services.AddScoped<ITemplateHandler>(sp => new GatedTemplateHandler(id, sp.GetRequiredService<THandler>(), sp.GetRequiredService<IExtensionState>()));
+        extension.Contributions.TemplateHandlers.Add(typeof(THandler).Name);
+        return this;
+    }
+
     public IExtensionBuilder MapEndpoints(Action<IEndpointRouteBuilder> map)
     {
         extension.EndpointMaps.Add(map);
@@ -298,6 +311,34 @@ internal sealed class GatedRecurringJob<TJob>(TJob inner, IExtensionState state,
         if (await state.IsEnabledAsync(owner, cancellationToken))
         {
             await inner.RunAsync(cancellationToken);
+        }
+    }
+}
+
+/// <summary>
+/// Runs an extension's template section only where the extension is enabled, or is being enabled by
+/// the same template (its Extensions section registers it).
+/// </summary>
+internal sealed class GatedTemplateHandler(string extensionId, ITemplateHandler inner, IExtensionState state) : ITemplateHandler
+{
+    public System.Xml.Linq.XName Element => inner.Element;
+
+    public TemplateLevel Level => inner.Level;
+
+    public int Order => inner.Order;
+
+    public async Task<System.Xml.Linq.XElement?> ExportAsync(TemplateContext context, CancellationToken cancellationToken) =>
+        await state.IsEnabledAsync(extensionId, cancellationToken) ? await inner.ExportAsync(context, cancellationToken) : null;
+
+    public async Task ApplyAsync(System.Xml.Linq.XElement section, TemplateContext context, CancellationToken cancellationToken)
+    {
+        if (context.Resolve(TemplateKinds.Extension, extensionId) is not null || await state.IsEnabledAsync(extensionId, cancellationToken))
+        {
+            await inner.ApplyAsync(section, context, cancellationToken);
+        }
+        else
+        {
+            context.Warn($"Section {section.Name} was skipped: the extension '{extensionId}' is not enabled.", section);
         }
     }
 }

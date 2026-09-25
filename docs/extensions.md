@@ -149,6 +149,29 @@ dotnet ef migrations add <Name> -p samples/PaperDotNet.Samples.Invoices.Migratio
 The host runs them at startup with its own migrations. The extension project
 itself never references a database provider.
 
+**Configuration in templates (PRV-05)** — make your configuration portable
+with `builder.AddTemplateHandler<THandler>()`. The handler implements
+`ITemplateHandler` (PaperDotNet.Provisioning.Contracts) for one XML element in
+your own namespace (e.g. `urn:acme:invoices:1`), at the tenant, workspace or
+list level:
+
+- `ExportAsync` returns the element for the current tenant, workspace or list
+  (`context.WorkspaceId` / `ListId`), or null.
+- `ApplyAsync` creates what is missing and updates what differs.
+  - Record each change with `context.Created` or `context.Updated`.
+  - Write nothing when `context.DryRun` is true; every apply runs a dry run
+    first.
+  - Throw `TemplateException` (pass the element for a line number) to stop the
+    apply.
+- Reference other objects by name, never by id.
+  - `context.Resolve(TemplateKinds.List, "Workspace/List")` finds objects of
+    the same template, even when they are only planned.
+  - `context.IsPlanned` means that the current workspace or list does not exist
+    yet.
+
+The section runs only in tenants where your extension is enabled, including
+tenants where the same template enables it. See `docs/provisioning.md`.
+
 ## 5. Analyzers
 
 The SDK package brings analyzers that turn the platform rules into build
