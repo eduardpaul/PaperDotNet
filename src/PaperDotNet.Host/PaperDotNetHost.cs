@@ -8,6 +8,7 @@ using PaperDotNet.Api;
 using PaperDotNet.Audit;
 using PaperDotNet.Automation;
 using PaperDotNet.Calendar;
+using PaperDotNet.Collaboration;
 using PaperDotNet.Documents;
 using PaperDotNet.ExtensionHost;
 using PaperDotNet.ExtensionHost.Runtime;
@@ -18,7 +19,6 @@ using PaperDotNet.Identity;
 using PaperDotNet.Jobs;
 using PaperDotNet.Lists;
 using PaperDotNet.Messaging;
-using PaperDotNet.Collaboration;
 using PaperDotNet.Notifications;
 using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.PostgreSql;
@@ -165,6 +165,7 @@ public static class PaperDotNetHost
         }
 
         app.MapPaperDotNetExtensions();
+        Batch.Map(app);
 
         return app;
     }
