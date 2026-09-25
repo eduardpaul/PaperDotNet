@@ -109,6 +109,9 @@ changes. Push notifications to connected clients with `ILiveEvents.Publish`
 `INotificationSender.SendAsync(message, userIds)`: the message lands in their
 inbox and goes to their channels (webhook) according to their preferences;
 pass a `DeduplicationKey` so a job that runs again does not notify twice.
+Add entries to an item's activity timeline (`GET …/items/{id}/activity`) with
+`IItemActivity.RecordAsync(new(workspaceId, listId, itemId, "{extension id}.signed", summary, key))`
+(Collaboration.Contracts); item changes and comments are recorded for you.
 
 **Files** — `IBlobStore` (PaperDotNet.Abstractions) stores binary content on
 the installation's storage (local disk by default). Choose keys under the

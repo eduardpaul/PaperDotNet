@@ -104,14 +104,19 @@ public sealed class ChangeNotificationTests(PaperDotNetApiFactory factory)
         Assert.Equal(HttpStatusCode.BadRequest, await CreateAsync(new { resource = setup.Resource, changeTypes = new[] { "created" }, notificationUrl = "http://hooks.example.test/v" }));
         Assert.Equal(HttpStatusCode.BadRequest, await CreateAsync(new
         {
-            resource = setup.Resource, changeTypes = new[] { "created" }, notificationUrl = "https://hooks.example.test/v", expirationDateTime = DateTimeOffset.UtcNow.AddDays(40),
+            resource = setup.Resource,
+            changeTypes = new[] { "created" },
+            notificationUrl = "https://hooks.example.test/v",
+            expirationDateTime = DateTimeOffset.UtcNow.AddDays(40),
         }));
 
         // The receiver must echo the validation token.
         Assert.Equal(HttpStatusCode.BadRequest, await CreateAsync(new { resource = setup.Resource, changeTypes = new[] { "created" }, notificationUrl = "https://fail.example.test/v" }));
         Assert.Equal(HttpStatusCode.NotFound, await CreateAsync(new
         {
-            resource = $"workspaces/{setup.Workspace}/lists/{Guid.NewGuid()}/items", changeTypes = new[] { "created" }, notificationUrl = "https://hooks.example.test/v",
+            resource = $"workspaces/{setup.Workspace}/lists/{Guid.NewGuid()}/items",
+            changeTypes = new[] { "created" },
+            notificationUrl = "https://hooks.example.test/v",
         }));
     }
 

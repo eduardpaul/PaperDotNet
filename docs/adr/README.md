@@ -24,3 +24,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0017](0017-phase-5-scope.md) | Phase 5 scope; provisioning templates with per-module handlers | Accepted |
 | [0018](0018-automation-workflowcore.md) | Automation: own rules engine, workflows on WorkflowCore (instead of Elsa) | Superseded in part by 0019 |
 | [0019](0019-workflows-on-wolverine.md) | Workflow runs resumed through Wolverine messages (replaces WorkflowCore) | Accepted |
+| [0020](0020-sync-api.md) | Comments and activity on the SDK; change log for delta, change subscriptions, `$batch` | Accepted |

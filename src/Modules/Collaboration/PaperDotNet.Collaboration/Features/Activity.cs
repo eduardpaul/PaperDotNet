@@ -26,18 +26,18 @@ internal sealed class ItemActivity(CollaborationDbContext db, ICurrentUser user,
 
     public static ActivityEntry Create(
         Guid workspaceId, Guid listId, Guid itemId, string kind, Guid? actor, string? summary, IReadOnlyList<string> changedFields, string? key, DateTimeOffset at) => new()
-    {
-        Id = Ids.New(),
-        WorkspaceId = workspaceId,
-        ListId = listId,
-        ItemId = itemId,
-        Kind = kind,
-        ActorId = actor,
-        Summary = summary is { Length: > MaxSummaryLength } ? summary[..(MaxSummaryLength - 1)] + "…" : summary,
-        ChangedFields = [.. changedFields],
-        DeduplicationKey = key,
-        At = at,
-    };
+        {
+            Id = Ids.New(),
+            WorkspaceId = workspaceId,
+            ListId = listId,
+            ItemId = itemId,
+            Kind = kind,
+            ActorId = actor,
+            Summary = summary is { Length: > MaxSummaryLength } ? summary[..(MaxSummaryLength - 1)] + "…" : summary,
+            ChangedFields = [.. changedFields],
+            DeduplicationKey = key,
+            At = at,
+        };
 
     public async Task AddAsync(ActivityEntry entry, CancellationToken ct)
     {
