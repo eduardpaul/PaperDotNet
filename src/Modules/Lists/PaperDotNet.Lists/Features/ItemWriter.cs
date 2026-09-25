@@ -37,6 +37,7 @@ internal sealed partial class ItemWriter(
     ITermStore terms,
     ITenantContext tenant,
     ICurrentUser currentUser,
+    EventCausation causation,
     TimeProvider time,
     ILogger<ItemWriter> logger) : IFieldValidationContext
 {
@@ -518,6 +519,7 @@ internal sealed partial class ItemWriter(
                 TenantId = tenantId,
                 TenantIdentifier = tenantIdentifier,
                 UserId = currentUser.UserId,
+                Depth = causation.Depth,
                 WorkspaceId = schema.List.WorkspaceId,
                 ListId = schema.List.Id,
                 ItemId = item.Id,
@@ -530,6 +532,7 @@ internal sealed partial class ItemWriter(
                 TenantId = tenantId,
                 TenantIdentifier = tenantIdentifier,
                 UserId = currentUser.UserId,
+                Depth = causation.Depth,
                 WorkspaceId = schema.List.WorkspaceId,
                 ListId = schema.List.Id,
                 ItemId = item.Id,
@@ -542,6 +545,7 @@ internal sealed partial class ItemWriter(
                 TenantId = tenantId,
                 TenantIdentifier = tenantIdentifier,
                 UserId = currentUser.UserId,
+                Depth = causation.Depth,
                 WorkspaceId = schema.List.WorkspaceId,
                 ListId = schema.List.Id,
                 ItemId = item.Id,

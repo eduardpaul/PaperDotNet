@@ -15,11 +15,12 @@ touch the configuration of almost every module.
 
 ### Scope and order
 
-- Slices in this order: **5a provisioning**, **5b automation** (rules, Elsa
+- Slices in this order: **5a provisioning**, **5b automation** (rules,
   workflows, extension triggers and actions, path templates), then sharing,
   collaboration and sync API, notification channels, smart folders, page
   operations and S3, MCP and SDKs, external OIDC and quotas.
-- **Workflows (EVT-08) use Elsa 3** in P5.
+- **Workflows (EVT-08)** are part of P5. The engine was planned to be Elsa 3; ADR-0018
+  replaces it with WorkflowCore (Elsa's current dependencies are not license-compatible).
 - **WebDAV, CalDAV and CardDAV (API-10, CAL-05, CAL-06) move to P7.**
 - **Email to inbox (DOC-13) moves to the backlog.** The email notification
   channel (NTF-04) stays in P5.

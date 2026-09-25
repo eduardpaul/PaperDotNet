@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Automation.Data;
 using PaperDotNet.Calendar.Data;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.ExtensionHost.Data;
@@ -121,4 +122,10 @@ internal sealed class NotificationsDesignTimeFactory : IDesignTimeDbContextFacto
 {
     public NotificationsDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<NotificationsDbContext>(NotificationsDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class AutomationDesignTimeFactory : IDesignTimeDbContextFactory<AutomationDbContext>
+{
+    public AutomationDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<AutomationDbContext>(AutomationDbContext.Schema), DesignTime.NoTenant);
 }

@@ -16,6 +16,22 @@ public abstract record IntegrationEvent
     public Guid? UserId { get; init; }
 
     public DateTimeOffset OccurredAt { get; init; }
+
+    /// <summary>
+    /// How many automatic reactions led to this event: 0 for a change a user or API client made,
+    /// n + 1 for a change made while handling an event of depth n (see <see cref="EventCausation"/>).
+    /// Automation uses it to stop chains that would never end.
+    /// </summary>
+    public int Depth { get; init; }
+}
+
+/// <summary>
+/// The causation depth of the current scope (scoped service): code that reacts to an event sets
+/// <see cref="Depth"/> to the event's depth + 1, and events published in the scope carry it.
+/// </summary>
+public sealed class EventCausation
+{
+    public int Depth { get; set; }
 }
 
 /// <summary>

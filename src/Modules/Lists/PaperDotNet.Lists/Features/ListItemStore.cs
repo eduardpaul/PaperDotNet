@@ -48,14 +48,15 @@ internal sealed class ListItemStore(
 
         lists = lists.Where(l => templateKey is null || l.TemplateKey == templateKey).ToList();
         var contentTypeIds = lists.SelectMany(l => l.ContentTypeIds).Distinct().ToList();
-        var keys = await db.ContentTypes.AsNoTracking()
-            .Where(c => contentTypeIds.Contains(c.Id) && c.Key != null)
-            .ToDictionaryAsync(c => c.Id, c => c.Key!, cancellationToken);
+        var contentTypes = await db.ContentTypes.AsNoTracking()
+            .Where(c => contentTypeIds.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => new ListContentType(c.Id, c.Name, c.Key), cancellationToken);
         return lists
             .Select(l => new ListData(l.Id, l.WorkspaceId, l.Name, l.TemplateKey)
             {
                 IsLibrary = l.Kind == ListKind.Library,
-                ContentTypeKeys = [.. l.ContentTypeIds.Where(keys.ContainsKey).Select(id => keys[id])],
+                ContentTypeKeys = [.. l.ContentTypeIds.Select(contentTypes.GetValueOrDefault).OfType<ListContentType>().Select(c => c.Key).OfType<string>()],
+                ContentTypes = [.. l.ContentTypeIds.Select(contentTypes.GetValueOrDefault).OfType<ListContentType>()],
             })
             .ToList();
     }
@@ -70,6 +71,7 @@ internal sealed class ListItemStore(
                 IsLibrary = schema.List.Kind == ListKind.Library,
                 Access = schema.Access.ListLevel,
                 ContentTypeKeys = [.. schema.ContentTypes.Where(c => c.Key is not null).Select(c => c.Key!)],
+                ContentTypes = [.. schema.ContentTypes.Select(c => new ListContentType(c.Id, c.Name, c.Key))],
             };
     }
 
@@ -122,6 +124,68 @@ internal sealed class ListItemStore(
         try
         {
             return ToResult(schema!, await writer.UpdateAsync(schema!, item!, null, Optional<Guid?>.None, Element(fields), cancellationToken));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new ListItemResult(ListItemStatus.VersionMismatch);
+        }
+    }
+
+    public async Task<(Guid? FolderId, ListItemResult? Problem)> EnsureFolderAsync(
+        Guid workspaceId, Guid listId, IReadOnlyList<string> path, CancellationToken cancellationToken)
+    {
+        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
+        if (schema is null)
+        {
+            return (null, new ListItemResult(ListItemStatus.NotFound));
+        }
+
+        Guid? parentId = null;
+        foreach (var segment in path.Select(p => p.Trim()).Where(p => p.Length > 0))
+        {
+            var parent = parentId;
+            var existing = await db.Items.AsNoTracking()
+                .Where(i => i.ListId == listId && i.IsFolder && i.ParentId == parent && i.Title == segment)
+                .OrderBy(i => i.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+            if (existing is not null)
+            {
+                if (schema.Access.Level(existing.ScopeId) < WorkspaceAccessLevel.Read)
+                {
+                    return (null, new ListItemResult(ListItemStatus.Forbidden));
+                }
+
+                parentId = existing.Id;
+                continue;
+            }
+
+            var created = await writer.CreateAsync(schema, null, parentId, isFolder: true, Element(new JsonObject { ["title"] = segment }), cancellationToken);
+            if (created.Item is null)
+            {
+                return (null, ToResult(schema, created));
+            }
+
+            parentId = created.Item.Id;
+        }
+
+        return (parentId, null);
+    }
+
+    public async Task<ListItemResult> MoveAsync(Guid workspaceId, Guid listId, Guid itemId, Guid? folderId, CancellationToken cancellationToken)
+    {
+        var (schema, item, problem) = await LoadForChangeAsync(workspaceId, listId, itemId, null, cancellationToken);
+        if (problem is not null)
+        {
+            return problem;
+        }
+
+        if (item!.ParentId == folderId)
+        {
+            return new ListItemResult(ListItemStatus.Ok, ToData(schema!, item));
+        }
+
+        try
+        {
+            return ToResult(schema!, await writer.UpdateAsync(schema!, item, null, Optional<Guid?>.Of(folderId), null, cancellationToken));
         }
         catch (DbUpdateConcurrencyException)
         {

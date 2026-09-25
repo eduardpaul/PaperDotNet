@@ -49,6 +49,9 @@ public sealed class InvoicesExtension : IExtension
             o.ContentTypes.Add("Invoice");
         });
         builder.AddEventSubscriber<ItemAdded, InvoiceCounter>();
+        builder.AddAutomationTrigger(new(ApprovalNeededTrigger.Key, "An invoice above the approval threshold was added (data: amount)."));
+        builder.AddAutomationAction<ApproveInvoiceAction>();
+        builder.AddEventSubscriber<ItemAdded, ApprovalNeededTrigger>();
         builder.AddRecurringJob<ReminderJob>($"{Id}.reminders", "* * * * * *");
         builder.MapEndpoints(api => api.MapGet("/stats", (InvoiceStats stats, ITenantContext tenant) => TypedResults.Ok(stats.For(tenant.TenantId!.Value)))
             .RequireScope($"{Id}.read"));

@@ -7,6 +7,7 @@
     <Project Path="src/BuildingBlocks/PaperDotNet.Abstractions/PaperDotNet.Abstractions.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Api/PaperDotNet.Api.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Messaging/PaperDotNet.Messaging.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.Workflows/PaperDotNet.Workflows.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.PostgreSql/PaperDotNet.Persistence.PostgreSql.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.Sqlite/PaperDotNet.Persistence.Sqlite.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence/PaperDotNet.Persistence.csproj" />
@@ -46,6 +47,10 @@
   <Folder Name="/src/Modules/Lists/">
     <Project Path="src/Modules/Lists/PaperDotNet.Lists.Contracts/PaperDotNet.Lists.Contracts.csproj" />
     <Project Path="src/Modules/Lists/PaperDotNet.Lists/PaperDotNet.Lists.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Automation/">
+    <Project Path="src/Modules/Automation/PaperDotNet.Automation.Contracts/PaperDotNet.Automation.Contracts.csproj" />
+    <Project Path="src/Modules/Automation/PaperDotNet.Automation/PaperDotNet.Automation.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Provisioning/">
     <Project Path="src/Modules/Provisioning/PaperDotNet.Provisioning.Contracts/PaperDotNet.Provisioning.Contracts.csproj" />

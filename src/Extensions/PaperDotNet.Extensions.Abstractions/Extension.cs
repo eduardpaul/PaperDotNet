@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Automation.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Provisioning.Contracts;
@@ -92,6 +93,13 @@ public interface IExtensionBuilder
     /// </summary>
     IExtensionBuilder AddTemplateHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
         where THandler : class, ITemplateHandler;
+
+    /// <summary>An action for rules and workflows (EVT-09; key starts with <c>{extension id}.</c>).</summary>
+    IExtensionBuilder AddAutomationAction<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
+        where TAction : class, IAutomationAction;
+
+    /// <summary>A trigger for rules (EVT-09; key starts with <c>{extension id}.</c>); raise it with <see cref="IAutomationTriggers"/>.</summary>
+    IExtensionBuilder AddAutomationTrigger(AutomationTriggerDefinition trigger);
 
     /// <summary>API endpoints under <c>/v1.0/extensions/{id}</c> (404 in tenants where the extension is disabled).</summary>
     IExtensionBuilder MapEndpoints(Action<IEndpointRouteBuilder> map);

@@ -37,7 +37,6 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `Finbuckle.MultiTenant.AspNetCore` | Apache-2.0 | Tenant resolution (evaluate) |
 | `WolverineFx` | MIT | Durable outbox / messaging (evaluate) |
 | `Quartz` | Apache-2.0 | Scheduling |
-| `Elsa` 3 | MIT | Workflows (idea 0009) |
 | `Grpc.AspNetCore` | Apache-2.0 | Sidecar RPC (option) |
 | `StreamJsonRpc` | MIT | Sidecar RPC (option) |
 | Kiota (`Microsoft.Kiota.*`) | MIT | SDK generation |
@@ -89,6 +88,9 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `Microsoft.CodeAnalysis.*` (Roslyn, via Wolverine runtime compilation) | MIT | Runtime compilation of message handlers |
 | `FastExpressionCompiler`, `Spectre.Console`, `Newtonsoft.Json` (via Wolverine) | MIT | Wolverine dependencies |
 | `Cronos` | MIT | Cron expressions for recurring jobs (ADR-0010) |
+| `WorkflowCore` 3.21 (+ `.Persistence.EntityFramework`, `.Persistence.Sqlite`, `.Persistence.PostgreSQL`) | MIT | Durable workflow engine for automation (5b, ADR-0018) |
+| `ConcurrentHashSet` (via WorkflowCore) | MIT | WorkflowCore dependency |
+| `OpenTelemetry.Api` (via WorkflowCore) | Apache-2.0 | WorkflowCore tracing |
 | `CliWrap` | MIT | Running the Tesseract CLI |
 | `TngTech.ArchUnitNET` (+ `.xUnitV3`) | Apache-2.0 | Architecture tests |
 | `OpenIddict.EntityFrameworkCore` | Apache-2.0 | OpenIddict stores |
@@ -132,9 +134,13 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | MinIO | AGPL-3.0 | Local-disk provider, SeaweedFS |
 | Elasticsearch | AGPL / SSPL / Elastic License | OpenSearch, Meilisearch |
 | Zitadel as a recommended IdP | AGPL-3.0 | Keycloak, OpenIddict (any OIDC provider still works via the protocol) |
+| Elsa Workflows 3.8+ | Depends on `JsonSchema.Net` 9 (json-everything), whose binaries come with an "Open Source Maintenance Fee" EULA (monthly fee for organizations with ≥ US$10k revenue). 3.7.1 is still clean but would be frozen, with about 60 packages including FastEndpoints, NSwag, pre-1.0 CShells and a second identity system | WorkflowCore (ADR-0018) |
+| `JsonSchema.Net` 8+/9+ and other json-everything packages | Binary releases under the Open Source Maintenance Fee EULA (revenue-dependent fee) | Not needed; avoid packages that depend on them |
 
 ## Decisions
 
+- **2026-09-25:** workflows use **WorkflowCore** (MIT) instead of Elsa: current Elsa versions
+  depend on a package whose binaries carry a revenue-dependent maintenance fee (ADR-0018).
 - **2026-09-24:** the 🟨 permissive-with-notice class (BSD, PostgreSQL
   License, ISC) is **allowed**. Ship a `THIRD-PARTY-NOTICES` file with the
   required copyright notices.

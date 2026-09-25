@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
+using PaperDotNet.Automation;
 using PaperDotNet.Calendar;
 using PaperDotNet.Documents;
 using PaperDotNet.ExtensionHost;
@@ -28,6 +29,7 @@ using PaperDotNet.Storage;
 using PaperDotNet.Tasks;
 using PaperDotNet.Taxonomy;
 using PaperDotNet.Tenancy;
+using PaperDotNet.Workflows;
 using PaperDotNet.Workspaces;
 using Wolverine;
 using Wolverine.Postgresql;
@@ -55,6 +57,7 @@ public static class PaperDotNetHost
         new CalendarModule(),
         new NotificationsModule(),
         new ProvisioningModule(),
+        new AutomationModule(),
         new AuditModule(),
         new ExtensionHostModule(),
     ];
@@ -79,6 +82,7 @@ public static class PaperDotNetHost
         services.AddScoped<HttpCurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<HttpCurrentUser>());
         services.AddScoped<ICurrentUserOverride>(sp => sp.GetRequiredService<HttpCurrentUser>());
+        services.AddScoped<EventCausation>();
         services.AddHybridCache();
         services.AddPaperDotNetDatabase(builder.Configuration);
         services.AddPaperDotNetStorage(builder.Configuration);
@@ -107,6 +111,13 @@ public static class PaperDotNetHost
         services.AddPaperDotNetMessaging(
             options => ConfigureMessageStorage(options, builder.Configuration),
             Modules.Select(m => m.GetType().Assembly).Distinct());
+
+        services.AddPaperDotNetWorkflows(builder.Configuration, options => ConfigureWorkflowStorage(options, builder.Configuration));
+        if (!IsPostgreSql(builder.Configuration))
+        {
+            var sqlite = Persistence.Sqlite.SqliteServiceCollectionExtensions.ResolveConnectionString(builder.Configuration);
+            services.AddSingleton(new WorkflowStoreInitializer(ct => Persistence.Sqlite.SqliteWorkflowTables.EnsureAsync(sqlite, ct)));
+        }
 
         services.AddProblemDetails();
         services.ConfigureHttpJsonOptions(o =>
@@ -189,6 +200,22 @@ public static class PaperDotNetHost
 
             // SQLite serves a single app instance.
             options.Durability.Mode = DurabilityMode.Solo;
+        }
+    }
+
+    /// <summary>
+    /// WorkflowCore storage in the same database: its own tables and migrations (schema <c>wfc</c>) on PostgreSQL;
+    /// on SQLite the tables are created by <c>SqliteWorkflowTables</c> (the provider has no migrations).
+    /// </summary>
+    private static void ConfigureWorkflowStorage(WorkflowCore.Models.WorkflowOptions options, IConfiguration configuration)
+    {
+        if (IsPostgreSql(configuration))
+        {
+            options.UsePostgreSQL(configuration.GetConnectionString(PostgreSqlServiceCollectionExtensions.ConnectionStringName)!, canCreateDB: false, canMigrateDB: true);
+        }
+        else
+        {
+            options.UseSqlite(Persistence.Sqlite.SqliteServiceCollectionExtensions.ResolveConnectionString(configuration), canCreateDB: false);
         }
     }
 

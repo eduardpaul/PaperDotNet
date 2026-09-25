@@ -26,6 +26,9 @@ public interface IUserDirectory
     /// <summary>Group names by id (unknown ids are left out).</summary>
     Task<IReadOnlyDictionary<Guid, string>> GetGroupNamesAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken cancellationToken);
 
+    /// <summary>Enabled members of a group.</summary>
+    Task<IReadOnlyList<Guid>> GetGroupMembersAsync(Guid groupId, CancellationToken cancellationToken);
+
     /// <summary>The user with this user name in the current tenant, if any.</summary>
     Task<Guid?> FindUserAsync(string userName, CancellationToken cancellationToken);
 

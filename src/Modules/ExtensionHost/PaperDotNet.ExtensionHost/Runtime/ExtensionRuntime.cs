@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
+using PaperDotNet.Automation.Contracts;
 using PaperDotNet.Extensions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
@@ -33,6 +34,10 @@ public sealed class ExtensionContributions
     public List<string> ListTemplates { get; } = [];
 
     public List<string> TemplateHandlers { get; } = [];
+
+    public List<string> AutomationActions { get; } = [];
+
+    public List<string> AutomationTriggers { get; } = [];
 
     /// <summary>The extension's own DbContext (EXT-07), if any.</summary>
     public string? DbContext { get; set; }
@@ -231,6 +236,24 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
+    public IExtensionBuilder AddAutomationAction<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
+        where TAction : class, IAutomationAction
+    {
+        var id = extension.Id;
+        services.TryAddScoped<TAction>();
+        services.AddScoped<IAutomationAction>(sp => new GatedAutomationAction(id, sp.GetRequiredService<TAction>(), sp.GetRequiredService<IExtensionState>()));
+        extension.Contributions.AutomationActions.Add(typeof(TAction).Name);
+        return this;
+    }
+
+    public IExtensionBuilder AddAutomationTrigger(AutomationTriggerDefinition trigger)
+    {
+        RequirePrefix(trigger.Key, "Automation trigger key");
+        services.AddSingleton(trigger);
+        extension.Contributions.AutomationTriggers.Add(trigger.Key);
+        return this;
+    }
+
     public IExtensionBuilder AddTemplateHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
         where THandler : class, ITemplateHandler
     {
@@ -341,4 +364,24 @@ internal sealed class GatedTemplateHandler(string extensionId, ITemplateHandler 
             context.Warn($"Section {section.Name} was skipped: the extension '{extensionId}' is not enabled.", section);
         }
     }
+}
+
+/// <summary>
+/// An extension's automation action: its key must start with the extension id (checked when first used,
+/// since the key is an instance property), and it fails where the extension is not enabled.
+/// </summary>
+internal sealed class GatedAutomationAction(string extensionId, IAutomationAction inner, IExtensionState state) : IAutomationAction
+{
+    public string Key => inner.Key.StartsWith(extensionId + ".", StringComparison.Ordinal)
+        ? inner.Key
+        : throw new InvalidOperationException($"Automation action '{inner.Key}' of extension {extensionId} must start with '{extensionId}.'.");
+
+    public string Description => inner.Description;
+
+    public IEnumerable<string> Validate(System.Text.Json.Nodes.JsonObject inputs) => inner.Validate(inputs);
+
+    public async Task<AutomationActionResult> ExecuteAsync(AutomationActionContext context, CancellationToken cancellationToken) =>
+        await state.IsEnabledAsync(extensionId, cancellationToken)
+            ? await inner.ExecuteAsync(context, cancellationToken)
+            : AutomationActionResult.Fail($"The extension '{extensionId}' is not enabled.");
 }

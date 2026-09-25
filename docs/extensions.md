@@ -172,6 +172,15 @@ list level:
 The section runs only in tenants where your extension is enabled, including
 tenants where the same template enables it. See `docs/provisioning.md`.
 
+**Automation (EVT-09)** — offer actions to rules and workflows with
+`builder.AddAutomationAction<TAction>()` (`IAutomationAction`; key
+`{extension id}.name`). Read inputs from `context.Inputs`, replace tokens with
+`context.ExpandAsync`, and act on `context.Item` on behalf of the organization
+(e.g. `IListItemStore.AsSystem()`). Offer triggers with
+`builder.AddAutomationTrigger(new(key, description))` and raise them from your
+code with `IAutomationTriggers.RaiseAsync(key, workspaceId, item, data)`.
+Rules with that trigger then run in the background. See `docs/automation.md`.
+
 ## 5. Analyzers
 
 The SDK package brings analyzers that turn the platform rules into build

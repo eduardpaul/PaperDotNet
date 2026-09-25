@@ -31,6 +31,11 @@ internal sealed class UserDirectory(
     public async Task<IReadOnlyDictionary<Guid, string>> GetGroupNamesAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken cancellationToken) =>
         await db.Groups.Where(g => groupIds.Contains(g.Id)).ToDictionaryAsync(g => g.Id, g => g.Name, cancellationToken);
 
+    public async Task<IReadOnlyList<Guid>> GetGroupMembersAsync(Guid groupId, CancellationToken cancellationToken) =>
+        await db.GroupMembers.Where(m => m.GroupId == groupId)
+            .Join(db.Users.Where(u => !u.IsDisabled), m => m.UserId, u => u.Id, (m, u) => u.Id)
+            .ToListAsync(cancellationToken);
+
     public async Task<Guid?> FindUserAsync(string userName, CancellationToken cancellationToken)
     {
         var normalized = users.NormalizeName(userName);

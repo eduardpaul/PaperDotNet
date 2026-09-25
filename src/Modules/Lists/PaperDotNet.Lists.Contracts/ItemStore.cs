@@ -14,7 +14,13 @@ public sealed record ListData(Guid Id, Guid WorkspaceId, string Name, string? Te
 
     /// <summary>Template keys of the list's content types (e.g. <c>task</c>); custom content types have none.</summary>
     public IReadOnlyList<string> ContentTypeKeys { get; init; } = [];
+
+    /// <summary>The list's content types (the first is the default).</summary>
+    public IReadOnlyList<ListContentType> ContentTypes { get; init; } = [];
 }
+
+/// <summary>A content type of a list: its name, and its template key for built-in and extension ones.</summary>
+public sealed record ListContentType(Guid Id, string Name, string? Key);
 
 /// <summary>The caller's personal workspace with its Documents and Inbox libraries (LST-07).</summary>
 public sealed record HomeData(Guid WorkspaceId, Guid DocumentsListId, Guid InboxListId);
@@ -99,6 +105,15 @@ public interface IListItemStore
 
     /// <summary>Merges <paramref name="fields"/> into the item (null removes a value); checks <paramref name="expectedVersion"/> when given.</summary>
     Task<ListItemResult> UpdateAsync(Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, uint? expectedVersion, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The folder at <paramref name="path"/> (folder titles from the list root), created where missing;
+    /// null for an empty path (the list root). Fails when the list does not allow folders.
+    /// </summary>
+    Task<(Guid? FolderId, ListItemResult? Problem)> EnsureFolderAsync(Guid workspaceId, Guid listId, IReadOnlyList<string> path, CancellationToken cancellationToken);
+
+    /// <summary>Moves the item (or folder) into <paramref name="folderId"/> (null: the list root) in the same list.</summary>
+    Task<ListItemResult> MoveAsync(Guid workspaceId, Guid listId, Guid itemId, Guid? folderId, CancellationToken cancellationToken);
 
     /// <summary>Indexes the item again for search (e.g. after its <see cref="IItemSearchContributor"/> content changed).</summary>
     Task ReindexAsync(Guid itemId, CancellationToken cancellationToken);

@@ -9,10 +9,10 @@ namespace PaperDotNet.ArchitectureTests;
 /// </summary>
 public sealed partial class ModuleBoundaryTests
 {
-    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents", "Tasks", "Calendar", "Notifications", "Provisioning"];
+    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents", "Tasks", "Calendar", "Notifications", "Provisioning", "Automation"];
 
     /// <summary>Modules that expose a contracts assembly.</summary>
-    private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Search", "Notifications", "Provisioning"];
+    private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Search", "Notifications", "Provisioning", "Automation"];
 
     private static readonly string[] ProviderAgnostic =
     [
@@ -46,6 +46,19 @@ public sealed partial class ModuleBoundaryTests
         var references = Load(assembly).GetReferencedAssemblies().Select(a => a.Name!).ToList();
 
         Assert.DoesNotContain(references, r => r.StartsWith("Wolverine", StringComparison.Ordinal));
+    }
+
+    /// <summary>WorkflowCore is used by the workflows building block and the Automation module only (ADR-0018).</summary>
+    [Theory]
+    [MemberData(nameof(ProviderAgnosticAssemblies))]
+    public void Only_automation_references_WorkflowCore(string assembly)
+    {
+        var references = Load(assembly).GetReferencedAssemblies().Select(a => a.Name!).ToList();
+
+        if (assembly != "PaperDotNet.Automation")
+        {
+            Assert.DoesNotContain(references, r => r.StartsWith("WorkflowCore", StringComparison.Ordinal));
+        }
     }
 
     [Theory]

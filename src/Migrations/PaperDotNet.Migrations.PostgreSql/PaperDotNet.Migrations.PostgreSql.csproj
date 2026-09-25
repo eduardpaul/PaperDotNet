@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\Modules\Tasks\PaperDotNet.Tasks\PaperDotNet.Tasks.csproj" />
     <ProjectReference Include="..\..\Modules\Calendar\PaperDotNet.Calendar\PaperDotNet.Calendar.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\PaperDotNet.Notifications\PaperDotNet.Notifications.csproj" />
+    <ProjectReference Include="..\..\Modules\Automation\PaperDotNet.Automation\PaperDotNet.Automation.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />

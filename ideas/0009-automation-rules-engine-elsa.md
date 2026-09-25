@@ -71,3 +71,8 @@ workflow engine for .NET. It powers:
      - Licensing: confirm Elsa's license and version (v3) fit the product model.
      - Expose workflows via API/SDK (idea 0003) and MCP (idea 0004), e.g.
        "run workflow X on these items". -->
+
+## Outcome
+
+Implemented in phase 5b with WorkflowCore instead of Elsa (ADR-0018): current Elsa
+versions depend on a package with a revenue-dependent maintenance fee.
