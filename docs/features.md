@@ -381,6 +381,14 @@ Phase 5's remaining slices (5e, 5g, 5i) are deferred to the backlog; phase 6 sta
 | 6c Sharing | IAM-08…12 | planned |
 | 6d Near-duplicates | DOC-12 | planned |
 
+## Phase 7 status
+
+Content and portability first; the rest of P7 (extensions in other languages, sync clients, WebDAV/CalDAV/CardDAV) comes later.
+
+| Slice | Features | Status |
+|---|---|---|
+| **7a Notes** | Guide [notes.md](notes.md). LST-18 Notes module on the SDK (takes over the `note` content type and `notes` template): `#tags` in the Markdown body become keywords; `[[wiki links]]` (headings, aliases, embeds) resolve to notes of the workspace by title, wait for missing titles, and are rewritten when the target is renamed; `GET …/items/{id}/noteLinks` and `…/backlinks` (only readable notes) | ✅ |
+
 ## Idea → feature mapping
 
 | Idea | Mapped to |

@@ -6367,6 +6367,104 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/noteLinks": {
+      "get": {
+        "tags": [
+          "Notes"
+        ],
+        "operationId": "GetNoteLinks",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteLinksResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/backlinks": {
+      "get": {
+        "tags": [
+          "Notes"
+        ],
+        "operationId": "GetNoteBacklinks",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinksResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/me/notifications": {
       "get": {
         "tags": [
@@ -8887,6 +8985,20 @@
         },
         "description": "When an automation runs: \u0060type\u0060 is \u0060manual\u0060 (started on an item by a person), \u0060itemAdded\u0060,\n\u0060itemUpdated\u0060, \u0060itemDeleted\u0060, \u0060itemRestored\u0060 or an extension trigger; \u0060list\u0060 and\n\u0060contentType\u0060 narrow it by name; \u0060changedFields\u0060 (updates) needs one of them to change."
       },
+      "BacklinksResponse": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinkedNote"
+            }
+          }
+        }
+      },
       "BatchRequest": {
         "required": [
           "requests"
@@ -11231,6 +11343,33 @@
         },
         "description": "Another item, as shown in links: only items the caller can read are listed."
       },
+      "LinkedNote": {
+        "required": [
+          "workspaceId",
+          "listId",
+          "itemId",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "description": "A note the caller can read."
+      },
       "ListKind": {
         "enum": [
           "list",
@@ -11593,6 +11732,61 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/MyTask"
+            }
+          }
+        }
+      },
+      "NoteLinkResponse": {
+        "required": [
+          "target",
+          "heading",
+          "alias",
+          "embed",
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "heading": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "alias": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "embed": {
+            "type": "boolean"
+          },
+          "note": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LinkedNote"
+              }
+            ]
+          }
+        },
+        "description": "A wiki link of a note; LinkedNote? NoteLinkResponse.Note is the note it points to (null when none exists or the caller cannot read it)."
+      },
+      "NoteLinksResponse": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteLinkResponse"
             }
           }
         }
@@ -14351,6 +14545,9 @@
     },
     {
       "name": "Calendar"
+    },
+    {
+      "name": "Notes"
     },
     {
       "name": "Notifications"

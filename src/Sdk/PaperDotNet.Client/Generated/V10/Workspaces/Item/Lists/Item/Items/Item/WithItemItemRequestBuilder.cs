@@ -6,11 +6,13 @@ using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Activity;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Automations;
+using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Backlinks;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Checklist;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Comments;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Links;
+using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.NoteLinks;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Permissions;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Recurrence;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Series;
@@ -39,6 +41,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Automations.AutomationsRequestBuilder(PathParameters, RequestAdapter);
         }
+        /// <summary>The backlinks property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Backlinks.BacklinksRequestBuilder Backlinks
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Backlinks.BacklinksRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The checklist property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Checklist.ChecklistRequestBuilder Checklist
         {
@@ -63,6 +70,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Links.LinksRequestBuilder Links
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Links.LinksRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The noteLinks property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.NoteLinks.NoteLinksRequestBuilder NoteLinks
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.NoteLinks.NoteLinksRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The permissions property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Permissions.PermissionsRequestBuilder Permissions

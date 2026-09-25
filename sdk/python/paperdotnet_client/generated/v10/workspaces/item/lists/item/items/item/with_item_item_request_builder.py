@@ -18,11 +18,13 @@ if TYPE_CHECKING:
     from ........models.item_response import ItemResponse
     from .activity.activity_request_builder import ActivityRequestBuilder
     from .automations.automations_request_builder import AutomationsRequestBuilder
+    from .backlinks.backlinks_request_builder import BacklinksRequestBuilder
     from .checklist.checklist_request_builder import ChecklistRequestBuilder
     from .children.children_request_builder import ChildrenRequestBuilder
     from .comments.comments_request_builder import CommentsRequestBuilder
     from .file.file_request_builder import FileRequestBuilder
     from .links.links_request_builder import LinksRequestBuilder
+    from .note_links.note_links_request_builder import NoteLinksRequestBuilder
     from .permissions.permissions_request_builder import PermissionsRequestBuilder
     from .recurrence.recurrence_request_builder import RecurrenceRequestBuilder
     from .series.series_request_builder import SeriesRequestBuilder
@@ -152,6 +154,15 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         return AutomationsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
+    def backlinks(self) -> BacklinksRequestBuilder:
+        """
+        The backlinks property
+        """
+        from .backlinks.backlinks_request_builder import BacklinksRequestBuilder
+
+        return BacklinksRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
     def checklist(self) -> ChecklistRequestBuilder:
         """
         The checklist property
@@ -195,6 +206,15 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .links.links_request_builder import LinksRequestBuilder
 
         return LinksRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def note_links(self) -> NoteLinksRequestBuilder:
+        """
+        The noteLinks property
+        """
+        from .note_links.note_links_request_builder import NoteLinksRequestBuilder
+
+        return NoteLinksRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def permissions(self) -> PermissionsRequestBuilder:

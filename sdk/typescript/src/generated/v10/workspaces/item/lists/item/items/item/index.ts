@@ -8,6 +8,8 @@ import { ActivityRequestBuilderRequestsMetadata, type ActivityRequestBuilder } f
 // @ts-ignore
 import { AutomationsRequestBuilderRequestsMetadata, type AutomationsRequestBuilder } from './automations/index.js';
 // @ts-ignore
+import { BacklinksRequestBuilderRequestsMetadata, type BacklinksRequestBuilder } from './backlinks/index.js';
+// @ts-ignore
 import { ChecklistRequestBuilderRequestsMetadata, type ChecklistRequestBuilder } from './checklist/index.js';
 // @ts-ignore
 import { ChildrenRequestBuilderRequestsMetadata, type ChildrenRequestBuilder } from './children/index.js';
@@ -17,6 +19,8 @@ import { CommentsRequestBuilderNavigationMetadata, CommentsRequestBuilderRequest
 import { FileRequestBuilderNavigationMetadata, FileRequestBuilderRequestsMetadata, type FileRequestBuilder } from './file/index.js';
 // @ts-ignore
 import { LinksRequestBuilderNavigationMetadata, LinksRequestBuilderRequestsMetadata, type LinksRequestBuilder } from './links/index.js';
+// @ts-ignore
+import { NoteLinksRequestBuilderRequestsMetadata, type NoteLinksRequestBuilder } from './noteLinks/index.js';
 // @ts-ignore
 import { PermissionsRequestBuilderNavigationMetadata, PermissionsRequestBuilderRequestsMetadata, type PermissionsRequestBuilder } from './permissions/index.js';
 // @ts-ignore
@@ -43,6 +47,10 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      */
     get automations(): AutomationsRequestBuilder;
     /**
+     * The backlinks property
+     */
+    get backlinks(): BacklinksRequestBuilder;
+    /**
      * The checklist property
      */
     get checklist(): ChecklistRequestBuilder;
@@ -62,6 +70,10 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      * The links property
      */
     get links(): LinksRequestBuilder;
+    /**
+     * The noteLinks property
+     */
+    get noteLinks(): NoteLinksRequestBuilder;
     /**
      * The permissions property
      */
@@ -129,6 +141,9 @@ export const WithItemItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     automations: {
         requestsMetadata: AutomationsRequestBuilderRequestsMetadata,
     },
+    backlinks: {
+        requestsMetadata: BacklinksRequestBuilderRequestsMetadata,
+    },
     checklist: {
         requestsMetadata: ChecklistRequestBuilderRequestsMetadata,
     },
@@ -146,6 +161,9 @@ export const WithItemItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     links: {
         requestsMetadata: LinksRequestBuilderRequestsMetadata,
         navigationMetadata: LinksRequestBuilderNavigationMetadata,
+    },
+    noteLinks: {
+        requestsMetadata: NoteLinksRequestBuilderRequestsMetadata,
     },
     permissions: {
         requestsMetadata: PermissionsRequestBuilderRequestsMetadata,

@@ -75,6 +75,9 @@
     <Project Path="src/Modules/Search/PaperDotNet.Search.Contracts/PaperDotNet.Search.Contracts.csproj" />
     <Project Path="src/Modules/Search/PaperDotNet.Search/PaperDotNet.Search.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Notes/">
+    <Project Path="src/Modules/Notes/PaperDotNet.Notes/PaperDotNet.Notes.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Tasks/">
     <Project Path="src/Modules/Tasks/PaperDotNet.Tasks/PaperDotNet.Tasks.csproj" />
   </Folder>

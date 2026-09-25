@@ -9,6 +9,7 @@ using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Jobs.Data;
 using PaperDotNet.Lists.Data;
+using PaperDotNet.Notes.Data;
 using PaperDotNet.Notifications.Data;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Search.Data;
@@ -111,6 +112,12 @@ internal sealed class TasksDesignTimeFactory : IDesignTimeDbContextFactory<Tasks
 {
     public TasksDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<TasksDbContext>(TasksDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class NotesDesignTimeFactory : IDesignTimeDbContextFactory<NotesDbContext>
+{
+    public NotesDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<NotesDbContext>(NotesDbContext.Schema), DesignTime.NoTenant);
 }
 
 internal sealed class CalendarDesignTimeFactory : IDesignTimeDbContextFactory<CalendarDbContext>

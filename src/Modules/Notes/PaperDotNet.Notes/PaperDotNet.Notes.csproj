@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Notes (LST-18): the Markdown note content type and Notes template, #tags as keywords, [[wiki links]] with
+    backlinks, and link updates when a note is renamed.
+    Built on the public extension SDK only (EXT-06; enforced by the architecture tests).
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Abstractions\PaperDotNet.Extensions.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+  </ItemGroup>
+</Project>

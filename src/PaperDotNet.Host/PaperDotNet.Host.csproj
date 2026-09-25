@@ -22,6 +22,7 @@
     <ProjectReference Include="..\Modules\Search\PaperDotNet.Search\PaperDotNet.Search.csproj" />
     <ProjectReference Include="..\Modules\Documents\PaperDotNet.Documents\PaperDotNet.Documents.csproj" />
     <ProjectReference Include="..\Modules\Tasks\PaperDotNet.Tasks\PaperDotNet.Tasks.csproj" />
+    <ProjectReference Include="..\Modules\Notes\PaperDotNet.Notes\PaperDotNet.Notes.csproj" />
     <ProjectReference Include="..\Modules\Calendar\PaperDotNet.Calendar\PaperDotNet.Calendar.csproj" />
     <ProjectReference Include="..\Modules\Notifications\PaperDotNet.Notifications\PaperDotNet.Notifications.csproj" />
     <ProjectReference Include="..\Modules\Collaboration\PaperDotNet.Collaboration\PaperDotNet.Collaboration.csproj" />

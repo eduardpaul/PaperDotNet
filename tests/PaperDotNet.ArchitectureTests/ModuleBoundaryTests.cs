@@ -9,7 +9,7 @@ namespace PaperDotNet.ArchitectureTests;
 /// </summary>
 public sealed partial class ModuleBoundaryTests
 {
-    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents", "Tasks", "Calendar", "Notifications", "Provisioning", "Automation", "Collaboration", "Mcp"];
+    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents", "Tasks", "Calendar", "Notes", "Notifications", "Provisioning", "Automation", "Collaboration", "Mcp"];
 
     /// <summary>Modules that expose a contracts assembly.</summary>
     private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Search", "Notifications", "Provisioning", "Automation", "Collaboration", "Mcp"];
@@ -80,6 +80,7 @@ public sealed partial class ModuleBoundaryTests
     [InlineData("PaperDotNet.Documents")] // built on the SDK (EXT-06)
     [InlineData("PaperDotNet.Tasks")]
     [InlineData("PaperDotNet.Calendar")]
+    [InlineData("PaperDotNet.Notes")]
     [InlineData("PaperDotNet.Notifications")]
     [InlineData("PaperDotNet.Provisioning")]
     [InlineData("PaperDotNet.Collaboration")]

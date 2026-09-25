@@ -423,6 +423,12 @@ export interface AutomationTrigger extends AdditionalDataHolder, Parsable {
      */
     type?: string | null;
 }
+export interface BacklinksResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The value property
+     */
+    value?: LinkedNote[] | null;
+}
 export interface BatchRequest extends AdditionalDataHolder, Parsable {
     /**
      * The requests property
@@ -1000,6 +1006,15 @@ export function createAutomationStepFromDiscriminatorValue(parseNode: ParseNode 
 // @ts-ignore
 export function createAutomationTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoAutomationTrigger;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BacklinksResponse}
+ */
+// @ts-ignore
+export function createBacklinksResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBacklinksResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1621,6 +1636,15 @@ export function createLibrarySettingsResponseFromDiscriminatorValue(parseNode: P
 export function createLinkedItemFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoLinkedItem;
 }
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {LinkedNote}
+ */
+// @ts-ignore
+export function createLinkedNoteFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoLinkedNote;
+}
 export interface CreateListRequest extends AdditionalDataHolder, Parsable {
     /**
      * The allowFolders property
@@ -1735,6 +1759,24 @@ export function createMyTaskFromDiscriminatorValue(parseNode: ParseNode | undefi
 // @ts-ignore
 export function createMyTasksResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoMyTasksResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {NoteLinkResponse}
+ */
+// @ts-ignore
+export function createNoteLinkResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoNoteLinkResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {NoteLinksResponse}
+ */
+// @ts-ignore
+export function createNoteLinksResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoNoteLinksResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2910,6 +2952,17 @@ export function deserializeIntoAutomationTrigger(automationTrigger: Partial<Auto
 }
 /**
  * The deserialization information for the current model
+ * @param BacklinksResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBacklinksResponse(backlinksResponse: Partial<BacklinksResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "value": n => { backlinksResponse.value = n.getCollectionOfObjectValues<LinkedNote>(createLinkedNoteFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param BatchRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -3831,6 +3884,20 @@ export function deserializeIntoLinkedItem(linkedItem: Partial<LinkedItem> | unde
 }
 /**
  * The deserialization information for the current model
+ * @param LinkedNote The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoLinkedNote(linkedNote: Partial<LinkedNote> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "itemId": n => { linkedNote.itemId = n.getGuidValue(); },
+        "listId": n => { linkedNote.listId = n.getGuidValue(); },
+        "title": n => { linkedNote.title = n.getStringValue(); },
+        "workspaceId": n => { linkedNote.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ListResponse The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -3968,6 +4035,32 @@ export function deserializeIntoMyTask(myTask: Partial<MyTask> | undefined = {}) 
 export function deserializeIntoMyTasksResponse(myTasksResponse: Partial<MyTasksResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "value": n => { myTasksResponse.value = n.getCollectionOfObjectValues<MyTask>(createMyTaskFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param NoteLinkResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoNoteLinkResponse(noteLinkResponse: Partial<NoteLinkResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "alias": n => { noteLinkResponse.alias = n.getStringValue(); },
+        "embed": n => { noteLinkResponse.embed = n.getBooleanValue(); },
+        "heading": n => { noteLinkResponse.heading = n.getStringValue(); },
+        "note": n => { noteLinkResponse.note = n.getObjectValue<LinkedNote>(createLinkedNoteFromDiscriminatorValue); },
+        "target": n => { noteLinkResponse.target = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param NoteLinksResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoNoteLinksResponse(noteLinksResponse: Partial<NoteLinksResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "value": n => { noteLinksResponse.value = n.getCollectionOfObjectValues<NoteLinkResponse>(createNoteLinkResponseFromDiscriminatorValue); },
     }
 }
 /**
@@ -5758,6 +5851,27 @@ export interface LinkedItem extends AdditionalDataHolder, Parsable {
      */
     workspaceId?: Guid | null;
 }
+/**
+ * A note the caller can read.
+ */
+export interface LinkedNote extends AdditionalDataHolder, Parsable {
+    /**
+     * The itemId property
+     */
+    itemId?: Guid | null;
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
+    /**
+     * The title property
+     */
+    title?: string | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
 export type ListKind = (typeof ListKindObject)[keyof typeof ListKindObject];
 /**
  * A list with its content types and effective columns.
@@ -5987,6 +6101,37 @@ export interface MyTasksResponse extends AdditionalDataHolder, Parsable {
      * The value property
      */
     value?: MyTask[] | null;
+}
+/**
+ * A wiki link of a note; LinkedNote? NoteLinkResponse.Note is the note it points to (null when none exists or the caller cannot read it).
+ */
+export interface NoteLinkResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The alias property
+     */
+    alias?: string | null;
+    /**
+     * The embed property
+     */
+    embed?: boolean | null;
+    /**
+     * The heading property
+     */
+    heading?: string | null;
+    /**
+     * The note property
+     */
+    note?: LinkedNote | null;
+    /**
+     * The target property
+     */
+    target?: string | null;
+}
+export interface NoteLinksResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The value property
+     */
+    value?: NoteLinkResponse[] | null;
 }
 export interface NotificationResponse extends AdditionalDataHolder, Parsable {
     /**
@@ -7025,6 +7170,18 @@ export function serializeAutomationTrigger(writer: SerializationWriter, automati
 }
 /**
  * Serializes information the current object
+ * @param BacklinksResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBacklinksResponse(writer: SerializationWriter, backlinksResponse: Partial<BacklinksResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!backlinksResponse || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<LinkedNote>("value", backlinksResponse.value, serializeLinkedNote);
+    writer.writeAdditionalData(backlinksResponse.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param BatchRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -8011,6 +8168,21 @@ export function serializeLinkedItem(writer: SerializationWriter, linkedItem: Par
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param LinkedNote The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeLinkedNote(writer: SerializationWriter, linkedNote: Partial<LinkedNote> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!linkedNote || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("itemId", linkedNote.itemId);
+    writer.writeGuidValue("listId", linkedNote.listId);
+    writer.writeStringValue("title", linkedNote.title);
+    writer.writeGuidValue("workspaceId", linkedNote.workspaceId);
+    writer.writeAdditionalData(linkedNote.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param ListResponse The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -8157,6 +8329,34 @@ export function serializeMyTasksResponse(writer: SerializationWriter, myTasksRes
     if (!myTasksResponse || isSerializingDerivedType) { return; }
     writer.writeCollectionOfObjectValues<MyTask>("value", myTasksResponse.value, serializeMyTask);
     writer.writeAdditionalData(myTasksResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param NoteLinkResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeNoteLinkResponse(writer: SerializationWriter, noteLinkResponse: Partial<NoteLinkResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!noteLinkResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("alias", noteLinkResponse.alias);
+    writer.writeBooleanValue("embed", noteLinkResponse.embed);
+    writer.writeStringValue("heading", noteLinkResponse.heading);
+    writer.writeObjectValue<LinkedNote>("note", noteLinkResponse.note, serializeLinkedNote);
+    writer.writeStringValue("target", noteLinkResponse.target);
+    writer.writeAdditionalData(noteLinkResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param NoteLinksResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeNoteLinksResponse(writer: SerializationWriter, noteLinksResponse: Partial<NoteLinksResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!noteLinksResponse || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<NoteLinkResponse>("value", noteLinksResponse.value, serializeNoteLinkResponse);
+    writer.writeAdditionalData(noteLinksResponse.additionalData);
 }
 /**
  * Serializes information the current object

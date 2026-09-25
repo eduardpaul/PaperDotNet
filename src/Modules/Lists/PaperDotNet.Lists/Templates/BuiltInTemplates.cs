@@ -3,7 +3,7 @@ using PaperDotNet.Lists.Contracts;
 namespace PaperDotNet.Lists.Templates;
 
 /// <summary>
-/// Built-in content types and list templates (LST-16). Apps built on the SDK (Tasks, Calendar) register theirs
+/// Built-in content types and list templates (LST-16). Apps built on the SDK (Tasks, Calendar, Notes) register theirs
 /// the same way; extensions add more through the SDK.
 /// </summary>
 internal static class BuiltInTemplates
@@ -30,11 +30,6 @@ internal static class BuiltInTemplates
             Field("jobTitle", "Job title", "text"),
             Field("notes", "Notes", "note"),
         ]),
-        new("note", "Note", "A note with free tags.",
-        [
-            Field("body", "Body", "note", f => f.MaxLength = 100_000),
-            Field("tags", "Tags", "keywords", f => { f.AllowMultiple = true; f.Search = FieldSearchWeight.High; }),
-        ]),
     ];
 
     public static readonly ListTemplateDefinition[] Lists =
@@ -50,10 +45,6 @@ internal static class BuiltInTemplates
         new("contacts", "Contacts", "People and organizations.", ["contact"],
         [
             new ViewTemplate("All contacts", ["title", "company", "email", "phone"], OrderBy: "fields/title", IsDefault: true),
-        ]),
-        new("notes", "Notes", "Notes with free tags.", ["note"],
-        [
-            new ViewTemplate("All notes", ["title", "tags"], OrderBy: "updatedAt desc", IsDefault: true),
         ]),
     ];
 }
