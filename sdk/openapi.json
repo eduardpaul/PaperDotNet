@@ -7288,6 +7288,13 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "includeContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -7323,6 +7330,11 @@
         "requestBody": {
           "content": {
             "application/xml": {
+              "schema": {
+                "type": "string"
+              }
+            },
+            "application/zip": {
               "schema": {
                 "type": "string"
               }

@@ -1,4 +1,7 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json.Nodes;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -100,6 +103,12 @@ public sealed class TemplateContext(TemplateScope scope, bool dryRun)
     /// nothing is stored under it, so every section below it is new.
     /// </summary>
     public bool IsPlanned { get; set; }
+
+    /// <summary>
+    /// The package the template travels in (PRV-04): with it, export includes content (items and files) and apply
+    /// reads it; null for a plain XML template.
+    /// </summary>
+    public ITemplatePackage? Package { get; init; }
 
     /// <summary>Free state for handlers of one module (key it with the module name).</summary>
     public IDictionary<string, object> Items { get; } = new Dictionary<string, object>(StringComparer.Ordinal);
@@ -246,4 +255,43 @@ public static class TemplateElementExtensions
 
         return element;
     }
+}
+
+/// <summary>
+/// A template package (PRV-04, PLT-13): a zip with <c>template.xml</c>, JSON documents (<c>content/…</c>) and files
+/// (<c>files/{sha256}</c>, each content stored once). Sections with content write to it on export and read from it on apply.
+/// </summary>
+public interface ITemplatePackage
+{
+    /// <summary>Export: stores a JSON document at <paramref name="path"/> (e.g. <c>content/items-….json</c>).</summary>
+    Task WriteJsonAsync(string path, JsonNode content, CancellationToken cancellationToken);
+
+    /// <summary>Export: stores a file's content (once per content) and returns its path in the package.</summary>
+    Task<string> AddFileAsync(Stream content, CancellationToken cancellationToken);
+
+    /// <summary>Apply: the JSON document at <paramref name="path"/>, or null when the package has none.</summary>
+    Task<JsonNode?> ReadJsonAsync(string path, CancellationToken cancellationToken);
+
+    /// <summary>Apply: opens a file of the package, or null when it has none.</summary>
+    Stream? OpenFile(string path);
+}
+
+/// <summary>Helpers for sections with content (PRV-04).</summary>
+public static class TemplateContent
+{
+    /// <summary>
+    /// The id of the item created from the template item <paramref name="key"/> in <paramref name="listId"/>: the same
+    /// on every apply, so applying again finds what it created before and creates nothing twice.
+    /// </summary>
+    public static Guid ItemId(Guid listId, string key)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes($"{listId:N}/{key}"))[..16];
+        bytes[7] = (byte)((bytes[7] & 0x0F) | 0x80); // Version 8 (name-based, custom).
+        bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80); // RFC 4122 variant.
+        return new Guid(bytes);
+    }
+
+    /// <summary>The package, or a <see cref="TemplateException"/> for a section with content in a plain XML template.</summary>
+    public static ITemplatePackage RequirePackage(this TemplateContext context, XElement section) =>
+        context.Package ?? throw new TemplateException($"{section.Name.LocalName} needs the template package (zip) its content is in.", section);
 }

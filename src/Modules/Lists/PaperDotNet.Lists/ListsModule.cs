@@ -68,6 +68,7 @@ public sealed class ListsModule : IModule
         services.AddScoped<ITemplateHandler, ContentTypeTemplateHandler>();
         services.AddScoped<ITemplateContainer, ListTemplateContainer>();
         services.AddScoped<ITemplateHandler, SmartFolderTemplateHandler>();
+        services.AddScoped<ITemplateHandler, ListItemsTemplateHandler>();
         services.AddScopes(ListScopes.All);
         services.AddIntegrationEvent<ItemAdded>();
         services.AddIntegrationEvent<ItemUpdated>();

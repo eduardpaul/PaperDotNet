@@ -32,3 +32,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0025](0025-reliable-runs-on-several-servers.md) | Reliable automation runs and folder moves on several servers (leases, recovery, atomic hand-offs) | Accepted |
 | [0026](0026-live-events-across-servers.md) | Live events across servers with PostgreSQL LISTEN/NOTIFY | Accepted |
 | [0027](0027-semantic-and-hybrid-search.md) | Semantic and hybrid search with page-level hits (passages, in-process vector index, reciprocal rank fusion) | Accepted |
+| [0028](0028-template-packages.md) | Template packages (zip: template, JSON content, files) for content and export/import | Accepted |

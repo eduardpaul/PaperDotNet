@@ -21,10 +21,55 @@ is described in [ADR-0017](adr/0017-phase-5-scope.md).
 Extensions add their own sections in their own XML namespaces.
 
 Templates never contain the following:
-- items or documents (planned for P7, PRV-04);
+- items or documents, unless exported as a package (below);
 - item-level permissions;
 - personal workspaces or system lists;
 - secrets.
+
+## Packages with content (PRV-04)
+
+A **package** is a zip with the template and the content of its lists. Use it
+to ship a ready-made solution with sample or reference data, or to copy a
+workspace with its data. Design: [ADR-0028](adr/0028-template-packages.md).
+
+```text
+template.xml                   the template, with an Items (and doc:Files) section per list
+content/items-<list>.json      the list's items and folders
+content/files-<list>.json      which item has which file (libraries)
+files/<sha256>                 file contents, each stored once
+```
+
+**Export:** `GET /v1.0/provisioning/export?workspaceId=…&includeContent=true`
+returns `application/zip`.
+
+**Apply:** `POST /v1.0/provisioning/apply` with the zip as `application/zip`
+(up to 512 MB) takes the same options as for XML.
+
+**Items:**
+- **Values are portable:**
+  - terms as `Group/Set/Term` paths;
+  - keywords as text;
+  - people as user names;
+  - lookups as `{ "list": "Workspace/List", "key": "…" }`.
+- **Unknown on the target:** users or terms that don't exist on the target are
+  left out, with a warning.
+- **Keys and repeats:** every item has a `key`. An item created from a package
+  gets an id derived from the target list and that key, so applying a package
+  again creates nothing twice.
+- **Additive:** existing items are never changed or deleted.
+- **Normal write path:** items are created with validation, mutators, events,
+  search and automations.
+- **Order:** folders come before their contents. Lookups are set once every
+  list of the package is filled.
+
+**Files:**
+- Only the current version of each document is included.
+- Files are checked and processed like uploads (type, size, OCR).
+- An item that already has a file keeps it.
+
+**Checks:** an `Items` or `doc:Files` section in a plain XML template (no
+package) is an error, and so is a package that lacks a document its template
+names.
 
 ## References by name
 

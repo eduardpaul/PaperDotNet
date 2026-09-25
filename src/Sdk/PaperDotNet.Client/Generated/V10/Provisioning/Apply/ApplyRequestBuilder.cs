@@ -36,19 +36,21 @@ namespace PaperDotNet.Client.V10.Provisioning.Apply
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.TemplateResult"/></returns>
         /// <param name="body">Binary request body</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
+        /// <param name="contentType">The request body content type.</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
         /// <exception cref="global::PaperDotNet.Client.Models.HttpValidationProblemDetails">When receiving a 400 status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public async Task<global::PaperDotNet.Client.Models.TemplateResult?> PostAsync(Stream body, Action<RequestConfiguration<global::PaperDotNet.Client.V10.Provisioning.Apply.ApplyRequestBuilder.ApplyRequestBuilderPostQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<global::PaperDotNet.Client.Models.TemplateResult?> PostAsync(Stream body, string contentType, Action<RequestConfiguration<global::PaperDotNet.Client.V10.Provisioning.Apply.ApplyRequestBuilder.ApplyRequestBuilderPostQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #nullable restore
 #else
-        public async Task<global::PaperDotNet.Client.Models.TemplateResult> PostAsync(Stream body, Action<RequestConfiguration<global::PaperDotNet.Client.V10.Provisioning.Apply.ApplyRequestBuilder.ApplyRequestBuilderPostQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<global::PaperDotNet.Client.Models.TemplateResult> PostAsync(Stream body, string contentType, Action<RequestConfiguration<global::PaperDotNet.Client.V10.Provisioning.Apply.ApplyRequestBuilder.ApplyRequestBuilderPostQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #endif
             if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
-            var requestInfo = ToPostRequestInformation(body, requestConfiguration);
+            if(string.IsNullOrEmpty(contentType)) throw new ArgumentNullException(nameof(contentType));
+            var requestInfo = ToPostRequestInformation(body, contentType, requestConfiguration);
             var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
             {
                 { "400", global::PaperDotNet.Client.Models.HttpValidationProblemDetails.CreateFromDiscriminatorValue },
@@ -57,21 +59,23 @@ namespace PaperDotNet.Client.V10.Provisioning.Apply
         }
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="body">Binary request body</param>
+        /// <param name="contentType">The request body content type.</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public RequestInformation ToPostRequestInformation(Stream body, Action<RequestConfiguration<global::PaperDotNet.Client.V10.Provisioning.Apply.ApplyRequestBuilder.ApplyRequestBuilderPostQueryParameters>>? requestConfiguration = default)
+        public RequestInformation ToPostRequestInformation(Stream body, string contentType, Action<RequestConfiguration<global::PaperDotNet.Client.V10.Provisioning.Apply.ApplyRequestBuilder.ApplyRequestBuilderPostQueryParameters>>? requestConfiguration = default)
         {
 #nullable restore
 #else
-        public RequestInformation ToPostRequestInformation(Stream body, Action<RequestConfiguration<global::PaperDotNet.Client.V10.Provisioning.Apply.ApplyRequestBuilder.ApplyRequestBuilderPostQueryParameters>> requestConfiguration = default)
+        public RequestInformation ToPostRequestInformation(Stream body, string contentType, Action<RequestConfiguration<global::PaperDotNet.Client.V10.Provisioning.Apply.ApplyRequestBuilder.ApplyRequestBuilderPostQueryParameters>> requestConfiguration = default)
         {
 #endif
             if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
+            if(string.IsNullOrEmpty(contentType)) throw new ArgumentNullException(nameof(contentType));
             var requestInfo = new RequestInformation(Method.POST, UrlTemplate, PathParameters);
             requestInfo.Configure(requestConfiguration);
             requestInfo.Headers.TryAdd("Accept", "application/json");
-            requestInfo.SetStreamContent(body, "application/xml");
+            requestInfo.SetStreamContent(body, contentType);
             return requestInfo;
         }
         /// <summary>

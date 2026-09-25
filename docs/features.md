@@ -388,6 +388,7 @@ Content and portability first; the rest of P7 (extensions in other languages, sy
 | Slice | Features | Status |
 |---|---|---|
 | **7a Notes** | Guide [notes.md](notes.md). LST-18 Notes module on the SDK (takes over the `note` content type and `notes` template): `#tags` in the Markdown body become keywords; `[[wiki links]]` (headings, aliases, embeds) resolve to notes of the workspace by title, wait for missing titles, and are rewritten when the target is renamed; `GET …/items/{id}/noteLinks` and `…/backlinks` (only readable notes) | ✅ |
+| **7b Templates with content** | [provisioning.md](provisioning.md#packages-with-content-prv-04), [ADR-0028](adr/0028-template-packages.md). PRV-04 packages (zip: `template.xml`, `content/*.json`, `files/<sha256>`): `export?includeContent=true`; `apply` takes `application/zip`. List section `Items` (Lists): items and folders with portable values (term paths, keyword text, user names, lookups by list and key), created with ids derived from list and key (idempotent, additive), lookups set after all lists. Library section `doc:Files` (Documents): current files, checked and processed like uploads | ✅ |
 
 ## Idea → feature mapping
 

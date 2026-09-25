@@ -20,12 +20,13 @@ export interface ExportRequestBuilder extends BaseRequestBuilder<ExportRequestBu
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<ExportRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 export interface ExportRequestBuilderGetQueryParameters {
+    includeContent?: boolean;
     workspaceId?: Guid;
 }
 /**
  * Uri template for the request builder.
  */
-export const ExportRequestBuilderUriTemplate = "{+baseurl}/v1.0/provisioning/export{?workspaceId*}";
+export const ExportRequestBuilderUriTemplate = "{+baseurl}/v1.0/provisioning/export{?includeContent*,workspaceId*}";
 /**
  * Metadata for all the requests in the request builder.
  */

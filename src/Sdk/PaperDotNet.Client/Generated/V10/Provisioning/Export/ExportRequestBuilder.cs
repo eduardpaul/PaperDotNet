@@ -21,7 +21,7 @@ namespace PaperDotNet.Client.V10.Provisioning.Export
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ExportRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/provisioning/export{?workspaceId*}", pathParameters)
+        public ExportRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/provisioning/export{?includeContent*,workspaceId*}", pathParameters)
         {
         }
         /// <summary>
@@ -29,7 +29,7 @@ namespace PaperDotNet.Client.V10.Provisioning.Export
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ExportRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/provisioning/export{?workspaceId*}", rawUrl)
+        public ExportRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/provisioning/export{?includeContent*,workspaceId*}", rawUrl)
         {
         }
         /// <returns>A <see cref="Stream"/></returns>
@@ -76,6 +76,10 @@ namespace PaperDotNet.Client.V10.Provisioning.Export
         public partial class ExportRequestBuilderGetQueryParameters 
         #pragma warning restore CS1591
         {
+            #pragma warning disable CS1591
+            [QueryParameter("includeContent")]
+            public bool? IncludeContent { get; set; }
+            #pragma warning restore CS1591
             #pragma warning disable CS1591
             [QueryParameter("workspaceId")]
             public Guid? WorkspaceId { get; set; }

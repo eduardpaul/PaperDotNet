@@ -45,6 +45,7 @@ public sealed class DocumentsModule : IModule
         services.AddEventSubscriber<ItemPurged, PurgedItemFiles>();
         services.AddTenantRecurringJob<StoredFileCleanupJob>(StoredFileCleanupJob.Name, StoredFileCleanupJob.Schedule);
         services.AddScoped<ITemplateHandler, LibrarySettingsTemplateHandler>();
+        services.AddScoped<ITemplateHandler, DocumentFilesTemplateHandler>();
         services.AddScopes(DocumentScopes.All);
     }
 

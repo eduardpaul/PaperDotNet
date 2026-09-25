@@ -424,6 +424,33 @@ internal sealed class DocumentService(
             : TypedResults.Ok(FileVersionResponse.From(version));
     }
 
+    /// <summary>
+    /// Gives an item its first file (templates and imports, PRV-04): checked like an upload (size, type) and processed
+    /// like one. Nothing happens when the item already has a file. Returns an error message, or null.
+    /// </summary>
+    public async Task<string?> AttachAsync(ListItemData item, Stream content, string fileName, CancellationToken ct)
+    {
+        if (await db.FileVersions.AnyAsync(v => v.ItemId == item.Id, ct))
+        {
+            return null;
+        }
+
+        await using var spooled = await FileIntake.SpoolAsync(content, options.Value.MaxFileSize, ct);
+        if (spooled.TooLarge)
+        {
+            return $"the file has more than {options.Value.MaxFileSize} bytes";
+        }
+
+        if (spooled.MediaType is null)
+        {
+            return "only PDF, TIFF, JPEG and PNG files are supported";
+        }
+
+        var stored = await intake.StoreAsync(spooled, ct);
+        var version = await AddVersionAsync(item, null, stored, FileName(fileName, spooled.MediaType), "import", ct);
+        return version is null ? "the item's file was changed at the same time" : null;
+    }
+
     /// <summary>Adds the next version and makes it current; null when another change won the race.</summary>
     private async Task<FileVersion?> AddVersionAsync(ListItemData item, FileVersion? current, StoredFile stored, string fileName, string source, CancellationToken ct)
     {

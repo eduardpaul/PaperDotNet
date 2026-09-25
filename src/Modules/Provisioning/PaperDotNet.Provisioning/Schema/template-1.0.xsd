@@ -272,6 +272,13 @@
           <xs:attribute name="Unique" type="xs:boolean" use="required" />
         </xs:complexType>
       </xs:element>
+      <!-- PRV-04: the list's items, in a JSON document of the template package (zip). -->
+      <xs:element name="Items" minOccurs="0">
+        <xs:complexType>
+          <xs:attribute name="File" type="xs:string" use="required" />
+          <xs:attribute name="Count" type="xs:nonNegativeInteger" />
+        </xs:complexType>
+      </xs:element>
       <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded" />
     </xs:sequence>
     <xs:attribute name="Name" type="Name" use="required" />

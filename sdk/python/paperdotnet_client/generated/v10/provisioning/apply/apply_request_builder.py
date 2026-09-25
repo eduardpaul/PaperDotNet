@@ -31,16 +31,19 @@ class ApplyRequestBuilder(BaseRequestBuilder):
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/provisioning/apply{?dryRun*,workspaceId*}", path_parameters)
     
-    async def post(self,body: bytes, request_configuration: Optional[RequestConfiguration[ApplyRequestBuilderPostQueryParameters]] = None) -> Optional[TemplateResult]:
+    async def post(self,body: bytes, content_type: str, request_configuration: Optional[RequestConfiguration[ApplyRequestBuilderPostQueryParameters]] = None) -> Optional[TemplateResult]:
         """
         param body: Binary request body
+        param content_type: The request body content type.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[TemplateResult]
         """
         if body is None:
             raise TypeError("body cannot be null.")
+        if content_type is None:
+            raise TypeError("content_type cannot be null.")
         request_info = self.to_post_request_information(
-            body, request_configuration
+            body, content_type, request_configuration
         )
         from ....models.http_validation_problem_details import HttpValidationProblemDetails
 
@@ -53,18 +56,21 @@ class ApplyRequestBuilder(BaseRequestBuilder):
 
         return await self.request_adapter.send_async(request_info, TemplateResult, error_mapping)
     
-    def to_post_request_information(self,body: bytes, request_configuration: Optional[RequestConfiguration[ApplyRequestBuilderPostQueryParameters]] = None) -> RequestInformation:
+    def to_post_request_information(self,body: bytes, content_type: str, request_configuration: Optional[RequestConfiguration[ApplyRequestBuilderPostQueryParameters]] = None) -> RequestInformation:
         """
         param body: Binary request body
+        param content_type: The request body content type.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
         if body is None:
             raise TypeError("body cannot be null.")
+        if content_type is None:
+            raise TypeError("content_type cannot be null.")
         request_info = RequestInformation(Method.POST, self.url_template, self.path_parameters)
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/json")
-        request_info.set_stream_content(body, "application/xml")
+        request_info.set_stream_content(body, content_type)
         return request_info
     
     def with_url(self,raw_url: str) -> ApplyRequestBuilder:

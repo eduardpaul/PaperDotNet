@@ -12,17 +12,19 @@ import { type BaseRequestBuilder, type Guid, type Parsable, type ParsableFactory
 export interface ApplyRequestBuilder extends BaseRequestBuilder<ApplyRequestBuilder> {
     /**
      * @param body Binary request body
+     * @param contentType The request body content type.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<TemplateResult>}
      * @throws {HttpValidationProblemDetails} error when the service returns a 400 status code
      */
-     post(body: ArrayBuffer | undefined, requestConfiguration?: RequestConfiguration<ApplyRequestBuilderPostQueryParameters> | undefined) : Promise<TemplateResult | undefined>;
+     post(body: ArrayBuffer | undefined, contentType: string | undefined, requestConfiguration?: RequestConfiguration<ApplyRequestBuilderPostQueryParameters> | undefined) : Promise<TemplateResult | undefined>;
     /**
      * @param body Binary request body
+     * @param contentType The request body content type.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
-     toPostRequestInformation(body: ArrayBuffer | undefined, requestConfiguration?: RequestConfiguration<ApplyRequestBuilderPostQueryParameters> | undefined) : RequestInformation;
+     toPostRequestInformation(body: ArrayBuffer | undefined, contentType: string | undefined, requestConfiguration?: RequestConfiguration<ApplyRequestBuilderPostQueryParameters> | undefined) : RequestInformation;
 }
 export interface ApplyRequestBuilderPostQueryParameters {
     dryRun?: boolean;
@@ -44,7 +46,6 @@ export const ApplyRequestBuilderRequestsMetadata: RequestsMetadata = {
         },
         adapterMethodName: "send",
         responseBodyFactory:  createTemplateResultFromDiscriminatorValue,
-        requestBodyContentType: "application/xml",
         requestInformationContentSetMethod: "setStreamContent",
     },
 };

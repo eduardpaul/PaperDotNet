@@ -25,7 +25,7 @@ class ExportRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/provisioning/export{?workspaceId*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/provisioning/export{?includeContent*,workspaceId*}", path_parameters)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[ExportRequestBuilderGetQueryParameters]] = None) -> Optional[bytes]:
         """
@@ -68,10 +68,14 @@ class ExportRequestBuilder(BaseRequestBuilder):
             """
             if original_name is None:
                 raise TypeError("original_name cannot be null.")
+            if original_name == "include_content":
+                return "includeContent"
             if original_name == "workspace_id":
                 return "workspaceId"
             return original_name
         
+        include_content: Optional[bool] = None
+
         workspace_id: Optional[UUID] = None
 
     
