@@ -76,6 +76,12 @@ public interface IExtensionBuilder
     /// </summary>
     IExtensionBuilder AddContentType(ContentTypeTemplate contentType);
 
+    /// <summary>
+    /// A term set (TAX-11; key starts with <c>{extension id}.</c>), provisioned into a tenant when it enables the
+    /// extension: missing terms and synonyms are added, terms are never removed.
+    /// </summary>
+    IExtensionBuilder AddTermSet(Taxonomy.Contracts.TermSetTemplate termSet);
+
     /// <summary>A list template (LST-16; key starts with <c>{extension id}.</c>), offered where the extension is enabled.</summary>
     IExtensionBuilder AddListTemplate(ListTemplateDefinition listTemplate);
 

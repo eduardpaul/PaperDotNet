@@ -19,11 +19,17 @@ public sealed class TaxonomyModule : IModule
     {
         services.AddModuleDbContext<TaxonomyDbContext>(TaxonomyDbContext.Schema);
         services.AddScoped<ITermStore, TermStore>();
+        services.AddScoped<TermSetProvisioner>();
+        services.AddScoped<ITermSetProvisioning>(sp => sp.GetRequiredService<TermSetProvisioner>());
         services.AddScoped<ITenantInitializer, TaxonomyTenantInitializer>();
         services.AddScoped<ITemplateHandler, TermGroupTemplateHandler>();
         services.AddScopes(TaxonomyScopes.All);
         services.AddIntegrationEvent<TermMerged>();
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) => TermStoreEndpoints.Map(endpoints);
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        TermStoreEndpoints.Map(endpoints);
+        TermSetImport.Map(endpoints);
+    }
 }

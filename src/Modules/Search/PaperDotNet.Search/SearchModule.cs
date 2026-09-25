@@ -31,6 +31,7 @@ public sealed class SearchModule : IModule
     {
         services.AddModuleDbContext<SearchDbContext>(SearchDbContext.Schema);
         services.AddScoped<ISearchIndex, SearchIndex>();
+        services.AddScoped<ITermUsage, TermUsage>();
         services.AddScopes(SearchScopes.All);
         services.AddScoped<SearchReindexer>();
         services.AddScoped<IMcpTool, SearchTool>();

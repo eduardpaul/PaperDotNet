@@ -41,6 +41,8 @@ public sealed class ExtensionContributions
 
     public List<string> McpTools { get; } = [];
 
+    public List<string> TermSets { get; } = [];
+
     /// <summary>The extension's own DbContext (EXT-07), if any.</summary>
     public string? DbContext { get; set; }
 
@@ -208,6 +210,14 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         RequirePrefix(contentType.Key, "Content type key");
         services.AddSingleton(contentType with { ExtensionId = extension.Id });
         extension.Contributions.ContentTypes.Add(contentType.Key);
+        return this;
+    }
+
+    public IExtensionBuilder AddTermSet(Taxonomy.Contracts.TermSetTemplate termSet)
+    {
+        RequirePrefix(termSet.Key ?? "", "Term set key");
+        services.AddSingleton(termSet with { ExtensionId = extension.Id });
+        extension.Contributions.TermSets.Add(termSet.Key!);
         return this;
     }
 

@@ -52,6 +52,12 @@ public sealed class TermSet : ITenantOwned, IAuditable, IVersioned
     /// <summary>The tenant's folksonomy set (exactly one per tenant).</summary>
     public bool IsKeywords { get; set; }
 
+    /// <summary>Stable key of a term set provisioned from a template (extensions, TAX-11).</summary>
+    public string? Key { get; set; }
+
+    /// <summary>The extension that provides this term set, if any.</summary>
+    public string? ExtensionId { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
@@ -110,6 +116,9 @@ public sealed class Term : ITenantOwned, IAuditable, IVersioned
     /// <summary>Set when the term was merged into another term.</summary>
     public Guid? MergedIntoId { get; set; }
 
+    /// <summary>The term can be used in keywords fields (a keyword promoted into this term set, TAX-05).</summary>
+    public bool AvailableAsKeyword { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
@@ -151,6 +160,9 @@ public sealed class TaxonomyDbContext(DbContextOptions<TaxonomyDbContext> option
             b.ToTable("term_sets");
             b.Property(s => s.Name).HasMaxLength(200);
             b.HasIndex(s => new { s.GroupId, s.Name }).IsUnique();
+            b.Property(s => s.Key).HasMaxLength(150);
+            b.Property(s => s.ExtensionId).HasMaxLength(100);
+            b.HasIndex(s => new { s.TenantId, s.Key }).IsUnique();
         });
         modelBuilder.Entity<Term>(b =>
         {

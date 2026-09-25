@@ -19,7 +19,8 @@ namespace PaperDotNet.Lists.Querying;
 /// PostgreSQL can use its GIN index. Equality on a managed metadata field also
 /// matches the term's descendants (<paramref name="termDescendants"/>).
 /// </summary>
-internal sealed class ItemQueryTranslator(ItemEdmModel model, IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>? termDescendants = null)
+internal sealed class ItemQueryTranslator(
+    ItemEdmModel model, IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>? termDescendants = null, IDictionary<string, SingleValueNode>? aliases = null)
 {
     private static readonly ParameterExpression Item = Expression.Parameter(typeof(ListItem), "i");
     private static readonly MethodInfo JsonText = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Text))!;
@@ -315,7 +316,14 @@ internal sealed class ItemQueryTranslator(ItemEdmModel model, IReadOnlyDictionar
         _ => throw Unsupported("A date-time literal is expected."),
     };
 
-    private static QueryNode Unwrap(QueryNode node) => node is ConvertNode convert ? Unwrap(convert.Source) : node;
+    /// <summary>Removes conversions and resolves parameter aliases (<c>@me</c>, <c>@today</c>, …) to their values.</summary>
+    private QueryNode Unwrap(QueryNode node) => node switch
+    {
+        ConvertNode convert => Unwrap(convert.Source),
+        ParameterAliasNode alias when aliases is not null && aliases.TryGetValue(alias.Alias, out var value) && value is not null => Unwrap(value),
+        ParameterAliasNode alias => throw Unsupported($"Unknown parameter '{alias.Alias}'."),
+        _ => node,
+    };
 
     private static BinaryOperatorKind Flip(BinaryOperatorKind kind) => kind switch
     {

@@ -34,12 +34,14 @@ internal sealed class TermStore(TaxonomyDbContext db) : ITermStore
 
     public async Task<Guid?> ResolveAsync(Guid termSetId, string value, bool allowCreate, CancellationToken cancellationToken)
     {
+        // Keywords fields also accept terms promoted from the keywords set (TAX-05).
+        var keywords = await db.TermSets.AsNoTracking().AnyAsync(s => s.Id == termSetId && s.IsKeywords, cancellationToken);
         if (Guid.TryParse(value, out var id))
         {
             for (var hop = 0; hop < MaxMergeHops; hop++)
             {
                 var term = await db.Terms.AsNoTracking()
-                    .Where(t => t.Id == id && t.TermSetId == termSetId)
+                    .Where(t => t.Id == id && (t.TermSetId == termSetId || (keywords && t.AvailableAsKeyword)))
                     .Select(t => new { t.MergedIntoId, t.IsDeprecated })
                     .FirstOrDefaultAsync(cancellationToken);
                 if (term is null)
@@ -64,7 +66,7 @@ internal sealed class TermStore(TaxonomyDbContext db) : ITermStore
             return null;
         }
 
-        var matches = await FindByLabelAsync(db, termSetId, label, cancellationToken);
+        var matches = await FindByLabelAsync(db, termSetId, label, cancellationToken, includePromoted: keywords);
         if (matches.Count == 1)
         {
             return matches[0].IsDeprecated ? null : matches[0].Id;
@@ -85,6 +87,19 @@ internal sealed class TermStore(TaxonomyDbContext db) : ITermStore
         db.Terms.Add(created);
         await db.SaveChangesAsync(cancellationToken);
         return created.Id;
+    }
+
+    public async Task<IReadOnlyList<TermInfo>> GetTermsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken)
+    {
+        if (termIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await db.Terms.AsNoTracking()
+            .Where(t => termIds.Contains(t.Id))
+            .Join(db.TermSets, t => t.TermSetId, s => s.Id, (t, s) => new TermInfo(t.Id, t.TermSetId, t.Name, s.IsKeywords || t.AvailableAsKeyword, t.IsDeprecated))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> GetDescendantsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken)
@@ -125,11 +140,11 @@ internal sealed class TermStore(TaxonomyDbContext db) : ITermStore
     }
 
     /// <summary>Active (not merged) terms whose name, label or synonym equals <paramref name="label"/> (case-insensitive).</summary>
-    internal static async Task<List<Term>> FindByLabelAsync(TaxonomyDbContext db, Guid termSetId, string label, CancellationToken ct)
+    internal static async Task<List<Term>> FindByLabelAsync(TaxonomyDbContext db, Guid termSetId, string label, CancellationToken ct, bool includePromoted = false)
     {
         var normalized = TermRules.Normalize(label);
         var candidates = await db.Terms.AsNoTracking()
-            .Where(t => t.TermSetId == termSetId && t.MergedIntoId == null && t.SearchText.Contains(normalized))
+            .Where(t => (t.TermSetId == termSetId || (includePromoted && t.AvailableAsKeyword)) && t.MergedIntoId == null && t.SearchText.Contains(normalized))
             .ToListAsync(ct);
         return candidates
             .Where(t => t.SearchText.Split('\n').Contains(normalized, StringComparer.Ordinal))

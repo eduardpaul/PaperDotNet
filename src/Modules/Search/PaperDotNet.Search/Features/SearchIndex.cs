@@ -69,3 +69,28 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
         await documents.ExecuteDeleteAsync(ct);
     }
 }
+
+/// <summary>Counts tag usage from the index (one row per document and term).</summary>
+internal sealed class TermUsage(SearchDbContext db) : ITermUsage
+{
+    private const int ChunkSize = 500;
+
+    public async Task<IReadOnlyDictionary<Guid, int>> CountAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<Guid, int>();
+        foreach (var chunk in termIds.Distinct().Chunk(ChunkSize))
+        {
+            var counts = await db.Tags.AsNoTracking()
+                .Where(t => chunk.Contains(t.TermId))
+                .GroupBy(t => t.TermId)
+                .Select(g => new { g.Key, Count = g.Count() })
+                .ToListAsync(cancellationToken);
+            foreach (var count in counts)
+            {
+                result[count.Key] = count.Count;
+            }
+        }
+
+        return result;
+    }
+}

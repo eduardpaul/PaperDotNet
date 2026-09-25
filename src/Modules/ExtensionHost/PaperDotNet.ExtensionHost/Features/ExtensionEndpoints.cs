@@ -62,24 +62,26 @@ internal static class ExtensionEndpoints
     /// </summary>
     private static async Task<Results<Ok<ExtensionResponse>, ProblemHttpResult>> EnableAsync(
         string id, ExtensionCatalog catalog, ExtensionsDbContext db, IRoleProvisioning roles, IContentTypeProvisioning contentTypes,
-        ExtensionState state, CancellationToken ct)
+        Taxonomy.Contracts.ITermSetProvisioning termSets, ExtensionState state, CancellationToken ct)
     {
         if (catalog.Find(id) is not { } extension)
         {
             return ApiErrors.NotFound();
         }
 
-        await EnableExtensionAsync(extension, db, roles, contentTypes, state, ct);
+        await EnableExtensionAsync(extension, db, roles, contentTypes, termSets, state, ct);
         return TypedResults.Ok(ToResponse(extension, enabled: true));
     }
 
     internal static async Task EnableExtensionAsync(
-        LoadedExtension extension, ExtensionsDbContext db, IRoleProvisioning roles, IContentTypeProvisioning contentTypes, ExtensionState state, CancellationToken ct)
+        LoadedExtension extension, ExtensionsDbContext db, IRoleProvisioning roles, IContentTypeProvisioning contentTypes,
+        Taxonomy.Contracts.ITermSetProvisioning termSets, ExtensionState state, CancellationToken ct)
     {
         var row = await RowAsync(db, extension.Id, ct);
         row.Enabled = true;
         await SaveAsync(db, state, ct);
         await contentTypes.ProvisionExtensionAsync(extension.Id, ct);
+        await termSets.ProvisionExtensionAsync(extension.Id, ct);
         await roles.GrantToMembersAsync([.. extension.Manifest.Scopes.Where(s => s.GrantedToMembers).Select(s => s.Name)], ct);
     }
 

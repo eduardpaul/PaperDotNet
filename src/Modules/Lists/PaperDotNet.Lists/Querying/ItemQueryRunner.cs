@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OData;
 using Microsoft.OData.UriParser;
+using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
@@ -52,7 +53,7 @@ public sealed record ItemPage(
     [property: JsonPropertyName("@odata.nextLink")] string? NextLink);
 
 /// <summary>Parses, validates and runs item queries against one list.</summary>
-internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry fieldTypes, ITermStore terms)
+internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry fieldTypes, ITermStore terms, ICurrentUser user, TimeProvider time)
 {
     /// <summary>Checks a <c>$filter</c>/<c>$orderby</c> pair against the list schema; returns an error or null.</summary>
     public string? Validate(ListSchema schema, string? filter, string? orderBy)
@@ -245,8 +246,7 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         ListSchema schema, string? filter, string? orderBy, IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>? hierarchy)
     {
         var model = ItemEdmModel.Build(schema.Fields, fieldTypes);
-        var translator = new ItemQueryTranslator(model, hierarchy);
-        var options = new Dictionary<string, string>(StringComparer.Ordinal);
+        var options = QueryAliases.For(user.UserId, time.GetUtcNow());
         if (filter is not null)
         {
             options["$filter"] = filter;
@@ -260,6 +260,7 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         var parser = new ODataQueryOptionParser(model.Model, model.ItemType, model.Items, options);
         var filterClause = parser.ParseFilter();
         var orderByClause = parser.ParseOrderBy();
+        var translator = new ItemQueryTranslator(model, hierarchy, parser.ParameterAliasNodes);
 
         // Translate once to surface unsupported constructs as validation errors.
         if (filterClause is not null)
@@ -352,5 +353,38 @@ public sealed record ItemResponse(
         }
 
         return new ItemResponse(item.Id, item.ListId, item.ContentTypeId, item.ParentId, item.IsFolder, item.CreatedAt, item.CreatedBy, item.UpdatedAt, item.UpdatedBy, fields);
+    }
+}
+
+/// <summary>
+/// Built-in parameter aliases for <c>$filter</c> (TAX-08): <c>@me</c> (the current user), <c>@now</c>, and
+/// dates in UTC: <c>@today</c>, <c>@yesterday</c>, <c>@tomorrow</c>, <c>@weekStart</c>, <c>@weekEnd</c>
+/// (Monday to Sunday), <c>@monthStart</c>, <c>@monthEnd</c>, <c>@last7Days</c>, <c>@next7Days</c>,
+/// <c>@last30Days</c>, <c>@next30Days</c>. Example: <c>fields/dueDate le @next7Days and fields/assignedTo/any(p: p eq @me)</c>.
+/// </summary>
+internal static class QueryAliases
+{
+    public static Dictionary<string, string> For(Guid? userId, DateTimeOffset now)
+    {
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var weekStart = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+        var monthStart = new DateOnly(today.Year, today.Month, 1);
+        static string Date(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["@me"] = userId?.ToString() ?? "null",
+            ["@now"] = now.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
+            ["@today"] = Date(today),
+            ["@yesterday"] = Date(today.AddDays(-1)),
+            ["@tomorrow"] = Date(today.AddDays(1)),
+            ["@weekStart"] = Date(weekStart),
+            ["@weekEnd"] = Date(weekStart.AddDays(6)),
+            ["@monthStart"] = Date(monthStart),
+            ["@monthEnd"] = Date(monthStart.AddMonths(1).AddDays(-1)),
+            ["@last7Days"] = Date(today.AddDays(-7)),
+            ["@next7Days"] = Date(today.AddDays(7)),
+            ["@last30Days"] = Date(today.AddDays(-30)),
+            ["@next30Days"] = Date(today.AddDays(30)),
+        };
     }
 }

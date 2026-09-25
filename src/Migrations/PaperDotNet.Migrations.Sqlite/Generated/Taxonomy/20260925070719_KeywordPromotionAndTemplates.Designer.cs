@@ -3,178 +3,175 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PaperDotNet.Taxonomy.Data;
 
 #nullable disable
 
-namespace PaperDotNet.Migrations.PostgreSql.Generated.Taxonomy
+namespace PaperDotNet.Migrations.Sqlite.Generated.Taxonomy
 {
     [DbContext(typeof(TaxonomyDbContext))]
-    partial class TaxonomyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260925070719_KeywordPromotionAndTemplates")]
+    partial class KeywordPromotionAndTemplates
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasDefaultSchema("taxonomy")
-                .HasAnnotation("ProductVersion", "10.0.12")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
-
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
             modelBuilder.Entity("PaperDotNet.Persistence.AuditEntry", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
                     b.Property<string>("Action")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("action");
 
-                    b.Property<DateTimeOffset>("At")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("At")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("at");
 
                     b.Property<Guid?>("EntityId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("entity_id");
 
                     b.Property<string>("EntityType")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("entity_type");
 
-                    b.PrimitiveCollection<List<string>>("Properties")
+                    b.PrimitiveCollection<string>("Properties")
                         .IsRequired()
-                        .HasColumnType("text[]")
+                        .HasColumnType("TEXT")
                         .HasColumnName("properties");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
                     b.Property<string>("TraceId")
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("trace_id");
 
                     b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id")
-                        .HasName("pk_audit_log");
+                        .HasName("pk_taxonomy_audit_log");
 
                     b.HasIndex("EntityId")
-                        .HasDatabaseName("ix_audit_log_entity_id");
+                        .HasDatabaseName("ix_taxonomy_audit_log_entity_id");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_audit_log_tenant_id");
+                        .HasDatabaseName("ix_taxonomy_audit_log_tenant_id");
 
                     b.HasIndex("TenantId", "At")
-                        .HasDatabaseName("ix_audit_log_tenant_id_at");
+                        .HasDatabaseName("ix_taxonomy_audit_log_tenant_id_at");
 
-                    b.ToTable("audit_log", "taxonomy");
+                    b.ToTable("taxonomy_audit_log", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Taxonomy.Data.Term", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
                     b.Property<bool>("AvailableAsKeyword")
-                        .HasColumnType("boolean")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("available_as_keyword");
 
                     b.Property<string>("Color")
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("color");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
                     b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("description");
 
                     b.Property<bool>("IsDeprecated")
-                        .HasColumnType("boolean")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("is_deprecated");
 
                     b.Property<Guid?>("MergedIntoId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("merged_into_id");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<string>("NormalizedName")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("normalized_name");
 
                     b.Property<Guid?>("ParentId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("parent_id");
 
                     b.Property<string>("Path")
                         .IsRequired()
                         .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("path");
 
                     b.Property<string>("SearchText")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("search_text");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("sort_order");
 
-                    b.PrimitiveCollection<List<string>>("Synonyms")
+                    b.PrimitiveCollection<string>("Synonyms")
                         .IsRequired()
-                        .HasColumnType("text[]")
+                        .HasColumnType("TEXT")
                         .HasColumnName("synonyms");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
                     b.Property<Guid>("TermSetId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("term_set_id");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("updated_at");
 
                     b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("updated_by");
 
-                    b.Property<long>("Version")
+                    b.Property<uint>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("version");
 
                     b.ComplexCollection(typeof(List<Dictionary<string, object>>), "Labels", "PaperDotNet.Taxonomy.Data.Term.Labels#TermLabel", b1 =>
@@ -189,162 +186,162 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Taxonomy
 
                             b1
                                 .ToJson("labels")
-                                .HasColumnType("jsonb");
+                                .HasColumnType("TEXT");
                         });
 
                     b.HasKey("Id")
-                        .HasName("pk_terms");
+                        .HasName("pk_taxonomy_terms");
 
                     b.HasIndex("Path")
-                        .HasDatabaseName("ix_terms_path");
+                        .HasDatabaseName("ix_taxonomy_terms_path");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_terms_tenant_id");
+                        .HasDatabaseName("ix_taxonomy_terms_tenant_id");
 
                     b.HasIndex("TermSetId", "ParentId", "NormalizedName")
-                        .HasDatabaseName("ix_terms_term_set_id_parent_id_normalized_name");
+                        .HasDatabaseName("ix_taxonomy_terms_term_set_id_parent_id_normalized_name");
 
-                    b.ToTable("terms", "taxonomy");
+                    b.ToTable("taxonomy_terms", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Taxonomy.Data.TermGroup", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
                     b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("description");
 
                     b.Property<bool>("IsSystem")
-                        .HasColumnType("boolean")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("is_system");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("updated_at");
 
                     b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("updated_by");
 
-                    b.Property<long>("Version")
+                    b.Property<uint>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("version");
 
                     b.HasKey("Id")
-                        .HasName("pk_groups");
+                        .HasName("pk_taxonomy_groups");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_groups_tenant_id");
+                        .HasDatabaseName("ix_taxonomy_groups_tenant_id");
 
                     b.HasIndex("TenantId", "Name")
                         .IsUnique()
-                        .HasDatabaseName("ix_groups_tenant_id_name");
+                        .HasDatabaseName("ix_taxonomy_groups_tenant_id_name");
 
-                    b.ToTable("groups", "taxonomy");
+                    b.ToTable("taxonomy_groups", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Taxonomy.Data.TermSet", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
                     b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("description");
 
                     b.Property<string>("ExtensionId")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("extension_id");
 
                     b.Property<Guid>("GroupId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("group_id");
 
                     b.Property<bool>("IsKeywords")
-                        .HasColumnType("boolean")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("is_keywords");
 
                     b.Property<bool>("IsOpen")
-                        .HasColumnType("boolean")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("is_open");
 
                     b.Property<string>("Key")
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("key");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("updated_at");
 
                     b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("updated_by");
 
-                    b.Property<long>("Version")
+                    b.Property<uint>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("version");
 
                     b.HasKey("Id")
-                        .HasName("pk_term_sets");
+                        .HasName("pk_taxonomy_term_sets");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_term_sets_tenant_id");
+                        .HasDatabaseName("ix_taxonomy_term_sets_tenant_id");
 
                     b.HasIndex("GroupId", "Name")
                         .IsUnique()
-                        .HasDatabaseName("ix_term_sets_group_id_name");
+                        .HasDatabaseName("ix_taxonomy_term_sets_group_id_name");
 
                     b.HasIndex("TenantId", "Key")
                         .IsUnique()
-                        .HasDatabaseName("ix_term_sets_tenant_id_key");
+                        .HasDatabaseName("ix_taxonomy_term_sets_tenant_id_key");
 
-                    b.ToTable("term_sets", "taxonomy");
+                    b.ToTable("taxonomy_term_sets", (string)null);
                 });
 #pragma warning restore 612, 618
         }

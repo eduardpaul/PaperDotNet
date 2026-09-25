@@ -85,6 +85,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Taxonomy
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
 
+                    b.Property<bool>("AvailableAsKeyword")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("available_as_keyword");
+
                     b.Property<string>("Color")
                         .HasMaxLength(32)
                         .HasColumnType("TEXT")
@@ -275,6 +279,11 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Taxonomy
                         .HasColumnType("TEXT")
                         .HasColumnName("description");
 
+                    b.Property<string>("ExtensionId")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("extension_id");
+
                     b.Property<Guid>("GroupId")
                         .HasColumnType("TEXT")
                         .HasColumnName("group_id");
@@ -286,6 +295,11 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Taxonomy
                     b.Property<bool>("IsOpen")
                         .HasColumnType("INTEGER")
                         .HasColumnName("is_open");
+
+                    b.Property<string>("Key")
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("key");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -319,6 +333,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Taxonomy
                     b.HasIndex("GroupId", "Name")
                         .IsUnique()
                         .HasDatabaseName("ix_taxonomy_term_sets_group_id_name");
+
+                    b.HasIndex("TenantId", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("ix_taxonomy_term_sets_tenant_id_key");
 
                     b.ToTable("taxonomy_term_sets", (string)null);
                 });

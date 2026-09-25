@@ -43,6 +43,14 @@ public sealed class InvoicesExtension : IExtension
         {
             Versioning = true,
         });
+        builder.AddTermSet(new Taxonomy.Contracts.TermSetTemplate("Invoices", "Cost centers",
+        [
+            new("Operations", Children: [new("Facilities"), new("IT", ["Information technology"])]),
+            new("Sales", Children: [new("Marketing")]),
+        ], "Cost centers for invoices.")
+        {
+            Key = $"{Id}.costCenters",
+        });
         builder.AddItemReceiver<ApprovalReceiver>(o =>
         {
             o.Sequence = 100;

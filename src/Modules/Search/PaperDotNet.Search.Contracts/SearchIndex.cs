@@ -41,6 +41,13 @@ public interface ISearchIndex
     Task DeleteSourceAsync(string sourceType, CancellationToken cancellationToken);
 }
 
+/// <summary>How often terms are used as tags in the tenant's search index (e.g. popular keywords, TAX-05).</summary>
+public interface ITermUsage
+{
+    /// <summary>Number of indexed items tagged with each term (terms without use are omitted).</summary>
+    Task<IReadOnlyDictionary<Guid, int>> CountAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
+}
+
 /// <summary>A module that can push all of its content again (reindex, SRC-10).</summary>
 public interface ISearchSource
 {

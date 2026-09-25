@@ -16,7 +16,8 @@ namespace PaperDotNet.ExtensionHost.Features;
 /// field types. Enabled extensions are registered on the context (extension sections are gated on it).
 /// </summary>
 internal sealed class ExtensionTemplateHandler(
-    ExtensionCatalog catalog, ExtensionsDbContext db, ExtensionState state, IRoleProvisioning roles, IContentTypeProvisioning contentTypes) : ITemplateHandler
+    ExtensionCatalog catalog, ExtensionsDbContext db, ExtensionState state, IRoleProvisioning roles, IContentTypeProvisioning contentTypes,
+    Taxonomy.Contracts.ITermSetProvisioning termSets) : ITemplateHandler
 {
     public XName Element => TemplateXml.Name("Extensions");
 
@@ -91,7 +92,7 @@ internal sealed class ExtensionTemplateHandler(
                 context.Updated(TemplateKinds.Extension, id, "enabled");
                 if (!context.DryRun)
                 {
-                    await ExtensionEndpoints.EnableExtensionAsync(extension, db, roles, contentTypes, state, cancellationToken);
+                    await ExtensionEndpoints.EnableExtensionAsync(extension, db, roles, contentTypes, termSets, state, cancellationToken);
                 }
             }
             else if (!enable && enabled)
