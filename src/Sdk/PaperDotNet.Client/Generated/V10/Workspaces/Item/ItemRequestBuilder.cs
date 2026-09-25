@@ -4,7 +4,7 @@ using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
-using PaperDotNet.Client.V10.Workspaces.Item.Automation;
+using PaperDotNet.Client.V10.Workspaces.Item.Automations;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists;
 using PaperDotNet.Client.V10.Workspaces.Item.Members;
 using System.Collections.Generic;
@@ -20,10 +20,10 @@ namespace PaperDotNet.Client.V10.Workspaces.Item
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class ItemRequestBuilder : BaseRequestBuilder
     {
-        /// <summary>The automation property</summary>
-        public global::PaperDotNet.Client.V10.Workspaces.Item.Automation.AutomationRequestBuilder Automation
+        /// <summary>The automations property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Automations.AutomationsRequestBuilder Automations
         {
-            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Automation.AutomationRequestBuilder(PathParameters, RequestAdapter);
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Automations.AutomationsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The lists property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.ListsRequestBuilder Lists

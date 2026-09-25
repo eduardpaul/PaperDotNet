@@ -5,6 +5,7 @@ using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Activity;
+using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Automations;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Checklist;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Comments;
@@ -15,7 +16,6 @@ using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Recurrence;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Series;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Tasks;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Versions;
-using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Workflows;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -33,6 +33,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Activity.ActivityRequestBuilder Activity
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Activity.ActivityRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The automations property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Automations.AutomationsRequestBuilder Automations
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Automations.AutomationsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The checklist property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Checklist.ChecklistRequestBuilder Checklist
@@ -83,11 +88,6 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Versions.VersionsRequestBuilder Versions
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Versions.VersionsRequestBuilder(PathParameters, RequestAdapter);
-        }
-        /// <summary>The workflows property</summary>
-        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Workflows.WorkflowsRequestBuilder Workflows
-        {
-            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Workflows.WorkflowsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.WithItemItemRequestBuilder"/> and sets the default values.

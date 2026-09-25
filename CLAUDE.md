@@ -100,9 +100,10 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `IItemSearchContributor`; client notifications through `ILiveEvents`
   (`/v1.0/me/events`, SSE); user notifications (inbox, webhook) through
   `INotificationSender` (Notifications.Contracts) with a deduplication key.
-- Automation (ADR-0018, ADR-0019): actions implement `IAutomationAction` and triggers are
-  raised with `IAutomationTriggers` (Automation.Contracts); workflow runs are resumed with
-  `ResumeRun` messages through the outbox (no workflow engine). Code that reacts to an event
+- Automation (ADR-0019, ADR-0024): one model, automations (trigger + condition + steps); actions
+  implement `IAutomationAction` (safe to repeat with `ExecutionKey`) and triggers are raised with
+  `IAutomationTriggers` (Automation.Contracts); runs are started and resumed with `ResumeRun`
+  messages through the outbox (no workflow engine). Code that reacts to an event
   and changes data should set `EventCausation.Depth` to the event's depth + 1 (loop protection).
 - Configuration must be portable (PRV, ADR-0017): a module with its own configuration
   implements `ITemplateHandler` (Provisioning.Contracts) for its template section,

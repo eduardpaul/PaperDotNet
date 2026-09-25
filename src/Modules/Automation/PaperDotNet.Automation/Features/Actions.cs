@@ -230,28 +230,7 @@ internal sealed class NotifyAction(IListItemStore items, RecipientResolver recip
     }
 }
 
-/// <summary><c>workflow.start</c>: starts a workflow of the workspace on the item (<c>workflow</c>: its name).</summary>
-internal sealed class WorkflowStartAction(WorkflowStarter starter) : IAutomationAction
-{
-    public string Key => "workflow.start";
-
-    public string Description => "Starts a workflow on the item: { \"workflow\": \"Invoice approval\" }.";
-
-    public IEnumerable<string> Validate(JsonObject inputs) => Inputs.Required(inputs, "workflow");
-
-    public async Task<AutomationActionResult> ExecuteAsync(AutomationActionContext context, CancellationToken cancellationToken)
-    {
-        if (context.Item is not { } item)
-        {
-            return AutomationActionResult.Fail("The trigger has no item.");
-        }
-
-        var (run, error) = await starter.StartAsync(item, Inputs.Text(context.Inputs, "workflow")!, context.UserId, cancellationToken);
-        return run is null ? AutomationActionResult.Fail(error!) : AutomationActionResult.Ok(new JsonObject { ["runId"] = run.Id.ToString() });
-    }
-}
-
-/// <summary>Runs one action with the token context of a rule or workflow.</summary>
+/// <summary>Runs one action with the token context of an automation run.</summary>
 internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens, IListItemStore items, IServiceProvider services)
 {
     public async Task<AutomationActionResult> ExecuteAsync(

@@ -237,6 +237,7 @@ internal sealed class ItemWriter(
             TenantId = tenant.TenantId!.Value,
             TenantIdentifier = tenant.TenantIdentifier!,
             UserId = currentUser.UserId,
+            Depth = causation.Depth,
             WorkspaceId = schema.List.WorkspaceId,
             ListId = schema.List.Id,
             ItemId = item.Id,

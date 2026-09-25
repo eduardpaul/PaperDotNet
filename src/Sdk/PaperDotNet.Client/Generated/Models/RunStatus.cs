@@ -28,9 +28,5 @@ namespace PaperDotNet.Client.Models
         #pragma warning disable CS1591
         Cancelled,
         #pragma warning restore CS1591
-        [EnumMember(Value = "skipped")]
-        #pragma warning disable CS1591
-        Skipped,
-        #pragma warning restore CS1591
     }
 }

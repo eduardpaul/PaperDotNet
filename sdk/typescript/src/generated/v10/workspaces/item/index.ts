@@ -4,7 +4,7 @@
 // @ts-ignore
 import { createHttpValidationProblemDetailsFromDiscriminatorValue, createWorkspaceResponseFromDiscriminatorValue, serializeUpdateWorkspaceRequest, serializeWorkspaceResponse, type HttpValidationProblemDetails, type UpdateWorkspaceRequest, type WorkspaceResponse } from '../../../models/index.js';
 // @ts-ignore
-import { AutomationRequestBuilderNavigationMetadata, type AutomationRequestBuilder } from './automation/index.js';
+import { AutomationsRequestBuilderNavigationMetadata, AutomationsRequestBuilderRequestsMetadata, type AutomationsRequestBuilder } from './automations/index.js';
 // @ts-ignore
 import { ListsRequestBuilderNavigationMetadata, ListsRequestBuilderRequestsMetadata, type ListsRequestBuilder } from './lists/index.js';
 // @ts-ignore
@@ -17,9 +17,9 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  */
 export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilder> {
     /**
-     * The automation property
+     * The automations property
      */
-    get automation(): AutomationRequestBuilder;
+    get automations(): AutomationsRequestBuilder;
     /**
      * The lists property
      */
@@ -69,8 +69,9 @@ export const ItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}
  * Metadata for all the navigation properties in the request builder.
  */
 export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
-    automation: {
-        navigationMetadata: AutomationRequestBuilderNavigationMetadata,
+    automations: {
+        requestsMetadata: AutomationsRequestBuilderRequestsMetadata,
+        navigationMetadata: AutomationsRequestBuilderNavigationMetadata,
     },
     lists: {
         requestsMetadata: ListsRequestBuilderRequestsMetadata,

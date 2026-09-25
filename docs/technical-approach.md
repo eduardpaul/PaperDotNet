@@ -242,14 +242,13 @@ PaperDotNet.slnx
 ## 7. Events, outbox & background processing
 
 ```
-request → before-handlers (sync, can modify/cancel)
+request → item mutators (sync, can modify/cancel; ADR-0023)
         → SaveChanges (data + outbox rows + audit, one transaction)
-        → sync after-handlers
 outbox dispatcher (BackgroundService)
         → woken by PostgreSQL LISTEN/NOTIFY, polling as fallback
         → claims rows with FOR UPDATE SKIP LOCKED   (multi-node safe)
         → Channel<T> per consumer group (bounded, back-pressure)
-        → async after-handlers · search indexer · webhooks · notifications · automation · SSE
+        → one message per subscriber: search indexer · webhooks · notifications · automation · SSE
 ```
 
 - **At-least-once delivery.** Consumers are idempotent, backed by an inbox

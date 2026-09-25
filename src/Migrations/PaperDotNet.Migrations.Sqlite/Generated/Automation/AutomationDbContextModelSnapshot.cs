@@ -129,7 +129,7 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                     b.ToTable("automation_approvals", (string)null);
                 });
 
-            modelBuilder.Entity("PaperDotNet.Automation.Data.AutomationRule", b =>
+            modelBuilder.Entity("PaperDotNet.Automation.Data.AutomationDefinition", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -144,10 +144,14 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                         .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
-                    b.Property<string>("Definition")
-                        .IsRequired()
+                    b.Property<int>("CurrentVersion")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("current_version");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
                         .HasColumnType("TEXT")
-                        .HasColumnName("definition");
+                        .HasColumnName("description");
 
                     b.Property<bool>("Enabled")
                         .HasColumnType("INTEGER")
@@ -187,210 +191,43 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                         .HasColumnName("workspace_id");
 
                     b.HasKey("Id")
-                        .HasName("pk_automation_rules");
+                        .HasName("pk_automation_definitions");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_automation_rules_tenant_id");
+                        .HasDatabaseName("ix_automation_definitions_tenant_id");
 
                     b.HasIndex("TenantId", "WorkspaceId", "Name")
                         .IsUnique()
-                        .HasDatabaseName("ix_automation_rules_tenant_id_workspace_id_name");
+                        .HasDatabaseName("ix_automation_definitions_tenant_id_workspace_id_name");
 
                     b.HasIndex("TenantId", "WorkspaceId", "Trigger")
-                        .HasDatabaseName("ix_automation_rules_tenant_id_workspace_id_trigger");
+                        .HasDatabaseName("ix_automation_definitions_tenant_id_workspace_id_trigger");
 
-                    b.ToTable("automation_rules", (string)null);
+                    b.ToTable("automation_definitions", (string)null);
                 });
 
-            modelBuilder.Entity("PaperDotNet.Automation.Data.RuleRun", b =>
+            modelBuilder.Entity("PaperDotNet.Automation.Data.AutomationRun", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
+
+                    b.Property<Guid>("AutomationId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("automation_id");
+
+                    b.Property<int>("AutomationVersion")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("automation_version");
 
                     b.Property<long?>("CompletedAt")
                         .HasColumnType("INTEGER")
                         .HasColumnName("completed_at");
 
-                    b.Property<string>("Error")
-                        .HasMaxLength(2000)
+                    b.Property<string>("Data")
                         .HasColumnType("TEXT")
-                        .HasColumnName("error");
-
-                    b.Property<Guid>("EventId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("event_id");
-
-                    b.Property<Guid?>("ItemId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("item_id");
-
-                    b.Property<Guid>("RuleId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("rule_id");
-
-                    b.Property<long>("StartedAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("started_at");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("status");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_automation_rule_runs");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_automation_rule_runs_tenant_id");
-
-                    b.HasIndex("RuleId", "EventId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_automation_rule_runs_rule_id_event_id");
-
-                    b.HasIndex("RuleId", "StartedAt")
-                        .HasDatabaseName("ix_automation_rule_runs_rule_id_started_at");
-
-                    b.ToTable("automation_rule_runs", (string)null);
-                });
-
-            modelBuilder.Entity("PaperDotNet.Automation.Data.WorkflowDefinition", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
-
-                    b.Property<long>("CreatedAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("created_by");
-
-                    b.Property<int>("CurrentVersion")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("current_version");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("description");
-
-                    b.Property<bool>("Enabled")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("enabled");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("name");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<long>("UpdatedAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("updated_at");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("updated_by");
-
-                    b.Property<uint>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("version");
-
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("workspace_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_automation_workflows");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_automation_workflows_tenant_id");
-
-                    b.HasIndex("TenantId", "WorkspaceId", "Name")
-                        .IsUnique()
-                        .HasDatabaseName("ix_automation_workflows_tenant_id_workspace_id_name");
-
-                    b.ToTable("automation_workflows", (string)null);
-                });
-
-            modelBuilder.Entity("PaperDotNet.Automation.Data.WorkflowDefinitionVersion", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
-
-                    b.Property<long>("CreatedAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("created_by");
-
-                    b.Property<string>("Definition")
-                        .IsRequired()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("definition");
-
-                    b.Property<Guid>("DefinitionId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("definition_id");
-
-                    b.Property<int>("Number")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("number");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_automation_workflow_versions");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_automation_workflow_versions_tenant_id");
-
-                    b.HasIndex("DefinitionId", "Number")
-                        .IsUnique()
-                        .HasDatabaseName("ix_automation_workflow_versions_definition_id_number");
-
-                    b.ToTable("automation_workflow_versions", (string)null);
-                });
-
-            modelBuilder.Entity("PaperDotNet.Automation.Data.WorkflowRun", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
-
-                    b.Property<long?>("CompletedAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("completed_at");
-
-                    b.Property<Guid>("DefinitionId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("definition_id");
-
-                    b.Property<int>("DefinitionVersion")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("definition_version");
+                        .HasColumnName("data");
 
                     b.Property<int>("Depth")
                         .HasColumnType("INTEGER")
@@ -401,11 +238,15 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                         .HasColumnType("TEXT")
                         .HasColumnName("error");
 
-                    b.Property<Guid>("ItemId")
+                    b.Property<Guid?>("EventId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("event_id");
+
+                    b.Property<Guid?>("ItemId")
                         .HasColumnType("TEXT")
                         .HasColumnName("item_id");
 
-                    b.Property<Guid>("ListId")
+                    b.Property<Guid?>("ListId")
                         .HasColumnType("TEXT")
                         .HasColumnName("list_id");
 
@@ -460,21 +301,73 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                         .HasColumnName("workspace_id");
 
                     b.HasKey("Id")
-                        .HasName("pk_automation_workflow_runs");
+                        .HasName("pk_automation_runs");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_automation_workflow_runs_tenant_id");
+                        .HasDatabaseName("ix_automation_runs_tenant_id");
+
+                    b.HasIndex("AutomationId", "EventId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_automation_runs_automation_id_event_id");
 
                     b.HasIndex("Status", "ResumeAt")
-                        .HasDatabaseName("ix_automation_workflow_runs_status_resume_at");
+                        .HasDatabaseName("ix_automation_runs_status_resume_at");
 
                     b.HasIndex("TenantId", "ItemId")
-                        .HasDatabaseName("ix_automation_workflow_runs_tenant_id_item_id");
+                        .HasDatabaseName("ix_automation_runs_tenant_id_item_id");
 
-                    b.HasIndex("TenantId", "DefinitionId", "StartedAt")
-                        .HasDatabaseName("ix_automation_workflow_runs_tenant_id_definition_id_started_at");
+                    b.HasIndex("TenantId", "AutomationId", "StartedAt")
+                        .HasDatabaseName("ix_automation_runs_tenant_id_automation_id_started_at");
 
-                    b.ToTable("automation_workflow_runs", (string)null);
+                    b.HasIndex("TenantId", "Status", "CompletedAt")
+                        .HasDatabaseName("ix_automation_runs_tenant_id_status_completed_at");
+
+                    b.ToTable("automation_runs", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Automation.Data.AutomationVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AutomationId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("automation_id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Definition")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("definition");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("number");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_automation_versions");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_automation_versions_tenant_id");
+
+                    b.HasIndex("AutomationId", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_automation_versions_automation_id_number");
+
+                    b.ToTable("automation_versions", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Persistence.AuditEntry", b =>

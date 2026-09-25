@@ -20,17 +20,17 @@ public sealed class AutomationDefinitionTests
 
     private static readonly ActionCatalog Actions = new([new FakeAction("item.update")]);
 
-    private static WorkflowStep Act(string name) => new(StepTypes.Action, name, Action: "item.update");
+    private static AutomationStep Act(string name) => new(StepTypes.Action, name, Action: "item.update");
 
     [Fact]
     public void Conditions_compile_to_branches_and_jumps()
     {
-        var program = Definitions.Compile(new WorkflowSteps(
+        var program = Definitions.Compile(
         [
             new(StepTypes.Approval, "Manager", Assignees: ["alice"]),
             new(StepTypes.Condition, "Approved?", Step: "Manager", Is: "approved", Then: [Act("a"), Act("b")], Else: [Act("c")]),
             Act("d"),
-        ]));
+        ]);
 
         Assert.Equal(
             ["Approval Manager", "Branch Approved? -> 5", "Action a", "Action b", "Jump Approved? -> 6", "Action c", "Action d"],
@@ -38,9 +38,9 @@ public sealed class AutomationDefinitionTests
     }
 
     [Fact]
-    public void Workflows_are_checked_before_they_are_saved()
+    public void Steps_are_checked_before_they_are_saved()
     {
-        var errors = Definitions.ValidateWorkflow(new WorkflowSteps(
+        var errors = Definitions.ValidateSteps(
         [
             new(StepTypes.Condition, Step: "Later", Is: "approved"),
             new(StepTypes.Approval, "Later"),
@@ -48,7 +48,7 @@ public sealed class AutomationDefinitionTests
             new(StepTypes.Action, Action: "item.update", Inputs: new JsonObject { ["bad"] = true }),
             new(StepTypes.Delay, Hours: 0),
             new("loop"),
-        ]), Actions);
+        ], Actions);
 
         Assert.Equal(
         [
@@ -62,13 +62,15 @@ public sealed class AutomationDefinitionTests
     }
 
     [Fact]
-    public void Rules_need_a_known_trigger_and_actions()
+    public void Automations_need_a_known_trigger_and_steps()
     {
-        var triggers = new HashSet<string>(["itemAdded", "itemDeleted"]);
-        Assert.Equal(["Unknown trigger 'x'.", "Between 1 and 20 actions are required."],
-            Definitions.ValidateRule(new RuleDefinition(new RuleTrigger("x"), null, []), triggers, Actions));
+        var triggers = new HashSet<string>(["itemAdded", "itemDeleted", "manual"]);
+        Assert.Equal(["Unknown trigger 'x'.", "At least one step is required."],
+            Definitions.Validate(new AutomationSpec(new AutomationTrigger("x"), null, []), triggers, Actions));
         Assert.Equal(["Conditions cannot be checked on deleted items."],
-            Definitions.ValidateRule(new RuleDefinition(new RuleTrigger("itemDeleted", "Bills"), "fields/a eq 1", [new ActionDefinition("item.update")]), triggers, Actions));
+            Definitions.Validate(new AutomationSpec(new AutomationTrigger("itemDeleted", "Bills"), "fields/a eq 1", [Act("a")]), triggers, Actions));
+        Assert.Equal(["changedFields is only used with itemUpdated."],
+            Definitions.Validate(new AutomationSpec(new AutomationTrigger("manual", ChangedFields: ["a"]), null, [Act("a")]), triggers, Actions));
     }
 
     [Theory]

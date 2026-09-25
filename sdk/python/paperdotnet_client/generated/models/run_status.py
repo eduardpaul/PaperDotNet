@@ -6,5 +6,4 @@ class RunStatus(str, Enum):
     Completed = "completed",
     Failed = "failed",
     Cancelled = "cancelled",
-    Skipped = "skipped",
 

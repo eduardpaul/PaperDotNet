@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ....models.http_validation_problem_details import HttpValidationProblemDetails
     from ....models.update_workspace_request import UpdateWorkspaceRequest
     from ....models.workspace_response import WorkspaceResponse
-    from .automation.automation_request_builder import AutomationRequestBuilder
+    from .automations.automations_request_builder import AutomationsRequestBuilder
     from .lists.lists_request_builder import ListsRequestBuilder
     from .members.members_request_builder import MembersRequestBuilder
 
@@ -126,13 +126,13 @@ class ItemRequestBuilder(BaseRequestBuilder):
         return ItemRequestBuilder(self.request_adapter, raw_url)
     
     @property
-    def automation(self) -> AutomationRequestBuilder:
+    def automations(self) -> AutomationsRequestBuilder:
         """
-        The automation property
+        The automations property
         """
-        from .automation.automation_request_builder import AutomationRequestBuilder
+        from .automations.automations_request_builder import AutomationsRequestBuilder
 
-        return AutomationRequestBuilder(self.request_adapter, self.path_parameters)
+        return AutomationsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def lists(self) -> ListsRequestBuilder:

@@ -9,7 +9,7 @@ namespace PaperDotNet.Samples.Invoices;
 
 /// <summary>
 /// Raises the trigger <c>samples.invoices.approvalNeeded</c> (EVT-09) when an invoice above the threshold is added,
-/// so that rules can react, e.g. by starting an approval workflow.
+/// so that automations can react, e.g. with an approval.
 /// </summary>
 public sealed class ApprovalNeededTrigger(IListItemStore items, IAutomationTriggers triggers) : IEventSubscriber<ItemAdded>
 {

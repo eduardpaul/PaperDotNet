@@ -15,10 +15,18 @@ class RunResponse(AdditionalDataHolder, Parsable):
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
+    # The automation property
+    automation: Optional[str] = None
+    # The automationId property
+    automation_id: Optional[UUID] = None
+    # The automationVersion property
+    automation_version: Optional[int] = None
     # The completedAt property
     completed_at: Optional[datetime.datetime] = None
     # The error property
     error: Optional[str] = None
+    # The eventId property
+    event_id: Optional[UUID] = None
     # The id property
     id: Optional[UUID] = None
     # The itemId property
@@ -33,12 +41,6 @@ class RunResponse(AdditionalDataHolder, Parsable):
     started_by: Optional[UUID] = None
     # The status property
     status: Optional[RunStatus] = None
-    # The workflow property
-    workflow: Optional[str] = None
-    # The workflowId property
-    workflow_id: Optional[UUID] = None
-    # The workflowVersion property
-    workflow_version: Optional[int] = None
     # The workspaceId property
     workspace_id: Optional[UUID] = None
     
@@ -65,8 +67,12 @@ class RunResponse(AdditionalDataHolder, Parsable):
         from .run_status import RunStatus
 
         fields: dict[str, Callable[[Any], None]] = {
+            "automation": lambda n : setattr(self, 'automation', n.get_str_value()),
+            "automationId": lambda n : setattr(self, 'automation_id', n.get_uuid_value()),
+            "automationVersion": lambda n : setattr(self, 'automation_version', n.get_int_value()),
             "completedAt": lambda n : setattr(self, 'completed_at', n.get_datetime_value()),
             "error": lambda n : setattr(self, 'error', n.get_str_value()),
+            "eventId": lambda n : setattr(self, 'event_id', n.get_uuid_value()),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "itemId": lambda n : setattr(self, 'item_id', n.get_uuid_value()),
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
@@ -74,9 +80,6 @@ class RunResponse(AdditionalDataHolder, Parsable):
             "startedAt": lambda n : setattr(self, 'started_at', n.get_datetime_value()),
             "startedBy": lambda n : setattr(self, 'started_by', n.get_uuid_value()),
             "status": lambda n : setattr(self, 'status', n.get_enum_value(RunStatus)),
-            "workflow": lambda n : setattr(self, 'workflow', n.get_str_value()),
-            "workflowId": lambda n : setattr(self, 'workflow_id', n.get_uuid_value()),
-            "workflowVersion": lambda n : setattr(self, 'workflow_version', n.get_int_value()),
             "workspaceId": lambda n : setattr(self, 'workspace_id', n.get_uuid_value()),
         }
         return fields
@@ -89,8 +92,12 @@ class RunResponse(AdditionalDataHolder, Parsable):
         """
         if writer is None:
             raise TypeError("writer cannot be null.")
+        writer.write_str_value("automation", self.automation)
+        writer.write_uuid_value("automationId", self.automation_id)
+        writer.write_int_value("automationVersion", self.automation_version)
         writer.write_datetime_value("completedAt", self.completed_at)
         writer.write_str_value("error", self.error)
+        writer.write_uuid_value("eventId", self.event_id)
         writer.write_uuid_value("id", self.id)
         writer.write_uuid_value("itemId", self.item_id)
         writer.write_uuid_value("listId", self.list_id)
@@ -98,9 +105,6 @@ class RunResponse(AdditionalDataHolder, Parsable):
         writer.write_datetime_value("startedAt", self.started_at)
         writer.write_uuid_value("startedBy", self.started_by)
         writer.write_enum_value("status", self.status)
-        writer.write_str_value("workflow", self.workflow)
-        writer.write_uuid_value("workflowId", self.workflow_id)
-        writer.write_int_value("workflowVersion", self.workflow_version)
         writer.write_uuid_value("workspaceId", self.workspace_id)
         writer.write_additional_data_value(self.additional_data)
     

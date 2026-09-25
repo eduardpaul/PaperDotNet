@@ -10,14 +10,14 @@ using PaperDotNet.Tenancy.Contracts;
 
 namespace PaperDotNet.IntegrationTests;
 
-/// <summary>Automation (phase 5b): rules, path templates, workflows with approvals, extension triggers and actions (EVT-07…09, DOC-14).</summary>
+/// <summary>Automations (phase 5b, ADR-0024): triggers, path templates, approvals, delays, extension triggers and actions (EVT-07…09, DOC-14).</summary>
 public sealed class AutomationTests(PaperDotNetApiFactory factory)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private sealed record Setup(TenantSummary Tenant, HttpClient Admin, Guid Workspace, Guid Invoices, Guid Tasks, Dictionary<string, Guid> Users)
     {
-        public string Automation => $"/v1.0/workspaces/{Workspace}/automation";
+        public string Automations => $"/v1.0/workspaces/{Workspace}/automations";
 
         public string Item(Guid id) => $"/v1.0/workspaces/{Workspace}/lists/{Invoices}/items/{id}";
     }
@@ -83,29 +83,35 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
 
     private static List<JsonElement> Values(JsonElement page) => page.GetProperty("value").EnumerateArray().ToList();
 
+    private static object Action(string action, object inputs) => new { type = "action", action, inputs };
+
     [Fact]
-    public async Task Rules_file_items_create_tasks_and_notify()
+    public async Task Item_triggers_file_items_create_tasks_and_notify()
     {
         var s = await SetupAsync("auto-rules");
-        var rule = await PostIdAsync(s.Admin, $"{s.Automation}/rules", new
+        var automation = await PostIdAsync(s.Admin, s.Automations, new
         {
             name = "File bills",
             trigger = new { type = "itemAdded", list = "Bills", contentType = "Bill" },
             condition = "fields/amount gt 100",
-            actions = new object[]
+            steps = new[]
             {
-                new { type = "item.file", inputs = new { folder = "{created:yyyy}/{counterparty}", title = "{counterparty} ({amount})" } },
-                new { type = "task.create", inputs = new { list = "Tasks", title = "Check {title}", assignedTo = new[] { "alice" }, dueInDays = 3 } },
-                new { type = "notify", inputs = new { to = new[] { "alice", "creator" }, title = "Filed: {title}" } },
+                Action("item.file", new { folder = "{created:yyyy}/{counterparty}", title = "{counterparty} ({amount})" }),
+                Action("task.create", new { list = "Tasks", title = "Check {title}", assignedTo = new[] { "alice" }, dueInDays = 3 }),
+                Action("notify", new { to = new[] { "alice", "creator" }, title = "Filed: {title}" }),
             },
         });
 
         var big = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "scan-1", counterparty = "ACME/Corp", amount = 500 } })).GetProperty("id").GetGuid();
         var small = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "scan-2", counterparty = "Tiny", amount = 5 } })).GetProperty("id").GetGuid();
 
-        var runs = await WaitAsync(s.Admin, $"{s.Automation}/rules/{rule}/runs", r => Values(r).Count == 2 && Values(r).All(x => Status(x) != "running"));
-        Assert.Equal("completed", Status(Values(runs).Single(r => r.GetProperty("itemId").GetGuid() == big)));
-        Assert.Equal("skipped", Status(Values(runs).Single(r => r.GetProperty("itemId").GetGuid() == small)));
+        // Only the item that matches the condition gets a run.
+        var runs = await WaitAsync(s.Admin, $"{s.Automations}/runs?automationId={automation}", r => Values(r).Count == 1 && Status(Values(r)[0]) == "completed");
+        var run = Values(runs).Single();
+        Assert.Equal(big, run.GetProperty("itemId").GetGuid());
+        Assert.NotEqual(JsonValueKind.Null, run.GetProperty("eventId").ValueKind);
+        await Task.Delay(500, Ct);
+        Assert.Empty(Values(await GetAsync(s.Admin, $"{s.Automations}/runs?itemId={small}")));
 
         // Path template: folders from the created year and the counterparty ('/' is not allowed in names), then renamed.
         var filed = await GetAsync(s.Admin, s.Item(big));
@@ -122,35 +128,80 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
         var inbox = Values(await GetAsync(alice, "/v1.0/me/notifications"));
         Assert.Contains(inbox, n => n.GetProperty("title").GetString() == "Filed: ACME/Corp (500)");
         Assert.Contains(Values(await GetAsync(s.Admin, "/v1.0/me/notifications")), n => n.GetProperty("title").GetString() == "Filed: ACME/Corp (500)");
+
+        // A condition that can no longer be checked gives a visible failed run.
+        await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(s.Tenant.Id, s.Tenant.Identifier))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+            var version = await db.Versions.SingleAsync(v => v.AutomationId == automation, Ct);
+            version.Definition = version.Definition.Replace("fields/amount gt 100", "fields/gone gt 1", StringComparison.Ordinal);
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var broken = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "scan-3", amount = 1 } })).GetProperty("id").GetGuid();
+        var failed = Values(await WaitAsync(s.Admin, $"{s.Automations}/runs?itemId={broken}", r => Values(r).Count == 1)).Single();
+        Assert.Equal("failed", Status(failed));
+        Assert.StartsWith("condition:", failed.GetProperty("error").GetString(), StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task Rules_that_change_their_own_items_stop()
+    public async Task Restored_items_trigger_automations_and_old_runs_are_cleaned_up()
+    {
+        var s = await SetupAsync("auto-restore");
+        var automation = await PostIdAsync(s.Admin, s.Automations, new
+        {
+            name = "Restored",
+            trigger = new { type = "itemRestored", list = "Bills" },
+            steps = new[] { Action("item.update", new { fields = new { note = "restored" } }) },
+        });
+        var bill = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "Bill" } })).GetProperty("id").GetGuid();
+        var etag = (await s.Admin.GetAsync(s.Item(bill), Ct)).Headers.ETag!.Tag;
+        Assert.True((await s.Admin.SendWithEtagAsync(HttpMethod.Delete, s.Item(bill), etag)).IsSuccessStatusCode);
+        var restore = await s.Admin.PostAsync($"/v1.0/workspaces/{s.Workspace}/lists/{s.Invoices}/recycleBin/{bill}/restore", null, Ct);
+        Assert.True(restore.IsSuccessStatusCode, await restore.Content.ReadAsStringAsync(Ct));
+        await WaitAsync(s.Admin, s.Item(bill), i => i.GetProperty("fields").TryGetProperty("note", out var note) && note.GetString() == "restored");
+
+        var run = Values(await WaitAsync(s.Admin, $"{s.Automations}/runs?automationId={automation}", r => Values(r).Count == 1 && Status(Values(r)[0]) == "completed")).Single();
+        await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(s.Tenant.Id, s.Tenant.Identifier);
+        var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+        var job = scope.ServiceProvider.GetRequiredService<AutomationRunCleanupJob>();
+        await job.RunAsync(Ct);
+        Assert.True(await db.Runs.AnyAsync(r => r.Id == run.GetProperty("id").GetGuid(), Ct));
+        var stored = await db.Runs.SingleAsync(r => r.Id == run.GetProperty("id").GetGuid(), Ct);
+        stored.CompletedAt = DateTimeOffset.UtcNow.AddDays(-31);
+        await db.SaveChangesAsync(Ct);
+        await job.RunAsync(Ct);
+        Assert.False(await db.Runs.AnyAsync(r => r.AutomationId == automation, Ct));
+    }
+
+    [Fact]
+    public async Task Automations_that_change_their_own_items_stop()
     {
         var s = await SetupAsync("auto-loop");
-        var rule = await PostIdAsync(s.Admin, $"{s.Automation}/rules", new
+        var automation = await PostIdAsync(s.Admin, s.Automations, new
         {
             name = "Touch",
             trigger = new { type = "itemUpdated", list = "Bills" },
-            actions = new object[] { new { type = "item.update", inputs = new { fields = new { note = "touched {modified:HH:mm:ss.fffffff}" } } } },
+            steps = new[] { Action("item.update", new { fields = new { note = "touched {modified:HH:mm:ss.fffffff}" } }) },
         });
         var bill = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "loop", amount = 1 } })).GetProperty("id").GetGuid();
         var etag = (await s.Admin.GetAsync(s.Item(bill), Ct)).Headers.ETag!.Tag;
         Assert.True((await s.Admin.SendWithEtagAsync(HttpMethod.Patch, s.Item(bill), etag, new { fields = new { amount = 2 } })).IsSuccessStatusCode);
 
-        // The user's change (depth 0) and two automatic ones run the rule; the third automatic change is not reacted to.
-        await WaitAsync(s.Admin, $"{s.Automation}/rules/{rule}/runs", r => Values(r).Count >= 3);
+        // The user's change (depth 0) and two automatic ones start runs; the third automatic change is not reacted to.
+        await WaitAsync(s.Admin, $"{s.Automations}/runs?automationId={automation}", r => Values(r).Count >= 3);
         await Task.Delay(3000, Ct);
-        Assert.Equal(3, Values(await GetAsync(s.Admin, $"{s.Automation}/rules/{rule}/runs")).Count);
+        Assert.Equal(3, Values(await GetAsync(s.Admin, $"{s.Automations}/runs?automationId={automation}")).Count);
     }
 
     [Fact]
-    public async Task Workflows_wait_for_approvals_escalate_and_branch()
+    public async Task Manual_automations_wait_for_approvals_escalate_and_branch()
     {
         var s = await SetupAsync("auto-flow");
-        var workflow = await PostIdAsync(s.Admin, $"{s.Automation}/workflows", new
+        var workflow = await PostIdAsync(s.Admin, s.Automations, new
         {
             name = "Bill approval",
+            trigger = new { type = "manual", list = "Bills" },
             steps = new object[]
             {
                 new { type = "approval", name = "Manager", assignees = new[] { "alice" }, title = "Approve {title}", dueInHours = 48, escalateTo = new[] { "bob" } },
@@ -169,8 +220,8 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
         async Task<(Guid Item, Guid Run)> StartAsync(string title)
         {
             var item = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title, amount = 10 } })).GetProperty("id").GetGuid();
-            var run = await PostIdAsync(s.Admin, $"{s.Item(item)}/workflows", new { workflow = "Bill approval" });
-            await WaitAsync(s.Admin, $"{s.Automation}/runs/{run}", r => Status(r) == "waiting");
+            var run = await PostIdAsync(s.Admin, $"{s.Item(item)}/automations", new { automation = "Bill approval" });
+            await WaitAsync(s.Admin, $"{s.Automations}/runs/{run}", r => Status(r) == "waiting");
             return (item, run);
         }
 
@@ -183,7 +234,7 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
         Assert.Equal(HttpStatusCode.NotFound, (await bob.PostAsJsonAsync($"/v1.0/me/approvals/{approvalId}/decision", new { outcome = "approved" }, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await alice.PostAsJsonAsync($"/v1.0/me/approvals/{approvalId}/decision", new { outcome = "approved", comment = "fine" }, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await alice.PostAsJsonAsync($"/v1.0/me/approvals/{approvalId}/decision", new { outcome = "rejected" }, Ct)).StatusCode);
-        var completed = await WaitAsync(s.Admin, $"{s.Automation}/runs/{firstRun}", r => Status(r) is "completed" or "failed");
+        var completed = await WaitAsync(s.Admin, $"{s.Automations}/runs/{firstRun}", r => Status(r) is "completed" or "failed");
         Assert.Equal("completed", Status(completed));
         Assert.Equal("approved", completed.GetProperty("outcomes").GetProperty("Manager").GetString());
         Assert.Equal("Approved", (await GetAsync(s.Admin, s.Item(first))).GetProperty("fields").GetProperty("state").GetString());
@@ -203,27 +254,28 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
         var escalated = Values(await GetAsync(bob, "/v1.0/me/approvals")).Single();
         Assert.True(escalated.GetProperty("escalated").GetBoolean());
         await bob.PostAsJsonAsync($"/v1.0/me/approvals/{escalated.GetProperty("id").GetGuid()}/decision", new { outcome = "rejected" }, Ct);
-        await WaitAsync(s.Admin, $"{s.Automation}/runs/{secondRun}", r => Status(r) == "completed");
+        await WaitAsync(s.Admin, $"{s.Automations}/runs/{secondRun}", r => Status(r) == "completed");
         Assert.Equal("Rejected", (await GetAsync(s.Admin, s.Item(second))).GetProperty("fields").GetProperty("state").GetString());
 
         // Cancelled runs cancel their approvals; a new version does not change started runs.
         var (_, thirdRun) = await StartAsync("Bill 3");
-        var put = new HttpRequestMessage(HttpMethod.Put, $"{s.Automation}/workflows/{workflow}")
+        var put = new HttpRequestMessage(HttpMethod.Put, $"{s.Automations}/{workflow}")
         {
-            Content = JsonContent.Create(new { name = "Bill approval", steps = new object[] { new { type = "delay", hours = 1 } } }),
+            Content = JsonContent.Create(new { name = "Bill approval", trigger = new { type = "manual" }, steps = new object[] { new { type = "delay", hours = 1 } } }),
         };
-        put.Headers.IfMatch.Add(new System.Net.Http.Headers.EntityTagHeaderValue((await s.Admin.GetAsync($"{s.Automation}/workflows/{workflow}", Ct)).Headers.ETag!.Tag));
+        put.Headers.IfMatch.Add(new System.Net.Http.Headers.EntityTagHeaderValue((await s.Admin.GetAsync($"{s.Automations}/{workflow}", Ct)).Headers.ETag!.Tag));
         Assert.Equal(2, (await (await s.Admin.SendAsync(put, Ct)).ReadJsonAsync()).GetProperty("version").GetInt32());
-        var cancelled = await (await s.Admin.PostAsync($"{s.Automation}/runs/{thirdRun}/cancel", null, Ct)).ReadJsonAsync();
+        var cancelled = await (await s.Admin.PostAsync($"{s.Automations}/runs/{thirdRun}/cancel", null, Ct)).ReadJsonAsync();
         Assert.Equal("cancelled", Status(cancelled));
-        Assert.Equal(1, cancelled.GetProperty("workflowVersion").GetInt32());
+        Assert.Equal(1, cancelled.GetProperty("automationVersion").GetInt32());
         Assert.Empty(Values(await GetAsync(alice, "/v1.0/me/approvals")));
-        Assert.Equal(3, Values(await GetAsync(s.Admin, $"{s.Automation}/runs?workflowId={workflow}")).Count);
+        Assert.Equal(3, Values(await GetAsync(s.Admin, $"{s.Automations}/runs?automationId={workflow}")).Count);
 
         // Delays: the minute job resumes runs whose time has come.
-        await PostIdAsync(s.Admin, $"{s.Automation}/workflows", new
+        await PostIdAsync(s.Admin, s.Automations, new
         {
             name = "Later",
+            trigger = new { type = "manual" },
             steps = new object[]
             {
                 new { type = "delay", hours = 24 },
@@ -231,8 +283,8 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
             },
         });
         var later = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "Bill 4", amount = 1 } })).GetProperty("id").GetGuid();
-        var laterRun = await PostIdAsync(s.Admin, $"{s.Item(later)}/workflows", new { workflow = "Later" });
-        await WaitAsync(s.Admin, $"{s.Automation}/runs/{laterRun}", r => Status(r) == "waiting");
+        var laterRun = await PostIdAsync(s.Admin, $"{s.Item(later)}/automations", new { automation = "Later" });
+        await WaitAsync(s.Admin, $"{s.Automations}/runs/{laterRun}", r => Status(r) == "waiting");
         await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(s.Tenant.Id, s.Tenant.Identifier))
         {
             var job = scope.ServiceProvider.GetRequiredService<AutomationTimerJob>();
@@ -245,26 +297,25 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
             await job.RunAsync(Ct);
         }
 
-        await WaitAsync(s.Admin, $"{s.Automation}/runs/{laterRun}", r => Status(r) == "completed");
+        await WaitAsync(s.Admin, $"{s.Automations}/runs/{laterRun}", r => Status(r) == "completed");
         Assert.Equal("a day later", (await GetAsync(s.Admin, s.Item(later))).GetProperty("fields").GetProperty("note").GetString());
     }
 
     [Fact]
-    public async Task Extension_triggers_start_workflows_that_use_extension_actions()
+    public async Task Extension_triggers_start_automations_that_use_extension_actions()
     {
         var s = await SetupAsync("auto-ext");
         Assert.True((await s.Admin.PostAsync("/v1.0/extensions/samples.invoices/enable", null, Ct)).IsSuccessStatusCode);
         var invoices = await PostIdAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Invoices", templateKey = "samples.invoices.invoices" });
-        await PostIdAsync(s.Admin, $"{s.Automation}/workflows", new
-        {
-            name = "Auto approve",
-            steps = new object[] { new { type = "action", action = "samples.invoices.approve" } },
-        });
-        var rule = await PostIdAsync(s.Admin, $"{s.Automation}/rules", new
+        var automation = await PostIdAsync(s.Admin, s.Automations, new
         {
             name = "Large invoices",
             trigger = new { type = "samples.invoices.approvalNeeded" },
-            actions = new object[] { new { type = "workflow.start", inputs = new { workflow = "Auto approve" } } },
+            steps = new object[]
+            {
+                new { type = "action", action = "samples.invoices.approve" },
+                Action("item.update", new { fields = new { title = "Approved ({data:amount})" } }),
+            },
         });
 
         var actions = await GetAsync(s.Admin, "/v1.0/automation/actions");
@@ -272,8 +323,10 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
         Assert.Contains((await GetAsync(s.Admin, "/v1.0/automation/triggers")).EnumerateArray(), t => t.GetProperty("key").GetString() == "samples.invoices.approvalNeeded");
 
         var invoice = (await s.Admin.CreateItemAsync(s.Workspace, invoices, new { fields = new { title = "Big", amount = 5000 } })).GetProperty("id").GetGuid();
-        await WaitAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists/{invoices}/items/{invoice}", i => i.GetProperty("fields").GetProperty("status").GetString() == "approved");
-        Assert.Equal("completed", Status(Values(await GetAsync(s.Admin, $"{s.Automation}/rules/{rule}/runs")).Single()));
+        var approved = await WaitAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists/{invoices}/items/{invoice}", i => i.GetProperty("fields").GetProperty("status").GetString() == "approved"
+            && i.GetProperty("fields").GetProperty("title").GetString()!.StartsWith("Approved", StringComparison.Ordinal));
+        Assert.Equal("Approved (5000)", approved.GetProperty("fields").GetProperty("title").GetString());
+        Assert.Equal("completed", Status(Values(await GetAsync(s.Admin, $"{s.Automations}/runs?automationId={automation}")).Single()));
     }
 
     [Fact]
@@ -283,42 +336,58 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
         await factory.CreateTenantAsync("auto-acl-b");
         var foreign = await ApiClient.CreateAsync(factory, "auto-acl-b");
         var carol = await ApiClient.CreateAsync(factory, "auto-acl", "carol", "carol-password-1");
+        var notify = new[] { Action("notify", new { to = new[] { "alice" }, title = "t" }) };
 
-        async Task<string> InvalidAsync(object rule)
+        async Task<string> InvalidAsync(object automation)
         {
-            var response = await s.Admin.PostAsJsonAsync($"{s.Automation}/rules", rule, Ct);
+            var response = await s.Admin.PostAsJsonAsync(s.Automations, automation, Ct);
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             return await response.Content.ReadAsStringAsync(Ct);
         }
 
-        Assert.Contains("Unknown action", await InvalidAsync(new { name = "x", trigger = new { type = "itemAdded" }, actions = new object[] { new { type = "nope" } } }), StringComparison.Ordinal);
-        Assert.Contains("does not exist", await InvalidAsync(new { name = "x", trigger = new { type = "itemAdded", list = "Missing" }, actions = new object[] { new { type = "notify", inputs = new { to = new[] { "alice" }, title = "t" } } } }), StringComparison.Ordinal);
-        Assert.Contains("condition", await InvalidAsync(new { name = "x", trigger = new { type = "itemAdded", list = "Bills" }, condition = "fields/unknown eq 1", actions = new object[] { new { type = "notify", inputs = new { to = new[] { "alice" }, title = "t" } } } }), StringComparison.Ordinal);
-        Assert.Contains("Unknown trigger", await InvalidAsync(new { name = "x", trigger = new { type = "samples.invoices.nothing" }, actions = new object[] { new { type = "notify", inputs = new { to = new[] { "a" }, title = "t" } } } }), StringComparison.Ordinal);
-        var badWorkflow = await s.Admin.PostAsJsonAsync($"{s.Automation}/workflows", new { name = "w", steps = new object[] { new { type = "approval" }, new { type = "condition", step = "Later", @is = "approved" } } }, Ct);
-        Assert.Equal(HttpStatusCode.BadRequest, badWorkflow.StatusCode);
+        Assert.Contains("Unknown action", await InvalidAsync(new { name = "x", trigger = new { type = "itemAdded" }, steps = new[] { new { type = "action", action = "nope" } } }), StringComparison.Ordinal);
+        Assert.Contains("does not exist", await InvalidAsync(new { name = "x", trigger = new { type = "itemAdded", list = "Missing" }, steps = notify }), StringComparison.Ordinal);
+        Assert.Contains("condition", await InvalidAsync(new { name = "x", trigger = new { type = "itemAdded", list = "Bills" }, condition = "fields/unknown eq 1", steps = notify }), StringComparison.Ordinal);
+        Assert.Contains("Unknown trigger", await InvalidAsync(new { name = "x", trigger = new { type = "samples.invoices.nothing" }, steps = notify }), StringComparison.Ordinal);
+        Assert.Contains("trigger is required", await InvalidAsync(new { name = "x", steps = notify }), StringComparison.Ordinal);
+        Assert.Contains("earlier approval", await InvalidAsync(new { name = "w", trigger = new { type = "manual" }, steps = new object[] { new { type = "approval" }, new { type = "condition", step = "Later", @is = "approved" } } }), StringComparison.Ordinal);
 
-        var valid = new { name = "Notify", trigger = new { type = "itemAdded", list = "Bills" }, actions = new object[] { new { type = "notify", inputs = new { to = new[] { "alice" }, title = "New: {title}" } } } };
-        Assert.Equal(HttpStatusCode.Forbidden, (await carol.PostAsJsonAsync($"{s.Automation}/rules", valid, Ct)).StatusCode);
-        var rule = await PostIdAsync(s.Admin, $"{s.Automation}/rules", valid);
-        Assert.Equal(HttpStatusCode.Conflict, (await s.Admin.PostAsJsonAsync($"{s.Automation}/rules", valid, Ct)).StatusCode);
-        Assert.Single((await GetAsync(carol, $"{s.Automation}/rules")).EnumerateArray());
+        var valid = new { name = "Notify", trigger = new { type = "itemAdded", list = "Bills" }, steps = new[] { Action("notify", new { to = new[] { "alice" }, title = "New: {title}" }) } };
+        Assert.Equal(HttpStatusCode.Forbidden, (await carol.PostAsJsonAsync(s.Automations, valid, Ct)).StatusCode);
+        var automation = await PostIdAsync(s.Admin, s.Automations, valid);
+        Assert.Equal(HttpStatusCode.Conflict, (await s.Admin.PostAsJsonAsync(s.Automations, valid, Ct)).StatusCode);
+        Assert.Single((await GetAsync(carol, s.Automations)).EnumerateArray());
 
-        Assert.Equal(HttpStatusCode.NotFound, (await foreign.GetAsync($"{s.Automation}/rules", Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await foreign.GetAsync($"{s.Automation}/rules/{rule}", Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await foreign.PostAsJsonAsync($"{s.Automation}/workflows", new { name = "w", steps = new object[] { new { type = "delay", hours = 1 } } }, Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await foreign.GetAsync($"{s.Automation}/runs", Ct)).StatusCode);
+        // Only manual automations are started by people, and only where their trigger allows.
+        var bill = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "Bill", amount = 1 } })).GetProperty("id").GetGuid();
+        async Task<string> StartFailsAsync(HttpClient client, string name)
+        {
+            var response = await client.PostAsJsonAsync($"{s.Item(bill)}/automations", new { automation = name }, Ct);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            return await response.Content.ReadAsStringAsync(Ct);
+        }
+
+        Assert.Contains("not started manually", await StartFailsAsync(s.Admin, "Notify"), StringComparison.Ordinal);
+        await PostIdAsync(s.Admin, s.Automations, new { name = "Tasks only", trigger = new { type = "manual", list = "Tasks" }, steps = notify });
+        Assert.Contains("only runs on items of the list", await StartFailsAsync(s.Admin, "Tasks only"), StringComparison.Ordinal);
+        await PostIdAsync(s.Admin, s.Automations, new { name = "Big only", trigger = new { type = "manual", list = "Bills" }, condition = "fields/amount gt 100", steps = notify });
+        Assert.Contains("does not match", await StartFailsAsync(s.Admin, "Big only"), StringComparison.Ordinal);
+        Assert.Contains("does not match", await StartFailsAsync(carol, "Big only"), StringComparison.Ordinal); // members may start them
+
+        Assert.Equal(HttpStatusCode.NotFound, (await foreign.GetAsync(s.Automations, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await foreign.GetAsync($"{s.Automations}/{automation}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await foreign.PostAsJsonAsync(s.Automations, new { name = "w", trigger = new { type = "manual" }, steps = new object[] { new { type = "delay", hours = 1 } } }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await foreign.GetAsync($"{s.Automations}/runs", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await foreign.PostAsJsonAsync($"{s.Item(bill)}/automations", new { automation = "Big only" }, Ct)).StatusCode);
         Assert.Empty(Values(await GetAsync(foreign, "/v1.0/me/approvals")));
 
-        // Rules and workflows travel with workspace templates (by name) and apply idempotently.
-        await PostIdAsync(s.Admin, $"{s.Automation}/workflows", new { name = "Wait", steps = new object[] { new { type = "delay", hours = 2 } } });
+        // Automations travel with workspace templates (by name) and apply idempotently.
         var xml = await (await s.Admin.GetAsync($"/v1.0/provisioning/export?workspaceId={s.Workspace}", Ct)).Content.ReadAsStringAsync(Ct);
-        Assert.Contains("urn:paperdotnet:automation:1", xml, StringComparison.Ordinal);
+        Assert.Contains("urn:paperdotnet:automation:2", xml, StringComparison.Ordinal);
         var apply = await foreign.PostAsync("/v1.0/provisioning/apply", new StringContent(xml, System.Text.Encoding.UTF8, "application/xml"), Ct);
         Assert.True(apply.IsSuccessStatusCode, await apply.Content.ReadAsStringAsync(Ct));
         var foreignWs = Values(await GetAsync(foreign, "/v1.0/workspaces")).Single(w => w.GetProperty("name").GetString() == "Finance").GetProperty("id").GetGuid();
-        Assert.Equal(["Notify"], (await GetAsync(foreign, $"/v1.0/workspaces/{foreignWs}/automation/rules")).EnumerateArray().Select(r => r.GetProperty("name").GetString()));
-        Assert.Equal(["Wait"], (await GetAsync(foreign, $"/v1.0/workspaces/{foreignWs}/automation/workflows")).EnumerateArray().Select(r => r.GetProperty("name").GetString()));
+        Assert.Equal(["Big only", "Notify", "Tasks only"], (await GetAsync(foreign, $"/v1.0/workspaces/{foreignWs}/automations")).EnumerateArray().Select(r => r.GetProperty("name").GetString()));
         var again = await foreign.PostAsync("/v1.0/provisioning/apply", new StringContent(xml, System.Text.Encoding.UTF8, "application/xml"), Ct);
         Assert.Empty((await again.ReadJsonAsync()).GetProperty("changes").EnumerateArray());
     }

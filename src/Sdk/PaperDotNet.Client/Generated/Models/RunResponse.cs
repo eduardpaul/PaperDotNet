@@ -14,6 +14,18 @@ namespace PaperDotNet.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The automation property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Automation { get; set; }
+#nullable restore
+#else
+        public string Automation { get; set; }
+#endif
+        /// <summary>The automationId property</summary>
+        public Guid? AutomationId { get; set; }
+        /// <summary>The automationVersion property</summary>
+        public int? AutomationVersion { get; set; }
         /// <summary>The completedAt property</summary>
         public DateTimeOffset? CompletedAt { get; set; }
         /// <summary>The error property</summary>
@@ -24,6 +36,8 @@ namespace PaperDotNet.Client.Models
 #else
         public string Error { get; set; }
 #endif
+        /// <summary>The eventId property</summary>
+        public Guid? EventId { get; set; }
         /// <summary>The id property</summary>
         public Guid? Id { get; set; }
         /// <summary>The itemId property</summary>
@@ -52,18 +66,6 @@ namespace PaperDotNet.Client.Models
         public Guid? StartedBy { get; set; }
         /// <summary>The status property</summary>
         public global::PaperDotNet.Client.Models.RunStatus? Status { get; set; }
-        /// <summary>The workflow property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? Workflow { get; set; }
-#nullable restore
-#else
-        public string Workflow { get; set; }
-#endif
-        /// <summary>The workflowId property</summary>
-        public Guid? WorkflowId { get; set; }
-        /// <summary>The workflowVersion property</summary>
-        public int? WorkflowVersion { get; set; }
         /// <summary>The workspaceId property</summary>
         public Guid? WorkspaceId { get; set; }
         /// <summary>
@@ -91,8 +93,12 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "automation", n => { Automation = n.GetStringValue(); } },
+                { "automationId", n => { AutomationId = n.GetGuidValue(); } },
+                { "automationVersion", n => { AutomationVersion = n.GetIntValue(); } },
                 { "completedAt", n => { CompletedAt = n.GetDateTimeOffsetValue(); } },
                 { "error", n => { Error = n.GetStringValue(); } },
+                { "eventId", n => { EventId = n.GetGuidValue(); } },
                 { "id", n => { Id = n.GetGuidValue(); } },
                 { "itemId", n => { ItemId = n.GetGuidValue(); } },
                 { "listId", n => { ListId = n.GetGuidValue(); } },
@@ -101,9 +107,6 @@ namespace PaperDotNet.Client.Models
                 { "startedAt", n => { StartedAt = n.GetDateTimeOffsetValue(); } },
                 { "startedBy", n => { StartedBy = n.GetGuidValue(); } },
                 { "status", n => { Status = n.GetEnumValue<global::PaperDotNet.Client.Models.RunStatus>(); } },
-                { "workflow", n => { Workflow = n.GetStringValue(); } },
-                { "workflowId", n => { WorkflowId = n.GetGuidValue(); } },
-                { "workflowVersion", n => { WorkflowVersion = n.GetIntValue(); } },
                 { "workspaceId", n => { WorkspaceId = n.GetGuidValue(); } },
             };
         }
@@ -114,8 +117,12 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteStringValue("automation", Automation);
+            writer.WriteGuidValue("automationId", AutomationId);
+            writer.WriteIntValue("automationVersion", AutomationVersion);
             writer.WriteDateTimeOffsetValue("completedAt", CompletedAt);
             writer.WriteStringValue("error", Error);
+            writer.WriteGuidValue("eventId", EventId);
             writer.WriteGuidValue("id", Id);
             writer.WriteGuidValue("itemId", ItemId);
             writer.WriteGuidValue("listId", ListId);
@@ -124,9 +131,6 @@ namespace PaperDotNet.Client.Models
             writer.WriteDateTimeOffsetValue("startedAt", StartedAt);
             writer.WriteGuidValue("startedBy", StartedBy);
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.RunStatus>("status", Status);
-            writer.WriteStringValue("workflow", Workflow);
-            writer.WriteGuidValue("workflowId", WorkflowId);
-            writer.WriteIntValue("workflowVersion", WorkflowVersion);
             writer.WriteGuidValue("workspaceId", WorkspaceId);
             writer.WriteAdditionalData(AdditionalData);
         }

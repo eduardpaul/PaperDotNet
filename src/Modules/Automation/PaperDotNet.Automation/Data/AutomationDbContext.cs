@@ -4,75 +4,11 @@ using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Automation.Data;
 
-/// <summary>A rule of a workspace (EVT-07): a trigger, an optional condition and actions (definition as JSON).</summary>
-public sealed class AutomationRule : ITenantOwned, IAuditable, IVersioned
-{
-    public Guid Id { get; set; }
-
-    public Guid TenantId { get; set; }
-
-    public Guid WorkspaceId { get; set; }
-
-    public required string Name { get; set; }
-
-    public bool Enabled { get; set; } = true;
-
-    /// <summary>Trigger type, kept as a column to find rules for an event quickly.</summary>
-    public required string Trigger { get; set; }
-
-    /// <summary>The <c>RuleDefinition</c> as JSON (names, never ids, so it is portable).</summary>
-    public required string Definition { get; set; }
-
-    public DateTimeOffset CreatedAt { get; set; }
-
-    public Guid? CreatedBy { get; set; }
-
-    public DateTimeOffset UpdatedAt { get; set; }
-
-    public Guid? UpdatedBy { get; set; }
-
-    public uint Version { get; set; }
-}
-
-public enum RunStatus
-{
-    Running = 0,
-
-    /// <summary>Waiting for an approval or a timer.</summary>
-    Waiting = 1,
-    Completed = 2,
-    Failed = 3,
-    Cancelled = 4,
-
-    /// <summary>Rules only: the trigger matched but the condition did not.</summary>
-    Skipped = 5,
-}
-
-/// <summary>One execution of a rule for one event (unique per event: redelivered events do nothing).</summary>
-[NotAudited]
-public sealed class RuleRun : ITenantOwned
-{
-    public Guid Id { get; set; }
-
-    public Guid TenantId { get; set; }
-
-    public Guid RuleId { get; set; }
-
-    public Guid EventId { get; set; }
-
-    public Guid? ItemId { get; set; }
-
-    public RunStatus Status { get; set; }
-
-    public string? Error { get; set; }
-
-    public DateTimeOffset StartedAt { get; set; }
-
-    public DateTimeOffset? CompletedAt { get; set; }
-}
-
-/// <summary>A workflow of a workspace (EVT-08); its steps live in immutable versions.</summary>
-public sealed class WorkflowDefinition : ITenantOwned, IAuditable, IVersioned
+/// <summary>
+/// An automation of a workspace (EVT-07, EVT-08): a trigger, an optional condition and steps. The definition
+/// lives in immutable versions; runs keep the version they started with.
+/// </summary>
+public sealed class AutomationDefinition : ITenantOwned, IAuditable, IVersioned
 {
     public Guid Id { get; set; }
 
@@ -85,6 +21,9 @@ public sealed class WorkflowDefinition : ITenantOwned, IAuditable, IVersioned
     public string? Description { get; set; }
 
     public bool Enabled { get; set; } = true;
+
+    /// <summary>Trigger type of the current version, kept as a column to find automations for an event quickly.</summary>
+    public required string Trigger { get; set; }
 
     /// <summary>The version new runs use.</summary>
     public int CurrentVersion { get; set; }
@@ -100,19 +39,19 @@ public sealed class WorkflowDefinition : ITenantOwned, IAuditable, IVersioned
     public uint Version { get; set; }
 }
 
-/// <summary>An immutable version of a workflow's steps; runs keep the version they started with.</summary>
+/// <summary>An immutable version of an automation's definition.</summary>
 [NotAudited]
-public sealed class WorkflowDefinitionVersion : ITenantOwned
+public sealed class AutomationVersion : ITenantOwned
 {
     public Guid Id { get; set; }
 
     public Guid TenantId { get; set; }
 
-    public Guid DefinitionId { get; set; }
+    public Guid AutomationId { get; set; }
 
     public int Number { get; set; }
 
-    /// <summary>The <c>WorkflowSteps</c> as JSON.</summary>
+    /// <summary>The <c>AutomationSpec</c> as JSON (names, never ids, so it is portable).</summary>
     public required string Definition { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
@@ -120,23 +59,44 @@ public sealed class WorkflowDefinitionVersion : ITenantOwned
     public Guid? CreatedBy { get; set; }
 }
 
-/// <summary>A workflow run on an item: the interpreter's position, step outcomes and a short log.</summary>
+public enum RunStatus
+{
+    Running = 0,
+
+    /// <summary>Waiting for an approval or a timer.</summary>
+    Waiting = 1,
+    Completed = 2,
+    Failed = 3,
+    Cancelled = 4,
+}
+
+/// <summary>
+/// A run of an automation: the interpreter's position, step outcomes and a short log. A run started by an event
+/// records the event (unique per automation, so a redelivered event starts nothing).
+/// </summary>
 [NotAudited]
-public sealed class WorkflowRun : ITenantOwned, IVersioned
+public sealed class AutomationRun : ITenantOwned, IVersioned
 {
     public Guid Id { get; set; }
 
     public Guid TenantId { get; set; }
 
-    public Guid DefinitionId { get; set; }
+    public Guid AutomationId { get; set; }
 
-    public int DefinitionVersion { get; set; }
+    public int AutomationVersion { get; set; }
 
     public Guid WorkspaceId { get; set; }
 
-    public Guid ListId { get; set; }
+    /// <summary>The item the run works on; null for extension triggers without an item.</summary>
+    public Guid? ListId { get; set; }
 
-    public Guid ItemId { get; set; }
+    public Guid? ItemId { get; set; }
+
+    /// <summary>The event that started the run; null for manual starts.</summary>
+    public Guid? EventId { get; set; }
+
+    /// <summary>Data of an extension trigger as a JSON object, if any.</summary>
+    public string? Data { get; set; }
 
     public RunStatus Status { get; set; }
 
@@ -159,6 +119,7 @@ public sealed class WorkflowRun : ITenantOwned, IVersioned
 
     public int Depth { get; set; }
 
+    /// <summary>The user who started the run or whose change triggered it.</summary>
     public Guid? StartedBy { get; set; }
 
     public DateTimeOffset StartedAt { get; set; }
@@ -230,58 +191,42 @@ public sealed class AutomationDbContext(DbContextOptions<AutomationDbContext> op
 
     public Guid? CurrentTenantId => tenant.TenantId;
 
-    public DbSet<AutomationRule> Rules => Set<AutomationRule>();
+    public DbSet<AutomationDefinition> Automations => Set<AutomationDefinition>();
 
-    public DbSet<RuleRun> RuleRuns => Set<RuleRun>();
+    public DbSet<AutomationVersion> Versions => Set<AutomationVersion>();
 
-    public DbSet<WorkflowDefinition> Workflows => Set<WorkflowDefinition>();
-
-    public DbSet<WorkflowDefinitionVersion> WorkflowVersions => Set<WorkflowDefinitionVersion>();
-
-    public DbSet<WorkflowRun> Runs => Set<WorkflowRun>();
+    public DbSet<AutomationRun> Runs => Set<AutomationRun>();
 
     public DbSet<ApprovalRequest> Approvals => Set<ApprovalRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
-        modelBuilder.Entity<AutomationRule>(b =>
+        modelBuilder.Entity<AutomationDefinition>(b =>
         {
-            b.ToTable("rules");
-            b.Property(r => r.Name).HasMaxLength(200);
-            b.Property(r => r.Trigger).HasMaxLength(200);
-            b.HasIndex(r => new { r.TenantId, r.WorkspaceId, r.Name }).IsUnique();
-            b.HasIndex(r => new { r.TenantId, r.WorkspaceId, r.Trigger });
+            b.ToTable("definitions");
+            b.Property(a => a.Name).HasMaxLength(200);
+            b.Property(a => a.Description).HasMaxLength(2000);
+            b.Property(a => a.Trigger).HasMaxLength(200);
+            b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.Name }).IsUnique();
+            b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.Trigger });
         });
-        modelBuilder.Entity<RuleRun>(b =>
+        modelBuilder.Entity<AutomationVersion>(b =>
         {
-            b.ToTable("rule_runs");
-            b.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
-            b.Property(r => r.Error).HasMaxLength(2000);
-            b.HasIndex(r => new { r.RuleId, r.EventId }).IsUnique();
-            b.HasIndex(r => new { r.RuleId, r.StartedAt });
+            b.ToTable("versions");
+            b.HasIndex(v => new { v.AutomationId, v.Number }).IsUnique();
         });
-        modelBuilder.Entity<WorkflowDefinition>(b =>
+        modelBuilder.Entity<AutomationRun>(b =>
         {
-            b.ToTable("workflows");
-            b.Property(w => w.Name).HasMaxLength(200);
-            b.Property(w => w.Description).HasMaxLength(2000);
-            b.HasIndex(w => new { w.TenantId, w.WorkspaceId, w.Name }).IsUnique();
-        });
-        modelBuilder.Entity<WorkflowDefinitionVersion>(b =>
-        {
-            b.ToTable("workflow_versions");
-            b.HasIndex(v => new { v.DefinitionId, v.Number }).IsUnique();
-        });
-        modelBuilder.Entity<WorkflowRun>(b =>
-        {
-            b.ToTable("workflow_runs");
+            b.ToTable("runs");
             b.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
             b.Property(r => r.Error).HasMaxLength(2000);
             b.Property(r => r.WaitingFor).HasMaxLength(100);
+            b.HasIndex(r => new { r.AutomationId, r.EventId }).IsUnique();
             b.HasIndex(r => new { r.TenantId, r.ItemId });
-            b.HasIndex(r => new { r.TenantId, r.DefinitionId, r.StartedAt });
+            b.HasIndex(r => new { r.TenantId, r.AutomationId, r.StartedAt });
             b.HasIndex(r => new { r.Status, r.ResumeAt });
+            b.HasIndex(r => new { r.TenantId, r.Status, r.CompletedAt });
         });
         modelBuilder.Entity<ApprovalRequest>(b =>
         {

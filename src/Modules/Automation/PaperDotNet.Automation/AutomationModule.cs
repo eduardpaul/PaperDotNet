@@ -20,14 +20,15 @@ public static class AutomationScopes
 
     public static readonly ScopeDefinition[] All =
     [
-        new(Read, "See rules, workflows, runs and your approvals.", GrantedToMembers: true),
-        new(Write, "Decide approvals, start workflows on items and (as workspace manager) change rules and workflows.", GrantedToMembers: true),
+        new(Read, "See automations, their runs and your approvals.", GrantedToMembers: true),
+        new(Write, "Decide approvals, start automations on items and (as workspace manager) change automations.", GrantedToMembers: true),
     ];
 }
 
 /// <summary>
-/// Automation (phase 5b, ADR-0018/0019): rules on item events and extension triggers, workflows with approvals
-/// and delays (resumed through durable messages), built-in and extension actions, path templates.
+/// Automation (phase 5b, ADR-0018/0019/0024): automations started by item events, extension triggers or people, with
+/// actions, approvals, delays and conditions (runs resumed through durable messages), built-in and extension actions,
+/// path templates.
 /// </summary>
 public sealed class AutomationModule : IModule
 {
@@ -46,20 +47,21 @@ public sealed class AutomationModule : IModule
         services.AddScoped<IAutomationAction, ItemFileAction>();
         services.AddScoped<IAutomationAction, TaskCreateAction>();
         services.AddScoped<IAutomationAction, NotifyAction>();
-        services.AddScoped<IAutomationAction, WorkflowStartAction>();
 
         services.AddIntegrationEvent<AutomationTriggerRaised>();
         services.AddScoped<IAutomationTriggers, AutomationTriggerPublisher>();
-        services.AddScoped<RuleRunner>();
-        services.AddEventSubscriber<ItemAdded, RuleRunner>();
-        services.AddEventSubscriber<ItemUpdated, RuleRunner>();
-        services.AddEventSubscriber<ItemDeleted, RuleRunner>();
-        services.AddEventSubscriber<AutomationTriggerRaised, RuleRunner>();
+        services.AddEventSubscriber<ItemAdded, AutomationTriggerHandler>();
+        services.AddEventSubscriber<ItemUpdated, AutomationTriggerHandler>();
+        services.AddEventSubscriber<ItemDeleted, AutomationTriggerHandler>();
+        services.AddEventSubscriber<ItemRestored, AutomationTriggerHandler>();
+        services.AddEventSubscriber<AutomationTriggerRaised, AutomationTriggerHandler>();
 
-        services.AddScoped<WorkflowStarter>();
-        services.AddScoped<WorkflowInterpreter>();
+        services.Configure<AutomationOptions>(configuration.GetSection("Automation"));
+        services.AddScoped<AutomationStarter>();
+        services.AddScoped<AutomationInterpreter>();
         services.AddScoped<ApprovalService>();
         services.AddTenantRecurringJob<AutomationTimerJob>(AutomationTimerJob.Name, AutomationTimerJob.Schedule);
+        services.AddTenantRecurringJob<AutomationRunCleanupJob>(AutomationRunCleanupJob.Name, AutomationRunCleanupJob.Schedule);
 
         services.AddScoped<ITemplateHandler, AutomationTemplateHandler>();
         services.AddScopes(AutomationScopes.All);

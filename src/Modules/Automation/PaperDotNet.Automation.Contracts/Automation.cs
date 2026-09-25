@@ -2,7 +2,7 @@ using System.Text.Json.Nodes;
 
 namespace PaperDotNet.Automation.Contracts;
 
-/// <summary>The item a rule or workflow runs on.</summary>
+/// <summary>The item an automation runs on.</summary>
 public sealed record AutomationItem(Guid WorkspaceId, Guid ListId, Guid ItemId);
 
 /// <summary>Outcome of an action; <see cref="Output"/> is recorded with the run.</summary>
@@ -16,10 +16,10 @@ public sealed record AutomationActionResult(bool Succeeded, string? Error = null
 /// <summary>What an action runs with.</summary>
 public sealed class AutomationActionContext
 {
-    /// <summary>The workspace of the rule or workflow.</summary>
+    /// <summary>The workspace of the automation.</summary>
     public required Guid WorkspaceId { get; init; }
 
-    /// <summary>The item of the rule or workflow; null for triggers without an item.</summary>
+    /// <summary>The item of the run; null for triggers without an item.</summary>
     public AutomationItem? Item { get; init; }
 
     /// <summary>The action's inputs as saved (tokens not expanded; use <see cref="ExpandAsync"/>).</summary>
@@ -28,16 +28,19 @@ public sealed class AutomationActionContext
     /// <summary>Services of the tenant, acting on behalf of the organization (no user).</summary>
     public required IServiceProvider Services { get; init; }
 
-    /// <summary>The user whose change started the automation, if any.</summary>
+    /// <summary>The user who started the run or whose change triggered it, if any.</summary>
     public Guid? UserId { get; init; }
 
     /// <summary>Data of an extension trigger, if any.</summary>
     public JsonObject? Data { get; init; }
 
-    /// <summary>Where the action runs, e.g. <c>rule:File invoices</c> or <c>workflow:Invoice approval</c>.</summary>
+    /// <summary>Where the action runs, e.g. <c>automation:File invoices</c>.</summary>
     public required string Source { get; init; }
 
-    /// <summary>A stable key of this action execution (for deduplication, e.g. of notifications).</summary>
+    /// <summary>
+    /// A stable key of this action execution (the same when the step runs again after a failure): use it to make
+    /// the action safe to repeat, e.g. as a notification deduplication key or to find what an earlier attempt created.
+    /// </summary>
     public required string ExecutionKey { get; init; }
 
     /// <summary>
@@ -49,8 +52,9 @@ public sealed class AutomationActionContext
 }
 
 /// <summary>
-/// An action that rules and workflow steps can run (EVT-07…09). Built-in keys are like <c>item.update</c>;
-/// extension keys start with the extension id. Actions must be safe to run again (rare, after a crash).
+/// An action that automation steps can run (EVT-07…09). Built-in keys are like <c>item.update</c>;
+/// extension keys start with the extension id. Actions must be safe to run again with the same
+/// <see cref="AutomationActionContext.ExecutionKey"/> (rare: after a crash or a failed save).
 /// </summary>
 public interface IAutomationAction
 {
@@ -58,25 +62,29 @@ public interface IAutomationAction
 
     string Description { get; }
 
-    /// <summary>Checks the inputs when a rule or workflow is saved (tokens are not expanded yet).</summary>
+    /// <summary>Checks the inputs when an automation is saved (tokens are not expanded yet).</summary>
     IEnumerable<string> Validate(JsonObject inputs) => [];
 
     Task<AutomationActionResult> ExecuteAsync(AutomationActionContext context, CancellationToken cancellationToken);
 }
 
-/// <summary>A trigger an extension offers to rules (key starts with the extension id).</summary>
+/// <summary>A trigger an extension offers to automations (key starts with the extension id).</summary>
 public sealed record AutomationTriggerDefinition(string Key, string Description);
 
-/// <summary>Runs the rules of an extension trigger (in the background, like item events).</summary>
+/// <summary>Starts the automations of an extension trigger (in the background, like item events).</summary>
 public interface IAutomationTriggers
 {
     Task RaiseAsync(string triggerKey, Guid workspaceId, AutomationItem? item, JsonObject? data, CancellationToken cancellationToken);
 }
 
-/// <summary>Built-in trigger types of rules.</summary>
+/// <summary>Built-in trigger types of automations.</summary>
 public static class AutomationTriggers
 {
+    /// <summary>Started on an item by a person (<c>POST …/items/{id}/automations</c>).</summary>
+    public const string Manual = "manual";
+
     public const string ItemAdded = "itemAdded";
     public const string ItemUpdated = "itemUpdated";
     public const string ItemDeleted = "itemDeleted";
+    public const string ItemRestored = "itemRestored";
 }

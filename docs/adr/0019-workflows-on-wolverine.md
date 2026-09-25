@@ -1,6 +1,6 @@
 # ADR-0019: Workflow runs resumed through Wolverine messages (replaces WorkflowCore)
 
-- **Status:** Accepted (supersedes the engine part of ADR-0018)
+- **Status:** Accepted (supersedes the engine part of ADR-0018); rules and workflows became one model in [ADR-0024](0024-one-automation-model.md)
 - **Date:** 2026-09-25
 
 ## Context

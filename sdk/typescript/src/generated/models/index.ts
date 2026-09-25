@@ -4,19 +4,6 @@
 // @ts-ignore
 import { createUntypedNodeFromDiscriminatorValue, type AdditionalDataHolder, type ApiError, type DateOnly, type Guid, type Parsable, type ParseNode, type SerializationWriter, type TimeOnly, type UntypedNode } from '@microsoft/kiota-abstractions';
 
-/**
- * An action with its inputs (strings may contain tokens such as `{title}`).
- */
-export interface ActionDefinition extends AdditionalDataHolder, Parsable {
-    /**
-     * The inputs property
-     */
-    inputs?: JsonObject | null;
-    /**
-     * The type property
-     */
-    type?: string | null;
-}
 export interface ActivityResponse extends AdditionalDataHolder, Parsable {
     /**
      * The actorId property
@@ -278,6 +265,163 @@ export interface AuditPage extends AdditionalDataHolder, Parsable {
      * The value property
      */
     value?: AuditEntryResponse[] | null;
+}
+export interface AutomationRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The condition property
+     */
+    condition?: string | null;
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The enabled property
+     */
+    enabled?: boolean | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The steps property
+     */
+    steps?: AutomationStep[] | null;
+    /**
+     * The trigger property
+     */
+    trigger?: AutomationTrigger | null;
+}
+/**
+ * An automation with the definition of its current `version` (runs keep the version they started with).
+ */
+export interface AutomationResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The condition property
+     */
+    condition?: string | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The enabled property
+     */
+    enabled?: boolean | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The steps property
+     */
+    steps?: AutomationStep[] | null;
+    /**
+     * When an automation runs: `type` is `manual` (started on an item by a person), `itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored` or an extension trigger; `list` and`contentType` narrow it by name; `changedFields` (updates) needs one of them to change.
+     */
+    trigger?: AutomationTrigger | null;
+    /**
+     * The updatedAt property
+     */
+    updatedAt?: Date | null;
+    /**
+     * The version property
+     */
+    version?: number | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
+/**
+ * A step of an automation (EVT-07, EVT-08). Assignees and recipients are user names, `group:Name`,`field:fieldName` (a person field of the item) or `creator`.
+ */
+export interface AutomationStep extends AdditionalDataHolder, Parsable {
+    /**
+     * The action property
+     */
+    action?: string | null;
+    /**
+     * The assignees property
+     */
+    assignees?: string[] | null;
+    /**
+     * The dueInHours property
+     */
+    dueInHours?: number | null;
+    /**
+     * The else property
+     */
+    elseEscaped?: AutomationStep[] | null;
+    /**
+     * The escalateTo property
+     */
+    escalateTo?: string[] | null;
+    /**
+     * The filter property
+     */
+    filter?: string | null;
+    /**
+     * The hours property
+     */
+    hours?: number | null;
+    /**
+     * The inputs property
+     */
+    inputs?: JsonObject | null;
+    /**
+     * The is property
+     */
+    is?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The step property
+     */
+    step?: string | null;
+    /**
+     * The then property
+     */
+    then?: AutomationStep[] | null;
+    /**
+     * The title property
+     */
+    title?: string | null;
+    /**
+     * The type property
+     */
+    type?: string | null;
+}
+/**
+ * When an automation runs: `type` is `manual` (started on an item by a person), `itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored` or an extension trigger; `list` and`contentType` narrow it by name; `changedFields` (updates) needs one of them to change.
+ */
+export interface AutomationTrigger extends AdditionalDataHolder, Parsable {
+    /**
+     * The changedFields property
+     */
+    changedFields?: string[] | null;
+    /**
+     * The contentType property
+     */
+    contentType?: string | null;
+    /**
+     * The list property
+     */
+    list?: string | null;
+    /**
+     * The type property
+     */
+    type?: string | null;
 }
 export interface BatchRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -673,15 +817,6 @@ export interface Counters extends AdditionalDataHolder, Parsable {
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {ActionDefinition}
- */
-// @ts-ignore
-export function createActionDefinitionFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoActionDefinition;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ActivityResponse}
  */
 // @ts-ignore
@@ -829,6 +964,42 @@ export function createAuditEntryResponseFromDiscriminatorValue(parseNode: ParseN
 // @ts-ignore
 export function createAuditPageFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoAuditPage;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AutomationRequest}
+ */
+// @ts-ignore
+export function createAutomationRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAutomationRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AutomationResponse}
+ */
+// @ts-ignore
+export function createAutomationResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAutomationResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AutomationStep}
+ */
+// @ts-ignore
+export function createAutomationStepFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAutomationStep;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AutomationTrigger}
+ */
+// @ts-ignore
+export function createAutomationTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAutomationTrigger;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1685,15 +1856,6 @@ export function createPageOfRecycleBinItemResponseFromDiscriminatorValue(parseNo
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PageOfRuleRunResponse}
- */
-// @ts-ignore
-export function createPageOfRuleRunResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPageOfRuleRunResponse;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PageOfRunResponse}
  */
 // @ts-ignore
@@ -1969,42 +2131,6 @@ export function createRoleResponseFromDiscriminatorValue(parseNode: ParseNode | 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {RuleRequest}
- */
-// @ts-ignore
-export function createRuleRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoRuleRequest;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {RuleResponse}
- */
-// @ts-ignore
-export function createRuleResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoRuleResponse;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {RuleRunResponse}
- */
-// @ts-ignore
-export function createRuleRunResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoRuleRunResponse;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {RuleTrigger}
- */
-// @ts-ignore
-export function createRuleTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoRuleTrigger;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {RunResponse_outcomes}
  */
 // @ts-ignore
@@ -2167,11 +2293,11 @@ export function createSmartFolderResponseFromDiscriminatorValue(parseNode: Parse
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {StartWorkflowRequest}
+ * @returns {StartAutomationRequest}
  */
 // @ts-ignore
-export function createStartWorkflowRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoStartWorkflowRequest;
+export function createStartAutomationRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStartAutomationRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2422,33 +2548,6 @@ export function createViewResponseFromDiscriminatorValue(parseNode: ParseNode | 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {WorkflowRequest}
- */
-// @ts-ignore
-export function createWorkflowRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoWorkflowRequest;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {WorkflowResponse}
- */
-// @ts-ignore
-export function createWorkflowResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoWorkflowResponse;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {WorkflowStep}
- */
-// @ts-ignore
-export function createWorkflowStepFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoWorkflowStep;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {WorkspaceMemberResponse}
  */
 // @ts-ignore
@@ -2555,18 +2654,6 @@ export interface DeltaRemoved extends AdditionalDataHolder, Parsable {
      * The reason property
      */
     reason?: string | null;
-}
-/**
- * The deserialization information for the current model
- * @param ActionDefinition The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoActionDefinition(actionDefinition: Partial<ActionDefinition> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "inputs": n => { actionDefinition.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
-        "type": n => { actionDefinition.type = n.getStringValue(); },
-    }
 }
 /**
  * The deserialization information for the current model
@@ -2744,6 +2831,81 @@ export function deserializeIntoAuditPage(auditPage: Partial<AuditPage> | undefin
     return {
         "@odata.nextLink": n => { auditPage.odataNextLink = n.getStringValue(); },
         "value": n => { auditPage.value = n.getCollectionOfObjectValues<AuditEntryResponse>(createAuditEntryResponseFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AutomationRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAutomationRequest(automationRequest: Partial<AutomationRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "condition": n => { automationRequest.condition = n.getStringValue(); },
+        "description": n => { automationRequest.description = n.getStringValue(); },
+        "enabled": n => { automationRequest.enabled = n.getBooleanValue() ?? true; },
+        "name": n => { automationRequest.name = n.getStringValue(); },
+        "steps": n => { automationRequest.steps = n.getCollectionOfObjectValues<AutomationStep>(createAutomationStepFromDiscriminatorValue); },
+        "trigger": n => { automationRequest.trigger = n.getObjectValue<AutomationTrigger>(createAutomationTriggerFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AutomationResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAutomationResponse(automationResponse: Partial<AutomationResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "condition": n => { automationResponse.condition = n.getStringValue(); },
+        "createdAt": n => { automationResponse.createdAt = n.getDateValue(); },
+        "description": n => { automationResponse.description = n.getStringValue(); },
+        "enabled": n => { automationResponse.enabled = n.getBooleanValue(); },
+        "id": n => { automationResponse.id = n.getGuidValue(); },
+        "name": n => { automationResponse.name = n.getStringValue(); },
+        "steps": n => { automationResponse.steps = n.getCollectionOfObjectValues<AutomationStep>(createAutomationStepFromDiscriminatorValue); },
+        "trigger": n => { automationResponse.trigger = n.getObjectValue<AutomationTrigger>(createAutomationTriggerFromDiscriminatorValue); },
+        "updatedAt": n => { automationResponse.updatedAt = n.getDateValue(); },
+        "version": n => { automationResponse.version = n.getNumberValue(); },
+        "workspaceId": n => { automationResponse.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AutomationStep The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAutomationStep(automationStep: Partial<AutomationStep> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "action": n => { automationStep.action = n.getStringValue(); },
+        "assignees": n => { automationStep.assignees = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "dueInHours": n => { automationStep.dueInHours = n.getNumberValue(); },
+        "else": n => { automationStep.elseEscaped = n.getCollectionOfObjectValues<AutomationStep>(createAutomationStepFromDiscriminatorValue); },
+        "escalateTo": n => { automationStep.escalateTo = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "filter": n => { automationStep.filter = n.getStringValue(); },
+        "hours": n => { automationStep.hours = n.getNumberValue(); },
+        "inputs": n => { automationStep.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "is": n => { automationStep.is = n.getStringValue(); },
+        "name": n => { automationStep.name = n.getStringValue(); },
+        "step": n => { automationStep.step = n.getStringValue(); },
+        "then": n => { automationStep.then = n.getCollectionOfObjectValues<AutomationStep>(createAutomationStepFromDiscriminatorValue); },
+        "title": n => { automationStep.title = n.getStringValue(); },
+        "type": n => { automationStep.type = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AutomationTrigger The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAutomationTrigger(automationTrigger: Partial<AutomationTrigger> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "changedFields": n => { automationTrigger.changedFields = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "contentType": n => { automationTrigger.contentType = n.getStringValue(); },
+        "list": n => { automationTrigger.list = n.getStringValue(); },
+        "type": n => { automationTrigger.type = n.getStringValue(); },
     }
 }
 /**
@@ -3980,18 +4142,6 @@ export function deserializeIntoPageOfRecycleBinItemResponse(pageOfRecycleBinItem
 }
 /**
  * The deserialization information for the current model
- * @param PageOfRuleRunResponse The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoPageOfRuleRunResponse(pageOfRuleRunResponse: Partial<PageOfRuleRunResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "@odata.nextLink": n => { pageOfRuleRunResponse.odataNextLink = n.getStringValue(); },
-        "value": n => { pageOfRuleRunResponse.value = n.getCollectionOfObjectValues<RuleRunResponse>(createRuleRunResponseFromDiscriminatorValue); },
-    }
-}
-/**
- * The deserialization information for the current model
  * @param PageOfRunResponse The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -4352,79 +4502,18 @@ export function deserializeIntoRoleResponse(roleResponse: Partial<RoleResponse> 
 }
 /**
  * The deserialization information for the current model
- * @param RuleRequest The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoRuleRequest(ruleRequest: Partial<RuleRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "actions": n => { ruleRequest.actions = n.getCollectionOfObjectValues<ActionDefinition>(createActionDefinitionFromDiscriminatorValue); },
-        "condition": n => { ruleRequest.condition = n.getStringValue(); },
-        "enabled": n => { ruleRequest.enabled = n.getBooleanValue() ?? true; },
-        "name": n => { ruleRequest.name = n.getStringValue(); },
-        "trigger": n => { ruleRequest.trigger = n.getObjectValue<RuleTrigger>(createRuleTriggerFromDiscriminatorValue); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param RuleResponse The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoRuleResponse(ruleResponse: Partial<RuleResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "actions": n => { ruleResponse.actions = n.getCollectionOfObjectValues<ActionDefinition>(createActionDefinitionFromDiscriminatorValue); },
-        "condition": n => { ruleResponse.condition = n.getStringValue(); },
-        "createdAt": n => { ruleResponse.createdAt = n.getDateValue(); },
-        "enabled": n => { ruleResponse.enabled = n.getBooleanValue(); },
-        "id": n => { ruleResponse.id = n.getGuidValue(); },
-        "name": n => { ruleResponse.name = n.getStringValue(); },
-        "trigger": n => { ruleResponse.trigger = n.getObjectValue<RuleTrigger>(createRuleTriggerFromDiscriminatorValue); },
-        "updatedAt": n => { ruleResponse.updatedAt = n.getDateValue(); },
-        "workspaceId": n => { ruleResponse.workspaceId = n.getGuidValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param RuleRunResponse The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoRuleRunResponse(ruleRunResponse: Partial<RuleRunResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "completedAt": n => { ruleRunResponse.completedAt = n.getDateValue(); },
-        "error": n => { ruleRunResponse.errorEscaped = n.getStringValue(); },
-        "eventId": n => { ruleRunResponse.eventId = n.getGuidValue(); },
-        "id": n => { ruleRunResponse.id = n.getGuidValue(); },
-        "itemId": n => { ruleRunResponse.itemId = n.getGuidValue(); },
-        "startedAt": n => { ruleRunResponse.startedAt = n.getDateValue(); },
-        "status": n => { ruleRunResponse.status = n.getEnumValue<RunStatus>(RunStatusObject); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param RuleTrigger The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoRuleTrigger(ruleTrigger: Partial<RuleTrigger> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "changedFields": n => { ruleTrigger.changedFields = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "contentType": n => { ruleTrigger.contentType = n.getStringValue(); },
-        "list": n => { ruleTrigger.list = n.getStringValue(); },
-        "type": n => { ruleTrigger.type = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
  * @param RunResponse The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
 export function deserializeIntoRunResponse(runResponse: Partial<RunResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "automation": n => { runResponse.automation = n.getStringValue(); },
+        "automationId": n => { runResponse.automationId = n.getGuidValue(); },
+        "automationVersion": n => { runResponse.automationVersion = n.getNumberValue(); },
         "completedAt": n => { runResponse.completedAt = n.getDateValue(); },
         "error": n => { runResponse.errorEscaped = n.getStringValue(); },
+        "eventId": n => { runResponse.eventId = n.getGuidValue(); },
         "id": n => { runResponse.id = n.getGuidValue(); },
         "itemId": n => { runResponse.itemId = n.getGuidValue(); },
         "listId": n => { runResponse.listId = n.getGuidValue(); },
@@ -4433,9 +4522,6 @@ export function deserializeIntoRunResponse(runResponse: Partial<RunResponse> | u
         "startedAt": n => { runResponse.startedAt = n.getDateValue(); },
         "startedBy": n => { runResponse.startedBy = n.getGuidValue(); },
         "status": n => { runResponse.status = n.getEnumValue<RunStatus>(RunStatusObject); },
-        "workflow": n => { runResponse.workflow = n.getStringValue(); },
-        "workflowId": n => { runResponse.workflowId = n.getGuidValue(); },
-        "workflowVersion": n => { runResponse.workflowVersion = n.getNumberValue(); },
         "workspaceId": n => { runResponse.workspaceId = n.getGuidValue(); },
     }
 }
@@ -4682,13 +4768,13 @@ export function deserializeIntoSmartFolderResponse(smartFolderResponse: Partial<
 }
 /**
  * The deserialization information for the current model
- * @param StartWorkflowRequest The instance to deserialize into.
+ * @param StartAutomationRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoStartWorkflowRequest(startWorkflowRequest: Partial<StartWorkflowRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoStartAutomationRequest(startAutomationRequest: Partial<StartAutomationRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "workflow": n => { startWorkflowRequest.workflow = n.getStringValue(); },
+        "automation": n => { startAutomationRequest.automation = n.getStringValue(); },
     }
 }
 /**
@@ -4993,63 +5079,6 @@ export function deserializeIntoViewResponse(viewResponse: Partial<ViewResponse> 
         "listId": n => { viewResponse.listId = n.getGuidValue(); },
         "name": n => { viewResponse.name = n.getStringValue(); },
         "orderBy": n => { viewResponse.orderBy = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param WorkflowRequest The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoWorkflowRequest(workflowRequest: Partial<WorkflowRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "description": n => { workflowRequest.description = n.getStringValue(); },
-        "enabled": n => { workflowRequest.enabled = n.getBooleanValue() ?? true; },
-        "name": n => { workflowRequest.name = n.getStringValue(); },
-        "steps": n => { workflowRequest.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param WorkflowResponse The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoWorkflowResponse(workflowResponse: Partial<WorkflowResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "createdAt": n => { workflowResponse.createdAt = n.getDateValue(); },
-        "description": n => { workflowResponse.description = n.getStringValue(); },
-        "enabled": n => { workflowResponse.enabled = n.getBooleanValue(); },
-        "id": n => { workflowResponse.id = n.getGuidValue(); },
-        "name": n => { workflowResponse.name = n.getStringValue(); },
-        "steps": n => { workflowResponse.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
-        "updatedAt": n => { workflowResponse.updatedAt = n.getDateValue(); },
-        "version": n => { workflowResponse.version = n.getNumberValue(); },
-        "workspaceId": n => { workflowResponse.workspaceId = n.getGuidValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param WorkflowStep The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoWorkflowStep(workflowStep: Partial<WorkflowStep> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "action": n => { workflowStep.action = n.getStringValue(); },
-        "assignees": n => { workflowStep.assignees = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "dueInHours": n => { workflowStep.dueInHours = n.getNumberValue(); },
-        "else": n => { workflowStep.elseEscaped = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
-        "escalateTo": n => { workflowStep.escalateTo = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "filter": n => { workflowStep.filter = n.getStringValue(); },
-        "hours": n => { workflowStep.hours = n.getNumberValue(); },
-        "inputs": n => { workflowStep.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
-        "is": n => { workflowStep.is = n.getStringValue(); },
-        "name": n => { workflowStep.name = n.getStringValue(); },
-        "step": n => { workflowStep.step = n.getStringValue(); },
-        "then": n => { workflowStep.then = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
-        "title": n => { workflowStep.title = n.getStringValue(); },
-        "type": n => { workflowStep.type = n.getStringValue(); },
     }
 }
 /**
@@ -6174,19 +6203,6 @@ export interface PageOfRecycleBinItemResponse extends AdditionalDataHolder, Pars
 /**
  * A page of results in Graph/OData shape.
  */
-export interface PageOfRuleRunResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The OdataNextLink property
-     */
-    odataNextLink?: string | null;
-    /**
-     * The value property
-     */
-    value?: RuleRunResponse[] | null;
-}
-/**
- * A page of results in Graph/OData shape.
- */
 export interface PageOfRunResponse extends AdditionalDataHolder, Parsable {
     /**
      * The OdataNextLink property
@@ -6563,67 +6579,19 @@ export interface RoleResponse extends AdditionalDataHolder, Parsable {
      */
     scopes?: string[] | null;
 }
-export interface RuleRequest extends AdditionalDataHolder, Parsable {
+export interface RunResponse extends AdditionalDataHolder, Parsable {
     /**
-     * The actions property
+     * The automation property
      */
-    actions?: ActionDefinition[] | null;
+    automation?: string | null;
     /**
-     * The condition property
+     * The automationId property
      */
-    condition?: string | null;
+    automationId?: Guid | null;
     /**
-     * The enabled property
+     * The automationVersion property
      */
-    enabled?: boolean | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * The trigger property
-     */
-    trigger?: RuleTrigger | null;
-}
-export interface RuleResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The actions property
-     */
-    actions?: ActionDefinition[] | null;
-    /**
-     * The condition property
-     */
-    condition?: string | null;
-    /**
-     * The createdAt property
-     */
-    createdAt?: Date | null;
-    /**
-     * The enabled property
-     */
-    enabled?: boolean | null;
-    /**
-     * The id property
-     */
-    id?: Guid | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * When a rule runs: `type` is `itemAdded`, `itemUpdated`, `itemDeleted` or an extension trigger;`list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them to change.
-     */
-    trigger?: RuleTrigger | null;
-    /**
-     * The updatedAt property
-     */
-    updatedAt?: Date | null;
-    /**
-     * The workspaceId property
-     */
-    workspaceId?: Guid | null;
-}
-export interface RuleRunResponse extends AdditionalDataHolder, Parsable {
+    automationVersion?: number | null;
     /**
      * The completedAt property
      */
@@ -6636,53 +6604,6 @@ export interface RuleRunResponse extends AdditionalDataHolder, Parsable {
      * The eventId property
      */
     eventId?: Guid | null;
-    /**
-     * The id property
-     */
-    id?: Guid | null;
-    /**
-     * The itemId property
-     */
-    itemId?: Guid | null;
-    /**
-     * The startedAt property
-     */
-    startedAt?: Date | null;
-    /**
-     * The status property
-     */
-    status?: RunStatus | null;
-}
-/**
- * When a rule runs: `type` is `itemAdded`, `itemUpdated`, `itemDeleted` or an extension trigger;`list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them to change.
- */
-export interface RuleTrigger extends AdditionalDataHolder, Parsable {
-    /**
-     * The changedFields property
-     */
-    changedFields?: string[] | null;
-    /**
-     * The contentType property
-     */
-    contentType?: string | null;
-    /**
-     * The list property
-     */
-    list?: string | null;
-    /**
-     * The type property
-     */
-    type?: string | null;
-}
-export interface RunResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The completedAt property
-     */
-    completedAt?: Date | null;
-    /**
-     * The error property
-     */
-    errorEscaped?: string | null;
     /**
      * The id property
      */
@@ -6715,18 +6636,6 @@ export interface RunResponse extends AdditionalDataHolder, Parsable {
      * The status property
      */
     status?: RunStatus | null;
-    /**
-     * The workflow property
-     */
-    workflow?: string | null;
-    /**
-     * The workflowId property
-     */
-    workflowId?: Guid | null;
-    /**
-     * The workflowVersion property
-     */
-    workflowVersion?: number | null;
     /**
      * The workspaceId property
      */
@@ -6822,19 +6731,6 @@ export interface SearchResponse extends AdditionalDataHolder, Parsable {
      * The value property
      */
     value?: SearchHit[] | null;
-}
-/**
- * Serializes information the current object
- * @param ActionDefinition The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeActionDefinition(writer: SerializationWriter, actionDefinition: Partial<ActionDefinition> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!actionDefinition || isSerializingDerivedType) { return; }
-    writer.writeObjectValue<JsonObject>("inputs", actionDefinition.inputs, serializeJsonObject);
-    writer.writeStringValue("type", actionDefinition.type);
-    writer.writeAdditionalData(actionDefinition.additionalData);
 }
 /**
  * Serializes information the current object
@@ -7025,6 +6921,85 @@ export function serializeAuditPage(writer: SerializationWriter, auditPage: Parti
     writer.writeStringValue("@odata.nextLink", auditPage.odataNextLink);
     writer.writeCollectionOfObjectValues<AuditEntryResponse>("value", auditPage.value, serializeAuditEntryResponse);
     writer.writeAdditionalData(auditPage.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param AutomationRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAutomationRequest(writer: SerializationWriter, automationRequest: Partial<AutomationRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!automationRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("condition", automationRequest.condition);
+    writer.writeStringValue("description", automationRequest.description);
+    writer.writeBooleanValue("enabled", automationRequest.enabled ?? true);
+    writer.writeStringValue("name", automationRequest.name);
+    writer.writeCollectionOfObjectValues<AutomationStep>("steps", automationRequest.steps, serializeAutomationStep);
+    writer.writeObjectValue<AutomationTrigger>("trigger", automationRequest.trigger, serializeAutomationTrigger);
+    writer.writeAdditionalData(automationRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param AutomationResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAutomationResponse(writer: SerializationWriter, automationResponse: Partial<AutomationResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!automationResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("condition", automationResponse.condition);
+    writer.writeDateValue("createdAt", automationResponse.createdAt);
+    writer.writeStringValue("description", automationResponse.description);
+    writer.writeBooleanValue("enabled", automationResponse.enabled);
+    writer.writeGuidValue("id", automationResponse.id);
+    writer.writeStringValue("name", automationResponse.name);
+    writer.writeCollectionOfObjectValues<AutomationStep>("steps", automationResponse.steps, serializeAutomationStep);
+    writer.writeObjectValue<AutomationTrigger>("trigger", automationResponse.trigger, serializeAutomationTrigger);
+    writer.writeDateValue("updatedAt", automationResponse.updatedAt);
+    writer.writeNumberValue("version", automationResponse.version);
+    writer.writeGuidValue("workspaceId", automationResponse.workspaceId);
+    writer.writeAdditionalData(automationResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param AutomationStep The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAutomationStep(writer: SerializationWriter, automationStep: Partial<AutomationStep> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!automationStep || isSerializingDerivedType) { return; }
+    writer.writeStringValue("action", automationStep.action);
+    writer.writeCollectionOfPrimitiveValues<string>("assignees", automationStep.assignees);
+    writer.writeNumberValue("dueInHours", automationStep.dueInHours);
+    writer.writeCollectionOfObjectValues<AutomationStep>("else", automationStep.elseEscaped, serializeAutomationStep);
+    writer.writeCollectionOfPrimitiveValues<string>("escalateTo", automationStep.escalateTo);
+    writer.writeStringValue("filter", automationStep.filter);
+    writer.writeNumberValue("hours", automationStep.hours);
+    writer.writeObjectValue<JsonObject>("inputs", automationStep.inputs, serializeJsonObject);
+    writer.writeStringValue("is", automationStep.is);
+    writer.writeStringValue("name", automationStep.name);
+    writer.writeStringValue("step", automationStep.step);
+    writer.writeCollectionOfObjectValues<AutomationStep>("then", automationStep.then, serializeAutomationStep);
+    writer.writeStringValue("title", automationStep.title);
+    writer.writeStringValue("type", automationStep.type);
+    writer.writeAdditionalData(automationStep.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param AutomationTrigger The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAutomationTrigger(writer: SerializationWriter, automationTrigger: Partial<AutomationTrigger> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!automationTrigger || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("changedFields", automationTrigger.changedFields);
+    writer.writeStringValue("contentType", automationTrigger.contentType);
+    writer.writeStringValue("list", automationTrigger.list);
+    writer.writeStringValue("type", automationTrigger.type);
+    writer.writeAdditionalData(automationTrigger.additionalData);
 }
 /**
  * Serializes information the current object
@@ -8347,19 +8322,6 @@ export function serializePageOfRecycleBinItemResponse(writer: SerializationWrite
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PageOfRuleRunResponse The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializePageOfRuleRunResponse(writer: SerializationWriter, pageOfRuleRunResponse: Partial<PageOfRuleRunResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pageOfRuleRunResponse || isSerializingDerivedType) { return; }
-    writer.writeStringValue("@odata.nextLink", pageOfRuleRunResponse.odataNextLink);
-    writer.writeCollectionOfObjectValues<RuleRunResponse>("value", pageOfRuleRunResponse.value, serializeRuleRunResponse);
-    writer.writeAdditionalData(pageOfRuleRunResponse.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PageOfRunResponse The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -8749,83 +8711,18 @@ export function serializeRoleResponse(writer: SerializationWriter, roleResponse:
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param RuleRequest The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeRuleRequest(writer: SerializationWriter, ruleRequest: Partial<RuleRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!ruleRequest || isSerializingDerivedType) { return; }
-    writer.writeCollectionOfObjectValues<ActionDefinition>("actions", ruleRequest.actions, serializeActionDefinition);
-    writer.writeStringValue("condition", ruleRequest.condition);
-    writer.writeBooleanValue("enabled", ruleRequest.enabled ?? true);
-    writer.writeStringValue("name", ruleRequest.name);
-    writer.writeObjectValue<RuleTrigger>("trigger", ruleRequest.trigger, serializeRuleTrigger);
-    writer.writeAdditionalData(ruleRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param RuleResponse The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeRuleResponse(writer: SerializationWriter, ruleResponse: Partial<RuleResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!ruleResponse || isSerializingDerivedType) { return; }
-    writer.writeCollectionOfObjectValues<ActionDefinition>("actions", ruleResponse.actions, serializeActionDefinition);
-    writer.writeStringValue("condition", ruleResponse.condition);
-    writer.writeDateValue("createdAt", ruleResponse.createdAt);
-    writer.writeBooleanValue("enabled", ruleResponse.enabled);
-    writer.writeGuidValue("id", ruleResponse.id);
-    writer.writeStringValue("name", ruleResponse.name);
-    writer.writeObjectValue<RuleTrigger>("trigger", ruleResponse.trigger, serializeRuleTrigger);
-    writer.writeDateValue("updatedAt", ruleResponse.updatedAt);
-    writer.writeGuidValue("workspaceId", ruleResponse.workspaceId);
-    writer.writeAdditionalData(ruleResponse.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param RuleRunResponse The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeRuleRunResponse(writer: SerializationWriter, ruleRunResponse: Partial<RuleRunResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!ruleRunResponse || isSerializingDerivedType) { return; }
-    writer.writeDateValue("completedAt", ruleRunResponse.completedAt);
-    writer.writeStringValue("error", ruleRunResponse.errorEscaped);
-    writer.writeGuidValue("eventId", ruleRunResponse.eventId);
-    writer.writeGuidValue("id", ruleRunResponse.id);
-    writer.writeGuidValue("itemId", ruleRunResponse.itemId);
-    writer.writeDateValue("startedAt", ruleRunResponse.startedAt);
-    writer.writeEnumValue<RunStatus>("status", ruleRunResponse.status);
-    writer.writeAdditionalData(ruleRunResponse.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param RuleTrigger The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeRuleTrigger(writer: SerializationWriter, ruleTrigger: Partial<RuleTrigger> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!ruleTrigger || isSerializingDerivedType) { return; }
-    writer.writeCollectionOfPrimitiveValues<string>("changedFields", ruleTrigger.changedFields);
-    writer.writeStringValue("contentType", ruleTrigger.contentType);
-    writer.writeStringValue("list", ruleTrigger.list);
-    writer.writeStringValue("type", ruleTrigger.type);
-    writer.writeAdditionalData(ruleTrigger.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param RunResponse The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
 export function serializeRunResponse(writer: SerializationWriter, runResponse: Partial<RunResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!runResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("automation", runResponse.automation);
+    writer.writeGuidValue("automationId", runResponse.automationId);
+    writer.writeNumberValue("automationVersion", runResponse.automationVersion);
     writer.writeDateValue("completedAt", runResponse.completedAt);
     writer.writeStringValue("error", runResponse.errorEscaped);
+    writer.writeGuidValue("eventId", runResponse.eventId);
     writer.writeGuidValue("id", runResponse.id);
     writer.writeGuidValue("itemId", runResponse.itemId);
     writer.writeGuidValue("listId", runResponse.listId);
@@ -8834,9 +8731,6 @@ export function serializeRunResponse(writer: SerializationWriter, runResponse: P
     writer.writeDateValue("startedAt", runResponse.startedAt);
     writer.writeGuidValue("startedBy", runResponse.startedBy);
     writer.writeEnumValue<RunStatus>("status", runResponse.status);
-    writer.writeStringValue("workflow", runResponse.workflow);
-    writer.writeGuidValue("workflowId", runResponse.workflowId);
-    writer.writeNumberValue("workflowVersion", runResponse.workflowVersion);
     writer.writeGuidValue("workspaceId", runResponse.workspaceId);
     writer.writeAdditionalData(runResponse.additionalData);
 }
@@ -9101,14 +8995,14 @@ export function serializeSmartFolderResponse(writer: SerializationWriter, smartF
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param StartWorkflowRequest The instance to serialize from.
+ * @param StartAutomationRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeStartWorkflowRequest(writer: SerializationWriter, startWorkflowRequest: Partial<StartWorkflowRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!startWorkflowRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("workflow", startWorkflowRequest.workflow);
-    writer.writeAdditionalData(startWorkflowRequest.additionalData);
+export function serializeStartAutomationRequest(writer: SerializationWriter, startAutomationRequest: Partial<StartAutomationRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!startAutomationRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("automation", startAutomationRequest.automation);
+    writer.writeAdditionalData(startAutomationRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -9437,66 +9331,6 @@ export function serializeViewResponse(writer: SerializationWriter, viewResponse:
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param WorkflowRequest The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeWorkflowRequest(writer: SerializationWriter, workflowRequest: Partial<WorkflowRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!workflowRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("description", workflowRequest.description);
-    writer.writeBooleanValue("enabled", workflowRequest.enabled ?? true);
-    writer.writeStringValue("name", workflowRequest.name);
-    writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowRequest.steps, serializeWorkflowStep);
-    writer.writeAdditionalData(workflowRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param WorkflowResponse The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeWorkflowResponse(writer: SerializationWriter, workflowResponse: Partial<WorkflowResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!workflowResponse || isSerializingDerivedType) { return; }
-    writer.writeDateValue("createdAt", workflowResponse.createdAt);
-    writer.writeStringValue("description", workflowResponse.description);
-    writer.writeBooleanValue("enabled", workflowResponse.enabled);
-    writer.writeGuidValue("id", workflowResponse.id);
-    writer.writeStringValue("name", workflowResponse.name);
-    writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowResponse.steps, serializeWorkflowStep);
-    writer.writeDateValue("updatedAt", workflowResponse.updatedAt);
-    writer.writeNumberValue("version", workflowResponse.version);
-    writer.writeGuidValue("workspaceId", workflowResponse.workspaceId);
-    writer.writeAdditionalData(workflowResponse.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param WorkflowStep The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeWorkflowStep(writer: SerializationWriter, workflowStep: Partial<WorkflowStep> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!workflowStep || isSerializingDerivedType) { return; }
-    writer.writeStringValue("action", workflowStep.action);
-    writer.writeCollectionOfPrimitiveValues<string>("assignees", workflowStep.assignees);
-    writer.writeNumberValue("dueInHours", workflowStep.dueInHours);
-    writer.writeCollectionOfObjectValues<WorkflowStep>("else", workflowStep.elseEscaped, serializeWorkflowStep);
-    writer.writeCollectionOfPrimitiveValues<string>("escalateTo", workflowStep.escalateTo);
-    writer.writeStringValue("filter", workflowStep.filter);
-    writer.writeNumberValue("hours", workflowStep.hours);
-    writer.writeObjectValue<JsonObject>("inputs", workflowStep.inputs, serializeJsonObject);
-    writer.writeStringValue("is", workflowStep.is);
-    writer.writeStringValue("name", workflowStep.name);
-    writer.writeStringValue("step", workflowStep.step);
-    writer.writeCollectionOfObjectValues<WorkflowStep>("then", workflowStep.then, serializeWorkflowStep);
-    writer.writeStringValue("title", workflowStep.title);
-    writer.writeStringValue("type", workflowStep.type);
-    writer.writeAdditionalData(workflowStep.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param WorkspaceMemberResponse The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -9773,11 +9607,11 @@ export interface SmartFolderResponse extends AdditionalDataHolder, Parsable {
      */
     workspaceId?: Guid | null;
 }
-export interface StartWorkflowRequest extends AdditionalDataHolder, Parsable {
+export interface StartAutomationRequest extends AdditionalDataHolder, Parsable {
     /**
-     * The workflow property
+     * The automation property
      */
-    workflow?: string | null;
+    automation?: string | null;
 }
 export interface SubscriptionRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -10253,126 +10087,6 @@ export interface ViewResponse extends AdditionalDataHolder, Parsable {
      */
     orderBy?: string | null;
 }
-export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
-    /**
-     * The description property
-     */
-    description?: string | null;
-    /**
-     * The enabled property
-     */
-    enabled?: boolean | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * The steps property
-     */
-    steps?: WorkflowStep[] | null;
-}
-/**
- * A workflow with the steps of its current `version` (runs keep the version they started with).
- */
-export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The createdAt property
-     */
-    createdAt?: Date | null;
-    /**
-     * The description property
-     */
-    description?: string | null;
-    /**
-     * The enabled property
-     */
-    enabled?: boolean | null;
-    /**
-     * The id property
-     */
-    id?: Guid | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * The steps property
-     */
-    steps?: WorkflowStep[] | null;
-    /**
-     * The updatedAt property
-     */
-    updatedAt?: Date | null;
-    /**
-     * The version property
-     */
-    version?: number | null;
-    /**
-     * The workspaceId property
-     */
-    workspaceId?: Guid | null;
-}
-/**
- * A workflow step (EVT-08). Assignees and recipients are user names, `group:Name`,`field:fieldName` (a person field of the item) or `creator`.
- */
-export interface WorkflowStep extends AdditionalDataHolder, Parsable {
-    /**
-     * The action property
-     */
-    action?: string | null;
-    /**
-     * The assignees property
-     */
-    assignees?: string[] | null;
-    /**
-     * The dueInHours property
-     */
-    dueInHours?: number | null;
-    /**
-     * The else property
-     */
-    elseEscaped?: WorkflowStep[] | null;
-    /**
-     * The escalateTo property
-     */
-    escalateTo?: string[] | null;
-    /**
-     * The filter property
-     */
-    filter?: string | null;
-    /**
-     * The hours property
-     */
-    hours?: number | null;
-    /**
-     * The inputs property
-     */
-    inputs?: JsonObject | null;
-    /**
-     * The is property
-     */
-    is?: string | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * The step property
-     */
-    step?: string | null;
-    /**
-     * The then property
-     */
-    then?: WorkflowStep[] | null;
-    /**
-     * The title property
-     */
-    title?: string | null;
-    /**
-     * The type property
-     */
-    type?: string | null;
-}
 export type WorkspaceAccessLevel = (typeof WorkspaceAccessLevelObject)[keyof typeof WorkspaceAccessLevelObject];
 export interface WorkspaceMemberResponse extends AdditionalDataHolder, Parsable {
     /**
@@ -10492,7 +10206,6 @@ export const RunStatusObject = {
     Completed: "completed",
     Failed: "failed",
     Cancelled: "cancelled",
-    Skipped: "skipped",
 } as const;
 /**
  * How two items are related (TSK-02, TSK-06).

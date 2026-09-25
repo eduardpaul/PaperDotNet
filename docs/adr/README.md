@@ -22,9 +22,10 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0015](0015-documents-on-the-sdk.md) | Documents built on the SDK, content-addressed file storage | Accepted |
 | [0016](0016-phase-4-scope.md) | Tasks and Calendar on the SDK, CalDAV later | Accepted |
 | [0017](0017-phase-5-scope.md) | Phase 5 scope; provisioning templates with per-module handlers | Accepted |
-| [0018](0018-automation-workflowcore.md) | Automation: own rules engine, workflows on WorkflowCore (instead of Elsa) | Superseded in part by 0019 |
-| [0019](0019-workflows-on-wolverine.md) | Workflow runs resumed through Wolverine messages (replaces WorkflowCore) | Accepted |
+| [0018](0018-automation-workflowcore.md) | Automation: own rules engine, workflows on WorkflowCore (instead of Elsa) | Superseded by 0019 and 0024 |
+| [0019](0019-workflows-on-wolverine.md) | Workflow runs resumed through Wolverine messages (replaces WorkflowCore) | Accepted (model changed by 0024) |
 | [0020](0020-sync-api.md) | Comments and activity on the SDK; change log for delta, change subscriptions, `$batch` | Accepted |
 | [0021](0021-mcp-and-sdks.md) | MCP server with the official C# SDK and our own tool contract; SDKs generated with Kiota | Accepted |
 | [0022](0022-smart-folders.md) | Smart folders on the item query engine; OData aliases for relative values; keyword promotion keeps ids | Accepted |
 | [0023](0023-item-mutators-and-event-reactions.md) | Item mutators before the save; events for everything after it; one message per subscriber | Accepted |
+| [0024](0024-one-automation-model.md) | One automation model: rules and workflows merged; runs started through the outbox | Accepted |

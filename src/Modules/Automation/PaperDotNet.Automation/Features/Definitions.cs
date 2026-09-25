@@ -6,18 +6,22 @@ using PaperDotNet.Automation.Contracts;
 namespace PaperDotNet.Automation.Features;
 
 /// <summary>
-/// When a rule runs: <c>type</c> is <c>itemAdded</c>, <c>itemUpdated</c>, <c>itemDeleted</c> or an extension trigger;
-/// <c>list</c> and <c>contentType</c> narrow it by name; <c>changedFields</c> (updates) needs one of them to change.
+/// When an automation runs: <c>type</c> is <c>manual</c> (started on an item by a person), <c>itemAdded</c>,
+/// <c>itemUpdated</c>, <c>itemDeleted</c>, <c>itemRestored</c> or an extension trigger; <c>list</c> and
+/// <c>contentType</c> narrow it by name; <c>changedFields</c> (updates) needs one of them to change.
 /// </summary>
-public sealed record RuleTrigger(string Type, string? List = null, string? ContentType = null, IReadOnlyList<string>? ChangedFields = null);
+public sealed record AutomationTrigger(string Type, string? List = null, string? ContentType = null, IReadOnlyList<string>? ChangedFields = null);
 
 /// <summary>An action with its inputs (strings may contain tokens such as <c>{title}</c>).</summary>
 public sealed record ActionDefinition(string Type, JsonObject? Inputs = null);
 
-/// <summary>A rule's definition: trigger, OData condition on the item (optional) and actions, run in order.</summary>
-public sealed record RuleDefinition(RuleTrigger Trigger, string? Condition, IReadOnlyList<ActionDefinition> Actions);
+/// <summary>
+/// What an automation does (a version of it): its trigger, an OData condition on the item checked when the trigger
+/// fires (optional), and the steps a run executes.
+/// </summary>
+public sealed record AutomationSpec(AutomationTrigger Trigger, string? Condition, IReadOnlyList<AutomationStep> Steps);
 
-/// <summary>Kinds of workflow steps.</summary>
+/// <summary>Kinds of automation steps.</summary>
 public static class StepTypes
 {
     /// <summary>Runs an action (<c>action</c>, <c>inputs</c>).</summary>
@@ -36,10 +40,10 @@ public static class StepTypes
 }
 
 /// <summary>
-/// A workflow step (EVT-08). Assignees and recipients are user names, <c>group:Name</c>,
+/// A step of an automation (EVT-07, EVT-08). Assignees and recipients are user names, <c>group:Name</c>,
 /// <c>field:fieldName</c> (a person field of the item) or <c>creator</c>.
 /// </summary>
-public sealed record WorkflowStep(
+public sealed record AutomationStep(
     string Type,
     string? Name = null,
     string? Action = null,
@@ -52,10 +56,8 @@ public sealed record WorkflowStep(
     string? Step = null,
     string? Is = null,
     string? Filter = null,
-    IReadOnlyList<WorkflowStep>? Then = null,
-    IReadOnlyList<WorkflowStep>? Else = null);
-
-public sealed record WorkflowSteps(IReadOnlyList<WorkflowStep> Steps);
+    IReadOnlyList<AutomationStep>? Then = null,
+    IReadOnlyList<AutomationStep>? Else = null);
 
 public static class ApprovalOutcomes
 {
@@ -89,7 +91,7 @@ internal static class DefinitionJson
     }
 }
 
-/// <summary>An instruction of a compiled workflow: steps become a flat program with forward jumps.</summary>
+/// <summary>An instruction of a compiled automation: steps become a flat program with forward jumps.</summary>
 internal enum OpCode
 {
     Action,
@@ -101,61 +103,53 @@ internal enum OpCode
     Jump,
 }
 
-internal sealed record Instruction(OpCode Op, WorkflowStep Step, string StepName, int Target = -1);
+internal sealed record Instruction(OpCode Op, AutomationStep Step, string StepName, int Target = -1);
 
-/// <summary>Checks definitions and compiles workflow steps.</summary>
+/// <summary>Checks definitions and compiles their steps.</summary>
 internal static class Definitions
 {
-    public const int MaxActions = 20;
     public const int MaxSteps = 100;
     public const int MaxDepth = 5;
 
-    public static List<string> ValidateRule(RuleDefinition? rule, IReadOnlySet<string> triggers, ActionCatalog actions)
+    /// <summary>Checks a definition against the known triggers and actions (the list and condition are checked by the caller).</summary>
+    public static List<string> Validate(AutomationSpec? spec, IReadOnlySet<string> triggers, ActionCatalog actions)
     {
         var errors = new List<string>();
-        if (rule?.Trigger is null)
+        if (spec?.Trigger is null)
         {
             errors.Add("A trigger is required.");
             return errors;
         }
 
-        if (!triggers.Contains(rule.Trigger.Type))
+        var trigger = spec.Trigger;
+        if (!triggers.Contains(trigger.Type))
         {
-            errors.Add($"Unknown trigger '{rule.Trigger.Type}'.");
+            errors.Add($"Unknown trigger '{trigger.Type}'.");
         }
 
-        if (rule.Trigger.ChangedFields is { Count: > 0 } && rule.Trigger.Type != AutomationTriggers.ItemUpdated)
+        if (trigger.ChangedFields is { Count: > 0 } && trigger.Type != AutomationTriggers.ItemUpdated)
         {
             errors.Add("changedFields is only used with itemUpdated.");
         }
 
-        if (!string.IsNullOrWhiteSpace(rule.Condition) && rule.Trigger.Type == AutomationTriggers.ItemDeleted)
+        if (!string.IsNullOrWhiteSpace(spec.Condition) && trigger.Type == AutomationTriggers.ItemDeleted)
         {
             errors.Add("Conditions cannot be checked on deleted items.");
         }
 
-        if (!string.IsNullOrWhiteSpace(rule.Condition) && rule.Trigger.List is null)
+        if (!string.IsNullOrWhiteSpace(spec.Condition) && trigger.List is null)
         {
             errors.Add("A condition needs the trigger's list (its fields).");
         }
 
-        if (rule.Actions is not { Count: > 0 and <= MaxActions })
-        {
-            errors.Add($"Between 1 and {MaxActions} actions are required.");
-        }
-
-        foreach (var (action, index) in (rule.Actions ?? []).Select((a, i) => (a, i)))
-        {
-            errors.AddRange(actions.Validate(action).Select(e => $"actions[{index}]: {e}"));
-        }
-
+        errors.AddRange(ValidateSteps(spec.Steps, actions));
         return errors;
     }
 
-    public static List<string> ValidateWorkflow(WorkflowSteps? workflow, ActionCatalog actions)
+    public static List<string> ValidateSteps(IReadOnlyList<AutomationStep>? steps, ActionCatalog actions)
     {
         var errors = new List<string>();
-        if (workflow?.Steps is not { Count: > 0 })
+        if (steps is not { Count: > 0 })
         {
             errors.Add("At least one step is required.");
             return errors;
@@ -163,7 +157,7 @@ internal static class Definitions
 
         var names = new HashSet<string>(StringComparer.Ordinal);
         var count = 0;
-        void Check(IReadOnlyList<WorkflowStep> steps, string path, int depth)
+        void Check(IReadOnlyList<AutomationStep> steps, string path, int depth)
         {
             if (depth > MaxDepth)
             {
@@ -176,7 +170,7 @@ internal static class Definitions
                 var at = $"{path}[{index}]";
                 if (++count > MaxSteps)
                 {
-                    errors.Add($"A workflow has at most {MaxSteps} steps.");
+                    errors.Add($"An automation has at most {MaxSteps} steps.");
                     return;
                 }
 
@@ -238,15 +232,15 @@ internal static class Definitions
             }
         }
 
-        Check(workflow.Steps, "steps", 0);
+        Check(steps, "steps", 0);
         return errors;
     }
 
     /// <summary>Flattens the steps: a condition becomes Branch(else) + then + Jump(end) + else.</summary>
-    public static List<Instruction> Compile(WorkflowSteps workflow)
+    public static List<Instruction> Compile(IReadOnlyList<AutomationStep> steps)
     {
         var program = new List<Instruction>();
-        void Emit(IReadOnlyList<WorkflowStep> steps, string path)
+        void Emit(IReadOnlyList<AutomationStep> steps, string path)
         {
             foreach (var (step, index) in steps.Select((s, i) => (s, i)))
             {
@@ -276,7 +270,7 @@ internal static class Definitions
             }
         }
 
-        Emit(workflow.Steps, "step ");
+        Emit(steps, "step ");
         return program;
     }
 }

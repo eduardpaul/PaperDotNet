@@ -6,6 +6,8 @@ import { createHttpValidationProblemDetailsFromDiscriminatorValue, createItemRes
 // @ts-ignore
 import { ActivityRequestBuilderRequestsMetadata, type ActivityRequestBuilder } from './activity/index.js';
 // @ts-ignore
+import { AutomationsRequestBuilderRequestsMetadata, type AutomationsRequestBuilder } from './automations/index.js';
+// @ts-ignore
 import { ChecklistRequestBuilderRequestsMetadata, type ChecklistRequestBuilder } from './checklist/index.js';
 // @ts-ignore
 import { ChildrenRequestBuilderRequestsMetadata, type ChildrenRequestBuilder } from './children/index.js';
@@ -26,8 +28,6 @@ import { TasksRequestBuilderRequestsMetadata, type TasksRequestBuilder } from '.
 // @ts-ignore
 import { type VersionsRequestBuilder, VersionsRequestBuilderNavigationMetadata, VersionsRequestBuilderRequestsMetadata } from './versions/index.js';
 // @ts-ignore
-import { type WorkflowsRequestBuilder, WorkflowsRequestBuilderRequestsMetadata } from './workflows/index.js';
-// @ts-ignore
 import { createUntypedNodeFromDiscriminatorValue, type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata, type UntypedNode } from '@microsoft/kiota-abstractions';
 
 /**
@@ -38,6 +38,10 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      * The activity property
      */
     get activity(): ActivityRequestBuilder;
+    /**
+     * The automations property
+     */
+    get automations(): AutomationsRequestBuilder;
     /**
      * The checklist property
      */
@@ -78,10 +82,6 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      * The versions property
      */
     get versions(): VersionsRequestBuilder;
-    /**
-     * The workflows property
-     */
-    get workflows(): WorkflowsRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      */
@@ -126,6 +126,9 @@ export const WithItemItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     activity: {
         requestsMetadata: ActivityRequestBuilderRequestsMetadata,
     },
+    automations: {
+        requestsMetadata: AutomationsRequestBuilderRequestsMetadata,
+    },
     checklist: {
         requestsMetadata: ChecklistRequestBuilderRequestsMetadata,
     },
@@ -161,9 +164,6 @@ export const WithItemItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     versions: {
         requestsMetadata: VersionsRequestBuilderRequestsMetadata,
         navigationMetadata: VersionsRequestBuilderNavigationMetadata,
-    },
-    workflows: {
-        requestsMetadata: WorkflowsRequestBuilderRequestsMetadata,
     },
 };
 /**

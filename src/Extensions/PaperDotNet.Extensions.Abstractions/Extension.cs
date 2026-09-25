@@ -100,11 +100,11 @@ public interface IExtensionBuilder
     IExtensionBuilder AddTemplateHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
         where THandler : class, ITemplateHandler;
 
-    /// <summary>An action for rules and workflows (EVT-09; key starts with <c>{extension id}.</c>).</summary>
+    /// <summary>An action for automation steps (EVT-09; key starts with <c>{extension id}.</c>).</summary>
     IExtensionBuilder AddAutomationAction<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
         where TAction : class, IAutomationAction;
 
-    /// <summary>A trigger for rules (EVT-09; key starts with <c>{extension id}.</c>); raise it with <see cref="IAutomationTriggers"/>.</summary>
+    /// <summary>A trigger for automations (EVT-09; key starts with <c>{extension id}.</c>); raise it with <see cref="IAutomationTriggers"/>.</summary>
     IExtensionBuilder AddAutomationTrigger(AutomationTriggerDefinition trigger);
 
     /// <summary>
