@@ -140,6 +140,16 @@ database, then runs `test/*.test.mjs` against the built package (about 30
 seconds). To use a running server instead, set `PAPERDOTNET_URL` and
 `PAPERDOTNET_ADMIN_PASSWORD`.
 
+The server gets the runner's environment, so the same tests run on
+PostgreSQL with an empty database owned by an ordinary role (so row-level
+security applies):
+
+```bash
+PAPERDOTNET__Database__Provider=PostgreSql \
+PAPERDOTNET__ConnectionStrings__PaperDotNet="Host=localhost;Database=pdn_e2e;Username=pdn_e2e;Password=…" \
+npm run test:e2e
+```
+
 ## Updating after API changes
 
 1. Refresh the description:
