@@ -15,9 +15,9 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ....models.api_problem import ApiProblem
     from ....models.feed_request import FeedRequest
     from ....models.feed_response import FeedResponse
-    from ....models.http_validation_problem_details import HttpValidationProblemDetails
     from .item.calendar_feeds_item_request_builder import CalendarFeedsItemRequestBuilder
 
 class CalendarFeedsRequestBuilder(BaseRequestBuilder):
@@ -55,11 +55,16 @@ class CalendarFeedsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from ....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ....models.feed_response import FeedResponse
 
-        return await self.request_adapter.send_collection_async(request_info, FeedResponse, None)
+        return await self.request_adapter.send_collection_async(request_info, FeedResponse, error_mapping)
     
     async def post(self,body: FeedRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[FeedResponse]:
         """
@@ -72,10 +77,11 @@ class CalendarFeedsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from ....models.http_validation_problem_details import HttpValidationProblemDetails
+        from ....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 

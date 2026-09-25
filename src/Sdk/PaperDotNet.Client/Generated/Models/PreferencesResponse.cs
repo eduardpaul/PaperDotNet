@@ -55,6 +55,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string NumberFormat { get; set; }
 #endif
+        /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>The theme property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -109,6 +117,7 @@ namespace PaperDotNet.Client.Models
                 { "inherited", n => { Inherited = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "language", n => { Language = n.GetStringValue(); } },
                 { "numberFormat", n => { NumberFormat = n.GetStringValue(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "theme", n => { Theme = n.GetStringValue(); } },
                 { "timeFormat", n => { TimeFormat = n.GetStringValue(); } },
                 { "timeZone", n => { TimeZone = n.GetStringValue(); } },
@@ -126,6 +135,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteCollectionOfPrimitiveValues<string>("inherited", Inherited);
             writer.WriteStringValue("language", Language);
             writer.WriteStringValue("numberFormat", NumberFormat);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteStringValue("theme", Theme);
             writer.WriteStringValue("timeFormat", TimeFormat);
             writer.WriteStringValue("timeZone", TimeZone);

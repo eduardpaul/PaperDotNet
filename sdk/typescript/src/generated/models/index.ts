@@ -71,6 +71,45 @@ export interface AddWorkspaceMemberRequest extends AdditionalDataHolder, Parsabl
     userId?: Guid | null;
 }
 export type AlertFrequency = (typeof AlertFrequencyObject)[keyof typeof AlertFrequencyObject];
+/**
+ * The problem body of every error response (RFC 9457 with PaperDotNet's `code` and validation `errors`);documented once so SDKs throw one typed error.
+ */
+export interface ApiProblem extends AdditionalDataHolder, ApiError, Parsable {
+    /**
+     * The code property
+     */
+    code?: string | null;
+    /**
+     * The detail property
+     */
+    detail?: string | null;
+    /**
+     * The errors property
+     */
+    errors?: ApiProblem_errors | null;
+    /**
+     * The instance property
+     */
+    instance?: string | null;
+    /**
+     * The status property
+     */
+    status?: number | null;
+    /**
+     * The title property
+     */
+    title?: string | null;
+    /**
+     * The traceId property
+     */
+    traceId?: string | null;
+    /**
+     * The type property
+     */
+    type?: string | null;
+}
+export interface ApiProblem_errors extends AdditionalDataHolder, Parsable {
+}
 export interface ApiTokenResponse extends AdditionalDataHolder, Parsable {
     /**
      * The createdAt property
@@ -321,6 +360,10 @@ export interface AutomationResponse extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
     /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
+    /**
      * The steps property
      */
     steps?: AutomationStep[] | null;
@@ -505,7 +548,7 @@ export interface BulkUpdateRequest extends AdditionalDataHolder, Parsable {
     /**
      * The fields property
      */
-    fields?: UntypedNode | null;
+    fields?: JsonObject | null;
     /**
      * The filter property
      */
@@ -664,6 +707,10 @@ export interface ChangeSubscriptionResponse extends AdditionalDataHolder, Parsab
      */
     notificationUrl?: string | null;
     /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
+    /**
      * The resource property
      */
     resource?: string | null;
@@ -740,6 +787,10 @@ export interface CommentResponse extends AdditionalDataHolder, Parsable {
      */
     mentions?: Guid[] | null;
     /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
+    /**
      * The parentId property
      */
     parentId?: Guid | null;
@@ -815,6 +866,10 @@ export interface ContentTypeResponse extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+    /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
 }
 export interface Counters extends AdditionalDataHolder, Parsable {
     /**
@@ -874,6 +929,24 @@ export function createAddListContentTypeRequestFromDiscriminatorValue(parseNode:
 // @ts-ignore
 export function createAddWorkspaceMemberRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoAddWorkspaceMemberRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ApiProblem_errors}
+ */
+// @ts-ignore
+export function createApiProblem_errorsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoApiProblem_errors;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ApiProblem}
+ */
+// @ts-ignore
+export function createApiProblemFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoApiProblem;
 }
 export interface CreateApiTokenRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -1583,24 +1656,6 @@ export function createHomeResponseFromDiscriminatorValue(parseNode: ParseNode | 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {HttpValidationProblemDetails_errors}
- */
-// @ts-ignore
-export function createHttpValidationProblemDetails_errorsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoHttpValidationProblemDetails_errors;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {HttpValidationProblemDetails}
- */
-// @ts-ignore
-export function createHttpValidationProblemDetailsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoHttpValidationProblemDetails;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ImportResponse}
  */
 // @ts-ignore
@@ -1645,7 +1700,7 @@ export interface CreateItemRequest extends AdditionalDataHolder, Parsable {
     /**
      * The fields property
      */
-    fields?: JsonElement | null;
+    fields?: JsonObject | null;
     /**
      * The isFolder property
      */
@@ -2169,6 +2224,15 @@ export function createPopularKeywordsResponseFromDiscriminatorValue(parseNode: P
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PreferencesPatch}
+ */
+// @ts-ignore
+export function createPreferencesPatchFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPreferencesPatch;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PreferencesResponse}
  */
 // @ts-ignore
@@ -2654,6 +2718,24 @@ export function createUpdateGroupRequestFromDiscriminatorValue(parseNode: ParseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UpdateItemRequest_fields}
+ */
+// @ts-ignore
+export function createUpdateItemRequest_fieldsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUpdateItemRequest_fields;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UpdateItemRequest}
+ */
+// @ts-ignore
+export function createUpdateItemRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUpdateItemRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {UpdateListRequest}
  */
 // @ts-ignore
@@ -2926,6 +3008,34 @@ export function deserializeIntoAddWorkspaceMemberRequest(addWorkspaceMemberReque
 }
 /**
  * The deserialization information for the current model
+ * @param ApiProblem The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoApiProblem(apiProblem: Partial<ApiProblem> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "code": n => { apiProblem.code = n.getStringValue(); },
+        "detail": n => { apiProblem.detail = n.getStringValue(); },
+        "errors": n => { apiProblem.errors = n.getObjectValue<ApiProblem_errors>(createApiProblem_errorsFromDiscriminatorValue); },
+        "instance": n => { apiProblem.instance = n.getStringValue(); },
+        "status": n => { apiProblem.status = n.getNumberValue(); },
+        "title": n => { apiProblem.title = n.getStringValue(); },
+        "traceId": n => { apiProblem.traceId = n.getStringValue(); },
+        "type": n => { apiProblem.type = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ApiProblem_errors The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoApiProblem_errors(apiProblem_errors: Partial<ApiProblem_errors> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ApiTokenResponse The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -3068,6 +3178,7 @@ export function deserializeIntoAutomationResponse(automationResponse: Partial<Au
         "enabled": n => { automationResponse.enabled = n.getBooleanValue(); },
         "id": n => { automationResponse.id = n.getGuidValue(); },
         "name": n => { automationResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { automationResponse.odataEtag = n.getStringValue(); },
         "steps": n => { automationResponse.steps = n.getCollectionOfObjectValues<AutomationStep>(createAutomationStepFromDiscriminatorValue); },
         "trigger": n => { automationResponse.trigger = n.getObjectValue<AutomationTrigger>(createAutomationTriggerFromDiscriminatorValue); },
         "updatedAt": n => { automationResponse.updatedAt = n.getDateValue(); },
@@ -3215,7 +3326,7 @@ export function deserializeIntoBreakInheritanceRequest(breakInheritanceRequest: 
 // @ts-ignore
 export function deserializeIntoBulkUpdateRequest(bulkUpdateRequest: Partial<BulkUpdateRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "fields": n => { bulkUpdateRequest.fields = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+        "fields": n => { bulkUpdateRequest.fields = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "filter": n => { bulkUpdateRequest.filter = n.getStringValue(); },
     }
 }
@@ -3310,6 +3421,7 @@ export function deserializeIntoChangeSubscriptionResponse(changeSubscriptionResp
         "expirationDateTime": n => { changeSubscriptionResponse.expirationDateTime = n.getDateValue(); },
         "id": n => { changeSubscriptionResponse.id = n.getGuidValue(); },
         "notificationUrl": n => { changeSubscriptionResponse.notificationUrl = n.getStringValue(); },
+        "@odata.etag": n => { changeSubscriptionResponse.odataEtag = n.getStringValue(); },
         "resource": n => { changeSubscriptionResponse.resource = n.getStringValue(); },
         "secret": n => { changeSubscriptionResponse.secret = n.getStringValue(); },
     }
@@ -3375,6 +3487,7 @@ export function deserializeIntoCommentResponse(commentResponse: Partial<CommentR
         "id": n => { commentResponse.id = n.getGuidValue(); },
         "itemId": n => { commentResponse.itemId = n.getGuidValue(); },
         "mentions": n => { commentResponse.mentions = n.getCollectionOfPrimitiveValues<Guid>("string"); },
+        "@odata.etag": n => { commentResponse.odataEtag = n.getStringValue(); },
         "parentId": n => { commentResponse.parentId = n.getGuidValue(); },
         "text": n => { commentResponse.text = n.getStringValue(); },
         "updatedAt": n => { commentResponse.updatedAt = n.getDateValue(); },
@@ -3421,6 +3534,7 @@ export function deserializeIntoContentTypeResponse(contentTypeResponse: Partial<
         "isBuiltIn": n => { contentTypeResponse.isBuiltIn = n.getBooleanValue(); },
         "key": n => { contentTypeResponse.key = n.getStringValue(); },
         "name": n => { contentTypeResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { contentTypeResponse.odataEtag = n.getStringValue(); },
     }
 }
 /**
@@ -3498,7 +3612,7 @@ export function deserializeIntoCreateGroupRequest(createGroupRequest: Partial<Cr
 export function deserializeIntoCreateItemRequest(createItemRequest: Partial<CreateItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "contentTypeId": n => { createItemRequest.contentTypeId = n.getGuidValue(); },
-        "fields": n => { createItemRequest.fields = n.getObjectValue<JsonElement>(createJsonElementFromDiscriminatorValue); },
+        "fields": n => { createItemRequest.fields = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "isFolder": n => { createItemRequest.isFolder = n.getBooleanValue(); },
         "parentId": n => { createItemRequest.parentId = n.getGuidValue(); },
     }
@@ -3960,6 +4074,7 @@ export function deserializeIntoGroupResponse(groupResponse: Partial<GroupRespons
         "description": n => { groupResponse.description = n.getStringValue(); },
         "id": n => { groupResponse.id = n.getGuidValue(); },
         "name": n => { groupResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { groupResponse.odataEtag = n.getStringValue(); },
     }
 }
 /**
@@ -3973,32 +4088,6 @@ export function deserializeIntoHomeResponse(homeResponse: Partial<HomeResponse> 
         "documentsListId": n => { homeResponse.documentsListId = n.getGuidValue(); },
         "inboxListId": n => { homeResponse.inboxListId = n.getGuidValue(); },
         "workspaceId": n => { homeResponse.workspaceId = n.getGuidValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param HttpValidationProblemDetails The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoHttpValidationProblemDetails(httpValidationProblemDetails: Partial<HttpValidationProblemDetails> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "detail": n => { httpValidationProblemDetails.detail = n.getStringValue(); },
-        "errors": n => { httpValidationProblemDetails.errors = n.getObjectValue<HttpValidationProblemDetails_errors>(createHttpValidationProblemDetails_errorsFromDiscriminatorValue); },
-        "instance": n => { httpValidationProblemDetails.instance = n.getStringValue(); },
-        "status": n => { httpValidationProblemDetails.status = n.getNumberValue(); },
-        "title": n => { httpValidationProblemDetails.title = n.getStringValue(); },
-        "type": n => { httpValidationProblemDetails.type = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param HttpValidationProblemDetails_errors The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoHttpValidationProblemDetails_errors(httpValidationProblemDetails_errors: Partial<HttpValidationProblemDetails_errors> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
     }
 }
 /**
@@ -4071,6 +4160,7 @@ export function deserializeIntoItemResponse(itemResponse: Partial<ItemResponse> 
         "id": n => { itemResponse.id = n.getGuidValue(); },
         "isFolder": n => { itemResponse.isFolder = n.getBooleanValue(); },
         "listId": n => { itemResponse.listId = n.getGuidValue(); },
+        "@odata.etag": n => { itemResponse.odataEtag = n.getStringValue(); },
         "parentId": n => { itemResponse.parentId = n.getGuidValue(); },
         "updatedAt": n => { itemResponse.updatedAt = n.getDateValue(); },
         "updatedBy": n => { itemResponse.updatedBy = n.getGuidValue(); },
@@ -4153,6 +4243,7 @@ export function deserializeIntoLibrarySettingsResponse(librarySettingsResponse: 
         "ocrLanguages": n => { librarySettingsResponse.ocrLanguages = n.getStringValue(); },
         "ocrLanguagesInherited": n => { librarySettingsResponse.ocrLanguagesInherited = n.getBooleanValue(); },
         "ocrMode": n => { librarySettingsResponse.ocrMode = n.getEnumValue<OcrMode>(OcrModeObject); },
+        "@odata.etag": n => { librarySettingsResponse.odataEtag = n.getStringValue(); },
     }
 }
 /**
@@ -4202,6 +4293,7 @@ export function deserializeIntoListResponse(listResponse: Partial<ListResponse> 
         "kind": n => { listResponse.kind = n.getEnumValue<ListKind>(ListKindObject); },
         "maxVersions": n => { listResponse.maxVersions = n.getNumberValue(); },
         "name": n => { listResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { listResponse.odataEtag = n.getStringValue(); },
         "templateKey": n => { listResponse.templateKey = n.getStringValue(); },
         "updatedAt": n => { listResponse.updatedAt = n.getDateValue(); },
         "versioning": n => { listResponse.versioning = n.getEnumValue<ListVersioning>(ListVersioningObject); },
@@ -4775,6 +4867,23 @@ export function deserializeIntoPopularKeywordsResponse(popularKeywordsResponse: 
 }
 /**
  * The deserialization information for the current model
+ * @param PreferencesPatch The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPreferencesPatch(preferencesPatch: Partial<PreferencesPatch> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "dateFormat": n => { preferencesPatch.dateFormat = n.getStringValue(); },
+        "documentLanguages": n => { preferencesPatch.documentLanguages = n.getStringValue(); },
+        "language": n => { preferencesPatch.language = n.getStringValue(); },
+        "numberFormat": n => { preferencesPatch.numberFormat = n.getStringValue(); },
+        "theme": n => { preferencesPatch.theme = n.getStringValue(); },
+        "timeFormat": n => { preferencesPatch.timeFormat = n.getStringValue(); },
+        "timeZone": n => { preferencesPatch.timeZone = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param PreferencesResponse The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -4786,6 +4895,7 @@ export function deserializeIntoPreferencesResponse(preferencesResponse: Partial<
         "inherited": n => { preferencesResponse.inherited = n.getCollectionOfPrimitiveValues<string>("string"); },
         "language": n => { preferencesResponse.language = n.getStringValue(); },
         "numberFormat": n => { preferencesResponse.numberFormat = n.getStringValue(); },
+        "@odata.etag": n => { preferencesResponse.odataEtag = n.getStringValue(); },
         "theme": n => { preferencesResponse.theme = n.getStringValue(); },
         "timeFormat": n => { preferencesResponse.timeFormat = n.getStringValue(); },
         "timeZone": n => { preferencesResponse.timeZone = n.getStringValue(); },
@@ -4938,6 +5048,7 @@ export function deserializeIntoRoleResponse(roleResponse: Partial<RoleResponse> 
         "id": n => { roleResponse.id = n.getGuidValue(); },
         "isBuiltIn": n => { roleResponse.isBuiltIn = n.getBooleanValue(); },
         "name": n => { roleResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { roleResponse.odataEtag = n.getStringValue(); },
         "scopes": n => { roleResponse.scopes = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
@@ -5085,6 +5196,7 @@ export function deserializeIntoSettingsResponse(settingsResponse: Partial<Settin
     return {
         "channels": n => { settingsResponse.channels = n.getObjectValue<SettingsResponse_channels>(createSettingsResponse_channelsFromDiscriminatorValue); },
         "digestHour": n => { settingsResponse.digestHour = n.getNumberValue(); },
+        "@odata.etag": n => { settingsResponse.odataEtag = n.getStringValue(); },
         "quietHoursEnd": n => { settingsResponse.quietHoursEnd = n.getTimeOnlyValue(); },
         "quietHoursStart": n => { settingsResponse.quietHoursStart = n.getTimeOnlyValue(); },
         "webhookSecret": n => { settingsResponse.webhookSecret = n.getStringValue(); },
@@ -5214,6 +5326,7 @@ export function deserializeIntoSmartFolderResponse(smartFolderResponse: Partial<
         "description": n => { smartFolderResponse.description = n.getStringValue(); },
         "id": n => { smartFolderResponse.id = n.getGuidValue(); },
         "name": n => { smartFolderResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { smartFolderResponse.odataEtag = n.getStringValue(); },
         "personal": n => { smartFolderResponse.personal = n.getBooleanValue(); },
         "updatedAt": n => { smartFolderResponse.updatedAt = n.getDateValue(); },
         "workspaceId": n => { smartFolderResponse.workspaceId = n.getGuidValue(); },
@@ -5342,6 +5455,7 @@ export function deserializeIntoTermGroupResponse(termGroupResponse: Partial<Term
         "id": n => { termGroupResponse.id = n.getGuidValue(); },
         "isSystem": n => { termGroupResponse.isSystem = n.getBooleanValue(); },
         "name": n => { termGroupResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { termGroupResponse.odataEtag = n.getStringValue(); },
         "updatedAt": n => { termGroupResponse.updatedAt = n.getDateValue(); },
     }
 }
@@ -5374,6 +5488,7 @@ export function deserializeIntoTermResponse(termResponse: Partial<TermResponse> 
         "labels": n => { termResponse.labels = n.getCollectionOfObjectValues<TermLabelDto>(createTermLabelDtoFromDiscriminatorValue); },
         "mergedIntoId": n => { termResponse.mergedIntoId = n.getGuidValue(); },
         "name": n => { termResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { termResponse.odataEtag = n.getStringValue(); },
         "parentId": n => { termResponse.parentId = n.getGuidValue(); },
         "sortOrder": n => { termResponse.sortOrder = n.getNumberValue(); },
         "synonyms": n => { termResponse.synonyms = n.getCollectionOfPrimitiveValues<string>("string"); },
@@ -5409,6 +5524,7 @@ export function deserializeIntoTermSetResponse(termSetResponse: Partial<TermSetR
         "isKeywords": n => { termSetResponse.isKeywords = n.getBooleanValue(); },
         "isOpen": n => { termSetResponse.isOpen = n.getBooleanValue(); },
         "name": n => { termSetResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { termSetResponse.odataEtag = n.getStringValue(); },
         "updatedAt": n => { termSetResponse.updatedAt = n.getDateValue(); },
     }
 }
@@ -5433,6 +5549,29 @@ export function deserializeIntoUpdateGroupRequest(updateGroupRequest: Partial<Up
     return {
         "description": n => { updateGroupRequest.description = n.getStringValue(); },
         "name": n => { updateGroupRequest.name = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param UpdateItemRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUpdateItemRequest(updateItemRequest: Partial<UpdateItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "contentTypeId": n => { updateItemRequest.contentTypeId = n.getGuidValue(); },
+        "fields": n => { updateItemRequest.fields = n.getObjectValue<UpdateItemRequest_fields>(createUpdateItemRequest_fieldsFromDiscriminatorValue); },
+        "parentId": n => { updateItemRequest.parentId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param UpdateItemRequest_fields The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUpdateItemRequest_fields(updateItemRequest_fields: Partial<UpdateItemRequest_fields> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -5597,6 +5736,7 @@ export function deserializeIntoWorkspaceResponse(workspaceResponse: Partial<Work
         "id": n => { workspaceResponse.id = n.getGuidValue(); },
         "isPersonal": n => { workspaceResponse.isPersonal = n.getBooleanValue(); },
         "name": n => { workspaceResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { workspaceResponse.odataEtag = n.getStringValue(); },
         "updatedAt": n => { workspaceResponse.updatedAt = n.getDateValue(); },
     }
 }
@@ -6119,6 +6259,10 @@ export interface GroupResponse extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+    /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
 }
 /**
  * The user's personal workspace with its Documents and Inbox libraries.
@@ -6136,34 +6280,6 @@ export interface HomeResponse extends AdditionalDataHolder, Parsable {
      * The workspaceId property
      */
     workspaceId?: Guid | null;
-}
-export interface HttpValidationProblemDetails extends AdditionalDataHolder, ApiError, Parsable {
-    /**
-     * The detail property
-     */
-    detail?: string | null;
-    /**
-     * The errors property
-     */
-    errors?: HttpValidationProblemDetails_errors | null;
-    /**
-     * The instance property
-     */
-    instance?: string | null;
-    /**
-     * The status property
-     */
-    status?: number | null;
-    /**
-     * The title property
-     */
-    title?: string | null;
-    /**
-     * The type property
-     */
-    type?: string | null;
-}
-export interface HttpValidationProblemDetails_errors extends AdditionalDataHolder, Parsable {
 }
 export interface ImportResponse extends AdditionalDataHolder, Parsable {
     /**
@@ -6271,6 +6387,10 @@ export interface ItemResponse extends AdditionalDataHolder, Parsable {
      * The listId property
      */
     listId?: Guid | null;
+    /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
     /**
      * The parentId property
      */
@@ -6380,6 +6500,10 @@ export interface LibrarySettingsResponse extends AdditionalDataHolder, Parsable 
      * When a library runs OCR.
      */
     ocrMode?: OcrMode | null;
+    /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
 }
 /**
  * Another item, as shown in links: only items the caller can read are listed.
@@ -6472,6 +6596,10 @@ export interface ListResponse extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+    /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
     /**
      * The templateKey property
      */
@@ -7191,6 +7319,39 @@ export interface PopularKeywordsResponse extends AdditionalDataHolder, Parsable 
     value?: PopularKeyword[] | null;
 }
 /**
+ * PATCH body (JSON merge patch): set a value, or null to inherit it again.
+ */
+export interface PreferencesPatch extends AdditionalDataHolder, Parsable {
+    /**
+     * The dateFormat property
+     */
+    dateFormat?: string | null;
+    /**
+     * The documentLanguages property
+     */
+    documentLanguages?: string | null;
+    /**
+     * The language property
+     */
+    language?: string | null;
+    /**
+     * The numberFormat property
+     */
+    numberFormat?: string | null;
+    /**
+     * The theme property
+     */
+    theme?: string | null;
+    /**
+     * The timeFormat property
+     */
+    timeFormat?: string | null;
+    /**
+     * The timeZone property
+     */
+    timeZone?: string | null;
+}
+/**
  * Effective values, and which of them are inherited (from the organization's or the built-in defaults).
  */
 export interface PreferencesResponse extends AdditionalDataHolder, Parsable {
@@ -7214,6 +7375,10 @@ export interface PreferencesResponse extends AdditionalDataHolder, Parsable {
      * The numberFormat property
      */
     numberFormat?: string | null;
+    /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
     /**
      * The theme property
      */
@@ -7377,6 +7542,10 @@ export interface RoleResponse extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+    /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
     /**
      * The scopes property
      */
@@ -7625,6 +7794,36 @@ export function serializeAddWorkspaceMemberRequest(writer: SerializationWriter, 
 }
 /**
  * Serializes information the current object
+ * @param ApiProblem The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeApiProblem(writer: SerializationWriter, apiProblem: Partial<ApiProblem> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!apiProblem || isSerializingDerivedType) { return; }
+    writer.writeStringValue("code", apiProblem.code);
+    writer.writeStringValue("detail", apiProblem.detail);
+    writer.writeObjectValue<ApiProblem_errors>("errors", apiProblem.errors, serializeApiProblem_errors);
+    writer.writeStringValue("instance", apiProblem.instance);
+    writer.writeNumberValue("status", apiProblem.status);
+    writer.writeStringValue("title", apiProblem.title);
+    writer.writeStringValue("traceId", apiProblem.traceId);
+    writer.writeStringValue("type", apiProblem.type);
+    writer.writeAdditionalData(apiProblem.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ApiProblem_errors The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeApiProblem_errors(writer: SerializationWriter, apiProblem_errors: Partial<ApiProblem_errors> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!apiProblem_errors || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(apiProblem_errors.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param ApiTokenResponse The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -7776,6 +7975,7 @@ export function serializeAutomationResponse(writer: SerializationWriter, automat
     writer.writeBooleanValue("enabled", automationResponse.enabled);
     writer.writeGuidValue("id", automationResponse.id);
     writer.writeStringValue("name", automationResponse.name);
+    writer.writeStringValue("@odata.etag", automationResponse.odataEtag);
     writer.writeCollectionOfObjectValues<AutomationStep>("steps", automationResponse.steps, serializeAutomationStep);
     writer.writeObjectValue<AutomationTrigger>("trigger", automationResponse.trigger, serializeAutomationTrigger);
     writer.writeDateValue("updatedAt", automationResponse.updatedAt);
@@ -7934,7 +8134,7 @@ export function serializeBreakInheritanceRequest(writer: SerializationWriter, br
 // @ts-ignore
 export function serializeBulkUpdateRequest(writer: SerializationWriter, bulkUpdateRequest: Partial<BulkUpdateRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!bulkUpdateRequest || isSerializingDerivedType) { return; }
-    writer.writeObjectValue("fields", bulkUpdateRequest.fields);
+    writer.writeObjectValue<JsonObject>("fields", bulkUpdateRequest.fields, serializeJsonObject);
     writer.writeStringValue("filter", bulkUpdateRequest.filter);
     writer.writeAdditionalData(bulkUpdateRequest.additionalData);
 }
@@ -8035,6 +8235,7 @@ export function serializeChangeSubscriptionResponse(writer: SerializationWriter,
     writer.writeDateValue("expirationDateTime", changeSubscriptionResponse.expirationDateTime);
     writer.writeGuidValue("id", changeSubscriptionResponse.id);
     writer.writeStringValue("notificationUrl", changeSubscriptionResponse.notificationUrl);
+    writer.writeStringValue("@odata.etag", changeSubscriptionResponse.odataEtag);
     writer.writeStringValue("resource", changeSubscriptionResponse.resource);
     writer.writeStringValue("secret", changeSubscriptionResponse.secret);
     writer.writeAdditionalData(changeSubscriptionResponse.additionalData);
@@ -8105,6 +8306,7 @@ export function serializeCommentResponse(writer: SerializationWriter, commentRes
     writer.writeGuidValue("id", commentResponse.id);
     writer.writeGuidValue("itemId", commentResponse.itemId);
     writer.writeCollectionOfPrimitiveValues<Guid>("mentions", commentResponse.mentions);
+    writer.writeStringValue("@odata.etag", commentResponse.odataEtag);
     writer.writeGuidValue("parentId", commentResponse.parentId);
     writer.writeStringValue("text", commentResponse.text);
     writer.writeDateValue("updatedAt", commentResponse.updatedAt);
@@ -8154,6 +8356,7 @@ export function serializeContentTypeResponse(writer: SerializationWriter, conten
     writer.writeBooleanValue("isBuiltIn", contentTypeResponse.isBuiltIn);
     writer.writeStringValue("key", contentTypeResponse.key);
     writer.writeStringValue("name", contentTypeResponse.name);
+    writer.writeStringValue("@odata.etag", contentTypeResponse.odataEtag);
     writer.writeAdditionalData(contentTypeResponse.additionalData);
 }
 /**
@@ -8237,7 +8440,7 @@ export function serializeCreateGroupRequest(writer: SerializationWriter, createG
 export function serializeCreateItemRequest(writer: SerializationWriter, createItemRequest: Partial<CreateItemRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!createItemRequest || isSerializingDerivedType) { return; }
     writer.writeGuidValue("contentTypeId", createItemRequest.contentTypeId);
-    writer.writeObjectValue<JsonElement>("fields", createItemRequest.fields, serializeJsonElement);
+    writer.writeObjectValue<JsonObject>("fields", createItemRequest.fields, serializeJsonObject);
     writer.writeBooleanValue("isFolder", createItemRequest.isFolder);
     writer.writeGuidValue("parentId", createItemRequest.parentId);
     writer.writeAdditionalData(createItemRequest.additionalData);
@@ -8729,6 +8932,7 @@ export function serializeGroupResponse(writer: SerializationWriter, groupRespons
     writer.writeStringValue("description", groupResponse.description);
     writer.writeGuidValue("id", groupResponse.id);
     writer.writeStringValue("name", groupResponse.name);
+    writer.writeStringValue("@odata.etag", groupResponse.odataEtag);
     writer.writeAdditionalData(groupResponse.additionalData);
 }
 /**
@@ -8744,34 +8948,6 @@ export function serializeHomeResponse(writer: SerializationWriter, homeResponse:
     writer.writeGuidValue("inboxListId", homeResponse.inboxListId);
     writer.writeGuidValue("workspaceId", homeResponse.workspaceId);
     writer.writeAdditionalData(homeResponse.additionalData);
-}
-/**
- * Serializes information the current object
- * @param HttpValidationProblemDetails The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeHttpValidationProblemDetails(writer: SerializationWriter, httpValidationProblemDetails: Partial<HttpValidationProblemDetails> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!httpValidationProblemDetails || isSerializingDerivedType) { return; }
-    writer.writeStringValue("detail", httpValidationProblemDetails.detail);
-    writer.writeObjectValue<HttpValidationProblemDetails_errors>("errors", httpValidationProblemDetails.errors, serializeHttpValidationProblemDetails_errors);
-    writer.writeStringValue("instance", httpValidationProblemDetails.instance);
-    writer.writeNumberValue("status", httpValidationProblemDetails.status);
-    writer.writeStringValue("title", httpValidationProblemDetails.title);
-    writer.writeStringValue("type", httpValidationProblemDetails.type);
-    writer.writeAdditionalData(httpValidationProblemDetails.additionalData);
-}
-/**
- * Serializes information the current object
- * @param HttpValidationProblemDetails_errors The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeHttpValidationProblemDetails_errors(writer: SerializationWriter, httpValidationProblemDetails_errors: Partial<HttpValidationProblemDetails_errors> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!httpValidationProblemDetails_errors || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(httpValidationProblemDetails_errors.additionalData);
 }
 /**
  * Serializes information the current object
@@ -8848,6 +9024,7 @@ export function serializeItemResponse(writer: SerializationWriter, itemResponse:
     writer.writeGuidValue("id", itemResponse.id);
     writer.writeBooleanValue("isFolder", itemResponse.isFolder);
     writer.writeGuidValue("listId", itemResponse.listId);
+    writer.writeStringValue("@odata.etag", itemResponse.odataEtag);
     writer.writeGuidValue("parentId", itemResponse.parentId);
     writer.writeDateValue("updatedAt", itemResponse.updatedAt);
     writer.writeGuidValue("updatedBy", itemResponse.updatedBy);
@@ -8936,6 +9113,7 @@ export function serializeLibrarySettingsResponse(writer: SerializationWriter, li
     writer.writeStringValue("ocrLanguages", librarySettingsResponse.ocrLanguages);
     writer.writeBooleanValue("ocrLanguagesInherited", librarySettingsResponse.ocrLanguagesInherited);
     writer.writeEnumValue<OcrMode>("ocrMode", librarySettingsResponse.ocrMode);
+    writer.writeStringValue("@odata.etag", librarySettingsResponse.odataEtag);
     writer.writeAdditionalData(librarySettingsResponse.additionalData);
 }
 /**
@@ -8988,6 +9166,7 @@ export function serializeListResponse(writer: SerializationWriter, listResponse:
     writer.writeEnumValue<ListKind>("kind", listResponse.kind);
     writer.writeNumberValue("maxVersions", listResponse.maxVersions);
     writer.writeStringValue("name", listResponse.name);
+    writer.writeStringValue("@odata.etag", listResponse.odataEtag);
     writer.writeStringValue("templateKey", listResponse.templateKey);
     writer.writeDateValue("updatedAt", listResponse.updatedAt);
     writer.writeEnumValue<ListVersioning>("versioning", listResponse.versioning);
@@ -9605,6 +9784,24 @@ export function serializePopularKeywordsResponse(writer: SerializationWriter, po
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PreferencesPatch The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePreferencesPatch(writer: SerializationWriter, preferencesPatch: Partial<PreferencesPatch> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!preferencesPatch || isSerializingDerivedType) { return; }
+    writer.writeStringValue("dateFormat", preferencesPatch.dateFormat);
+    writer.writeStringValue("documentLanguages", preferencesPatch.documentLanguages);
+    writer.writeStringValue("language", preferencesPatch.language);
+    writer.writeStringValue("numberFormat", preferencesPatch.numberFormat);
+    writer.writeStringValue("theme", preferencesPatch.theme);
+    writer.writeStringValue("timeFormat", preferencesPatch.timeFormat);
+    writer.writeStringValue("timeZone", preferencesPatch.timeZone);
+    writer.writeAdditionalData(preferencesPatch.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PreferencesResponse The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -9616,6 +9813,7 @@ export function serializePreferencesResponse(writer: SerializationWriter, prefer
     writer.writeCollectionOfPrimitiveValues<string>("inherited", preferencesResponse.inherited);
     writer.writeStringValue("language", preferencesResponse.language);
     writer.writeStringValue("numberFormat", preferencesResponse.numberFormat);
+    writer.writeStringValue("@odata.etag", preferencesResponse.odataEtag);
     writer.writeStringValue("theme", preferencesResponse.theme);
     writer.writeStringValue("timeFormat", preferencesResponse.timeFormat);
     writer.writeStringValue("timeZone", preferencesResponse.timeZone);
@@ -9780,6 +9978,7 @@ export function serializeRoleResponse(writer: SerializationWriter, roleResponse:
     writer.writeGuidValue("id", roleResponse.id);
     writer.writeBooleanValue("isBuiltIn", roleResponse.isBuiltIn);
     writer.writeStringValue("name", roleResponse.name);
+    writer.writeStringValue("@odata.etag", roleResponse.odataEtag);
     writer.writeCollectionOfPrimitiveValues<string>("scopes", roleResponse.scopes);
     writer.writeAdditionalData(roleResponse.additionalData);
 }
@@ -9937,6 +10136,7 @@ export function serializeSettingsResponse(writer: SerializationWriter, settingsR
     if (!settingsResponse || isSerializingDerivedType) { return; }
     writer.writeObjectValue<SettingsResponse_channels>("channels", settingsResponse.channels, serializeSettingsResponse_channels);
     writer.writeNumberValue("digestHour", settingsResponse.digestHour);
+    writer.writeStringValue("@odata.etag", settingsResponse.odataEtag);
     writer.writeTimeOnlyValue("quietHoursEnd", settingsResponse.quietHoursEnd);
     writer.writeTimeOnlyValue("quietHoursStart", settingsResponse.quietHoursStart);
     writer.writeStringValue("webhookSecret", settingsResponse.webhookSecret);
@@ -10075,6 +10275,7 @@ export function serializeSmartFolderResponse(writer: SerializationWriter, smartF
     writer.writeStringValue("description", smartFolderResponse.description);
     writer.writeGuidValue("id", smartFolderResponse.id);
     writer.writeStringValue("name", smartFolderResponse.name);
+    writer.writeStringValue("@odata.etag", smartFolderResponse.odataEtag);
     writer.writeBooleanValue("personal", smartFolderResponse.personal);
     writer.writeDateValue("updatedAt", smartFolderResponse.updatedAt);
     writer.writeGuidValue("workspaceId", smartFolderResponse.workspaceId);
@@ -10212,6 +10413,7 @@ export function serializeTermGroupResponse(writer: SerializationWriter, termGrou
     writer.writeGuidValue("id", termGroupResponse.id);
     writer.writeBooleanValue("isSystem", termGroupResponse.isSystem);
     writer.writeStringValue("name", termGroupResponse.name);
+    writer.writeStringValue("@odata.etag", termGroupResponse.odataEtag);
     writer.writeDateValue("updatedAt", termGroupResponse.updatedAt);
     writer.writeAdditionalData(termGroupResponse.additionalData);
 }
@@ -10246,6 +10448,7 @@ export function serializeTermResponse(writer: SerializationWriter, termResponse:
     writer.writeCollectionOfObjectValues<TermLabelDto>("labels", termResponse.labels, serializeTermLabelDto);
     writer.writeGuidValue("mergedIntoId", termResponse.mergedIntoId);
     writer.writeStringValue("name", termResponse.name);
+    writer.writeStringValue("@odata.etag", termResponse.odataEtag);
     writer.writeGuidValue("parentId", termResponse.parentId);
     writer.writeNumberValue("sortOrder", termResponse.sortOrder);
     writer.writeCollectionOfPrimitiveValues<string>("synonyms", termResponse.synonyms);
@@ -10283,6 +10486,7 @@ export function serializeTermSetResponse(writer: SerializationWriter, termSetRes
     writer.writeBooleanValue("isKeywords", termSetResponse.isKeywords);
     writer.writeBooleanValue("isOpen", termSetResponse.isOpen);
     writer.writeStringValue("name", termSetResponse.name);
+    writer.writeStringValue("@odata.etag", termSetResponse.odataEtag);
     writer.writeDateValue("updatedAt", termSetResponse.updatedAt);
     writer.writeAdditionalData(termSetResponse.additionalData);
 }
@@ -10310,6 +10514,31 @@ export function serializeUpdateGroupRequest(writer: SerializationWriter, updateG
     writer.writeStringValue("description", updateGroupRequest.description);
     writer.writeStringValue("name", updateGroupRequest.name);
     writer.writeAdditionalData(updateGroupRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UpdateItemRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUpdateItemRequest(writer: SerializationWriter, updateItemRequest: Partial<UpdateItemRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!updateItemRequest || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("contentTypeId", updateItemRequest.contentTypeId);
+    writer.writeObjectValue<UpdateItemRequest_fields>("fields", updateItemRequest.fields, serializeUpdateItemRequest_fields);
+    writer.writeGuidValue("parentId", updateItemRequest.parentId);
+    writer.writeAdditionalData(updateItemRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UpdateItemRequest_fields The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUpdateItemRequest_fields(writer: SerializationWriter, updateItemRequest_fields: Partial<UpdateItemRequest_fields> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!updateItemRequest_fields || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(updateItemRequest_fields.additionalData);
 }
 /**
  * Serializes information the current object
@@ -10484,6 +10713,7 @@ export function serializeWorkspaceResponse(writer: SerializationWriter, workspac
     writer.writeGuidValue("id", workspaceResponse.id);
     writer.writeBooleanValue("isPersonal", workspaceResponse.isPersonal);
     writer.writeStringValue("name", workspaceResponse.name);
+    writer.writeStringValue("@odata.etag", workspaceResponse.odataEtag);
     writer.writeDateValue("updatedAt", workspaceResponse.updatedAt);
     writer.writeAdditionalData(workspaceResponse.additionalData);
 }
@@ -10532,6 +10762,10 @@ export interface SettingsResponse extends AdditionalDataHolder, Parsable {
      * The digestHour property
      */
     digestHour?: number | null;
+    /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
     /**
      * The quietHoursEnd property
      */
@@ -10722,6 +10956,10 @@ export interface SmartFolderResponse extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
     /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
+    /**
      * The personal property
      */
     personal?: boolean | null;
@@ -10903,6 +11141,10 @@ export interface TermGroupResponse extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
     /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
+    /**
      * The updatedAt property
      */
     updatedAt?: Date | null;
@@ -10954,6 +11196,10 @@ export interface TermResponse extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+    /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
     /**
      * The parentId property
      */
@@ -11019,6 +11265,10 @@ export interface TermSetResponse extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
     /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
+    /**
      * The updatedAt property
      */
     updatedAt?: Date | null;
@@ -11038,6 +11288,25 @@ export interface UpdateGroupRequest extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+}
+/**
+ * PATCH body (documented shape; the handler reads raw JSON to tell a missing `parentId` from null): `fields`are merged (null removes a value), `parentId` moves the item (null: the list root).
+ */
+export interface UpdateItemRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The contentTypeId property
+     */
+    contentTypeId?: Guid | null;
+    /**
+     * The fields property
+     */
+    fields?: UpdateItemRequest_fields | null;
+    /**
+     * The parentId property
+     */
+    parentId?: Guid | null;
+}
+export interface UpdateItemRequest_fields extends AdditionalDataHolder, Parsable {
 }
 export interface UpdateListRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -11284,6 +11553,10 @@ export interface WorkspaceResponse extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+    /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
     /**
      * The updatedAt property
      */

@@ -6,6 +6,7 @@ from kiota_abstractions.base_request_configuration import RequestConfiguration
 from kiota_abstractions.default_query_parameters import QueryParameters
 from kiota_abstractions.get_path_parameters import get_path_parameters
 from kiota_abstractions.method import Method
+from kiota_abstractions.multipart_body import MultipartBody
 from kiota_abstractions.request_adapter import RequestAdapter
 from kiota_abstractions.request_information import RequestInformation
 from kiota_abstractions.request_option import RequestOption
@@ -14,9 +15,8 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from .....models.api_problem import ApiProblem
     from .....models.document_response import DocumentResponse
-    from .....models.http_validation_problem_details import HttpValidationProblemDetails
-    from .documents_post_request_body import DocumentsPostRequestBody
 
 class DocumentsRequestBuilder(BaseRequestBuilder):
     """
@@ -31,7 +31,7 @@ class DocumentsRequestBuilder(BaseRequestBuilder):
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/me/inbox/documents", path_parameters)
     
-    async def post(self,body: DocumentsPostRequestBody, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[DocumentResponse]:
+    async def post(self,body: MultipartBody, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[DocumentResponse]:
         """
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -42,10 +42,11 @@ class DocumentsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from .....models.http_validation_problem_details import HttpValidationProblemDetails
+        from .....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -53,7 +54,7 @@ class DocumentsRequestBuilder(BaseRequestBuilder):
 
         return await self.request_adapter.send_async(request_info, DocumentResponse, error_mapping)
     
-    def to_post_request_information(self,body: DocumentsPostRequestBody, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_post_request_information(self,body: MultipartBody, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.

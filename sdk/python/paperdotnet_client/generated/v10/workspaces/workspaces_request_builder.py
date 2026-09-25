@@ -15,8 +15,8 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ...models.api_problem import ApiProblem
     from ...models.create_workspace_request import CreateWorkspaceRequest
-    from ...models.http_validation_problem_details import HttpValidationProblemDetails
     from ...models.page_of_workspace_response import PageOfWorkspaceResponse
     from ...models.workspace_response import WorkspaceResponse
     from .item.item_request_builder import ItemRequestBuilder
@@ -32,7 +32,7 @@ class WorkspacesRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces{?%24skiptoken*,%24top*}", path_parameters)
     
     def by_id(self,id: UUID) -> ItemRequestBuilder:
         """
@@ -48,7 +48,7 @@ class WorkspacesRequestBuilder(BaseRequestBuilder):
         url_tpl_params["%2Did"] = id
         return ItemRequestBuilder(self.request_adapter, url_tpl_params)
     
-    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[PageOfWorkspaceResponse]:
+    async def get(self,request_configuration: Optional[RequestConfiguration[WorkspacesRequestBuilderGetQueryParameters]] = None) -> Optional[PageOfWorkspaceResponse]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[PageOfWorkspaceResponse]
@@ -56,11 +56,16 @@ class WorkspacesRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from ...models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ...models.page_of_workspace_response import PageOfWorkspaceResponse
 
-        return await self.request_adapter.send_async(request_info, PageOfWorkspaceResponse, None)
+        return await self.request_adapter.send_async(request_info, PageOfWorkspaceResponse, error_mapping)
     
     async def post(self,body: CreateWorkspaceRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[WorkspaceResponse]:
         """
@@ -73,10 +78,11 @@ class WorkspacesRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from ...models.http_validation_problem_details import HttpValidationProblemDetails
+        from ...models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -84,7 +90,7 @@ class WorkspacesRequestBuilder(BaseRequestBuilder):
 
         return await self.request_adapter.send_async(request_info, WorkspaceResponse, error_mapping)
     
-    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[WorkspacesRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
@@ -119,7 +125,30 @@ class WorkspacesRequestBuilder(BaseRequestBuilder):
         return WorkspacesRequestBuilder(self.request_adapter, raw_url)
     
     @dataclass
-    class WorkspacesRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):
+    class WorkspacesRequestBuilderGetQueryParameters():
+        def get_query_parameter(self,original_name: str) -> str:
+            """
+            Maps the query parameters names to their encoded names for the URI template parsing.
+            param original_name: The original query parameter name in the class.
+            Returns: str
+            """
+            if original_name is None:
+                raise TypeError("original_name cannot be null.")
+            if original_name == "skiptoken":
+                return "%24skiptoken"
+            if original_name == "top":
+                return "%24top"
+            return original_name
+        
+        # Continuation token from @odata.nextLink.
+        skiptoken: Optional[str] = None
+
+        # Page size.
+        top: Optional[int] = None
+
+    
+    @dataclass
+    class WorkspacesRequestBuilderGetRequestConfiguration(RequestConfiguration[WorkspacesRequestBuilderGetQueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """

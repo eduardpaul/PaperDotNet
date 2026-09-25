@@ -30,6 +30,14 @@ namespace PaperDotNet.Client.Models
 #else
         public List<Guid?> Mentions { get; set; }
 #endif
+        /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>The parentId property</summary>
         public Guid? ParentId { get; set; }
         /// <summary>The text property</summary>
@@ -74,6 +82,7 @@ namespace PaperDotNet.Client.Models
                 { "id", n => { Id = n.GetGuidValue(); } },
                 { "itemId", n => { ItemId = n.GetGuidValue(); } },
                 { "mentions", n => { Mentions = n.GetCollectionOfPrimitiveValues<Guid?>()?.AsList(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "parentId", n => { ParentId = n.GetGuidValue(); } },
                 { "text", n => { Text = n.GetStringValue(); } },
                 { "updatedAt", n => { UpdatedAt = n.GetDateTimeOffsetValue(); } },
@@ -92,6 +101,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteGuidValue("id", Id);
             writer.WriteGuidValue("itemId", ItemId);
             writer.WriteCollectionOfPrimitiveValues<Guid?>("mentions", Mentions);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteGuidValue("parentId", ParentId);
             writer.WriteStringValue("text", Text);
             writer.WriteDateTimeOffsetValue("updatedAt", UpdatedAt);

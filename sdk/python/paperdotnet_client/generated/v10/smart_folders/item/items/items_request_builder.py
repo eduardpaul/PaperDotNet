@@ -15,7 +15,7 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
-    from .....models.http_validation_problem_details import HttpValidationProblemDetails
+    from .....models.api_problem import ApiProblem
     from .....models.page_of_smart_folder_entry import PageOfSmartFolderEntry
     from .....models.smart_folder_drop_request import SmartFolderDropRequest
     from .....models.smart_folder_entry import SmartFolderEntry
@@ -32,7 +32,7 @@ class ItemsRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/smartFolders/{id}/items{?path*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/smartFolders/{id}/items{?%24skiptoken*,%24top*,path*}", path_parameters)
     
     def by_item_id(self,item_id: UUID) -> WithItemItemRequestBuilder:
         """
@@ -56,10 +56,11 @@ class ItemsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
-        from .....models.http_validation_problem_details import HttpValidationProblemDetails
+        from .....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -78,10 +79,11 @@ class ItemsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from .....models.http_validation_problem_details import HttpValidationProblemDetails
+        from .....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -125,7 +127,29 @@ class ItemsRequestBuilder(BaseRequestBuilder):
     
     @dataclass
     class ItemsRequestBuilderGetQueryParameters():
+        def get_query_parameter(self,original_name: str) -> str:
+            """
+            Maps the query parameters names to their encoded names for the URI template parsing.
+            param original_name: The original query parameter name in the class.
+            Returns: str
+            """
+            if original_name is None:
+                raise TypeError("original_name cannot be null.")
+            if original_name == "skiptoken":
+                return "%24skiptoken"
+            if original_name == "top":
+                return "%24top"
+            if original_name == "path":
+                return "path"
+            return original_name
+        
         path: Optional[list[str]] = None
+
+        # Continuation token from @odata.nextLink.
+        skiptoken: Optional[str] = None
+
+        # Page size.
+        top: Optional[int] = None
 
     
     @dataclass

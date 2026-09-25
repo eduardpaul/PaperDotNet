@@ -15,7 +15,7 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
-    from ....models.http_validation_problem_details import HttpValidationProblemDetails
+    from ....models.api_problem import ApiProblem
     from ....models.template_result import TemplateResult
 
 class ApplyRequestBuilder(BaseRequestBuilder):
@@ -45,10 +45,11 @@ class ApplyRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, content_type, request_configuration
         )
-        from ....models.http_validation_problem_details import HttpValidationProblemDetails
+        from ....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 

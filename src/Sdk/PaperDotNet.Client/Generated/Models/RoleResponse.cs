@@ -36,6 +36,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string Name { get; set; }
 #endif
+        /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>The scopes property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -74,6 +82,7 @@ namespace PaperDotNet.Client.Models
                 { "id", n => { Id = n.GetGuidValue(); } },
                 { "isBuiltIn", n => { IsBuiltIn = n.GetBoolValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "scopes", n => { Scopes = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
             };
         }
@@ -89,6 +98,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteGuidValue("id", Id);
             writer.WriteBoolValue("isBuiltIn", IsBuiltIn);
             writer.WriteStringValue("name", Name);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteCollectionOfPrimitiveValues<string>("scopes", Scopes);
             writer.WriteAdditionalData(AdditionalData);
         }

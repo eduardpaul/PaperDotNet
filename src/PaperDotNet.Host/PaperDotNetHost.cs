@@ -128,7 +128,23 @@ public static class PaperDotNetHost
             o.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
             o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
         });
-        services.AddOpenApi("v1", o => o.AddDocumentTransformer<BearerSecurityTransformer>());
+        // A web UI on another origin (e.g. a dev server): Cors:Origins lists the allowed origins. Off by default.
+        var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [];
+        if (corsOrigins.Length > 0)
+        {
+            services.AddCors(o => o.AddDefaultPolicy(policy => policy
+                .WithOrigins(corsOrigins)
+                .AllowAnyMethod()
+                .WithHeaders("Authorization", "Content-Type", "If-Match", "X-Tenant", "Last-Event-ID", "Accept")
+                .WithExposedHeaders("ETag", "Location", "Content-Disposition", "Retry-After")));
+        }
+
+        services.AddOpenApi("v1", o =>
+        {
+            o.AddDocumentTransformer<BearerSecurityTransformer>();
+            o.AddOperationTransformer<SdkOperationTransformer>();
+            o.AddSchemaTransformer<SdkSchemaTransformer>();
+        });
         services.AddRateLimiter(o =>
         {
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -164,6 +180,11 @@ public static class PaperDotNetHost
         }
         app.UseExceptionHandler();
         app.UseStatusCodePages();
+
+        if (app.Configuration.GetSection("Cors:Origins").Get<string[]>() is { Length: > 0 })
+        {
+            app.UseCors();
+        }
 
         app.UsePaperDotNetTenantResolution();
         app.UseAuthentication();

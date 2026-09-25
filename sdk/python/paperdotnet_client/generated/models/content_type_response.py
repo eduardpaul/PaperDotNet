@@ -30,6 +30,8 @@ class ContentTypeResponse(AdditionalDataHolder, Parsable):
     key: Optional[str] = None
     # The name property
     name: Optional[str] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> ContentTypeResponse:
@@ -59,6 +61,7 @@ class ContentTypeResponse(AdditionalDataHolder, Parsable):
             "isBuiltIn": lambda n : setattr(self, 'is_built_in', n.get_bool_value()),
             "key": lambda n : setattr(self, 'key', n.get_str_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
         }
         return fields
     
@@ -77,6 +80,7 @@ class ContentTypeResponse(AdditionalDataHolder, Parsable):
         writer.write_bool_value("isBuiltIn", self.is_built_in)
         writer.write_str_value("key", self.key)
         writer.write_str_value("name", self.name)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_additional_data_value(self.additional_data)
     
 

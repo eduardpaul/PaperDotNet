@@ -31,7 +31,12 @@ public sealed record ListResponse(
     IReadOnlyList<ContentTypeResponse> ContentTypes,
     IReadOnlyList<FieldDefinitionDto> Columns,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 public sealed record CreateListRequest(
     [property: Required, StringLength(200, MinimumLength = 1)] string Name,
@@ -413,5 +418,6 @@ internal static class ListEndpoints
         schema.ContentTypes.Select(ContentTypeEndpoints.ToResponse).ToList(),
         [new FieldDefinitionDto("title", "Title", "text", Required: true, MaxLength: ItemWriter.TitleMaxLength), .. schema.Fields.Values.Select(FieldDefinitionDto.From)],
         schema.List.CreatedAt,
-        schema.List.UpdatedAt);
+        schema.List.UpdatedAt)
+    { ETag = ETags.From(schema.List.Version) };
 }

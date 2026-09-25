@@ -172,7 +172,8 @@ internal static class OperationEndpoints
         endpoints.MapV1Group("me", "Me")
             .MapGet("/events", Events)
             .RequireAuthorization()
-            .WithName("StreamEvents");
+            .WithName("StreamEvents")
+            .ProducesEventStream();
     }
 
     /// <summary>

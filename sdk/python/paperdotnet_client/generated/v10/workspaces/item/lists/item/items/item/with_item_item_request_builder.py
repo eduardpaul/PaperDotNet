@@ -14,8 +14,9 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
-    from ........models.http_validation_problem_details import HttpValidationProblemDetails
+    from ........models.api_problem import ApiProblem
     from ........models.item_response import ItemResponse
+    from ........models.update_item_request import UpdateItemRequest
     from .activity.activity_request_builder import ActivityRequestBuilder
     from .automations.automations_request_builder import AutomationsRequestBuilder
     from .backlinks.backlinks_request_builder import BacklinksRequestBuilder
@@ -52,9 +53,14 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         request_info = self.to_delete_request_information(
             request_configuration
         )
+        from ........models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
-        return await self.request_adapter.send_no_response_content_async(request_info, None)
+        return await self.request_adapter.send_no_response_content_async(request_info, error_mapping)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ItemResponse]:
         """
@@ -64,15 +70,20 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from ........models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ........models.item_response import ItemResponse
 
-        return await self.request_adapter.send_async(request_info, ItemResponse, None)
+        return await self.request_adapter.send_async(request_info, ItemResponse, error_mapping)
     
-    async def patch(self,body: bytes, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ItemResponse]:
+    async def patch(self,body: UpdateItemRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ItemResponse]:
         """
-        param body: The request body
+        param body: PATCH body (documented shape; the handler reads raw JSON to tell a missing `parentId` from null): `fields`are merged (null removes a value), `parentId` moves the item (null: the list root).
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[ItemResponse]
         """
@@ -81,10 +92,11 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         request_info = self.to_patch_request_information(
             body, request_configuration
         )
-        from ........models.http_validation_problem_details import HttpValidationProblemDetails
+        from ........models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -99,6 +111,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         """
         request_info = RequestInformation(Method.DELETE, self.url_template, self.path_parameters)
         request_info.configure(request_configuration)
+        request_info.headers.try_add("Accept", "application/problem+json")
         return request_info
     
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
@@ -111,9 +124,9 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         request_info.headers.try_add("Accept", "application/json")
         return request_info
     
-    def to_patch_request_information(self,body: UntypedNode, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_patch_request_information(self,body: UpdateItemRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        param body: The request body
+        param body: PATCH body (documented shape; the handler reads raw JSON to tell a missing `parentId` from null): `fields`are merged (null removes a value), `parentId` moves the item (null: the list root).
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
@@ -122,7 +135,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         request_info = RequestInformation(Method.PATCH, self.url_template, self.path_parameters)
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/json")
-        request_info.set_content_from_scalar(self.request_adapter, "application/json", body)
+        request_info.set_content_from_parsable(self.request_adapter, "application/json", body)
         return request_info
     
     def with_url(self,raw_url: str) -> WithItemItemRequestBuilder:

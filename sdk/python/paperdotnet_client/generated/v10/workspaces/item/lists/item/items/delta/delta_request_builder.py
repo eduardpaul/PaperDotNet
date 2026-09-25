@@ -14,8 +14,8 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ........models.api_problem import ApiProblem
     from ........models.delta_page import DeltaPage
-    from ........models.http_validation_problem_details import HttpValidationProblemDetails
 
 class DeltaRequestBuilder(BaseRequestBuilder):
     """
@@ -28,9 +28,9 @@ class DeltaRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/delta", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/delta{?%24deltatoken*,%24skiptoken*,%24top*}", path_parameters)
     
-    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[DeltaPage]:
+    async def get(self,request_configuration: Optional[RequestConfiguration[DeltaRequestBuilderGetQueryParameters]] = None) -> Optional[DeltaPage]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[DeltaPage]
@@ -38,10 +38,11 @@ class DeltaRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
-        from ........models.http_validation_problem_details import HttpValidationProblemDetails
+        from ........models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -49,7 +50,7 @@ class DeltaRequestBuilder(BaseRequestBuilder):
 
         return await self.request_adapter.send_async(request_info, DeltaPage, error_mapping)
     
-    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[DeltaRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
@@ -70,7 +71,35 @@ class DeltaRequestBuilder(BaseRequestBuilder):
         return DeltaRequestBuilder(self.request_adapter, raw_url)
     
     @dataclass
-    class DeltaRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):
+    class DeltaRequestBuilderGetQueryParameters():
+        def get_query_parameter(self,original_name: str) -> str:
+            """
+            Maps the query parameters names to their encoded names for the URI template parsing.
+            param original_name: The original query parameter name in the class.
+            Returns: str
+            """
+            if original_name is None:
+                raise TypeError("original_name cannot be null.")
+            if original_name == "deltatoken":
+                return "%24deltatoken"
+            if original_name == "skiptoken":
+                return "%24skiptoken"
+            if original_name == "top":
+                return "%24top"
+            return original_name
+        
+        # Token from @odata.deltaLink.
+        deltatoken: Optional[str] = None
+
+        # Continuation token from @odata.nextLink.
+        skiptoken: Optional[str] = None
+
+        # Page size.
+        top: Optional[int] = None
+
+    
+    @dataclass
+    class DeltaRequestBuilderGetRequestConfiguration(RequestConfiguration[DeltaRequestBuilderGetQueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """

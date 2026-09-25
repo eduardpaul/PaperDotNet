@@ -15,6 +15,7 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ....models.api_problem import ApiProblem
     from ....models.import_response import ImportResponse
 
 class ImportsRequestBuilder(BaseRequestBuilder):
@@ -41,11 +42,16 @@ class ImportsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
+        from ....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ....models.import_response import ImportResponse
 
-        return await self.request_adapter.send_async(request_info, ImportResponse, None)
+        return await self.request_adapter.send_async(request_info, ImportResponse, error_mapping)
     
     def to_post_request_information(self,body: bytes, request_configuration: Optional[RequestConfiguration[ImportsRequestBuilderPostQueryParameters]] = None) -> RequestInformation:
         """

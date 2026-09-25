@@ -35,7 +35,7 @@ namespace PaperDotNet.Client.V10.SmartFolders.Item.Items
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ItemsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/smartFolders/{id}/items{?path*}", pathParameters)
+        public ItemsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/smartFolders/{id}/items{?%24skiptoken*,%24top*,path*}", pathParameters)
         {
         }
         /// <summary>
@@ -43,13 +43,14 @@ namespace PaperDotNet.Client.V10.SmartFolders.Item.Items
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ItemsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/smartFolders/{id}/items{?path*}", rawUrl)
+        public ItemsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/smartFolders/{id}/items{?%24skiptoken*,%24top*,path*}", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.PageOfSmartFolderEntry"/></returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
-        /// <exception cref="global::PaperDotNet.Client.Models.HttpValidationProblemDetails">When receiving a 400 status code</exception>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 400 status code</exception>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public async Task<global::PaperDotNet.Client.Models.PageOfSmartFolderEntry?> GetAsync(Action<RequestConfiguration<global::PaperDotNet.Client.V10.SmartFolders.Item.Items.ItemsRequestBuilder.ItemsRequestBuilderGetQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
@@ -62,7 +63,8 @@ namespace PaperDotNet.Client.V10.SmartFolders.Item.Items
             var requestInfo = ToGetRequestInformation(requestConfiguration);
             var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
             {
-                { "400", global::PaperDotNet.Client.Models.HttpValidationProblemDetails.CreateFromDiscriminatorValue },
+                { "400", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
+                { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
             };
             return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.PageOfSmartFolderEntry>(requestInfo, global::PaperDotNet.Client.Models.PageOfSmartFolderEntry.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
@@ -70,7 +72,8 @@ namespace PaperDotNet.Client.V10.SmartFolders.Item.Items
         /// <param name="body">Drop to classify (TAX-09): an existing item (`itemId`) gets the folder&apos;s terms and the values of its`eq` conditions (and of the sub-folder `path`); or a new item is created with them (`fields`).</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
-        /// <exception cref="global::PaperDotNet.Client.Models.HttpValidationProblemDetails">When receiving a 400 status code</exception>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 400 status code</exception>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public async Task<global::PaperDotNet.Client.Models.SmartFolderEntry?> PostAsync(global::PaperDotNet.Client.Models.SmartFolderDropRequest body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
@@ -84,7 +87,8 @@ namespace PaperDotNet.Client.V10.SmartFolders.Item.Items
             var requestInfo = ToPostRequestInformation(body, requestConfiguration);
             var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
             {
-                { "400", global::PaperDotNet.Client.Models.HttpValidationProblemDetails.CreateFromDiscriminatorValue },
+                { "400", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
+                { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
             };
             return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.SmartFolderEntry>(requestInfo, global::PaperDotNet.Client.Models.SmartFolderEntry.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
@@ -150,6 +154,19 @@ namespace PaperDotNet.Client.V10.SmartFolders.Item.Items
             public string[] Path { get; set; }
             #pragma warning restore CS1591
 #endif
+            /// <summary>Continuation token from @odata.nextLink.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+            [QueryParameter("%24skiptoken")]
+            public string? Skiptoken { get; set; }
+#nullable restore
+#else
+            [QueryParameter("%24skiptoken")]
+            public string Skiptoken { get; set; }
+#endif
+            /// <summary>Page size.</summary>
+            [QueryParameter("%24top")]
+            public int? Top { get; set; }
         }
     }
 }

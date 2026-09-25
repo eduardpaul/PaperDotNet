@@ -21,6 +21,8 @@ class WorkspaceResponse(AdditionalDataHolder, Parsable):
     is_personal: Optional[bool] = None
     # The name property
     name: Optional[str] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     # The updatedAt property
     updated_at: Optional[datetime.datetime] = None
     
@@ -46,6 +48,7 @@ class WorkspaceResponse(AdditionalDataHolder, Parsable):
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "isPersonal": lambda n : setattr(self, 'is_personal', n.get_bool_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "updatedAt": lambda n : setattr(self, 'updated_at', n.get_datetime_value()),
         }
         return fields
@@ -63,6 +66,7 @@ class WorkspaceResponse(AdditionalDataHolder, Parsable):
         writer.write_uuid_value("id", self.id)
         writer.write_bool_value("isPersonal", self.is_personal)
         writer.write_str_value("name", self.name)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_datetime_value("updatedAt", self.updated_at)
         writer.write_additional_data_value(self.additional_data)
     

@@ -49,6 +49,7 @@ namespace PaperDotNet.Client.V10.Applications
         /// <returns>A List&lt;global::PaperDotNet.Client.Models.ApplicationResponse&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public async Task<List<global::PaperDotNet.Client.Models.ApplicationResponse>?> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
@@ -59,14 +60,19 @@ namespace PaperDotNet.Client.V10.Applications
         {
 #endif
             var requestInfo = ToGetRequestInformation(requestConfiguration);
-            var collectionResult = await RequestAdapter.SendCollectionAsync<global::PaperDotNet.Client.Models.ApplicationResponse>(requestInfo, global::PaperDotNet.Client.Models.ApplicationResponse.CreateFromDiscriminatorValue, default, cancellationToken).ConfigureAwait(false);
+            var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
+            {
+                { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
+            };
+            var collectionResult = await RequestAdapter.SendCollectionAsync<global::PaperDotNet.Client.Models.ApplicationResponse>(requestInfo, global::PaperDotNet.Client.Models.ApplicationResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
             return collectionResult?.AsList();
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.ApplicationSecretResponse"/></returns>
         /// <param name="body">A new OAuth client. `clientType`: `confidential` (has a secret) or `public`(native/SPA, PKCE only). `grantTypes`: `authorization_code`, `refresh_token`,`client_credentials` (confidential only; the client acts as its own service account).`scopes`: permission scopes, or `api` for full access as the user.</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
-        /// <exception cref="global::PaperDotNet.Client.Models.HttpValidationProblemDetails">When receiving a 400 status code</exception>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 400 status code</exception>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public async Task<global::PaperDotNet.Client.Models.ApplicationSecretResponse?> PostAsync(global::PaperDotNet.Client.Models.CreateApplicationRequest body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
@@ -80,7 +86,8 @@ namespace PaperDotNet.Client.V10.Applications
             var requestInfo = ToPostRequestInformation(body, requestConfiguration);
             var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
             {
-                { "400", global::PaperDotNet.Client.Models.HttpValidationProblemDetails.CreateFromDiscriminatorValue },
+                { "400", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
+                { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
             };
             return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.ApplicationSecretResponse>(requestInfo, global::PaperDotNet.Client.Models.ApplicationSecretResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }

@@ -35,7 +35,7 @@ namespace PaperDotNet.Client.V10.TermStore.Sets
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public SetsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/termStore/sets{?groupId*}", pathParameters)
+        public SetsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/termStore/sets{?%24skiptoken*,%24top*,groupId*}", pathParameters)
         {
         }
         /// <summary>
@@ -43,12 +43,13 @@ namespace PaperDotNet.Client.V10.TermStore.Sets
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public SetsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/termStore/sets{?groupId*}", rawUrl)
+        public SetsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/termStore/sets{?%24skiptoken*,%24top*,groupId*}", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.PageOfTermSetResponse"/></returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public async Task<global::PaperDotNet.Client.Models.PageOfTermSetResponse?> GetAsync(Action<RequestConfiguration<global::PaperDotNet.Client.V10.TermStore.Sets.SetsRequestBuilder.SetsRequestBuilderGetQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
@@ -59,13 +60,18 @@ namespace PaperDotNet.Client.V10.TermStore.Sets
         {
 #endif
             var requestInfo = ToGetRequestInformation(requestConfiguration);
-            return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.PageOfTermSetResponse>(requestInfo, global::PaperDotNet.Client.Models.PageOfTermSetResponse.CreateFromDiscriminatorValue, default, cancellationToken).ConfigureAwait(false);
+            var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
+            {
+                { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
+            };
+            return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.PageOfTermSetResponse>(requestInfo, global::PaperDotNet.Client.Models.PageOfTermSetResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.TermSetResponse"/></returns>
         /// <param name="body">The request body</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
-        /// <exception cref="global::PaperDotNet.Client.Models.HttpValidationProblemDetails">When receiving a 400 status code</exception>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 400 status code</exception>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public async Task<global::PaperDotNet.Client.Models.TermSetResponse?> PostAsync(global::PaperDotNet.Client.Models.CreateTermSetRequest body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
@@ -79,7 +85,8 @@ namespace PaperDotNet.Client.V10.TermStore.Sets
             var requestInfo = ToPostRequestInformation(body, requestConfiguration);
             var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
             {
-                { "400", global::PaperDotNet.Client.Models.HttpValidationProblemDetails.CreateFromDiscriminatorValue },
+                { "400", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
+                { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
             };
             return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.TermSetResponse>(requestInfo, global::PaperDotNet.Client.Models.TermSetResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
@@ -136,6 +143,19 @@ namespace PaperDotNet.Client.V10.TermStore.Sets
             [QueryParameter("groupId")]
             public Guid? GroupId { get; set; }
             #pragma warning restore CS1591
+            /// <summary>Continuation token from @odata.nextLink.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+            [QueryParameter("%24skiptoken")]
+            public string? Skiptoken { get; set; }
+#nullable restore
+#else
+            [QueryParameter("%24skiptoken")]
+            public string Skiptoken { get; set; }
+#endif
+            /// <summary>Page size.</summary>
+            [QueryParameter("%24top")]
+            public int? Top { get; set; }
         }
     }
 }

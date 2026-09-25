@@ -35,8 +35,13 @@ public sealed record ChangeSubscriptionResponse(
     Guid Id, string Resource, IReadOnlyList<string> ChangeTypes, string NotificationUrl, string? ClientState,
     DateTimeOffset ExpirationDateTime, DateTimeOffset CreatedAt, string? Secret = null)
 {
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+
+
     internal static ChangeSubscriptionResponse From(ChangeSubscription s) =>
-        new(s.Id, ChangeNotifications.Resource(s.WorkspaceId, s.ListId, s.ItemId), s.ChangeTypes, s.NotificationUrl, s.ClientState, s.ExpiresAt, s.CreatedAt);
+        new(s.Id, ChangeNotifications.Resource(s.WorkspaceId, s.ListId, s.ItemId), s.ChangeTypes, s.NotificationUrl, s.ClientState, s.ExpiresAt, s.CreatedAt) { ETag = ETags.From(s.Version) };
 }
 
 /// <summary>

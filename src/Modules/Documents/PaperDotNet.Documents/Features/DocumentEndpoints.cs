@@ -40,9 +40,15 @@ public sealed record DocumentResponse(
 public sealed record LibrarySettingsResponse(
     Guid ListId, DuplicatePolicy DuplicatePolicy, bool AutoProcess, OcrMode OcrMode, string OcrLanguages, bool OcrLanguagesInherited)
 {
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+
+
     internal static LibrarySettingsResponse From(Guid listId, LibrarySettings? s, string defaultLanguages) =>
         new(listId, s?.DuplicatePolicy ?? DuplicatePolicy.Warn, s?.AutoProcess ?? true, s?.OcrMode ?? OcrMode.Auto,
-            s?.OcrLanguages ?? defaultLanguages, s?.OcrLanguages is null);
+            s?.OcrLanguages ?? defaultLanguages, s?.OcrLanguages is null)
+        { ETag = ETags.From(s?.Version ?? 0) };
 }
 
 /// <summary>Library settings; omitted values keep their current value. An empty <c>ocrLanguages</c> goes back to the organization's default.</summary>
@@ -71,15 +77,15 @@ internal static class DocumentEndpoints
         lists.MapPut("/documentSettings", UpdateSettingsAsync).RequireScope(DocumentScopes.Write).WithName("UpdateLibrarySettings");
 
         var file = endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}/file", "Documents");
-        file.MapGet("", DownloadAsync).RequireScope(DocumentScopes.Read).WithName("DownloadFile");
+        file.MapGet("", DownloadAsync).RequireScope(DocumentScopes.Read).WithName("DownloadFile").ProducesBinary();
         file.MapPut("", ReplaceAsync).RequireScope(DocumentScopes.Write).DisableAntiforgery().WithName("ReplaceFile")
             .WithMetadata(new RequestSizeLimitAttribute(limit)).WithFormOptions(multipartBodyLengthLimit: limit);
         file.MapGet("/versions", VersionsAsync).RequireScope(DocumentScopes.Read).WithName("ListFileVersions");
-        file.MapGet("/versions/{number:int}", DownloadVersionAsync).RequireScope(DocumentScopes.Read).WithName("DownloadFileVersion");
+        file.MapGet("/versions/{number:int}", DownloadVersionAsync).RequireScope(DocumentScopes.Read).WithName("DownloadFileVersion").ProducesBinary();
         file.MapPost("/versions/{number:int}/restore", RestoreAsync).RequireScope(DocumentScopes.Write).WithName("RestoreFileVersion");
         file.MapPost("/process", ProcessAsync).RequireScope(DocumentScopes.Write).WithName("ProcessFile");
-        file.MapGet("/pages/{page:int}/image", PageImageAsync).RequireScope(DocumentScopes.Read).WithName("GetPageImage");
-        file.MapGet("/thumbnail", ThumbnailAsync).RequireScope(DocumentScopes.Read).WithName("GetThumbnail");
+        file.MapGet("/pages/{page:int}/image", PageImageAsync).RequireScope(DocumentScopes.Read).WithName("GetPageImage").ProducesBinary("image/jpeg");
+        file.MapGet("/thumbnail", ThumbnailAsync).RequireScope(DocumentScopes.Read).WithName("GetThumbnail").ProducesBinary("image/jpeg");
 
         endpoints.MapV1Group("me/inbox", "Documents")
             .MapPost("/documents", UploadToInboxAsync).RequireScope(DocumentScopes.Write).DisableAntiforgery().WithName("UploadToInbox")

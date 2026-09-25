@@ -37,6 +37,7 @@ namespace PaperDotNet.Client.V10.Portability.Imports
         /// <param name="body">Binary request body</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public async Task<global::PaperDotNet.Client.Models.ImportResponse?> PostAsync(Stream body, Action<RequestConfiguration<global::PaperDotNet.Client.V10.Portability.Imports.ImportsRequestBuilder.ImportsRequestBuilderPostQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
@@ -48,7 +49,11 @@ namespace PaperDotNet.Client.V10.Portability.Imports
 #endif
             if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
             var requestInfo = ToPostRequestInformation(body, requestConfiguration);
-            return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.ImportResponse>(requestInfo, global::PaperDotNet.Client.Models.ImportResponse.CreateFromDiscriminatorValue, default, cancellationToken).ConfigureAwait(false);
+            var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
+            {
+                { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
+            };
+            return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.ImportResponse>(requestInfo, global::PaperDotNet.Client.Models.ImportResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="body">Binary request body</param>

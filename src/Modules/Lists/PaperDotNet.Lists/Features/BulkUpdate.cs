@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -13,7 +14,7 @@ using PaperDotNet.Workspaces.Contracts;
 namespace PaperDotNet.Lists.Features;
 
 /// <summary>Bulk update body: an OData filter (optional: all items) and field values to merge.</summary>
-public sealed record BulkUpdateRequest(string? Filter, JsonElement Fields);
+public sealed record BulkUpdateRequest(string? Filter, JsonObject Fields);
 
 public sealed record BulkUpdatePayload(Guid WorkspaceId, Guid ListId, string? Filter, JsonElement Fields);
 
@@ -50,7 +51,7 @@ internal static class BulkUpdateEndpoints
             return ListEndpoints.Forbidden();
         }
 
-        if (request.Fields.ValueKind != JsonValueKind.Object || !request.Fields.EnumerateObject().Any())
+        if (request.Fields is null || request.Fields.Count == 0)
         {
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["fields"] = ["A non-empty JSON object is expected."] });
         }
@@ -60,7 +61,7 @@ internal static class BulkUpdateEndpoints
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["filter"] = [error] });
         }
 
-        var id = await operations.StartAsync(OperationType, new BulkUpdatePayload(workspaceId, listId, request.Filter, request.Fields.Clone()), ct);
+        var id = await operations.StartAsync(OperationType, new BulkUpdatePayload(workspaceId, listId, request.Filter, JsonSerializer.SerializeToElement(request.Fields)), ct);
         return TypedResults.Accepted($"{ApiRoutes.V1}/operations/{id}", new OperationAcceptedResponse(id, OperationStatus.NotStarted));
     }
 }

@@ -26,6 +26,8 @@ class ChangeSubscriptionResponse(AdditionalDataHolder, Parsable):
     id: Optional[UUID] = None
     # The notificationUrl property
     notification_url: Optional[str] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     # The resource property
     resource: Optional[str] = None
     # The secret property
@@ -54,6 +56,7 @@ class ChangeSubscriptionResponse(AdditionalDataHolder, Parsable):
             "expirationDateTime": lambda n : setattr(self, 'expiration_date_time', n.get_datetime_value()),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "notificationUrl": lambda n : setattr(self, 'notification_url', n.get_str_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "resource": lambda n : setattr(self, 'resource', n.get_str_value()),
             "secret": lambda n : setattr(self, 'secret', n.get_str_value()),
         }
@@ -73,6 +76,7 @@ class ChangeSubscriptionResponse(AdditionalDataHolder, Parsable):
         writer.write_datetime_value("expirationDateTime", self.expiration_date_time)
         writer.write_uuid_value("id", self.id)
         writer.write_str_value("notificationUrl", self.notification_url)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_str_value("resource", self.resource)
         writer.write_str_value("secret", self.secret)
         writer.write_additional_data_value(self.additional_data)

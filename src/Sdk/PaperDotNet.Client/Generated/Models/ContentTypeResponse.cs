@@ -59,6 +59,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string Name { get; set; }
 #endif
+        /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.ContentTypeResponse"/> and sets the default values.
         /// </summary>
@@ -91,6 +99,7 @@ namespace PaperDotNet.Client.Models
                 { "isBuiltIn", n => { IsBuiltIn = n.GetBoolValue(); } },
                 { "key", n => { Key = n.GetStringValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
             };
         }
         /// <summary>
@@ -107,6 +116,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteBoolValue("isBuiltIn", IsBuiltIn);
             writer.WriteStringValue("key", Key);
             writer.WriteStringValue("name", Name);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

@@ -16,7 +16,7 @@ from warnings import warn
 
 if TYPE_CHECKING:
     from .........models.add_link_request import AddLinkRequest
-    from .........models.http_validation_problem_details import HttpValidationProblemDetails
+    from .........models.api_problem import ApiProblem
     from .........models.linked_item import LinkedItem
     from .........models.task_links_response import TaskLinksResponse
     from .item.with_link_item_request_builder import WithLinkItemRequestBuilder
@@ -56,11 +56,16 @@ class LinksRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from .........models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from .........models.task_links_response import TaskLinksResponse
 
-        return await self.request_adapter.send_async(request_info, TaskLinksResponse, None)
+        return await self.request_adapter.send_async(request_info, TaskLinksResponse, error_mapping)
     
     async def post(self,body: AddLinkRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[LinkedItem]:
         """
@@ -73,10 +78,11 @@ class LinksRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from .........models.http_validation_problem_details import HttpValidationProblemDetails
+        from .........models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 

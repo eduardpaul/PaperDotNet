@@ -38,6 +38,8 @@ class ListResponse(AdditionalDataHolder, Parsable):
     max_versions: Optional[int] = None
     # The name property
     name: Optional[str] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     # The templateKey property
     template_key: Optional[str] = None
     # The updatedAt property
@@ -83,6 +85,7 @@ class ListResponse(AdditionalDataHolder, Parsable):
             "kind": lambda n : setattr(self, 'kind', n.get_enum_value(ListKind)),
             "maxVersions": lambda n : setattr(self, 'max_versions', n.get_int_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "templateKey": lambda n : setattr(self, 'template_key', n.get_str_value()),
             "updatedAt": lambda n : setattr(self, 'updated_at', n.get_datetime_value()),
             "versioning": lambda n : setattr(self, 'versioning', n.get_enum_value(ListVersioning)),
@@ -107,6 +110,7 @@ class ListResponse(AdditionalDataHolder, Parsable):
         writer.write_enum_value("kind", self.kind)
         writer.write_int_value("maxVersions", self.max_versions)
         writer.write_str_value("name", self.name)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_str_value("templateKey", self.template_key)
         writer.write_datetime_value("updatedAt", self.updated_at)
         writer.write_enum_value("versioning", self.versioning)

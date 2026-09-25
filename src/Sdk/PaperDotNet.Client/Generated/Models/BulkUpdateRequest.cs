@@ -18,10 +18,10 @@ namespace PaperDotNet.Client.Models
         /// <summary>The fields property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public UntypedNode? Fields { get; set; }
+        public global::PaperDotNet.Client.Models.JsonObject? Fields { get; set; }
 #nullable restore
 #else
-        public UntypedNode Fields { get; set; }
+        public global::PaperDotNet.Client.Models.JsonObject Fields { get; set; }
 #endif
         /// <summary>The filter property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -56,7 +56,7 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
-                { "fields", n => { Fields = n.GetObjectValue<UntypedNode>(UntypedNode.CreateFromDiscriminatorValue); } },
+                { "fields", n => { Fields = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "filter", n => { Filter = n.GetStringValue(); } },
             };
         }
@@ -67,7 +67,7 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
-            writer.WriteObjectValue<UntypedNode>("fields", Fields);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("fields", Fields);
             writer.WriteStringValue("filter", Filter);
             writer.WriteAdditionalData(AdditionalData);
         }

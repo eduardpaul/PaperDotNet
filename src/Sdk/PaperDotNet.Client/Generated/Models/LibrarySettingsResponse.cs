@@ -33,6 +33,14 @@ namespace PaperDotNet.Client.Models
         public bool? OcrLanguagesInherited { get; set; }
         /// <summary>When a library runs OCR.</summary>
         public global::PaperDotNet.Client.Models.OcrMode? OcrMode { get; set; }
+        /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.LibrarySettingsResponse"/> and sets the default values.
         /// </summary>
@@ -64,6 +72,7 @@ namespace PaperDotNet.Client.Models
                 { "ocrLanguages", n => { OcrLanguages = n.GetStringValue(); } },
                 { "ocrLanguagesInherited", n => { OcrLanguagesInherited = n.GetBoolValue(); } },
                 { "ocrMode", n => { OcrMode = n.GetEnumValue<global::PaperDotNet.Client.Models.OcrMode>(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
             };
         }
         /// <summary>
@@ -79,6 +88,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteStringValue("ocrLanguages", OcrLanguages);
             writer.WriteBoolValue("ocrLanguagesInherited", OcrLanguagesInherited);
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.OcrMode>("ocrMode", OcrMode);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

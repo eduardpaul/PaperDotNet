@@ -15,6 +15,7 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ....models.api_problem import ApiProblem
     from ....models.export_request import ExportRequest
     from ....models.export_response import ExportResponse
     from .item.exports_item_request_builder import ExportsItemRequestBuilder
@@ -54,11 +55,16 @@ class ExportsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from ....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ....models.export_response import ExportResponse
 
-        return await self.request_adapter.send_collection_async(request_info, ExportResponse, None)
+        return await self.request_adapter.send_collection_async(request_info, ExportResponse, error_mapping)
     
     async def post(self,body: ExportRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ExportResponse]:
         """
@@ -71,11 +77,16 @@ class ExportsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
+        from ....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ....models.export_response import ExportResponse
 
-        return await self.request_adapter.send_async(request_info, ExportResponse, None)
+        return await self.request_adapter.send_async(request_info, ExportResponse, error_mapping)
     
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """

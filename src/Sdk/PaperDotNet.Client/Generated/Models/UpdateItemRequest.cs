@@ -5,55 +5,44 @@ using Microsoft.Kiota.Abstractions.Serialization;
 using System.Collections.Generic;
 using System.IO;
 using System;
-namespace PaperDotNet.Client.V10.Me.Inbox.Documents
+namespace PaperDotNet.Client.Models
 {
+    /// <summary>
+    /// PATCH body (documented shape; the handler reads raw JSON to tell a missing `parentId` from null): `fields`are merged (null removes a value), `parentId` moves the item (null: the list root).
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
-    public partial class DocumentsPostRequestBody : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
+    public partial class UpdateItemRequest : IAdditionalDataHolder, IParsable
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The file property</summary>
+        /// <summary>The contentTypeId property</summary>
+        public Guid? ContentTypeId { get; set; }
+        /// <summary>The fields property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public byte[]? File { get; set; }
+        public global::PaperDotNet.Client.Models.UpdateItemRequest_fields? Fields { get; set; }
 #nullable restore
 #else
-        public byte[] File { get; set; }
+        public global::PaperDotNet.Client.Models.UpdateItemRequest_fields Fields { get; set; }
 #endif
-        /// <summary>The languages property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? Languages { get; set; }
-#nullable restore
-#else
-        public string Languages { get; set; }
-#endif
-        /// <summary>The title property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? Title { get; set; }
-#nullable restore
-#else
-        public string Title { get; set; }
-#endif
+        /// <summary>The parentId property</summary>
+        public Guid? ParentId { get; set; }
         /// <summary>
-        /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Me.Inbox.Documents.DocumentsPostRequestBody"/> and sets the default values.
+        /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.UpdateItemRequest"/> and sets the default values.
         /// </summary>
-        public DocumentsPostRequestBody()
+        public UpdateItemRequest()
         {
             AdditionalData = new Dictionary<string, object>();
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
         /// </summary>
-        /// <returns>A <see cref="global::PaperDotNet.Client.V10.Me.Inbox.Documents.DocumentsPostRequestBody"/></returns>
+        /// <returns>A <see cref="global::PaperDotNet.Client.Models.UpdateItemRequest"/></returns>
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
-        public static global::PaperDotNet.Client.V10.Me.Inbox.Documents.DocumentsPostRequestBody CreateFromDiscriminatorValue(IParseNode parseNode)
+        public static global::PaperDotNet.Client.Models.UpdateItemRequest CreateFromDiscriminatorValue(IParseNode parseNode)
         {
             if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
-            return new global::PaperDotNet.Client.V10.Me.Inbox.Documents.DocumentsPostRequestBody();
+            return new global::PaperDotNet.Client.Models.UpdateItemRequest();
         }
         /// <summary>
         /// The deserialization information for the current model
@@ -63,9 +52,9 @@ namespace PaperDotNet.Client.V10.Me.Inbox.Documents
         {
             return new Dictionary<string, Action<IParseNode>>
             {
-                { "file", n => { File = n.GetByteArrayValue(); } },
-                { "languages", n => { Languages = n.GetStringValue(); } },
-                { "title", n => { Title = n.GetStringValue(); } },
+                { "contentTypeId", n => { ContentTypeId = n.GetGuidValue(); } },
+                { "fields", n => { Fields = n.GetObjectValue<global::PaperDotNet.Client.Models.UpdateItemRequest_fields>(global::PaperDotNet.Client.Models.UpdateItemRequest_fields.CreateFromDiscriminatorValue); } },
+                { "parentId", n => { ParentId = n.GetGuidValue(); } },
             };
         }
         /// <summary>
@@ -75,9 +64,9 @@ namespace PaperDotNet.Client.V10.Me.Inbox.Documents
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
-            writer.WriteByteArrayValue("file", File);
-            writer.WriteStringValue("languages", Languages);
-            writer.WriteStringValue("title", Title);
+            writer.WriteGuidValue("contentTypeId", ContentTypeId);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.UpdateItemRequest_fields>("fields", Fields);
+            writer.WriteGuidValue("parentId", ParentId);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

@@ -14,9 +14,9 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ....models.api_problem import ApiProblem
     from ....models.content_type_request import ContentTypeRequest
     from ....models.content_type_response import ContentTypeResponse
-    from ....models.http_validation_problem_details import HttpValidationProblemDetails
 
 class ContentTypesItemRequestBuilder(BaseRequestBuilder):
     """
@@ -39,11 +39,16 @@ class ContentTypesItemRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from ....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ....models.content_type_response import ContentTypeResponse
 
-        return await self.request_adapter.send_async(request_info, ContentTypeResponse, None)
+        return await self.request_adapter.send_async(request_info, ContentTypeResponse, error_mapping)
     
     async def put(self,body: ContentTypeRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ContentTypeResponse]:
         """
@@ -56,10 +61,11 @@ class ContentTypesItemRequestBuilder(BaseRequestBuilder):
         request_info = self.to_put_request_information(
             body, request_configuration
         )
-        from ....models.http_validation_problem_details import HttpValidationProblemDetails
+        from ....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 

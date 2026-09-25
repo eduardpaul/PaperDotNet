@@ -6,7 +6,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from .json_element import JsonElement
+    from .json_object import JsonObject
 
 @dataclass
 class CreateItemRequest(AdditionalDataHolder, Parsable):
@@ -19,7 +19,7 @@ class CreateItemRequest(AdditionalDataHolder, Parsable):
     # The contentTypeId property
     content_type_id: Optional[UUID] = None
     # The fields property
-    fields: Optional[JsonElement] = None
+    fields: Optional[JsonObject] = None
     # The isFolder property
     is_folder: Optional[bool] = None
     # The parentId property
@@ -41,13 +41,13 @@ class CreateItemRequest(AdditionalDataHolder, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
-        from .json_element import JsonElement
+        from .json_object import JsonObject
 
-        from .json_element import JsonElement
+        from .json_object import JsonObject
 
         fields: dict[str, Callable[[Any], None]] = {
             "contentTypeId": lambda n : setattr(self, 'content_type_id', n.get_uuid_value()),
-            "fields": lambda n : setattr(self, 'fields', n.get_object_value(JsonElement)),
+            "fields": lambda n : setattr(self, 'fields', n.get_object_value(JsonObject)),
             "isFolder": lambda n : setattr(self, 'is_folder', n.get_bool_value()),
             "parentId": lambda n : setattr(self, 'parent_id', n.get_uuid_value()),
         }

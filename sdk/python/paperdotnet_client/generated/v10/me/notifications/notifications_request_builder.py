@@ -15,6 +15,7 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ....models.api_problem import ApiProblem
     from ....models.page_of_notification_response import PageOfNotificationResponse
     from .item.notifications_item_request_builder import NotificationsItemRequestBuilder
     from .read.read_request_builder import ReadRequestBuilder
@@ -31,7 +32,7 @@ class NotificationsRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/me/notifications{?unreadOnly*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/me/notifications{?%24skiptoken*,%24top*,unreadOnly*}", path_parameters)
     
     def by_id(self,id: UUID) -> NotificationsItemRequestBuilder:
         """
@@ -55,11 +56,16 @@ class NotificationsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from ....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ....models.page_of_notification_response import PageOfNotificationResponse
 
-        return await self.request_adapter.send_async(request_info, PageOfNotificationResponse, None)
+        return await self.request_adapter.send_async(request_info, PageOfNotificationResponse, error_mapping)
     
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[NotificationsRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
@@ -109,10 +115,20 @@ class NotificationsRequestBuilder(BaseRequestBuilder):
             """
             if original_name is None:
                 raise TypeError("original_name cannot be null.")
+            if original_name == "skiptoken":
+                return "%24skiptoken"
+            if original_name == "top":
+                return "%24top"
             if original_name == "unread_only":
                 return "unreadOnly"
             return original_name
         
+        # Continuation token from @odata.nextLink.
+        skiptoken: Optional[str] = None
+
+        # Page size.
+        top: Optional[int] = None
+
         unread_only: Optional[bool] = None
 
     

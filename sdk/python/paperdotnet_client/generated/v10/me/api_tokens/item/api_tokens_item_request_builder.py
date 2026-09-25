@@ -13,6 +13,9 @@ from kiota_abstractions.serialization import Parsable, ParsableFactory
 from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
+if TYPE_CHECKING:
+    from .....models.api_problem import ApiProblem
+
 class ApiTokensItemRequestBuilder(BaseRequestBuilder):
     """
     Builds and executes requests for operations under /v1.0/me/apiTokens/{id}
@@ -34,9 +37,14 @@ class ApiTokensItemRequestBuilder(BaseRequestBuilder):
         request_info = self.to_delete_request_information(
             request_configuration
         )
+        from .....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
-        return await self.request_adapter.send_no_response_content_async(request_info, None)
+        return await self.request_adapter.send_no_response_content_async(request_info, error_mapping)
     
     def to_delete_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
@@ -45,6 +53,7 @@ class ApiTokensItemRequestBuilder(BaseRequestBuilder):
         """
         request_info = RequestInformation(Method.DELETE, self.url_template, self.path_parameters)
         request_info.configure(request_configuration)
+        request_info.headers.try_add("Accept", "application/problem+json")
         return request_info
     
     def with_url(self,raw_url: str) -> ApiTokensItemRequestBuilder:

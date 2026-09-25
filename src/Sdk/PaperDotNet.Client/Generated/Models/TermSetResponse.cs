@@ -40,6 +40,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string Name { get; set; }
 #endif
+        /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>The updatedAt property</summary>
         public DateTimeOffset? UpdatedAt { get; set; }
         /// <summary>
@@ -74,6 +82,7 @@ namespace PaperDotNet.Client.Models
                 { "isKeywords", n => { IsKeywords = n.GetBoolValue(); } },
                 { "isOpen", n => { IsOpen = n.GetBoolValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "updatedAt", n => { UpdatedAt = n.GetDateTimeOffsetValue(); } },
             };
         }
@@ -91,6 +100,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteBoolValue("isKeywords", IsKeywords);
             writer.WriteBoolValue("isOpen", IsOpen);
             writer.WriteStringValue("name", Name);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteDateTimeOffsetValue("updatedAt", UpdatedAt);
             writer.WriteAdditionalData(AdditionalData);
         }

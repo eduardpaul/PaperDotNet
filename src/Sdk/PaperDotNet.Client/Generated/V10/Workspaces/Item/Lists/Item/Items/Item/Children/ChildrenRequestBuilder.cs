@@ -22,7 +22,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ChildrenRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/children", pathParameters)
+        public ChildrenRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/children{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*}", pathParameters)
         {
         }
         /// <summary>
@@ -30,26 +30,28 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ChildrenRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/children", rawUrl)
+        public ChildrenRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/children{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*}", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.ItemPage"/></returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
-        /// <exception cref="global::PaperDotNet.Client.Models.HttpValidationProblemDetails">When receiving a 400 status code</exception>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 400 status code</exception>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public async Task<global::PaperDotNet.Client.Models.ItemPage?> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<global::PaperDotNet.Client.Models.ItemPage?> GetAsync(Action<RequestConfiguration<global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children.ChildrenRequestBuilder.ChildrenRequestBuilderGetQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #nullable restore
 #else
-        public async Task<global::PaperDotNet.Client.Models.ItemPage> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<global::PaperDotNet.Client.Models.ItemPage> GetAsync(Action<RequestConfiguration<global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children.ChildrenRequestBuilder.ChildrenRequestBuilderGetQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #endif
             var requestInfo = ToGetRequestInformation(requestConfiguration);
             var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
             {
-                { "400", global::PaperDotNet.Client.Models.HttpValidationProblemDetails.CreateFromDiscriminatorValue },
+                { "400", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
+                { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
             };
             return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.ItemPage>(requestInfo, global::PaperDotNet.Client.Models.ItemPage.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
@@ -57,11 +59,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public RequestInformation ToGetRequestInformation(Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default)
+        public RequestInformation ToGetRequestInformation(Action<RequestConfiguration<global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children.ChildrenRequestBuilder.ChildrenRequestBuilderGetQueryParameters>>? requestConfiguration = default)
         {
 #nullable restore
 #else
-        public RequestInformation ToGetRequestInformation(Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default)
+        public RequestInformation ToGetRequestInformation(Action<RequestConfiguration<global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children.ChildrenRequestBuilder.ChildrenRequestBuilderGetQueryParameters>> requestConfiguration = default)
         {
 #endif
             var requestInfo = new RequestInformation(Method.GET, UrlTemplate, PathParameters);
@@ -77,6 +79,58 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children.ChildrenRequestBuilder WithUrl(string rawUrl)
         {
             return new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children.ChildrenRequestBuilder(rawUrl, RequestAdapter);
+        }
+        [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
+        #pragma warning disable CS1591
+        public partial class ChildrenRequestBuilderGetQueryParameters 
+        #pragma warning restore CS1591
+        {
+            /// <summary>Include @odata.count.</summary>
+            [QueryParameter("%24count")]
+            public bool? Count { get; set; }
+            /// <summary>OData filter, e.g. fields/amount gt 100 and fields/status eq &apos;open&apos;.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+            [QueryParameter("%24filter")]
+            public string? Filter { get; set; }
+#nullable restore
+#else
+            [QueryParameter("%24filter")]
+            public string Filter { get; set; }
+#endif
+            /// <summary>OData order, e.g. fields/due desc.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+            [QueryParameter("%24orderby")]
+            public string? Orderby { get; set; }
+#nullable restore
+#else
+            [QueryParameter("%24orderby")]
+            public string Orderby { get; set; }
+#endif
+            /// <summary>Comma-separated field names to return.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+            [QueryParameter("%24select")]
+            public string? Select { get; set; }
+#nullable restore
+#else
+            [QueryParameter("%24select")]
+            public string Select { get; set; }
+#endif
+            /// <summary>Continuation token from @odata.nextLink.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+            [QueryParameter("%24skiptoken")]
+            public string? Skiptoken { get; set; }
+#nullable restore
+#else
+            [QueryParameter("%24skiptoken")]
+            public string Skiptoken { get; set; }
+#endif
+            /// <summary>Page size.</summary>
+            [QueryParameter("%24top")]
+            public int? Top { get; set; }
         }
     }
 }

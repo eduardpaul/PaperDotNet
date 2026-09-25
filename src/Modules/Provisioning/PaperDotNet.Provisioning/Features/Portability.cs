@@ -168,7 +168,7 @@ internal static class PortabilityEndpoints
         group.MapPost("/exports", StartExportAsync).RequireScope(ProvisioningScopes.Read).WithName("StartExport");
         group.MapGet("/exports", ListExportsAsync).RequireScope(ProvisioningScopes.Read).WithName("ListExports");
         group.MapGet("/exports/{id:guid}", GetExportAsync).RequireScope(ProvisioningScopes.Read).WithName("GetExport");
-        group.MapGet("/exports/{id:guid}/package", DownloadAsync).RequireScope(ProvisioningScopes.Read).WithName("DownloadExport");
+        group.MapGet("/exports/{id:guid}/package", DownloadAsync).RequireScope(ProvisioningScopes.Read).WithName("DownloadExport").ProducesBinary(ZipTemplatePackage.ContentType);
         group.MapDelete("/exports/{id:guid}", DeleteExportAsync).RequireScope(ProvisioningScopes.Read).WithName("DeleteExport");
         group.MapPost("/imports", StartImportAsync).RequireScope(ProvisioningScopes.Manage).WithName("StartImport")
             .Accepts<string>(ZipTemplatePackage.ContentType);

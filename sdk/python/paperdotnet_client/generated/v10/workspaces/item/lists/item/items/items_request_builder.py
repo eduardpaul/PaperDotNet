@@ -15,8 +15,8 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from .......models.api_problem import ApiProblem
     from .......models.create_item_request import CreateItemRequest
-    from .......models.http_validation_problem_details import HttpValidationProblemDetails
     from .......models.item_page import ItemPage
     from .......models.item_response import ItemResponse
     from .bulk_update.bulk_update_request_builder import BulkUpdateRequestBuilder
@@ -34,7 +34,7 @@ class ItemsRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items{?viewId*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*,viewId*}", path_parameters)
     
     def by_item_id(self,item_id: UUID) -> WithItemItemRequestBuilder:
         """
@@ -58,10 +58,11 @@ class ItemsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
-        from .......models.http_validation_problem_details import HttpValidationProblemDetails
+        from .......models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -80,10 +81,11 @@ class ItemsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from .......models.http_validation_problem_details import HttpValidationProblemDetails
+        from .......models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -153,10 +155,40 @@ class ItemsRequestBuilder(BaseRequestBuilder):
             """
             if original_name is None:
                 raise TypeError("original_name cannot be null.")
+            if original_name == "count":
+                return "%24count"
+            if original_name == "filter":
+                return "%24filter"
+            if original_name == "orderby":
+                return "%24orderby"
+            if original_name == "select":
+                return "%24select"
+            if original_name == "skiptoken":
+                return "%24skiptoken"
+            if original_name == "top":
+                return "%24top"
             if original_name == "view_id":
                 return "viewId"
             return original_name
         
+        # Include @odata.count.
+        count: Optional[bool] = None
+
+        # OData filter, e.g. fields/amount gt 100 and fields/status eq 'open'.
+        filter: Optional[str] = None
+
+        # OData order, e.g. fields/due desc.
+        orderby: Optional[str] = None
+
+        # Comma-separated field names to return.
+        select: Optional[str] = None
+
+        # Continuation token from @odata.nextLink.
+        skiptoken: Optional[str] = None
+
+        # Page size.
+        top: Optional[int] = None
+
         view_id: Optional[UUID] = None
 
     

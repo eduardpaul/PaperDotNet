@@ -35,6 +35,14 @@ namespace PaperDotNet.Client.Models
         public bool? IsFolder { get; set; }
         /// <summary>The listId property</summary>
         public Guid? ListId { get; set; }
+        /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>The parentId property</summary>
         public Guid? ParentId { get; set; }
         /// <summary>The updatedAt property</summary>
@@ -73,6 +81,7 @@ namespace PaperDotNet.Client.Models
                 { "id", n => { Id = n.GetGuidValue(); } },
                 { "isFolder", n => { IsFolder = n.GetBoolValue(); } },
                 { "listId", n => { ListId = n.GetGuidValue(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "parentId", n => { ParentId = n.GetGuidValue(); } },
                 { "updatedAt", n => { UpdatedAt = n.GetDateTimeOffsetValue(); } },
                 { "updatedBy", n => { UpdatedBy = n.GetGuidValue(); } },
@@ -92,6 +101,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteGuidValue("id", Id);
             writer.WriteBoolValue("isFolder", IsFolder);
             writer.WriteGuidValue("listId", ListId);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteGuidValue("parentId", ParentId);
             writer.WriteDateTimeOffsetValue("updatedAt", UpdatedAt);
             writer.WriteGuidValue("updatedBy", UpdatedBy);

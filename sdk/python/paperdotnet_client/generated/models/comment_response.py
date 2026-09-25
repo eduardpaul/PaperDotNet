@@ -21,6 +21,8 @@ class CommentResponse(AdditionalDataHolder, Parsable):
     item_id: Optional[UUID] = None
     # The mentions property
     mentions: Optional[list[UUID]] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     # The parentId property
     parent_id: Optional[UUID] = None
     # The text property
@@ -52,6 +54,7 @@ class CommentResponse(AdditionalDataHolder, Parsable):
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "itemId": lambda n : setattr(self, 'item_id', n.get_uuid_value()),
             "mentions": lambda n : setattr(self, 'mentions', n.get_collection_of_primitive_values(UUID)),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "parentId": lambda n : setattr(self, 'parent_id', n.get_uuid_value()),
             "text": lambda n : setattr(self, 'text', n.get_str_value()),
             "updatedAt": lambda n : setattr(self, 'updated_at', n.get_datetime_value()),
@@ -72,6 +75,7 @@ class CommentResponse(AdditionalDataHolder, Parsable):
         writer.write_uuid_value("id", self.id)
         writer.write_uuid_value("itemId", self.item_id)
         writer.write_collection_of_primitive_values("mentions", self.mentions)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_uuid_value("parentId", self.parent_id)
         writer.write_str_value("text", self.text)
         writer.write_datetime_value("updatedAt", self.updated_at)

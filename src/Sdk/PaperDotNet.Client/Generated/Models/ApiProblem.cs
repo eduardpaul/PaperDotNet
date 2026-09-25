@@ -8,13 +8,22 @@ using System.IO;
 using System;
 namespace PaperDotNet.Client.Models
 {
+    /// <summary>
+    /// The problem body of every error response (RFC 9457 with PaperDotNet&apos;s `code` and validation `errors`);documented once so SDKs throw one typed error.
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
-    public partial class HttpValidationProblemDetails : ApiException, IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
+    public partial class ApiProblem : ApiException, IAdditionalDataHolder, IParsable
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The code property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Code { get; set; }
+#nullable restore
+#else
+        public string Code { get; set; }
+#endif
         /// <summary>The detail property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -26,10 +35,10 @@ namespace PaperDotNet.Client.Models
         /// <summary>The errors property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public global::PaperDotNet.Client.Models.HttpValidationProblemDetails_errors? Errors { get; set; }
+        public global::PaperDotNet.Client.Models.ApiProblem_errors? Errors { get; set; }
 #nullable restore
 #else
-        public global::PaperDotNet.Client.Models.HttpValidationProblemDetails_errors Errors { get; set; }
+        public global::PaperDotNet.Client.Models.ApiProblem_errors Errors { get; set; }
 #endif
         /// <summary>The instance property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -51,6 +60,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string Title { get; set; }
 #endif
+        /// <summary>The traceId property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? TraceId { get; set; }
+#nullable restore
+#else
+        public string TraceId { get; set; }
+#endif
         /// <summary>The type property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -60,21 +77,21 @@ namespace PaperDotNet.Client.Models
         public string Type { get; set; }
 #endif
         /// <summary>
-        /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.HttpValidationProblemDetails"/> and sets the default values.
+        /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.ApiProblem"/> and sets the default values.
         /// </summary>
-        public HttpValidationProblemDetails()
+        public ApiProblem()
         {
             AdditionalData = new Dictionary<string, object>();
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
         /// </summary>
-        /// <returns>A <see cref="global::PaperDotNet.Client.Models.HttpValidationProblemDetails"/></returns>
+        /// <returns>A <see cref="global::PaperDotNet.Client.Models.ApiProblem"/></returns>
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
-        public static global::PaperDotNet.Client.Models.HttpValidationProblemDetails CreateFromDiscriminatorValue(IParseNode parseNode)
+        public static global::PaperDotNet.Client.Models.ApiProblem CreateFromDiscriminatorValue(IParseNode parseNode)
         {
             if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
-            return new global::PaperDotNet.Client.Models.HttpValidationProblemDetails();
+            return new global::PaperDotNet.Client.Models.ApiProblem();
         }
         /// <summary>
         /// The deserialization information for the current model
@@ -84,11 +101,13 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "code", n => { Code = n.GetStringValue(); } },
                 { "detail", n => { Detail = n.GetStringValue(); } },
-                { "errors", n => { Errors = n.GetObjectValue<global::PaperDotNet.Client.Models.HttpValidationProblemDetails_errors>(global::PaperDotNet.Client.Models.HttpValidationProblemDetails_errors.CreateFromDiscriminatorValue); } },
+                { "errors", n => { Errors = n.GetObjectValue<global::PaperDotNet.Client.Models.ApiProblem_errors>(global::PaperDotNet.Client.Models.ApiProblem_errors.CreateFromDiscriminatorValue); } },
                 { "instance", n => { Instance = n.GetStringValue(); } },
                 { "status", n => { Status = n.GetIntValue(); } },
                 { "title", n => { Title = n.GetStringValue(); } },
+                { "traceId", n => { TraceId = n.GetStringValue(); } },
                 { "type", n => { Type = n.GetStringValue(); } },
             };
         }
@@ -99,11 +118,13 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteStringValue("code", Code);
             writer.WriteStringValue("detail", Detail);
-            writer.WriteObjectValue<global::PaperDotNet.Client.Models.HttpValidationProblemDetails_errors>("errors", Errors);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.ApiProblem_errors>("errors", Errors);
             writer.WriteStringValue("instance", Instance);
             writer.WriteIntValue("status", Status);
             writer.WriteStringValue("title", Title);
+            writer.WriteStringValue("traceId", TraceId);
             writer.WriteStringValue("type", Type);
             writer.WriteAdditionalData(AdditionalData);
         }

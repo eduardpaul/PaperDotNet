@@ -14,6 +14,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ....models.api_problem import ApiProblem
     from ....models.reindex_response import ReindexResponse
 
 class ReindexRequestBuilder(BaseRequestBuilder):
@@ -37,11 +38,16 @@ class ReindexRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             request_configuration
         )
+        from ....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ....models.reindex_response import ReindexResponse
 
-        return await self.request_adapter.send_async(request_info, ReindexResponse, None)
+        return await self.request_adapter.send_async(request_info, ReindexResponse, error_mapping)
     
     def to_post_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """

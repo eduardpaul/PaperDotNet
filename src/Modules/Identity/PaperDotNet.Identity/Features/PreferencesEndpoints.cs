@@ -24,7 +24,16 @@ public sealed record PreferencesResponse(
     string NumberFormat,
     string Theme,
     string DocumentLanguages,
-    IReadOnlyList<string> Inherited);
+    IReadOnlyList<string> Inherited)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
+
+/// <summary>PATCH body (JSON merge patch): set a value, or null to inherit it again.</summary>
+public sealed record PreferencesPatch(
+    string? Language, string? TimeZone, string? DateFormat, string? TimeFormat, string? NumberFormat, string? Theme, string? DocumentLanguages);
 
 /// <summary>Reads effective preferences: user values over the organization's defaults over the built-in defaults.</summary>
 internal sealed class UserPreferences(IdentityDbContext db) : IUserPreferences
@@ -69,11 +78,11 @@ internal static partial class PreferencesEndpoints
     {
         var me = endpoints.MapV1Group("me", "Me");
         me.MapGet("/preferences", GetMineAsync).WithName("GetMyPreferences");
-        me.MapPatch("/preferences", PatchMineAsync).WithName("UpdateMyPreferences");
+        me.MapPatch("/preferences", PatchMineAsync).WithName("UpdateMyPreferences").WithRequestBodySchema<PreferencesPatch>();
 
         var organization = endpoints.MapV1Group("organization", "Organization");
         organization.MapGet("/preferences", GetDefaultsAsync).WithName("GetOrganizationPreferences");
-        organization.MapPatch("/preferences", PatchDefaultsAsync).RequireScope(IdentityScopes.OrganizationManage).WithName("UpdateOrganizationPreferences");
+        organization.MapPatch("/preferences", PatchDefaultsAsync).RequireScope(IdentityScopes.OrganizationManage).WithName("UpdateOrganizationPreferences").WithRequestBodySchema<PreferencesPatch>();
     }
 
     private static async Task<Results<Ok<PreferencesResponse>, ProblemHttpResult>> GetMineAsync(
@@ -241,7 +250,8 @@ internal static partial class PreferencesEndpoints
         Check("documentLanguages", own?.DocumentLanguages);
         return new PreferencesResponse(
             effective.Language, effective.TimeZone, effective.DateFormat, effective.TimeFormat, effective.NumberFormat,
-            effective.Theme, effective.DocumentLanguages, from);
+            effective.Theme, effective.DocumentLanguages, from)
+        { ETag = ETags.From(own?.Version ?? 0) };
     }
 
     [GeneratedRegex("^(?=.*d)(?=.*M)(?=.*y)[dMy]+([./ -][dMy]+)*$")]

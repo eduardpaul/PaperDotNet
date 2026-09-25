@@ -15,9 +15,9 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from .........models.api_problem import ApiProblem
     from .........models.comment_request import CommentRequest
     from .........models.comment_response import CommentResponse
-    from .........models.http_validation_problem_details import HttpValidationProblemDetails
     from .........models.page_of_comment_response import PageOfCommentResponse
     from .item.with_comment_item_request_builder import WithCommentItemRequestBuilder
 
@@ -32,7 +32,7 @@ class CommentsRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/comments", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/comments{?%24skiptoken*,%24top*}", path_parameters)
     
     def by_comment_id(self,comment_id: UUID) -> WithCommentItemRequestBuilder:
         """
@@ -48,7 +48,7 @@ class CommentsRequestBuilder(BaseRequestBuilder):
         url_tpl_params["commentId"] = comment_id
         return WithCommentItemRequestBuilder(self.request_adapter, url_tpl_params)
     
-    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[PageOfCommentResponse]:
+    async def get(self,request_configuration: Optional[RequestConfiguration[CommentsRequestBuilderGetQueryParameters]] = None) -> Optional[PageOfCommentResponse]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[PageOfCommentResponse]
@@ -56,11 +56,16 @@ class CommentsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from .........models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from .........models.page_of_comment_response import PageOfCommentResponse
 
-        return await self.request_adapter.send_async(request_info, PageOfCommentResponse, None)
+        return await self.request_adapter.send_async(request_info, PageOfCommentResponse, error_mapping)
     
     async def post(self,body: CommentRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[CommentResponse]:
         """
@@ -73,10 +78,11 @@ class CommentsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from .........models.http_validation_problem_details import HttpValidationProblemDetails
+        from .........models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -84,7 +90,7 @@ class CommentsRequestBuilder(BaseRequestBuilder):
 
         return await self.request_adapter.send_async(request_info, CommentResponse, error_mapping)
     
-    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[CommentsRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
@@ -119,7 +125,30 @@ class CommentsRequestBuilder(BaseRequestBuilder):
         return CommentsRequestBuilder(self.request_adapter, raw_url)
     
     @dataclass
-    class CommentsRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):
+    class CommentsRequestBuilderGetQueryParameters():
+        def get_query_parameter(self,original_name: str) -> str:
+            """
+            Maps the query parameters names to their encoded names for the URI template parsing.
+            param original_name: The original query parameter name in the class.
+            Returns: str
+            """
+            if original_name is None:
+                raise TypeError("original_name cannot be null.")
+            if original_name == "skiptoken":
+                return "%24skiptoken"
+            if original_name == "top":
+                return "%24top"
+            return original_name
+        
+        # Continuation token from @odata.nextLink.
+        skiptoken: Optional[str] = None
+
+        # Page size.
+        top: Optional[int] = None
+
+    
+    @dataclass
+    class CommentsRequestBuilderGetRequestConfiguration(RequestConfiguration[CommentsRequestBuilderGetQueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """

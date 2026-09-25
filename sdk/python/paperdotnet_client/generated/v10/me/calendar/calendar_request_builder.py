@@ -15,8 +15,8 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ....models.api_problem import ApiProblem
     from ....models.calendar_response import CalendarResponse
-    from ....models.http_validation_problem_details import HttpValidationProblemDetails
 
 class CalendarRequestBuilder(BaseRequestBuilder):
     """
@@ -39,10 +39,11 @@ class CalendarRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
-        from ....models.http_validation_problem_details import HttpValidationProblemDetails
+        from ....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 

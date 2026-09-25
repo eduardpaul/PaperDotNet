@@ -55,7 +55,7 @@ internal static class CalendarEndpoints
 
         var list = endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}", "Calendar");
         list.MapGet("/calendar", ListRangeAsync).RequireScope(CalendarScopes.Read).WithName("GetListCalendar");
-        list.MapGet("/calendar.ics", ExportAsync).RequireScope(CalendarScopes.Read).WithName("ExportListCalendar");
+        list.MapGet("/calendar.ics", ExportAsync).RequireScope(CalendarScopes.Read).WithName("ExportListCalendar").ProducesBinary("text/calendar");
         list.MapPost("/calendar/import", ImportAsync).RequireScope(CalendarScopes.Write).WithName("ImportCalendar");
 
         var me = endpoints.MapV1Group("me", "Calendar");
@@ -67,7 +67,8 @@ internal static class CalendarEndpoints
         endpoints.MapV1Group("calendarFeeds", "Calendar")
             .MapGet("/{token}.ics", FeedAsync)
             .AllowAnonymous()
-            .WithName("GetCalendarFeed");
+            .WithName("GetCalendarFeed")
+            .ProducesBinary("text/calendar");
     }
 
     // ---- Recurrence -----------------------------------------------------------

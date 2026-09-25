@@ -47,7 +47,12 @@ public sealed record SmartFolderRequest(string? Name, string? Description, Guid?
 
 public sealed record SmartFolderResponse(
     Guid Id, string Name, string? Description, Guid? WorkspaceId, bool Personal, SmartFolderDefinition Definition,
-    DateTimeOffset CreatedAt, Guid? CreatedBy, DateTimeOffset UpdatedAt);
+    DateTimeOffset CreatedAt, Guid? CreatedBy, DateTimeOffset UpdatedAt)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 /// <summary>An item in a smart folder, with where it lives.</summary>
 public sealed record SmartFolderEntry(Guid WorkspaceId, string ListName, ItemResponse Item);
@@ -343,12 +348,15 @@ internal static class SmartFolders
     internal static string Serialize(SmartFolderDefinition definition) => JsonSerializer.Serialize(definition, Json);
 
     private static SmartFolderResponse ToResponse(SmartFolder f) =>
-        new(f.Id, f.Name, f.Description, f.WorkspaceId, f.OwnerId is not null, Definition(f), f.CreatedAt, f.CreatedBy, f.UpdatedAt);
+        new(f.Id, f.Name, f.Description, f.WorkspaceId, f.OwnerId is not null, Definition(f), f.CreatedAt, f.CreatedBy, f.UpdatedAt) { ETag = ETags.From(f.Version) };
 
     private static async Task<SmartFolderEntry> EntryAsync(ListsDbContext db, ListItemData item, CancellationToken ct) => new(
         item.WorkspaceId,
         await db.Lists.AsNoTracking().Where(l => l.Id == item.ListId).Select(l => l.Name).FirstAsync(ct),
-        new ItemResponse(item.Id, item.ListId, item.ContentTypeId, item.ParentId, item.IsFolder, item.CreatedAt, item.CreatedBy, item.UpdatedAt, item.UpdatedBy, item.Fields));
+        new ItemResponse(item.Id, item.ListId, item.ContentTypeId, item.ParentId, item.IsFolder, item.CreatedAt, item.CreatedBy, item.UpdatedAt, item.UpdatedBy, item.Fields)
+        {
+            ETag = ETags.From(item.Version),
+        });
 
     private static async Task<SmartFolder?> VisibleAsync(Guid id, ListsDbContext db, IWorkspaceAccess workspaces, ICurrentUser user, CancellationToken ct, bool tracking = false)
     {

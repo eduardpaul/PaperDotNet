@@ -16,7 +16,7 @@ from warnings import warn
 
 if TYPE_CHECKING:
     from .....models.add_group_member_request import AddGroupMemberRequest
-    from .....models.http_validation_problem_details import HttpValidationProblemDetails
+    from .....models.api_problem import ApiProblem
     from .....models.user_response import UserResponse
     from .item.with_user_item_request_builder import WithUserItemRequestBuilder
 
@@ -55,11 +55,16 @@ class MembersRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from .....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from .....models.user_response import UserResponse
 
-        return await self.request_adapter.send_collection_async(request_info, UserResponse, None)
+        return await self.request_adapter.send_collection_async(request_info, UserResponse, error_mapping)
     
     async def post(self,body: AddGroupMemberRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> None:
         """
@@ -72,10 +77,11 @@ class MembersRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from .....models.http_validation_problem_details import HttpValidationProblemDetails
+        from .....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 

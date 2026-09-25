@@ -15,9 +15,9 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from .....models.api_problem import ApiProblem
     from .....models.automation_request import AutomationRequest
     from .....models.automation_response import AutomationResponse
-    from .....models.http_validation_problem_details import HttpValidationProblemDetails
     from .item.automations_item_request_builder import AutomationsItemRequestBuilder
     from .runs.runs_request_builder import RunsRequestBuilder
 
@@ -56,11 +56,16 @@ class AutomationsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from .....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from .....models.automation_response import AutomationResponse
 
-        return await self.request_adapter.send_collection_async(request_info, AutomationResponse, None)
+        return await self.request_adapter.send_collection_async(request_info, AutomationResponse, error_mapping)
     
     async def post(self,body: AutomationRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[AutomationResponse]:
         """
@@ -73,10 +78,11 @@ class AutomationsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from .....models.http_validation_problem_details import HttpValidationProblemDetails
+        from .....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 

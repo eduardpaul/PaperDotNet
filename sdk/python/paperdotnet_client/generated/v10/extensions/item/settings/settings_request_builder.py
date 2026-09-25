@@ -14,7 +14,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
-    from .....models.http_validation_problem_details import HttpValidationProblemDetails
+    from .....models.api_problem import ApiProblem
     from .....models.json_object import JsonObject
 
 class SettingsRequestBuilder(BaseRequestBuilder):
@@ -38,13 +38,18 @@ class SettingsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from .....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from .....models.json_object import JsonObject
 
-        return await self.request_adapter.send_async(request_info, JsonObject, None)
+        return await self.request_adapter.send_async(request_info, JsonObject, error_mapping)
     
-    async def put(self,body: bytes, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[JsonObject]:
+    async def put(self,body: JsonObject, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[JsonObject]:
         """
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -55,10 +60,11 @@ class SettingsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_put_request_information(
             body, request_configuration
         )
-        from .....models.http_validation_problem_details import HttpValidationProblemDetails
+        from .....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -76,7 +82,7 @@ class SettingsRequestBuilder(BaseRequestBuilder):
         request_info.headers.try_add("Accept", "application/json")
         return request_info
     
-    def to_put_request_information(self,body: UntypedNode, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_put_request_information(self,body: JsonObject, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -87,7 +93,7 @@ class SettingsRequestBuilder(BaseRequestBuilder):
         request_info = RequestInformation(Method.PUT, self.url_template, self.path_parameters)
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/json")
-        request_info.set_content_from_scalar(self.request_adapter, "application/json", body)
+        request_info.set_content_from_parsable(self.request_adapter, "application/json", body)
         return request_info
     
     def with_url(self,raw_url: str) -> SettingsRequestBuilder:

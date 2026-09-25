@@ -30,6 +30,8 @@ class AutomationResponse(AdditionalDataHolder, Parsable):
     id: Optional[UUID] = None
     # The name property
     name: Optional[str] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     # The steps property
     steps: Optional[list[AutomationStep]] = None
     # When an automation runs: `type` is `manual` (started on an item by a person), `itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored` or an extension trigger; `list` and`contentType` narrow it by name; `changedFields` (updates) needs one of them to change.
@@ -70,6 +72,7 @@ class AutomationResponse(AdditionalDataHolder, Parsable):
             "enabled": lambda n : setattr(self, 'enabled', n.get_bool_value()),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "steps": lambda n : setattr(self, 'steps', n.get_collection_of_object_values(AutomationStep)),
             "trigger": lambda n : setattr(self, 'trigger', n.get_object_value(AutomationTrigger)),
             "updatedAt": lambda n : setattr(self, 'updated_at', n.get_datetime_value()),
@@ -92,6 +95,7 @@ class AutomationResponse(AdditionalDataHolder, Parsable):
         writer.write_bool_value("enabled", self.enabled)
         writer.write_uuid_value("id", self.id)
         writer.write_str_value("name", self.name)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_collection_of_object_values("steps", self.steps)
         writer.write_object_value("trigger", self.trigger)
         writer.write_datetime_value("updatedAt", self.updated_at)

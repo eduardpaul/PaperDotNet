@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from kiota_abstractions.serialization import AdditionalDataHolder, Parsable, ParseNode, SerializationWriter
 from typing import Any, Optional, TYPE_CHECKING, Union
 
+if TYPE_CHECKING:
+    from .json_object import JsonObject
+
 @dataclass
 class BulkUpdateRequest(AdditionalDataHolder, Parsable):
     """
@@ -12,6 +15,8 @@ class BulkUpdateRequest(AdditionalDataHolder, Parsable):
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
+    # The fields property
+    fields: Optional[JsonObject] = None
     # The filter property
     filter: Optional[str] = None
     
@@ -31,7 +36,12 @@ class BulkUpdateRequest(AdditionalDataHolder, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .json_object import JsonObject
+
+        from .json_object import JsonObject
+
         fields: dict[str, Callable[[Any], None]] = {
+            "fields": lambda n : setattr(self, 'fields', n.get_object_value(JsonObject)),
             "filter": lambda n : setattr(self, 'filter', n.get_str_value()),
         }
         return fields
@@ -44,6 +54,7 @@ class BulkUpdateRequest(AdditionalDataHolder, Parsable):
         """
         if writer is None:
             raise TypeError("writer cannot be null.")
+        writer.write_object_value("fields", self.fields)
         writer.write_str_value("filter", self.filter)
         writer.write_additional_data_value(self.additional_data)
     

@@ -25,7 +25,12 @@ public sealed record AutomationRequest(
 /// <summary>An automation with the definition of its current <c>version</c> (runs keep the version they started with).</summary>
 public sealed record AutomationResponse(
     Guid Id, Guid WorkspaceId, string Name, string? Description, bool Enabled, int Version, AutomationTrigger Trigger, string? Condition,
-    IReadOnlyList<AutomationStep> Steps, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+    IReadOnlyList<AutomationStep> Steps, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 public sealed record StartAutomationRequest([property: Required] string Automation);
 
@@ -236,7 +241,8 @@ internal static class AutomationEndpoints
         var version = await db.Versions.AsNoTracking().FirstAsync(v => v.AutomationId == automation.Id && v.Number == automation.CurrentVersion, ct);
         var spec = DefinitionJson.Deserialize<AutomationSpec>(version.Definition);
         return new AutomationResponse(automation.Id, automation.WorkspaceId, automation.Name, automation.Description, automation.Enabled,
-            automation.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, automation.CreatedAt, automation.UpdatedAt);
+            automation.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, automation.CreatedAt, automation.UpdatedAt)
+        { ETag = ETags.From(automation.Version) };
     }
 
     // ---- Runs ------------------------------------------------------------------------

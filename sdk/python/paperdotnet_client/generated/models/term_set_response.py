@@ -25,6 +25,8 @@ class TermSetResponse(AdditionalDataHolder, Parsable):
     is_open: Optional[bool] = None
     # The name property
     name: Optional[str] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     # The updatedAt property
     updated_at: Optional[datetime.datetime] = None
     
@@ -52,6 +54,7 @@ class TermSetResponse(AdditionalDataHolder, Parsable):
             "isKeywords": lambda n : setattr(self, 'is_keywords', n.get_bool_value()),
             "isOpen": lambda n : setattr(self, 'is_open', n.get_bool_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "updatedAt": lambda n : setattr(self, 'updated_at', n.get_datetime_value()),
         }
         return fields
@@ -71,6 +74,7 @@ class TermSetResponse(AdditionalDataHolder, Parsable):
         writer.write_bool_value("isKeywords", self.is_keywords)
         writer.write_bool_value("isOpen", self.is_open)
         writer.write_str_value("name", self.name)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_datetime_value("updatedAt", self.updated_at)
         writer.write_additional_data_value(self.additional_data)
     

@@ -56,6 +56,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string Name { get; set; }
 #endif
+        /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>The parentId property</summary>
         public Guid? ParentId { get; set; }
         /// <summary>The sortOrder property</summary>
@@ -106,6 +114,7 @@ namespace PaperDotNet.Client.Models
                 { "labels", n => { Labels = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.TermLabelDto>(global::PaperDotNet.Client.Models.TermLabelDto.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "mergedIntoId", n => { MergedIntoId = n.GetGuidValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "parentId", n => { ParentId = n.GetGuidValue(); } },
                 { "sortOrder", n => { SortOrder = n.GetIntValue(); } },
                 { "synonyms", n => { Synonyms = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
@@ -129,6 +138,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.TermLabelDto>("labels", Labels);
             writer.WriteGuidValue("mergedIntoId", MergedIntoId);
             writer.WriteStringValue("name", Name);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteGuidValue("parentId", ParentId);
             writer.WriteIntValue("sortOrder", SortOrder);
             writer.WriteCollectionOfPrimitiveValues<string>("synonyms", Synonyms);

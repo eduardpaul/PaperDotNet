@@ -45,6 +45,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string NotificationUrl { get; set; }
 #endif
+        /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>The resource property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -92,6 +100,7 @@ namespace PaperDotNet.Client.Models
                 { "expirationDateTime", n => { ExpirationDateTime = n.GetDateTimeOffsetValue(); } },
                 { "id", n => { Id = n.GetGuidValue(); } },
                 { "notificationUrl", n => { NotificationUrl = n.GetStringValue(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "resource", n => { Resource = n.GetStringValue(); } },
                 { "secret", n => { Secret = n.GetStringValue(); } },
             };
@@ -109,6 +118,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteDateTimeOffsetValue("expirationDateTime", ExpirationDateTime);
             writer.WriteGuidValue("id", Id);
             writer.WriteStringValue("notificationUrl", NotificationUrl);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteStringValue("resource", Resource);
             writer.WriteStringValue("secret", Secret);
             writer.WriteAdditionalData(AdditionalData);

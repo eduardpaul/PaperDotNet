@@ -14,7 +14,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
-    from .......models.http_validation_problem_details import HttpValidationProblemDetails
+    from .......models.api_problem import ApiProblem
     from .......models.term_response import TermResponse
     from .......models.update_term_request import UpdateTermRequest
     from .merge.merge_request_builder import MergeRequestBuilder
@@ -40,11 +40,16 @@ class WithTermItemRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from .......models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from .......models.term_response import TermResponse
 
-        return await self.request_adapter.send_async(request_info, TermResponse, None)
+        return await self.request_adapter.send_async(request_info, TermResponse, error_mapping)
     
     async def patch(self,body: UpdateTermRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[TermResponse]:
         """
@@ -57,10 +62,11 @@ class WithTermItemRequestBuilder(BaseRequestBuilder):
         request_info = self.to_patch_request_information(
             body, request_configuration
         )
-        from .......models.http_validation_problem_details import HttpValidationProblemDetails
+        from .......models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 

@@ -14,8 +14,8 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ....models.api_problem import ApiProblem
     from ....models.group_response import GroupResponse
-    from ....models.http_validation_problem_details import HttpValidationProblemDetails
     from ....models.update_group_request import UpdateGroupRequest
     from .inbox.inbox_request_builder import InboxRequestBuilder
     from .members.members_request_builder import MembersRequestBuilder
@@ -41,9 +41,14 @@ class GroupItemRequestBuilder(BaseRequestBuilder):
         request_info = self.to_delete_request_information(
             request_configuration
         )
+        from ....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
-        return await self.request_adapter.send_no_response_content_async(request_info, None)
+        return await self.request_adapter.send_no_response_content_async(request_info, error_mapping)
     
     async def patch(self,body: UpdateGroupRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[GroupResponse]:
         """
@@ -56,10 +61,11 @@ class GroupItemRequestBuilder(BaseRequestBuilder):
         request_info = self.to_patch_request_information(
             body, request_configuration
         )
-        from ....models.http_validation_problem_details import HttpValidationProblemDetails
+        from ....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -74,6 +80,7 @@ class GroupItemRequestBuilder(BaseRequestBuilder):
         """
         request_info = RequestInformation(Method.DELETE, self.url_template, self.path_parameters)
         request_info.configure(request_configuration)
+        request_info.headers.try_add("Accept", "application/problem+json")
         return request_info
     
     def to_patch_request_information(self,body: UpdateGroupRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:

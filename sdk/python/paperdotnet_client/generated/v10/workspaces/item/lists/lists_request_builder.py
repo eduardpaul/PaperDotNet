@@ -15,8 +15,8 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from .....models.api_problem import ApiProblem
     from .....models.create_list_request import CreateListRequest
-    from .....models.http_validation_problem_details import HttpValidationProblemDetails
     from .....models.list_response import ListResponse
     from .....models.list_summary import ListSummary
     from .item.with_list_item_request_builder import WithListItemRequestBuilder
@@ -56,11 +56,16 @@ class ListsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from .....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from .....models.list_summary import ListSummary
 
-        return await self.request_adapter.send_collection_async(request_info, ListSummary, None)
+        return await self.request_adapter.send_collection_async(request_info, ListSummary, error_mapping)
     
     async def post(self,body: CreateListRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ListResponse]:
         """
@@ -73,10 +78,11 @@ class ListsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from .....models.http_validation_problem_details import HttpValidationProblemDetails
+        from .....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 

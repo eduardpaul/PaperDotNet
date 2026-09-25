@@ -16,7 +16,7 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
-    from ...models.http_validation_problem_details import HttpValidationProblemDetails
+    from ...models.api_problem import ApiProblem
     from ...models.search_response import SearchResponse
     from .reindex.reindex_request_builder import ReindexRequestBuilder
 
@@ -41,10 +41,11 @@ class SearchRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
-        from ...models.http_validation_problem_details import HttpValidationProblemDetails
+        from ...models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 

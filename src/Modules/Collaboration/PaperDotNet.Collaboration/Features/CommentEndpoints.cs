@@ -25,8 +25,13 @@ public sealed record CommentResponse(
     Guid Id, Guid ItemId, Guid? ParentId, string Text, IReadOnlyList<Guid> Mentions,
     DateTimeOffset CreatedAt, Guid? CreatedBy, DateTimeOffset UpdatedAt, Guid? UpdatedBy)
 {
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+
+
     internal static CommentResponse From(Comment c) =>
-        new(c.Id, c.ItemId, c.ParentId, c.Text, c.Mentions, c.CreatedAt, c.CreatedBy, c.UpdatedAt, c.UpdatedBy);
+        new(c.Id, c.ItemId, c.ParentId, c.Text, c.Mentions, c.CreatedAt, c.CreatedBy, c.UpdatedAt, c.UpdatedBy) { ETag = ETags.From(c.Version) };
 }
 
 public sealed record ActivityResponse(Guid Id, string Kind, Guid? ActorId, string? Summary, IReadOnlyList<string> ChangedFields, DateTimeOffset At);

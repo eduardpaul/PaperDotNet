@@ -57,6 +57,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string Name { get; set; }
 #endif
+        /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>The templateKey property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -105,6 +113,7 @@ namespace PaperDotNet.Client.Models
                 { "kind", n => { Kind = n.GetEnumValue<global::PaperDotNet.Client.Models.ListKind>(); } },
                 { "maxVersions", n => { MaxVersions = n.GetIntValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "templateKey", n => { TemplateKey = n.GetStringValue(); } },
                 { "updatedAt", n => { UpdatedAt = n.GetDateTimeOffsetValue(); } },
                 { "versioning", n => { Versioning = n.GetEnumValue<global::PaperDotNet.Client.Models.ListVersioning>(); } },
@@ -127,6 +136,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.ListKind>("kind", Kind);
             writer.WriteIntValue("maxVersions", MaxVersions);
             writer.WriteStringValue("name", Name);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteStringValue("templateKey", TemplateKey);
             writer.WriteDateTimeOffsetValue("updatedAt", UpdatedAt);
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.ListVersioning>("versioning", Versioning);

@@ -58,7 +58,7 @@ internal static class DeltaEndpoints
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapV1Group($"{ListEndpoints.Route}/{{listId:guid}}/items", "Items");
-        group.MapGet("/delta", DeltaAsync).RequireScope(ListScopes.Read).WithName("ItemsDelta");
+        group.MapGet("/delta", DeltaAsync).RequireScope(ListScopes.Read).WithName("ItemsDelta").WithQueryOptions(QueryOptions.Delta);
     }
 
     private static async Task<Results<Ok<DeltaPage>, ValidationProblem, ProblemHttpResult>> DeltaAsync(

@@ -31,6 +31,8 @@ class ItemResponse(AdditionalDataHolder, Parsable):
     is_folder: Optional[bool] = None
     # The listId property
     list_id: Optional[UUID] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     # The parentId property
     parent_id: Optional[UUID] = None
     # The updatedAt property
@@ -66,6 +68,7 @@ class ItemResponse(AdditionalDataHolder, Parsable):
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "isFolder": lambda n : setattr(self, 'is_folder', n.get_bool_value()),
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "parentId": lambda n : setattr(self, 'parent_id', n.get_uuid_value()),
             "updatedAt": lambda n : setattr(self, 'updated_at', n.get_datetime_value()),
             "updatedBy": lambda n : setattr(self, 'updated_by', n.get_uuid_value()),
@@ -87,6 +90,7 @@ class ItemResponse(AdditionalDataHolder, Parsable):
         writer.write_uuid_value("id", self.id)
         writer.write_bool_value("isFolder", self.is_folder)
         writer.write_uuid_value("listId", self.list_id)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_uuid_value("parentId", self.parent_id)
         writer.write_datetime_value("updatedAt", self.updated_at)
         writer.write_uuid_value("updatedBy", self.updated_by)

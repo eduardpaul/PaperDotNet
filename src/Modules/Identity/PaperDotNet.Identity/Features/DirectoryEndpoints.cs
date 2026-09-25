@@ -20,7 +20,12 @@ public sealed record CreateUserRequest(
     [property: StringLength(200)] string? DisplayName,
     [property: EmailAddress, StringLength(256)] string? Email);
 
-public sealed record GroupResponse(Guid Id, string Name, string? Description, DateTimeOffset CreatedAt);
+public sealed record GroupResponse(Guid Id, string Name, string? Description, DateTimeOffset CreatedAt)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 public sealed record CreateGroupRequest(
     [property: Required, StringLength(200, MinimumLength = 1)] string Name,
@@ -28,7 +33,12 @@ public sealed record CreateGroupRequest(
 
 public sealed record AddGroupMemberRequest([property: Required] Guid UserId);
 
-public sealed record RoleResponse(Guid Id, string Name, string? Description, bool IsBuiltIn, bool GrantsAllScopes, IReadOnlyList<string> Scopes);
+public sealed record RoleResponse(Guid Id, string Name, string? Description, bool IsBuiltIn, bool GrantsAllScopes, IReadOnlyList<string> Scopes)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 public sealed record CreateRoleRequest(
     [property: Required, StringLength(200, MinimumLength = 1)] string Name,
@@ -121,7 +131,7 @@ internal static class DirectoryEndpoints
             .Where(g => page.After == null || g.Id.CompareTo(page.After.Value) > 0)
             .OrderBy(g => g.Id)
             .Take(page.Top + 1)
-            .Select(g => new GroupResponse(g.Id, g.Name, g.Description, g.CreatedAt))
+            .Select(g => new GroupResponse(g.Id, g.Name, g.Description, g.CreatedAt) { ETag = ETags.From(g.Version) })
             .ToListAsync(ct);
         return TypedResults.Ok(Page.Create(items, page, http, g => g.Id));
     }
@@ -143,7 +153,7 @@ internal static class DirectoryEndpoints
         var group = new Group { Id = Ids.New(), Name = name, Description = request.Description };
         db.Groups.Add(group);
         await db.SaveChangesAsync(ct);
-        return TypedResults.Created($"{ApiRoutes.V1}/groups/{group.Id}", new GroupResponse(group.Id, group.Name, group.Description, group.CreatedAt));
+        return TypedResults.Created($"{ApiRoutes.V1}/groups/{group.Id}", new GroupResponse(group.Id, group.Name, group.Description, group.CreatedAt) { ETag = ETags.From(group.Version) });
     }
 
     private static async Task<Results<Ok<List<UserResponse>>, ProblemHttpResult>> ListMembersAsync(Guid id, IdentityDbContext db, CancellationToken ct)
@@ -272,5 +282,5 @@ internal static class DirectoryEndpoints
             new RoleAssignmentResponse(assignment.Id, assignment.RoleId, assignment.PrincipalId, assignment.PrincipalType));
     }
 
-    private static RoleResponse ToResponse(Role r) => new(r.Id, r.Name, r.Description, r.IsBuiltIn, r.GrantsAllScopes, r.Scopes);
+    private static RoleResponse ToResponse(Role r) => new(r.Id, r.Name, r.Description, r.IsBuiltIn, r.GrantsAllScopes, r.Scopes) { ETag = ETags.From(r.Version) };
 }

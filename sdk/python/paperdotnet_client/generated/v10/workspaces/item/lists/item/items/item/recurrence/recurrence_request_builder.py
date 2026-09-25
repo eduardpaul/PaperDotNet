@@ -14,7 +14,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
-    from .........models.http_validation_problem_details import HttpValidationProblemDetails
+    from .........models.api_problem import ApiProblem
     from .........models.recurrence_request import RecurrenceRequest
     from .........models.recurrence_response import RecurrenceResponse
 
@@ -39,9 +39,14 @@ class RecurrenceRequestBuilder(BaseRequestBuilder):
         request_info = self.to_delete_request_information(
             request_configuration
         )
+        from .........models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
-        return await self.request_adapter.send_no_response_content_async(request_info, None)
+        return await self.request_adapter.send_no_response_content_async(request_info, error_mapping)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[RecurrenceResponse]:
         """
@@ -51,11 +56,16 @@ class RecurrenceRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from .........models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from .........models.recurrence_response import RecurrenceResponse
 
-        return await self.request_adapter.send_async(request_info, RecurrenceResponse, None)
+        return await self.request_adapter.send_async(request_info, RecurrenceResponse, error_mapping)
     
     async def put(self,body: RecurrenceRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[RecurrenceResponse]:
         """
@@ -68,10 +78,11 @@ class RecurrenceRequestBuilder(BaseRequestBuilder):
         request_info = self.to_put_request_information(
             body, request_configuration
         )
-        from .........models.http_validation_problem_details import HttpValidationProblemDetails
+        from .........models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -86,6 +97,7 @@ class RecurrenceRequestBuilder(BaseRequestBuilder):
         """
         request_info = RequestInformation(Method.DELETE, self.url_template, self.path_parameters)
         request_info.configure(request_configuration)
+        request_info.headers.try_add("Accept", "application/problem+json")
         return request_info
     
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:

@@ -26,6 +26,8 @@ class SmartFolderResponse(AdditionalDataHolder, Parsable):
     id: Optional[UUID] = None
     # The name property
     name: Optional[str] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     # The personal property
     personal: Optional[bool] = None
     # The updatedAt property
@@ -60,6 +62,7 @@ class SmartFolderResponse(AdditionalDataHolder, Parsable):
             "description": lambda n : setattr(self, 'description', n.get_str_value()),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "personal": lambda n : setattr(self, 'personal', n.get_bool_value()),
             "updatedAt": lambda n : setattr(self, 'updated_at', n.get_datetime_value()),
             "workspaceId": lambda n : setattr(self, 'workspace_id', n.get_uuid_value()),
@@ -80,6 +83,7 @@ class SmartFolderResponse(AdditionalDataHolder, Parsable):
         writer.write_str_value("description", self.description)
         writer.write_uuid_value("id", self.id)
         writer.write_str_value("name", self.name)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_bool_value("personal", self.personal)
         writer.write_datetime_value("updatedAt", self.updated_at)
         writer.write_uuid_value("workspaceId", self.workspace_id)

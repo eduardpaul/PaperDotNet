@@ -15,7 +15,7 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
-    from ....models.http_validation_problem_details import HttpValidationProblemDetails
+    from ....models.api_problem import ApiProblem
     from ....models.page_of_term_group_response import PageOfTermGroupResponse
     from ....models.term_group_request import TermGroupRequest
     from ....models.term_group_response import TermGroupResponse
@@ -32,7 +32,7 @@ class GroupsRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/termStore/groups", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/termStore/groups{?%24skiptoken*,%24top*}", path_parameters)
     
     def by_group_id(self,group_id: UUID) -> WithGroupItemRequestBuilder:
         """
@@ -48,7 +48,7 @@ class GroupsRequestBuilder(BaseRequestBuilder):
         url_tpl_params["groupId"] = group_id
         return WithGroupItemRequestBuilder(self.request_adapter, url_tpl_params)
     
-    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[PageOfTermGroupResponse]:
+    async def get(self,request_configuration: Optional[RequestConfiguration[GroupsRequestBuilderGetQueryParameters]] = None) -> Optional[PageOfTermGroupResponse]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[PageOfTermGroupResponse]
@@ -56,11 +56,16 @@ class GroupsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from ....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ....models.page_of_term_group_response import PageOfTermGroupResponse
 
-        return await self.request_adapter.send_async(request_info, PageOfTermGroupResponse, None)
+        return await self.request_adapter.send_async(request_info, PageOfTermGroupResponse, error_mapping)
     
     async def post(self,body: TermGroupRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[TermGroupResponse]:
         """
@@ -73,10 +78,11 @@ class GroupsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from ....models.http_validation_problem_details import HttpValidationProblemDetails
+        from ....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -84,7 +90,7 @@ class GroupsRequestBuilder(BaseRequestBuilder):
 
         return await self.request_adapter.send_async(request_info, TermGroupResponse, error_mapping)
     
-    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[GroupsRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
@@ -119,7 +125,30 @@ class GroupsRequestBuilder(BaseRequestBuilder):
         return GroupsRequestBuilder(self.request_adapter, raw_url)
     
     @dataclass
-    class GroupsRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):
+    class GroupsRequestBuilderGetQueryParameters():
+        def get_query_parameter(self,original_name: str) -> str:
+            """
+            Maps the query parameters names to their encoded names for the URI template parsing.
+            param original_name: The original query parameter name in the class.
+            Returns: str
+            """
+            if original_name is None:
+                raise TypeError("original_name cannot be null.")
+            if original_name == "skiptoken":
+                return "%24skiptoken"
+            if original_name == "top":
+                return "%24top"
+            return original_name
+        
+        # Continuation token from @odata.nextLink.
+        skiptoken: Optional[str] = None
+
+        # Page size.
+        top: Optional[int] = None
+
+    
+    @dataclass
+    class GroupsRequestBuilderGetRequestConfiguration(RequestConfiguration[GroupsRequestBuilderGetQueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """

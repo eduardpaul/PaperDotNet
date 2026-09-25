@@ -15,6 +15,7 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from .......models.api_problem import ApiProblem
     from .......models.page_of_recycle_bin_item_response import PageOfRecycleBinItemResponse
     from .item.with_item_item_request_builder import WithItemItemRequestBuilder
 
@@ -29,7 +30,7 @@ class RecycleBinRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/recycleBin", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/recycleBin{?%24skiptoken*,%24top*}", path_parameters)
     
     def by_item_id(self,item_id: UUID) -> WithItemItemRequestBuilder:
         """
@@ -45,7 +46,7 @@ class RecycleBinRequestBuilder(BaseRequestBuilder):
         url_tpl_params["itemId"] = item_id
         return WithItemItemRequestBuilder(self.request_adapter, url_tpl_params)
     
-    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[PageOfRecycleBinItemResponse]:
+    async def get(self,request_configuration: Optional[RequestConfiguration[RecycleBinRequestBuilderGetQueryParameters]] = None) -> Optional[PageOfRecycleBinItemResponse]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[PageOfRecycleBinItemResponse]
@@ -53,13 +54,18 @@ class RecycleBinRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from .......models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from .......models.page_of_recycle_bin_item_response import PageOfRecycleBinItemResponse
 
-        return await self.request_adapter.send_async(request_info, PageOfRecycleBinItemResponse, None)
+        return await self.request_adapter.send_async(request_info, PageOfRecycleBinItemResponse, error_mapping)
     
-    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[RecycleBinRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
@@ -80,7 +86,30 @@ class RecycleBinRequestBuilder(BaseRequestBuilder):
         return RecycleBinRequestBuilder(self.request_adapter, raw_url)
     
     @dataclass
-    class RecycleBinRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):
+    class RecycleBinRequestBuilderGetQueryParameters():
+        def get_query_parameter(self,original_name: str) -> str:
+            """
+            Maps the query parameters names to their encoded names for the URI template parsing.
+            param original_name: The original query parameter name in the class.
+            Returns: str
+            """
+            if original_name is None:
+                raise TypeError("original_name cannot be null.")
+            if original_name == "skiptoken":
+                return "%24skiptoken"
+            if original_name == "top":
+                return "%24top"
+            return original_name
+        
+        # Continuation token from @odata.nextLink.
+        skiptoken: Optional[str] = None
+
+        # Page size.
+        top: Optional[int] = None
+
+    
+    @dataclass
+    class RecycleBinRequestBuilderGetRequestConfiguration(RequestConfiguration[RecycleBinRequestBuilderGetQueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """

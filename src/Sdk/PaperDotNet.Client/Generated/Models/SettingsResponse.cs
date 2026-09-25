@@ -26,6 +26,14 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The digestHour property</summary>
         public int? DigestHour { get; set; }
+        /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>The quietHoursEnd property</summary>
         public Time? QuietHoursEnd { get; set; }
         /// <summary>The quietHoursStart property</summary>
@@ -73,6 +81,7 @@ namespace PaperDotNet.Client.Models
             {
                 { "channels", n => { Channels = n.GetObjectValue<global::PaperDotNet.Client.Models.SettingsResponse_channels>(global::PaperDotNet.Client.Models.SettingsResponse_channels.CreateFromDiscriminatorValue); } },
                 { "digestHour", n => { DigestHour = n.GetIntValue(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "quietHoursEnd", n => { QuietHoursEnd = n.GetTimeValue(); } },
                 { "quietHoursStart", n => { QuietHoursStart = n.GetTimeValue(); } },
                 { "webhookSecret", n => { WebhookSecret = n.GetStringValue(); } },
@@ -88,6 +97,7 @@ namespace PaperDotNet.Client.Models
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.SettingsResponse_channels>("channels", Channels);
             writer.WriteIntValue("digestHour", DigestHour);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteTimeValue("quietHoursEnd", QuietHoursEnd);
             writer.WriteTimeValue("quietHoursStart", QuietHoursStart);
             writer.WriteStringValue("webhookSecret", WebhookSecret);

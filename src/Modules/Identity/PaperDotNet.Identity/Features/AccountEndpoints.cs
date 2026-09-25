@@ -257,7 +257,7 @@ internal static class AccountEndpoints
 
         await db.SaveChangesAsync(ct);
         ETags.Set(response, group.Version);
-        return TypedResults.Ok(new GroupResponse(group.Id, group.Name, group.Description, group.CreatedAt));
+        return TypedResults.Ok(new GroupResponse(group.Id, group.Name, group.Description, group.CreatedAt) { ETag = ETags.From(group.Version) });
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteGroupAsync(
@@ -338,7 +338,7 @@ internal static class AccountEndpoints
         await db.SaveChangesAsync(ct);
         await sessions.InvalidateScopesAsync(ct);
         ETags.Set(response, role.Version);
-        return TypedResults.Ok(new RoleResponse(role.Id, role.Name, role.Description, role.IsBuiltIn, role.GrantsAllScopes, role.Scopes));
+        return TypedResults.Ok(new RoleResponse(role.Id, role.Name, role.Description, role.IsBuiltIn, role.GrantsAllScopes, role.Scopes) { ETag = ETags.From(role.Version) });
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteRoleAsync(

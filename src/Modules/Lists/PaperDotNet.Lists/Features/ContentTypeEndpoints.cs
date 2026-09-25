@@ -59,7 +59,12 @@ public sealed record FieldDefinitionDto(
 }
 
 /// <summary>A content type. <c>key</c> is set when it comes from a template; <c>extensionId</c> when an extension manages it (read-only).</summary>
-public sealed record ContentTypeResponse(Guid Id, string Name, string? Description, bool IsBuiltIn, string? Key, string? ExtensionId, IReadOnlyList<FieldDefinitionDto> Fields);
+public sealed record ContentTypeResponse(Guid Id, string Name, string? Description, bool IsBuiltIn, string? Key, string? ExtensionId, IReadOnlyList<FieldDefinitionDto> Fields)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 public sealed record ContentTypeRequest(
     [property: Required, StringLength(200, MinimumLength = 1)] string Name,
@@ -253,5 +258,5 @@ internal static class ContentTypeEndpoints
     }
 
     internal static ContentTypeResponse ToResponse(ContentType c) =>
-        new(c.Id, c.Name, c.Description, c.IsBuiltIn, c.Key, c.ExtensionId, c.Fields.Select(FieldDefinitionDto.From).ToList());
+        new(c.Id, c.Name, c.Description, c.IsBuiltIn, c.Key, c.ExtensionId, c.Fields.Select(FieldDefinitionDto.From).ToList()) { ETag = ETags.From(c.Version) };
 }

@@ -29,6 +29,8 @@ class LibrarySettingsResponse(AdditionalDataHolder, Parsable):
     ocr_languages_inherited: Optional[bool] = None
     # When a library runs OCR.
     ocr_mode: Optional[OcrMode] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> LibrarySettingsResponse:
@@ -59,6 +61,7 @@ class LibrarySettingsResponse(AdditionalDataHolder, Parsable):
             "ocrLanguages": lambda n : setattr(self, 'ocr_languages', n.get_str_value()),
             "ocrLanguagesInherited": lambda n : setattr(self, 'ocr_languages_inherited', n.get_bool_value()),
             "ocrMode": lambda n : setattr(self, 'ocr_mode', n.get_enum_value(OcrMode)),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
         }
         return fields
     
@@ -76,6 +79,7 @@ class LibrarySettingsResponse(AdditionalDataHolder, Parsable):
         writer.write_str_value("ocrLanguages", self.ocr_languages)
         writer.write_bool_value("ocrLanguagesInherited", self.ocr_languages_inherited)
         writer.write_enum_value("ocrMode", self.ocr_mode)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_additional_data_value(self.additional_data)
     
 

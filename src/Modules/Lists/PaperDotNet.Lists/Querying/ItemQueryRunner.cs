@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OData;
 using Microsoft.OData.UriParser;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Api;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
@@ -419,6 +420,11 @@ public sealed record ItemResponse(
     Guid? UpdatedBy,
     JsonObject Fields)
 {
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+
+
     internal static ItemResponse From(ListItem item, IReadOnlyList<string>? select = null)
     {
         var fields = new JsonObject { ["title"] = item.Title };
@@ -435,7 +441,10 @@ public sealed record ItemResponse(
             }
         }
 
-        return new ItemResponse(item.Id, item.ListId, item.ContentTypeId, item.ParentId, item.IsFolder, item.CreatedAt, item.CreatedBy, item.UpdatedAt, item.UpdatedBy, fields);
+        return new ItemResponse(item.Id, item.ListId, item.ContentTypeId, item.ParentId, item.IsFolder, item.CreatedAt, item.CreatedBy, item.UpdatedAt, item.UpdatedBy, fields)
+        {
+            ETag = ETags.From(item.Version),
+        };
     }
 }
 

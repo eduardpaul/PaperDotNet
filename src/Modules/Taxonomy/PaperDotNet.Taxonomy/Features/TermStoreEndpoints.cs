@@ -11,14 +11,24 @@ using PaperDotNet.Taxonomy.Data;
 
 namespace PaperDotNet.Taxonomy.Features;
 
-public sealed record TermGroupResponse(Guid Id, string Name, string? Description, bool IsSystem, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+public sealed record TermGroupResponse(Guid Id, string Name, string? Description, bool IsSystem, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 public sealed record TermGroupRequest(
     [property: StringLength(200, MinimumLength = 1)] string? Name,
     [property: StringLength(2000)] string? Description);
 
 public sealed record TermSetResponse(
-    Guid Id, Guid GroupId, string Name, string? Description, bool IsOpen, bool IsKeywords, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+    Guid Id, Guid GroupId, string Name, string? Description, bool IsOpen, bool IsKeywords, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 public sealed record CreateTermSetRequest(
     [property: Required] Guid GroupId,
@@ -49,7 +59,12 @@ public sealed record TermResponse(
     Guid? MergedIntoId,
     bool HasChildren,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 public sealed record CreateTermRequest(
     [property: Required, StringLength(TermRules.NameMaxLength, MinimumLength = 1)] string Name,
@@ -118,7 +133,7 @@ internal static partial class TermStoreEndpoints
             .Where(g => page.After == null || g.Id.CompareTo(page.After.Value) > 0)
             .OrderBy(g => g.Id)
             .Take(page.Top + 1)
-            .Select(g => new TermGroupResponse(g.Id, g.Name, g.Description, g.IsSystem, g.CreatedAt, g.UpdatedAt))
+            .Select(g => new TermGroupResponse(g.Id, g.Name, g.Description, g.IsSystem, g.CreatedAt, g.UpdatedAt) { ETag = ETags.From(g.Version) })
             .ToListAsync(ct);
         return TypedResults.Ok(Page.Create(items, page, http, g => g.Id));
     }
@@ -247,7 +262,7 @@ internal static partial class TermStoreEndpoints
             .Where(s => page.After == null || s.Id.CompareTo(page.After.Value) > 0)
             .OrderBy(s => s.Id)
             .Take(page.Top + 1)
-            .Select(s => new TermSetResponse(s.Id, s.GroupId, s.Name, s.Description, s.IsOpen, s.IsKeywords, s.CreatedAt, s.UpdatedAt))
+            .Select(s => new TermSetResponse(s.Id, s.GroupId, s.Name, s.Description, s.IsOpen, s.IsKeywords, s.CreatedAt, s.UpdatedAt) { ETag = ETags.From(s.Version) })
             .ToListAsync(ct);
         return TypedResults.Ok(Page.Create(items, page, http, s => s.Id));
     }
@@ -743,7 +758,8 @@ internal static partial class TermStoreEndpoints
         return terms.Select(t => new TermResponse(
             t.Id, t.TermSetId, t.ParentId, t.Name, t.Description, t.Color,
             t.Labels.Select(l => new TermLabelDto(l.Language, l.Name)).ToList(), t.Synonyms,
-            t.SortOrder, t.IsDeprecated, t.MergedIntoId, withChildren.Contains(t.Id), t.CreatedAt, t.UpdatedAt)).ToList();
+            t.SortOrder, t.IsDeprecated, t.MergedIntoId, withChildren.Contains(t.Id), t.CreatedAt, t.UpdatedAt)
+        { ETag = ETags.From(t.Version) }).ToList();
     }
 
     private static async Task<bool> HasScopeAsync(ICurrentUser user, IEffectiveScopeProvider scopes, string scope, CancellationToken ct) =>
@@ -782,9 +798,9 @@ internal static partial class TermStoreEndpoints
     private static ValidationProblem Invalid(string key, string message) =>
         ApiErrors.Validation(new Dictionary<string, string[]> { [key] = [message] });
 
-    private static TermGroupResponse ToResponse(TermGroup g) => new(g.Id, g.Name, g.Description, g.IsSystem, g.CreatedAt, g.UpdatedAt);
+    private static TermGroupResponse ToResponse(TermGroup g) => new(g.Id, g.Name, g.Description, g.IsSystem, g.CreatedAt, g.UpdatedAt) { ETag = ETags.From(g.Version) };
 
-    private static TermSetResponse ToResponse(TermSet s) => new(s.Id, s.GroupId, s.Name, s.Description, s.IsOpen, s.IsKeywords, s.CreatedAt, s.UpdatedAt);
+    private static TermSetResponse ToResponse(TermSet s) => new(s.Id, s.GroupId, s.Name, s.Description, s.IsOpen, s.IsKeywords, s.CreatedAt, s.UpdatedAt) { ETag = ETags.From(s.Version) };
 
     [GeneratedRegex("^#[0-9a-fA-F]{6}$")]
     private static partial Regex Color();

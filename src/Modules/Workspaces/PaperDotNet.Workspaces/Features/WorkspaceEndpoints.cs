@@ -11,7 +11,12 @@ using PaperDotNet.Workspaces.Data;
 
 namespace PaperDotNet.Workspaces.Features;
 
-public sealed record WorkspaceResponse(Guid Id, string Name, string? Description, bool IsPersonal, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+public sealed record WorkspaceResponse(Guid Id, string Name, string? Description, bool IsPersonal, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 public sealed record CreateWorkspaceRequest(
     [property: Required, StringLength(200, MinimumLength = 1)] string Name,
@@ -48,7 +53,7 @@ internal static class WorkspaceEndpoints
             .Where(w => page.After == null || w.Id.CompareTo(page.After.Value) > 0)
             .OrderBy(w => w.Id)
             .Take(page.Top + 1)
-            .Select(w => new WorkspaceResponse(w.Id, w.Name, w.Description, w.PersonalOwnerId != null, w.CreatedAt, w.UpdatedAt))
+            .Select(w => new WorkspaceResponse(w.Id, w.Name, w.Description, w.PersonalOwnerId != null, w.CreatedAt, w.UpdatedAt) { ETag = ETags.From(w.Version) })
             .ToListAsync(ct);
         return TypedResults.Ok(Page.Create(items, page, http, w => w.Id));
     }
@@ -217,5 +222,5 @@ internal static class WorkspaceEndpoints
         return (workspace, null);
     }
 
-    private static WorkspaceResponse ToResponse(Workspace w) => new(w.Id, w.Name, w.Description, w.PersonalOwnerId is not null, w.CreatedAt, w.UpdatedAt);
+    private static WorkspaceResponse ToResponse(Workspace w) => new(w.Id, w.Name, w.Description, w.PersonalOwnerId is not null, w.CreatedAt, w.UpdatedAt) { ETag = ETags.From(w.Version) };
 }

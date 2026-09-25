@@ -25,7 +25,12 @@ public sealed record UnreadCount(int Count);
 /// <summary>Settings; <see cref="WebhookSecret"/> is only returned when a secret was created (shown once).</summary>
 public sealed record SettingsResponse(
     IReadOnlyDictionary<string, ChannelChoice> Channels, string? WebhookUrl, TimeOnly? QuietHoursStart, TimeOnly? QuietHoursEnd,
-    int DigestHour, string? WebhookSecret = null);
+    int DigestHour, string? WebhookSecret = null)
+{
+    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 /// <summary>Replaces the settings. Channels not listed use the defaults (in-app and webhook on).</summary>
 public sealed record SettingsRequest(
@@ -237,7 +242,8 @@ internal static class NotificationEndpoints
     private static string NewSecret() => "whsec_" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 
     private static SettingsResponse ToResponse(NotificationSettings? s) => new(
-        SettingsRules.Channels(s), s?.WebhookUrl, s?.QuietHoursStart, s?.QuietHoursEnd, s?.DigestHour ?? 7);
+        SettingsRules.Channels(s), s?.WebhookUrl, s?.QuietHoursStart, s?.QuietHoursEnd, s?.DigestHour ?? 7)
+    { ETag = ETags.From(s?.Version ?? 0) };
 
     // ---- Subscriptions -----------------------------------------------------------------
 

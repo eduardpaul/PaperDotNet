@@ -16,6 +16,7 @@ from warnings import warn
 
 if TYPE_CHECKING:
     from .......models.add_list_content_type_request import AddListContentTypeRequest
+    from .......models.api_problem import ApiProblem
     from .......models.list_response import ListResponse
     from .item.with_content_type_item_request_builder import WithContentTypeItemRequestBuilder
 
@@ -57,11 +58,16 @@ class ContentTypesRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
+        from .......models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from .......models.list_response import ListResponse
 
-        return await self.request_adapter.send_async(request_info, ListResponse, None)
+        return await self.request_adapter.send_async(request_info, ListResponse, error_mapping)
     
     def to_post_request_information(self,body: AddListContentTypeRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """

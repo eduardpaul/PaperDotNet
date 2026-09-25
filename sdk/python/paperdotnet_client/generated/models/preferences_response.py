@@ -22,6 +22,8 @@ class PreferencesResponse(AdditionalDataHolder, Parsable):
     language: Optional[str] = None
     # The numberFormat property
     number_format: Optional[str] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     # The theme property
     theme: Optional[str] = None
     # The timeFormat property
@@ -51,6 +53,7 @@ class PreferencesResponse(AdditionalDataHolder, Parsable):
             "inherited": lambda n : setattr(self, 'inherited', n.get_collection_of_primitive_values(str)),
             "language": lambda n : setattr(self, 'language', n.get_str_value()),
             "numberFormat": lambda n : setattr(self, 'number_format', n.get_str_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "theme": lambda n : setattr(self, 'theme', n.get_str_value()),
             "timeFormat": lambda n : setattr(self, 'time_format', n.get_str_value()),
             "timeZone": lambda n : setattr(self, 'time_zone', n.get_str_value()),
@@ -70,6 +73,7 @@ class PreferencesResponse(AdditionalDataHolder, Parsable):
         writer.write_collection_of_primitive_values("inherited", self.inherited)
         writer.write_str_value("language", self.language)
         writer.write_str_value("numberFormat", self.number_format)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_str_value("theme", self.theme)
         writer.write_str_value("timeFormat", self.time_format)
         writer.write_str_value("timeZone", self.time_zone)

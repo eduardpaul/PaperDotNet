@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -12,18 +13,24 @@ using PaperDotNet.Workspaces.Contracts;
 namespace PaperDotNet.Lists.Features;
 
 /// <summary>Create body: <c>{ "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }</c>.</summary>
-public sealed record CreateItemRequest(Guid? ContentTypeId, Guid? ParentId, bool IsFolder, JsonElement? Fields);
+public sealed record CreateItemRequest(Guid? ContentTypeId, Guid? ParentId, bool IsFolder, JsonObject? Fields);
+
+/// <summary>
+/// PATCH body (documented shape; the handler reads raw JSON to tell a missing <c>parentId</c> from null): <c>fields</c>
+/// are merged (null removes a value), <c>parentId</c> moves the item (null: the list root).
+/// </summary>
+public sealed record UpdateItemRequest(Guid? ContentTypeId, Guid? ParentId, JsonObject? Fields);
 
 internal static class ItemEndpoints
 {
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapV1Group($"{ListEndpoints.Route}/{{listId:guid}}/items", "Items");
-        group.MapGet("", QueryAsync).RequireScope(ListScopes.Read).WithName("ListItems");
+        group.MapGet("", QueryAsync).RequireScope(ListScopes.Read).WithName("ListItems").WithQueryOptions(QueryOptions.Items);
         group.MapPost("", CreateAsync).RequireScope(ListScopes.Write).WithName("CreateItem");
         group.MapGet("/{itemId:guid}", GetAsync).RequireScope(ListScopes.Read).WithName("GetItem");
-        group.MapGet("/{itemId:guid}/children", ChildrenAsync).RequireScope(ListScopes.Read).WithName("ListFolderChildren");
-        group.MapPatch("/{itemId:guid}", UpdateAsync).RequireScope(ListScopes.Write).WithName("UpdateItem");
+        group.MapGet("/{itemId:guid}/children", ChildrenAsync).RequireScope(ListScopes.Read).WithName("ListFolderChildren").WithQueryOptions(QueryOptions.Items);
+        group.MapPatch("/{itemId:guid}", UpdateAsync).RequireScope(ListScopes.Write).WithName("UpdateItem").WithRequestBodySchema<UpdateItemRequest>();
         group.MapDelete("/{itemId:guid}", DeleteAsync).RequireScope(ListScopes.Write).WithName("DeleteItem");
     }
 
@@ -102,7 +109,7 @@ internal static class ItemEndpoints
             return ApiErrors.NotFound();
         }
 
-        var result = await writer.CreateAsync(schema, request.ContentTypeId, request.ParentId, request.IsFolder, request.Fields, ct);
+        var result = await writer.CreateAsync(schema, request.ContentTypeId, request.ParentId, request.IsFolder, request.Fields is null ? null : JsonSerializer.SerializeToElement(request.Fields), ct);
         if (result.Forbidden)
         {
             return ListEndpoints.Forbidden();

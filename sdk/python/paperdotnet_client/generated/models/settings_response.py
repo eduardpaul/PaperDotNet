@@ -20,6 +20,8 @@ class SettingsResponse(AdditionalDataHolder, Parsable):
     channels: Optional[SettingsResponse_channels] = None
     # The digestHour property
     digest_hour: Optional[int] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     # The quietHoursEnd property
     quiet_hours_end: Optional[datetime.time] = None
     # The quietHoursStart property
@@ -52,6 +54,7 @@ class SettingsResponse(AdditionalDataHolder, Parsable):
         fields: dict[str, Callable[[Any], None]] = {
             "channels": lambda n : setattr(self, 'channels', n.get_object_value(SettingsResponse_channels)),
             "digestHour": lambda n : setattr(self, 'digest_hour', n.get_int_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "quietHoursEnd": lambda n : setattr(self, 'quiet_hours_end', n.get_time_value()),
             "quietHoursStart": lambda n : setattr(self, 'quiet_hours_start', n.get_time_value()),
             "webhookSecret": lambda n : setattr(self, 'webhook_secret', n.get_str_value()),
@@ -69,6 +72,7 @@ class SettingsResponse(AdditionalDataHolder, Parsable):
             raise TypeError("writer cannot be null.")
         writer.write_object_value("channels", self.channels)
         writer.write_int_value("digestHour", self.digest_hour)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_time_value("quietHoursEnd", self.quiet_hours_end)
         writer.write_time_value("quietHoursStart", self.quiet_hours_start)
         writer.write_str_value("webhookSecret", self.webhook_secret)

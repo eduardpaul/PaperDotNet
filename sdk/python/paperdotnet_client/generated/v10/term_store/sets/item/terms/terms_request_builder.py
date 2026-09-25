@@ -15,8 +15,8 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ......models.api_problem import ApiProblem
     from ......models.create_term_request import CreateTermRequest
-    from ......models.http_validation_problem_details import HttpValidationProblemDetails
     from ......models.page_of_term_response import PageOfTermResponse
     from ......models.term_response import TermResponse
     from .item.with_term_item_request_builder import WithTermItemRequestBuilder
@@ -32,7 +32,7 @@ class TermsRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/termStore/sets/{setId}/terms{?includeDeprecated*,parentId*,search*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/termStore/sets/{setId}/terms{?%24skiptoken*,%24top*,includeDeprecated*,parentId*,search*}", path_parameters)
     
     def by_term_id(self,term_id: UUID) -> WithTermItemRequestBuilder:
         """
@@ -56,11 +56,16 @@ class TermsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from ......models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ......models.page_of_term_response import PageOfTermResponse
 
-        return await self.request_adapter.send_async(request_info, PageOfTermResponse, None)
+        return await self.request_adapter.send_async(request_info, PageOfTermResponse, error_mapping)
     
     async def post(self,body: CreateTermRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[TermResponse]:
         """
@@ -73,10 +78,11 @@ class TermsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from ......models.http_validation_problem_details import HttpValidationProblemDetails
+        from ......models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": HttpValidationProblemDetails,
+            "400": ApiProblem,
+            "XXX": ApiProblem,
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
@@ -132,6 +138,10 @@ class TermsRequestBuilder(BaseRequestBuilder):
                 return "includeDeprecated"
             if original_name == "parent_id":
                 return "parentId"
+            if original_name == "skiptoken":
+                return "%24skiptoken"
+            if original_name == "top":
+                return "%24top"
             if original_name == "search":
                 return "search"
             return original_name
@@ -141,6 +151,12 @@ class TermsRequestBuilder(BaseRequestBuilder):
         parent_id: Optional[UUID] = None
 
         search: Optional[str] = None
+
+        # Continuation token from @odata.nextLink.
+        skiptoken: Optional[str] = None
+
+        # Page size.
+        top: Optional[int] = None
 
     
     @dataclass

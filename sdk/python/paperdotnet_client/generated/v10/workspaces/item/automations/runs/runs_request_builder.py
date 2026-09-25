@@ -15,6 +15,7 @@ from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ......models.api_problem import ApiProblem
     from ......models.page_of_run_response import PageOfRunResponse
     from ......models.run_status import RunStatus
     from .item.runs_item_request_builder import RunsItemRequestBuilder
@@ -30,7 +31,7 @@ class RunsRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/automations/runs{?automationId*,itemId*,status*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/automations/runs{?%24skiptoken*,%24top*,automationId*,itemId*,status*}", path_parameters)
     
     def by_id(self,id: UUID) -> RunsItemRequestBuilder:
         """
@@ -54,11 +55,16 @@ class RunsRequestBuilder(BaseRequestBuilder):
         request_info = self.to_get_request_information(
             request_configuration
         )
+        from ......models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
         if not self.request_adapter:
             raise Exception("Http core is null") 
         from ......models.page_of_run_response import PageOfRunResponse
 
-        return await self.request_adapter.send_async(request_info, PageOfRunResponse, None)
+        return await self.request_adapter.send_async(request_info, PageOfRunResponse, error_mapping)
     
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[RunsRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
@@ -94,6 +100,10 @@ class RunsRequestBuilder(BaseRequestBuilder):
                 return "automationId"
             if original_name == "item_id":
                 return "itemId"
+            if original_name == "skiptoken":
+                return "%24skiptoken"
+            if original_name == "top":
+                return "%24top"
             if original_name == "status":
                 return "status"
             return original_name
@@ -102,7 +112,13 @@ class RunsRequestBuilder(BaseRequestBuilder):
 
         item_id: Optional[UUID] = None
 
+        # Continuation token from @odata.nextLink.
+        skiptoken: Optional[str] = None
+
         status: Optional[RunStatus] = None
+
+        # Page size.
+        top: Optional[int] = None
 
     
     @dataclass

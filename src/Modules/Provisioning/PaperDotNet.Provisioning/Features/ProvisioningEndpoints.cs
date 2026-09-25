@@ -27,8 +27,8 @@ internal static class ProvisioningEndpoints
     {
         var group = endpoints.MapV1Group("provisioning", "Provisioning");
         group.MapGet("/schema", () => TypedResults.Text(TemplateReader.Schema, XmlContentType, Encoding.UTF8))
-            .AllowAnonymous().WithName("GetTemplateSchema");
-        group.MapGet("/export", ExportAsync).RequireScope(ProvisioningScopes.Read).WithName("ExportTemplate");
+            .AllowAnonymous().WithName("GetTemplateSchema").ProducesBinary(XmlContentType);
+        group.MapGet("/export", ExportAsync).RequireScope(ProvisioningScopes.Read).WithName("ExportTemplate").ProducesBinary(XmlContentType, ZipTemplatePackage.ContentType);
         group.MapPost("/apply", ApplyAsync).RequireScope(ProvisioningScopes.Manage).WithName("ApplyTemplate")
             .Accepts<string>(XmlContentType, ZipTemplatePackage.ContentType);
     }

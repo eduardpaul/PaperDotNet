@@ -37,7 +37,7 @@ internal static class ExtensionEndpoints
         group.MapPost("/{id}/enable", EnableAsync).RequireScope(ExtensionScopes.Manage).WithName("EnableExtension");
         group.MapPost("/{id}/disable", DisableAsync).RequireScope(ExtensionScopes.Manage).WithName("DisableExtension");
         group.MapGet("/{id}/settings", GetSettingsAsync).RequireScope(ExtensionScopes.Manage).WithName("GetExtensionSettings");
-        group.MapPut("/{id}/settings", ReplaceSettingsAsync).RequireScope(ExtensionScopes.Manage).WithName("ReplaceExtensionSettings");
+        group.MapPut("/{id}/settings", ReplaceSettingsAsync).RequireScope(ExtensionScopes.Manage).WithName("ReplaceExtensionSettings").WithRequestBodySchema<System.Text.Json.Nodes.JsonObject>();
     }
 
     private static async Task<Ok<List<ExtensionResponse>>> ListAsync(ExtensionCatalog catalog, IExtensionState state, CancellationToken ct)

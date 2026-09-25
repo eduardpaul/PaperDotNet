@@ -32,6 +32,8 @@ class TermResponse(AdditionalDataHolder, Parsable):
     merged_into_id: Optional[UUID] = None
     # The name property
     name: Optional[str] = None
+    # The ETag for `If-Match` on changes (the same as the `ETag` header).
+    odata_etag: Optional[str] = None
     # The parentId property
     parent_id: Optional[UUID] = None
     # The sortOrder property
@@ -73,6 +75,7 @@ class TermResponse(AdditionalDataHolder, Parsable):
             "labels": lambda n : setattr(self, 'labels', n.get_collection_of_object_values(TermLabelDto)),
             "mergedIntoId": lambda n : setattr(self, 'merged_into_id', n.get_uuid_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "parentId": lambda n : setattr(self, 'parent_id', n.get_uuid_value()),
             "sortOrder": lambda n : setattr(self, 'sort_order', n.get_int_value()),
             "synonyms": lambda n : setattr(self, 'synonyms', n.get_collection_of_primitive_values(str)),
@@ -98,6 +101,7 @@ class TermResponse(AdditionalDataHolder, Parsable):
         writer.write_collection_of_object_values("labels", self.labels)
         writer.write_uuid_value("mergedIntoId", self.merged_into_id)
         writer.write_str_value("name", self.name)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_uuid_value("parentId", self.parent_id)
         writer.write_int_value("sortOrder", self.sort_order)
         writer.write_collection_of_primitive_values("synonyms", self.synonyms)
