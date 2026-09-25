@@ -23,11 +23,12 @@ internal sealed class ItemQueryTranslator(
     ItemEdmModel model, IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>? termDescendants = null, IDictionary<string, SingleValueNode>? aliases = null)
 {
     private static readonly ParameterExpression Item = Expression.Parameter(typeof(ListItem), "i");
-    private static readonly MethodInfo JsonText = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Text))!;
+    internal static readonly MethodInfo JsonText = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Text))!;
     private static readonly MethodInfo JsonNumber = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Number))!;
     private static readonly MethodInfo JsonBoolean = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Boolean))!;
     private static readonly MethodInfo JsonContains = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Contains))!;
-    private static readonly MethodInfo JsonHasProperty = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.HasProperty))!;
+    internal static readonly MethodInfo JsonHasProperty = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.HasProperty))!;
+    internal static readonly MethodInfo StringSubstring = typeof(string).GetMethod(nameof(string.Substring), [typeof(int), typeof(int)])!;
     private static readonly MethodInfo StringCompare = typeof(string).GetMethod(nameof(string.Compare), [typeof(string), typeof(string)])!;
     private static readonly MethodInfo StringContains = typeof(string).GetMethod(nameof(string.Contains), [typeof(string)])!;
     private static readonly MethodInfo StringStartsWith = typeof(string).GetMethod(nameof(string.StartsWith), [typeof(string)])!;
@@ -383,4 +384,49 @@ internal sealed class ItemQueryTranslator(
     };
 
     private static ODataException Unsupported(string message) => new(message);
+}
+
+/// <summary>
+/// JSON field expressions shared with smart folders, so grouping does not build its own dialect.
+/// Equality of a stored text value (not containment): a group key compared with a path segment.
+/// </summary>
+internal static class ItemFields
+{
+    private static readonly ParameterExpression Item = Expression.Parameter(typeof(ListItem), "i");
+    private static readonly Expression Document = Expression.Property(Item, nameof(ListItem.Fields));
+
+    /// <summary>The field's stored text, or its year (<c>yyyy</c>) or month (<c>yyyy-MM</c>) prefix.</summary>
+    public static Expression<Func<ListItem, string?>> GroupKey(string field, string? by)
+    {
+        Expression text = Expression.Call(ItemQueryTranslator.JsonText, Document, Expression.Constant(field));
+        if (by is "year" or "month")
+        {
+            text = Expression.Call(text, ItemQueryTranslator.StringSubstring, Expression.Constant(0), Expression.Constant(by == "year" ? 4 : 7));
+        }
+
+        return Expression.Lambda<Func<ListItem, string?>>(text, Item);
+    }
+
+    /// <summary>The group key equals <paramref name="value"/>.</summary>
+    public static Expression<Func<ListItem, bool>> GroupEquals(string field, string? by, string value)
+    {
+        var key = GroupKey(field, by);
+        return Expression.Lambda<Func<ListItem, bool>>(Expression.Equal(key.Body, Expression.Constant(value, typeof(string))), key.Parameters);
+    }
+
+    /// <summary>The JSON field is absent (the "(empty)" group).</summary>
+    public static Expression<Func<ListItem, bool>> Missing(string field) =>
+        Expression.Lambda<Func<ListItem, bool>>(
+            Expression.Not(Expression.Call(ItemQueryTranslator.JsonHasProperty, Document, Expression.Constant(field))), Item);
+
+    public static Expression<Func<ListItem, bool>> And(Expression<Func<ListItem, bool>> left, Expression<Func<ListItem, bool>> right)
+    {
+        var body = new ReplaceParameter(right.Parameters[0], left.Parameters[0]).Visit(right.Body)!;
+        return Expression.Lambda<Func<ListItem, bool>>(Expression.AndAlso(left.Body, body), left.Parameters);
+    }
+
+    private sealed class ReplaceParameter(ParameterExpression from, ParameterExpression to) : ExpressionVisitor
+    {
+        protected override Expression VisitParameter(ParameterExpression node) => node == from ? to : base.VisitParameter(node);
+    }
 }

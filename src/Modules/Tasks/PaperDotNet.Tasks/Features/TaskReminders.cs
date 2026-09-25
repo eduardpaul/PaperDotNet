@@ -20,10 +20,17 @@ internal sealed class DueTaskReminderJob(IListItemStore items, INotificationSend
         var system = items.AsSystem();
         var today = DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var filter = $"fields/status ne '{TaskTemplates.Completed}' and fields/dueDate eq {today}";
-        foreach (var list in (await system.GetListsAsync(null, null, cancellationToken)).Where(l => l.ContentTypeKeys.Contains(TaskTemplates.ContentTypeKey)))
+        var lists = (await system.GetListsAsync(null, null, cancellationToken)).Where(l => l.ContentTypeKeys.Contains(TaskTemplates.ContentTypeKey)).ToList();
+        var (pages, error) = await system.QueryAsync(lists, new ListItemQuery(filter, null, 1000), cancellationToken);
+        if (error is not null)
         {
-            var (due, _) = await system.QueryAsync(list.WorkspaceId, list.Id, new ListItemQuery(filter, null, 1000), cancellationToken);
-            foreach (var task in due)
+            throw new InvalidOperationException(error);
+        }
+
+        foreach (var page in pages)
+        {
+            var list = page.List;
+            foreach (var task in page.Items)
             {
                 if (task.Fields["assignedTo"] is not JsonArray { Count: > 0 } assigned)
                 {

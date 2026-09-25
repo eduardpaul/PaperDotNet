@@ -127,6 +127,15 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
         return new ListSchema(list, contentTypes, new ListAccess(WorkspaceAccessLevel.Manage, fullControl: true, new Dictionary<Guid, WorkspaceAccessLevel>()));
     }
 
+    /// <summary>Names and keys of content types, so a caller can skip lists before loading a full schema.</summary>
+    public async Task<Dictionary<Guid, (string Name, string? Key)>> ContentTypesAsync(IEnumerable<Guid> ids, CancellationToken ct)
+    {
+        var idList = ids.Distinct().ToList();
+        return idList.Count == 0
+            ? []
+            : await db.ContentTypes.AsNoTracking().Where(c => idList.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => (c.Name, c.Key), ct);
+    }
+
     /// <summary>Lists of the workspace the user can see (lists with unique permissions need a grant).</summary>
     public async Task<List<ListDefinition>> VisibleListsAsync(Guid workspaceId, WorkspaceAccessLevel workspaceLevel, CancellationToken ct)
     {

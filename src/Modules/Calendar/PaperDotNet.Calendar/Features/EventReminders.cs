@@ -27,7 +27,13 @@ internal sealed class EventReminderJob(IListItemStore items, CalendarDbContext d
         }
 
         var now = time.GetUtcNow();
-        foreach (var entry in await calendar.RangeAsync(lists, now, now + Horizon, includeTasks: false, cancellationToken))
+        var (entries, error) = await calendar.RangeAsync(lists, now, now + Horizon, includeTasks: false, cancellationToken);
+        if (error is not null)
+        {
+            throw new InvalidOperationException(error);
+        }
+
+        foreach (var entry in entries)
         {
             if (entry.ReminderMinutes is not { } minutes || entry.Start - TimeSpan.FromMinutes(minutes) > now || entry.Start <= now)
             {

@@ -426,13 +426,14 @@ internal static class TaskEndpoints
         }
 
         var limit = Math.Clamp(top ?? 100, 1, MaxMyTasks);
-        var result = new List<MyTask>();
-        foreach (var list in (await items.GetListsAsync(null, null, ct)).Where(l => l.ContentTypeKeys.Contains(TaskTemplates.ContentTypeKey)))
+        var lists = (await items.GetListsAsync(null, null, ct)).Where(l => l.ContentTypeKeys.Contains(TaskTemplates.ContentTypeKey)).ToList();
+        var (pages, error) = await items.QueryAsync(lists, new ListItemQuery(filter, "fields/dueDate", MaxMyTasks), ct);
+        if (error is not null)
         {
-            var (found, _) = await items.QueryAsync(list.WorkspaceId, list.Id, new ListItemQuery(filter, "fields/dueDate", MaxMyTasks), ct);
-            result.AddRange(found.Select(t => ToMyTask(list, t)));
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["filter"] = [error] });
         }
 
+        var result = pages.SelectMany(page => page.Items.Select(task => ToMyTask(page.List, task))).ToList();
         return TypedResults.Ok(new MyTasksResponse(result
             .OrderBy(t => t.DueDate ?? "9999-12-31", StringComparer.Ordinal)
             .ThenBy(t => t.Title, StringComparer.CurrentCulture)

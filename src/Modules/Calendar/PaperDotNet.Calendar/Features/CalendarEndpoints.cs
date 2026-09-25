@@ -283,7 +283,8 @@ internal static class CalendarEndpoints
         }
 
         var lists = await calendar.ListsAsync(null, null, ct);
-        return TypedResults.Ok(new CalendarResponse(await calendar.RangeAsync(lists, start!.Value, end!.Value, includeTasks ?? true, ct)));
+        var (entries, error) = await calendar.RangeAsync(lists, start!.Value, end!.Value, includeTasks ?? true, ct);
+        return error is null ? TypedResults.Ok(new CalendarResponse(entries)) : QueryProblem(error);
     }
 
     private static async Task<Results<Ok<CalendarResponse>, ValidationProblem, ProblemHttpResult>> ListRangeAsync(
@@ -295,9 +296,13 @@ internal static class CalendarEndpoints
         }
 
         var lists = await calendar.ListsAsync(workspaceId, listId, ct);
-        return lists.Count == 0
-            ? ApiErrors.NotFound("The calendar or task list was not found.")
-            : TypedResults.Ok(new CalendarResponse(await calendar.RangeAsync(lists, start!.Value, end!.Value, includeTasks ?? true, ct)));
+        if (lists.Count == 0)
+        {
+            return ApiErrors.NotFound("The calendar or task list was not found.");
+        }
+
+        var (entries, error) = await calendar.RangeAsync(lists, start!.Value, end!.Value, includeTasks ?? true, ct);
+        return error is null ? TypedResults.Ok(new CalendarResponse(entries)) : QueryProblem(error);
     }
 
     private static ValidationProblem? RangeProblem(DateTimeOffset? start, DateTimeOffset? end) =>
@@ -305,15 +310,24 @@ internal static class CalendarEndpoints
             ? ApiErrors.Validation(new Dictionary<string, string[]> { ["range"] = ["start and end (ISO 8601) are required; end after start, at most 366 days."] })
             : null;
 
+    private static ValidationProblem QueryProblem(string error) =>
+        ApiErrors.Validation(new Dictionary<string, string[]> { ["filter"] = [error] });
+
     // ---- iCalendar ------------------------------------------------------------------
 
     private static async Task<Results<ContentHttpResult, ProblemHttpResult>> ExportAsync(
         Guid workspaceId, Guid listId, CalendarService calendar, ICalendarService ical, CancellationToken ct)
     {
         var lists = await calendar.ListsAsync(workspaceId, listId, ct);
-        return lists.Count == 0
-            ? ApiErrors.NotFound("The calendar or task list was not found.")
-            : TypedResults.Text(await ical.ExportAsync(lists, ct), ICalendarService.MediaType, Encoding.UTF8);
+        if (lists.Count == 0)
+        {
+            return ApiErrors.NotFound("The calendar or task list was not found.");
+        }
+
+        var (text, error) = await ical.ExportAsync(lists, ct);
+        return error is null
+            ? TypedResults.Text(text, ICalendarService.MediaType, Encoding.UTF8)
+            : ApiErrors.Problem(StatusCodes.Status400BadRequest, "invalidFilter", error);
     }
 
     /// <summary>Imports events from an iCalendar body (<c>text/calendar</c>, up to 10 MB) into an event list.</summary>
@@ -427,8 +441,10 @@ internal static class CalendarEndpoints
         await using var scope = owner;
         var calendar = scope.ServiceProvider.GetRequiredService<CalendarService>();
         var lists = await calendar.ListsAsync(feed.WorkspaceId, feed.ListId, ct);
-        var text = await scope.ServiceProvider.GetRequiredService<ICalendarService>().ExportAsync(lists, ct);
-        return TypedResults.Text(text, ICalendarService.MediaType, Encoding.UTF8);
+        var (text, error) = await scope.ServiceProvider.GetRequiredService<ICalendarService>().ExportAsync(lists, ct);
+        return error is null
+            ? TypedResults.Text(text, ICalendarService.MediaType, Encoding.UTF8)
+            : TypedResults.NotFound();
     }
 
     private static string Base64UrlSecret() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
