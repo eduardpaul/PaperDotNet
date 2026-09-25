@@ -82,6 +82,8 @@ internal sealed class SmartFolderQuery(
     {
         var termInfo = await TermsAsync(definition, ct);
         var found = new List<Found>();
+        string? firstError = null;
+        var queried = 0;
         foreach (var candidate in await ListsAsync(folder, definition, ct))
         {
             if (Filter(candidate.Schema, definition, termInfo) is not { } filter)
@@ -89,16 +91,22 @@ internal sealed class SmartFolderQuery(
                 continue;
             }
 
+            // A list without a field of the filter cannot hold matching items: skip it. The error is reported
+            // only when no list could run the filter (e.g. a syntax error).
             var (listItems, error) = await RecentAsync(candidate.Schema, filter.Length == 0 ? null : filter, Extra(definition, path), after, take, ct);
             if (error is not null)
             {
-                return ([], error);
+                firstError ??= error;
+                continue;
             }
 
+            queried++;
             found.AddRange(listItems!.Select(i => new Found(candidate.WorkspaceId, candidate.Schema.List.Name, i)));
         }
 
-        return (found.OrderByDescending(f => f.Item.UpdatedAt).ThenByDescending(f => f.Item.Id).Take(take).ToList(), null);
+        return queried == 0 && firstError is not null
+            ? ([], firstError)
+            : (found.OrderByDescending(f => f.Item.UpdatedAt).ThenByDescending(f => f.Item.Id).Take(take).ToList(), null);
     }
 
     public async Task<(List<SmartFolderGroup> Groups, string? Error)> GroupsAsync(
@@ -107,6 +115,8 @@ internal sealed class SmartFolderQuery(
         var termInfo = await TermsAsync(definition, ct);
         var counts = new Dictionary<string, int>();
         var empty = 0;
+        string? firstError = null;
+        var queried = 0;
         FieldDefinition? sample = null;
         foreach (var candidate in await ListsAsync(folder, definition, ct))
         {
@@ -124,8 +134,12 @@ internal sealed class SmartFolderQuery(
             var (groups, none, error) = await GroupAsync(candidate.Schema, filter.Length == 0 ? null : filter, Extra(definition, path), ItemFields.GroupKey(level.Field, level.By), ct);
             if (error is not null)
             {
-                return ([], error);
+                // As for items: skip lists that cannot run the filter, report it when none can.
+                firstError ??= error;
+                continue;
             }
+
+            queried++;
 
             foreach (var (value, count) in groups!)
             {
@@ -133,6 +147,11 @@ internal sealed class SmartFolderQuery(
             }
 
             empty += none;
+        }
+
+        if (queried == 0 && firstError is not null)
+        {
+            return ([], firstError);
         }
 
         var labels = await LabelsAsync(sample, counts.Keys.ToList(), ct);
