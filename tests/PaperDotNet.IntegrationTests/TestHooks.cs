@@ -5,23 +5,21 @@ using PaperDotNet.Lists.Contracts;
 
 namespace PaperDotNet.IntegrationTests;
 
-/// <summary>Test receiver: only acts on lists named "Hooked".</summary>
-internal sealed class TestReceiver : IItemEventReceiver
+/// <summary>Test mutator: only acts on lists named "Hooked".</summary>
+internal sealed class TestMutator : IItemMutator
 {
-    public static readonly ConcurrentBag<(ItemEventKind Kind, Guid ItemId, IReadOnlyCollection<string> Changed)> After = [];
-
     public int Sequence => 10;
 
     public bool AppliesTo(ItemEventScope scope) => scope.ListName == "Hooked";
 
-    public ValueTask ItemAddingAsync(ItemChangingContext context, CancellationToken cancellationToken)
+    public ValueTask ItemAddingAsync(ItemMutationContext context, CancellationToken cancellationToken)
     {
         var title = context.After!["title"]!.GetValue<string>();
         if (title == "forbidden")
         {
             context.Cancel("Titles cannot be 'forbidden'.");
         }
-        else if (title == "invalid-by-receiver")
+        else if (title == "invalid-by-mutator")
         {
             context.After["amount"] = "not a number";
         }
@@ -33,7 +31,7 @@ internal sealed class TestReceiver : IItemEventReceiver
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask ItemUpdatingAsync(ItemChangingContext context, CancellationToken cancellationToken)
+    public ValueTask ItemUpdatingAsync(ItemMutationContext context, CancellationToken cancellationToken)
     {
         if (context.Before!["status"]?.GetValue<string>() == "paid")
         {
@@ -43,7 +41,7 @@ internal sealed class TestReceiver : IItemEventReceiver
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask ItemDeletingAsync(ItemChangingContext context, CancellationToken cancellationToken)
+    public ValueTask ItemDeletingAsync(ItemMutationContext context, CancellationToken cancellationToken)
     {
         if (context.Before!["title"]!.GetValue<string>().StartsWith("keep", StringComparison.Ordinal))
         {
@@ -52,23 +50,8 @@ internal sealed class TestReceiver : IItemEventReceiver
 
         return ValueTask.CompletedTask;
     }
-
-    public ValueTask ItemAddedAsync(ItemChangedContext context, CancellationToken cancellationToken)
-    {
-        After.Add((context.Kind, context.ItemId, context.ChangedFields));
-        return context.After!["title"]!.GetValue<string>() == "boom"
-            ? throw new InvalidOperationException("After receivers must not break writes.")
-            : ValueTask.CompletedTask;
-    }
-
-    public ValueTask ItemUpdatedAsync(ItemChangedContext context, CancellationToken cancellationToken)
-    {
-        After.Add((context.Kind, context.ItemId, context.ChangedFields));
-        return ValueTask.CompletedTask;
-    }
 }
 
-/// <summary>Collects asynchronous item events delivered through the outbox.</summary>
 internal sealed class TestSubscriber(ITenantContext tenant) : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>
 {
     public static readonly ConcurrentBag<(ItemEvent Event, Guid? ResolvedTenant)> Received = [];

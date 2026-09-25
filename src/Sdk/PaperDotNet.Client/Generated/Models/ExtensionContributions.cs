@@ -65,13 +65,13 @@ namespace PaperDotNet.Client.Models
 #else
         public List<string> FieldTypes { get; set; }
 #endif
-        /// <summary>The itemReceivers property</summary>
+        /// <summary>The itemMutators property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public List<string>? ItemReceivers { get; set; }
+        public List<string>? ItemMutators { get; set; }
 #nullable restore
 #else
-        public List<string> ItemReceivers { get; set; }
+        public List<string> ItemMutators { get; set; }
 #endif
         /// <summary>The jobs property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -145,7 +145,7 @@ namespace PaperDotNet.Client.Models
                 { "endpoints", n => { Endpoints = n.GetBoolValue(); } },
                 { "eventSubscribers", n => { EventSubscribers = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "fieldTypes", n => { FieldTypes = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
-                { "itemReceivers", n => { ItemReceivers = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
+                { "itemMutators", n => { ItemMutators = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "jobs", n => { Jobs = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "listTemplates", n => { ListTemplates = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "mcpTools", n => { McpTools = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
@@ -167,7 +167,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteBoolValue("endpoints", Endpoints);
             writer.WriteCollectionOfPrimitiveValues<string>("eventSubscribers", EventSubscribers);
             writer.WriteCollectionOfPrimitiveValues<string>("fieldTypes", FieldTypes);
-            writer.WriteCollectionOfPrimitiveValues<string>("itemReceivers", ItemReceivers);
+            writer.WriteCollectionOfPrimitiveValues<string>("itemMutators", ItemMutators);
             writer.WriteCollectionOfPrimitiveValues<string>("jobs", Jobs);
             writer.WriteCollectionOfPrimitiveValues<string>("listTemplates", ListTemplates);
             writer.WriteCollectionOfPrimitiveValues<string>("mcpTools", McpTools);

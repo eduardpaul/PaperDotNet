@@ -26,8 +26,8 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
     event_subscribers: Optional[list[str]] = None
     # The fieldTypes property
     field_types: Optional[list[str]] = None
-    # The itemReceivers property
-    item_receivers: Optional[list[str]] = None
+    # The itemMutators property
+    item_mutators: Optional[list[str]] = None
     # The jobs property
     jobs: Optional[list[str]] = None
     # The listTemplates property
@@ -63,7 +63,7 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
             "endpoints": lambda n : setattr(self, 'endpoints', n.get_bool_value()),
             "eventSubscribers": lambda n : setattr(self, 'event_subscribers', n.get_collection_of_primitive_values(str)),
             "fieldTypes": lambda n : setattr(self, 'field_types', n.get_collection_of_primitive_values(str)),
-            "itemReceivers": lambda n : setattr(self, 'item_receivers', n.get_collection_of_primitive_values(str)),
+            "itemMutators": lambda n : setattr(self, 'item_mutators', n.get_collection_of_primitive_values(str)),
             "jobs": lambda n : setattr(self, 'jobs', n.get_collection_of_primitive_values(str)),
             "listTemplates": lambda n : setattr(self, 'list_templates', n.get_collection_of_primitive_values(str)),
             "mcpTools": lambda n : setattr(self, 'mcp_tools', n.get_collection_of_primitive_values(str)),
@@ -87,7 +87,7 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
         writer.write_bool_value("endpoints", self.endpoints)
         writer.write_collection_of_primitive_values("eventSubscribers", self.event_subscribers)
         writer.write_collection_of_primitive_values("fieldTypes", self.field_types)
-        writer.write_collection_of_primitive_values("itemReceivers", self.item_receivers)
+        writer.write_collection_of_primitive_values("itemMutators", self.item_mutators)
         writer.write_collection_of_primitive_values("jobs", self.jobs)
         writer.write_collection_of_primitive_values("listTemplates", self.list_templates)
         writer.write_collection_of_primitive_values("mcpTools", self.mcp_tools)

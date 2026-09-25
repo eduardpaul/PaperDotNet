@@ -67,26 +67,26 @@ public sealed class ExtensionTests
         Assert.Equal(valid, IbanFieldType.IsValid(iban.Replace(" ", string.Empty, StringComparison.Ordinal)));
 }
 
-public sealed class ReceiverRegistrationTests
+public sealed class MutatorRegistrationTests
 {
-    private sealed class Noop : PaperDotNet.Lists.Contracts.IItemEventReceiver;
+    private sealed class Noop : PaperDotNet.Lists.Contracts.IItemMutator;
 
     [Fact]
-    public void Receivers_filter_by_content_type_list_and_template()
+    public void Mutators_filter_by_content_type_list_and_template()
     {
-        var options = new ItemReceiverOptions();
+        var options = new ItemMutatorOptions();
         options.ContentTypes.Add("Invoice");
         options.ListTemplates.Add("samples.invoices.invoices");
-        var receiver = new PaperDotNet.ExtensionHost.Runtime.GatedItemReceiver("samples.invoices", options, new Noop(), null!);
+        var mutator = new PaperDotNet.ExtensionHost.Runtime.GatedItemMutator("samples.invoices", options, new Noop(), null!);
         var scope = new PaperDotNet.Lists.Contracts.ItemEventScope(Guid.NewGuid(), Guid.NewGuid(), "Invoices", Guid.NewGuid(), false)
         {
             ContentTypeName = "invoice",
             ListTemplate = "samples.invoices.invoices",
         };
 
-        Assert.True(receiver.AppliesTo(scope));
-        Assert.False(receiver.AppliesTo(scope with { ListTemplate = "tasks" }));
-        Assert.False(receiver.AppliesTo(scope with { ContentTypeName = "Quote" }));
-        Assert.False(receiver.AppliesTo(scope with { IsFolder = true }));
+        Assert.True(mutator.AppliesTo(scope));
+        Assert.False(mutator.AppliesTo(scope with { ListTemplate = "tasks" }));
+        Assert.False(mutator.AppliesTo(scope with { ContentTypeName = "Quote" }));
+        Assert.False(mutator.AppliesTo(scope with { IsFolder = true }));
     }
 }

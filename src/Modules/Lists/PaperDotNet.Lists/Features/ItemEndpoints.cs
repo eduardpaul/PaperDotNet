@@ -115,7 +115,7 @@ internal static class ItemEndpoints
 
         if (result.Cancelled is not null)
         {
-            return CancelledByReceiver(result.Cancelled);
+            return CancelledByMutator(result.Cancelled);
         }
 
         ETags.Set(response, result.Item!.Version);
@@ -180,7 +180,7 @@ internal static class ItemEndpoints
 
             if (result.Cancelled is not null)
             {
-                return CancelledByReceiver(result.Cancelled);
+                return CancelledByMutator(result.Cancelled);
             }
 
             ETags.Set(response, result.Item!.Version);
@@ -208,7 +208,7 @@ internal static class ItemEndpoints
             return result switch
             {
                 { Conflict: { } conflict } => ApiErrors.Conflict("folderNotEmpty", conflict),
-                { Cancelled: { } message } => CancelledByReceiver(message),
+                { Cancelled: { } message } => CancelledByMutator(message),
                 _ => TypedResults.NoContent(),
             };
         }
@@ -218,8 +218,8 @@ internal static class ItemEndpoints
         }
     }
 
-    internal static ProblemHttpResult CancelledByReceiver(string message) =>
-        ApiErrors.Conflict("cancelledByReceiver", message);
+    internal static ProblemHttpResult CancelledByMutator(string message) =>
+        ApiErrors.Conflict("cancelledByMutator", message);
 
     internal static async Task<(ListSchema? Schema, ListItem? Item, ProblemHttpResult? Problem)> LoadForChangeAsync(
         Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, HttpRequest http, CancellationToken ct)

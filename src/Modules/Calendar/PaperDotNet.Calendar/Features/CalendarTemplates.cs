@@ -34,20 +34,20 @@ public static class CalendarTemplates
 }
 
 /// <summary>
-/// Keeps event times consistent (before add/update): all-day events start at midnight (UTC) and last
+/// Keeps event times consistent (item mutator on add/update): all-day events start at midnight (UTC) and last
 /// whole days; a missing end becomes start + 1 hour (or + 1 day); an end before the start is rejected.
 /// </summary>
-internal sealed class EventTimesReceiver : IItemEventReceiver
+internal sealed class EventTimesMutator : IItemMutator
 {
     public int Sequence => 50;
 
     public bool AppliesTo(ItemEventScope scope) => !scope.IsFolder && scope.ContentTypeKey == CalendarService.EventKey;
 
-    public ValueTask ItemAddingAsync(ItemChangingContext context, CancellationToken cancellationToken) => ApplyAsync(context);
+    public ValueTask ItemAddingAsync(ItemMutationContext context, CancellationToken cancellationToken) => ApplyAsync(context);
 
-    public ValueTask ItemUpdatingAsync(ItemChangingContext context, CancellationToken cancellationToken) => ApplyAsync(context);
+    public ValueTask ItemUpdatingAsync(ItemMutationContext context, CancellationToken cancellationToken) => ApplyAsync(context);
 
-    private static ValueTask ApplyAsync(ItemChangingContext context)
+    private static ValueTask ApplyAsync(ItemMutationContext context)
     {
         var fields = context.After;
         if (fields is null || !EventTimes.TryParse(fields["start"], out var start))

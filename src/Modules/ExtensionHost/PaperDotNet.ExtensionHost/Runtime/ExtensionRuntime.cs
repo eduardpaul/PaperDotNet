@@ -23,7 +23,7 @@ public sealed class ExtensionContributions
 {
     public List<string> FieldTypes { get; } = [];
 
-    public List<string> ItemReceivers { get; } = [];
+    public List<string> ItemMutators { get; } = [];
 
     public List<string> EventSubscribers { get; } = [];
 
@@ -164,15 +164,15 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
-    public IExtensionBuilder AddItemReceiver<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TReceiver>(Action<ItemReceiverOptions>? configure = null)
-        where TReceiver : class, IItemEventReceiver
+    public IExtensionBuilder AddItemMutator<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TMutator>(Action<ItemMutatorOptions>? configure = null)
+        where TMutator : class, IItemMutator
     {
-        var options = new ItemReceiverOptions();
+        var options = new ItemMutatorOptions();
         configure?.Invoke(options);
         var id = extension.Id;
-        services.TryAddScoped<TReceiver>();
-        services.AddScoped<IItemEventReceiver>(sp => new GatedItemReceiver(id, options, sp.GetRequiredService<TReceiver>(), sp.GetRequiredService<IExtensionState>()));
-        extension.Contributions.ItemReceivers.Add(typeof(TReceiver).Name);
+        services.TryAddScoped<TMutator>();
+        services.AddScoped<IItemMutator>(sp => new GatedItemMutator(id, options, sp.GetRequiredService<TMutator>(), sp.GetRequiredService<IExtensionState>()));
+        extension.Contributions.ItemMutators.Add(typeof(TMutator).Name);
         return this;
     }
 
@@ -302,8 +302,8 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
     }
 }
 
-/// <summary>Runs an extension's item receiver only where its registration and the tenant allow (EVT-03).</summary>
-internal sealed class GatedItemReceiver(string extensionId, ItemReceiverOptions options, IItemEventReceiver inner, IExtensionState state) : IItemEventReceiver
+/// <summary>Runs an extension's item mutator only where its registration and the tenant allow (EVT-03).</summary>
+internal sealed class GatedItemMutator(string extensionId, ItemMutatorOptions options, IItemMutator inner, IExtensionState state) : IItemMutator
 {
     public int Sequence => options.Sequence;
 
@@ -318,17 +318,11 @@ internal sealed class GatedItemReceiver(string extensionId, ItemReceiverOptions 
     public async ValueTask<bool> AppliesToAsync(ItemEventScope scope, CancellationToken cancellationToken) =>
         AppliesTo(scope) && await state.IsEnabledAsync(extensionId, cancellationToken) && await inner.AppliesToAsync(scope, cancellationToken);
 
-    public ValueTask ItemAddingAsync(ItemChangingContext context, CancellationToken cancellationToken) => inner.ItemAddingAsync(context, cancellationToken);
+    public ValueTask ItemAddingAsync(ItemMutationContext context, CancellationToken cancellationToken) => inner.ItemAddingAsync(context, cancellationToken);
 
-    public ValueTask ItemUpdatingAsync(ItemChangingContext context, CancellationToken cancellationToken) => inner.ItemUpdatingAsync(context, cancellationToken);
+    public ValueTask ItemUpdatingAsync(ItemMutationContext context, CancellationToken cancellationToken) => inner.ItemUpdatingAsync(context, cancellationToken);
 
-    public ValueTask ItemDeletingAsync(ItemChangingContext context, CancellationToken cancellationToken) => inner.ItemDeletingAsync(context, cancellationToken);
-
-    public ValueTask ItemAddedAsync(ItemChangedContext context, CancellationToken cancellationToken) => inner.ItemAddedAsync(context, cancellationToken);
-
-    public ValueTask ItemUpdatedAsync(ItemChangedContext context, CancellationToken cancellationToken) => inner.ItemUpdatedAsync(context, cancellationToken);
-
-    public ValueTask ItemDeletedAsync(ItemChangedContext context, CancellationToken cancellationToken) => inner.ItemDeletedAsync(context, cancellationToken);
+    public ValueTask ItemDeletingAsync(ItemMutationContext context, CancellationToken cancellationToken) => inner.ItemDeletingAsync(context, cancellationToken);
 }
 
 /// <summary>Delivers events to an extension only in tenants that enabled it.</summary>

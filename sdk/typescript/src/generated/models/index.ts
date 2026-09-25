@@ -3304,7 +3304,7 @@ export function deserializeIntoExtensionContributions(extensionContributions: Pa
         "endpoints": n => { extensionContributions.endpoints = n.getBooleanValue(); },
         "eventSubscribers": n => { extensionContributions.eventSubscribers = n.getCollectionOfPrimitiveValues<string>("string"); },
         "fieldTypes": n => { extensionContributions.fieldTypes = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "itemReceivers": n => { extensionContributions.itemReceivers = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "itemMutators": n => { extensionContributions.itemMutators = n.getCollectionOfPrimitiveValues<string>("string"); },
         "jobs": n => { extensionContributions.jobs = n.getCollectionOfPrimitiveValues<string>("string"); },
         "listTemplates": n => { extensionContributions.listTemplates = n.getCollectionOfPrimitiveValues<string>("string"); },
         "mcpTools": n => { extensionContributions.mcpTools = n.getCollectionOfPrimitiveValues<string>("string"); },
@@ -5168,9 +5168,9 @@ export interface ExtensionContributions extends AdditionalDataHolder, Parsable {
      */
     fieldTypes?: string[] | null;
     /**
-     * The itemReceivers property
+     * The itemMutators property
      */
-    itemReceivers?: string[] | null;
+    itemMutators?: string[] | null;
     /**
      * The jobs property
      */
@@ -7624,7 +7624,7 @@ export function serializeExtensionContributions(writer: SerializationWriter, ext
     writer.writeBooleanValue("endpoints", extensionContributions.endpoints);
     writer.writeCollectionOfPrimitiveValues<string>("eventSubscribers", extensionContributions.eventSubscribers);
     writer.writeCollectionOfPrimitiveValues<string>("fieldTypes", extensionContributions.fieldTypes);
-    writer.writeCollectionOfPrimitiveValues<string>("itemReceivers", extensionContributions.itemReceivers);
+    writer.writeCollectionOfPrimitiveValues<string>("itemMutators", extensionContributions.itemMutators);
     writer.writeCollectionOfPrimitiveValues<string>("jobs", extensionContributions.jobs);
     writer.writeCollectionOfPrimitiveValues<string>("listTemplates", extensionContributions.listTemplates);
     writer.writeCollectionOfPrimitiveValues<string>("mcpTools", extensionContributions.mcpTools);

@@ -51,7 +51,7 @@ public sealed class InvoicesExtension : IExtension
         {
             Key = $"{Id}.costCenters",
         });
-        builder.AddItemReceiver<ApprovalReceiver>(o =>
+        builder.AddItemMutator<ApprovalMutator>(o =>
         {
             o.Sequence = 100;
             o.ContentTypes.Add("Invoice");
@@ -96,16 +96,16 @@ public sealed class IbanFieldType : FieldType
     }
 }
 
-/// <summary>Before-receiver: invoices above the tenant's threshold get the status <c>pendingApproval</c>.</summary>
-public sealed class ApprovalReceiver(IExtensionState state) : IItemEventReceiver
+/// <summary>Item mutator: invoices above the tenant's threshold get the status <c>pendingApproval</c>.</summary>
+public sealed class ApprovalMutator(IExtensionState state) : IItemMutator
 {
     public int Sequence => 100;
 
-    public ValueTask ItemAddingAsync(ItemChangingContext context, CancellationToken cancellationToken) => ApplyAsync(context, cancellationToken);
+    public ValueTask ItemAddingAsync(ItemMutationContext context, CancellationToken cancellationToken) => ApplyAsync(context, cancellationToken);
 
-    public ValueTask ItemUpdatingAsync(ItemChangingContext context, CancellationToken cancellationToken) => ApplyAsync(context, cancellationToken);
+    public ValueTask ItemUpdatingAsync(ItemMutationContext context, CancellationToken cancellationToken) => ApplyAsync(context, cancellationToken);
 
-    private async ValueTask ApplyAsync(ItemChangingContext context, CancellationToken ct)
+    private async ValueTask ApplyAsync(ItemMutationContext context, CancellationToken ct)
     {
         var settings = await state.GetSettingsAsync(InvoicesExtension.Id, ct);
         if (settings["requireApproval"]?.GetValue<bool>() != true || context.After?["amount"] is not JsonValue amount)

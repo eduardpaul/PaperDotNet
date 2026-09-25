@@ -23,7 +23,7 @@ public sealed record BulkUpdateFailure(Guid ItemId, string Reason);
 
 /// <summary>
 /// LST-05: change fields on many items as a long-running operation (EVT-06).
-/// Every item goes through the normal write path (validation, receivers, events).
+/// Every item goes through the normal write path (validation, mutators, events).
 /// </summary>
 internal static class BulkUpdateEndpoints
 {

@@ -27,26 +27,26 @@ public sealed class EventsAndJobsTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
-    public async Task Before_receivers_can_modify_and_cancel_writes()
+    public async Task Mutators_can_modify_and_cancel_writes()
     {
-        var (client, ws, list, _) = await SetupAsync("receivers");
+        var (client, ws, list, _) = await SetupAsync("mutators");
 
         var modified = await client.CreateItemAsync(ws, list, new { fields = new { title = "A", code = "abc" } });
         var cancelled = await client.PostItemAsync(ws, list, new { fields = new { title = "forbidden" } });
-        var invalid = await client.PostItemAsync(ws, list, new { fields = new { title = "invalid-by-receiver" } });
+        var invalid = await client.PostItemAsync(ws, list, new { fields = new { title = "invalid-by-mutator" } });
 
         Assert.Equal("ABC", modified.GetProperty("fields").GetProperty("code").GetString());
         Assert.Equal(HttpStatusCode.Conflict, cancelled.StatusCode);
         var problem = await cancelled.ReadJsonAsync();
-        Assert.Equal("cancelledByReceiver", problem.GetProperty("code").GetString());
+        Assert.Equal("cancelledByMutator", problem.GetProperty("code").GetString());
         Assert.Contains("forbidden", problem.GetProperty("detail").GetString(), StringComparison.Ordinal);
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
     }
 
     [Fact]
-    public async Task Updating_and_deleting_receivers_can_cancel()
+    public async Task Updating_and_deleting_mutators_can_cancel()
     {
-        var (client, ws, list, _) = await SetupAsync("receivers-update");
+        var (client, ws, list, _) = await SetupAsync("mutators-update");
         var paid = (await client.CreateItemAsync(ws, list, new { fields = new { title = "Invoice", status = "paid" } })).GetProperty("id").GetGuid();
         var keep = (await client.CreateItemAsync(ws, list, new { fields = new { title = "keep me" } })).GetProperty("id").GetGuid();
         var itemUrl = (Guid id) => $"/v1.0/workspaces/{ws}/lists/{list}/items/{id}";
@@ -57,18 +57,6 @@ public sealed class EventsAndJobsTests(PaperDotNetApiFactory factory)
         Assert.Equal(HttpStatusCode.Conflict, update.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, delete.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(itemUrl(keep), Ct)).StatusCode);
-    }
-
-    [Fact]
-    public async Task After_receivers_run_and_their_failures_do_not_break_the_write()
-    {
-        var (client, ws, list, _) = await SetupAsync("receivers-after");
-
-        var boom = await client.PostItemAsync(ws, list, new { fields = new { title = "boom" } });
-        var id = (await boom.ReadJsonAsync()).GetProperty("id").GetGuid();
-
-        Assert.Equal(HttpStatusCode.Created, boom.StatusCode);
-        Assert.Contains(TestReceiver.After, a => a.ItemId == id && a.Kind == ItemEventKind.Adding);
     }
 
     [Fact]

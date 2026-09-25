@@ -10,7 +10,7 @@ public enum ItemEventKind
     Deleting,
 }
 
-/// <summary>Where an item event happens; receivers use it to decide whether they apply.</summary>
+/// <summary>Where an item write happens; mutators use it to decide whether they apply.</summary>
 public sealed record ItemEventScope(Guid WorkspaceId, Guid ListId, string ListName, Guid ContentTypeId, bool IsFolder)
 {
     /// <summary>Name of the item's content type (e.g. <c>Invoice</c>).</summary>
@@ -24,10 +24,10 @@ public sealed record ItemEventScope(Guid WorkspaceId, Guid ListId, string ListNa
 }
 
 /// <summary>
-/// Context of a synchronous <b>before</b> event (SharePoint "…ing"): runs before
-/// the change is saved. Receivers may change <see cref="After"/> or <see cref="Cancel"/>.
+/// An item write about to be saved. Mutators may change <see cref="After"/> (it is validated again)
+/// or <see cref="Cancel"/> the write.
 /// </summary>
-public sealed class ItemChangingContext
+public sealed class ItemMutationContext
 {
     public required ItemEventKind Kind { get; init; }
 
@@ -47,22 +47,17 @@ public sealed class ItemChangingContext
 
     public string? CancelMessage { get; private set; }
 
-    /// <summary>Cancels the operation; the caller receives the message (HTTP 409 <c>cancelledByReceiver</c>).</summary>
+    /// <summary>Cancels the write; the caller receives the message (HTTP 409 <c>cancelledByMutator</c>).</summary>
     public void Cancel(string message) => CancelMessage = message;
 }
 
-/// <summary>Context of a synchronous <b>after</b> event (SharePoint "…ed"): the change is committed.</summary>
-public sealed record ItemChangedContext(
-    ItemEventKind Kind, ItemEventScope Scope, Guid ItemId, Guid? UserId, JsonObject? Before, JsonObject? After, IReadOnlyCollection<string> ChangedFields);
-
 /// <summary>
-/// An item event receiver (SharePoint <c>SPItemEventReceiver</c> style). Before
-/// methods run synchronously inside the write and can modify or cancel it;
-/// after methods run synchronously after commit (errors are logged, never undo
-/// the change). For background processing use <see cref="IEventSubscriber{TEvent}"/>
-/// with <see cref="ItemAdded"/>, <see cref="ItemUpdated"/> or <see cref="ItemDeleted"/>.
+/// An item mutator (ADR-0023): runs synchronously inside an item write, before it is saved, and can
+/// change the values or cancel the write. Mutators must be stateless and fast; they run on the server
+/// handling the request. Everything that reacts to a saved change is an <see cref="IEventSubscriber{TEvent}"/>
+/// of <see cref="ItemAdded"/>, <see cref="ItemUpdated"/>, <see cref="ItemDeleted"/> (or an automation).
 /// </summary>
-public interface IItemEventReceiver
+public interface IItemMutator
 {
     /// <summary>Lower runs first.</summary>
     int Sequence => 1000;
@@ -72,20 +67,14 @@ public interface IItemEventReceiver
     /// <summary>Asynchronous variant (e.g. to check per-tenant settings); defaults to <see cref="AppliesTo"/>.</summary>
     ValueTask<bool> AppliesToAsync(ItemEventScope scope, CancellationToken cancellationToken) => ValueTask.FromResult(AppliesTo(scope));
 
-    ValueTask ItemAddingAsync(ItemChangingContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+    ValueTask ItemAddingAsync(ItemMutationContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
 
-    ValueTask ItemUpdatingAsync(ItemChangingContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+    ValueTask ItemUpdatingAsync(ItemMutationContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
 
-    ValueTask ItemDeletingAsync(ItemChangingContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
-
-    ValueTask ItemAddedAsync(ItemChangedContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
-
-    ValueTask ItemUpdatedAsync(ItemChangedContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
-
-    ValueTask ItemDeletedAsync(ItemChangedContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+    ValueTask ItemDeletingAsync(ItemMutationContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
 }
 
-/// <summary>Base for item integration events (asynchronous after events).</summary>
+/// <summary>Base for item integration events: published with the change (transactional outbox) and handled in the background.</summary>
 public abstract record ItemEvent : IntegrationEvent
 {
     public required Guid WorkspaceId { get; init; }

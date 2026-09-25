@@ -133,8 +133,8 @@ Papermerge feature catalog. `AV` is the architecture vision.
 
 | ID | Feature | User story | Prio | Phase | Source |
 |---|---|---|---|---|---|
-| EVT-01 | Before event handlers | As a **Developer**, I want synchronous `…ing` handlers (ItemAdding, ItemUpdating, …) that can change or cancel an operation with a message, so that I can enforce business rules | MVP | P1 | #0012 |
-| EVT-02 | After event handlers | As a **Developer**, I want `…ed` handlers that run after commit, either in the request or in the background with retries, so that I can trigger side effects reliably | MVP | P1 | #0012 |
+| EVT-01 | Item mutators | As a **Developer**, I want synchronous mutators (ItemAdding, ItemUpdating, ItemDeleting) that can change or cancel an operation with a message before it is saved, so that I can enforce business rules | MVP | P1 | #0012 |
+| EVT-02 | Integration events | As a **Developer**, I want events published with the change (outbox) and handled in the background with retries, so that I can trigger side effects reliably (after hooks in the request were removed, ADR-0023) | MVP | P1 | #0012 |
 | EVT-03 | Handler registration & ordering | As a **Developer**, I want to register handlers per tenant, workspace, list, list template or content type, with a sequence number and conditions, so that handlers run only where they belong | Core | P2 | #0012 |
 | EVT-04 | Reliable event delivery (outbox) | As an **Admin**, I want every change to produce events delivered at least once, even after a crash, so that integrations and automations never miss changes | MVP | P1 | AV §4 |
 | EVT-05 | Background jobs & schedules | As a **Developer**, I want to schedule jobs (cron, delayed, recurring) that survive restarts, so that reminders, recurrence and maintenance run on time | MVP | P1 | PM §7 |

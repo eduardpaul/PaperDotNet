@@ -10236,7 +10236,7 @@
               "type": "string"
             }
           },
-          "itemReceivers": {
+          "itemMutators": {
             "type": [
               "null",
               "array"

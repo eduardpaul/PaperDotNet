@@ -104,7 +104,7 @@ item out: it removes the terms and clears the fields that hold the folder's
 values.
 
 All changes go through the normal item pipeline: validation, permissions,
-receivers, versions, events and automation. The list must be one the folder
+mutators, versions, events and automation. The list must be one the folder
 covers.
 
 ## Promoting keywords (TAX-05)

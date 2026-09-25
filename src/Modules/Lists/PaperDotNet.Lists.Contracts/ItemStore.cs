@@ -63,7 +63,7 @@ public enum ListItemStatus
     /// <summary>The expected version did not match (someone else changed the item).</summary>
     VersionMismatch,
 
-    /// <summary>A before-receiver cancelled the change, or the change conflicts (e.g. a non-empty folder).</summary>
+    /// <summary>A mutator cancelled the change, or the change conflicts (e.g. a non-empty folder).</summary>
     Rejected,
 }
 
@@ -75,7 +75,7 @@ public sealed record ListItemResult(ListItemStatus Status, ListItemData? Item = 
 
 /// <summary>
 /// Reads and writes list items from code (extensions, jobs). Writes go through the same
-/// pipeline as the API: field validation, before/after receivers, versions, events, search.
+/// pipeline as the API: field validation, mutators, versions, events, search.
 /// By default the store acts as the current user with their permissions (ADR-0011); use
 /// <see cref="AsSystem"/> for background work that acts on behalf of the organization.
 /// </summary>

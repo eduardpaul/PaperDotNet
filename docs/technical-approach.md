@@ -383,7 +383,7 @@ outbox dispatcher (BackgroundService)
   language-neutral (Node/Python sidecars in P7 use the same format), validated
   at startup; JSON Schema in `docs/schemas`.
 - **Registration:** `IExtension.Configure(IExtensionBuilder)` registers field
-  types, item receivers (sequence, content type/list filters, conditions),
+  types, item mutators (sequence, content type/list filters, conditions; ADR-0023),
   event subscribers, integration events, recurring jobs and endpoints
   (`/v1.0/ext/{id}`); scopes come from the manifest. Every contribution is
   wrapped with a per-tenant enablement gate.

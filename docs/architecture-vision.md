@@ -104,7 +104,7 @@ An extension is a versioned package with a manifest that declares everything it 
 | 2 | **Content types / list templates** | Ship ready-made schemas plus default views, commands and settings | Document, Task, Event, Contact |
 | 3 | **Views / layouts** | New ways to display a list | Table, Board (kanban), Calendar, Gallery, Timeline/Gantt, Map |
 | 4 | **Commands** | Toolbar, context-menu and bulk actions, with `when` conditions | Rotate pages, Mark done, Export .ics |
-| 5 | **Item event handlers** | *Before* handlers (sync; can validate, modify or cancel) and *after* handlers (async), for item, file and permission events. These work like SharePoint event receivers | Recompute path template, send notification |
+| 5 | **Item mutators and events** | *Mutators* run before a write is saved (sync; can validate, modify or cancel); everything after the save reacts to integration events in the background (ADR-0023) | Recompute path template, send notification |
 | 6 | **File processing pipeline** | Ordered processors per MIME type: text extraction, OCR, thumbnails, classification, virus scan | Papermerge OCR, PDF preview, Office preview |
 | 7 | **Automation triggers and actions** | Nodes for a no-code rules/workflow engine: "when X, if Y, do Z" | Papermerge "automates": auto-tag, auto-file |
 | 8 | **Background jobs** | Scheduled and queued work | Reminders, recurring-task generation, reindexing |

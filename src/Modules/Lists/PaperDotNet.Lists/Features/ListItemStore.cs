@@ -10,7 +10,7 @@ namespace PaperDotNet.Lists.Features;
 
 /// <summary>
 /// <see cref="IListItemStore"/> over the same loader, query runner and writer as the items API,
-/// so code gets the API's validation, receivers, versions and events.
+/// so code gets the API's validation, mutators, versions and events.
 /// </summary>
 internal sealed class ListItemStore(
     ListsDbContext db, ListSchemaLoader loader, ItemQueryRunner runner, ItemWriter writer, IWorkspaceAccess workspaces,

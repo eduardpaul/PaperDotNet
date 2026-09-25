@@ -45,7 +45,7 @@ public sealed class InvoicesExtension : IExtension
     {
         builder.Services.AddSingleton<MyService>();              // your own services
         builder.AddFieldType(new IbanFieldType());                // "acme.invoices.iban"
-        builder.AddItemReceiver<ApprovalReceiver>(o =>            // before/after handlers (EVT-03)
+        builder.AddItemMutator<ApprovalMutator>(o =>              // change/reject writes (EVT-01, EVT-03)
         {
             o.Sequence = 100;
             o.ContentTypes.Add("Invoice");
@@ -63,13 +63,13 @@ public sealed class InvoicesExtension : IExtension
 Content types you add are provisioned into a tenant when it enables the
 extension (a name clash gets a suffix, e.g. `Invoice (2)`), stay in sync with
 your definition, and cannot be changed by tenants. List templates appear in
-`GET /v1.0/listTemplates` where the extension is enabled. Receivers can be
+`GET /v1.0/listTemplates` where the extension is enabled. Mutators can be
 limited to lists created from a template (`o.ListTemplates.Add(...)`). Mark
 how fields count in search with `FieldDefinition.Search` (`None`, `Normal`,
 `High`; SRC-06).
 
 Every contribution is active only in tenants that enabled the extension:
-endpoints answer 404 `extensionDisabled`, receivers, subscribers and jobs
+endpoints answer 404 `extensionDisabled`, mutators, subscribers and jobs
 skip, and the field types cannot be used in new content types. Read the
 tenant's settings with `IExtensionState.GetSettingsAsync(id)`.
 
@@ -79,7 +79,7 @@ Two ways to keep data, both inside the tenant's isolation boundary:
 
 **List items** — for data people should see, edit, search and version like any
 other content. Inject `IListItemStore` (Lists.Contracts): it reads and writes
-items through the same pipeline as the API (field validation, receivers,
+items through the same pipeline as the API (field validation, mutators,
 versions, events, search). It acts as the current user with their
 permissions; `AsSystem()` gives full control over the tenant's lists for jobs
 and other background work. Filters use the items API's OData syntax.
@@ -99,7 +99,7 @@ foreach (var l in await system.GetListsAsync(null, "acme.invoices.invoices", ct)
 whether the list is a library), `EnsureHomeAsync` (the caller's Home workspace
 and Inbox) and the caller's access on every item (`ListItemData.Access`).
 `ItemPurged` tells subscribers that an item was deleted permanently.
-Receivers can match content types by template key (`ItemEventScope.ContentTypeKey`,
+Mutators can match content types by template key (`ItemEventScope.ContentTypeKey`,
 e.g. `event`). `ITenantScopeFactory.CreateScopeAsync(tenantId, userId)` opens a
 scope for an active tenant known only by id (e.g. from a token).
 Implement `IItemSearchContributor` to add text (and its language) to items'

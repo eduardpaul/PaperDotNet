@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
@@ -14,7 +13,7 @@ using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
-/// <summary>Outcome of an item write: the item, validation errors, a conflict or a cancellation by a receiver.</summary>
+/// <summary>Outcome of an item write: the item, validation errors, a conflict or a cancellation by a mutator.</summary>
 internal sealed record ItemWriteResult(
     ListItem? Item, Dictionary<string, string[]>? Errors = null, string? Conflict = null, string? Cancelled = null, bool Forbidden = false)
 {
@@ -25,21 +24,20 @@ internal sealed record ItemWriteResult(
 
 /// <summary>
 /// All item writes go through here: field validation and normalization, folders,
-/// content types, synchronous before/after receivers (idea 0012) and integration
-/// events published through the transactional outbox.
+/// content types, item mutators (ADR-0023) and integration events
+/// published through the transactional outbox.
 /// </summary>
-internal sealed partial class ItemWriter(
+internal sealed class ItemWriter(
     ListsDbContext db,
     FieldTypeRegistry fieldTypes,
     IUserDirectory users,
-    IEnumerable<IItemEventReceiver> receivers,
+    IEnumerable<IItemMutator> mutators,
     IOutbox outbox,
     ITermStore terms,
     ITenantContext tenant,
     ICurrentUser currentUser,
     EventCausation causation,
-    TimeProvider time,
-    ILogger<ItemWriter> logger) : IFieldValidationContext
+    TimeProvider time) : IFieldValidationContext
 {
     public const int TitleMaxLength = 1024;
     private const int MaxFolderDepth = 64;
@@ -85,8 +83,8 @@ internal sealed partial class ItemWriter(
 
         var scope = Scope(schema, item);
         var snapshot = values.ToJsonString();
-        var context = new ItemChangingContext { Kind = ItemEventKind.Adding, Scope = scope, ItemId = item.Id, UserId = currentUser.UserId, After = values };
-        if (await RunBeforeAsync(context, ct) is { } cancelled)
+        var context = new ItemMutationContext { Kind = ItemEventKind.Adding, Scope = scope, ItemId = item.Id, UserId = currentUser.UserId, After = values };
+        if (await MutateAsync(context, ct) is { } cancelled)
         {
             return cancelled;
         }
@@ -102,7 +100,6 @@ internal sealed partial class ItemWriter(
         var changed = Values(item).Select(p => p.Key).Order(StringComparer.Ordinal).ToList();
         await AddVersionAsync(schema, item, changed, ct);
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Adding, item, schema, changed)], cancellationToken: ct);
-        await RunAfterAsync(new ItemChangedContext(ItemEventKind.Adding, scope, item.Id, currentUser.UserId, null, Values(item), changed), ct);
         return new ItemWriteResult(item);
     }
 
@@ -150,7 +147,7 @@ internal sealed partial class ItemWriter(
 
         var scope = Scope(schema, item);
         var snapshot = values.ToJsonString();
-        var context = new ItemChangingContext
+        var context = new ItemMutationContext
         {
             Kind = ItemEventKind.Updating,
             Scope = scope,
@@ -159,7 +156,7 @@ internal sealed partial class ItemWriter(
             Before = (JsonObject)before.DeepClone(),
             After = values,
         };
-        if (await RunBeforeAsync(context, ct) is { } cancelled)
+        if (await MutateAsync(context, ct) is { } cancelled)
         {
             return cancelled;
         }
@@ -194,7 +191,6 @@ internal sealed partial class ItemWriter(
             await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, currentUser, schema.List.Id)], cancellationToken: ct);
         }
 
-        await RunAfterAsync(new ItemChangedContext(ItemEventKind.Updating, scope, item.Id, currentUser.UserId, before, after, changed), ct);
         return new ItemWriteResult(item);
     }
 
@@ -207,15 +203,14 @@ internal sealed partial class ItemWriter(
 
         var before = Values(item);
         var scope = Scope(schema, item);
-        var context = new ItemChangingContext { Kind = ItemEventKind.Deleting, Scope = scope, ItemId = item.Id, UserId = currentUser.UserId, Before = before };
-        if (await RunBeforeAsync(context, ct) is { } cancelled)
+        var context = new ItemMutationContext { Kind = ItemEventKind.Deleting, Scope = scope, ItemId = item.Id, UserId = currentUser.UserId, Before = before };
+        if (await MutateAsync(context, ct) is { } cancelled)
         {
             return cancelled;
         }
 
         db.Items.Remove(item);
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Deleting, item, schema, [])], cancellationToken: ct);
-        await RunAfterAsync(new ItemChangedContext(ItemEventKind.Deleting, scope, item.Id, currentUser.UserId, before, null, []), ct);
         return new ItemWriteResult(item);
     }
 
@@ -299,29 +294,20 @@ internal sealed partial class ItemWriter(
         return values;
     }
 
-    private async Task<List<IItemEventReceiver>> ReceiversForAsync(ItemEventScope scope, CancellationToken ct)
+    private async Task<ItemWriteResult?> MutateAsync(ItemMutationContext context, CancellationToken ct)
     {
-        var applicable = new List<IItemEventReceiver>();
-        foreach (var receiver in receivers.OrderBy(r => r.Sequence))
+        foreach (var mutator in mutators.OrderBy(m => m.Sequence))
         {
-            if (await receiver.AppliesToAsync(scope, ct))
+            if (!await mutator.AppliesToAsync(context.Scope, ct))
             {
-                applicable.Add(receiver);
+                continue;
             }
-        }
 
-        return applicable;
-    }
-
-    private async Task<ItemWriteResult?> RunBeforeAsync(ItemChangingContext context, CancellationToken ct)
-    {
-        foreach (var receiver in await ReceiversForAsync(context.Scope, ct))
-        {
             await (context.Kind switch
             {
-                ItemEventKind.Adding => receiver.ItemAddingAsync(context, ct),
-                ItemEventKind.Updating => receiver.ItemUpdatingAsync(context, ct),
-                _ => receiver.ItemDeletingAsync(context, ct),
+                ItemEventKind.Adding => mutator.ItemAddingAsync(context, ct),
+                ItemEventKind.Updating => mutator.ItemUpdatingAsync(context, ct),
+                _ => mutator.ItemDeletingAsync(context, ct),
             });
             if (context.IsCancelled)
             {
@@ -332,36 +318,14 @@ internal sealed partial class ItemWriter(
         return null;
     }
 
-    private async Task RunAfterAsync(ItemChangedContext context, CancellationToken ct)
-    {
-        foreach (var receiver in await ReceiversForAsync(context.Scope, ct))
-        {
-            try
-            {
-                await (context.Kind switch
-                {
-                    ItemEventKind.Adding => receiver.ItemAddedAsync(context, ct),
-                    ItemEventKind.Updating => receiver.ItemUpdatedAsync(context, ct),
-                    _ => receiver.ItemDeletedAsync(context, ct),
-                });
-            }
-#pragma warning disable CA1031 // After receivers must never undo or fail a committed change.
-            catch (Exception ex)
-#pragma warning restore CA1031
-            {
-                LogAfterReceiverFailed(ex, receiver.GetType().Name, context.ItemId);
-            }
-        }
-    }
-
-    /// <summary>Re-validates the values only when a before receiver changed them.</summary>
+    /// <summary>Re-validates the values only when a mutator changed them.</summary>
     private async Task<JsonObject> FinalizeAsync(
-        IReadOnlyList<FieldDefinition> definitions, string validatedSnapshot, JsonObject afterReceivers, Dictionary<string, string[]> errors, CancellationToken ct)
+        IReadOnlyList<FieldDefinition> definitions, string validatedSnapshot, JsonObject mutated, Dictionary<string, string[]> errors, CancellationToken ct)
     {
-        var json = afterReceivers.ToJsonString();
+        var json = mutated.ToJsonString();
         if (json == validatedSnapshot)
         {
-            return afterReceivers;
+            return mutated;
         }
 
         using var document = JsonDocument.Parse(json);
@@ -600,8 +564,6 @@ internal sealed partial class ItemWriter(
         return (null, parent.ScopeId);
     }
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "After-event receiver {Receiver} failed for item {ItemId}.")]
-    private partial void LogAfterReceiverFailed(Exception exception, string receiver, Guid itemId);
 }
 
 /// <summary>Distinguishes "not sent" from "sent as null" in PATCH bodies.</summary>

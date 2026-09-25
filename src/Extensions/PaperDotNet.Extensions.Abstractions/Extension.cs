@@ -53,9 +53,9 @@ public interface IExtensionBuilder
     /// <summary>A field type (name must start with <c>{extension id}.</c>).</summary>
     IExtensionBuilder AddFieldType(IFieldType fieldType);
 
-    /// <summary>A synchronous before/after item receiver, filtered by <see cref="ItemReceiverOptions"/> (EVT-03).</summary>
-    IExtensionBuilder AddItemReceiver<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TReceiver>(Action<ItemReceiverOptions>? configure = null)
-        where TReceiver : class, IItemEventReceiver;
+    /// <summary>An item mutator (runs inside item writes, before they are saved), filtered by <see cref="ItemMutatorOptions"/> (EVT-03).</summary>
+    IExtensionBuilder AddItemMutator<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TMutator>(Action<ItemMutatorOptions>? configure = null)
+        where TMutator : class, IItemMutator;
 
     /// <summary>An asynchronous subscriber to an integration event (e.g. <c>ItemAdded</c>).</summary>
     IExtensionBuilder AddEventSubscriber<TEvent, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TSubscriber>()
@@ -119,8 +119,8 @@ public interface IExtensionBuilder
     IExtensionBuilder MapEndpoints(Action<IEndpointRouteBuilder> map);
 }
 
-/// <summary>Where an item receiver runs (EVT-03). Empty lists mean "any".</summary>
-public sealed class ItemReceiverOptions
+/// <summary>Where an item mutator runs (EVT-03). Empty lists mean "any".</summary>
+public sealed class ItemMutatorOptions
 {
     /// <summary>Lower runs first (built-in default 1000).</summary>
     public int Sequence { get; set; } = 1000;

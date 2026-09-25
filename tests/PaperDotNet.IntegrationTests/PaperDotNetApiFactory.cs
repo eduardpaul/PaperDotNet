@@ -105,7 +105,7 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Documents:MaxFileSize", DocumentLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.ConfigureTestServices(services =>
         {
-            services.AddScoped<IItemEventReceiver, TestReceiver>();
+            services.AddScoped<IItemMutator, TestMutator>();
             services.AddEventSubscriber<ItemAdded, TestSubscriber>();
             services.AddEventSubscriber<ItemUpdated, TestSubscriber>();
             services.AddTenantRecurringJob<TestRecurringJob>("test.every-second", "* * * * * *");

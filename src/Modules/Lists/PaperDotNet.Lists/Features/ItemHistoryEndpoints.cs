@@ -73,7 +73,7 @@ internal static class ItemHistoryEndpoints
 
     /// <summary>
     /// Makes an old version current again by saving its values as a new change
-    /// (validated like any update, so receivers and events run). Requires <c>If-Match</c> of the item.
+    /// (validated like any update, so mutators and events run). Requires <c>If-Match</c> of the item.
     /// </summary>
     private static async Task<Results<Ok<ItemResponse>, ValidationProblem, ProblemHttpResult>> RestoreVersionAsync(
         Guid workspaceId, Guid listId, Guid itemId, int number, ListSchemaLoader loader, ListsDbContext db, ItemWriter writer,
@@ -116,7 +116,7 @@ internal static class ItemHistoryEndpoints
 
             if (result.Cancelled is not null)
             {
-                return ItemEndpoints.CancelledByReceiver(result.Cancelled);
+                return ItemEndpoints.CancelledByMutator(result.Cancelled);
             }
 
             ETags.Set(response, result.Item!.Version);
