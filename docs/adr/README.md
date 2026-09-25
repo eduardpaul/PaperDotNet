@@ -33,3 +33,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0026](0026-live-events-across-servers.md) | Live events across servers with PostgreSQL LISTEN/NOTIFY | Accepted |
 | [0027](0027-semantic-and-hybrid-search.md) | Semantic and hybrid search with page-level hits (passages, in-process vector index, reciprocal rank fusion) | Accepted |
 | [0028](0028-template-packages.md) | Template packages (zip: template, JSON content, files) for content and export/import | Accepted |
+| [0029](0029-papermerge-import.md) | Import from Papermerge through a converter that writes a PaperDotNet package; no direct export to its database | Proposed |
