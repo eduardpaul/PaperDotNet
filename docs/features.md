@@ -367,7 +367,7 @@ CardDAV moved to P7; email to inbox (DOC-13) is in the backlog.
 | 5e Channels | NTF-04 email, ntfy, Gotify; NTF-06 channels from extensions | planned |
 | 5f Smart folders & taxonomy | TAX-05, TAX-08…11 | planned |
 | 5g Documents & storage | DOC-05, DOC-06 page operations; DOC-15 S3 | skipped for now (backlog) |
-| 5h MCP & SDKs | API-08, API-09, API-03 | planned |
+| **5h MCP & SDKs** | [ADR-0021](adr/0021-mcp-and-sdks.md). API-08 MCP server at `/v1.0/mcp` (official C# SDK, stateless Streamable HTTP, scope `mcp.use`): tools `search`, `list_workspaces`, `list_lists`, `query_items`, `get_item`, `create_item`, `update_item`, run as the caller with their scopes and permissions; guide [mcp.md](mcp.md). API-09 `IMcpTool` in the SDK, `AddMcpTool` for extensions (gated per tenant; sample `samples_invoices_pending`). API-03 SDKs generated with Kiota from the committed `sdk/openapi.json` (kept current by a test): C# `PaperDotNet.Client` (tested against the API), TypeScript `@paperdotnet/client`, Python `paperdotnet-client`; see [sdk/README.md](../sdk/README.md) | ✅ |
 | 5i Identity & limits | IAM-04 external OIDC, PLT-06 quotas | planned |
 
 ## Idea → feature mapping

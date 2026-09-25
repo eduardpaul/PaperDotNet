@@ -112,6 +112,9 @@ pass a `DeduplicationKey` so a job that runs again does not notify twice.
 Add entries to an item's activity timeline (`GET …/items/{id}/activity`) with
 `IItemActivity.RecordAsync(new(workspaceId, listId, itemId, "{extension id}.signed", summary, key))`
 (Collaboration.Contracts); item changes and comments are recorded for you.
+Offer tools to AI assistants with `builder.AddMcpTool<TTool>()` (implement
+`IMcpTool` from Mcp.Contracts; names start with the extension id, `.` and `-`
+as `_`, e.g. `samples_invoices_pending`); see [mcp.md](mcp.md).
 
 **Files** — `IBlobStore` (PaperDotNet.Abstractions) stores binary content on
 the installation's storage (local disk by default). Choose keys under the

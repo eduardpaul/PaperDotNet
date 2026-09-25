@@ -397,3 +397,8 @@ dotnet_analyzer_diagnostic.severity = none
 [samples/*.Migrations.*/Generated/**.cs]
 generated_code = true
 dotnet_analyzer_diagnostic.severity = none
+
+# Kiota-generated SDK code (sdk/generate.sh): not formatted or analyzed.
+[src/Sdk/PaperDotNet.Client/Generated/**.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none

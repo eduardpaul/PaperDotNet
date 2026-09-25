@@ -53,12 +53,17 @@ public sealed class McpTests(PaperDotNetApiFactory factory)
 
         var created = await CallAsync(mcp, "create_item", new()
         {
-            ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["fields"] = new Dictionary<string, object> { ["title"] = "Call the vet", ["state"] = "open" },
+            ["workspaceId"] = ws.ToString(),
+            ["listId"] = list.ToString(),
+            ["fields"] = new Dictionary<string, object> { ["title"] = "Call the vet", ["state"] = "open" },
         });
         var id = created.GetProperty("id").GetGuid();
         await CallAsync(mcp, "update_item", new()
         {
-            ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["itemId"] = id.ToString(), ["fields"] = new Dictionary<string, object> { ["state"] = "done" },
+            ["workspaceId"] = ws.ToString(),
+            ["listId"] = list.ToString(),
+            ["itemId"] = id.ToString(),
+            ["fields"] = new Dictionary<string, object> { ["state"] = "done" },
         });
         var open = await CallAsync(mcp, "query_items", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["filter"] = "fields/state eq 'open'" });
         Assert.Equal(["Order quokkafeed"], open.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("fields").GetProperty("title").GetString()));

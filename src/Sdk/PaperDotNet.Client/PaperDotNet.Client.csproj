@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The C# SDK (API-03): a typed client generated with Kiota from sdk/openapi.json (sdk/generate.sh),
+    plus PaperDotNetClient for authentication and the tenant. Generated code is not edited by hand.
+  -->
+  <PropertyGroup>
+    <PackageId>PaperDotNet.Client</PackageId>
+    <Description>Typed .NET client for the PaperDotNet API.</Description>
+    <!-- Generated code: our style rules and analyzers do not apply to it. -->
+    <AnalysisLevel>none</AnalysisLevel>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS8618;CS8625;CS0108;CS0618</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Kiota runtime: abstractions, HttpClient adapter and serializers. -->
+    <PackageReference Include="Microsoft.Kiota.Bundle" />
+  </ItemGroup>
+</Project>

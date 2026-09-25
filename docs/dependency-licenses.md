@@ -90,6 +90,9 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `Cronos` | MIT | Cron expressions for recurring jobs (ADR-0010) |
 | `ModelContextProtocol.AspNetCore` (+ `ModelContextProtocol`, `ModelContextProtocol.Core`) | Apache-2.0 | MCP server for AI assistants (API-08/09); the official C# SDK |
 | `Microsoft.Extensions.AI.Abstractions` | MIT | Dependency of the MCP SDK |
+| `Microsoft.Kiota.Bundle` (+ `.Abstractions`, `.Http.HttpClientLibrary`, `.Serialization.*`) | MIT | Runtime of the generated C# SDK (API-03) |
+| `Microsoft.OpenApi.Kiota` (.NET tool) | MIT | Generates the SDKs; build time only |
+| `@microsoft/kiota-bundle` (npm), `microsoft-kiota-bundle` (PyPI, with `httpx`: BSD-3-Clause) | MIT | Runtime of the TypeScript and Python SDKs (separate packages, not in the server) |
 | `CliWrap` | MIT | Running the Tesseract CLI |
 | `TngTech.ArchUnitNET` (+ `.xUnitV3`) | Apache-2.0 | Architecture tests |
 | `OpenIddict.EntityFrameworkCore` | Apache-2.0 | OpenIddict stores |

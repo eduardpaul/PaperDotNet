@@ -63,6 +63,9 @@
     <Project Path="src/Modules/Mcp/PaperDotNet.Mcp.Contracts/PaperDotNet.Mcp.Contracts.csproj" />
     <Project Path="src/Modules/Mcp/PaperDotNet.Mcp/PaperDotNet.Mcp.csproj" />
   </Folder>
+  <Folder Name="/src/Sdk/">
+    <Project Path="src/Sdk/PaperDotNet.Client/PaperDotNet.Client.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Notifications/">
     <Project Path="src/Modules/Notifications/PaperDotNet.Notifications.Contracts/PaperDotNet.Notifications.Contracts.csproj" />
     <Project Path="src/Modules/Notifications/PaperDotNet.Notifications/PaperDotNet.Notifications.csproj" />

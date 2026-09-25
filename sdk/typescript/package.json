@@ -1,0 +1,19 @@
+{
+  "name": "@paperdotnet/client",
+  "version": "0.1.0",
+  "description": "Typed TypeScript client for the PaperDotNet API (generated with Kiota from sdk/openapi.json).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@microsoft/kiota-bundle": "1.0.0-preview.108"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
+  }
+}
