@@ -40,6 +40,49 @@ internal sealed class ItemQueryTranslator(
     public Expression<Func<ListItem, bool>> Filter(FilterClause filter) =>
         Expression.Lambda<Func<ListItem, bool>>(Predicate(filter.Expression), Item);
 
+    /// <summary>
+    /// The settable part of a filter (TAX-09): <c>fields/x eq value</c> comparisons joined with <c>and</c>, as field
+    /// values in storage form (<c>title</c> included). Other conditions (ranges, <c>or</c>, relative dates) are ignored.
+    /// </summary>
+    public JsonObject Equalities(FilterClause filter)
+    {
+        var values = new JsonObject();
+        void Walk(QueryNode node)
+        {
+            node = Unwrap(node);
+            if (node is BinaryOperatorNode { OperatorKind: BinaryOperatorKind.And } and)
+            {
+                Walk(and.Left);
+                Walk(and.Right);
+                return;
+            }
+
+            if (node is not BinaryOperatorNode { OperatorKind: BinaryOperatorKind.Equal } eq)
+            {
+                return;
+            }
+
+            var (property, constant) = Unwrap(eq.Left) is ConstantNode left ? (Unwrap(eq.Right), left) : (Unwrap(eq.Left), Unwrap(eq.Right) as ConstantNode);
+            if (constant is null || property is not SingleValuePropertyAccessNode { Source: SingleComplexNode } access)
+            {
+                return;
+            }
+
+            var name = access.Property.Name;
+            if (name == "title")
+            {
+                values[name] = constant.Value as string;
+            }
+            else if (model.Fields.TryGetValue(name, out var field) && !field.Field.AllowMultiple)
+            {
+                values[name] = constant.Value is null ? null : JsonLiteral(field.Type.ValueKind, constant.Value);
+            }
+        }
+
+        Walk(filter.Expression);
+        return values;
+    }
+
     public IOrderedQueryable<ListItem> OrderBy(IQueryable<ListItem> query, OrderByClause? clause)
     {
         IOrderedQueryable<ListItem>? ordered = null;
@@ -278,6 +321,11 @@ internal sealed class ItemQueryTranslator(
         if (operand.Expression.Type == typeof(DateTimeOffset))
         {
             return Expression.Constant(ToDateTimeOffset(value));
+        }
+
+        if (operand.Expression.Type == typeof(bool))
+        {
+            return Expression.Constant(value is bool flag ? flag : throw Unsupported("true or false is expected."));
         }
 
         if (operand.Expression.Type == typeof(Guid) || operand.Expression.Type == typeof(Guid?))

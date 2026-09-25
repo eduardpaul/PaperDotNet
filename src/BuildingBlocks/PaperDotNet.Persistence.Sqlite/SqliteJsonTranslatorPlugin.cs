@@ -13,8 +13,10 @@ internal sealed class SqliteJsonTranslatorPlugin(ISqlExpressionFactory factory) 
 
     private sealed class Translator(ISqlExpressionFactory sql) : IMethodCallTranslator
     {
-        private static readonly bool[] PropagateFirst = [true, false];
         private static readonly bool[] PropagateBoth = [true, true];
+
+        // json_extract and json_type return NULL for missing properties even when the document is not null.
+        private static readonly bool[] PropagateNone = [false, false];
 
         public SqlExpression? Translate(
             SqlExpression? instance, MethodInfo method, IReadOnlyList<SqlExpression> arguments, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
@@ -30,7 +32,7 @@ internal sealed class SqliteJsonTranslatorPlugin(ISqlExpressionFactory factory) 
                 nameof(JsonFunctions.Text) => Extract(document, arguments[1], typeof(string)),
                 nameof(JsonFunctions.Number) => Extract(document, arguments[1], typeof(double)),
                 nameof(JsonFunctions.Boolean) => Extract(document, arguments[1], typeof(bool)),
-                nameof(JsonFunctions.HasProperty) => sql.IsNotNull(sql.Function("json_type", [document, Path(arguments[1])], nullable: true, PropagateFirst, typeof(string))),
+                nameof(JsonFunctions.HasProperty) => sql.IsNotNull(sql.Function("json_type", [document, Path(arguments[1])], nullable: true, PropagateNone, typeof(string))),
                 nameof(JsonFunctions.Contains) => sql.Equal(
                     sql.Function(SqliteConnectionSetup.ContainsFunction, [document, arguments[1]], nullable: true, PropagateBoth, typeof(bool)),
                     sql.Constant(true)),
@@ -39,7 +41,7 @@ internal sealed class SqliteJsonTranslatorPlugin(ISqlExpressionFactory factory) 
         }
 
         private SqlExpression Extract(SqlExpression document, SqlExpression property, Type type) =>
-            sql.Function("json_extract", [document, Path(property)], nullable: true, PropagateFirst, type);
+            sql.Function("json_extract", [document, Path(property)], nullable: true, PropagateNone, type);
 
         /// <summary>JSON path <c>$."name"</c>; property names are validated identifiers passed as constants.</summary>
         private SqlExpression Path(SqlExpression property) => property is SqlConstantExpression { Value: string name }

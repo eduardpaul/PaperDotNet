@@ -42,6 +42,7 @@ internal sealed class PostgreSqlJsonTranslatorPlugin(ISqlExpressionFactory facto
         }
 
         private SqlExpression ExtractText(SqlExpression document, SqlExpression property) =>
-            sql.Function("jsonb_extract_path_text", [document, property], nullable: true, PropagateFirst, typeof(string));
+            // NULL for missing properties even when the document is not null: nullability must not follow the arguments.
+            sql.Function("jsonb_extract_path_text", [document, property], nullable: true, [false, false], typeof(string));
     }
 }

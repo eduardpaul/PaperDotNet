@@ -39,6 +39,12 @@ public interface ITermStore
     /// <summary>The terms with these ids (unknown ids are omitted).</summary>
     Task<IReadOnlyList<TermInfo>> GetTermsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
 
+    /// <summary>Portable references of terms: <c>Group/Set/Term/Child</c> (names; how templates refer to terms).</summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetTermPathsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
+
+    /// <summary>The active term at a path from <see cref="GetTermPathsAsync"/>, or null.</summary>
+    Task<Guid?> FindTermByPathAsync(string path, CancellationToken cancellationToken);
+
     /// <summary>Each term with its descendants (including itself); ids that are not terms are omitted.</summary>
     Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> GetDescendantsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
 }

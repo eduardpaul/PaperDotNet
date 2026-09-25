@@ -587,6 +587,77 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                     b.ToTable("permission_grants", "lists");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Lists.Data.SmartFolder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Definition")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("definition");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid?>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.Property<Guid?>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_smart_folders");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_smart_folders_tenant_id");
+
+                    b.HasIndex("TenantId", "OwnerId")
+                        .HasDatabaseName("ix_smart_folders_tenant_id_owner_id");
+
+                    b.HasIndex("TenantId", "WorkspaceId")
+                        .HasDatabaseName("ix_smart_folders_tenant_id_workspace_id");
+
+                    b.ToTable("smart_folders", "lists");
+                });
+
             modelBuilder.Entity("PaperDotNet.Persistence.AuditEntry", b =>
                 {
                     b.Property<Guid>("Id")

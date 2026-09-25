@@ -102,6 +102,50 @@ internal sealed class TermStore(TaxonomyDbContext db) : ITermStore
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetTermPathsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<Guid, string>();
+        var terms = await db.Terms.AsNoTracking().Where(t => termIds.Contains(t.Id)).ToListAsync(cancellationToken);
+        foreach (var term in terms)
+        {
+            var ancestorIds = term.Path.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Guid.Parse).ToList();
+            var names = await db.Terms.AsNoTracking().Where(t => ancestorIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id, t => t.Name, cancellationToken);
+            if (await GetTermSetPathAsync(term.TermSetId, cancellationToken) is { } setPath)
+            {
+                result[term.Id] = setPath + "/" + string.Join('/', ancestorIds.Select(id => names.GetValueOrDefault(id, "?")));
+            }
+        }
+
+        return result;
+    }
+
+    public async Task<Guid?> FindTermByPathAsync(string path, CancellationToken cancellationToken)
+    {
+        var parts = path.Split('/', StringSplitOptions.TrimEntries);
+        if (parts.Length < 3 || await FindTermSetAsync(parts[0], parts[1], cancellationToken) is not { } setId)
+        {
+            return null;
+        }
+
+        Guid? parent = null;
+        foreach (var name in parts.Skip(2))
+        {
+            var normalized = TermRules.Normalize(name);
+            var id = await db.Terms.AsNoTracking()
+                .Where(t => t.TermSetId == setId && t.ParentId == parent && t.NormalizedName == normalized && t.MergedIntoId == null)
+                .Select(t => (Guid?)t.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (id is null)
+            {
+                return null;
+            }
+
+            parent = id;
+        }
+
+        return parent;
+    }
+
     public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> GetDescendantsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken)
     {
         var result = new Dictionary<Guid, IReadOnlyList<Guid>>();

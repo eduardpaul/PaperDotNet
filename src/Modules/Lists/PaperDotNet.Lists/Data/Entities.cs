@@ -299,3 +299,36 @@ public sealed class ItemChange : ITenantOwned
 
     public DateTimeOffset At { get; set; }
 }
+
+/// <summary>
+/// A smart folder (TAX-08…10): a saved, rule-based view over items of many lists. Personal (<see cref="OwnerId"/>)
+/// or shared in a workspace; the definition is JSON (<c>SmartFolderDefinition</c>).
+/// </summary>
+public sealed class SmartFolder : ITenantOwned, IAuditable, IVersioned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    /// <summary>The workspace of a shared folder, or the scope of a personal one (null = all of the owner's workspaces).</summary>
+    public Guid? WorkspaceId { get; set; }
+
+    /// <summary>Set for personal folders.</summary>
+    public Guid? OwnerId { get; set; }
+
+    public required string Name { get; set; }
+
+    public string? Description { get; set; }
+
+    public string Definition { get; set; } = "{}";
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Guid? CreatedBy { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public Guid? UpdatedBy { get; set; }
+
+    public uint Version { get; set; }
+}

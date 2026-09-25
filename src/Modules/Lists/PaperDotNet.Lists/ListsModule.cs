@@ -59,6 +59,7 @@ public sealed class ListsModule : IModule
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
         services.AddScoped<ItemQueryRunner>();
+        services.AddScoped<SmartFolderQuery>();
         services.AddScoped<IListItemStore>(sp => new ListItemStore(
             sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ListSchemaLoader>(), sp.GetRequiredService<ItemQueryRunner>(),
             sp.GetRequiredService<ItemWriter>(), sp.GetRequiredService<IWorkspaceAccess>(), sp.GetRequiredService<ListItemSearchDocuments>()));
@@ -92,6 +93,7 @@ public sealed class ListsModule : IModule
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
         DeltaEndpoints.Map(endpoints);
+        SmartFolders.Map(endpoints);
         BulkUpdateEndpoints.Map(endpoints);
         ViewEndpoints.Map(endpoints);
         ItemHistoryEndpoints.Map(endpoints);

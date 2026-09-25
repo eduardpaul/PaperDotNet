@@ -27,6 +27,8 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
 
     public DbSet<ItemChange> ItemChanges => Set<ItemChange>();
 
+    public DbSet<SmartFolder> SmartFolders => Set<SmartFolder>();
+
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         RecordChanges();
@@ -140,6 +142,15 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
             b.Property(c => c.Sequence).ValueGeneratedOnAdd();
             b.HasIndex(c => new { c.ListId, c.Sequence });
             b.HasIndex(c => new { c.TenantId, c.At });
+        });
+
+        modelBuilder.Entity<SmartFolder>(b =>
+        {
+            b.ToTable("smart_folders");
+            b.Property(f => f.Name).HasMaxLength(200);
+            b.Property(f => f.Description).HasMaxLength(2000);
+            b.HasIndex(f => new { f.TenantId, f.OwnerId });
+            b.HasIndex(f => new { f.TenantId, f.WorkspaceId });
         });
 
         modelBuilder.Entity<ListView>(b =>
