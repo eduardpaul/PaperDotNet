@@ -4,7 +4,7 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createGroupResponseFromDiscriminatorValue, createPageOfGroupResponseFromDiscriminatorValue, serializeCreateGroupRequest, serializeGroupResponse, type ApiProblem, type CreateGroupRequest, type GroupResponse, type PageOfGroupResponse } from '../../models/index.js';
 // @ts-ignore
-import { GroupItemRequestBuilderNavigationMetadata, GroupItemRequestBuilderRequestsMetadata, type GroupItemRequestBuilder } from './item/index.js';
+import { GroupsItemRequestBuilderNavigationMetadata, GroupsItemRequestBuilderRequestsMetadata, type GroupsItemRequestBuilder } from './item/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -14,10 +14,10 @@ import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMeta
 export interface GroupsRequestBuilder extends BaseRequestBuilder<GroupsRequestBuilder> {
     /**
      * Gets an item from the paperdotnet.v10.groups.item collection
-     * @param groupId Unique identifier of the item
-     * @returns {GroupItemRequestBuilder}
+     * @param id Unique identifier of the item
+     * @returns {GroupsItemRequestBuilder}
      */
-     byGroupId(groupId: Guid) : GroupItemRequestBuilder;
+     byId(id: Guid) : GroupsItemRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PageOfGroupResponse>}
@@ -69,10 +69,10 @@ const GroupsRequestBuilderGetQueryParametersMapper: Record<string, string> = {
  * Metadata for all the navigation properties in the request builder.
  */
 export const GroupsRequestBuilderNavigationMetadata: Record<Exclude<keyof GroupsRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
-    byGroupId: {
-        requestsMetadata: GroupItemRequestBuilderRequestsMetadata,
-        navigationMetadata: GroupItemRequestBuilderNavigationMetadata,
-        pathParametersMappings: ["group%2Did"],
+    byId: {
+        requestsMetadata: GroupsItemRequestBuilderRequestsMetadata,
+        navigationMetadata: GroupsItemRequestBuilderNavigationMetadata,
+        pathParametersMappings: ["id"],
     },
 };
 /**

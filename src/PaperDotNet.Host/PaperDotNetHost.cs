@@ -136,7 +136,8 @@ public static class PaperDotNetHost
                 .WithOrigins(corsOrigins)
                 .AllowAnyMethod()
                 .WithHeaders("Authorization", "Content-Type", "If-Match", "X-Tenant", "Last-Event-ID", "Accept")
-                .WithExposedHeaders("ETag", "Location", "Content-Disposition", "Retry-After")));
+                .WithExposedHeaders("ETag", "Location", "Content-Disposition", "Retry-After")
+                .AllowCredentials()));
         }
 
         services.AddOpenApi("v1", o =>
@@ -144,6 +145,7 @@ public static class PaperDotNetHost
             o.AddDocumentTransformer<BearerSecurityTransformer>();
             o.AddOperationTransformer<SdkOperationTransformer>();
             o.AddSchemaTransformer<SdkSchemaTransformer>();
+            o.AddDocumentTransformer<SdkDocumentTransformer>();
         });
         services.AddRateLimiter(o =>
         {

@@ -12,7 +12,7 @@ using System;
 namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Documents
 {
     /// <summary>
-    /// Builds and executes requests for operations under \v1.0\workspaces\{-id}\lists\{listId}\documents
+    /// Builds and executes requests for operations under \v1.0\workspaces\{workspaceId}\lists\{listId}\documents
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class DocumentsRequestBuilder : BaseRequestBuilder
@@ -22,7 +22,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Documents
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public DocumentsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/documents", pathParameters)
+        public DocumentsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/documents", pathParameters)
         {
         }
         /// <summary>
@@ -30,7 +30,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Documents
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public DocumentsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/documents", rawUrl)
+        public DocumentsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/documents", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.DocumentResponse"/></returns>

@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createJsonObjectFromDiscriminat
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/series/occurrences/{occurrenceStart}
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/series/occurrences/{occurrenceStart}
  */
 export interface WithOccurrenceStartItemRequestBuilder extends BaseRequestBuilder<WithOccurrenceStartItemRequestBuilder> {
     /**
@@ -38,7 +38,7 @@ export interface WithOccurrenceStartItemRequestBuilder extends BaseRequestBuilde
 /**
  * Uri template for the request builder.
  */
-export const WithOccurrenceStartItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/series/occurrences/{occurrenceStart}";
+export const WithOccurrenceStartItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/series/occurrences/{occurrenceStart}";
 /**
  * Metadata for all the requests in the request builder.
  */

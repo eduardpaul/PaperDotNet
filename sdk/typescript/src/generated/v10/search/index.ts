@@ -35,7 +35,15 @@ export interface SearchRequestBuilderGetQueryParameters {
     createdBy?: Guid;
     mode?: string;
     q?: string;
+    /**
+     * Results to skip (use @odata.nextLink to page).
+     */
+    skip?: number;
     termId?: Guid;
+    /**
+     * Page size.
+     */
+    top?: number;
     updatedFrom?: Date;
     updatedTo?: Date;
     workspaceId?: Guid;
@@ -43,7 +51,14 @@ export interface SearchRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const SearchRequestBuilderUriTemplate = "{+baseurl}/v1.0/search{?containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}";
+export const SearchRequestBuilderUriTemplate = "{+baseurl}/v1.0/search{?%24skip*,%24top*,containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}";
+/**
+ * Mapper for query parameters from symbol name to serialization name represented as a constant.
+ */
+const SearchRequestBuilderGetQueryParametersMapper: Record<string, string> = {
+    "skip": "%24skip",
+    "top": "%24top",
+};
 /**
  * Metadata for all the navigation properties in the request builder.
  */
@@ -65,6 +80,7 @@ export const SearchRequestBuilderRequestsMetadata: RequestsMetadata = {
         },
         adapterMethodName: "send",
         responseBodyFactory:  createSearchResponseFromDiscriminatorValue,
+        queryParametersMapper: SearchRequestBuilderGetQueryParametersMapper,
     },
 };
 /* tslint:enable */

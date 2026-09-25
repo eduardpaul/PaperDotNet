@@ -28,7 +28,8 @@ public sealed class AuditModule : IModule
         endpoints.MapV1Group("auditLog", "Audit log")
             .MapGet("", AuditLogEndpoint.ListAsync)
             .RequireScope(ReadScope)
-            .WithName("ListAuditLog");
+            .WithName("ListAuditLog")
+            .WithQueryOptions(QueryOptions.Paging);
 }
 
 public sealed record AuditEntryResponse(

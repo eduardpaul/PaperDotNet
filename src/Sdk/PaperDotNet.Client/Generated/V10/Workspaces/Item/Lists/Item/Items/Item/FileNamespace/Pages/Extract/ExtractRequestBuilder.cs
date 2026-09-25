@@ -12,7 +12,7 @@ using System;
 namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Pages.Extract
 {
     /// <summary>
-    /// Builds and executes requests for operations under \v1.0\workspaces\{-id}\lists\{listId}\items\{itemId}\file\pages\extract
+    /// Builds and executes requests for operations under \v1.0\workspaces\{workspaceId}\lists\{listId}\items\{itemId}\file\pages\extract
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class ExtractRequestBuilder : BaseRequestBuilder
@@ -22,7 +22,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNames
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ExtractRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/pages/extract", pathParameters)
+        public ExtractRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/extract", pathParameters)
         {
         }
         /// <summary>
@@ -30,7 +30,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNames
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ExtractRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/pages/extract", rawUrl)
+        public ExtractRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/extract", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.PageOperationResponse"/></returns>

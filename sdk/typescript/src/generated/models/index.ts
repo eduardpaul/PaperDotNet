@@ -485,7 +485,7 @@ export interface BatchRequestItem extends AdditionalDataHolder, Parsable {
     /**
      * The body property
      */
-    body?: JsonElement | null;
+    body?: UntypedNode | null;
     /**
      * The dependsOn property
      */
@@ -1731,15 +1731,6 @@ export function createItemVersionResponseFromDiscriminatorValue(parseNode: Parse
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {JsonElement}
- */
-// @ts-ignore
-export function createJsonElementFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoJsonElement;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {JsonObject}
  */
 // @ts-ignore
@@ -2718,15 +2709,6 @@ export function createUpdateGroupRequestFromDiscriminatorValue(parseNode: ParseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {UpdateItemRequest_fields}
- */
-// @ts-ignore
-export function createUpdateItemRequest_fieldsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoUpdateItemRequest_fields;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {UpdateItemRequest}
  */
 // @ts-ignore
@@ -3254,7 +3236,7 @@ export function deserializeIntoBatchRequest(batchRequest: Partial<BatchRequest> 
 // @ts-ignore
 export function deserializeIntoBatchRequestItem(batchRequestItem: Partial<BatchRequestItem> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "body": n => { batchRequestItem.body = n.getObjectValue<JsonElement>(createJsonElementFromDiscriminatorValue); },
+        "body": n => { batchRequestItem.body = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
         "dependsOn": n => { batchRequestItem.dependsOn = n.getCollectionOfPrimitiveValues<string>("string"); },
         "headers": n => { batchRequestItem.headers = n.getObjectValue<BatchRequestItem_headers>(createBatchRequestItem_headersFromDiscriminatorValue); },
         "id": n => { batchRequestItem.id = n.getStringValue(); },
@@ -3775,7 +3757,7 @@ export function deserializeIntoDocumentResponse(documentResponse: Partial<Docume
         "file": n => { documentResponse.file = n.getObjectValue<FileVersionResponse>(createFileVersionResponseFromDiscriminatorValue); },
         "itemId": n => { documentResponse.itemId = n.getGuidValue(); },
         "listId": n => { documentResponse.listId = n.getGuidValue(); },
-        "version": n => { documentResponse.version = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+        "version": n => { documentResponse.version = n.getNumberValue(); },
         "workspaceId": n => { documentResponse.workspaceId = n.getGuidValue(); },
     }
 }
@@ -3897,7 +3879,7 @@ export function deserializeIntoExtensionScope(extensionScope: Partial<ExtensionS
 export function deserializeIntoExtensionSetting(extensionSetting: Partial<ExtensionSetting> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "choices": n => { extensionSetting.choices = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "default": n => { extensionSetting.defaultEscaped = n.getObjectValue<JsonElement>(createJsonElementFromDiscriminatorValue); },
+        "default": n => { extensionSetting.defaultEscaped = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
         "description": n => { extensionSetting.description = n.getStringValue(); },
         "name": n => { extensionSetting.name = n.getStringValue(); },
         "required": n => { extensionSetting.required = n.getBooleanValue(); },
@@ -4182,16 +4164,6 @@ export function deserializeIntoItemVersionResponse(itemVersionResponse: Partial<
         "id": n => { itemVersionResponse.id = n.getGuidValue(); },
         "isCurrent": n => { itemVersionResponse.isCurrent = n.getBooleanValue(); },
         "number": n => { itemVersionResponse.number = n.getNumberValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param JsonElement The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoJsonElement(jsonElement: Partial<JsonElement> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
     }
 }
 /**
@@ -4514,7 +4486,7 @@ export function deserializeIntoOperationResponse(operationResponse: Partial<Oper
         "error": n => { operationResponse.errorEscaped = n.getStringValue(); },
         "id": n => { operationResponse.id = n.getGuidValue(); },
         "percentComplete": n => { operationResponse.percentComplete = n.getNumberValue(); },
-        "result": n => { operationResponse.result = n.getObjectValue<JsonElement>(createJsonElementFromDiscriminatorValue); },
+        "result": n => { operationResponse.result = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
         "startedAt": n => { operationResponse.startedAt = n.getDateValue(); },
         "status": n => { operationResponse.status = n.getEnumValue<OperationStatus>(OperationStatusObject); },
         "type": n => { operationResponse.type = n.getStringValue(); },
@@ -5560,18 +5532,8 @@ export function deserializeIntoUpdateGroupRequest(updateGroupRequest: Partial<Up
 export function deserializeIntoUpdateItemRequest(updateItemRequest: Partial<UpdateItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "contentTypeId": n => { updateItemRequest.contentTypeId = n.getGuidValue(); },
-        "fields": n => { updateItemRequest.fields = n.getObjectValue<UpdateItemRequest_fields>(createUpdateItemRequest_fieldsFromDiscriminatorValue); },
+        "fields": n => { updateItemRequest.fields = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "parentId": n => { updateItemRequest.parentId = n.getGuidValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param UpdateItemRequest_fields The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoUpdateItemRequest_fields(updateItemRequest_fields: Partial<UpdateItemRequest_fields> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
     }
 }
 /**
@@ -5767,7 +5729,7 @@ export interface DocumentResponse extends AdditionalDataHolder, Parsable {
     /**
      * The version property
      */
-    version?: UntypedNode | null;
+    version?: number | null;
     /**
      * The workspaceId property
      */
@@ -5964,7 +5926,7 @@ export interface ExtensionSetting extends AdditionalDataHolder, Parsable {
     /**
      * The default property
      */
-    defaultEscaped?: JsonElement | null;
+    defaultEscaped?: UntypedNode | null;
     /**
      * The description property
      */
@@ -6440,8 +6402,6 @@ export interface ItemVersionResponse extends AdditionalDataHolder, Parsable {
      * The number property
      */
     number?: number | null;
-}
-export interface JsonElement extends AdditionalDataHolder, Parsable {
 }
 export interface JsonObject extends AdditionalDataHolder, Parsable {
 }
@@ -6927,7 +6887,7 @@ export interface OperationResponse extends AdditionalDataHolder, Parsable {
     /**
      * The result property
      */
-    result?: JsonElement | null;
+    result?: UntypedNode | null;
     /**
      * The startedAt property
      */
@@ -8056,7 +8016,7 @@ export function serializeBatchRequest(writer: SerializationWriter, batchRequest:
 // @ts-ignore
 export function serializeBatchRequestItem(writer: SerializationWriter, batchRequestItem: Partial<BatchRequestItem> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!batchRequestItem || isSerializingDerivedType) { return; }
-    writer.writeObjectValue<JsonElement>("body", batchRequestItem.body, serializeJsonElement);
+    writer.writeObjectValue("body", batchRequestItem.body);
     writer.writeCollectionOfPrimitiveValues<string>("dependsOn", batchRequestItem.dependsOn);
     writer.writeObjectValue<BatchRequestItem_headers>("headers", batchRequestItem.headers, serializeBatchRequestItem_headers);
     writer.writeStringValue("id", batchRequestItem.id);
@@ -8614,7 +8574,7 @@ export function serializeDocumentResponse(writer: SerializationWriter, documentR
     writer.writeObjectValue<FileVersionResponse>("file", documentResponse.file, serializeFileVersionResponse);
     writer.writeGuidValue("itemId", documentResponse.itemId);
     writer.writeGuidValue("listId", documentResponse.listId);
-    writer.writeObjectValue("version", documentResponse.version);
+    writer.writeNumberValue("version", documentResponse.version);
     writer.writeGuidValue("workspaceId", documentResponse.workspaceId);
     writer.writeAdditionalData(documentResponse.additionalData);
 }
@@ -8744,7 +8704,7 @@ export function serializeExtensionScope(writer: SerializationWriter, extensionSc
 export function serializeExtensionSetting(writer: SerializationWriter, extensionSetting: Partial<ExtensionSetting> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!extensionSetting || isSerializingDerivedType) { return; }
     writer.writeCollectionOfPrimitiveValues<string>("choices", extensionSetting.choices);
-    writer.writeObjectValue<JsonElement>("default", extensionSetting.defaultEscaped, serializeJsonElement);
+    writer.writeObjectValue("default", extensionSetting.defaultEscaped);
     writer.writeStringValue("description", extensionSetting.description);
     writer.writeStringValue("name", extensionSetting.name);
     writer.writeBooleanValue("required", extensionSetting.required);
@@ -9048,17 +9008,6 @@ export function serializeItemVersionResponse(writer: SerializationWriter, itemVe
     writer.writeBooleanValue("isCurrent", itemVersionResponse.isCurrent);
     writer.writeNumberValue("number", itemVersionResponse.number);
     writer.writeAdditionalData(itemVersionResponse.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param JsonElement The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeJsonElement(writer: SerializationWriter, jsonElement: Partial<JsonElement> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!jsonElement || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(jsonElement.additionalData);
 }
 /**
  * Serializes information the current object
@@ -9402,7 +9351,7 @@ export function serializeOperationResponse(writer: SerializationWriter, operatio
     writer.writeStringValue("error", operationResponse.errorEscaped);
     writer.writeGuidValue("id", operationResponse.id);
     writer.writeNumberValue("percentComplete", operationResponse.percentComplete);
-    writer.writeObjectValue<JsonElement>("result", operationResponse.result, serializeJsonElement);
+    writer.writeObjectValue("result", operationResponse.result);
     writer.writeDateValue("startedAt", operationResponse.startedAt);
     writer.writeEnumValue<OperationStatus>("status", operationResponse.status);
     writer.writeStringValue("type", operationResponse.type);
@@ -10525,20 +10474,9 @@ export function serializeUpdateGroupRequest(writer: SerializationWriter, updateG
 export function serializeUpdateItemRequest(writer: SerializationWriter, updateItemRequest: Partial<UpdateItemRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!updateItemRequest || isSerializingDerivedType) { return; }
     writer.writeGuidValue("contentTypeId", updateItemRequest.contentTypeId);
-    writer.writeObjectValue<UpdateItemRequest_fields>("fields", updateItemRequest.fields, serializeUpdateItemRequest_fields);
+    writer.writeObjectValue<JsonObject>("fields", updateItemRequest.fields, serializeJsonObject);
     writer.writeGuidValue("parentId", updateItemRequest.parentId);
     writer.writeAdditionalData(updateItemRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param UpdateItemRequest_fields The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeUpdateItemRequest_fields(writer: SerializationWriter, updateItemRequest_fields: Partial<UpdateItemRequest_fields> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!updateItemRequest_fields || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(updateItemRequest_fields.additionalData);
 }
 /**
  * Serializes information the current object
@@ -11300,13 +11238,11 @@ export interface UpdateItemRequest extends AdditionalDataHolder, Parsable {
     /**
      * The fields property
      */
-    fields?: UpdateItemRequest_fields | null;
+    fields?: JsonObject | null;
     /**
      * The parentId property
      */
     parentId?: Guid | null;
-}
-export interface UpdateItemRequest_fields extends AdditionalDataHolder, Parsable {
 }
 export interface UpdateListRequest extends AdditionalDataHolder, Parsable {
     /**

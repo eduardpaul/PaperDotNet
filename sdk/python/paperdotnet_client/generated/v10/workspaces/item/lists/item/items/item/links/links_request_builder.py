@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 class LinksRequestBuilder(BaseRequestBuilder):
     """
-    Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/links
+    Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/links
     """
     def __init__(self,request_adapter: RequestAdapter, path_parameters: Union[str, dict[str, Any]]) -> None:
         """
@@ -32,7 +32,7 @@ class LinksRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/links", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/links", path_parameters)
     
     def by_link_id(self,link_id: UUID) -> WithLinkItemRequestBuilder:
         """

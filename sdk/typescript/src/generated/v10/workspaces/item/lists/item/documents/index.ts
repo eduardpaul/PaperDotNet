@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createDocumentResponseFromDiscr
 import { MultipartBody, serializeMultipartBody, type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/documents
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/documents
  */
 export interface DocumentsRequestBuilder extends BaseRequestBuilder<DocumentsRequestBuilder> {
     /**
@@ -28,7 +28,7 @@ export interface DocumentsRequestBuilder extends BaseRequestBuilder<DocumentsReq
 /**
  * Uri template for the request builder.
  */
-export const DocumentsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/documents";
+export const DocumentsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/documents";
 /**
  * Metadata for all the requests in the request builder.
  */

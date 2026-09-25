@@ -2443,7 +2443,7 @@
         }
       }
     },
-    "/v1.0/workspaces/{id}": {
+    "/v1.0/workspaces/{workspaceId}": {
       "get": {
         "tags": [
           "Workspaces"
@@ -2451,7 +2451,7 @@
         "operationId": "GetWorkspace",
         "parameters": [
           {
-            "name": "id",
+            "name": "workspaceId",
             "in": "path",
             "required": true,
             "schema": {
@@ -2500,7 +2500,7 @@
         "operationId": "UpdateWorkspace",
         "parameters": [
           {
-            "name": "id",
+            "name": "workspaceId",
             "in": "path",
             "required": true,
             "schema": {
@@ -2569,7 +2569,7 @@
         "operationId": "DeleteWorkspace",
         "parameters": [
           {
-            "name": "id",
+            "name": "workspaceId",
             "in": "path",
             "required": true,
             "schema": {
@@ -2605,7 +2605,7 @@
         }
       }
     },
-    "/v1.0/workspaces/{id}/members": {
+    "/v1.0/workspaces/{workspaceId}/members": {
       "get": {
         "tags": [
           "Workspaces"
@@ -2613,7 +2613,7 @@
         "operationId": "ListWorkspaceMembers",
         "parameters": [
           {
-            "name": "id",
+            "name": "workspaceId",
             "in": "path",
             "required": true,
             "schema": {
@@ -2665,7 +2665,7 @@
         "operationId": "AddWorkspaceMember",
         "parameters": [
           {
-            "name": "id",
+            "name": "workspaceId",
             "in": "path",
             "required": true,
             "schema": {
@@ -3792,11 +3792,7 @@
             "name": "top",
             "in": "query",
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           }
@@ -7591,6 +7587,22 @@
               "type": "string",
               "format": "date-time"
             }
+          },
+          {
+            "name": "$top",
+            "in": "query",
+            "description": "Page size.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "$skip",
+            "in": "query",
+            "description": "Results to skip (use @odata.nextLink to page).",
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -8452,11 +8464,7 @@
             "name": "width",
             "in": "query",
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           },
@@ -8464,11 +8472,7 @@
             "name": "version",
             "in": "query",
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           }
@@ -8650,7 +8654,7 @@
         }
       }
     },
-    "/v1.0/groups/{groupId}/inbox": {
+    "/v1.0/groups/{id}/inbox": {
       "get": {
         "tags": [
           "Documents"
@@ -8658,7 +8662,7 @@
         "operationId": "GetGroupInbox",
         "parameters": [
           {
-            "name": "groupId",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -8707,7 +8711,7 @@
         "operationId": "SetGroupInbox",
         "parameters": [
           {
-            "name": "groupId",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -8776,7 +8780,7 @@
         "operationId": "RemoveGroupInbox",
         "parameters": [
           {
-            "name": "groupId",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -8812,7 +8816,7 @@
         }
       }
     },
-    "/v1.0/groups/{groupId}/inbox/documents": {
+    "/v1.0/groups/{id}/inbox/documents": {
       "post": {
         "tags": [
           "Documents"
@@ -8820,7 +8824,7 @@
         "operationId": "UploadToGroupInbox",
         "parameters": [
           {
-            "name": "groupId",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -9981,11 +9985,7 @@
             "name": "top",
             "in": "query",
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           }
@@ -13784,6 +13784,22 @@
               "type": "string",
               "format": "date-time"
             }
+          },
+          {
+            "name": "$top",
+            "in": "query",
+            "description": "Page size.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "$skiptoken",
+            "in": "query",
+            "description": "Continuation token from @odata.nextLink.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -14459,11 +14475,9 @@
             ]
           },
           "status": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           },
@@ -14924,11 +14938,7 @@
             "type": "boolean"
           },
           "version": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "trigger": {
@@ -15011,11 +15021,9 @@
             ]
           },
           "dueInHours": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?(?:[eE][\u002B-]?\\d\u002B)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -15029,11 +15037,9 @@
             }
           },
           "hours": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?(?:[eE][\u002B-]?\\d\u002B)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -15178,16 +15184,7 @@
               "type": "string"
             }
           },
-          "body": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/JsonElement"
-              }
-            ]
-          },
+          "body": {},
           "dependsOn": {
             "type": [
               "null",
@@ -15227,11 +15224,7 @@
             "type": "string"
           },
           "status": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "headers": {
@@ -15240,9 +15233,7 @@
               "type": "string"
             }
           },
-          "body": {
-            "$ref": "#/components/schemas/JsonElement"
-          }
+          "body": {}
         }
       },
       "BreakInheritanceRequest": {
@@ -15364,11 +15355,9 @@
             }
           },
           "reminderMinutes": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "description": "Minutes before the start to remind attendees (CAL-01, NTF-02).",
             "format": "int32"
@@ -15824,27 +15813,15 @@
         "type": "object",
         "properties": {
           "itemsAdded": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "reminderRuns": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "pendingApprovals": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -15872,11 +15849,9 @@
           "expiresInDays": {
             "maximum": 3650,
             "minimum": 1,
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           }
@@ -16065,11 +16040,7 @@
           "maxVersions": {
             "maximum": 500,
             "minimum": 1,
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32",
             "default": 50
           },
@@ -16168,11 +16139,7 @@
             }
           },
           "sortOrder": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32",
             "default": 0
           }
@@ -16451,11 +16418,7 @@
             "format": "uuid"
           },
           "version": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "uint32"
           },
           "fields": {
@@ -16576,11 +16539,7 @@
             "type": "boolean"
           },
           "size": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int64"
           },
           "createdAt": {
@@ -16809,16 +16768,7 @@
           "required": {
             "type": "boolean"
           },
-          "default": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/JsonElement"
-              }
-            ]
-          },
+          "default": {},
           "choices": {
             "type": "array",
             "items": {
@@ -16848,11 +16798,7 @@
               "array"
             ],
             "items": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           },
@@ -16906,11 +16852,7 @@
             "format": "uuid"
           },
           "count": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -17025,29 +16967,23 @@
             "default": false
           },
           "maxLength": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           },
           "minimum": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
           "maximum": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -17151,11 +17087,7 @@
         "type": "object",
         "properties": {
           "number": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "isCurrent": {
@@ -17168,11 +17100,7 @@
             "type": "string"
           },
           "size": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int64"
           },
           "sha256": {
@@ -17209,11 +17137,9 @@
             "format": "uuid"
           },
           "pageCount": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           },
@@ -17342,57 +17268,6 @@
         },
         "description": "The user\u0027s personal workspace with its Documents and Inbox libraries."
       },
-      "HttpValidationProblemDetails": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "title": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "status": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "detail": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "instance": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "errors": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      },
-      "IFormFile": {
-        "type": "string",
-        "format": "binary"
-      },
       "ImportResponse": {
         "required": [
           "id",
@@ -17420,27 +17295,15 @@
         "type": "object",
         "properties": {
           "created": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "updated": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "skipped": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "errors": {
@@ -17507,11 +17370,9 @@
             }
           },
           "@odata.count": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int64"
           },
@@ -17614,11 +17475,7 @@
             "format": "uuid"
           },
           "number": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "isCurrent": {
@@ -17655,7 +17512,6 @@
         "type": "array",
         "items": {}
       },
-      "JsonElement": {},
       "JsonObject": {
         "type": "object",
         "additionalProperties": {}
@@ -17877,11 +17733,7 @@
             "$ref": "#/components/schemas/ListVersioning"
           },
           "maxVersions": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "templateKey": {
@@ -18148,11 +18000,7 @@
               "array"
             ],
             "items": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           },
@@ -18428,11 +18276,7 @@
             "$ref": "#/components/schemas/OperationStatus"
           },
           "percentComplete": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "createdAt": {
@@ -18453,16 +18297,7 @@
             ],
             "format": "date-time"
           },
-          "result": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/JsonElement"
-              }
-            ]
-          },
+          "result": {},
           "error": {
             "type": [
               "null",
@@ -18899,19 +18734,11 @@
         "type": "object",
         "properties": {
           "page": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "rotate": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32",
             "default": 0
           }
@@ -18939,9 +18766,7 @@
         ],
         "type": "object",
         "properties": {
-          "credential": {
-            "$ref": "#/components/schemas/JsonElement"
-          },
+          "credential": {},
           "state": {
             "type": "string"
           }
@@ -18954,9 +18779,7 @@
         ],
         "type": "object",
         "properties": {
-          "options": {
-            "$ref": "#/components/schemas/JsonElement"
-          },
+          "options": {},
           "state": {
             "type": "string"
           }
@@ -18971,9 +18794,7 @@
         ],
         "type": "object",
         "properties": {
-          "credential": {
-            "$ref": "#/components/schemas/JsonElement"
-          },
+          "credential": {},
           "state": {
             "type": "string"
           },
@@ -19091,11 +18912,7 @@
             "type": "string"
           },
           "usage": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -19521,11 +19338,7 @@
             ]
           },
           "automationVersion": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "workspaceId": {
@@ -19700,11 +19513,7 @@
             ]
           },
           "rank": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?(?:[eE][\u002B-]?\\d\u002B)?$",
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": "number",
             "format": "double"
           },
           "createdBy": {
@@ -19719,11 +19528,9 @@
             "format": "date-time"
           },
           "page": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           },
@@ -19761,11 +19568,7 @@
             }
           },
           "@odata.count": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "facets": {
@@ -19836,11 +19639,9 @@
             "format": "time"
           },
           "digestHour": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           }
@@ -19884,11 +19685,7 @@
             "format": "time"
           },
           "digestHour": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "webhookSecret": {
@@ -20061,11 +19858,7 @@
             "type": "string"
           },
           "count": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -20222,31 +20015,6 @@
               "string"
             ],
             "description": "The ETag for \u0060If-Match\u0060 on changes (the same as the \u0060ETag\u0060 header)."
-          }
-        }
-      },
-      "SseItemOfObject": {
-        "type": "object",
-        "properties": {
-          "data": {},
-          "eventType": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "eventId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "reconnectionInterval": {
-            "pattern": "^-?(\\d\u002B\\.)?\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$",
-            "type": [
-              "null",
-              "string"
-            ]
           }
         }
       },
@@ -20634,11 +20402,7 @@
             }
           },
           "sortOrder": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "isDeprecated": {
@@ -20687,11 +20451,7 @@
             "type": "boolean"
           },
           "termsCreated": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -20756,11 +20516,7 @@
         "type": "object",
         "properties": {
           "count": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -20813,8 +20569,7 @@
             "format": "uuid"
           },
           "fields": {
-            "type": "object",
-            "additionalProperties": {}
+            "$ref": "#/components/schemas/JsonObject"
           }
         },
         "description": "PATCH body (documented shape; the handler reads raw JSON to tell a missing \u0060parentId\u0060 from null): \u0060fields\u0060\nare merged (null removes a value), \u0060parentId\u0060 moves the item (null: the list root)."
@@ -20862,11 +20617,9 @@
           "maxVersions": {
             "maximum": 500,
             "minimum": 1,
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           }
@@ -20961,11 +20714,9 @@
             }
           },
           "sortOrder": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           },

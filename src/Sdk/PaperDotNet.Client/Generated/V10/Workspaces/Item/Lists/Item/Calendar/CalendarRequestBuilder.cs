@@ -13,7 +13,7 @@ using System;
 namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Calendar
 {
     /// <summary>
-    /// Builds and executes requests for operations under \v1.0\workspaces\{-id}\lists\{listId}\calendar
+    /// Builds and executes requests for operations under \v1.0\workspaces\{workspaceId}\lists\{listId}\calendar
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class CalendarRequestBuilder : BaseRequestBuilder
@@ -28,7 +28,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Calendar
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public CalendarRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/calendar{?end*,includeTasks*,start*}", pathParameters)
+        public CalendarRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/calendar{?end*,includeTasks*,start*}", pathParameters)
         {
         }
         /// <summary>
@@ -36,7 +36,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Calendar
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public CalendarRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/calendar{?end*,includeTasks*,start*}", rawUrl)
+        public CalendarRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/calendar{?end*,includeTasks*,start*}", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.CalendarResponse"/></returns>

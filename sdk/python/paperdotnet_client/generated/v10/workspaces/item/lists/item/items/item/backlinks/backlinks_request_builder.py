@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 class BacklinksRequestBuilder(BaseRequestBuilder):
     """
-    Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/backlinks
+    Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/backlinks
     """
     def __init__(self,request_adapter: RequestAdapter, path_parameters: Union[str, dict[str, Any]]) -> None:
         """
@@ -28,7 +28,7 @@ class BacklinksRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/backlinks", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/backlinks", path_parameters)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[BacklinksResponse]:
         """

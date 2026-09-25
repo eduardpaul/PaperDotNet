@@ -31,7 +31,7 @@ class SearchRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/search{?containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/search{?%24skip*,%24top*,containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}", path_parameters)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[SearchRequestBuilderGetQueryParameters]] = None) -> Optional[SearchResponse]:
         """
@@ -98,8 +98,12 @@ class SearchRequestBuilder(BaseRequestBuilder):
                 return "contentTypeId"
             if original_name == "created_by":
                 return "createdBy"
+            if original_name == "skip":
+                return "%24skip"
             if original_name == "term_id":
                 return "termId"
+            if original_name == "top":
+                return "%24top"
             if original_name == "updated_from":
                 return "updatedFrom"
             if original_name == "updated_to":
@@ -122,7 +126,13 @@ class SearchRequestBuilder(BaseRequestBuilder):
 
         q: Optional[str] = None
 
+        # Results to skip (use @odata.nextLink to page).
+        skip: Optional[int] = None
+
         term_id: Optional[UUID] = None
+
+        # Page size.
+        top: Optional[int] = None
 
         updated_from: Optional[datetime.datetime] = None
 

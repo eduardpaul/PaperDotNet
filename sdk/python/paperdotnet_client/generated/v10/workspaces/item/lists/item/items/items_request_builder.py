@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 class ItemsRequestBuilder(BaseRequestBuilder):
     """
-    Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items
+    Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items
     """
     def __init__(self,request_adapter: RequestAdapter, path_parameters: Union[str, dict[str, Any]]) -> None:
         """
@@ -34,7 +34,7 @@ class ItemsRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*,viewId*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*,viewId*}", path_parameters)
     
     def by_item_id(self,item_id: UUID) -> WithItemItemRequestBuilder:
         """

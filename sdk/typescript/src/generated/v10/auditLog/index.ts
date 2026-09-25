@@ -27,13 +27,28 @@ export interface AuditLogRequestBuilderGetQueryParameters {
     entityId?: Guid;
     entityType?: string;
     from?: Date;
+    /**
+     * Continuation token from @odata.nextLink.
+     */
+    skiptoken?: string;
     to?: Date;
+    /**
+     * Page size.
+     */
+    top?: number;
     userId?: Guid;
 }
 /**
  * Uri template for the request builder.
  */
-export const AuditLogRequestBuilderUriTemplate = "{+baseurl}/v1.0/auditLog{?entityId*,entityType*,from*,to*,userId*}";
+export const AuditLogRequestBuilderUriTemplate = "{+baseurl}/v1.0/auditLog{?%24skiptoken*,%24top*,entityId*,entityType*,from*,to*,userId*}";
+/**
+ * Mapper for query parameters from symbol name to serialization name represented as a constant.
+ */
+const AuditLogRequestBuilderGetQueryParametersMapper: Record<string, string> = {
+    "skiptoken": "%24skiptoken",
+    "top": "%24top",
+};
 /**
  * Metadata for all the requests in the request builder.
  */
@@ -47,6 +62,7 @@ export const AuditLogRequestBuilderRequestsMetadata: RequestsMetadata = {
         },
         adapterMethodName: "send",
         responseBodyFactory:  createAuditPageFromDiscriminatorValue,
+        queryParametersMapper: AuditLogRequestBuilderGetQueryParametersMapper,
     },
 };
 /* tslint:enable */

@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, type ApiProblem } from '../../.
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/file/thumbnail
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/thumbnail
  */
 export interface ThumbnailRequestBuilder extends BaseRequestBuilder<ThumbnailRequestBuilder> {
     /**
@@ -25,7 +25,7 @@ export interface ThumbnailRequestBuilder extends BaseRequestBuilder<ThumbnailReq
 /**
  * Uri template for the request builder.
  */
-export const ThumbnailRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/thumbnail";
+export const ThumbnailRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/thumbnail";
 /**
  * Metadata for all the requests in the request builder.
  */

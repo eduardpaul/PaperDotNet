@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 class DocumentsRequestBuilder(BaseRequestBuilder):
     """
-    Builds and executes requests for operations under /v1.0/groups/{group-id}/inbox/documents
+    Builds and executes requests for operations under /v1.0/groups/{id}/inbox/documents
     """
     def __init__(self,request_adapter: RequestAdapter, path_parameters: Union[str, dict[str, Any]]) -> None:
         """
@@ -29,7 +29,7 @@ class DocumentsRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/groups/{group%2Did}/inbox/documents", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/groups/{id}/inbox/documents", path_parameters)
     
     async def post(self,body: MultipartBody, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[DocumentResponse]:
         """

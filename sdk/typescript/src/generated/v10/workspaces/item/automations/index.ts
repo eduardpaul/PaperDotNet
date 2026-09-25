@@ -11,7 +11,7 @@ import { RunsRequestBuilderNavigationMetadata, RunsRequestBuilderRequestsMetadat
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/automations
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/automations
  */
 export interface AutomationsRequestBuilder extends BaseRequestBuilder<AutomationsRequestBuilder> {
     /**
@@ -53,7 +53,7 @@ export interface AutomationsRequestBuilder extends BaseRequestBuilder<Automation
 /**
  * Uri template for the request builder.
  */
-export const AutomationsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/automations";
+export const AutomationsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/automations";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

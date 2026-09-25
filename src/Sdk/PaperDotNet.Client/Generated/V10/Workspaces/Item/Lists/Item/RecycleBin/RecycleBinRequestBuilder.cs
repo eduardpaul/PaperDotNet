@@ -13,7 +13,7 @@ using System;
 namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.RecycleBin
 {
     /// <summary>
-    /// Builds and executes requests for operations under \v1.0\workspaces\{-id}\lists\{listId}\recycleBin
+    /// Builds and executes requests for operations under \v1.0\workspaces\{workspaceId}\lists\{listId}\recycleBin
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class RecycleBinRequestBuilder : BaseRequestBuilder
@@ -35,7 +35,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.RecycleBin
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public RecycleBinRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/recycleBin{?%24skiptoken*,%24top*}", pathParameters)
+        public RecycleBinRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/recycleBin{?%24skiptoken*,%24top*}", pathParameters)
         {
         }
         /// <summary>
@@ -43,7 +43,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.RecycleBin
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public RecycleBinRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/recycleBin{?%24skiptoken*,%24top*}", rawUrl)
+        public RecycleBinRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/recycleBin{?%24skiptoken*,%24top*}", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.PageOfRecycleBinItemResponse"/></returns>

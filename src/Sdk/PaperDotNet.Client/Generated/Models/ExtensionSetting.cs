@@ -26,10 +26,10 @@ namespace PaperDotNet.Client.Models
         /// <summary>The default property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public global::PaperDotNet.Client.Models.JsonElement? Default { get; set; }
+        public UntypedNode? Default { get; set; }
 #nullable restore
 #else
-        public global::PaperDotNet.Client.Models.JsonElement Default { get; set; }
+        public UntypedNode Default { get; set; }
 #endif
         /// <summary>The description property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -77,7 +77,7 @@ namespace PaperDotNet.Client.Models
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "choices", n => { Choices = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
-                { "default", n => { Default = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonElement>(global::PaperDotNet.Client.Models.JsonElement.CreateFromDiscriminatorValue); } },
+                { "default", n => { Default = n.GetObjectValue<UntypedNode>(UntypedNode.CreateFromDiscriminatorValue); } },
                 { "description", n => { Description = n.GetStringValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "required", n => { Required = n.GetBoolValue(); } },
@@ -92,7 +92,7 @@ namespace PaperDotNet.Client.Models
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteCollectionOfPrimitiveValues<string>("choices", Choices);
-            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonElement>("default", Default);
+            writer.WriteObjectValue<UntypedNode>("default", Default);
             writer.WriteStringValue("description", Description);
             writer.WriteStringValue("name", Name);
             writer.WriteBoolValue("required", Required);

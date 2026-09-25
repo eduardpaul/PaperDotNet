@@ -13,7 +13,7 @@ import { MoveRequestBuilderRequestsMetadata, type MoveRequestBuilder } from './m
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/file/pages
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages
  */
 export interface PagesRequestBuilder extends BaseRequestBuilder<PagesRequestBuilder> {
     /**
@@ -48,7 +48,7 @@ export interface PagesRequestBuilder extends BaseRequestBuilder<PagesRequestBuil
 /**
  * Uri template for the request builder.
  */
-export const PagesRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/pages";
+export const PagesRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

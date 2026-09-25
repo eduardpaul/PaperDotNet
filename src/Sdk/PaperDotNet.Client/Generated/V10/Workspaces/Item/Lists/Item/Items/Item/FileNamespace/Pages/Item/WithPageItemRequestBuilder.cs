@@ -10,7 +10,7 @@ using System;
 namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Pages.Item
 {
     /// <summary>
-    /// Builds and executes requests for operations under \v1.0\workspaces\{-id}\lists\{listId}\items\{itemId}\file\pages\{page}
+    /// Builds and executes requests for operations under \v1.0\workspaces\{workspaceId}\lists\{listId}\items\{itemId}\file\pages\{page}
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WithPageItemRequestBuilder : BaseRequestBuilder
@@ -25,7 +25,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNames
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public WithPageItemRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/pages/{page}", pathParameters)
+        public WithPageItemRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/{page}", pathParameters)
         {
         }
         /// <summary>
@@ -33,7 +33,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNames
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public WithPageItemRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/pages/{page}", rawUrl)
+        public WithPageItemRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/{page}", rawUrl)
         {
         }
     }

@@ -13,7 +13,7 @@ using System;
 namespace PaperDotNet.Client.V10.Workspaces.Item.Automations.Runs
 {
     /// <summary>
-    /// Builds and executes requests for operations under \v1.0\workspaces\{-id}\automations\runs
+    /// Builds and executes requests for operations under \v1.0\workspaces\{workspaceId}\automations\runs
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class RunsRequestBuilder : BaseRequestBuilder
@@ -35,7 +35,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Automations.Runs
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public RunsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/automations/runs{?%24skiptoken*,%24top*,automationId*,itemId*,status*}", pathParameters)
+        public RunsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/automations/runs{?%24skiptoken*,%24top*,automationId*,itemId*,status*}", pathParameters)
         {
         }
         /// <summary>
@@ -43,7 +43,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Automations.Runs
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public RunsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/automations/runs{?%24skiptoken*,%24top*,automationId*,itemId*,status*}", rawUrl)
+        public RunsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/automations/runs{?%24skiptoken*,%24top*,automationId*,itemId*,status*}", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.PageOfRunResponse"/></returns>

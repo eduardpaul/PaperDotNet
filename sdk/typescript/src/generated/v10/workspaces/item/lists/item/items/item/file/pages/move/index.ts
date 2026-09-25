@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createPageOperationResponseFrom
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/file/pages/move
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/move
  */
 export interface MoveRequestBuilder extends BaseRequestBuilder<MoveRequestBuilder> {
     /**
@@ -28,7 +28,7 @@ export interface MoveRequestBuilder extends BaseRequestBuilder<MoveRequestBuilde
 /**
  * Uri template for the request builder.
  */
-export const MoveRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/pages/move";
+export const MoveRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/move";
 /**
  * Metadata for all the requests in the request builder.
  */

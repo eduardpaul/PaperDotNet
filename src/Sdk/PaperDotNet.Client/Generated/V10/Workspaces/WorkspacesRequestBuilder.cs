@@ -20,14 +20,14 @@ namespace PaperDotNet.Client.V10.Workspaces
     {
         /// <summary>Gets an item from the PaperDotNet.Client.v10.workspaces.item collection</summary>
         /// <param name="position">Unique identifier of the item</param>
-        /// <returns>A <see cref="global::PaperDotNet.Client.V10.Workspaces.Item.ItemRequestBuilder"/></returns>
-        public global::PaperDotNet.Client.V10.Workspaces.Item.ItemRequestBuilder this[Guid position]
+        /// <returns>A <see cref="global::PaperDotNet.Client.V10.Workspaces.Item.WithWorkspaceItemRequestBuilder"/></returns>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.WithWorkspaceItemRequestBuilder this[Guid position]
         {
             get
             {
                 var urlTplParams = new Dictionary<string, object>(PathParameters);
-                urlTplParams.Add("%2Did", position);
-                return new global::PaperDotNet.Client.V10.Workspaces.Item.ItemRequestBuilder(urlTplParams, RequestAdapter);
+                urlTplParams.Add("workspaceId", position);
+                return new global::PaperDotNet.Client.V10.Workspaces.Item.WithWorkspaceItemRequestBuilder(urlTplParams, RequestAdapter);
             }
         }
         /// <summary>

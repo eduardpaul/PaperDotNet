@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createDeltaPageFromDiscriminato
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/delta
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/delta
  */
 export interface DeltaRequestBuilder extends BaseRequestBuilder<DeltaRequestBuilder> {
     /**
@@ -40,7 +40,7 @@ export interface DeltaRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const DeltaRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/delta{?%24deltatoken*,%24skiptoken*,%24top*}";
+export const DeltaRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/delta{?%24deltatoken*,%24skiptoken*,%24top*}";
 /**
  * Mapper for query parameters from symbol name to serialization name represented as a constant.
  */

@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 class ViewsRequestBuilder(BaseRequestBuilder):
     """
-    Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/views
+    Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/views
     """
     def __init__(self,request_adapter: RequestAdapter, path_parameters: Union[str, dict[str, Any]]) -> None:
         """
@@ -31,7 +31,7 @@ class ViewsRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/views", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/views", path_parameters)
     
     def by_view_id(self,view_id: UUID) -> WithViewItemRequestBuilder:
         """

@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, type ApiProblem } from '../../.
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/links/{linkId}
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/links/{linkId}
  */
 export interface WithLinkItemRequestBuilder extends BaseRequestBuilder<WithLinkItemRequestBuilder> {
     /**
@@ -24,7 +24,7 @@ export interface WithLinkItemRequestBuilder extends BaseRequestBuilder<WithLinkI
 /**
  * Uri template for the request builder.
  */
-export const WithLinkItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/links/{linkId}";
+export const WithLinkItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/links/{linkId}";
 /**
  * Metadata for all the requests in the request builder.
  */

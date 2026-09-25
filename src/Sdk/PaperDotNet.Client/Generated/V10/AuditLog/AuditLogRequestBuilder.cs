@@ -22,7 +22,7 @@ namespace PaperDotNet.Client.V10.AuditLog
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public AuditLogRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/auditLog{?entityId*,entityType*,from*,to*,userId*}", pathParameters)
+        public AuditLogRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/auditLog{?%24skiptoken*,%24top*,entityId*,entityType*,from*,to*,userId*}", pathParameters)
         {
         }
         /// <summary>
@@ -30,7 +30,7 @@ namespace PaperDotNet.Client.V10.AuditLog
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public AuditLogRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/auditLog{?entityId*,entityType*,from*,to*,userId*}", rawUrl)
+        public AuditLogRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/auditLog{?%24skiptoken*,%24top*,entityId*,entityType*,from*,to*,userId*}", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.AuditPage"/></returns>
@@ -106,10 +106,23 @@ namespace PaperDotNet.Client.V10.AuditLog
             [QueryParameter("from")]
             public DateTimeOffset? From { get; set; }
             #pragma warning restore CS1591
+            /// <summary>Continuation token from @odata.nextLink.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+            [QueryParameter("%24skiptoken")]
+            public string? Skiptoken { get; set; }
+#nullable restore
+#else
+            [QueryParameter("%24skiptoken")]
+            public string Skiptoken { get; set; }
+#endif
             #pragma warning disable CS1591
             [QueryParameter("to")]
             public DateTimeOffset? To { get; set; }
             #pragma warning restore CS1591
+            /// <summary>Page size.</summary>
+            [QueryParameter("%24top")]
+            public int? Top { get; set; }
             #pragma warning disable CS1591
             [QueryParameter("userId")]
             public Guid? UserId { get; set; }

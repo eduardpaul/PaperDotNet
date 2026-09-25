@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
@@ -38,11 +39,11 @@ internal static class WorkspaceEndpoints
         var group = endpoints.MapV1Group("workspaces", "Workspaces");
         group.MapGet("", ListAsync).RequireScope(WorkspaceScopes.Read).WithName("ListWorkspaces");
         group.MapPost("", CreateAsync).RequireScope(WorkspaceScopes.Create).WithName("CreateWorkspace");
-        group.MapGet("/{id:guid}", GetAsync).RequireScope(WorkspaceScopes.Read).WithName("GetWorkspace");
-        group.MapPatch("/{id:guid}", UpdateAsync).RequireScope(WorkspaceScopes.Read).WithName("UpdateWorkspace");
-        group.MapDelete("/{id:guid}", DeleteAsync).RequireScope(WorkspaceScopes.Read).WithName("DeleteWorkspace");
-        group.MapGet("/{id:guid}/members", ListMembersAsync).RequireScope(WorkspaceScopes.Read).WithName("ListWorkspaceMembers");
-        group.MapPost("/{id:guid}/members", AddMemberAsync).RequireScope(WorkspaceScopes.Read).WithName("AddWorkspaceMember");
+        group.MapGet("/{workspaceId:guid}", GetAsync).RequireScope(WorkspaceScopes.Read).WithName("GetWorkspace");
+        group.MapPatch("/{workspaceId:guid}", UpdateAsync).RequireScope(WorkspaceScopes.Read).WithName("UpdateWorkspace");
+        group.MapDelete("/{workspaceId:guid}", DeleteAsync).RequireScope(WorkspaceScopes.Read).WithName("DeleteWorkspace");
+        group.MapGet("/{workspaceId:guid}/members", ListMembersAsync).RequireScope(WorkspaceScopes.Read).WithName("ListWorkspaceMembers");
+        group.MapPost("/{workspaceId:guid}/members", AddMemberAsync).RequireScope(WorkspaceScopes.Read).WithName("AddWorkspaceMember");
     }
 
     private static async Task<Ok<Page<WorkspaceResponse>>> ListAsync(
@@ -75,7 +76,7 @@ internal static class WorkspaceEndpoints
     }
 
     private static async Task<Results<Ok<WorkspaceResponse>, ProblemHttpResult>> GetAsync(
-        Guid id, WorkspaceAccess access, WorkspacesDbContext db, HttpResponse response, CancellationToken ct)
+        [FromRoute(Name = "workspaceId")] Guid id, WorkspaceAccess access, WorkspacesDbContext db, HttpResponse response, CancellationToken ct)
     {
         var workspace = await (await access.VisibleAsync(db.Workspaces.AsNoTracking(), ct)).FirstOrDefaultAsync(w => w.Id == id, ct);
         if (workspace is null)
@@ -88,7 +89,7 @@ internal static class WorkspaceEndpoints
     }
 
     private static async Task<Results<Ok<WorkspaceResponse>, ValidationProblem, ProblemHttpResult>> UpdateAsync(
-        Guid id, UpdateWorkspaceRequest request, WorkspaceAccess access, WorkspacesDbContext db,
+        [FromRoute(Name = "workspaceId")] Guid id, UpdateWorkspaceRequest request, WorkspaceAccess access, WorkspacesDbContext db,
         HttpRequest http, HttpResponse response, CancellationToken ct)
     {
         if (RequestValidation.Validate(request) is { } invalid)
@@ -118,7 +119,7 @@ internal static class WorkspaceEndpoints
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteAsync(
-        Guid id, WorkspaceAccess access, WorkspacesDbContext db, HttpRequest http, CancellationToken ct)
+        [FromRoute(Name = "workspaceId")] Guid id, WorkspaceAccess access, WorkspacesDbContext db, HttpRequest http, CancellationToken ct)
     {
         var (workspace, problem) = await LoadForChangeAsync(id, access, db, http, ct);
         if (problem is not null)
@@ -145,7 +146,7 @@ internal static class WorkspaceEndpoints
     }
 
     private static async Task<Results<Ok<List<WorkspaceMemberResponse>>, ProblemHttpResult>> ListMembersAsync(
-        Guid id, WorkspaceAccess access, WorkspacesDbContext db, CancellationToken ct)
+        [FromRoute(Name = "workspaceId")] Guid id, WorkspaceAccess access, WorkspacesDbContext db, CancellationToken ct)
     {
         if (!await (await access.VisibleAsync(db.Workspaces, ct)).AnyAsync(w => w.Id == id, ct))
         {
@@ -161,7 +162,7 @@ internal static class WorkspaceEndpoints
     }
 
     private static async Task<Results<NoContent, ValidationProblem, ProblemHttpResult>> AddMemberAsync(
-        Guid id, AddWorkspaceMemberRequest request, WorkspaceAccess access, WorkspacesDbContext db, IUserDirectory users, CancellationToken ct)
+        [FromRoute(Name = "workspaceId")] Guid id, AddWorkspaceMemberRequest request, WorkspaceAccess access, WorkspacesDbContext db, IUserDirectory users, CancellationToken ct)
     {
         if (!await access.CanManageAsync(id, ct))
         {

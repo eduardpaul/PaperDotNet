@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createImportResultFromDiscrimin
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/calendar/import
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/calendar/import
  */
 export interface ImportRequestBuilder extends BaseRequestBuilder<ImportRequestBuilder> {
     /**
@@ -26,7 +26,7 @@ export interface ImportRequestBuilder extends BaseRequestBuilder<ImportRequestBu
 /**
  * Uri template for the request builder.
  */
-export const ImportRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/calendar/import";
+export const ImportRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/calendar/import";
 /**
  * Metadata for all the requests in the request builder.
  */

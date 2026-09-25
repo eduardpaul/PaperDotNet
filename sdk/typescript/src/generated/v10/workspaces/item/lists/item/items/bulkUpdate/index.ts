@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createOperationAcceptedResponse
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/bulkUpdate
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/bulkUpdate
  */
 export interface BulkUpdateRequestBuilder extends BaseRequestBuilder<BulkUpdateRequestBuilder> {
     /**
@@ -28,7 +28,7 @@ export interface BulkUpdateRequestBuilder extends BaseRequestBuilder<BulkUpdateR
 /**
  * Uri template for the request builder.
  */
-export const BulkUpdateRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/bulkUpdate";
+export const BulkUpdateRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/bulkUpdate";
 /**
  * Metadata for all the requests in the request builder.
  */

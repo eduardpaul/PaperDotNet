@@ -95,6 +95,8 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `Microsoft.Kiota.Bundle` (+ `.Abstractions`, `.Http.HttpClientLibrary`, `.Serialization.*`) | MIT | Runtime of the generated C# SDK (API-03) |
 | `Microsoft.OpenApi.Kiota` (.NET tool) | MIT | Generates the SDKs; build time only |
 | `@microsoft/kiota-bundle` (npm), `microsoft-kiota-bundle` (PyPI, with `httpx`: BSD-3-Clause) | MIT | Runtime of the TypeScript and Python SDKs (separate packages, not in the server) |
+| `oauth4webapi` (npm) | MIT | OAuth 2.0 / OpenID Connect in the TypeScript SDK: authorization code + PKCE, refresh, revocation (ADR-0032) |
+| `eventsource` (npm, + `eventsource-parser`) | MIT | Server-sent events with an Authorization header in the TypeScript SDK (ADR-0032) |
 | `CliWrap` | MIT | Running the Tesseract CLI |
 | `TngTech.ArchUnitNET` (+ `.xUnitV3`) | Apache-2.0 | Architecture tests |
 | `OpenIddict.EntityFrameworkCore` | Apache-2.0 | OpenIddict stores |

@@ -12,7 +12,7 @@ using System;
 namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Pages.Item.Image
 {
     /// <summary>
-    /// Builds and executes requests for operations under \v1.0\workspaces\{-id}\lists\{listId}\items\{itemId}\file\pages\{page}\image
+    /// Builds and executes requests for operations under \v1.0\workspaces\{workspaceId}\lists\{listId}\items\{itemId}\file\pages\{page}\image
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class ImageRequestBuilder : BaseRequestBuilder
@@ -22,7 +22,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNames
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ImageRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/pages/{page}/image{?version*,width*}", pathParameters)
+        public ImageRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/{page}/image{?version*,width*}", pathParameters)
         {
         }
         /// <summary>
@@ -30,7 +30,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNames
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ImageRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/pages/{page}/image{?version*,width*}", rawUrl)
+        public ImageRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/{page}/image{?version*,width*}", rawUrl)
         {
         }
         /// <returns>A <see cref="Stream"/></returns>

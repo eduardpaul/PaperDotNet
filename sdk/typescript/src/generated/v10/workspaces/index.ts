@@ -4,7 +4,7 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createPageOfWorkspaceResponseFromDiscriminatorValue, createWorkspaceResponseFromDiscriminatorValue, serializeCreateWorkspaceRequest, serializeWorkspaceResponse, type ApiProblem, type CreateWorkspaceRequest, type PageOfWorkspaceResponse, type WorkspaceResponse } from '../../models/index.js';
 // @ts-ignore
-import { ItemRequestBuilderNavigationMetadata, ItemRequestBuilderRequestsMetadata, type ItemRequestBuilder } from './item/index.js';
+import { type WithWorkspaceItemRequestBuilder, WithWorkspaceItemRequestBuilderNavigationMetadata, WithWorkspaceItemRequestBuilderRequestsMetadata } from './item/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -14,10 +14,10 @@ import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMeta
 export interface WorkspacesRequestBuilder extends BaseRequestBuilder<WorkspacesRequestBuilder> {
     /**
      * Gets an item from the paperdotnet.v10.workspaces.item collection
-     * @param id Unique identifier of the item
-     * @returns {ItemRequestBuilder}
+     * @param workspaceId Unique identifier of the item
+     * @returns {WithWorkspaceItemRequestBuilder}
      */
-     byId(id: Guid) : ItemRequestBuilder;
+     byWorkspaceId(workspaceId: Guid) : WithWorkspaceItemRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PageOfWorkspaceResponse>}
@@ -69,10 +69,10 @@ const WorkspacesRequestBuilderGetQueryParametersMapper: Record<string, string> =
  * Metadata for all the navigation properties in the request builder.
  */
 export const WorkspacesRequestBuilderNavigationMetadata: Record<Exclude<keyof WorkspacesRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
-    byId: {
-        requestsMetadata: ItemRequestBuilderRequestsMetadata,
-        navigationMetadata: ItemRequestBuilderNavigationMetadata,
-        pathParametersMappings: ["%2Did"],
+    byWorkspaceId: {
+        requestsMetadata: WithWorkspaceItemRequestBuilderRequestsMetadata,
+        navigationMetadata: WithWorkspaceItemRequestBuilderNavigationMetadata,
+        pathParametersMappings: ["workspaceId"],
     },
 };
 /**

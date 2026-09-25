@@ -15,7 +15,7 @@ using System;
 namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items
 {
     /// <summary>
-    /// Builds and executes requests for operations under \v1.0\workspaces\{-id}\lists\{listId}\items
+    /// Builds and executes requests for operations under \v1.0\workspaces\{workspaceId}\lists\{listId}\items
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class ItemsRequestBuilder : BaseRequestBuilder
@@ -47,7 +47,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ItemsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*,viewId*}", pathParameters)
+        public ItemsRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*,viewId*}", pathParameters)
         {
         }
         /// <summary>
@@ -55,7 +55,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public ItemsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*,viewId*}", rawUrl)
+        public ItemsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*,viewId*}", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.ItemPage"/></returns>

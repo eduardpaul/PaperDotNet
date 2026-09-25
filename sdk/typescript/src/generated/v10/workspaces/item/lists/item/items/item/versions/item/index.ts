@@ -9,7 +9,7 @@ import { RestoreRequestBuilderRequestsMetadata, type RestoreRequestBuilder } fro
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/versions/{number}
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/versions/{number}
  */
 export interface WithNumberItemRequestBuilder extends BaseRequestBuilder<WithNumberItemRequestBuilder> {
     /**
@@ -31,7 +31,7 @@ export interface WithNumberItemRequestBuilder extends BaseRequestBuilder<WithNum
 /**
  * Uri template for the request builder.
  */
-export const WithNumberItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/versions/{number}";
+export const WithNumberItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/versions/{number}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

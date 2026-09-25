@@ -13,9 +13,9 @@ import { MembersRequestBuilderRequestsMetadata, type MembersRequestBuilder } fro
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}
  */
-export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilder> {
+export interface WithWorkspaceItemRequestBuilder extends BaseRequestBuilder<WithWorkspaceItemRequestBuilder> {
     /**
      * The automations property
      */
@@ -67,11 +67,11 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
 /**
  * Uri template for the request builder.
  */
-export const ItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}";
+export const WithWorkspaceItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */
-export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+export const WithWorkspaceItemRequestBuilderNavigationMetadata: Record<Exclude<keyof WithWorkspaceItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     automations: {
         requestsMetadata: AutomationsRequestBuilderRequestsMetadata,
         navigationMetadata: AutomationsRequestBuilderNavigationMetadata,
@@ -87,9 +87,9 @@ export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequ
 /**
  * Metadata for all the requests in the request builder.
  */
-export const ItemRequestBuilderRequestsMetadata: RequestsMetadata = {
+export const WithWorkspaceItemRequestBuilderRequestsMetadata: RequestsMetadata = {
     delete: {
-        uriTemplate: ItemRequestBuilderUriTemplate,
+        uriTemplate: WithWorkspaceItemRequestBuilderUriTemplate,
         responseBodyContentType: "application/problem+json",
         errorMappings: {
             XXX: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
@@ -97,7 +97,7 @@ export const ItemRequestBuilderRequestsMetadata: RequestsMetadata = {
         adapterMethodName: "sendNoResponseContent",
     },
     get: {
-        uriTemplate: ItemRequestBuilderUriTemplate,
+        uriTemplate: WithWorkspaceItemRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
             XXX: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
@@ -106,7 +106,7 @@ export const ItemRequestBuilderRequestsMetadata: RequestsMetadata = {
         responseBodyFactory:  createWorkspaceResponseFromDiscriminatorValue,
     },
     patch: {
-        uriTemplate: ItemRequestBuilderUriTemplate,
+        uriTemplate: WithWorkspaceItemRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
             400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,

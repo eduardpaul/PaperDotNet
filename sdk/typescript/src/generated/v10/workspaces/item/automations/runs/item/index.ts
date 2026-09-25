@@ -9,7 +9,7 @@ import { CancelRequestBuilderRequestsMetadata, type CancelRequestBuilder } from 
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/automations/runs/{id}
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/automations/runs/{id}
  */
 export interface RunsItemRequestBuilder extends BaseRequestBuilder<RunsItemRequestBuilder> {
     /**
@@ -31,7 +31,7 @@ export interface RunsItemRequestBuilder extends BaseRequestBuilder<RunsItemReque
 /**
  * Uri template for the request builder.
  */
-export const RunsItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/automations/runs/{id}";
+export const RunsItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/automations/runs/{id}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

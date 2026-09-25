@@ -16,6 +16,9 @@ public enum QueryOptions
     Count = 32,
     DeltaToken = 64,
 
+    /// <summary>Offset paging (ranked results such as search).</summary>
+    Skip = 128,
+
     /// <summary>Keyset paging (<see cref="Page"/> results get it automatically).</summary>
     Paging = Top | SkipToken,
 

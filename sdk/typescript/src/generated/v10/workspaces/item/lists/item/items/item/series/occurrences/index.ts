@@ -7,7 +7,7 @@ import { type WithOccurrenceStartItemRequestBuilder, WithOccurrenceStartItemRequ
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/series/occurrences
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/series/occurrences
  */
 export interface OccurrencesRequestBuilder extends BaseRequestBuilder<OccurrencesRequestBuilder> {
     /**
@@ -20,7 +20,7 @@ export interface OccurrencesRequestBuilder extends BaseRequestBuilder<Occurrence
 /**
  * Uri template for the request builder.
  */
-export const OccurrencesRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/series/occurrences";
+export const OccurrencesRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/series/occurrences";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

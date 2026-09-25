@@ -13,7 +13,7 @@ using System;
 namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.RecycleBin.Item
 {
     /// <summary>
-    /// Builds and executes requests for operations under \v1.0\workspaces\{-id}\lists\{listId}\recycleBin\{itemId}
+    /// Builds and executes requests for operations under \v1.0\workspaces\{workspaceId}\lists\{listId}\recycleBin\{itemId}
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WithItemItemRequestBuilder : BaseRequestBuilder
@@ -28,7 +28,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.RecycleBin.Item
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public WithItemItemRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/recycleBin/{itemId}", pathParameters)
+        public WithItemItemRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/recycleBin/{itemId}", pathParameters)
         {
         }
         /// <summary>
@@ -36,7 +36,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.RecycleBin.Item
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public WithItemItemRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/recycleBin/{itemId}", rawUrl)
+        public WithItemItemRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/recycleBin/{itemId}", rawUrl)
         {
         }
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>

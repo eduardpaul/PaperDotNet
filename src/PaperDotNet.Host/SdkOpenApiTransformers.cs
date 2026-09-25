@@ -20,6 +20,7 @@ internal sealed class SdkOperationTransformer : IOpenApiOperationTransformer
         (QueryOptions.SkipToken, "$skiptoken", JsonSchemaType.String, "Continuation token from @odata.nextLink."),
         (QueryOptions.Count, "$count", JsonSchemaType.Boolean, "Include @odata.count."),
         (QueryOptions.DeltaToken, "$deltatoken", JsonSchemaType.String, "Token from @odata.deltaLink."),
+        (QueryOptions.Skip, "$skip", JsonSchemaType.Integer, "Results to skip (use @odata.nextLink to page)."),
     ];
 
     public async Task TransformAsync(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
@@ -142,7 +143,8 @@ internal sealed class SdkOperationTransformer : IOpenApiOperationTransformer
 
 /// <summary>
 /// <c>JsonObject</c> values (item fields, settings) are objects with any properties, so SDKs give them a dictionary
-/// instead of an untyped node; <c>JsonArray</c> is an array of anything.
+/// instead of an untyped node; <c>JsonArray</c> is an array of anything. Numbers are numbers: the API also reads them
+/// from strings, which ASP.NET describes as <c>integer | string</c> with a pattern, and generators then give up on the type.
 /// </summary>
 internal sealed class SdkSchemaTransformer : IOpenApiSchemaTransformer
 {
@@ -161,6 +163,145 @@ internal sealed class SdkSchemaTransformer : IOpenApiSchemaTransformer
             schema.Items = new OpenApiSchema();
         }
 
+        if (schema.Type is { } kind && kind.HasFlag(JsonSchemaType.String) && (kind.HasFlag(JsonSchemaType.Integer) || kind.HasFlag(JsonSchemaType.Number)))
+        {
+            schema.Type = kind & ~JsonSchemaType.String;
+            schema.Pattern = null;
+        }
+
         return Task.CompletedTask;
     }
+}
+
+/// <summary>
+/// <c>JsonElement</c> values (operation results, run logs, batch bodies, WebAuthn options) can be any JSON. As a named
+/// component SDK generators make an empty object model of it, which loses arrays and scalars; inlined as an empty
+/// schema they get an untyped JSON value. Inlined <c>JsonObject</c> schemas point back to the component.
+/// </summary>
+internal sealed class SdkDocumentTransformer : IOpenApiDocumentTransformer
+{
+    private const string AnyJson = "JsonElement";
+    private const string JsonObjectName = "JsonObject";
+
+    public Task TransformAsync(OpenApiDocument document, OpenApiDocumentTransformerContext context, CancellationToken cancellationToken)
+    {
+        var schemas = document.Components?.Schemas;
+        if (schemas is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        schemas.Remove(AnyJson);
+        var jsonObject = schemas.ContainsKey(JsonObjectName) ? new OpenApiSchemaReference(JsonObjectName, document) : null;
+
+        foreach (var name in schemas.Keys.ToList())
+        {
+            schemas[name] = name == JsonObjectName ? schemas[name] : Rewrite(schemas[name], jsonObject);
+        }
+
+        foreach (var operation in (document.Paths ?? []).Values.SelectMany(p => p.Operations?.Values ?? Enumerable.Empty<OpenApiOperation>()))
+        {
+            foreach (var media in (operation.RequestBody?.Content?.Values ?? []).Concat((operation.Responses ?? []).Values.SelectMany(r => r.Content?.Values ?? [])))
+            {
+                if (media.Schema is { } schema)
+                {
+                    media.Schema = Rewrite(schema, jsonObject);
+                }
+            }
+        }
+
+        RemoveUnused(document, schemas);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Drops component schemas nothing refers to (e.g. result types replaced by files or event streams).</summary>
+    private static void RemoveUnused(OpenApiDocument document, IDictionary<string, IOpenApiSchema> schemas)
+    {
+        var used = new HashSet<string>();
+        var pending = new Stack<IOpenApiSchema>();
+        foreach (var operation in (document.Paths ?? []).Values.SelectMany(p => p.Operations?.Values ?? Enumerable.Empty<OpenApiOperation>()))
+        {
+            var media = (operation.RequestBody?.Content?.Values ?? []).Concat((operation.Responses ?? []).Values.SelectMany(r => r.Content?.Values ?? []));
+            foreach (var schema in media.Select(m => m.Schema).Concat((operation.Parameters ?? []).Select(p => p.Schema)))
+            {
+                if (schema is not null)
+                {
+                    pending.Push(schema);
+                }
+            }
+        }
+
+        while (pending.TryPop(out var schema))
+        {
+            if (schema is OpenApiSchemaReference { Reference.Id: { } id })
+            {
+                if (used.Add(id) && schemas.TryGetValue(id, out var target))
+                {
+                    pending.Push(target);
+                }
+
+                continue;
+            }
+
+            var parts = (schema.Properties?.Values ?? []).Concat(schema.AllOf ?? []).Concat(schema.OneOf ?? []).Concat(schema.AnyOf ?? [])
+                .Append(schema.Items).Append(schema.AdditionalProperties);
+            foreach (var part in parts)
+            {
+                if (part is not null)
+                {
+                    pending.Push(part);
+                }
+            }
+        }
+
+        foreach (var name in schemas.Keys.Where(n => !used.Contains(n)).ToList())
+        {
+            schemas.Remove(name);
+        }
+    }
+
+    private static IOpenApiSchema Rewrite(IOpenApiSchema schema, IOpenApiSchema? jsonObject)
+    {
+        if (IsAnyJson(schema))
+        {
+            return new OpenApiSchema();
+        }
+
+        if (schema is not OpenApiSchema inline)
+        {
+            return schema;
+        }
+
+        // An inlined JsonObject (documented bodies) would become one more model per property.
+        if (jsonObject is not null && inline.Type == JsonSchemaType.Object && inline.Properties is null or { Count: 0 }
+            && inline.AdditionalProperties is OpenApiSchema { Type: null, Properties: null or { Count: 0 } })
+        {
+            return jsonObject;
+        }
+
+        // A nullable reference (oneOf null + JsonElement) is any JSON as well.
+        if (inline.OneOf?.Any(IsAnyJson) == true || inline.AnyOf?.Any(IsAnyJson) == true)
+        {
+            return new OpenApiSchema { Description = inline.Description };
+        }
+
+        foreach (var name in (inline.Properties?.Keys ?? []).ToList())
+        {
+            inline.Properties![name] = Rewrite(inline.Properties[name], jsonObject);
+        }
+
+        if (inline.Items is { } items)
+        {
+            inline.Items = Rewrite(items, jsonObject);
+        }
+
+        if (inline.AdditionalProperties is { } additional)
+        {
+            inline.AdditionalProperties = Rewrite(additional, jsonObject);
+        }
+
+        return inline;
+    }
+
+    private static bool IsAnyJson(IOpenApiSchema schema) => schema is OpenApiSchemaReference { Reference.Id: AnyJson };
 }

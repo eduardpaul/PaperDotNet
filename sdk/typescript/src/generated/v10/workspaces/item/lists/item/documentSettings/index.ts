@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createLibrarySettingsResponseFr
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/documentSettings
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/documentSettings
  */
 export interface DocumentSettingsRequestBuilder extends BaseRequestBuilder<DocumentSettingsRequestBuilder> {
     /**
@@ -39,7 +39,7 @@ export interface DocumentSettingsRequestBuilder extends BaseRequestBuilder<Docum
 /**
  * Uri template for the request builder.
  */
-export const DocumentSettingsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/documentSettings";
+export const DocumentSettingsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/documentSettings";
 /**
  * Metadata for all the requests in the request builder.
  */

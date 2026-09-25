@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from ...models.create_workspace_request import CreateWorkspaceRequest
     from ...models.page_of_workspace_response import PageOfWorkspaceResponse
     from ...models.workspace_response import WorkspaceResponse
-    from .item.item_request_builder import ItemRequestBuilder
+    from .item.with_workspace_item_request_builder import WithWorkspaceItemRequestBuilder
 
 class WorkspacesRequestBuilder(BaseRequestBuilder):
     """
@@ -34,19 +34,19 @@ class WorkspacesRequestBuilder(BaseRequestBuilder):
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces{?%24skiptoken*,%24top*}", path_parameters)
     
-    def by_id(self,id: UUID) -> ItemRequestBuilder:
+    def by_workspace_id(self,workspace_id: UUID) -> WithWorkspaceItemRequestBuilder:
         """
         Gets an item from the paperdotnet_client.generated.v10.workspaces.item collection
-        param id: Unique identifier of the item
-        Returns: ItemRequestBuilder
+        param workspace_id: Unique identifier of the item
+        Returns: WithWorkspaceItemRequestBuilder
         """
-        if id is None:
-            raise TypeError("id cannot be null.")
-        from .item.item_request_builder import ItemRequestBuilder
+        if workspace_id is None:
+            raise TypeError("workspace_id cannot be null.")
+        from .item.with_workspace_item_request_builder import WithWorkspaceItemRequestBuilder
 
         url_tpl_params = get_path_parameters(self.path_parameters)
-        url_tpl_params["%2Did"] = id
-        return ItemRequestBuilder(self.request_adapter, url_tpl_params)
+        url_tpl_params["workspaceId"] = workspace_id
+        return WithWorkspaceItemRequestBuilder(self.request_adapter, url_tpl_params)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[WorkspacesRequestBuilderGetQueryParameters]] = None) -> Optional[PageOfWorkspaceResponse]:
         """

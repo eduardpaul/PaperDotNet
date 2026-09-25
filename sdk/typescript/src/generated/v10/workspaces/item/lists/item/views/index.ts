@@ -9,7 +9,7 @@ import { type WithViewItemRequestBuilder, WithViewItemRequestBuilderRequestsMeta
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/views
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/views
  */
 export interface ViewsRequestBuilder extends BaseRequestBuilder<ViewsRequestBuilder> {
     /**
@@ -47,7 +47,7 @@ export interface ViewsRequestBuilder extends BaseRequestBuilder<ViewsRequestBuil
 /**
  * Uri template for the request builder.
  */
-export const ViewsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/views";
+export const ViewsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/views";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

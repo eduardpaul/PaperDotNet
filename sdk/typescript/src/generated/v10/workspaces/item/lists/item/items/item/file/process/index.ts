@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createProcessResponseFromDiscri
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/file/process
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/process
  */
 export interface ProcessRequestBuilder extends BaseRequestBuilder<ProcessRequestBuilder> {
     /**
@@ -28,7 +28,7 @@ export interface ProcessRequestBuilder extends BaseRequestBuilder<ProcessRequest
 /**
  * Uri template for the request builder.
  */
-export const ProcessRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/process";
+export const ProcessRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/process";
 /**
  * Metadata for all the requests in the request builder.
  */

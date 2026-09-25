@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createPageOperationResponseFrom
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/file/pages/extract
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/extract
  */
 export interface ExtractRequestBuilder extends BaseRequestBuilder<ExtractRequestBuilder> {
     /**
@@ -28,7 +28,7 @@ export interface ExtractRequestBuilder extends BaseRequestBuilder<ExtractRequest
 /**
  * Uri template for the request builder.
  */
-export const ExtractRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/pages/extract";
+export const ExtractRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/extract";
 /**
  * Metadata for all the requests in the request builder.
  */

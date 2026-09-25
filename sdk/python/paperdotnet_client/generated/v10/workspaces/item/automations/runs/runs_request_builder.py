@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 class RunsRequestBuilder(BaseRequestBuilder):
     """
-    Builds and executes requests for operations under /v1.0/workspaces/{-id}/automations/runs
+    Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/automations/runs
     """
     def __init__(self,request_adapter: RequestAdapter, path_parameters: Union[str, dict[str, Any]]) -> None:
         """
@@ -31,7 +31,7 @@ class RunsRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{%2Did}/automations/runs{?%24skiptoken*,%24top*,automationId*,itemId*,status*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/automations/runs{?%24skiptoken*,%24top*,automationId*,itemId*,status*}", path_parameters)
     
     def by_id(self,id: UUID) -> RunsItemRequestBuilder:
         """

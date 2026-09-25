@@ -7,7 +7,7 @@ import { ImageRequestBuilderRequestsMetadata, type ImageRequestBuilder } from '.
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/file/pages/{page}
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/{page}
  */
 export interface WithPageItemRequestBuilder extends BaseRequestBuilder<WithPageItemRequestBuilder> {
     /**
@@ -18,7 +18,7 @@ export interface WithPageItemRequestBuilder extends BaseRequestBuilder<WithPageI
 /**
  * Uri template for the request builder.
  */
-export const WithPageItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/pages/{page}";
+export const WithPageItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/{page}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

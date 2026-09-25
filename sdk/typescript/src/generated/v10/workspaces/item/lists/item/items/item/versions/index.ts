@@ -9,7 +9,7 @@ import { type WithNumberItemRequestBuilder, WithNumberItemRequestBuilderNavigati
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/versions
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/versions
  */
 export interface VersionsRequestBuilder extends BaseRequestBuilder<VersionsRequestBuilder> {
     /**
@@ -43,7 +43,7 @@ export interface VersionsRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const VersionsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/versions{?%24skiptoken*,%24top*}";
+export const VersionsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/versions{?%24skiptoken*,%24top*}";
 /**
  * Mapper for query parameters from symbol name to serialization name represented as a constant.
  */

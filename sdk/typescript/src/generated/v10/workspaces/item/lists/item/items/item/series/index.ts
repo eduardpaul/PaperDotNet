@@ -9,7 +9,7 @@ import { OccurrencesRequestBuilderNavigationMetadata, type OccurrencesRequestBui
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/series
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/series
  */
 export interface SeriesRequestBuilder extends BaseRequestBuilder<SeriesRequestBuilder> {
     /**
@@ -55,7 +55,7 @@ export interface SeriesRequestBuilder extends BaseRequestBuilder<SeriesRequestBu
 /**
  * Uri template for the request builder.
  */
-export const SeriesRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/series";
+export const SeriesRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/series";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

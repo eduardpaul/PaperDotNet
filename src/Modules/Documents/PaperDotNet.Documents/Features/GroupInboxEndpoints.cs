@@ -32,7 +32,7 @@ internal static class GroupInboxEndpoints
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var limit = endpoints.ServiceProvider.GetRequiredService<IOptions<DocumentsOptions>>().Value.MaxFileSize + (1024 * 1024);
-        var inbox = endpoints.MapV1Group("groups/{groupId:guid}/inbox", "Documents");
+        var inbox = endpoints.MapV1Group("groups/{id:guid}/inbox", "Documents");
         inbox.MapGet("", GetAsync).RequireScope(DocumentScopes.Read).WithName("GetGroupInbox");
         inbox.MapPut("", SetAsync).RequireScope(DocumentScopes.Write).WithName("SetGroupInbox");
         inbox.MapDelete("", RemoveAsync).RequireScope(DocumentScopes.Write).WithName("RemoveGroupInbox");
@@ -43,7 +43,7 @@ internal static class GroupInboxEndpoints
     }
 
     private static async Task<Results<Ok<GroupInboxResponse>, ProblemHttpResult>> GetAsync(
-        Guid groupId, DocumentsDbContext db, IUserDirectory directory, IListItemStore items, CancellationToken ct)
+        [FromRoute(Name = "id")] Guid groupId, DocumentsDbContext db, IUserDirectory directory, IListItemStore items, CancellationToken ct)
     {
         var inbox = await db.GroupInboxes.AsNoTracking().FirstOrDefaultAsync(g => g.GroupId == groupId, ct);
         var list = inbox is null ? null : await items.GetListAsync(inbox.WorkspaceId, inbox.ListId, ct);
@@ -58,7 +58,7 @@ internal static class GroupInboxEndpoints
 
     /// <summary>Makes a library the group's inbox (needs Manage on the library). It replaces an earlier one.</summary>
     private static async Task<Results<Ok<GroupInboxResponse>, ValidationProblem, ProblemHttpResult>> SetAsync(
-        Guid groupId, GroupInboxRequest request, DocumentsDbContext db, IUserDirectory directory, IListItemStore items, CancellationToken ct)
+        [FromRoute(Name = "id")] Guid groupId, GroupInboxRequest request, DocumentsDbContext db, IUserDirectory directory, IListItemStore items, CancellationToken ct)
     {
         if (RequestValidation.Validate(request) is { } invalid)
         {
@@ -101,7 +101,7 @@ internal static class GroupInboxEndpoints
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> RemoveAsync(
-        Guid groupId, DocumentsDbContext db, IListItemStore items, CancellationToken ct)
+        [FromRoute(Name = "id")] Guid groupId, DocumentsDbContext db, IListItemStore items, CancellationToken ct)
     {
         var existing = await db.GroupInboxes.FirstOrDefaultAsync(g => g.GroupId == groupId, ct);
         if (existing is null)
@@ -121,7 +121,7 @@ internal static class GroupInboxEndpoints
 
     /// <summary>Uploads into the group's inbox. Only members may; the upload needs Contribute on the library as usual.</summary>
     private static async Task<Results<Created<DocumentResponse>, ValidationProblem, ProblemHttpResult>> UploadAsync(
-        Guid groupId, IFormFile? file, [FromForm] string? title, [FromForm] string? languages, ICurrentUser user,
+        [FromRoute(Name = "id")] Guid groupId, IFormFile? file, [FromForm] string? title, [FromForm] string? languages, ICurrentUser user,
         IUserDirectory directory, DocumentsDbContext db, DocumentService documents, CancellationToken ct)
     {
         var inbox = await db.GroupInboxes.AsNoTracking().FirstOrDefaultAsync(g => g.GroupId == groupId, ct);

@@ -28,7 +28,7 @@ namespace PaperDotNet.Client.V10.Search
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public SearchRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/search{?containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}", pathParameters)
+        public SearchRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/search{?%24skip*,%24top*,containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}", pathParameters)
         {
         }
         /// <summary>
@@ -36,7 +36,7 @@ namespace PaperDotNet.Client.V10.Search
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public SearchRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/search{?containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}", rawUrl)
+        public SearchRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/search{?%24skip*,%24top*,containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}", rawUrl)
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.SearchResponse"/></returns>
@@ -129,10 +129,16 @@ namespace PaperDotNet.Client.V10.Search
             public string Q { get; set; }
             #pragma warning restore CS1591
 #endif
+            /// <summary>Results to skip (use @odata.nextLink to page).</summary>
+            [QueryParameter("%24skip")]
+            public int? Skip { get; set; }
             #pragma warning disable CS1591
             [QueryParameter("termId")]
             public Guid? TermId { get; set; }
             #pragma warning restore CS1591
+            /// <summary>Page size.</summary>
+            [QueryParameter("%24top")]
+            public int? Top { get; set; }
             #pragma warning disable CS1591
             [QueryParameter("updatedFrom")]
             public DateTimeOffset? UpdatedFrom { get; set; }

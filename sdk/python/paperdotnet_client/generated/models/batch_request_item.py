@@ -6,7 +6,6 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .batch_request_item_headers import BatchRequestItem_headers
-    from .json_element import JsonElement
 
 @dataclass
 class BatchRequestItem(AdditionalDataHolder, Parsable):
@@ -16,8 +15,6 @@ class BatchRequestItem(AdditionalDataHolder, Parsable):
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
-    # The body property
-    body: Optional[JsonElement] = None
     # The dependsOn property
     depends_on: Optional[list[str]] = None
     # The headers property
@@ -46,13 +43,10 @@ class BatchRequestItem(AdditionalDataHolder, Parsable):
         Returns: dict[str, Callable[[ParseNode], None]]
         """
         from .batch_request_item_headers import BatchRequestItem_headers
-        from .json_element import JsonElement
 
         from .batch_request_item_headers import BatchRequestItem_headers
-        from .json_element import JsonElement
 
         fields: dict[str, Callable[[Any], None]] = {
-            "body": lambda n : setattr(self, 'body', n.get_object_value(JsonElement)),
             "dependsOn": lambda n : setattr(self, 'depends_on', n.get_collection_of_primitive_values(str)),
             "headers": lambda n : setattr(self, 'headers', n.get_object_value(BatchRequestItem_headers)),
             "id": lambda n : setattr(self, 'id', n.get_str_value()),
@@ -69,7 +63,6 @@ class BatchRequestItem(AdditionalDataHolder, Parsable):
         """
         if writer is None:
             raise TypeError("writer cannot be null.")
-        writer.write_object_value("body", self.body)
         writer.write_collection_of_primitive_values("dependsOn", self.depends_on)
         writer.write_object_value("headers", self.headers)
         writer.write_str_value("id", self.id)

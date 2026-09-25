@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createAutomationResponseFromDis
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/automations/{id}
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/automations/{id}
  */
 export interface AutomationsItemRequestBuilder extends BaseRequestBuilder<AutomationsItemRequestBuilder> {
     /**
@@ -49,7 +49,7 @@ export interface AutomationsItemRequestBuilder extends BaseRequestBuilder<Automa
 /**
  * Uri template for the request builder.
  */
-export const AutomationsItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/automations/{id}";
+export const AutomationsItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/automations/{id}";
 /**
  * Metadata for all the requests in the request builder.
  */

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 class WithUserItemRequestBuilder(BaseRequestBuilder):
     """
-    Builds and executes requests for operations under /v1.0/groups/{group-id}/members/{userId}
+    Builds and executes requests for operations under /v1.0/groups/{id}/members/{userId}
     """
     def __init__(self,request_adapter: RequestAdapter, path_parameters: Union[str, dict[str, Any]]) -> None:
         """
@@ -27,7 +27,7 @@ class WithUserItemRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/groups/{group%2Did}/members/{userId}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/groups/{id}/members/{userId}", path_parameters)
     
     async def delete(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> None:
         """

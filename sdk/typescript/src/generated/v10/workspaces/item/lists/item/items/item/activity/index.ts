@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createPageOfActivityResponseFro
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/activity
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/activity
  */
 export interface ActivityRequestBuilder extends BaseRequestBuilder<ActivityRequestBuilder> {
     /**
@@ -35,7 +35,7 @@ export interface ActivityRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const ActivityRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/activity{?%24skiptoken*,%24top*}";
+export const ActivityRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/activity{?%24skiptoken*,%24top*}";
 /**
  * Mapper for query parameters from symbol name to serialization name represented as a constant.
  */

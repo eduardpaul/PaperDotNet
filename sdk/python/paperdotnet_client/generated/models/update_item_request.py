@@ -6,7 +6,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from .update_item_request_fields import UpdateItemRequest_fields
+    from .json_object import JsonObject
 
 @dataclass
 class UpdateItemRequest(AdditionalDataHolder, Parsable):
@@ -19,7 +19,7 @@ class UpdateItemRequest(AdditionalDataHolder, Parsable):
     # The contentTypeId property
     content_type_id: Optional[UUID] = None
     # The fields property
-    fields: Optional[UpdateItemRequest_fields] = None
+    fields: Optional[JsonObject] = None
     # The parentId property
     parent_id: Optional[UUID] = None
     
@@ -39,13 +39,13 @@ class UpdateItemRequest(AdditionalDataHolder, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
-        from .update_item_request_fields import UpdateItemRequest_fields
+        from .json_object import JsonObject
 
-        from .update_item_request_fields import UpdateItemRequest_fields
+        from .json_object import JsonObject
 
         fields: dict[str, Callable[[Any], None]] = {
             "contentTypeId": lambda n : setattr(self, 'content_type_id', n.get_uuid_value()),
-            "fields": lambda n : setattr(self, 'fields', n.get_object_value(UpdateItemRequest_fields)),
+            "fields": lambda n : setattr(self, 'fields', n.get_object_value(JsonObject)),
             "parentId": lambda n : setattr(self, 'parent_id', n.get_uuid_value()),
         }
         return fields

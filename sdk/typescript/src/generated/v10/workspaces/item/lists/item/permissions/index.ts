@@ -13,7 +13,7 @@ import { ResetInheritanceRequestBuilderRequestsMetadata, type ResetInheritanceRe
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/permissions
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/permissions
  */
 export interface PermissionsRequestBuilder extends BaseRequestBuilder<PermissionsRequestBuilder> {
     /**
@@ -43,7 +43,7 @@ export interface PermissionsRequestBuilder extends BaseRequestBuilder<Permission
 /**
  * Uri template for the request builder.
  */
-export const PermissionsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/permissions";
+export const PermissionsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/permissions";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

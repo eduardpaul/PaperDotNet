@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createRecurrenceResponseFromDis
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/recurrence
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/recurrence
  */
 export interface RecurrenceRequestBuilder extends BaseRequestBuilder<RecurrenceRequestBuilder> {
     /**
@@ -49,7 +49,7 @@ export interface RecurrenceRequestBuilder extends BaseRequestBuilder<RecurrenceR
 /**
  * Uri template for the request builder.
  */
-export const RecurrenceRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/recurrence";
+export const RecurrenceRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/recurrence";
 /**
  * Metadata for all the requests in the request builder.
  */

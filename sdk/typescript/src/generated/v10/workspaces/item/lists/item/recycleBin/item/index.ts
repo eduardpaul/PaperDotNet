@@ -9,7 +9,7 @@ import { RestoreRequestBuilderRequestsMetadata, type RestoreRequestBuilder } fro
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/recycleBin/{itemId}
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/recycleBin/{itemId}
  */
 export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemItemRequestBuilder> {
     /**
@@ -30,7 +30,7 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
 /**
  * Uri template for the request builder.
  */
-export const WithItemItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/recycleBin/{itemId}";
+export const WithItemItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/recycleBin/{itemId}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

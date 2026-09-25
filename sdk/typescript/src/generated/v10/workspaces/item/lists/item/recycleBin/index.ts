@@ -9,7 +9,7 @@ import { type WithItemItemRequestBuilder, WithItemItemRequestBuilderNavigationMe
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/recycleBin
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/recycleBin
  */
 export interface RecycleBinRequestBuilder extends BaseRequestBuilder<RecycleBinRequestBuilder> {
     /**
@@ -43,7 +43,7 @@ export interface RecycleBinRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const RecycleBinRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/recycleBin{?%24skiptoken*,%24top*}";
+export const RecycleBinRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/recycleBin{?%24skiptoken*,%24top*}";
 /**
  * Mapper for query parameters from symbol name to serialization name represented as a constant.
  */

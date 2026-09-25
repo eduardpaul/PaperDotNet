@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createRunResponseFromDiscrimina
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/automations/runs/{id}/cancel
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/automations/runs/{id}/cancel
  */
 export interface CancelRequestBuilder extends BaseRequestBuilder<CancelRequestBuilder> {
     /**
@@ -25,7 +25,7 @@ export interface CancelRequestBuilder extends BaseRequestBuilder<CancelRequestBu
 /**
  * Uri template for the request builder.
  */
-export const CancelRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/automations/runs/{id}/cancel";
+export const CancelRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/automations/runs/{id}/cancel";
 /**
  * Metadata for all the requests in the request builder.
  */

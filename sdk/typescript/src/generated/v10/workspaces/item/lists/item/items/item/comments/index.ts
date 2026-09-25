@@ -9,7 +9,7 @@ import { type WithCommentItemRequestBuilder, WithCommentItemRequestBuilderReques
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/comments
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/comments
  */
 export interface CommentsRequestBuilder extends BaseRequestBuilder<CommentsRequestBuilder> {
     /**
@@ -57,7 +57,7 @@ export interface CommentsRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const CommentsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/comments{?%24skiptoken*,%24top*}";
+export const CommentsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/comments{?%24skiptoken*,%24top*}";
 /**
  * Mapper for query parameters from symbol name to serialization name represented as a constant.
  */

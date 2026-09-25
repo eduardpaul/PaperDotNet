@@ -9,7 +9,7 @@ import { type WithUserItemRequestBuilder, WithUserItemRequestBuilderRequestsMeta
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/groups/{group-id}/members
+ * Builds and executes requests for operations under /v1.0/groups/{id}/members
  */
 export interface MembersRequestBuilder extends BaseRequestBuilder<MembersRequestBuilder> {
     /**
@@ -46,7 +46,7 @@ export interface MembersRequestBuilder extends BaseRequestBuilder<MembersRequest
 /**
  * Uri template for the request builder.
  */
-export const MembersRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups/{group%2Did}/members";
+export const MembersRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups/{id}/members";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

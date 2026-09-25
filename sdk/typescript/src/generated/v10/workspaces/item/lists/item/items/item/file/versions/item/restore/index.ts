@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createFileVersionResponseFromDi
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/file/versions/{number}/restore
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/versions/{number}/restore
  */
 export interface RestoreRequestBuilder extends BaseRequestBuilder<RestoreRequestBuilder> {
     /**
@@ -25,7 +25,7 @@ export interface RestoreRequestBuilder extends BaseRequestBuilder<RestoreRequest
 /**
  * Uri template for the request builder.
  */
-export const RestoreRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file/versions/{number}/restore";
+export const RestoreRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/versions/{number}/restore";
 /**
  * Metadata for all the requests in the request builder.
  */

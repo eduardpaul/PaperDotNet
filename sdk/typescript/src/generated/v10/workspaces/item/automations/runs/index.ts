@@ -9,7 +9,7 @@ import { RunsItemRequestBuilderNavigationMetadata, RunsItemRequestBuilderRequest
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/automations/runs
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/automations/runs
  */
 export interface RunsRequestBuilder extends BaseRequestBuilder<RunsRequestBuilder> {
     /**
@@ -46,7 +46,7 @@ export interface RunsRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const RunsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/automations/runs{?%24skiptoken*,%24top*,automationId*,itemId*,status*}";
+export const RunsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/automations/runs{?%24skiptoken*,%24top*,automationId*,itemId*,status*}";
 /**
  * Mapper for query parameters from symbol name to serialization name represented as a constant.
  */

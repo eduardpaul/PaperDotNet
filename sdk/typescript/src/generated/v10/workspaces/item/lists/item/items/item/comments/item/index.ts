@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createCommentResponseFromDiscri
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/comments/{commentId}
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/comments/{commentId}
  */
 export interface WithCommentItemRequestBuilder extends BaseRequestBuilder<WithCommentItemRequestBuilder> {
     /**
@@ -49,7 +49,7 @@ export interface WithCommentItemRequestBuilder extends BaseRequestBuilder<WithCo
 /**
  * Uri template for the request builder.
  */
-export const WithCommentItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/comments/{commentId}";
+export const WithCommentItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/comments/{commentId}";
 /**
  * Metadata for all the requests in the request builder.
  */

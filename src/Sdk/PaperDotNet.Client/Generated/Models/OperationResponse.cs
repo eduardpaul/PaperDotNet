@@ -33,10 +33,10 @@ namespace PaperDotNet.Client.Models
         /// <summary>The result property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public global::PaperDotNet.Client.Models.JsonElement? Result { get; set; }
+        public UntypedNode? Result { get; set; }
 #nullable restore
 #else
-        public global::PaperDotNet.Client.Models.JsonElement Result { get; set; }
+        public UntypedNode Result { get; set; }
 #endif
         /// <summary>The startedAt property</summary>
         public DateTimeOffset? StartedAt { get; set; }
@@ -80,7 +80,7 @@ namespace PaperDotNet.Client.Models
                 { "error", n => { Error = n.GetStringValue(); } },
                 { "id", n => { Id = n.GetGuidValue(); } },
                 { "percentComplete", n => { PercentComplete = n.GetIntValue(); } },
-                { "result", n => { Result = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonElement>(global::PaperDotNet.Client.Models.JsonElement.CreateFromDiscriminatorValue); } },
+                { "result", n => { Result = n.GetObjectValue<UntypedNode>(UntypedNode.CreateFromDiscriminatorValue); } },
                 { "startedAt", n => { StartedAt = n.GetDateTimeOffsetValue(); } },
                 { "status", n => { Status = n.GetEnumValue<global::PaperDotNet.Client.Models.OperationStatus>(); } },
                 { "type", n => { Type = n.GetStringValue(); } },
@@ -98,7 +98,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteStringValue("error", Error);
             writer.WriteGuidValue("id", Id);
             writer.WriteIntValue("percentComplete", PercentComplete);
-            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonElement>("result", Result);
+            writer.WriteObjectValue<UntypedNode>("result", Result);
             writer.WriteDateTimeOffsetValue("startedAt", StartedAt);
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.OperationStatus>("status", Status);
             writer.WriteStringValue("type", Type);

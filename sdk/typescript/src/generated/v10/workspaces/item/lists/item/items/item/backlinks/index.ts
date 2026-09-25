@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createBacklinksResponseFromDisc
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/backlinks
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/backlinks
  */
 export interface BacklinksRequestBuilder extends BaseRequestBuilder<BacklinksRequestBuilder> {
     /**
@@ -25,7 +25,7 @@ export interface BacklinksRequestBuilder extends BaseRequestBuilder<BacklinksReq
 /**
  * Uri template for the request builder.
  */
-export const BacklinksRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/backlinks";
+export const BacklinksRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/backlinks";
 /**
  * Metadata for all the requests in the request builder.
  */

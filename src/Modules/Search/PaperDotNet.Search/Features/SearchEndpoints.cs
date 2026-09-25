@@ -64,7 +64,8 @@ internal static class SearchEndpoints
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapV1Group("search", "Search");
-        group.MapGet("", SearchAsync).RequireScope(SearchScopes.Read).WithName("Search");
+        group.MapGet("", SearchAsync).RequireScope(SearchScopes.Read).WithName("Search")
+            .WithQueryOptions(QueryOptions.Top | QueryOptions.Skip);
         group.MapPost("/reindex", ReindexAsync).RequireScope(SearchScopes.Manage).WithName("ReindexSearch");
     }
 

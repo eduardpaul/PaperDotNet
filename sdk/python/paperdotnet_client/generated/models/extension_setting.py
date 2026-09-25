@@ -6,7 +6,6 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .extension_setting_type import ExtensionSettingType
-    from .json_element import JsonElement
 
 @dataclass
 class ExtensionSetting(AdditionalDataHolder, Parsable):
@@ -18,8 +17,6 @@ class ExtensionSetting(AdditionalDataHolder, Parsable):
 
     # The choices property
     choices: Optional[list[str]] = None
-    # The default property
-    default: Optional[JsonElement] = None
     # The description property
     description: Optional[str] = None
     # The name property
@@ -46,14 +43,11 @@ class ExtensionSetting(AdditionalDataHolder, Parsable):
         Returns: dict[str, Callable[[ParseNode], None]]
         """
         from .extension_setting_type import ExtensionSettingType
-        from .json_element import JsonElement
 
         from .extension_setting_type import ExtensionSettingType
-        from .json_element import JsonElement
 
         fields: dict[str, Callable[[Any], None]] = {
             "choices": lambda n : setattr(self, 'choices', n.get_collection_of_primitive_values(str)),
-            "default": lambda n : setattr(self, 'default', n.get_object_value(JsonElement)),
             "description": lambda n : setattr(self, 'description', n.get_str_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "required": lambda n : setattr(self, 'required', n.get_bool_value()),
@@ -70,7 +64,6 @@ class ExtensionSetting(AdditionalDataHolder, Parsable):
         if writer is None:
             raise TypeError("writer cannot be null.")
         writer.write_collection_of_primitive_values("choices", self.choices)
-        writer.write_object_value("default", self.default)
         writer.write_str_value("description", self.description)
         writer.write_str_value("name", self.name)
         writer.write_bool_value("required", self.required)

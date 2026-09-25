@@ -9,7 +9,7 @@ import { ImportRequestBuilderRequestsMetadata, type ImportRequestBuilder } from 
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/calendar
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/calendar
  */
 export interface CalendarRequestBuilder extends BaseRequestBuilder<CalendarRequestBuilder> {
     /**
@@ -37,7 +37,7 @@ export interface CalendarRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const CalendarRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/calendar{?end*,includeTasks*,start*}";
+export const CalendarRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/calendar{?end*,includeTasks*,start*}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

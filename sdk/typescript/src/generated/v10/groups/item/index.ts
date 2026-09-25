@@ -11,9 +11,9 @@ import { MembersRequestBuilderNavigationMetadata, MembersRequestBuilderRequestsM
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/groups/{group-id}
+ * Builds and executes requests for operations under /v1.0/groups/{id}
  */
-export interface GroupItemRequestBuilder extends BaseRequestBuilder<GroupItemRequestBuilder> {
+export interface GroupsItemRequestBuilder extends BaseRequestBuilder<GroupsItemRequestBuilder> {
     /**
      * The inbox property
      */
@@ -50,11 +50,11 @@ export interface GroupItemRequestBuilder extends BaseRequestBuilder<GroupItemReq
 /**
  * Uri template for the request builder.
  */
-export const GroupItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups/{group%2Did}";
+export const GroupsItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups/{id}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */
-export const GroupItemRequestBuilderNavigationMetadata: Record<Exclude<keyof GroupItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+export const GroupsItemRequestBuilderNavigationMetadata: Record<Exclude<keyof GroupsItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     inbox: {
         requestsMetadata: InboxRequestBuilderRequestsMetadata,
         navigationMetadata: InboxRequestBuilderNavigationMetadata,
@@ -67,9 +67,9 @@ export const GroupItemRequestBuilderNavigationMetadata: Record<Exclude<keyof Gro
 /**
  * Metadata for all the requests in the request builder.
  */
-export const GroupItemRequestBuilderRequestsMetadata: RequestsMetadata = {
+export const GroupsItemRequestBuilderRequestsMetadata: RequestsMetadata = {
     delete: {
-        uriTemplate: GroupItemRequestBuilderUriTemplate,
+        uriTemplate: GroupsItemRequestBuilderUriTemplate,
         responseBodyContentType: "application/problem+json",
         errorMappings: {
             XXX: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
@@ -77,7 +77,7 @@ export const GroupItemRequestBuilderRequestsMetadata: RequestsMetadata = {
         adapterMethodName: "sendNoResponseContent",
     },
     patch: {
-        uriTemplate: GroupItemRequestBuilderUriTemplate,
+        uriTemplate: GroupsItemRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
             400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,

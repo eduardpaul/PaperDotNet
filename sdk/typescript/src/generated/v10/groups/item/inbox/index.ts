@@ -9,7 +9,7 @@ import { DocumentsRequestBuilderRequestsMetadata, type DocumentsRequestBuilder }
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/groups/{group-id}/inbox
+ * Builds and executes requests for operations under /v1.0/groups/{id}/inbox
  */
 export interface InboxRequestBuilder extends BaseRequestBuilder<InboxRequestBuilder> {
     /**
@@ -55,7 +55,7 @@ export interface InboxRequestBuilder extends BaseRequestBuilder<InboxRequestBuil
 /**
  * Uri template for the request builder.
  */
-export const InboxRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups/{group%2Did}/inbox";
+export const InboxRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups/{id}/inbox";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

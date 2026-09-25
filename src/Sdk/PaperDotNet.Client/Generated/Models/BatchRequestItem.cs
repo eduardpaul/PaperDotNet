@@ -18,10 +18,10 @@ namespace PaperDotNet.Client.Models
         /// <summary>The body property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public global::PaperDotNet.Client.Models.JsonElement? Body { get; set; }
+        public UntypedNode? Body { get; set; }
 #nullable restore
 #else
-        public global::PaperDotNet.Client.Models.JsonElement Body { get; set; }
+        public UntypedNode Body { get; set; }
 #endif
         /// <summary>The dependsOn property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -88,7 +88,7 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
-                { "body", n => { Body = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonElement>(global::PaperDotNet.Client.Models.JsonElement.CreateFromDiscriminatorValue); } },
+                { "body", n => { Body = n.GetObjectValue<UntypedNode>(UntypedNode.CreateFromDiscriminatorValue); } },
                 { "dependsOn", n => { DependsOn = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "headers", n => { Headers = n.GetObjectValue<global::PaperDotNet.Client.Models.BatchRequestItem_headers>(global::PaperDotNet.Client.Models.BatchRequestItem_headers.CreateFromDiscriminatorValue); } },
                 { "id", n => { Id = n.GetStringValue(); } },
@@ -103,7 +103,7 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
-            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonElement>("body", Body);
+            writer.WriteObjectValue<UntypedNode>("body", Body);
             writer.WriteCollectionOfPrimitiveValues<string>("dependsOn", DependsOn);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.BatchRequestItem_headers>("headers", Headers);
             writer.WriteStringValue("id", Id);

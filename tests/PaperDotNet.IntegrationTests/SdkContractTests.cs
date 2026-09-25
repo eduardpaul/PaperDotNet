@@ -60,4 +60,72 @@ public sealed class SdkContractTests(PaperDotNetApiFactory factory)
             .GetProperty("content").TryGetProperty("text/event-stream", out _));
         Assert.Equal("object", document.GetProperty("components").GetProperty("schemas").GetProperty("JsonObject").GetProperty("type").GetString());
     }
+
+    /// <summary>Shapes that make Kiota generate unusable code; each was a real bug once.</summary>
+    [Fact]
+    public async Task The_openapi_document_has_no_shapes_that_break_generators()
+    {
+        var document = JsonDocument.Parse(await factory.CreateClient().GetStringAsync("/openapi/v1.json", Ct)).RootElement;
+        var schemas = document.GetProperty("components").GetProperty("schemas");
+        var paged = schemas.EnumerateObject()
+            .Where(s => s.Value.TryGetProperty("properties", out var properties) && properties.TryGetProperty("@odata.nextLink", out _))
+            .Select(s => "#/components/schemas/" + s.Name)
+            .ToHashSet();
+        var problems = new List<string>();
+        var parameterNames = new Dictionary<string, string>();
+        foreach (var path in document.GetProperty("paths").EnumerateObject())
+        {
+            // Sibling routes must name a segment's parameter alike, or Kiota builds templates like {%2Did}.
+            var segments = path.Name.Split('/');
+            for (var i = 0; i < segments.Length; i++)
+            {
+                if (segments[i].StartsWith('{'))
+                {
+                    var prefix = string.Join('/', segments[..i]);
+                    if (parameterNames.TryGetValue(prefix, out var name) && name != segments[i])
+                    {
+                        problems.Add($"{prefix}/: {name} and {segments[i]}");
+                    }
+
+                    parameterNames[prefix] = segments[i];
+                }
+            }
+
+            foreach (var operation in path.Value.EnumerateObject().Where(o => o.Value.ValueKind == JsonValueKind.Object && o.Value.TryGetProperty("responses", out _)))
+            {
+                var result = operation.Value.GetProperty("responses").TryGetProperty("200", out var ok)
+                    && ok.TryGetProperty("content", out var content) && content.TryGetProperty("application/json", out var json)
+                    && json.GetProperty("schema").TryGetProperty("$ref", out var reference) ? reference.GetString() : null;
+                var parameters = operation.Value.TryGetProperty("parameters", out var list)
+                    ? list.EnumerateArray().Select(p => p.GetProperty("name").GetString()).ToList()
+                    : [];
+                if (result is not null && paged.Contains(result) && !parameters.Contains("$skiptoken") && !parameters.Contains("$skip"))
+                {
+                    problems.Add($"{operation.Name} {path.Name}: paged without $skiptoken or $skip");
+                }
+            }
+        }
+
+        // Numbers must not also be strings (generators then give up on the type).
+        problems.AddRange(Walk(document).Where(e => e.ValueKind == JsonValueKind.Object && e.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.Array
+                && type.EnumerateArray().Any(t => t.GetString() == "string") && type.EnumerateArray().Any(t => t.GetString() is "integer" or "number"))
+            .Select(e => $"number as string: {e}"));
+        Assert.False(schemas.TryGetProperty("JsonElement", out _), "JsonElement must be inlined as any JSON.");
+        Assert.Empty(problems);
+    }
+
+    private static IEnumerable<JsonElement> Walk(JsonElement element)
+    {
+        yield return element;
+        var children = element.ValueKind switch
+        {
+            JsonValueKind.Object => element.EnumerateObject().Select(p => p.Value),
+            JsonValueKind.Array => element.EnumerateArray(),
+            _ => [],
+        };
+        foreach (var child in children.SelectMany(Walk))
+        {
+            yield return child;
+        }
+    }
 }

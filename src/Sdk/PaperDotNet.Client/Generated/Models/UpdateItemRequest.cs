@@ -20,10 +20,10 @@ namespace PaperDotNet.Client.Models
         /// <summary>The fields property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public global::PaperDotNet.Client.Models.UpdateItemRequest_fields? Fields { get; set; }
+        public global::PaperDotNet.Client.Models.JsonObject? Fields { get; set; }
 #nullable restore
 #else
-        public global::PaperDotNet.Client.Models.UpdateItemRequest_fields Fields { get; set; }
+        public global::PaperDotNet.Client.Models.JsonObject Fields { get; set; }
 #endif
         /// <summary>The parentId property</summary>
         public Guid? ParentId { get; set; }
@@ -53,7 +53,7 @@ namespace PaperDotNet.Client.Models
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "contentTypeId", n => { ContentTypeId = n.GetGuidValue(); } },
-                { "fields", n => { Fields = n.GetObjectValue<global::PaperDotNet.Client.Models.UpdateItemRequest_fields>(global::PaperDotNet.Client.Models.UpdateItemRequest_fields.CreateFromDiscriminatorValue); } },
+                { "fields", n => { Fields = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "parentId", n => { ParentId = n.GetGuidValue(); } },
             };
         }
@@ -65,7 +65,7 @@ namespace PaperDotNet.Client.Models
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteGuidValue("contentTypeId", ContentTypeId);
-            writer.WriteObjectValue<global::PaperDotNet.Client.Models.UpdateItemRequest_fields>("fields", Fields);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("fields", Fields);
             writer.WriteGuidValue("parentId", ParentId);
             writer.WriteAdditionalData(AdditionalData);
         }

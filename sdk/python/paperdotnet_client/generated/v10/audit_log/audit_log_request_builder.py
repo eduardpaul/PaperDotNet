@@ -30,7 +30,7 @@ class AuditLogRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/auditLog{?entityId*,entityType*,from*,to*,userId*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/auditLog{?%24skiptoken*,%24top*,entityId*,entityType*,from*,to*,userId*}", path_parameters)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[AuditLogRequestBuilderGetQueryParameters]] = None) -> Optional[AuditPage]:
         """
@@ -88,6 +88,10 @@ class AuditLogRequestBuilder(BaseRequestBuilder):
                 return "entityType"
             if original_name == "from_":
                 return "from"
+            if original_name == "skiptoken":
+                return "%24skiptoken"
+            if original_name == "top":
+                return "%24top"
             if original_name == "user_id":
                 return "userId"
             if original_name == "to":
@@ -100,7 +104,13 @@ class AuditLogRequestBuilder(BaseRequestBuilder):
 
         from_: Optional[datetime.datetime] = None
 
+        # Continuation token from @odata.nextLink.
+        skiptoken: Optional[str] = None
+
         to: Optional[datetime.datetime] = None
+
+        # Page size.
+        top: Optional[int] = None
 
         user_id: Optional[UUID] = None
 

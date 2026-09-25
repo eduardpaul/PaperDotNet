@@ -44,13 +44,7 @@ namespace PaperDotNet.Client.Models
         /// <summary>The listId property</summary>
         public Guid? ListId { get; set; }
         /// <summary>The version property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public UntypedNode? Version { get; set; }
-#nullable restore
-#else
-        public UntypedNode Version { get; set; }
-#endif
+        public int? Version { get; set; }
         /// <summary>The workspaceId property</summary>
         public Guid? WorkspaceId { get; set; }
         /// <summary>
@@ -83,7 +77,7 @@ namespace PaperDotNet.Client.Models
                 { "file", n => { File = n.GetObjectValue<global::PaperDotNet.Client.Models.FileVersionResponse>(global::PaperDotNet.Client.Models.FileVersionResponse.CreateFromDiscriminatorValue); } },
                 { "itemId", n => { ItemId = n.GetGuidValue(); } },
                 { "listId", n => { ListId = n.GetGuidValue(); } },
-                { "version", n => { Version = n.GetObjectValue<UntypedNode>(UntypedNode.CreateFromDiscriminatorValue); } },
+                { "version", n => { Version = n.GetIntValue(); } },
                 { "workspaceId", n => { WorkspaceId = n.GetGuidValue(); } },
             };
         }
@@ -99,7 +93,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.FileVersionResponse>("file", File);
             writer.WriteGuidValue("itemId", ItemId);
             writer.WriteGuidValue("listId", ListId);
-            writer.WriteObjectValue<UntypedNode>("version", Version);
+            writer.WriteIntValue("version", Version);
             writer.WriteGuidValue("workspaceId", WorkspaceId);
             writer.WriteAdditionalData(AdditionalData);
         }

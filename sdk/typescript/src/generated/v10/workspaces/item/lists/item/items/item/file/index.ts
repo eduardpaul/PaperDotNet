@@ -15,7 +15,7 @@ import { type VersionsRequestBuilder, VersionsRequestBuilderNavigationMetadata, 
 import { MultipartBody, serializeMultipartBody, type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/file
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file
  */
 export interface FileRequestBuilder extends BaseRequestBuilder<FileRequestBuilder> {
     /**
@@ -63,7 +63,7 @@ export interface FileRequestBuilder extends BaseRequestBuilder<FileRequestBuilde
 /**
  * Uri template for the request builder.
  */
-export const FileRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/file";
+export const FileRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

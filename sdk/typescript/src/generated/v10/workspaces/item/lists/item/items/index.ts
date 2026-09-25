@@ -13,7 +13,7 @@ import { type WithItemItemRequestBuilder, WithItemItemRequestBuilderNavigationMe
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items
  */
 export interface ItemsRequestBuilder extends BaseRequestBuilder<ItemsRequestBuilder> {
     /**
@@ -87,7 +87,7 @@ export interface ItemsRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const ItemsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*,viewId*}";
+export const ItemsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*,viewId*}";
 /**
  * Mapper for query parameters from symbol name to serialization name represented as a constant.
  */

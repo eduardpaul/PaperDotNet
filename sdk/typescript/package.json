@@ -6,14 +6,20 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test:e2e": "npm run build && node test/run.mjs"
   },
   "dependencies": {
-    "@microsoft/kiota-bundle": "1.0.0-preview.108"
+    "@microsoft/kiota-bundle": "1.0.0-preview.108",
+    "eventsource": "^4.1.1",
+    "oauth4webapi": "^3.8.8"
   },
   "devDependencies": {
+    "@types/node": "^22.20.4",
     "typescript": "^5.9.0"
   }
 }

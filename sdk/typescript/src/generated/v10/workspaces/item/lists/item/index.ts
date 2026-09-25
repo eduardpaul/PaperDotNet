@@ -25,7 +25,7 @@ import { type ViewsRequestBuilder, ViewsRequestBuilderNavigationMetadata, ViewsR
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}
  */
 export interface WithListItemRequestBuilder extends BaseRequestBuilder<WithListItemRequestBuilder> {
     /**
@@ -103,7 +103,7 @@ export interface WithListItemRequestBuilder extends BaseRequestBuilder<WithListI
 /**
  * Uri template for the request builder.
  */
-export const WithListItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}";
+export const WithListItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

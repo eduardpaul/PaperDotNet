@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createItemPageFromDiscriminator
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/items/{itemId}/children
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/children
  */
 export interface ChildrenRequestBuilder extends BaseRequestBuilder<ChildrenRequestBuilder> {
     /**
@@ -52,7 +52,7 @@ export interface ChildrenRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const ChildrenRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/items/{itemId}/children{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*}";
+export const ChildrenRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/children{?%24count*,%24filter*,%24orderby*,%24select*,%24skiptoken*,%24top*}";
 /**
  * Mapper for query parameters from symbol name to serialization name represented as a constant.
  */

@@ -9,7 +9,7 @@ import { type WithContentTypeItemRequestBuilder, WithContentTypeItemRequestBuild
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /v1.0/workspaces/{-id}/lists/{listId}/contentTypes
+ * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/contentTypes
  */
 export interface ContentTypesRequestBuilder extends BaseRequestBuilder<ContentTypesRequestBuilder> {
     /**
@@ -35,7 +35,7 @@ export interface ContentTypesRequestBuilder extends BaseRequestBuilder<ContentTy
 /**
  * Uri template for the request builder.
  */
-export const ContentTypesRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{%2Did}/lists/{listId}/contentTypes";
+export const ContentTypesRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/contentTypes";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

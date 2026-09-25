@@ -28,6 +28,8 @@ class DocumentResponse(AdditionalDataHolder, Parsable):
     item_id: Optional[UUID] = None
     # The listId property
     list_id: Optional[UUID] = None
+    # The version property
+    version: Optional[int] = None
     # The workspaceId property
     workspace_id: Optional[UUID] = None
     
@@ -61,6 +63,7 @@ class DocumentResponse(AdditionalDataHolder, Parsable):
             "file": lambda n : setattr(self, 'file', n.get_object_value(FileVersionResponse)),
             "itemId": lambda n : setattr(self, 'item_id', n.get_uuid_value()),
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
+            "version": lambda n : setattr(self, 'version', n.get_int_value()),
             "workspaceId": lambda n : setattr(self, 'workspace_id', n.get_uuid_value()),
         }
         return fields
@@ -78,6 +81,7 @@ class DocumentResponse(AdditionalDataHolder, Parsable):
         writer.write_object_value("file", self.file)
         writer.write_uuid_value("itemId", self.item_id)
         writer.write_uuid_value("listId", self.list_id)
+        writer.write_int_value("version", self.version)
         writer.write_uuid_value("workspaceId", self.workspace_id)
         writer.write_additional_data_value(self.additional_data)
     

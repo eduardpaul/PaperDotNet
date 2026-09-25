@@ -7,7 +7,6 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from .json_element import JsonElement
     from .operation_status import OperationStatus
 
 @dataclass
@@ -25,8 +24,6 @@ class OperationResponse(AdditionalDataHolder, Parsable):
     id: Optional[UUID] = None
     # The percentComplete property
     percent_complete: Optional[int] = None
-    # The result property
-    result: Optional[JsonElement] = None
     # The startedAt property
     started_at: Optional[datetime.datetime] = None
     # The status property
@@ -50,10 +47,8 @@ class OperationResponse(AdditionalDataHolder, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
-        from .json_element import JsonElement
         from .operation_status import OperationStatus
 
-        from .json_element import JsonElement
         from .operation_status import OperationStatus
 
         fields: dict[str, Callable[[Any], None]] = {
@@ -62,7 +57,6 @@ class OperationResponse(AdditionalDataHolder, Parsable):
             "error": lambda n : setattr(self, 'error', n.get_str_value()),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "percentComplete": lambda n : setattr(self, 'percent_complete', n.get_int_value()),
-            "result": lambda n : setattr(self, 'result', n.get_object_value(JsonElement)),
             "startedAt": lambda n : setattr(self, 'started_at', n.get_datetime_value()),
             "status": lambda n : setattr(self, 'status', n.get_enum_value(OperationStatus)),
             "type": lambda n : setattr(self, 'type', n.get_str_value()),
@@ -82,7 +76,6 @@ class OperationResponse(AdditionalDataHolder, Parsable):
         writer.write_str_value("error", self.error)
         writer.write_uuid_value("id", self.id)
         writer.write_int_value("percentComplete", self.percent_complete)
-        writer.write_object_value("result", self.result)
         writer.write_datetime_value("startedAt", self.started_at)
         writer.write_enum_value("status", self.status)
         writer.write_str_value("type", self.type)
