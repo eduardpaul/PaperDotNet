@@ -14,7 +14,8 @@ namespace PaperDotNet.Notes.Features;
 /// <item>when a note is renamed, the notes that link to it are rewritten to the new title (as the organization);</item>
 /// <item>a deleted note's links go, and links to it wait for a note with its title again.</item>
 /// </list>
-/// Idempotent: every run recomputes the note's state from the item.
+/// Idempotent: every run recomputes the note's state from the item. Each run replaces the note's links in one
+/// transaction, so readers never see a note without its links while it is indexed again.
 /// </summary>
 internal sealed class NoteLinkIndexer(NotesDbContext db, IListItemStore items, EventCausation causation)
     : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemRestored>, IEventSubscriber<ItemDeleted>, IEventSubscriber<ItemPurged>
@@ -51,6 +52,7 @@ internal sealed class NoteLinkIndexer(NotesDbContext db, IListItemStore items, E
 
         var title = NoteTemplates.Text(item.Fields["title"]) ?? string.Empty;
         var normalized = NoteMarkdown.Normalize(title);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var entry = await db.Notes.FirstOrDefaultAsync(n => n.ItemId == item.Id, ct);
         (string Title, string NormalizedTitle)? previous = entry is null ? null : (entry.Title, entry.NormalizedTitle);
         if (entry is null)
@@ -91,14 +93,18 @@ internal sealed class NoteLinkIndexer(NotesDbContext db, IListItemStore items, E
         }));
         await db.SaveChangesAsync(ct);
 
+        if (previous?.NormalizedTitle != normalized)
+        {
+            // A new title: links waiting for it now point here.
+            await db.Links.Where(l => l.WorkspaceId == item.WorkspaceId && l.TargetItemId == null && l.NormalizedTarget == normalized)
+                .ExecuteUpdateAsync(u => u.SetProperty(l => l.TargetItemId, item.Id), ct);
+        }
+
+        await transaction.CommitAsync(ct);
         if (previous?.NormalizedTitle == normalized)
         {
             return;
         }
-
-        // A new title: links waiting for it now point here.
-        await db.Links.Where(l => l.WorkspaceId == item.WorkspaceId && l.TargetItemId == null && l.NormalizedTarget == normalized)
-            .ExecuteUpdateAsync(u => u.SetProperty(l => l.TargetItemId, item.Id), ct);
 
         if (previous is { } old && integrationEvent.Depth < MaxRewriteDepth)
         {
@@ -136,9 +142,11 @@ internal sealed class NoteLinkIndexer(NotesDbContext db, IListItemStore items, E
 
     private async Task RemoveAsync(Guid itemId, CancellationToken ct)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.Links.Where(l => l.SourceItemId == itemId).ExecuteDeleteAsync(ct);
         await db.Links.Where(l => l.TargetItemId == itemId).ExecuteUpdateAsync(u => u.SetProperty(l => l.TargetItemId, (Guid?)null), ct);
         await db.Notes.Where(n => n.ItemId == itemId).ExecuteDeleteAsync(ct);
+        await transaction.CommitAsync(ct);
     }
 
     private static string Truncate(string text) => text.Length > 1024 ? text[..1024] : text;
