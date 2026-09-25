@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
@@ -46,7 +47,9 @@ internal static class Recurrences
 /// <summary>
 /// Completing a repeating task creates its next occurrence (TSK-05): same title, priority, assignees,
 /// description and checklist (unchecked), due on the next date of the rule; the rule moves to the new
-/// task. Idempotent: once the rule moved, a redelivered event finds nothing to do.
+/// task. Idempotent and safe to repeat: the next task's id is derived from the rule and the completed task,
+/// its checklist is saved before the task is created (so it never appears without it), and a repeated
+/// event finds the task created before; once the rule moved, a redelivered event finds nothing to do.
 /// </summary>
 internal sealed class RecurringTaskSpawner(TasksDbContext db, IListItemStore items) : IEventSubscriber<ItemUpdated>
 {
@@ -93,16 +96,34 @@ internal sealed class RecurringTaskSpawner(TasksDbContext db, IListItemStore ite
             fields["startDate"] = Format(startDate.AddDays(next.Value.DayNumber - due!.Value.DayNumber));
         }
 
-        var created = await system.CreateAsync(task.WorkspaceId, task.ListId, fields, task.ContentTypeId, cancellationToken);
+        var nextId = NextItemId(recurrence.Id, task.Id);
+        if (!await db.Checklist.AnyAsync(c => c.ItemId == nextId, cancellationToken))
+        {
+            var checklist = await db.Checklist.AsNoTracking().Where(c => c.ItemId == task.Id).OrderBy(c => c.Position).ToListAsync(cancellationToken);
+            db.Checklist.AddRange(checklist.Select(c => new ChecklistEntry { Id = Ids.New(), ItemId = nextId, Position = c.Position, Text = c.Text }));
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        var created = await system.CreateAsync(task.WorkspaceId, task.ListId, nextId, fields, task.ContentTypeId, cancellationToken);
         if (!created.Succeeded)
         {
             return;
         }
 
-        var checklist = await db.Checklist.AsNoTracking().Where(c => c.ItemId == task.Id).OrderBy(c => c.Position).ToListAsync(cancellationToken);
-        db.Checklist.AddRange(checklist.Select(c => new ChecklistEntry { Id = Ids.New(), ItemId = created.Item!.Id, Position = c.Position, Text = c.Text }));
-        recurrence.ItemId = created.Item!.Id;
+        recurrence.ItemId = nextId;
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>The id of the occurrence after <paramref name="previous"/>: the same every time, so repeats find it.</summary>
+    internal static Guid NextItemId(Guid recurrence, Guid previous)
+    {
+        Span<byte> input = stackalloc byte[32];
+        recurrence.TryWriteBytes(input);
+        previous.TryWriteBytes(input[16..]);
+        var bytes = SHA256.HashData(input)[..16];
+        bytes[7] = (byte)((bytes[7] & 0x0F) | 0x80); // Version 8 (name-based, custom).
+        bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80); // RFC 4122 variant.
+        return new Guid(bytes);
     }
 
     private static string Format(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);

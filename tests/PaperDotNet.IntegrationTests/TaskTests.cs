@@ -143,7 +143,8 @@ public sealed class TaskTests(PaperDotNetApiFactory factory)
         var nextId = next.GetProperty("id").GetGuid();
         var checklist = (await (await client.GetAsync($"{Item(ws, list, nextId)}/checklist", Ct)).ReadJsonAsync()).GetProperty("value");
         Assert.False(Assert.Single(checklist.EnumerateArray()).GetProperty("done").GetBoolean());
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"{Item(ws, list, nextId)}/recurrence", Ct)).StatusCode);
+        // The rule moves to the new task right after it is created.
+        await Eventually.WaitForAsync(async () => (await client.GetAsync($"{Item(ws, list, nextId)}/recurrence", Ct)).StatusCode == HttpStatusCode.OK ? true : (bool?)null);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"{Item(ws, list, task)}/recurrence", Ct)).StatusCode);
     }
 
