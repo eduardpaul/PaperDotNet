@@ -4,12 +4,20 @@
 // @ts-ignore
 import { createRoleAssignmentResponseFromDiscriminatorValue, serializeRoleAssignmentRequest, serializeRoleAssignmentResponse, type RoleAssignmentRequest, type RoleAssignmentResponse } from '../../../../models/index.js';
 // @ts-ignore
-import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
+import { type WithAssignmentItemRequestBuilder, WithAssignmentItemRequestBuilderRequestsMetadata } from './item/index.js';
+// @ts-ignore
+import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
  * Builds and executes requests for operations under /v1.0/roles/{id}/assignments
  */
 export interface AssignmentsRequestBuilder extends BaseRequestBuilder<AssignmentsRequestBuilder> {
+    /**
+     * Gets an item from the paperdotnet.v10.roles.item.assignments.item collection
+     * @param assignmentId Unique identifier of the item
+     * @returns {WithAssignmentItemRequestBuilder}
+     */
+     byAssignmentId(assignmentId: Guid) : WithAssignmentItemRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<RoleAssignmentResponse[]>}
@@ -37,6 +45,15 @@ export interface AssignmentsRequestBuilder extends BaseRequestBuilder<Assignment
  * Uri template for the request builder.
  */
 export const AssignmentsRequestBuilderUriTemplate = "{+baseurl}/v1.0/roles/{id}/assignments";
+/**
+ * Metadata for all the navigation properties in the request builder.
+ */
+export const AssignmentsRequestBuilderNavigationMetadata: Record<Exclude<keyof AssignmentsRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+    byAssignmentId: {
+        requestsMetadata: WithAssignmentItemRequestBuilderRequestsMetadata,
+        pathParametersMappings: ["assignmentId"],
+    },
+};
 /**
  * Metadata for all the requests in the request builder.
  */

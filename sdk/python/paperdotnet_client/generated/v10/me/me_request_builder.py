@@ -25,6 +25,8 @@ if TYPE_CHECKING:
     from .notifications.notifications_request_builder import NotificationsRequestBuilder
     from .notification_settings.notification_settings_request_builder import NotificationSettingsRequestBuilder
     from .passkeys.passkeys_request_builder import PasskeysRequestBuilder
+    from .password.password_request_builder import PasswordRequestBuilder
+    from .preferences.preferences_request_builder import PreferencesRequestBuilder
     from .subscriptions.subscriptions_request_builder import SubscriptionsRequestBuilder
     from .tasks.tasks_request_builder import TasksRequestBuilder
 
@@ -164,6 +166,24 @@ class MeRequestBuilder(BaseRequestBuilder):
         from .passkeys.passkeys_request_builder import PasskeysRequestBuilder
 
         return PasskeysRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def password(self) -> PasswordRequestBuilder:
+        """
+        The password property
+        """
+        from .password.password_request_builder import PasswordRequestBuilder
+
+        return PasswordRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def preferences(self) -> PreferencesRequestBuilder:
+        """
+        The preferences property
+        """
+        from .preferences.preferences_request_builder import PreferencesRequestBuilder
+
+        return PreferencesRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def subscriptions(self) -> SubscriptionsRequestBuilder:

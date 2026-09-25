@@ -12,6 +12,7 @@ using Microsoft.Net.Http.Headers;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Documents.Data;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
@@ -35,13 +36,16 @@ public sealed record DuplicateResponse(Guid WorkspaceId, Guid ListId, Guid ItemI
 public sealed record DocumentResponse(
     Guid WorkspaceId, Guid ListId, Guid ItemId, uint Version, JsonObject Fields, FileVersionResponse File, IReadOnlyList<DuplicateResponse> Duplicates);
 
-public sealed record LibrarySettingsResponse(Guid ListId, DuplicatePolicy DuplicatePolicy, bool AutoProcess, OcrMode OcrMode, string OcrLanguages)
+/// <summary>Library settings; <c>ocrLanguagesInherited</c> means the organization's default document languages apply.</summary>
+public sealed record LibrarySettingsResponse(
+    Guid ListId, DuplicatePolicy DuplicatePolicy, bool AutoProcess, OcrMode OcrMode, string OcrLanguages, bool OcrLanguagesInherited)
 {
-    internal static LibrarySettingsResponse From(Guid listId, LibrarySettings? s) =>
-        new(listId, s?.DuplicatePolicy ?? DuplicatePolicy.Warn, s?.AutoProcess ?? true, s?.OcrMode ?? OcrMode.Auto, s?.OcrLanguages ?? LibrarySettings.DefaultOcrLanguages);
+    internal static LibrarySettingsResponse From(Guid listId, LibrarySettings? s, string defaultLanguages) =>
+        new(listId, s?.DuplicatePolicy ?? DuplicatePolicy.Warn, s?.AutoProcess ?? true, s?.OcrMode ?? OcrMode.Auto,
+            s?.OcrLanguages ?? defaultLanguages, s?.OcrLanguages is null);
 }
 
-/// <summary>Library settings; omitted values keep their current value.</summary>
+/// <summary>Library settings; omitted values keep their current value. An empty <c>ocrLanguages</c> goes back to the organization's default.</summary>
 public sealed record LibrarySettingsRequest(DuplicatePolicy? DuplicatePolicy, bool? AutoProcess, OcrMode? OcrMode, string? OcrLanguages);
 
 /// <summary>On-demand processing: <c>forceOcr</c> runs OCR even when the PDF has text; <c>languages</c> like <c>deu+eng</c>.</summary>
@@ -192,7 +196,7 @@ internal static class DocumentEndpoints
         documents.RestoreAsync(workspaceId, listId, itemId, number, ct);
 
     private static async Task<Results<Ok<LibrarySettingsResponse>, ProblemHttpResult>> GetSettingsAsync(
-        Guid workspaceId, Guid listId, IListItemStore items, DocumentsDbContext db, HttpResponse response, CancellationToken ct)
+        Guid workspaceId, Guid listId, IListItemStore items, DocumentsDbContext db, IUserPreferences preferences, HttpResponse response, CancellationToken ct)
     {
         var list = await items.GetListAsync(workspaceId, listId, ct);
         if (list is not { IsLibrary: true })
@@ -202,15 +206,15 @@ internal static class DocumentEndpoints
 
         var settings = await db.LibrarySettings.AsNoTracking().FirstOrDefaultAsync(s => s.ListId == listId, ct);
         ETags.Set(response, settings?.Version ?? 0);
-        return TypedResults.Ok(LibrarySettingsResponse.From(listId, settings));
+        return TypedResults.Ok(LibrarySettingsResponse.From(listId, settings, (await preferences.GetDefaultsAsync(ct)).DocumentLanguages));
     }
 
     /// <summary>Changes the library's document settings (needs Manage on the library).</summary>
     private static async Task<Results<Ok<LibrarySettingsResponse>, ValidationProblem, ProblemHttpResult>> UpdateSettingsAsync(
         Guid workspaceId, Guid listId, LibrarySettingsRequest request, IListItemStore items, DocumentsDbContext db,
-        HttpRequest http, HttpResponse response, CancellationToken ct)
+        IUserPreferences preferences, HttpRequest http, HttpResponse response, CancellationToken ct)
     {
-        if (request.OcrLanguages is { } languages && !ProcessingScheduler.IsValidLanguageList(languages))
+        if (request.OcrLanguages is { Length: > 0 } languages && !ProcessingScheduler.IsValidLanguageList(languages))
         {
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["ocrLanguages"] = ["Tesseract language codes joined with '+', e.g. 'deu+eng'."] });
         }
@@ -241,7 +245,7 @@ internal static class DocumentEndpoints
         settings.DuplicatePolicy = request.DuplicatePolicy ?? settings.DuplicatePolicy;
         settings.AutoProcess = request.AutoProcess ?? settings.AutoProcess;
         settings.OcrMode = request.OcrMode ?? settings.OcrMode;
-        settings.OcrLanguages = request.OcrLanguages ?? settings.OcrLanguages;
+        settings.OcrLanguages = request.OcrLanguages is null ? settings.OcrLanguages : request.OcrLanguages.Length == 0 ? null : request.OcrLanguages;
         try
         {
             await db.SaveChangesAsync(ct);
@@ -252,7 +256,7 @@ internal static class DocumentEndpoints
         }
 
         ETags.Set(response, settings.Version);
-        return TypedResults.Ok(LibrarySettingsResponse.From(listId, settings));
+        return TypedResults.Ok(LibrarySettingsResponse.From(listId, settings, (await preferences.GetDefaultsAsync(ct)).DocumentLanguages));
     }
 
     private static async Task<Results<FileStreamHttpResult, ProblemHttpResult>> FileAsync(

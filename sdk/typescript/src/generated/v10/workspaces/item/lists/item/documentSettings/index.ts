@@ -16,7 +16,7 @@ export interface DocumentSettingsRequestBuilder extends BaseRequestBuilder<Docum
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<LibrarySettingsResponse | undefined>;
     /**
-     * @param body Library settings; omitted values keep their current value.
+     * @param body Library settings; omitted values keep their current value. An empty `ocrLanguages` goes back to the organization's default.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<LibrarySettingsResponse>}
      * @throws {HttpValidationProblemDetails} error when the service returns a 400 status code
@@ -28,7 +28,7 @@ export interface DocumentSettingsRequestBuilder extends BaseRequestBuilder<Docum
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
     /**
-     * @param body Library settings; omitted values keep their current value.
+     * @param body Library settings; omitted values keep their current value. An empty `ocrLanguages` goes back to the organization's default.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

@@ -600,6 +600,16 @@ export interface CatalogEntry extends AdditionalDataHolder, Parsable {
      */
     key?: string | null;
 }
+export interface ChangePasswordRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The currentPassword property
+     */
+    currentPassword?: string | null;
+    /**
+     * The newPassword property
+     */
+    newPassword?: string | null;
+}
 /**
  * Create body. `resource` is `workspaces/{id}/lists/{id}/items` (the whole list) or`…/items/{id}` (one item); `changeTypes` any of `created`, `updated`,`deleted`; `expirationDateTime` at most 30 days ahead (default: the maximum).
  */
@@ -1114,6 +1124,15 @@ export function createCalendarResponseFromDiscriminatorValue(parseNode: ParseNod
 // @ts-ignore
 export function createCatalogEntryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoCatalogEntry;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ChangePasswordRequest}
+ */
+// @ts-ignore
+export function createChangePasswordRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoChangePasswordRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2078,6 +2097,15 @@ export function createPopularKeywordsResponseFromDiscriminatorValue(parseNode: P
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PreferencesResponse}
+ */
+// @ts-ignore
+export function createPreferencesResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPreferencesResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ProcessRequest}
  */
 // @ts-ignore
@@ -2250,6 +2278,15 @@ export function createSearchHitFromDiscriminatorValue(parseNode: ParseNode | und
 // @ts-ignore
 export function createSearchResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoSearchResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SetPasswordRequest}
+ */
+// @ts-ignore
+export function createSetPasswordRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetPasswordRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2536,11 +2573,29 @@ export function createUnreadCountFromDiscriminatorValue(parseNode: ParseNode | u
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UpdateGroupRequest}
+ */
+// @ts-ignore
+export function createUpdateGroupRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUpdateGroupRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {UpdateListRequest}
  */
 // @ts-ignore
 export function createUpdateListRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoUpdateListRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UpdateRoleRequest}
+ */
+// @ts-ignore
+export function createUpdateRoleRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUpdateRoleRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2559,6 +2614,15 @@ export function createUpdateTermRequestFromDiscriminatorValue(parseNode: ParseNo
 // @ts-ignore
 export function createUpdateTermSetRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoUpdateTermSetRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UpdateUserRequest}
+ */
+// @ts-ignore
+export function createUpdateUserRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUpdateUserRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -3131,6 +3195,18 @@ export function deserializeIntoCatalogEntry(catalogEntry: Partial<CatalogEntry> 
     return {
         "description": n => { catalogEntry.description = n.getStringValue(); },
         "key": n => { catalogEntry.key = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ChangePasswordRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoChangePasswordRequest(changePasswordRequest: Partial<ChangePasswordRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "currentPassword": n => { changePasswordRequest.currentPassword = n.getStringValue(); },
+        "newPassword": n => { changePasswordRequest.newPassword = n.getStringValue(); },
     }
 }
 /**
@@ -3931,6 +4007,7 @@ export function deserializeIntoLibrarySettingsResponse(librarySettingsResponse: 
         "duplicatePolicy": n => { librarySettingsResponse.duplicatePolicy = n.getEnumValue<DuplicatePolicy>(DuplicatePolicyObject); },
         "listId": n => { librarySettingsResponse.listId = n.getGuidValue(); },
         "ocrLanguages": n => { librarySettingsResponse.ocrLanguages = n.getStringValue(); },
+        "ocrLanguagesInherited": n => { librarySettingsResponse.ocrLanguagesInherited = n.getBooleanValue(); },
         "ocrMode": n => { librarySettingsResponse.ocrMode = n.getEnumValue<OcrMode>(OcrModeObject); },
     }
 }
@@ -4513,6 +4590,24 @@ export function deserializeIntoPopularKeywordsResponse(popularKeywordsResponse: 
 }
 /**
  * The deserialization information for the current model
+ * @param PreferencesResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPreferencesResponse(preferencesResponse: Partial<PreferencesResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "dateFormat": n => { preferencesResponse.dateFormat = n.getStringValue(); },
+        "documentLanguages": n => { preferencesResponse.documentLanguages = n.getStringValue(); },
+        "inherited": n => { preferencesResponse.inherited = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "language": n => { preferencesResponse.language = n.getStringValue(); },
+        "numberFormat": n => { preferencesResponse.numberFormat = n.getStringValue(); },
+        "theme": n => { preferencesResponse.theme = n.getStringValue(); },
+        "timeFormat": n => { preferencesResponse.timeFormat = n.getStringValue(); },
+        "timeZone": n => { preferencesResponse.timeZone = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ProcessRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -4761,6 +4856,17 @@ export function deserializeIntoSearchResponse(searchResponse: Partial<SearchResp
 }
 /**
  * The deserialization information for the current model
+ * @param SetPasswordRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSetPasswordRequest(setPasswordRequest: Partial<SetPasswordRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "password": n => { setPasswordRequest.password = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param SettingsRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -4771,7 +4877,6 @@ export function deserializeIntoSettingsRequest(settingsRequest: Partial<Settings
         "digestHour": n => { settingsRequest.digestHour = n.getNumberValue(); },
         "quietHoursEnd": n => { settingsRequest.quietHoursEnd = n.getTimeOnlyValue(); },
         "quietHoursStart": n => { settingsRequest.quietHoursStart = n.getTimeOnlyValue(); },
-        "timeZone": n => { settingsRequest.timeZone = n.getStringValue(); },
         "webhookUrl": n => { settingsRequest.webhookUrl = n.getStringValue(); },
     }
 }
@@ -4797,7 +4902,6 @@ export function deserializeIntoSettingsResponse(settingsResponse: Partial<Settin
         "digestHour": n => { settingsResponse.digestHour = n.getNumberValue(); },
         "quietHoursEnd": n => { settingsResponse.quietHoursEnd = n.getTimeOnlyValue(); },
         "quietHoursStart": n => { settingsResponse.quietHoursStart = n.getTimeOnlyValue(); },
-        "timeZone": n => { settingsResponse.timeZone = n.getStringValue(); },
         "webhookSecret": n => { settingsResponse.webhookSecret = n.getStringValue(); },
         "webhookUrl": n => { settingsResponse.webhookUrl = n.getStringValue(); },
     }
@@ -5136,6 +5240,18 @@ export function deserializeIntoUnreadCount(unreadCount: Partial<UnreadCount> | u
 }
 /**
  * The deserialization information for the current model
+ * @param UpdateGroupRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUpdateGroupRequest(updateGroupRequest: Partial<UpdateGroupRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "description": n => { updateGroupRequest.description = n.getStringValue(); },
+        "name": n => { updateGroupRequest.name = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param UpdateListRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -5147,6 +5263,19 @@ export function deserializeIntoUpdateListRequest(updateListRequest: Partial<Upda
         "maxVersions": n => { updateListRequest.maxVersions = n.getNumberValue(); },
         "name": n => { updateListRequest.name = n.getStringValue(); },
         "versioning": n => { updateListRequest.versioning = n.getEnumValue<ListVersioning>(ListVersioningObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param UpdateRoleRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUpdateRoleRequest(updateRoleRequest: Partial<UpdateRoleRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "description": n => { updateRoleRequest.description = n.getStringValue(); },
+        "name": n => { updateRoleRequest.name = n.getStringValue(); },
+        "scopes": n => { updateRoleRequest.scopes = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
 /**
@@ -5179,6 +5308,19 @@ export function deserializeIntoUpdateTermSetRequest(updateTermSetRequest: Partia
         "description": n => { updateTermSetRequest.description = n.getStringValue(); },
         "isOpen": n => { updateTermSetRequest.isOpen = n.getBooleanValue(); },
         "name": n => { updateTermSetRequest.name = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param UpdateUserRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUpdateUserRequest(updateUserRequest: Partial<UpdateUserRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "displayName": n => { updateUserRequest.displayName = n.getStringValue(); },
+        "email": n => { updateUserRequest.email = n.getStringValue(); },
+        "isDisabled": n => { updateUserRequest.isDisabled = n.getBooleanValue(); },
     }
 }
 /**
@@ -5898,7 +6040,7 @@ export interface KeywordRequest extends AdditionalDataHolder, Parsable {
     name?: string | null;
 }
 /**
- * Library settings; omitted values keep their current value.
+ * Library settings; omitted values keep their current value. An empty `ocrLanguages` goes back to the organization's default.
  */
 export interface LibrarySettingsRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -5918,6 +6060,9 @@ export interface LibrarySettingsRequest extends AdditionalDataHolder, Parsable {
      */
     ocrMode?: OcrMode | null;
 }
+/**
+ * Library settings; `ocrLanguagesInherited` means the organization's default document languages apply.
+ */
 export interface LibrarySettingsResponse extends AdditionalDataHolder, Parsable {
     /**
      * The autoProcess property
@@ -5935,6 +6080,10 @@ export interface LibrarySettingsResponse extends AdditionalDataHolder, Parsable 
      * The ocrLanguages property
      */
     ocrLanguages?: string | null;
+    /**
+     * The ocrLanguagesInherited property
+     */
+    ocrLanguagesInherited?: boolean | null;
     /**
      * When a library runs OCR.
      */
@@ -6689,6 +6838,43 @@ export interface PopularKeywordsResponse extends AdditionalDataHolder, Parsable 
      * The value property
      */
     value?: PopularKeyword[] | null;
+}
+/**
+ * Effective values, and which of them are inherited (from the organization's or the built-in defaults).
+ */
+export interface PreferencesResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The dateFormat property
+     */
+    dateFormat?: string | null;
+    /**
+     * The documentLanguages property
+     */
+    documentLanguages?: string | null;
+    /**
+     * The inherited property
+     */
+    inherited?: string[] | null;
+    /**
+     * The language property
+     */
+    language?: string | null;
+    /**
+     * The numberFormat property
+     */
+    numberFormat?: string | null;
+    /**
+     * The theme property
+     */
+    theme?: string | null;
+    /**
+     * The timeFormat property
+     */
+    timeFormat?: string | null;
+    /**
+     * The timeZone property
+     */
+    timeZone?: string | null;
 }
 export type PrincipalType = (typeof PrincipalTypeObject)[keyof typeof PrincipalTypeObject];
 export type ProcessingStatus = (typeof ProcessingStatusObject)[keyof typeof ProcessingStatusObject];
@@ -7453,6 +7639,19 @@ export function serializeCatalogEntry(writer: SerializationWriter, catalogEntry:
     writer.writeStringValue("description", catalogEntry.description);
     writer.writeStringValue("key", catalogEntry.key);
     writer.writeAdditionalData(catalogEntry.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ChangePasswordRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeChangePasswordRequest(writer: SerializationWriter, changePasswordRequest: Partial<ChangePasswordRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!changePasswordRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("currentPassword", changePasswordRequest.currentPassword);
+    writer.writeStringValue("newPassword", changePasswordRequest.newPassword);
+    writer.writeAdditionalData(changePasswordRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -8307,6 +8506,7 @@ export function serializeLibrarySettingsResponse(writer: SerializationWriter, li
     writer.writeEnumValue<DuplicatePolicy>("duplicatePolicy", librarySettingsResponse.duplicatePolicy);
     writer.writeGuidValue("listId", librarySettingsResponse.listId);
     writer.writeStringValue("ocrLanguages", librarySettingsResponse.ocrLanguages);
+    writer.writeBooleanValue("ocrLanguagesInherited", librarySettingsResponse.ocrLanguagesInherited);
     writer.writeEnumValue<OcrMode>("ocrMode", librarySettingsResponse.ocrMode);
     writer.writeAdditionalData(librarySettingsResponse.additionalData);
 }
@@ -8933,6 +9133,25 @@ export function serializePopularKeywordsResponse(writer: SerializationWriter, po
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PreferencesResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePreferencesResponse(writer: SerializationWriter, preferencesResponse: Partial<PreferencesResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!preferencesResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("dateFormat", preferencesResponse.dateFormat);
+    writer.writeStringValue("documentLanguages", preferencesResponse.documentLanguages);
+    writer.writeCollectionOfPrimitiveValues<string>("inherited", preferencesResponse.inherited);
+    writer.writeStringValue("language", preferencesResponse.language);
+    writer.writeStringValue("numberFormat", preferencesResponse.numberFormat);
+    writer.writeStringValue("theme", preferencesResponse.theme);
+    writer.writeStringValue("timeFormat", preferencesResponse.timeFormat);
+    writer.writeStringValue("timeZone", preferencesResponse.timeZone);
+    writer.writeAdditionalData(preferencesResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param ProcessRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -9199,6 +9418,18 @@ export function serializeSearchResponse(writer: SerializationWriter, searchRespo
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SetPasswordRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSetPasswordRequest(writer: SerializationWriter, setPasswordRequest: Partial<SetPasswordRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setPasswordRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("password", setPasswordRequest.password);
+    writer.writeAdditionalData(setPasswordRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param SettingsRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -9209,7 +9440,6 @@ export function serializeSettingsRequest(writer: SerializationWriter, settingsRe
     writer.writeNumberValue("digestHour", settingsRequest.digestHour);
     writer.writeTimeOnlyValue("quietHoursEnd", settingsRequest.quietHoursEnd);
     writer.writeTimeOnlyValue("quietHoursStart", settingsRequest.quietHoursStart);
-    writer.writeStringValue("timeZone", settingsRequest.timeZone);
     writer.writeStringValue("webhookUrl", settingsRequest.webhookUrl);
     writer.writeAdditionalData(settingsRequest.additionalData);
 }
@@ -9237,7 +9467,6 @@ export function serializeSettingsResponse(writer: SerializationWriter, settingsR
     writer.writeNumberValue("digestHour", settingsResponse.digestHour);
     writer.writeTimeOnlyValue("quietHoursEnd", settingsResponse.quietHoursEnd);
     writer.writeTimeOnlyValue("quietHoursStart", settingsResponse.quietHoursStart);
-    writer.writeStringValue("timeZone", settingsResponse.timeZone);
     writer.writeStringValue("webhookSecret", settingsResponse.webhookSecret);
     writer.writeStringValue("webhookUrl", settingsResponse.webhookUrl);
     writer.writeAdditionalData(settingsResponse.additionalData);
@@ -9600,6 +9829,19 @@ export function serializeUnreadCount(writer: SerializationWriter, unreadCount: P
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UpdateGroupRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUpdateGroupRequest(writer: SerializationWriter, updateGroupRequest: Partial<UpdateGroupRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!updateGroupRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("description", updateGroupRequest.description);
+    writer.writeStringValue("name", updateGroupRequest.name);
+    writer.writeAdditionalData(updateGroupRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param UpdateListRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -9612,6 +9854,20 @@ export function serializeUpdateListRequest(writer: SerializationWriter, updateLi
     writer.writeStringValue("name", updateListRequest.name);
     writer.writeEnumValue<ListVersioning>("versioning", updateListRequest.versioning);
     writer.writeAdditionalData(updateListRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UpdateRoleRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUpdateRoleRequest(writer: SerializationWriter, updateRoleRequest: Partial<UpdateRoleRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!updateRoleRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("description", updateRoleRequest.description);
+    writer.writeStringValue("name", updateRoleRequest.name);
+    writer.writeCollectionOfPrimitiveValues<string>("scopes", updateRoleRequest.scopes);
+    writer.writeAdditionalData(updateRoleRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -9646,6 +9902,20 @@ export function serializeUpdateTermSetRequest(writer: SerializationWriter, updat
     writer.writeBooleanValue("isOpen", updateTermSetRequest.isOpen);
     writer.writeStringValue("name", updateTermSetRequest.name);
     writer.writeAdditionalData(updateTermSetRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UpdateUserRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUpdateUserRequest(writer: SerializationWriter, updateUserRequest: Partial<UpdateUserRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!updateUserRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("displayName", updateUserRequest.displayName);
+    writer.writeStringValue("email", updateUserRequest.email);
+    writer.writeBooleanValue("isDisabled", updateUserRequest.isDisabled);
+    writer.writeAdditionalData(updateUserRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -9745,6 +10015,12 @@ export function serializeWorkspaceResponse(writer: SerializationWriter, workspac
     writer.writeDateValue("updatedAt", workspaceResponse.updatedAt);
     writer.writeAdditionalData(workspaceResponse.additionalData);
 }
+export interface SetPasswordRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The password property
+     */
+    password?: string | null;
+}
 /**
  * Replaces the settings. Channels not listed use the defaults (in-app and webhook on).
  */
@@ -9765,10 +10041,6 @@ export interface SettingsRequest extends AdditionalDataHolder, Parsable {
      * The quietHoursStart property
      */
     quietHoursStart?: TimeOnly | null;
-    /**
-     * The timeZone property
-     */
-    timeZone?: string | null;
     /**
      * The webhookUrl property
      */
@@ -9796,10 +10068,6 @@ export interface SettingsResponse extends AdditionalDataHolder, Parsable {
      * The quietHoursStart property
      */
     quietHoursStart?: TimeOnly | null;
-    /**
-     * The timeZone property
-     */
-    timeZone?: string | null;
     /**
      * The webhookSecret property
      */
@@ -10289,6 +10557,16 @@ export interface UnreadCount extends AdditionalDataHolder, Parsable {
      */
     count?: number | null;
 }
+export interface UpdateGroupRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+}
 export interface UpdateListRequest extends AdditionalDataHolder, Parsable {
     /**
      * The allowFolders property
@@ -10310,6 +10588,20 @@ export interface UpdateListRequest extends AdditionalDataHolder, Parsable {
      * The versioning property
      */
     versioning?: ListVersioning | null;
+}
+export interface UpdateRoleRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The scopes property
+     */
+    scopes?: string[] | null;
 }
 /**
  * PATCH body: only the properties sent are changed. `parentId` moves the term (bool UpdateTermRequest.MoveToRoot moves it to the root).
@@ -10365,6 +10657,20 @@ export interface UpdateTermSetRequest extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+}
+export interface UpdateUserRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The displayName property
+     */
+    displayName?: string | null;
+    /**
+     * The email property
+     */
+    email?: string | null;
+    /**
+     * The isDisabled property
+     */
+    isDisabled?: boolean | null;
 }
 /**
  * PATCH body: only the properties sent are changed.

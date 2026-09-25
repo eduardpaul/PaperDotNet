@@ -7,10 +7,11 @@ using System.IO;
 using System;
 namespace PaperDotNet.Client.Models
 {
+    /// <summary>
+    /// Library settings; `ocrLanguagesInherited` means the organization&apos;s default document languages apply.
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
     public partial class LibrarySettingsResponse : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
@@ -28,6 +29,8 @@ namespace PaperDotNet.Client.Models
 #else
         public string OcrLanguages { get; set; }
 #endif
+        /// <summary>The ocrLanguagesInherited property</summary>
+        public bool? OcrLanguagesInherited { get; set; }
         /// <summary>When a library runs OCR.</summary>
         public global::PaperDotNet.Client.Models.OcrMode? OcrMode { get; set; }
         /// <summary>
@@ -59,6 +62,7 @@ namespace PaperDotNet.Client.Models
                 { "duplicatePolicy", n => { DuplicatePolicy = n.GetEnumValue<global::PaperDotNet.Client.Models.DuplicatePolicy>(); } },
                 { "listId", n => { ListId = n.GetGuidValue(); } },
                 { "ocrLanguages", n => { OcrLanguages = n.GetStringValue(); } },
+                { "ocrLanguagesInherited", n => { OcrLanguagesInherited = n.GetBoolValue(); } },
                 { "ocrMode", n => { OcrMode = n.GetEnumValue<global::PaperDotNet.Client.Models.OcrMode>(); } },
             };
         }
@@ -73,6 +77,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.DuplicatePolicy>("duplicatePolicy", DuplicatePolicy);
             writer.WriteGuidValue("listId", ListId);
             writer.WriteStringValue("ocrLanguages", OcrLanguages);
+            writer.WriteBoolValue("ocrLanguagesInherited", OcrLanguagesInherited);
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.OcrMode>("ocrMode", OcrMode);
             writer.WriteAdditionalData(AdditionalData);
         }

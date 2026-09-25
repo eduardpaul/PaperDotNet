@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 @dataclass
 class LibrarySettingsRequest(AdditionalDataHolder, Parsable):
     """
-    Library settings; omitted values keep their current value.
+    Library settings; omitted values keep their current value. An empty `ocrLanguages` goes back to the organization's default.
     """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)

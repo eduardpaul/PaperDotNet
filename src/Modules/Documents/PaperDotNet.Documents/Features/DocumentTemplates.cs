@@ -34,8 +34,8 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db) : IT
 
     public async Task ApplyAsync(XElement section, TemplateContext context, CancellationToken cancellationToken)
     {
-        var languages = section.Attr("OcrLanguages") ?? LibrarySettings.DefaultOcrLanguages;
-        if (!ProcessingScheduler.IsValidLanguageList(languages))
+        var languages = section.Attr("OcrLanguages");
+        if (languages is not null && !ProcessingScheduler.IsValidLanguageList(languages))
         {
             throw new TemplateException("OcrLanguages: Tesseract language codes joined with '+', e.g. 'deu+eng'.", section);
         }

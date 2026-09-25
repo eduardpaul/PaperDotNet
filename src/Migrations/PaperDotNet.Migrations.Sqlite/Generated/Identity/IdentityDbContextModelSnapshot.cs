@@ -584,6 +584,74 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                     b.ToTable("identity_oauth_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("PaperDotNet.Identity.Data.Preferences", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DateFormat")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date_format");
+
+                    b.Property<string>("DocumentLanguages")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("document_languages");
+
+                    b.Property<string>("Language")
+                        .HasMaxLength(35)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("language");
+
+                    b.Property<string>("NumberFormat")
+                        .HasMaxLength(35)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("number_format");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Theme")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("theme");
+
+                    b.Property<string>("TimeFormat")
+                        .HasMaxLength(8)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("time_format");
+
+                    b.Property<string>("TimeZone")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("time_zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("user_id");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identity_preferences");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_identity_preferences_tenant_id");
+
+                    b.HasIndex("TenantId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_identity_preferences_tenant_id_user_id");
+
+                    b.ToTable("identity_preferences", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Identity.Data.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -739,6 +807,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("TEXT")
                         .HasColumnName("created_by");
+
+                    b.Property<long?>("DeletedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("deleted_at");
 
                     b.Property<string>("DisplayName")
                         .HasMaxLength(200)

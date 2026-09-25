@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Workspaces.Contracts;
@@ -20,6 +21,7 @@ public sealed class WorkspacesModule : IModule
         services.AddScoped<WorkspaceAccess>();
         services.AddScoped<IWorkspaceAccess>(sp => sp.GetRequiredService<WorkspaceAccess>());
         services.AddScoped<ITemplateContainer, WorkspaceTemplateContainer>();
+        services.AddEventSubscriber<PrincipalDeleted, PrincipalDeletedSubscriber>();
         services.AddScopes(WorkspaceScopes.All);
     }
 

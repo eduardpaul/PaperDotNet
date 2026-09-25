@@ -24,8 +24,6 @@ class SettingsResponse(AdditionalDataHolder, Parsable):
     quiet_hours_end: Optional[datetime.time] = None
     # The quietHoursStart property
     quiet_hours_start: Optional[datetime.time] = None
-    # The timeZone property
-    time_zone: Optional[str] = None
     # The webhookSecret property
     webhook_secret: Optional[str] = None
     # The webhookUrl property
@@ -56,7 +54,6 @@ class SettingsResponse(AdditionalDataHolder, Parsable):
             "digestHour": lambda n : setattr(self, 'digest_hour', n.get_int_value()),
             "quietHoursEnd": lambda n : setattr(self, 'quiet_hours_end', n.get_time_value()),
             "quietHoursStart": lambda n : setattr(self, 'quiet_hours_start', n.get_time_value()),
-            "timeZone": lambda n : setattr(self, 'time_zone', n.get_str_value()),
             "webhookSecret": lambda n : setattr(self, 'webhook_secret', n.get_str_value()),
             "webhookUrl": lambda n : setattr(self, 'webhook_url', n.get_str_value()),
         }
@@ -74,7 +71,6 @@ class SettingsResponse(AdditionalDataHolder, Parsable):
         writer.write_int_value("digestHour", self.digest_hour)
         writer.write_time_value("quietHoursEnd", self.quiet_hours_end)
         writer.write_time_value("quietHoursStart", self.quiet_hours_start)
-        writer.write_str_value("timeZone", self.time_zone)
         writer.write_str_value("webhookSecret", self.webhook_secret)
         writer.write_str_value("webhookUrl", self.webhook_url)
         writer.write_additional_data_value(self.additional_data)

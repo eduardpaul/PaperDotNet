@@ -108,6 +108,8 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `IAutomationTriggers` (Automation.Contracts); runs are started and resumed with `ResumeRun`
   messages through the outbox (no workflow engine). Code that reacts to an event
   and changes data should set `EventCausation.Depth` to the event's depth + 1 (loop protection).
+- User settings (time zone, languages, formats) → `IUserPreferences` (Identity.Contracts); never add
+  per-module copies. Deleting a user or group publishes `PrincipalDeleted`: clean up references to it.
 - Configuration must be portable (PRV, ADR-0017): a module with its own configuration
   implements `ITemplateHandler` (Provisioning.Contracts) for its template section,
   referencing other objects by name and honoring `TemplateContext.DryRun`.

@@ -47,7 +47,8 @@ internal static class OAuthEndpoints
         var user = session.Succeeded && session.Principal.FindFirstValue(PaperDotNetClaims.TenantId) == tenantId.ToString()
             ? await users.FindByIdAsync(session.Principal.FindFirstValue(PaperDotNetClaims.UserId)!)
             : null;
-        if (user is null || !CanSignIn(user) || request.HasPromptValue(PromptValues.Login))
+        if (user is null || !CanSignIn(user) || request.HasPromptValue(PromptValues.Login)
+            || session.Principal!.FindFirstValue(AuthEndpoints.SessionStampClaim) != user.SecurityStamp)
         {
             if (request.HasPromptValue(PromptValues.None))
             {

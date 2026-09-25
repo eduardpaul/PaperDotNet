@@ -360,12 +360,6 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Notifications
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
 
-                    b.Property<string>("TimeZone")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("time_zone");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");

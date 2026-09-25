@@ -210,6 +210,9 @@ internal static class AuthEndpoints
 
     // ---- Helpers ------------------------------------------------------------
 
+    /// <summary>The user's security stamp at sign-in: a password change or reset ends the session (IAM-14).</summary>
+    internal const string SessionStampClaim = "stamp";
+
     private static async Task SignInSessionAsync(HttpContext http, User user, ITenantContext tenant, string method)
     {
         var identity = new ClaimsIdentity(
@@ -219,6 +222,7 @@ internal static class AuthEndpoints
                 new Claim(PaperDotNetClaims.TenantId, tenant.TenantId!.Value.ToString()),
                 new Claim(PaperDotNetClaims.TenantIdentifier, tenant.TenantIdentifier!),
                 new Claim("amr", method),
+                new Claim(SessionStampClaim, user.SecurityStamp ?? string.Empty),
             ],
             AuthSchemes.Session,
             PaperDotNetClaims.Name,

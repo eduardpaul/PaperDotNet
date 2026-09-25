@@ -176,7 +176,6 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                         .HasColumnName("list_id");
 
                     b.Property<string>("OcrLanguages")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("ocr_languages");

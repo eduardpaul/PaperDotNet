@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
@@ -79,6 +80,7 @@ public sealed class ListsModule : IModule
         services.AddTenantRecurringJob<ItemChangeCleanupJob>(ItemChangeCleanupJob.Name, ItemChangeCleanupJob.Schedule);
         services.AddOperationHandler<BulkUpdateOperation>();
         services.AddEventSubscriber<TermMerged, TermMergedSubscriber>();
+        services.AddEventSubscriber<PrincipalDeleted, PrincipalDeletedSubscriber>();
         services.AddIntegrationEvent<ListIndexInvalidated>();
         services.AddScoped<ListItemSearchDocuments>();
         services.AddScoped<ISearchSource>(sp => sp.GetRequiredService<ListItemSearchDocuments>());

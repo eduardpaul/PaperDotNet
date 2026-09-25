@@ -34,3 +34,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0027](0027-semantic-and-hybrid-search.md) | Semantic and hybrid search with page-level hits (passages, in-process vector index, reciprocal rank fusion) | Accepted |
 | [0028](0028-template-packages.md) | Template packages (zip: template, JSON content, files) for content and export/import | Accepted |
 | [0029](0029-papermerge-import.md) | Import from Papermerge through a converter that writes a PaperDotNet package; no direct export to its database | Proposed |
+| [0030](0030-account-lifecycle-and-preferences.md) | Account lifecycle (anonymizing deletes, last administrator, ending access) and preferences with organization defaults | Accepted |

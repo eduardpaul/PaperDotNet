@@ -8,7 +8,7 @@ using System;
 namespace PaperDotNet.Client.Models
 {
     /// <summary>
-    /// Library settings; omitted values keep their current value.
+    /// Library settings; omitted values keep their current value. An empty `ocrLanguages` goes back to the organization&apos;s default.
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class LibrarySettingsRequest : IAdditionalDataHolder, IParsable

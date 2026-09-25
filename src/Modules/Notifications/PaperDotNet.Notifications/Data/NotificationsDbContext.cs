@@ -53,14 +53,12 @@ public sealed class NotificationSettings : ITenantOwned, IAuditable, IVersioned
     /// <summary>The webhook signing secret, protected with Data Protection.</summary>
     public string? WebhookSecret { get; set; }
 
-    /// <summary>Quiet hours (local time in <see cref="TimeZone"/>): webhook deliveries wait until they end.</summary>
+    /// <summary>Quiet hours (local time in the user's preferred time zone, PLT-17): webhook deliveries wait until they end.</summary>
     public TimeOnly? QuietHoursStart { get; set; }
 
     public TimeOnly? QuietHoursEnd { get; set; }
 
-    public string TimeZone { get; set; } = "UTC";
-
-    /// <summary>Hour of the day (in <see cref="TimeZone"/>) for daily digests.</summary>
+    /// <summary>Hour of the day (in the user's preferred time zone) for daily digests.</summary>
     public int DigestHour { get; set; } = 7;
 
     public uint Version { get; set; }
@@ -213,7 +211,6 @@ public sealed class NotificationsDbContext(DbContextOptions<NotificationsDbConte
             b.ToTable("settings");
             b.Property(s => s.WebhookUrl).HasMaxLength(2000);
             b.Property(s => s.WebhookSecret).HasMaxLength(1000);
-            b.Property(s => s.TimeZone).HasMaxLength(64);
             b.HasIndex(s => s.UserId).IsUnique();
         });
         modelBuilder.Entity<WebhookDelivery>(b =>

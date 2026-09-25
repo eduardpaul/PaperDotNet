@@ -49,7 +49,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.DocumentSettings
             return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.LibrarySettingsResponse>(requestInfo, global::PaperDotNet.Client.Models.LibrarySettingsResponse.CreateFromDiscriminatorValue, default, cancellationToken).ConfigureAwait(false);
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.LibrarySettingsResponse"/></returns>
-        /// <param name="body">Library settings; omitted values keep their current value.</param>
+        /// <param name="body">Library settings; omitted values keep their current value. An empty `ocrLanguages` goes back to the organization&apos;s default.</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
         /// <exception cref="global::PaperDotNet.Client.Models.HttpValidationProblemDetails">When receiving a 400 status code</exception>
@@ -87,7 +87,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.DocumentSettings
             return requestInfo;
         }
         /// <returns>A <see cref="RequestInformation"/></returns>
-        /// <param name="body">Library settings; omitted values keep their current value.</param>
+        /// <param name="body">Library settings; omitted values keep their current value. An empty `ocrLanguages` goes back to the organization&apos;s default.</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable

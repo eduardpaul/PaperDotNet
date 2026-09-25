@@ -11,6 +11,9 @@ if TYPE_CHECKING:
 
 @dataclass
 class LibrarySettingsResponse(AdditionalDataHolder, Parsable):
+    """
+    Library settings; `ocrLanguagesInherited` means the organization's default document languages apply.
+    """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
@@ -22,6 +25,8 @@ class LibrarySettingsResponse(AdditionalDataHolder, Parsable):
     list_id: Optional[UUID] = None
     # The ocrLanguages property
     ocr_languages: Optional[str] = None
+    # The ocrLanguagesInherited property
+    ocr_languages_inherited: Optional[bool] = None
     # When a library runs OCR.
     ocr_mode: Optional[OcrMode] = None
     
@@ -52,6 +57,7 @@ class LibrarySettingsResponse(AdditionalDataHolder, Parsable):
             "duplicatePolicy": lambda n : setattr(self, 'duplicate_policy', n.get_enum_value(DuplicatePolicy)),
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
             "ocrLanguages": lambda n : setattr(self, 'ocr_languages', n.get_str_value()),
+            "ocrLanguagesInherited": lambda n : setattr(self, 'ocr_languages_inherited', n.get_bool_value()),
             "ocrMode": lambda n : setattr(self, 'ocr_mode', n.get_enum_value(OcrMode)),
         }
         return fields
@@ -68,6 +74,7 @@ class LibrarySettingsResponse(AdditionalDataHolder, Parsable):
         writer.write_enum_value("duplicatePolicy", self.duplicate_policy)
         writer.write_uuid_value("listId", self.list_id)
         writer.write_str_value("ocrLanguages", self.ocr_languages)
+        writer.write_bool_value("ocrLanguagesInherited", self.ocr_languages_inherited)
         writer.write_enum_value("ocrMode", self.ocr_mode)
         writer.write_additional_data_value(self.additional_data)
     

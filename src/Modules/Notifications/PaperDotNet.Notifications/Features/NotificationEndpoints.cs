@@ -25,11 +25,11 @@ public sealed record UnreadCount(int Count);
 /// <summary>Settings; <see cref="WebhookSecret"/> is only returned when a secret was created (shown once).</summary>
 public sealed record SettingsResponse(
     IReadOnlyDictionary<string, ChannelChoice> Channels, string? WebhookUrl, TimeOnly? QuietHoursStart, TimeOnly? QuietHoursEnd,
-    string TimeZone, int DigestHour, string? WebhookSecret = null);
+    int DigestHour, string? WebhookSecret = null);
 
 /// <summary>Replaces the settings. Channels not listed use the defaults (in-app and webhook on).</summary>
 public sealed record SettingsRequest(
-    IReadOnlyDictionary<string, ChannelChoice>? Channels, string? WebhookUrl, TimeOnly? QuietHoursStart, TimeOnly? QuietHoursEnd, string? TimeZone, int? DigestHour);
+    IReadOnlyDictionary<string, ChannelChoice>? Channels, string? WebhookUrl, TimeOnly? QuietHoursStart, TimeOnly? QuietHoursEnd, int? DigestHour);
 
 public sealed record SubscriptionRequest(Guid WorkspaceId, Guid ListId, Guid? ItemId, AlertFrequency Frequency = AlertFrequency.Immediate);
 
@@ -119,7 +119,8 @@ internal static class NotificationEndpoints
 
     /// <summary>
     /// Replaces the settings. Setting a new webhook URL creates a signing secret, returned once in
-    /// <c>webhookSecret</c>. Quiet hours and the digest hour are local times in <c>timeZone</c> (IANA).
+    /// <c>webhookSecret</c>. Quiet hours and the digest hour are local times in the
+    /// user's preferred time zone (<c>/v1.0/me/preferences</c>).
     /// </summary>
     private static async Task<Results<Ok<SettingsResponse>, ValidationProblem, ProblemHttpResult>> PutSettingsAsync(
         SettingsRequest request, NotificationsDbContext db, ICurrentUser user, IDataProtectionProvider protection,
@@ -130,16 +131,10 @@ internal static class NotificationEndpoints
             return ApiErrors.Problem(StatusCodes.Status403Forbidden, "userRequired", "Settings belong to a user.");
         }
 
-        var zone = string.IsNullOrWhiteSpace(request.TimeZone) ? "UTC" : request.TimeZone.Trim();
         var errors = new Dictionary<string, string[]>();
         if (request.WebhookUrl is { Length: > 0 } url && WebhookUrlError(url, options.Value) is { } urlError)
         {
             errors["webhookUrl"] = [urlError];
-        }
-
-        if (zone != "UTC" && !TimeZoneInfo.TryFindSystemTimeZoneById(zone, out _))
-        {
-            errors["timeZone"] = ["An IANA time zone is expected, e.g. Europe/Berlin."];
         }
 
         if (request.DigestHour is < 0 or > 23)
@@ -190,7 +185,6 @@ internal static class NotificationEndpoints
         settings.Channels = SettingsRules.Serialize(request.Channels ?? new Dictionary<string, ChannelChoice>());
         settings.QuietHoursStart = request.QuietHoursStart;
         settings.QuietHoursEnd = request.QuietHoursEnd;
-        settings.TimeZone = zone;
         settings.DigestHour = request.DigestHour ?? 7;
         try
         {
@@ -243,7 +237,7 @@ internal static class NotificationEndpoints
     private static string NewSecret() => "whsec_" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 
     private static SettingsResponse ToResponse(NotificationSettings? s) => new(
-        SettingsRules.Channels(s), s?.WebhookUrl, s?.QuietHoursStart, s?.QuietHoursEnd, s?.TimeZone ?? "UTC", s?.DigestHour ?? 7);
+        SettingsRules.Channels(s), s?.WebhookUrl, s?.QuietHoursStart, s?.QuietHoursEnd, s?.DigestHour ?? 7);
 
     // ---- Subscriptions -----------------------------------------------------------------
 

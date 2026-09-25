@@ -146,10 +146,11 @@ public sealed class LibrarySettings : ITenantOwned, IAuditable, IVersioned
 
     public OcrMode OcrMode { get; set; } = OcrMode.Auto;
 
-    /// <summary>Tesseract languages, e.g. <c>eng</c> or <c>deu+eng</c> (the first one is used for stemming).</summary>
-    public string OcrLanguages { get; set; } = DefaultOcrLanguages;
-
-    public const string DefaultOcrLanguages = "eng";
+    /// <summary>
+    /// Tesseract languages, e.g. <c>eng</c> or <c>deu+eng</c> (the first one is used for stemming); null uses the
+    /// organization's default document languages (PLT-18).
+    /// </summary>
+    public string? OcrLanguages { get; set; }
 
     public uint Version { get; set; }
 

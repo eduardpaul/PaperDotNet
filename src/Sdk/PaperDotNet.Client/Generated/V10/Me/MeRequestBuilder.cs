@@ -14,6 +14,8 @@ using PaperDotNet.Client.V10.Me.Inbox;
 using PaperDotNet.Client.V10.Me.NotificationSettings;
 using PaperDotNet.Client.V10.Me.Notifications;
 using PaperDotNet.Client.V10.Me.Passkeys;
+using PaperDotNet.Client.V10.Me.Password;
+using PaperDotNet.Client.V10.Me.Preferences;
 using PaperDotNet.Client.V10.Me.Subscriptions;
 using PaperDotNet.Client.V10.Me.Tasks;
 using System.Collections.Generic;
@@ -78,6 +80,16 @@ namespace PaperDotNet.Client.V10.Me
         public global::PaperDotNet.Client.V10.Me.Passkeys.PasskeysRequestBuilder Passkeys
         {
             get => new global::PaperDotNet.Client.V10.Me.Passkeys.PasskeysRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The password property</summary>
+        public global::PaperDotNet.Client.V10.Me.Password.PasswordRequestBuilder Password
+        {
+            get => new global::PaperDotNet.Client.V10.Me.Password.PasswordRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The preferences property</summary>
+        public global::PaperDotNet.Client.V10.Me.Preferences.PreferencesRequestBuilder Preferences
+        {
+            get => new global::PaperDotNet.Client.V10.Me.Preferences.PreferencesRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The subscriptions property</summary>
         public global::PaperDotNet.Client.V10.Me.Subscriptions.SubscriptionsRequestBuilder Subscriptions

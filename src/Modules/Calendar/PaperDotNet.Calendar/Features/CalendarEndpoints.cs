@@ -81,13 +81,15 @@ internal static class CalendarEndpoints
         return recurrence is null ? ApiErrors.NotFound("The event does not repeat.") : TypedResults.Ok(await ResponseAsync(db, recurrence, ct));
     }
 
-    /// <summary>Makes the event repeat (RFC 5545 RRULE) in an IANA time zone (default UTC).</summary>
+    /// <summary>Makes the event repeat (RFC 5545 RRULE) in an IANA time zone (default: the caller's preferred time zone).</summary>
     private static async Task<Results<Ok<RecurrenceResponse>, ValidationProblem, ProblemHttpResult>> SetRecurrenceAsync(
-        Guid workspaceId, Guid listId, Guid itemId, RecurrenceRequest request, CalendarAccess access, CalendarDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, RecurrenceRequest request, CalendarAccess access, CalendarDbContext db,
+        IUserPreferences preferences, ICurrentUser user, CancellationToken ct)
     {
         var rule = request.Rule?.Trim() ?? string.Empty;
         rule = rule.StartsWith("RRULE:", StringComparison.OrdinalIgnoreCase) ? rule[6..] : rule;
-        var zone = string.IsNullOrWhiteSpace(request.TimeZone) ? "UTC" : request.TimeZone.Trim();
+        var zone = !string.IsNullOrWhiteSpace(request.TimeZone) ? request.TimeZone.Trim()
+            : user.UserId is { } userId ? (await preferences.GetAsync(userId, ct)).TimeZone : "UTC";
         var errors = new Dictionary<string, string[]>();
         if (rule.Length is 0 or > 500 || !IsValidRule(rule))
         {

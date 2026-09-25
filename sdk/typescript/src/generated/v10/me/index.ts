@@ -24,6 +24,10 @@ import { NotificationSettingsRequestBuilderNavigationMetadata, NotificationSetti
 // @ts-ignore
 import { PasskeysRequestBuilderNavigationMetadata, PasskeysRequestBuilderRequestsMetadata, type PasskeysRequestBuilder } from './passkeys/index.js';
 // @ts-ignore
+import { PasswordRequestBuilderRequestsMetadata, type PasswordRequestBuilder } from './password/index.js';
+// @ts-ignore
+import { PreferencesRequestBuilderRequestsMetadata, type PreferencesRequestBuilder } from './preferences/index.js';
+// @ts-ignore
 import { SubscriptionsRequestBuilderNavigationMetadata, SubscriptionsRequestBuilderRequestsMetadata, type SubscriptionsRequestBuilder } from './subscriptions/index.js';
 // @ts-ignore
 import { TasksRequestBuilderRequestsMetadata, type TasksRequestBuilder } from './tasks/index.js';
@@ -74,6 +78,14 @@ export interface MeRequestBuilder extends BaseRequestBuilder<MeRequestBuilder> {
      * The passkeys property
      */
     get passkeys(): PasskeysRequestBuilder;
+    /**
+     * The password property
+     */
+    get password(): PasswordRequestBuilder;
+    /**
+     * The preferences property
+     */
+    get preferences(): PreferencesRequestBuilder;
     /**
      * The subscriptions property
      */
@@ -136,6 +148,12 @@ export const MeRequestBuilderNavigationMetadata: Record<Exclude<keyof MeRequestB
     passkeys: {
         requestsMetadata: PasskeysRequestBuilderRequestsMetadata,
         navigationMetadata: PasskeysRequestBuilderNavigationMetadata,
+    },
+    password: {
+        requestsMetadata: PasswordRequestBuilderRequestsMetadata,
+    },
+    preferences: {
+        requestsMetadata: PreferencesRequestBuilderRequestsMetadata,
     },
     subscriptions: {
         requestsMetadata: SubscriptionsRequestBuilderRequestsMetadata,

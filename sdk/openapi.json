@@ -622,6 +622,77 @@
             }
           }
         }
+      },
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "UpdateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "DeleteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
       }
     },
     "/v1.0/groups": {
@@ -941,6 +1012,378 @@
                   "items": {
                     "$ref": "#/components/schemas/ScopeResponse"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/users/{id}/password": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "SetUserPassword",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/me/password": {
+      "post": {
+        "tags": [
+          "Me"
+        ],
+        "operationId": "ChangeMyPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/groups/{id}": {
+      "patch": {
+        "tags": [
+          "Groups"
+        ],
+        "operationId": "UpdateGroup",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Groups"
+        ],
+        "operationId": "DeleteGroup",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/roles/{id}": {
+      "patch": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "UpdateRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "DeleteRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/roles/{id}/assignments/{assignmentId}": {
+      "delete": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "RemoveRoleAssignment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/me/preferences": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "operationId": "GetMyPreferences",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Me"
+        ],
+        "operationId": "UpdateMyPreferences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonElement"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/organization/preferences": {
+      "get": {
+        "tags": [
+          "Organization"
+        ],
+        "operationId": "GetOrganizationPreferences",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Organization"
+        ],
+        "operationId": "UpdateOrganizationPreferences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonElement"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
                 }
               }
             }
@@ -9481,6 +9924,25 @@
           }
         }
       },
+      "ChangePasswordRequest": {
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "newPassword": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          }
+        }
+      },
       "ChangeSubscriptionRequest": {
         "required": [
           "resource",
@@ -11551,7 +12013,7 @@
             ]
           }
         },
-        "description": "Library settings; omitted values keep their current value."
+        "description": "Library settings; omitted values keep their current value. An empty \u0060ocrLanguages\u0060 goes back to the organization\u0027s default."
       },
       "LibrarySettingsResponse": {
         "required": [
@@ -11559,7 +12021,8 @@
           "duplicatePolicy",
           "autoProcess",
           "ocrMode",
-          "ocrLanguages"
+          "ocrLanguages",
+          "ocrLanguagesInherited"
         ],
         "type": "object",
         "properties": {
@@ -11578,8 +12041,12 @@
           },
           "ocrLanguages": {
             "type": "string"
+          },
+          "ocrLanguagesInherited": {
+            "type": "boolean"
           }
-        }
+        },
+        "description": "Library settings; \u0060ocrLanguagesInherited\u0060 means the organization\u0027s default document languages apply."
       },
       "LinkedItem": {
         "required": [
@@ -12821,6 +13288,49 @@
           }
         }
       },
+      "PreferencesResponse": {
+        "required": [
+          "language",
+          "timeZone",
+          "dateFormat",
+          "timeFormat",
+          "numberFormat",
+          "theme",
+          "documentLanguages",
+          "inherited"
+        ],
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "dateFormat": {
+            "type": "string"
+          },
+          "timeFormat": {
+            "type": "string"
+          },
+          "numberFormat": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "string"
+          },
+          "documentLanguages": {
+            "type": "string"
+          },
+          "inherited": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "Effective values, and which of them are inherited (from the organization\u0027s or the built-in defaults)."
+      },
       "PrincipalType": {
         "enum": [
           "user",
@@ -13376,13 +13886,25 @@
         },
         "description": "Results; \u0060mode\u0060 is how they were found. In \u0060semantic\u0060 and \u0060hybrid\u0060 mode the count and facets cover the\nbest candidates only (see \u0060Search:CandidateLimit\u0060)."
       },
+      "SetPasswordRequest": {
+        "required": [
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "password": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          }
+        }
+      },
       "SettingsRequest": {
         "required": [
           "channels",
           "webhookUrl",
           "quietHoursStart",
           "quietHoursEnd",
-          "timeZone",
           "digestHour"
         ],
         "type": "object",
@@ -13416,12 +13938,6 @@
             ],
             "format": "time"
           },
-          "timeZone": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
           "digestHour": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
@@ -13440,7 +13956,6 @@
           "webhookUrl",
           "quietHoursStart",
           "quietHoursEnd",
-          "timeZone",
           "digestHour"
         ],
         "type": "object",
@@ -13470,9 +13985,6 @@
               "string"
             ],
             "format": "time"
-          },
-          "timeZone": {
-            "type": "string"
           },
           "digestHour": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -14321,6 +14833,31 @@
           }
         }
       },
+      "UpdateGroupRequest": {
+        "required": [
+          "name",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "UpdateListRequest": {
         "required": [
           "name",
@@ -14371,6 +14908,41 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "UpdateRoleRequest": {
+        "required": [
+          "name",
+          "description",
+          "scopes"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "scopes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -14481,6 +15053,38 @@
             ]
           },
           "isOpen": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "UpdateUserRequest": {
+        "required": [
+          "displayName",
+          "email",
+          "isDisabled"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "email": {
+            "maxLength": 256,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isDisabled": {
             "type": [
               "null",
               "boolean"

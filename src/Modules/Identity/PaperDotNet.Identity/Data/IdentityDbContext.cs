@@ -24,6 +24,8 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
 
+    public DbSet<Preferences> Preferences => Set<Preferences>();
+
     /// <summary>ASP.NET Data Protection key ring, shared by all nodes (not tenant-owned).</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -89,6 +91,19 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
         });
         builder.Entity<RoleAssignment>(b =>
             b.HasIndex(a => new { a.RoleId, a.PrincipalId, a.PrincipalType }).IsUnique());
+
+        builder.Entity<Preferences>(b =>
+        {
+            b.ToTable("preferences");
+            b.HasIndex(p => new { p.TenantId, p.UserId }).IsUnique();
+            b.Property(p => p.Language).HasMaxLength(35);
+            b.Property(p => p.TimeZone).HasMaxLength(64);
+            b.Property(p => p.DateFormat).HasMaxLength(32);
+            b.Property(p => p.TimeFormat).HasMaxLength(8);
+            b.Property(p => p.NumberFormat).HasMaxLength(35);
+            b.Property(p => p.Theme).HasMaxLength(16);
+            b.Property(p => p.DocumentLanguages).HasMaxLength(100);
+        });
 
         builder.Entity<ApiToken>(b =>
         {

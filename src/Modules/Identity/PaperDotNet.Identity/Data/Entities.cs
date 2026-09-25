@@ -14,6 +14,9 @@ public sealed class User : IdentityUser<Guid>, ITenantOwned, IAuditable
     /// <summary>Identity of an OAuth client application (client credentials); cannot sign in interactively.</summary>
     public bool IsServiceAccount { get; set; }
 
+    /// <summary>When the user was deleted (IAM-14): the row stays so references resolve, but it is anonymized.</summary>
+    public DateTimeOffset? DeletedAt { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
@@ -134,4 +137,33 @@ public sealed class ApiToken
     public DateTimeOffset? LastUsedAt { get; set; }
 
     public DateTimeOffset? RevokedAt { get; set; }
+}
+
+/// <summary>
+/// Preferences of a user (PLT-17) or, with <see cref="UserId"/> <see cref="Guid.Empty"/>, the organization's
+/// defaults (PLT-18). Null values are inherited.
+/// </summary>
+public sealed class Preferences : ITenantOwned, IVersioned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid UserId { get; set; }
+
+    public string? Language { get; set; }
+
+    public string? TimeZone { get; set; }
+
+    public string? DateFormat { get; set; }
+
+    public string? TimeFormat { get; set; }
+
+    public string? NumberFormat { get; set; }
+
+    public string? Theme { get; set; }
+
+    public string? DocumentLanguages { get; set; }
+
+    public uint Version { get; set; }
 }

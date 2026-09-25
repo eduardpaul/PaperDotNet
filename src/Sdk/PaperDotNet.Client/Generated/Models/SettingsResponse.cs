@@ -30,14 +30,6 @@ namespace PaperDotNet.Client.Models
         public Time? QuietHoursEnd { get; set; }
         /// <summary>The quietHoursStart property</summary>
         public Time? QuietHoursStart { get; set; }
-        /// <summary>The timeZone property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? TimeZone { get; set; }
-#nullable restore
-#else
-        public string TimeZone { get; set; }
-#endif
         /// <summary>The webhookSecret property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -83,7 +75,6 @@ namespace PaperDotNet.Client.Models
                 { "digestHour", n => { DigestHour = n.GetIntValue(); } },
                 { "quietHoursEnd", n => { QuietHoursEnd = n.GetTimeValue(); } },
                 { "quietHoursStart", n => { QuietHoursStart = n.GetTimeValue(); } },
-                { "timeZone", n => { TimeZone = n.GetStringValue(); } },
                 { "webhookSecret", n => { WebhookSecret = n.GetStringValue(); } },
                 { "webhookUrl", n => { WebhookUrl = n.GetStringValue(); } },
             };
@@ -99,7 +90,6 @@ namespace PaperDotNet.Client.Models
             writer.WriteIntValue("digestHour", DigestHour);
             writer.WriteTimeValue("quietHoursEnd", QuietHoursEnd);
             writer.WriteTimeValue("quietHoursStart", QuietHoursStart);
-            writer.WriteStringValue("timeZone", TimeZone);
             writer.WriteStringValue("webhookSecret", WebhookSecret);
             writer.WriteStringValue("webhookUrl", WebhookUrl);
             writer.WriteAdditionalData(AdditionalData);

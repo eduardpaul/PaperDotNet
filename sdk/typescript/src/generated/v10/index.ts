@@ -32,7 +32,7 @@ import { MeRequestBuilderNavigationMetadata, MeRequestBuilderRequestsMetadata, t
 // @ts-ignore
 import { OperationsRequestBuilderNavigationMetadata, type OperationsRequestBuilder } from './operations/index.js';
 // @ts-ignore
-import { OrganizationRequestBuilderRequestsMetadata, type OrganizationRequestBuilder } from './organization/index.js';
+import { OrganizationRequestBuilderNavigationMetadata, OrganizationRequestBuilderRequestsMetadata, type OrganizationRequestBuilder } from './organization/index.js';
 // @ts-ignore
 import { PortabilityRequestBuilderNavigationMetadata, type PortabilityRequestBuilder } from './portability/index.js';
 // @ts-ignore
@@ -220,6 +220,7 @@ export const V10RequestBuilderNavigationMetadata: Record<Exclude<keyof V10Reques
     },
     organization: {
         requestsMetadata: OrganizationRequestBuilderRequestsMetadata,
+        navigationMetadata: OrganizationRequestBuilderNavigationMetadata,
     },
     portability: {
         navigationMetadata: PortabilityRequestBuilderNavigationMetadata,

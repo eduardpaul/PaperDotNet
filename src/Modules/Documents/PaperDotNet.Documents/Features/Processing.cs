@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
@@ -64,6 +65,7 @@ internal sealed partial class DocumentProcessor(
     PageRenderer renderer,
     IListItemStore items,
     ILiveEvents live,
+    IUserPreferences preferences,
     ITenantContext tenant,
     ICurrentUser user,
     ILogger<DocumentProcessor> logger) : OperationHandler<ProcessFile>
@@ -106,7 +108,7 @@ internal sealed partial class DocumentProcessor(
     {
         var stored = await db.StoredFiles.FirstAsync(f => f.Id == version.StoredFileId, ct);
         var settings = await db.LibrarySettings.AsNoTracking().FirstOrDefaultAsync(s => s.ListId == version.ListId, ct);
-        var languages = payload.Languages ?? settings?.OcrLanguages ?? LibrarySettings.DefaultOcrLanguages;
+        var languages = payload.Languages ?? settings?.OcrLanguages ?? (await preferences.GetDefaultsAsync(ct)).DocumentLanguages;
         var ocrMode = settings?.OcrMode ?? OcrMode.Auto;
 
         var work = Directory.CreateTempSubdirectory("pdn_process_");

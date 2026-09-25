@@ -15,6 +15,7 @@ from warnings import warn
 
 if TYPE_CHECKING:
     from ...models.organization_response import OrganizationResponse
+    from .preferences.preferences_request_builder import PreferencesRequestBuilder
 
 class OrganizationRequestBuilder(BaseRequestBuilder):
     """
@@ -62,6 +63,15 @@ class OrganizationRequestBuilder(BaseRequestBuilder):
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
         return OrganizationRequestBuilder(self.request_adapter, raw_url)
+    
+    @property
+    def preferences(self) -> PreferencesRequestBuilder:
+        """
+        The preferences property
+        """
+        from .preferences.preferences_request_builder import PreferencesRequestBuilder
+
+        return PreferencesRequestBuilder(self.request_adapter, self.path_parameters)
     
     @dataclass
     class OrganizationRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):

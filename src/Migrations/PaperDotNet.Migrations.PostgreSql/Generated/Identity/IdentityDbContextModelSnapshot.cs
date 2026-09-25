@@ -595,6 +595,74 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Identity
                     b.ToTable("oauth_tokens", "identity");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Identity.Data.Preferences", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DateFormat")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("date_format");
+
+                    b.Property<string>("DocumentLanguages")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("document_languages");
+
+                    b.Property<string>("Language")
+                        .HasMaxLength(35)
+                        .HasColumnType("character varying(35)")
+                        .HasColumnName("language");
+
+                    b.Property<string>("NumberFormat")
+                        .HasMaxLength(35)
+                        .HasColumnType("character varying(35)")
+                        .HasColumnName("number_format");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Theme")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("theme");
+
+                    b.Property<string>("TimeFormat")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("time_format");
+
+                    b.Property<string>("TimeZone")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("time_zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_preferences");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_preferences_tenant_id");
+
+                    b.HasIndex("TenantId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_preferences_tenant_id_user_id");
+
+                    b.ToTable("preferences", "identity");
+                });
+
             modelBuilder.Entity("PaperDotNet.Identity.Data.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -750,6 +818,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Identity
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
 
                     b.Property<string>("DisplayName")
                         .HasMaxLength(200)

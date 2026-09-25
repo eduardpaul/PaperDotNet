@@ -169,7 +169,6 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Documents
                         .HasColumnName("list_id");
 
                     b.Property<string>("OcrLanguages")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT")
                         .HasColumnName("ocr_languages");

@@ -4,7 +4,7 @@
 // @ts-ignore
 import { createHttpValidationProblemDetailsFromDiscriminatorValue, createPageOfUserResponseFromDiscriminatorValue, createUserResponseFromDiscriminatorValue, serializeCreateUserRequest, serializeUserResponse, type CreateUserRequest, type HttpValidationProblemDetails, type PageOfUserResponse, type UserResponse } from '../../models/index.js';
 // @ts-ignore
-import { type UsersItemRequestBuilder, UsersItemRequestBuilderRequestsMetadata } from './item/index.js';
+import { type UsersItemRequestBuilder, UsersItemRequestBuilderNavigationMetadata, UsersItemRequestBuilderRequestsMetadata } from './item/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -52,6 +52,7 @@ export const UsersRequestBuilderUriTemplate = "{+baseurl}/v1.0/users";
 export const UsersRequestBuilderNavigationMetadata: Record<Exclude<keyof UsersRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     byId: {
         requestsMetadata: UsersItemRequestBuilderRequestsMetadata,
+        navigationMetadata: UsersItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["id"],
     },
 };

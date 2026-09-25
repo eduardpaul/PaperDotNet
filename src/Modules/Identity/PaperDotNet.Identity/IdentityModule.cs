@@ -7,6 +7,7 @@ using PaperDotNet.Identity.Authentication;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Identity.Features;
+using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
 using PaperDotNet.Provisioning.Contracts;
 
@@ -53,6 +54,9 @@ public sealed class IdentityModule : IModule
         services.AddHostedService<FirstPartyClientSync>();
         services.AddScoped<IEffectiveScopeProvider, EffectiveScopeProvider>();
         services.AddScoped<IUserDirectory, UserDirectory>();
+        services.AddScoped<IUserPreferences, UserPreferences>();
+        services.AddScoped<AccountSessions>();
+        services.AddIntegrationEvent<PrincipalDeleted>();
         services.AddScoped<IRoleProvisioning, RoleProvisioning>();
         services.AddScoped<ITenantInitializer, IdentityTenantInitializer>();
         services.AddScoped<ITemplateHandler, GroupTemplateHandler>();
@@ -67,5 +71,7 @@ public sealed class IdentityModule : IModule
         ApplicationEndpoints.Map(endpoints);
         MeEndpoints.Map(endpoints);
         DirectoryEndpoints.Map(endpoints);
+        AccountEndpoints.Map(endpoints);
+        PreferencesEndpoints.Map(endpoints);
     }
 }

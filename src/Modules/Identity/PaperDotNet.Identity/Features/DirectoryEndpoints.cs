@@ -74,6 +74,7 @@ internal static class DirectoryEndpoints
     {
         var page = PageRequest.From(http);
         var items = await db.Users.AsNoTracking()
+            .Where(u => u.DeletedAt == null)
             .Where(u => page.After == null || u.Id.CompareTo(page.After.Value) > 0)
             .OrderBy(u => u.Id)
             .Take(page.Top + 1)
@@ -85,7 +86,7 @@ internal static class DirectoryEndpoints
     private static async Task<Results<Ok<UserResponse>, ProblemHttpResult>> GetUserAsync(Guid id, IdentityDbContext db, CancellationToken ct)
     {
         var user = await db.Users.AsNoTracking()
-            .Where(u => u.Id == id)
+            .Where(u => u.Id == id && u.DeletedAt == null)
             .Select(u => new UserResponse(u.Id, u.UserName, u.DisplayName, u.Email, u.IsDisabled, u.CreatedAt))
             .FirstOrDefaultAsync(ct);
         return user is null ? ApiErrors.NotFound() : TypedResults.Ok(user);
@@ -153,8 +154,9 @@ internal static class DirectoryEndpoints
         }
 
         var members = await db.GroupMembers.Where(m => m.GroupId == id)
-            .Join(db.Users, m => m.UserId, u => u.Id, (m, u) => new UserResponse(u.Id, u.UserName, u.DisplayName, u.Email, u.IsDisabled, u.CreatedAt))
+            .Join(db.Users, m => m.UserId, u => u.Id, (m, u) => u)
             .OrderBy(u => u.Id)
+            .Select(u => new UserResponse(u.Id, u.UserName, u.DisplayName, u.Email, u.IsDisabled, u.CreatedAt))
             .ToListAsync(ct);
         return TypedResults.Ok(members);
     }
@@ -162,7 +164,7 @@ internal static class DirectoryEndpoints
     private static async Task<Results<NoContent, ValidationProblem, ProblemHttpResult>> AddMemberAsync(
         Guid id, AddGroupMemberRequest request, IdentityDbContext db, ITenantContext tenant, HybridCache cache, CancellationToken ct)
     {
-        if (!await db.Groups.AnyAsync(g => g.Id == id, ct) || !await db.Users.AnyAsync(u => u.Id == request.UserId, ct))
+        if (!await db.Groups.AnyAsync(g => g.Id == id, ct) || !await db.Users.AnyAsync(u => u.Id == request.UserId && u.DeletedAt == null, ct))
         {
             return ApiErrors.NotFound();
         }
@@ -184,6 +186,11 @@ internal static class DirectoryEndpoints
         if (member is null)
         {
             return ApiErrors.NotFound();
+        }
+
+        if (!await AdministratorGuard.RemainsAsync(db, withoutMembership: (id, userId), ct: ct))
+        {
+            return AccountEndpoints.LastAdministrator();
         }
 
         db.GroupMembers.Remove(member);
@@ -243,7 +250,7 @@ internal static class DirectoryEndpoints
         Guid id, RoleAssignmentRequest request, IdentityDbContext db, ITenantContext tenant, HybridCache cache, CancellationToken ct)
     {
         var principalExists = request.PrincipalType == PrincipalType.User
-            ? await db.Users.AnyAsync(u => u.Id == request.PrincipalId, ct)
+            ? await db.Users.AnyAsync(u => u.Id == request.PrincipalId && u.DeletedAt == null, ct)
             : await db.Groups.AnyAsync(g => g.Id == request.PrincipalId, ct);
         if (!principalExists || !await db.Roles.AnyAsync(r => r.Id == id, ct))
         {

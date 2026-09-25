@@ -4,7 +4,7 @@
 // @ts-ignore
 import { createHttpValidationProblemDetailsFromDiscriminatorValue, createRoleResponseFromDiscriminatorValue, serializeCreateRoleRequest, serializeRoleResponse, type CreateRoleRequest, type HttpValidationProblemDetails, type RoleResponse } from '../../models/index.js';
 // @ts-ignore
-import { RolesItemRequestBuilderNavigationMetadata, type RolesItemRequestBuilder } from './item/index.js';
+import { RolesItemRequestBuilderNavigationMetadata, RolesItemRequestBuilderRequestsMetadata, type RolesItemRequestBuilder } from './item/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -51,6 +51,7 @@ export const RolesRequestBuilderUriTemplate = "{+baseurl}/v1.0/roles";
  */
 export const RolesRequestBuilderNavigationMetadata: Record<Exclude<keyof RolesRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     byId: {
+        requestsMetadata: RolesItemRequestBuilderRequestsMetadata,
         navigationMetadata: RolesItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["id"],
     },

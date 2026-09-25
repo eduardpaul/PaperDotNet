@@ -11,11 +11,13 @@ from kiota_abstractions.request_information import RequestInformation
 from kiota_abstractions.request_option import RequestOption
 from kiota_abstractions.serialization import Parsable, ParsableFactory
 from typing import Any, Optional, TYPE_CHECKING, Union
+from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
     from .....models.role_assignment_request import RoleAssignmentRequest
     from .....models.role_assignment_response import RoleAssignmentResponse
+    from .item.with_assignment_item_request_builder import WithAssignmentItemRequestBuilder
 
 class AssignmentsRequestBuilder(BaseRequestBuilder):
     """
@@ -29,6 +31,20 @@ class AssignmentsRequestBuilder(BaseRequestBuilder):
         Returns: None
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/roles/{id}/assignments", path_parameters)
+    
+    def by_assignment_id(self,assignment_id: UUID) -> WithAssignmentItemRequestBuilder:
+        """
+        Gets an item from the paperdotnet_client.generated.v10.roles.item.assignments.item collection
+        param assignment_id: Unique identifier of the item
+        Returns: WithAssignmentItemRequestBuilder
+        """
+        if assignment_id is None:
+            raise TypeError("assignment_id cannot be null.")
+        from .item.with_assignment_item_request_builder import WithAssignmentItemRequestBuilder
+
+        url_tpl_params = get_path_parameters(self.path_parameters)
+        url_tpl_params["assignmentId"] = assignment_id
+        return WithAssignmentItemRequestBuilder(self.request_adapter, url_tpl_params)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[list[RoleAssignmentResponse]]:
         """

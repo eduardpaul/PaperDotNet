@@ -353,12 +353,6 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Notifications
                         .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
-                    b.Property<string>("TimeZone")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("time_zone");
-
                     b.Property<long>("UpdatedAt")
                         .HasColumnType("INTEGER")
                         .HasColumnName("updated_at");

@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Notifications.Contracts;
@@ -100,7 +101,7 @@ internal sealed class AlertSubscriber(
 /// Sends each user one digest per day of the changes collected for them (NTF-03, NTF-05), at their
 /// digest hour in their time zone. Runs hourly.
 /// </summary>
-internal sealed class DigestJob(NotificationsDbContext db, INotificationSender sender, TimeProvider time) : ITenantRecurringJob
+internal sealed class DigestJob(NotificationsDbContext db, INotificationSender sender, IUserPreferences preferences, TimeProvider time) : ITenantRecurringJob
 {
     public const string Name = "notifications.digest";
     public const string Schedule = "0 * * * *";
@@ -111,10 +112,11 @@ internal sealed class DigestJob(NotificationsDbContext db, INotificationSender s
         var now = time.GetUtcNow();
         var users = await db.Digest.Select(d => d.UserId).Distinct().ToListAsync(cancellationToken);
         var settings = await db.Settings.AsNoTracking().Where(s => users.Contains(s.UserId)).ToDictionaryAsync(s => s.UserId, cancellationToken);
+        var zones = await preferences.GetAsync(users, cancellationToken);
         foreach (var user in users)
         {
             var userSettings = settings.GetValueOrDefault(user);
-            var local = TimeZoneInfo.ConvertTime(now, SettingsRules.Zone(userSettings));
+            var local = TimeZoneInfo.ConvertTime(now, zones[user].Zone);
             if (local.Hour != (userSettings?.DigestHour ?? 7))
             {
                 continue;

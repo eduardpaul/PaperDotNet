@@ -47,7 +47,7 @@ class DocumentSettingsRequestBuilder(BaseRequestBuilder):
     
     async def put(self,body: LibrarySettingsRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[LibrarySettingsResponse]:
         """
-        param body: Library settings; omitted values keep their current value.
+        param body: Library settings; omitted values keep their current value. An empty `ocrLanguages` goes back to the organization's default.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[LibrarySettingsResponse]
         """
@@ -79,7 +79,7 @@ class DocumentSettingsRequestBuilder(BaseRequestBuilder):
     
     def to_put_request_information(self,body: LibrarySettingsRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        param body: Library settings; omitted values keep their current value.
+        param body: Library settings; omitted values keep their current value. An empty `ocrLanguages` goes back to the organization's default.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """

@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Notifications.Contracts;
 using PaperDotNet.Notifications.Data;
@@ -42,18 +43,14 @@ internal static class SettingsRules
 
     public static ChannelChoice For(NotificationSettings? settings, string type) => Channels(settings).GetValueOrDefault(type) ?? new ChannelChoice();
 
-    public static TimeZoneInfo Zone(NotificationSettings? settings) =>
-        settings?.TimeZone is { } id && id != "UTC" && TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone) ? zone : TimeZoneInfo.Utc;
-
-    /// <summary>When a webhook may be sent: now, or the end of the quiet hours.</summary>
-    public static DateTimeOffset NextAllowed(NotificationSettings? settings, DateTimeOffset now)
+    /// <summary>When a webhook may be sent: now, or the end of the quiet hours (in the user's time zone).</summary>
+    public static DateTimeOffset NextAllowed(NotificationSettings? settings, TimeZoneInfo zone, DateTimeOffset now)
     {
         if (settings?.QuietHoursStart is not { } start || settings.QuietHoursEnd is not { } end || start == end)
         {
             return now;
         }
 
-        var zone = Zone(settings);
         var local = TimeZoneInfo.ConvertTime(now, zone);
         var time = TimeOnly.FromDateTime(local.DateTime);
         var quiet = start < end ? time >= start && time < end : time >= start || time < end;
@@ -77,7 +74,8 @@ internal static class SettingsRules
 /// Creates notifications (NTF-01): inbox rows, live events and webhook deliveries per the users'
 /// channel choices; quiet hours postpone webhooks (NTF-05).
 /// </summary>
-internal sealed class NotificationSender(NotificationsDbContext db, ILiveEvents live, ITenantContext tenant, TimeProvider time) : INotificationSender
+internal sealed class NotificationSender(
+    NotificationsDbContext db, ILiveEvents live, ITenantContext tenant, IUserPreferences preferences, TimeProvider time) : INotificationSender
 {
     public async Task<int> SendAsync(NotificationMessage message, IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
     {
@@ -95,6 +93,8 @@ internal sealed class NotificationSender(NotificationsDbContext db, ILiveEvents 
         }
 
         var settings = await db.Settings.AsNoTracking().Where(s => users.Contains(s.UserId)).ToDictionaryAsync(s => s.UserId, cancellationToken);
+        var webhookUsers = settings.Values.Where(s => s.WebhookUrl is not null).Select(s => s.UserId).ToList();
+        var zones = webhookUsers.Count == 0 ? new Dictionary<Guid, PreferenceValues>() : await preferences.GetAsync(webhookUsers, cancellationToken);
         var now = time.GetUtcNow();
         var created = new List<Notification>();
         foreach (var user in users)
@@ -124,7 +124,7 @@ internal sealed class NotificationSender(NotificationsDbContext db, ILiveEvents 
                     Id = Ids.New(),
                     NotificationId = notification.Id,
                     UserId = user,
-                    NextAttemptAt = SettingsRules.NextAllowed(userSettings, now),
+                    NextAttemptAt = SettingsRules.NextAllowed(userSettings, zones[user].Zone, now),
                 });
             }
         }
@@ -158,7 +158,7 @@ internal sealed class NotificationSender(NotificationsDbContext db, ILiveEvents 
 /// </summary>
 internal sealed partial class WebhookDispatcher(
     NotificationsDbContext db, WebhookHttp http, IDataProtectionProvider protection, TimeProvider time,
-    ITenantContext tenant, ILogger<WebhookDispatcher> logger) : ITenantRecurringJob
+    ITenantContext tenant, IUserPreferences preferences, ILogger<WebhookDispatcher> logger) : ITenantRecurringJob
 {
     public const string Name = "notifications.webhooks";
     public const string Schedule = "*/20 * * * * *";
@@ -182,6 +182,7 @@ internal sealed partial class WebhookDispatcher(
         var userIds = due.Select(d => d.UserId).Distinct().ToList();
         var notifications = await db.Notifications.AsNoTracking().Where(n => notificationIds.Contains(n.Id)).ToDictionaryAsync(n => n.Id, cancellationToken);
         var settings = await db.Settings.AsNoTracking().Where(s => userIds.Contains(s.UserId)).ToDictionaryAsync(s => s.UserId, cancellationToken);
+        var zones = await preferences.GetAsync(userIds, cancellationToken);
         var protector = protection.CreateProtector(SecretPurpose);
         var client = http.Client;
         foreach (var delivery in due)
@@ -212,7 +213,7 @@ internal sealed partial class WebhookDispatcher(
                 }
                 else
                 {
-                    delivery.NextAttemptAt = SettingsRules.NextAllowed(userSettings, time.GetUtcNow() + Backoff[delivery.Attempts - 1]);
+                    delivery.NextAttemptAt = SettingsRules.NextAllowed(userSettings, zones[delivery.UserId].Zone, time.GetUtcNow() + Backoff[delivery.Attempts - 1]);
                 }
             }
         }
