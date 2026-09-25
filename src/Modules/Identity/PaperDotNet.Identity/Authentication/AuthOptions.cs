@@ -35,6 +35,34 @@ public sealed class AuthOptions
 
     /// <summary>Origins allowed to use passkeys (e.g. <c>https://docs.example.com</c>). Defaults to the request origin.</summary>
     public List<string> PasskeyOrigins { get; set; } = [];
+
+    /// <summary>Sign-in through an authenticating reverse proxy (IAM-15), off by default.</summary>
+    public ReverseProxyAuthOptions ReverseProxy { get; set; } = new();
+}
+
+/// <summary>
+/// Configuration section <c>Auth:ReverseProxy</c>: an authenticating proxy (Authelia, Authentik, oauth2-proxy) names
+/// the signed-in user in request headers. They are trusted only from <see cref="TrustedProxies"/>, and only at
+/// <c>/connect/authorize</c>, which then starts a sign-in session; the API itself keeps using tokens.
+/// </summary>
+public sealed class ReverseProxyAuthOptions
+{
+    public bool Enabled { get; set; }
+
+    /// <summary>Addresses or networks (CIDR) of the proxies whose headers are trusted, e.g. <c>172.18.0.0/16</c>. Required when enabled.</summary>
+    public List<string> TrustedProxies { get; set; } = [];
+
+    public string UserHeader { get; set; } = "Remote-User";
+
+    public string? EmailHeader { get; set; } = "Remote-Email";
+
+    public string? NameHeader { get; set; } = "Remote-Name";
+
+    /// <summary>Comma-separated group names; users are added to existing groups of those names (never removed).</summary>
+    public string? GroupsHeader { get; set; } = "Remote-Groups";
+
+    /// <summary>Create unknown users (without a password) on their first sign-in.</summary>
+    public bool CreateUsers { get; set; } = true;
 }
 
 public static class AuthSchemes

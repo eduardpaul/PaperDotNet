@@ -7,7 +7,8 @@ This guide covers what slice 7f added to document libraries:
 - values on folders (LST-19).
 
 Uploads, versions and processing are described in [features.md](features.md)
-(phase 3).
+(phase 3). Library uploads also accept `folderId`, which places the new
+document in a folder of the library.
 
 ## Page operations
 

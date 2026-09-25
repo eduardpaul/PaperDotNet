@@ -213,7 +213,7 @@ internal static class AuthEndpoints
     /// <summary>The user's security stamp at sign-in: a password change or reset ends the session (IAM-14).</summary>
     internal const string SessionStampClaim = "stamp";
 
-    private static async Task SignInSessionAsync(HttpContext http, User user, ITenantContext tenant, string method)
+    internal static async Task SignInSessionAsync(HttpContext http, User user, ITenantContext tenant, string method)
     {
         var identity = new ClaimsIdentity(
             [

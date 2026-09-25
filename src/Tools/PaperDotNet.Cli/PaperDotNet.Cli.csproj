@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Client CLI (API-13): `pdn` uploads folders, downloads files and searches through the API with the C# SDK.
+    Installed as a .NET tool: dotnet tool install -g PaperDotNet.Cli
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>pdn</AssemblyName>
+    <PackageId>PaperDotNet.Cli</PackageId>
+    <Description>Command-line client for PaperDotNet: upload folders, download files, search.</Description>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>pdn</ToolCommandName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Sdk\PaperDotNet.Client\PaperDotNet.Client.csproj" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+</Project>

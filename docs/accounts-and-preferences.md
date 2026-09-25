@@ -50,6 +50,27 @@ refused with `409 lastAdministrator`. This covers:
 - removing a group member;
 - deleting a group.
 
+## Sign-in through a reverse proxy
+
+Behind Authelia, Authentik or oauth2-proxy, the proxy can sign users in
+(IAM-15, [ADR-0031](adr/0031-reverse-proxy-sign-in.md)):
+
+```json
+"Auth": { "ReverseProxy": {
+  "Enabled": true,
+  "TrustedProxies": ["172.18.0.0/16"],
+  "UserHeader": "Remote-User", "EmailHeader": "Remote-Email", "NameHeader": "Remote-Name", "GroupsHeader": "Remote-Groups",
+  "CreateUsers": true } }
+```
+
+**How it works:**
+- **Where headers count:** only from a trusted proxy (the direct peer, not
+  `X-Forwarded-For`), and only at `/connect/authorize`. There they start the
+  sign-in session of the OAuth flow; the API keeps using tokens.
+- **Users:** unknown users are created without a password as Members, and
+  name and e-mail follow the headers.
+- **Groups:** users are added to existing groups listed in the groups header.
+
 ## Preferences
 
 `GET /v1.0/me/preferences` returns the effective values and lists the ones

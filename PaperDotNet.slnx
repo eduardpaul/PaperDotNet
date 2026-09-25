@@ -67,6 +67,9 @@
   <Folder Name="/src/Sdk/">
     <Project Path="src/Sdk/PaperDotNet.Client/PaperDotNet.Client.csproj" />
   </Folder>
+  <Folder Name="/src/Tools/">
+    <Project Path="src/Tools/PaperDotNet.Cli/PaperDotNet.Cli.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Notifications/">
     <Project Path="src/Modules/Notifications/PaperDotNet.Notifications.Contracts/PaperDotNet.Notifications.Contracts.csproj" />
     <Project Path="src/Modules/Notifications/PaperDotNet.Notifications/PaperDotNet.Notifications.csproj" />

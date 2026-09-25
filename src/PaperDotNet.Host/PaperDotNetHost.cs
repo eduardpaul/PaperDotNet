@@ -152,6 +152,12 @@ public static class PaperDotNetHost
 
     public static WebApplication UsePaperDotNet(this WebApplication app)
     {
+        // The direct peer, before forwarded headers can change it (trusted-proxy checks, IAM-15).
+        app.Use((context, next) =>
+        {
+            PeerAddress.Capture(context);
+            return next(context);
+        });
         if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
         {
             app.UseForwardedHeaders();

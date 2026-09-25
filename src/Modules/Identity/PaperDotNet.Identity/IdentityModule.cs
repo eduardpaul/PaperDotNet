@@ -19,7 +19,10 @@ public sealed class IdentityModule : IModule
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddOptions<AuthOptions>().BindConfiguration(AuthOptions.Section).ValidateDataAnnotations().ValidateOnStart();
+        services.AddOptions<AuthOptions>().BindConfiguration(AuthOptions.Section).ValidateDataAnnotations()
+            .Validate(o => ReverseProxySignIn.IsValid(o.ReverseProxy),
+                "Auth:ReverseProxy needs TrustedProxies (addresses or CIDR networks) and a UserHeader when it is enabled.")
+            .ValidateOnStart();
         services.AddHttpContextAccessor();
         services.AddModuleDbContext<IdentityDbContext>(IdentityDbContext.Schema);
 
@@ -56,6 +59,7 @@ public sealed class IdentityModule : IModule
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<IUserPreferences, UserPreferences>();
         services.AddScoped<AccountSessions>();
+        services.AddScoped<ReverseProxySignIn>();
         services.AddIntegrationEvent<PrincipalDeleted>();
         services.AddScoped<IRoleProvisioning, RoleProvisioning>();
         services.AddScoped<ITenantInitializer, IdentityTenantInitializer>();

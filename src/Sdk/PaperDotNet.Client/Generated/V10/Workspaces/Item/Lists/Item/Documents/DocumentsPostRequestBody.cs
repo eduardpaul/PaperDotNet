@@ -24,6 +24,8 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Documents
 #else
         public byte[] File { get; set; }
 #endif
+        /// <summary>The folderId property</summary>
+        public Guid? FolderId { get; set; }
         /// <summary>The languages property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -67,6 +69,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Documents
             {
                 { "contentTypeId", n => { ContentTypeId = n.GetGuidValue(); } },
                 { "file", n => { File = n.GetByteArrayValue(); } },
+                { "folderId", n => { FolderId = n.GetGuidValue(); } },
                 { "languages", n => { Languages = n.GetStringValue(); } },
                 { "title", n => { Title = n.GetStringValue(); } },
             };
@@ -80,6 +83,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Documents
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteGuidValue("contentTypeId", ContentTypeId);
             writer.WriteByteArrayValue("file", File);
+            writer.WriteGuidValue("folderId", FolderId);
             writer.WriteStringValue("languages", Languages);
             writer.WriteStringValue("title", Title);
             writer.WriteAdditionalData(AdditionalData);

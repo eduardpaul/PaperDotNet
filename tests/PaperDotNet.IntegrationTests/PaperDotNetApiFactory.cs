@@ -98,6 +98,8 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Auth:RequireHttps", "false");
         builder.UseSetting("Auth:PasskeyOrigins:0", "http://localhost");
         builder.UseSetting("Tenancy:AllowHeader", "true");
+        builder.UseSetting("Auth:ReverseProxy:Enabled", "true");
+        builder.UseSetting("Auth:ReverseProxy:TrustedProxies:0", ReverseProxyTests.TrustedNetwork);
         builder.UseSetting("Bootstrap:AdminPassword", AdminPassword);
         builder.UseSetting("Jobs:SchedulerInterval", "00:00:01");
         builder.UseSetting("Lists:DeltaSafetyWindow", "00:00:00");

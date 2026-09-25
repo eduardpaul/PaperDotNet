@@ -14,6 +14,8 @@ class DocumentsPostRequestBody(AdditionalDataHolder, Parsable):
     content_type_id: Optional[UUID] = None
     # The file property
     file: Optional[bytes] = None
+    # The folderId property
+    folder_id: Optional[UUID] = None
     # The languages property
     languages: Optional[str] = None
     # The title property
@@ -38,6 +40,7 @@ class DocumentsPostRequestBody(AdditionalDataHolder, Parsable):
         fields: dict[str, Callable[[Any], None]] = {
             "contentTypeId": lambda n : setattr(self, 'content_type_id', n.get_uuid_value()),
             "file": lambda n : setattr(self, 'file', n.get_bytes_value()),
+            "folderId": lambda n : setattr(self, 'folder_id', n.get_uuid_value()),
             "languages": lambda n : setattr(self, 'languages', n.get_str_value()),
             "title": lambda n : setattr(self, 'title', n.get_str_value()),
         }
@@ -53,6 +56,7 @@ class DocumentsPostRequestBody(AdditionalDataHolder, Parsable):
             raise TypeError("writer cannot be null.")
         writer.write_uuid_value("contentTypeId", self.content_type_id)
         writer.write_bytes_value("file", self.file)
+        writer.write_uuid_value("folderId", self.folder_id)
         writer.write_str_value("languages", self.languages)
         writer.write_str_value("title", self.title)
         writer.write_additional_data_value(self.additional_data)

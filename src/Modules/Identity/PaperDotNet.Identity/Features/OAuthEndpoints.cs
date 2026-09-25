@@ -35,7 +35,7 @@ internal static class OAuthEndpoints
     }
 
     private static async Task<IResult> AuthorizeAsync(
-        HttpContext http, ITenantContext tenant, UserManager<User> users, IOptions<AuthOptions> options)
+        HttpContext http, ITenantContext tenant, UserManager<User> users, IOptions<AuthOptions> options, ReverseProxySignIn proxy)
     {
         var request = http.GetOpenIddictServerRequest() ?? throw new InvalidOperationException("Not an OpenID Connect request.");
         if (tenant.TenantId is not { } tenantId)
@@ -47,6 +47,13 @@ internal static class OAuthEndpoints
         var user = session.Succeeded && session.Principal.FindFirstValue(PaperDotNetClaims.TenantId) == tenantId.ToString()
             ? await users.FindByIdAsync(session.Principal.FindFirstValue(PaperDotNetClaims.UserId)!)
             : null;
+        // An authenticating reverse proxy (IAM-15) vouches for the user; its identity replaces the session's.
+        if (await proxy.AuthenticateAsync(http, http.RequestAborted) is { } proxied)
+        {
+            await AuthEndpoints.SignInSessionAsync(http, proxied, tenant, "proxy");
+            return SignIn(Principal(proxied, tenant, request.GetScopes()));
+        }
+
         if (user is null || !CanSignIn(user) || request.HasPromptValue(PromptValues.Login)
             || session.Principal!.FindFirstValue(AuthEndpoints.SessionStampClaim) != user.SecurityStamp)
         {

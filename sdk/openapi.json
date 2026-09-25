@@ -4953,6 +4953,15 @@
                         "type": "string"
                       }
                     }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "folderId": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    }
                   }
                 ]
               }

@@ -35,3 +35,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0028](0028-template-packages.md) | Template packages (zip: template, JSON content, files) for content and export/import | Accepted |
 | [0029](0029-papermerge-import.md) | Import from Papermerge through a converter that writes a PaperDotNet package; no direct export to its database | Proposed |
 | [0030](0030-account-lifecycle-and-preferences.md) | Account lifecycle (anonymizing deletes, last administrator, ending access) and preferences with organization defaults | Accepted |
+| [0031](0031-reverse-proxy-sign-in.md) | Sign-in through an authenticating reverse proxy: trusted direct peers only, headers only at /connect/authorize | Accepted |

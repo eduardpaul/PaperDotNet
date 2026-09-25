@@ -87,13 +87,13 @@ internal static class DocumentEndpoints
     }
 
     /// <summary>
-    /// Multipart upload (<c>file</c>, optional <c>title</c>, <c>contentTypeId</c> and <c>languages</c> for OCR, e.g.
-    /// <c>fra+eng</c>) that creates a library item.
+    /// Multipart upload (<c>file</c>, optional <c>title</c>, <c>contentTypeId</c>, <c>folderId</c> and <c>languages</c> for
+    /// OCR, e.g. <c>fra+eng</c>) that creates a library item.
     /// </summary>
     private static Task<Results<Created<DocumentResponse>, ValidationProblem, ProblemHttpResult>> UploadAsync(
         Guid workspaceId, Guid listId, IFormFile? file, [FromForm] string? title, [FromForm] Guid? contentTypeId, [FromForm] string? languages,
-        DocumentService documents, CancellationToken ct) =>
-        documents.UploadAsync(workspaceId, listId, file, title, contentTypeId, languages, ct);
+        [FromForm] Guid? folderId, DocumentService documents, CancellationToken ct) =>
+        documents.UploadAsync(workspaceId, listId, file, title, contentTypeId, languages, ct, folderId);
 
     /// <summary>Uploads into the caller's Inbox library (LST-07), created on first use.</summary>
     private static async Task<Results<Created<DocumentResponse>, ValidationProblem, ProblemHttpResult>> UploadToInboxAsync(
@@ -314,7 +314,8 @@ internal sealed class DocumentService(
         ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "You do not have permission for this action in the workspace.");
 
     public async Task<Results<Created<DocumentResponse>, ValidationProblem, ProblemHttpResult>> UploadAsync(
-        Guid workspaceId, Guid listId, IFormFile? file, string? title, Guid? contentTypeId, string? languages, CancellationToken ct)
+        Guid workspaceId, Guid listId, IFormFile? file, string? title, Guid? contentTypeId, string? languages, CancellationToken ct,
+        Guid? folderId = null)
     {
         if (file is null)
         {
@@ -342,6 +343,11 @@ internal sealed class DocumentService(
             return Forbidden();
         }
 
+        if (folderId is { } folder && await items.GetAsync(workspaceId, listId, folder, ct) is not { IsFolder: true })
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["folderId"] = ["No folder with this id in the library."] });
+        }
+
         await using var spooled = await SpoolAsync(file, ct);
         if (Check(spooled) is { } invalid)
         {
@@ -365,6 +371,18 @@ internal sealed class DocumentService(
         }
 
         var item = created.Item!;
+        if (folderId is not null)
+        {
+            var moved = await items.MoveAsync(workspaceId, listId, item.Id, folderId, ct);
+            if (!moved.Succeeded)
+            {
+                await items.AsSystem().DeleteAsync(workspaceId, listId, item.Id, null, ct);
+                return ItemProblem(moved);
+            }
+
+            item = moved.Item!;
+        }
+
         var version = NewVersion(item, stored, fileName, number: 1, "upload", Languages(languages));
         db.FileVersions.Add(version);
         await db.SaveChangesAsync(ct);
