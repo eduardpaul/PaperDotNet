@@ -73,6 +73,8 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | PLT-13 | Tenant/workspace export & import | As an **Admin**, I want to export a workspace or tenant into an open format (files + JSON) and import it elsewhere, so that my data is portable | Ext | P7 | #0005 |
 | PLT-15 | Import from Papermerge | As an **Admin** moving from Papermerge, I want to import its database and files (folders, documents with all versions and OCR text, tags, document types, custom fields, users, groups and sharing) with one command, so that I can switch without losing data or OCRing everything again | Ext | P7 | ADR-0029 |
 | PLT-16 | Export to Papermerge | As an **Admin**, I want to push documents with their tags and custom fields to a Papermerge instance through its REST API, so that I am not locked in (on demand only) | Ext | P7 | ADR-0029 |
+| PLT-17 | User preferences | As a **Member**, I want to set my language, time zone, date and number formats, theme, default document language and search language, so that dates, reminders, digests and OCR defaults fit me and a future UI can follow them | Core | P7 | PM §10 |
+| PLT-18 | Tenant defaults | As an **Admin**, I want tenant-wide defaults (language, time zone, formats, default OCR languages for new libraries) that user preferences override, so that new users and libraries start with the right settings | Core | P7 | PM §10 |
 
 ## 2. Identity & access (IAM)
 
@@ -91,6 +93,8 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | IAM-11 | Guest users | As an **Owner**, I want to invite external guests who only see what is shared with them, so that partners can work with us safely | Ext | P6 | #0015 |
 | IAM-12 | Sharing policies | As an **Admin**, I want to allow or deny anonymous links, cap expiry and restrict guest domains, so that sharing follows company rules | Core | P6 | #0015 |
 | IAM-13 | Extension-declared scopes | As a **Developer**, I want my extension to declare its own scopes, so that admins can assign them in roles | Core | P2 | AV §3.2 |
+| IAM-14 | Account lifecycle | As an **Admin**, I want to update, deactivate, reactivate and delete users, reset their passwords, rename and delete groups and roles, and remove role assignments; and as a **Member**, I want to change my password, so that accounts stay correct over time (also needed after a Papermerge import, whose passwords can't be carried over) | MVP | P7 | PM §8 |
+| IAM-15 | Reverse-proxy authentication | As an **Operator** behind Authelia, Authentik or oauth2-proxy, I want to trust user, group, name and email headers from configured proxies only (off by default), so that users sign in once at the proxy | Ext | P7 | PM §9 |
 
 ## 3. Lists engine (LST)
 
@@ -114,6 +118,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | LST-16 | List templates | As an **Owner**, I want to create lists from templates (Documents, Tasks, Calendar, Contacts, Notes, or extension-provided), so that setup is quick | Core | P2 | AV §3.2 |
 | LST-17 | Comments & activity | As a **Member**, I want to comment on any item, @mention people and see an activity timeline, so that discussion stays with the item | Ext | P5 | top-10 list |
 | LST-18 | Notes content type (Markdown) | As a **Member**, I want Markdown notes as items with links and tags, so that knowledge sits next to documents and tasks | Ext | P7 | #0007 |
+| LST-19 | Fields on folders | As an **Owner**, I want folders to carry fields (at least keywords and terms) through a folder content type, so that I can tag and classify folders like documents | Core | P7 | PM §4 |
 
 ## 4. Taxonomy, tags & navigation (TAX)
 
@@ -178,6 +183,8 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | DOC-13 | Email to inbox | As a **Member**, I want to forward emails to a personal or group address, so that their attachments arrive as documents in my Inbox | Core | Backlog | #0002 |
 | DOC-14 | Path templates | As an **Owner**, I want documents automatically renamed and filed from their metadata (e.g. `/Finance/{Year}/{Counterparty}`), so that the structure maintains itself | Ext | P5 | PM §5 |
 | DOC-15 | Storage providers | As an **Operator**, I want local disk by default and S3-compatible storage optionally, so that I pick storage that fits my setup | Core | P3 (local disk), P5 (S3) | PM §11 |
+| DOC-16 | Group inboxes | As a **Member** of a group, I want a shared inbox for the group (for example the scanner of the accounting team), so that incoming documents land where the whole team can process them | Core | P7 | PM §3 |
+| DOC-17 | Language per file | As a **Member**, I want to set and keep the language of a single file, overriding the library's languages, so that OCR and search stemming are right for documents in another language | Core | P7 | PM §1 |
 
 ## 8. Tasks (TSK)
 
@@ -243,6 +250,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | API-10 | WebDAV for libraries | As a **Member**, I want to mount libraries as a network drive and open or save files from desktop apps, with saves creating versions, so that I can work with my usual tools | Core | P7 | #0018 |
 | API-11 | Obsidian vault sync | As a **Member**, I want my Obsidian vault to sync with a Notes list (frontmatter → fields, tags → terms, links → relations, attachments → documents), so that my notes join the rest of my data | Ext | P7 | #0007 |
 | API-12 | Offline-ready API for mobile | As a **Member** on the go, I want a future mobile app to work offline and sync via delta, ETags and resumable uploads, so that I can capture and read documents without a connection | Ext | P7 | #0006 |
+| API-13 | Client CLI | As a **Member**, I want a command-line client (built on the C# SDK) to upload a local folder with its structure, download and search, so that I can bring in and script bulk work without a UI | Ext | P7 | PM §12 |
 
 ## 13. AI (AI)
 
@@ -282,7 +290,7 @@ Configuration only by default; data portability is PLT-13.
 | **P4 Tasks, calendar & notifications** | Productivity suite | TSK-01…06, CAL-01…04, NTF-01…05 (NTF-04: webhook) |
 | **P5 Collaboration, automation & integrations** | Share, automate, connect | PRV-01…03, PRV-05 (first), EVT-07…09 (automations), TAX-05, TAX-08…11, DOC-14, LST-17, API-03…06, API-08, API-09; deferred: IAM-04, PLT-06, NTF-04 (email, ntfy, Gotify), NTF-06, DOC-05, DOC-06, DOC-15 (S3) |
 | **P6 AI & semantic search** | Understand documents | AI-01…06, SRC-07…09, DOC-12, IAM-08…12 (sharing, moved from P5) |
-| **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PLT-15, PRV-04, API-10 (WebDAV), CAL-05 (CalDAV), CAL-06 (CardDAV) |
+| **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PLT-15, PLT-17, PLT-18, IAM-14, IAM-15, LST-19, DOC-16, DOC-17, API-13, PRV-04, API-10 (WebDAV), CAL-05 (CalDAV), CAL-06 (CardDAV) |
 
 ## Phase 0 status
 
@@ -393,6 +401,9 @@ Content and portability first; the rest of P7 (extensions in other languages, sy
 | **7b Templates with content** | [provisioning.md](provisioning.md#packages-with-content-prv-04), [ADR-0028](adr/0028-template-packages.md). PRV-04 packages (zip: `template.xml`, `content/*.json`, `files/<sha256>`): `export?includeContent=true`; `apply` takes `application/zip`. List section `Items` (Lists): items and folders with portable values (term paths, keyword text, user names, lookups by list and key), created with ids derived from list and key (idempotent, additive), lookups set after all lists. Library section `doc:Files` (Documents): current files, checked and processed like uploads | ✅ |
 | **7c Export & import** | Guide [export-and-import.md](export-and-import.md), [ADR-0028](adr/0028-template-packages.md). PLT-13 `/v1.0/portability/exports` (operation, download for 7 days, creator only) and `/v1.0/portability/imports` (upload a package up to 4 GB, applied as an operation with dry run and parameters); CLI `paperdotnet export` / `import` (as a named user). The package is the open PRV-04 format (XML + JSON + files) | ✅ |
 | **7d Papermerge import** | [ADR-0029](adr/0029-papermerge-import.md). PLT-15 converter `paperdotnet import-papermerge` (own read-only EF model of the Papermerge 3.5/3.6 schema, pinned by Alembic version) that writes a PRV-04 package, imported with PLT-13. Package additions first: all file versions, page text (no re-OCR), original timestamps and authors, folder permission grants. PLT-16 (export through Papermerge's REST API) only on demand | planned (not started) |
+| 7e Accounts & preferences | IAM-14 account lifecycle (update, deactivate, delete, password change and reset; groups and roles), PLT-17 user preferences, PLT-18 tenant defaults | planned (next) |
+| 7f Document gaps | LST-19 fields on folders, DOC-16 group inboxes, DOC-17 language per file; page operations DOC-05/06 (from backlog 5g) | planned |
+| 7g Access at the edge | IAM-15 reverse-proxy authentication, API-13 client CLI | planned |
 
 ## Idea → feature mapping
 
