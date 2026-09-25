@@ -229,6 +229,7 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
         var (first, firstRun) = await StartAsync("Bill 1");
         var approval = Values(await GetAsync(alice, "/v1.0/me/approvals")).Single();
         Assert.Equal("Approve Bill 1", approval.GetProperty("title").GetString());
+        await WaitAsync(alice, "/v1.0/me/notifications", n => Values(n).Any(x => x.GetProperty("title").GetString() == "Approve Bill 1"));
         Assert.Empty(Values(await GetAsync(bob, "/v1.0/me/approvals")));
         var approvalId = approval.GetProperty("id").GetGuid();
         Assert.Equal(HttpStatusCode.NotFound, (await bob.PostAsJsonAsync($"/v1.0/me/approvals/{approvalId}/decision", new { outcome = "approved" }, Ct)).StatusCode);
@@ -299,6 +300,97 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
 
         await WaitAsync(s.Admin, $"{s.Automations}/runs/{laterRun}", r => Status(r) == "completed");
         Assert.Equal("a day later", (await GetAsync(s.Admin, s.Item(later))).GetProperty("fields").GetProperty("note").GetString());
+    }
+
+    [Fact]
+    public async Task Runs_are_claimed_recovered_and_repeat_safe()
+    {
+        var s = await SetupAsync("auto-reliable");
+        var automation = await PostIdAsync(s.Admin, s.Automations, new
+        {
+            name = "Make task",
+            trigger = new { type = "manual" },
+            steps = new[] { Action("task.create", new { list = "Tasks", title = "Follow up {title}" }) },
+        });
+        var bill = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "Bill" } })).GetProperty("id").GetGuid();
+        var factoryScopes = factory.Services.GetRequiredService<ITenantScopeFactory>();
+
+        // A repeated action execution (same execution id) creates the task once.
+        await using (var scope = factoryScopes.CreateScope(s.Tenant.Id, s.Tenant.Identifier))
+        {
+            var executor = scope.ServiceProvider.GetRequiredService<ActionExecutor>();
+            var action = new ActionDefinition("task.create", new System.Text.Json.Nodes.JsonObject { ["list"] = "Tasks", ["title"] = "Once" });
+            var executionId = Guid.CreateVersion7();
+            for (var i = 0; i < 2; i++)
+            {
+                var result = await executor.ExecuteAsync(action, s.Workspace, null, null, null, new Dictionary<string, string>(), "test", "test:1", executionId, Ct);
+                Assert.True(result.Succeeded, result.Error);
+                Assert.Equal(executionId.ToString(), result.Output!["taskId"]!.GetValue<string>());
+            }
+        }
+
+        Assert.Equal(["Once"], await s.Admin.QueryTitlesAsync(s.Workspace, s.Tasks, ""));
+
+        // A run whose start message was lost (no lease, no progress) is recovered by the timer job.
+        Guid lost;
+        await using (var scope = factoryScopes.CreateScope(s.Tenant.Id, s.Tenant.Identifier))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+            var old = DateTimeOffset.UtcNow.AddMinutes(-10);
+            lost = Guid.CreateVersion7();
+            db.Runs.Add(new AutomationRun
+            {
+                Id = lost,
+                AutomationId = automation,
+                AutomationVersion = 1,
+                WorkspaceId = s.Workspace,
+                ListId = s.Invoices,
+                ItemId = bill,
+                Status = RunStatus.Running,
+                StartedAt = old,
+                LastActivityAt = old,
+            });
+            await db.SaveChangesAsync(Ct);
+
+            // A run another handler holds is not executed twice: the message is retried later.
+            var interpreter = scope.ServiceProvider.GetRequiredService<AutomationInterpreter>();
+            await db.Runs.Where(r => r.Id == lost).ExecuteUpdateAsync(u => u.SetProperty(r => r.LeaseUntil, DateTimeOffset.UtcNow.AddMinutes(1)), Ct);
+            await Assert.ThrowsAsync<RunLeasedException>(() => interpreter.RunAsync(lost, null, Ct));
+            await scope.ServiceProvider.GetRequiredService<AutomationTimerJob>().RunAsync(Ct);
+            Assert.Equal(RunStatus.Running, (await db.Runs.AsNoTracking().SingleAsync(r => r.Id == lost, Ct)).Status);
+
+            await db.Runs.Where(r => r.Id == lost).ExecuteUpdateAsync(u => u.SetProperty(r => r.LeaseUntil, (DateTimeOffset?)null), Ct);
+            await scope.ServiceProvider.GetRequiredService<AutomationTimerJob>().RunAsync(Ct);
+        }
+
+        var recovered = await WaitAsync(s.Admin, $"{s.Automations}/runs/{lost}", r => Status(r) == "completed");
+        Assert.Contains("Follow up Bill", await s.Admin.QueryTitlesAsync(s.Workspace, s.Tasks, ""));
+        Assert.Equal(automation, recovered.GetProperty("automationId").GetGuid());
+
+        // A run that keeps failing without progress is given up.
+        await using (var scope = factoryScopes.CreateScope(s.Tenant.Id, s.Tenant.Identifier))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AutomationDbContext>();
+            var stuck = Guid.CreateVersion7();
+            db.Runs.Add(new AutomationRun
+            {
+                Id = stuck,
+                AutomationId = automation,
+                AutomationVersion = 1,
+                WorkspaceId = s.Workspace,
+                ListId = s.Invoices,
+                ItemId = bill,
+                Status = RunStatus.Running,
+                StartedAt = DateTimeOffset.UtcNow,
+                LastActivityAt = DateTimeOffset.UtcNow,
+                Attempts = AutomationInterpreter.MaxAttempts,
+            });
+            await db.SaveChangesAsync(Ct);
+            await scope.ServiceProvider.GetRequiredService<AutomationInterpreter>().RunAsync(stuck, null, Ct);
+            var failed = await db.Runs.AsNoTracking().SingleAsync(r => r.Id == stuck, Ct);
+            Assert.Equal(RunStatus.Failed, failed.Status);
+            Assert.Contains("attempts", failed.Error, StringComparison.Ordinal);
+        }
     }
 
     [Fact]

@@ -119,6 +119,23 @@ public sealed class AutomationRun : ITenantOwned, IVersioned
 
     public int Depth { get; set; }
 
+    /// <summary>Id of the current action step's execution (stable across retries of the step).</summary>
+    public Guid? StepExecutionId { get; set; }
+
+    /// <summary>The handler executing the run and until when (a crashed handler's lease expires).</summary>
+    public Guid? LeaseId { get; set; }
+
+    public DateTimeOffset? LeaseUntil { get; set; }
+
+    /// <summary>Executions of the current step so far; reset when the run makes progress.</summary>
+    public int Attempts { get; set; }
+
+    /// <summary>When the run last made progress (or was last looked at).</summary>
+    public DateTimeOffset LastActivityAt { get; set; }
+
+    /// <summary>The timer job does not resume the run again before this time.</summary>
+    public DateTimeOffset? NextCheckAt { get; set; }
+
     /// <summary>The user who started the run or whose change triggered it.</summary>
     public Guid? StartedBy { get; set; }
 
@@ -226,6 +243,7 @@ public sealed class AutomationDbContext(DbContextOptions<AutomationDbContext> op
             b.HasIndex(r => new { r.TenantId, r.ItemId });
             b.HasIndex(r => new { r.TenantId, r.AutomationId, r.StartedAt });
             b.HasIndex(r => new { r.Status, r.ResumeAt });
+            b.HasIndex(r => new { r.Status, r.LastActivityAt });
             b.HasIndex(r => new { r.TenantId, r.Status, r.CompletedAt });
         });
         modelBuilder.Entity<ApprovalRequest>(b =>

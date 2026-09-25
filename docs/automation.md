@@ -80,9 +80,13 @@ they started with.
   shows each run's status (`running`, `waiting`, `completed`, `failed`,
   `cancelled`), the approval outcomes, a log and the error. Cancel a run with
   `POST …/automations/runs/{id}/cancel`.
-- **Retries:** a step that fails because of an error (rather than a failed
-  action) is retried from where it stopped. Actions are written to be safe to
-  repeat.
+- **Retries and servers** ([ADR-0025](adr/0025-reliable-runs-on-several-servers.md)):
+  - Only one server executes a run at a time (a lease).
+  - A step that fails with an error (rather than a failed action) is retried
+    from where it stopped. Actions are written to be safe to repeat.
+  - Runs whose server crashed or whose message was lost are resumed by the
+    minute job within a few minutes.
+  - A run that makes no progress after 10 attempts fails.
 - **Loops:** changes made by automation trigger automations again up to a depth
   of 3, then stop. An automation that updates its own item cannot loop forever.
 - **Retention:** finished runs are deleted after 30 days
@@ -133,6 +137,8 @@ Extensions add actions with `builder.AddAutomationAction<T>()` (implement
 work in tenants where the extension is enabled.
 
 Actions must be safe to run again: the same step can run again after a crash
-with the same `context.ExecutionKey`. Use the key to find what an earlier
-attempt did, or as a deduplication key. See `docs/extensions.md` and the
+with the same `context.ExecutionKey` and `context.ExecutionId`. Use the id as
+the id of what the action creates (for example
+`IListItemStore.CreateAsync(workspaceId, listId, context.ExecutionId, …)`),
+and the key to find what an earlier attempt did or as a deduplication key. See `docs/extensions.md` and the
 sample `samples.invoices` (trigger `approvalNeeded`, action `approve`).

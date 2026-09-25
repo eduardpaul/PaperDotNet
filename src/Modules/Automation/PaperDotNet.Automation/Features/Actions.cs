@@ -197,7 +197,8 @@ internal sealed class TaskCreateAction(IListItemStore items, RecipientResolver r
             }
         }
 
-        var created = await store.CreateAsync(context.WorkspaceId, list.Id, fields, null, cancellationToken);
+        // The execution id as the task's id: a repeated step finds the task it created before.
+        var created = await store.CreateAsync(context.WorkspaceId, list.Id, context.ExecutionId, fields, null, cancellationToken);
         return created.Succeeded
             ? AutomationActionResult.Ok(new JsonObject { ["taskId"] = created.Item!.Id.ToString() })
             : AutomationActionResult.Fail(ItemUpdateAction.Describe(created));
@@ -235,7 +236,7 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
 {
     public async Task<AutomationActionResult> ExecuteAsync(
         ActionDefinition action, Guid workspaceId, AutomationItem? item, Guid? actor, JsonObject? data,
-        IReadOnlyDictionary<string, string> outcomes, string source, string executionKey, CancellationToken ct)
+        IReadOnlyDictionary<string, string> outcomes, string source, string executionKey, Guid executionId, CancellationToken ct)
     {
         if (catalog.Find(action.Type) is not { } found)
         {
@@ -268,6 +269,7 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
                 Data = data,
                 Source = source,
                 ExecutionKey = executionKey,
+                ExecutionId = executionId,
                 ExpandAsync = ExpandAsync,
             }, ct);
         }

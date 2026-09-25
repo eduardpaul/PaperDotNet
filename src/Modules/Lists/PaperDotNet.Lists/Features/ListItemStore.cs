@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Querying;
+using PaperDotNet.Persistence;
 using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Features;
@@ -110,6 +111,26 @@ internal sealed class ListItemStore(
         }
 
         return ToResult(schema, await writer.CreateAsync(schema, contentTypeId, null, isFolder: false, Element(fields), cancellationToken));
+    }
+
+    public async Task<ListItemResult> CreateAsync(
+        Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken)
+    {
+        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
+        if (schema is null)
+        {
+            return new ListItemResult(ListItemStatus.NotFound);
+        }
+
+        var existing = await db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete]).AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
+        if (existing is not null)
+        {
+            return existing.ListId == listId && existing.DeletedAt is null
+                ? new ListItemResult(ListItemStatus.Ok, ToData(schema, existing))
+                : new ListItemResult(ListItemStatus.Rejected, Message: "An item with this id exists in another list or was deleted.");
+        }
+
+        return ToResult(schema, await writer.CreateAsync(schema, contentTypeId, null, isFolder: false, Element(fields), itemId, cancellationToken));
     }
 
     public async Task<ListItemResult> UpdateAsync(

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PaperDotNet.Automation.Data;
@@ -12,9 +13,11 @@ using PaperDotNet.Automation.Data;
 namespace PaperDotNet.Migrations.PostgreSql.Generated.Automation
 {
     [DbContext(typeof(AutomationDbContext))]
-    partial class AutomationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260925083138_AutomationRunLeases")]
+    partial class AutomationRunLeases
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

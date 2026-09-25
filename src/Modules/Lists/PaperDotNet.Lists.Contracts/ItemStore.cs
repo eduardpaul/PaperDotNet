@@ -103,6 +103,12 @@ public interface IListItemStore
 
     Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Creates the item with <paramref name="itemId"/> (e.g. a stable id of an operation that may be repeated). When that
+    /// item already exists in the list it is returned unchanged, so repeating the call creates nothing.
+    /// </summary>
+    Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken);
+
     /// <summary>Merges <paramref name="fields"/> into the item (null removes a value); checks <paramref name="expectedVersion"/> when given.</summary>
     Task<ListItemResult> UpdateAsync(Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, uint? expectedVersion, CancellationToken cancellationToken);
 

@@ -188,7 +188,9 @@ tenants where the same template enables it. See `docs/provisioning.md`.
 `builder.AddAutomationTrigger(new(key, description))` and raise them from your
 code with `IAutomationTriggers.RaiseAsync(key, workspaceId, item, data)`.
 Automations with that trigger then start in the background. Make actions safe
-to repeat with `context.ExecutionKey` (the same when a step runs again). See
+to repeat with `context.ExecutionId` (for example as the id of an item you
+create with `IListItemStore.CreateAsync(workspaceId, listId, itemId, …)`) or
+`context.ExecutionKey`; both stay the same when a step runs again. See
 `docs/automation.md`.
 
 ## 5. Analyzers

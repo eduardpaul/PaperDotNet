@@ -29,3 +29,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0022](0022-smart-folders.md) | Smart folders on the item query engine; OData aliases for relative values; keyword promotion keeps ids | Accepted |
 | [0023](0023-item-mutators-and-event-reactions.md) | Item mutators before the save; events for everything after it; one message per subscriber | Accepted |
 | [0024](0024-one-automation-model.md) | One automation model: rules and workflows merged; runs started through the outbox | Accepted |
+| [0025](0025-reliable-runs-on-several-servers.md) | Reliable automation runs and folder moves on several servers (leases, recovery, atomic hand-offs) | Accepted |

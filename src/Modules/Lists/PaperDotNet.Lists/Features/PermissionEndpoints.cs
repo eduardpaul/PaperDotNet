@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Identity.Contracts;
@@ -384,10 +385,11 @@ internal static class ScopeTree
     /// <summary>
     /// Items below <paramref name="folderId"/> that inherit (scope <paramref name="oldScope"/>)
     /// move to <paramref name="newScope"/>. Folders with unique permissions stop the walk.
-    /// Includes items in the recycle bin.
+    /// Includes items in the recycle bin. Returns the number of items changed (0 when it already happened).
     /// </summary>
-    public static async Task ReassignAsync(ListsDbContext db, Guid folderId, Guid? oldScope, Guid? newScope, CancellationToken ct)
+    public static async Task<int> ReassignAsync(ListsDbContext db, Guid folderId, Guid? oldScope, Guid? newScope, CancellationToken ct)
     {
+        var changed = 0;
         var all = db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete]);
         List<Guid> frontier = [folderId];
         for (var depth = 0; frontier.Count > 0 && depth < MaxDepth; depth++)
@@ -400,10 +402,44 @@ internal static class ScopeTree
             var ids = children.Select(c => c.Id).ToList();
             if (ids.Count > 0)
             {
-                await all.Where(i => ids.Contains(i.Id)).ExecuteUpdateAsync(s => s.SetProperty(i => i.ScopeId, newScope), ct);
+                changed += await all.Where(i => ids.Contains(i.Id)).ExecuteUpdateAsync(s => s.SetProperty(i => i.ScopeId, newScope), ct);
             }
 
             frontier = children.Where(c => c.IsFolder).Select(c => c.Id).ToList();
+        }
+
+        return changed;
+    }
+}
+
+/// <summary>
+/// Reassigns the items inside a folder whose permission scope changed from <see cref="OldScopeId"/> to
+/// <see cref="NewScopeId"/>. Saved with the folder change; does nothing when the request already did it or the folder
+/// has changed again since.
+/// </summary>
+public sealed record CompleteFolderScopeChange(
+    Guid ListId, Guid FolderId, Guid? OldScopeId, Guid? NewScopeId, Guid TenantId, string TenantIdentifier, Guid? UserId) : ITenantMessage;
+
+/// <summary>Wolverine handler for <see cref="CompleteFolderScopeChange"/> (discovered by convention).</summary>
+public static class CompleteFolderScopeChangeHandler
+{
+    public static async Task Handle(CompleteFolderScopeChange message, ITenantScopeFactory scopes, CancellationToken cancellationToken)
+    {
+        await using var scope = scopes.CreateScope(message.TenantId, message.TenantIdentifier, message.UserId);
+        var db = scope.ServiceProvider.GetRequiredService<ListsDbContext>();
+        var folder = await db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete]).AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == message.FolderId, cancellationToken);
+        if (folder is null || folder.ScopeId != message.NewScopeId)
+        {
+            return;
+        }
+
+        if (await ScopeTree.ReassignAsync(db, message.FolderId, message.OldScopeId, message.NewScopeId, cancellationToken) > 0)
+        {
+            var services = scope.ServiceProvider;
+            await services.GetRequiredService<IOutbox>().SaveChangesAsync(
+                db, [ListIndexInvalidated.For(services.GetRequiredService<ITenantContext>(), services.GetRequiredService<ICurrentUser>(), message.ListId)],
+                cancellationToken: cancellationToken);
         }
     }
 }

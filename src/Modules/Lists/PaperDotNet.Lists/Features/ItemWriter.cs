@@ -42,8 +42,13 @@ internal sealed class ItemWriter(
     public const int TitleMaxLength = 1024;
     private const int MaxFolderDepth = 64;
 
+    public Task<ItemWriteResult> CreateAsync(
+        ListSchema schema, Guid? contentTypeId, Guid? parentId, bool isFolder, JsonElement? fields, CancellationToken ct) =>
+        CreateAsync(schema, contentTypeId, parentId, isFolder, fields, Ids.New(), ct);
+
+    /// <summary>Creates the item with the given <paramref name="itemId"/>.</summary>
     public async Task<ItemWriteResult> CreateAsync(
-        ListSchema schema, Guid? contentTypeId, Guid? parentId, bool isFolder, JsonElement? fields, CancellationToken ct)
+        ListSchema schema, Guid? contentTypeId, Guid? parentId, bool isFolder, JsonElement? fields, Guid itemId, CancellationToken ct)
     {
         var contentType = contentTypeId is { } id ? schema.FindContentType(id) : schema.DefaultContentType;
         if (contentType is null)
@@ -72,7 +77,7 @@ internal sealed class ItemWriter(
 
         var item = new ListItem
         {
-            Id = Ids.New(),
+            Id = itemId,
             ListId = schema.List.Id,
             ContentTypeId = contentType.Id,
             ParentId = parentId,
@@ -184,7 +189,8 @@ internal sealed class ItemWriter(
             await AddVersionAsync(schema, item, changed, ct);
         }
         var scopeMoved = item.IsFolder && oldScopeId != item.ScopeId;
-        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Updating, item, schema, changed)], cancellationToken: ct);
+        await outbox.SaveChangesAsync(
+            db, [Event(ItemEventKind.Updating, item, schema, changed)], scopeMoved ? [ScopeChange(schema, item, oldScopeId)] : null, ct);
         if (scopeMoved)
         {
             await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
@@ -244,8 +250,9 @@ internal sealed class ItemWriter(
             ContentTypeId = item.ContentTypeId,
             IsFolder = item.IsFolder,
         };
-        await outbox.SaveChangesAsync(db, [restored], cancellationToken: ct);
-        if (item.IsFolder && oldScopeId != item.ScopeId)
+        var scopeMoved = item.IsFolder && oldScopeId != item.ScopeId;
+        await outbox.SaveChangesAsync(db, [restored], scopeMoved ? [ScopeChange(schema, item, oldScopeId)] : null, ct);
+        if (scopeMoved)
         {
             await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
             await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, currentUser, schema.List.Id)], cancellationToken: ct);
@@ -288,6 +295,13 @@ internal sealed class ItemWriter(
     }
 
     /// <summary>All values of an item, including <c>title</c>.</summary>
+    /// <summary>
+    /// Saved with a folder whose permission scope changed: if the request stops before the items inside are reassigned
+    /// (below, right after the save), the message completes it.
+    /// </summary>
+    private CompleteFolderScopeChange ScopeChange(ListSchema schema, ListItem folder, Guid? oldScopeId) =>
+        new(schema.List.Id, folder.Id, oldScopeId, folder.ScopeId, tenant.TenantId!.Value, tenant.TenantIdentifier!, currentUser.UserId);
+
     internal static JsonObject Values(ListItem item)
     {
         var values = JsonNode.Parse(item.Fields)!.AsObject();

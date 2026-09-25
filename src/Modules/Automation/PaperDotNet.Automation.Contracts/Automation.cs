@@ -44,6 +44,12 @@ public sealed class AutomationActionContext
     public required string ExecutionKey { get; init; }
 
     /// <summary>
+    /// A stable id of this action execution (the same when the step runs again): use it as the id of what the action
+    /// creates, e.g. <c>IListItemStore.CreateAsync(workspaceId, listId, ExecutionId, …)</c>, so a repeat creates nothing.
+    /// </summary>
+    public required Guid ExecutionId { get; init; }
+
+    /// <summary>
     /// Replaces tokens in a text: <c>{title}</c>, <c>{fieldName}</c>, <c>{fieldName:format}</c>,
     /// <c>{created:yyyy}</c>, <c>{modified}</c>, <c>{today:yyyy-MM-dd}</c>, <c>{list}</c>, <c>{id}</c>,
     /// <c>{outcome:Step name}</c> and <c>{data:name}</c>. <c>{{</c> and <c>}}</c> are literal braces.

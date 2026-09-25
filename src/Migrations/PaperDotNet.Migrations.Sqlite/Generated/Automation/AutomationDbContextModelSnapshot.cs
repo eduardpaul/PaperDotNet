@@ -213,6 +213,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
 
+                    b.Property<int>("Attempts")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("attempts");
+
                     b.Property<Guid>("AutomationId")
                         .HasColumnType("TEXT")
                         .HasColumnName("automation_id");
@@ -246,6 +250,18 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                         .HasColumnType("TEXT")
                         .HasColumnName("item_id");
 
+                    b.Property<long>("LastActivityAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("last_activity_at");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("lease_id");
+
+                    b.Property<long?>("LeaseUntil")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("lease_until");
+
                     b.Property<Guid?>("ListId")
                         .HasColumnType("TEXT")
                         .HasColumnName("list_id");
@@ -254,6 +270,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                         .IsRequired()
                         .HasColumnType("TEXT")
                         .HasColumnName("log");
+
+                    b.Property<long?>("NextCheckAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("next_check_at");
 
                     b.Property<string>("Outcomes")
                         .IsRequired()
@@ -282,6 +302,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                         .HasColumnType("TEXT")
                         .HasColumnName("status");
 
+                    b.Property<Guid?>("StepExecutionId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("step_execution_id");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
@@ -309,6 +333,9 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Automation
                     b.HasIndex("AutomationId", "EventId")
                         .IsUnique()
                         .HasDatabaseName("ix_automation_runs_automation_id_event_id");
+
+                    b.HasIndex("Status", "LastActivityAt")
+                        .HasDatabaseName("ix_automation_runs_status_last_activity_at");
 
                     b.HasIndex("Status", "ResumeAt")
                         .HasDatabaseName("ix_automation_runs_status_resume_at");

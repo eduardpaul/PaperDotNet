@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PaperDotNet.IntegrationTests;
 
@@ -192,5 +194,39 @@ public sealed class PermissionTests(PaperDotNetApiFactory factory)
 
         Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"{setup.ListUrl}/permissions", Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsync($"{setup.ListUrl}/items/{item}/permissions/breakInheritance", null, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Interrupted_folder_moves_are_completed_by_their_message()
+    {
+        var setup = await SetupAsync("perm-move-complete");
+        var privateFolder = await CreateAsync(setup.Admin, setup, "Private", isFolder: true);
+        await setup.Admin.PostAsJsonAsync($"{setup.ListUrl}/items/{privateFolder}/permissions/breakInheritance", new { copyGrants = false }, Ct);
+        var moved = await CreateAsync(setup.Admin, setup, "Moved", isFolder: true);
+        var child = await CreateAsync(setup.Admin, setup, "Child", moved);
+        var url = $"{setup.ListUrl}/items/{moved}";
+        var etag = (await setup.Admin.GetAsync(url, Ct)).Headers.ETag!.Tag;
+        Assert.Equal(HttpStatusCode.OK, (await setup.Admin.SendWithEtagAsync(HttpMethod.Patch, url, etag, new { parentId = privateFolder })).StatusCode);
+
+        PaperDotNet.Tenancy.Contracts.TenantSummary info;
+        await using (var root = factory.Services.CreateAsyncScope())
+        {
+            info = (await root.ServiceProvider.GetRequiredService<PaperDotNet.Tenancy.Contracts.ITenantDirectory>().FindAsync(setup.Tenant, Ct))!;
+        }
+
+        await using var scope = factory.Services.GetRequiredService<PaperDotNet.Abstractions.ITenantScopeFactory>().CreateScope(info.Id, info.Identifier);
+        var db = scope.ServiceProvider.GetRequiredService<PaperDotNet.Lists.Data.ListsDbContext>();
+        Assert.Equal(privateFolder, (await db.Items.AsNoTracking().SingleAsync(i => i.Id == child, Ct)).ScopeId);
+
+        // As if the request had stopped right after saving the folder: the child still has the old scope.
+        await db.Items.Where(i => i.Id == child).ExecuteUpdateAsync(u => u.SetProperty(i => i.ScopeId, (Guid?)null), Ct);
+        var message = new PaperDotNet.Lists.Features.CompleteFolderScopeChange(setup.List, moved, null, privateFolder, info.Id, info.Identifier, null);
+        var scopes = factory.Services.GetRequiredService<PaperDotNet.Abstractions.ITenantScopeFactory>();
+        await PaperDotNet.Lists.Features.CompleteFolderScopeChangeHandler.Handle(message, scopes, Ct);
+        Assert.Equal(privateFolder, (await db.Items.AsNoTracking().SingleAsync(i => i.Id == child, Ct)).ScopeId);
+
+        // A stale message (the folder moved again since) changes nothing.
+        await PaperDotNet.Lists.Features.CompleteFolderScopeChangeHandler.Handle(message with { NewScopeId = Guid.NewGuid() }, scopes, Ct);
+        Assert.Equal(privateFolder, (await db.Items.AsNoTracking().SingleAsync(i => i.Id == child, Ct)).ScopeId);
     }
 }
