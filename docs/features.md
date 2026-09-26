@@ -417,6 +417,7 @@ The web UI, built on the TypeScript SDK with React, TanStack and Tailwind
 | Slice | Features | Status |
 |---|---|---|
 | **8a Foundation** | `web/` (Vite, React, TanStack Router and Query, Tailwind, Radix) on `@paperdotnet/client` through npm workspaces; the host serves the built app from `wwwroot` with an `index.html` fallback, a strict Content-Security-Policy and `Auth:LoginUrl` defaulting to `/login`; sign-in with password or passkey (authorization code + PKCE through the server's sign-in session, IAM-01/02), sign-out; shell with sidebar, workspaces, command palette (⌘K, `g` shortcuts), notifications bell and page (NTF-01), live updates (API-07), themes and formats from preferences (PLT-17); Home with tasks (TSK-03), agenda (CAL-03) and approvals (EVT-08); workspaces (PLT-07). API gaps found and fixed: `templateKey` in list summaries, enum query values in camelCase (`EnumQuery`); SDK: `jsonNode`, typed `all()`. Playwright tests against the real host; CI job `web` | ✅ |
+| **8b Lists and items** | LST-01 new lists from templates (LST-16); LST-09 saved views as table (server-side sort) or board (TSK-04, drag and drop plus a keyboard menu); LST-10 title search and paging; LST-06 folders; LST-04 item panel with an editor per field type (LST-03, TAX-04/06 keywords and terms, people, lookups; date-times in the user's time zone); LST-15 If-Match with reload or save anyway on conflicts; LST-05 bulk edit and delete; LST-12 versions with restore; LST-13 recycle bin. API: `GET /v1.0/termStore/terms?ids=` for term labels | ✅ |
 
 ## Idea → feature mapping
 

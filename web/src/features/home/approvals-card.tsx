@@ -1,5 +1,6 @@
 import type { ApprovalResponse } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { Check, Stamp, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api/client';
@@ -7,6 +8,7 @@ import { pendingApprovalsQuery } from '@/api/queries';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { itemLink } from '@/features/lists/item-link';
 import { useFormat } from '@/lib/preferences';
 
 /** Approvals waiting for the user (EVT-08); hidden when there are none. */
@@ -45,7 +47,13 @@ function ApprovalRow({ approval }: { approval: ApprovalResponse }) {
   return (
     <li className="flex flex-wrap items-center gap-3 px-4 py-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium">{approval.title}</p>
+        {itemLink(approval) ? (
+          <Link {...itemLink(approval)!} className="block truncate text-[13px] font-medium hover:underline">
+            {approval.title}
+          </Link>
+        ) : (
+          <p className="truncate text-[13px] font-medium">{approval.title}</p>
+        )}
         <p className="text-xs text-muted">
           {approval.stepName}
           {approval.dueAt && <> · due {format.relative(approval.dueAt)}</>}

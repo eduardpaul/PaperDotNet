@@ -1,10 +1,12 @@
 import type { NotificationResponse } from '@paperdotnet/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { AtSign, Bell, CalendarClock, CheckCircle2, FileText, MessageSquare, Trash2 } from 'lucide-react';
 import { api } from '@/api/client';
 import { keys } from '@/api/keys';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/popover';
+import { itemLink } from '@/features/lists/item-link';
 import { useFormat } from '@/lib/preferences';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +30,7 @@ export function NotificationRow({
   onOpen?: () => void;
 }) {
   const format = useFormat();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const unread = !notification.readAt;
   const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.notifications });
@@ -56,6 +59,8 @@ export function NotificationRow({
         onClick={() => {
           if (unread) markRead.mutate();
           onOpen?.();
+          const link = itemLink(notification);
+          if (link) void navigate(link);
         }}
       >
         <p className={cn('text-[13px]', unread && 'font-medium')}>{notification.title}</p>

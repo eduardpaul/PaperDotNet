@@ -1,7 +1,9 @@
 import type { CalendarEntry } from '@paperdotnet/client';
+import { Link } from '@tanstack/react-router';
 import { CalendarDays, CalendarX2, ListChecks, MapPin } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, Skeleton } from '@/components/ui/feedback';
+import { itemLink } from '@/features/lists/item-link';
 import { useFormat } from '@/lib/preferences';
 import { useNow } from '@/lib/use-now';
 
@@ -51,7 +53,10 @@ export function AgendaCard({ entries, loading }: { entries: CalendarEntry[] | un
                     <span className="w-12 shrink-0 text-xs leading-5 text-muted tabular-nums">
                       {entry.allDay || entry.kind === 'task' ? 'All day' : format.time(entry.start)}
                     </span>
-                    <span className="min-w-0 flex-1 border-l-2 border-accent/60 pl-2">
+                    <Link
+                      {...itemLink({ ...entry, itemId: entry.masterItemId ?? entry.itemId })!}
+                      className="min-w-0 flex-1 rounded-r border-l-2 border-accent/60 pl-2 hover:bg-surface-muted/60"
+                    >
                       <span className="flex items-center gap-1.5 truncate font-medium">
                         {entry.kind === 'task' && <ListChecks className="size-3.5 shrink-0 text-muted" />}
                         {entry.title}
@@ -62,7 +67,7 @@ export function AgendaCard({ entries, loading }: { entries: CalendarEntry[] | un
                           {entry.location ?? entry.listName}
                         </span>
                       )}
-                    </span>
+                    </Link>
                   </li>
                 ))}
               </ul>

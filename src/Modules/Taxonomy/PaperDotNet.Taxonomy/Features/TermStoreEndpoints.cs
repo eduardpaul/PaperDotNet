@@ -119,6 +119,7 @@ internal static partial class TermStoreEndpoints
         store.MapPatch("/sets/{setId:guid}/terms/{termId:guid}", UpdateTermAsync).RequireScope(TaxonomyScopes.Manage).WithName("UpdateTerm");
         store.MapPost("/sets/{setId:guid}/terms/{termId:guid}/merge", MergeTermAsync).RequireScope(TaxonomyScopes.Manage).WithName("MergeTerm");
 
+        store.MapGet("/terms", GetTermsByIdAsync).RequireScope(TaxonomyScopes.Read).WithName("GetTermsById");
         store.MapGet("/keywords", SuggestKeywordsAsync).RequireScope(TaxonomyScopes.Read).WithName("SuggestKeywords");
         store.MapPost("/keywords", AddKeywordAsync).RequireScope(TaxonomyScopes.Read).WithName("AddKeyword");
     }

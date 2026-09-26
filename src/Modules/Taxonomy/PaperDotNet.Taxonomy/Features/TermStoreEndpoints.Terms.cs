@@ -52,6 +52,36 @@ internal static partial class TermStoreEndpoints
         return TypedResults.Ok(Page.Create(await ToResponsesAsync(db, terms, ct), page, http, t => t.Id));
     }
 
+    private const int MaxTermsById = 200;
+
+    /// <summary>
+    /// Terms by id in any set: <c>?ids=a,b,c</c> (at most 200). Clients show the labels and colors of managed
+    /// metadata and keyword values with it. Unknown ids are left out.
+    /// </summary>
+    private static async Task<Results<Ok<List<TermResponse>>, ValidationProblem>> GetTermsByIdAsync(
+        string? ids, TaxonomyDbContext db, CancellationToken ct)
+    {
+        var parts = (ids ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var wanted = new HashSet<Guid>();
+        foreach (var part in parts)
+        {
+            if (!Guid.TryParse(part, out var id))
+            {
+                return ApiErrors.Validation(new Dictionary<string, string[]> { ["ids"] = [$"'{part}' is not a term id."] });
+            }
+
+            wanted.Add(id);
+        }
+
+        if (wanted.Count is 0 or > MaxTermsById)
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["ids"] = [$"Give 1 to {MaxTermsById} term ids, separated by commas."] });
+        }
+
+        var terms = await db.Terms.AsNoTracking().Where(t => wanted.Contains(t.Id)).ToListAsync(ct);
+        return TypedResults.Ok(await ToResponsesAsync(db, terms, ct));
+    }
+
     private static async Task<Results<Ok<TermResponse>, ProblemHttpResult>> GetTermAsync(
         Guid setId, Guid termId, TaxonomyDbContext db, HttpResponse response, CancellationToken ct)
     {

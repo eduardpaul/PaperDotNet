@@ -1,11 +1,13 @@
 import type { MyTask } from '@paperdotnet/client';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { CircleCheckBig, ListChecks } from 'lucide-react';
 import { useState } from 'react';
 import { myTasksQuery } from '@/api/queries';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, Skeleton } from '@/components/ui/feedback';
+import { itemLink } from '@/features/lists/item-link';
 import { useFormat } from '@/lib/preferences';
 import { useNow } from '@/lib/use-now';
 import { cn } from '@/lib/utils';
@@ -74,23 +76,26 @@ function TaskRow({ task }: { task: MyTask }) {
   const due = task.dueDate ?? undefined;
   const tone = !due ? undefined : due < today ? 'danger' : due === today ? 'warning' : 'neutral';
 
+  const link = itemLink(task);
   return (
-    <li className="flex items-center gap-3 px-4 py-2.5">
-      <span
-        aria-label={`Priority ${task.priority ?? 'normal'}`}
-        className={cn(
-          'size-2 shrink-0 rounded-full',
-          task.priority === 'high' ? 'bg-danger' : task.priority === 'low' ? 'bg-border' : 'bg-accent/60',
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium">{task.title}</p>
-        <p className="truncate text-xs text-muted">
-          {task.listName}
-          {task.status === 'inProgress' && ' · In progress'}
-        </p>
-      </div>
-      {due && <Badge tone={tone}>{due === today ? 'Today' : format.date(due)}</Badge>}
+    <li>
+      <Link {...link!} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-muted/60">
+        <span
+          aria-label={`Priority ${task.priority ?? 'normal'}`}
+          className={cn(
+            'size-2 shrink-0 rounded-full',
+            task.priority === 'high' ? 'bg-danger' : task.priority === 'low' ? 'bg-border' : 'bg-accent/60',
+          )}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-medium">{task.title}</p>
+          <p className="truncate text-xs text-muted">
+            {task.listName}
+            {task.status === 'inProgress' && ' · In progress'}
+          </p>
+        </div>
+        {due && <Badge tone={tone}>{due === today ? 'Today' : format.date(due)}</Badge>}
+      </Link>
     </li>
   );
 }

@@ -188,6 +188,24 @@ public sealed class TaxonomyTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task Terms_are_found_by_id_across_sets()
+    {
+        var (client, _, terms) = await SetupAsync("tax-by-id");
+        var keyword = await PostIdAsync(client, "/v1.0/termStore/keywords", new { name = "Urgent" });
+
+        var found = (await (await client.GetAsync($"/v1.0/termStore/terms?ids={terms["payables"]},{keyword},{Guid.NewGuid()}", Ct)).ReadJsonAsync())
+            .EnumerateArray().ToDictionary(t => t.GetProperty("id").GetGuid(), t => t.GetProperty("name").GetString());
+
+        Assert.Equal(2, found.Count);
+        Assert.Equal("Payables", found[terms["payables"]]);
+        Assert.Equal("Urgent", found[keyword]);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/v1.0/termStore/terms?ids=nope", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/v1.0/termStore/terms", Ct)).StatusCode);
+        var tooMany = string.Join(',', Enumerable.Range(0, 201).Select(_ => Guid.NewGuid()));
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync($"/v1.0/termStore/terms?ids={tooMany}", Ct)).StatusCode);
+    }
+
+    [Fact]
     public async Task Term_store_is_isolated_per_tenant()
     {
         var (clientA, setA, termsA) = await SetupAsync("tax-isolation-a");
@@ -196,6 +214,7 @@ public sealed class TaxonomyTests(PaperDotNetApiFactory factory)
 
         Assert.Equal(HttpStatusCode.NotFound, (await clientB.GetAsync($"/v1.0/termStore/sets/{setA}", Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await clientB.GetAsync($"/v1.0/termStore/sets/{setA}/terms/{termsA["finance"]}", Ct)).StatusCode);
+        Assert.Empty((await (await clientB.GetAsync($"/v1.0/termStore/terms?ids={termsA["finance"]}", Ct)).ReadJsonAsync()).EnumerateArray());
         var groupsB = (await (await clientB.GetAsync("/v1.0/termStore/groups", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray().ToList();
         Assert.DoesNotContain(groupsB, g => g.GetProperty("name").GetString() == "Organization");
 

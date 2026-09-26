@@ -8,6 +8,8 @@ import { KeywordsRequestBuilderNavigationMetadata, KeywordsRequestBuilderRequest
 // @ts-ignore
 import { SetsRequestBuilderNavigationMetadata, SetsRequestBuilderRequestsMetadata, type SetsRequestBuilder } from './sets/index.js';
 // @ts-ignore
+import { TermsRequestBuilderRequestsMetadata, type TermsRequestBuilder } from './terms/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -26,6 +28,10 @@ export interface TermStoreRequestBuilder extends BaseRequestBuilder<TermStoreReq
      * The sets property
      */
     get sets(): SetsRequestBuilder;
+    /**
+     * The terms property
+     */
+    get terms(): TermsRequestBuilder;
 }
 /**
  * Uri template for the request builder.
@@ -46,6 +52,9 @@ export const TermStoreRequestBuilderNavigationMetadata: Record<Exclude<keyof Ter
     sets: {
         requestsMetadata: SetsRequestBuilderRequestsMetadata,
         navigationMetadata: SetsRequestBuilderNavigationMetadata,
+    },
+    terms: {
+        requestsMetadata: TermsRequestBuilderRequestsMetadata,
     },
 };
 /* tslint:enable */

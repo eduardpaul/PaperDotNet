@@ -22,6 +22,7 @@
     "@paperdotnet/client": "*",
     "@tanstack/react-query": "^5.104.0",
     "@tanstack/react-router": "^1.170.39",
+    "@tanstack/react-table": "^9.2.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

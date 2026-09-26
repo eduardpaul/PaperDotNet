@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useParams } from '@tanstack/react-router';
 import { Briefcase, ChevronRight, Plus } from 'lucide-react';
 import { Collapsible } from 'radix-ui';
 import { useState } from 'react';
-import { unreadCountQuery, workspacesQuery } from '@/api/queries';
+import { listsQuery, unreadCountQuery, workspacesQuery } from '@/api/queries';
 import { Logo } from '@/components/brand/logo';
 import { Skeleton } from '@/components/ui/feedback';
 import { navigation } from '@/extensibility/navigation';
+import { ListIcon } from '@/features/lists/list-icon';
 import { cn } from '@/lib/utils';
 
 const itemClass =
@@ -51,8 +52,32 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+/** The lists of the open workspace, under it in the sidebar. */
+function WorkspaceLists({ workspaceId, onNavigate }: { workspaceId: string; onNavigate?: () => void }) {
+  const { data } = useQuery(listsQuery(workspaceId));
+  return (
+    <ul className="mt-0.5 mb-1 ml-4 flex flex-col gap-0.5 border-l pl-2">
+      {data?.map((list) => (
+        <li key={list.id}>
+          <Link
+            to="/w/$workspaceId/l/$listId"
+            params={{ workspaceId, listId: list.id! }}
+            onClick={onNavigate}
+            className={itemClass}
+            activeProps={{ className: activeClass }}
+          >
+            <ListIcon list={list} />
+            <span className="truncate">{list.name}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Workspaces({ onNavigate }: { onNavigate?: () => void }) {
   const { data, isPending } = useQuery(workspacesQuery);
+  const { workspaceId: current } = useParams({ strict: false });
   const [open, setOpen] = useState(true);
 
   return (
@@ -90,10 +115,14 @@ function Workspaces({ onNavigate }: { onNavigate?: () => void }) {
                   onClick={onNavigate}
                   className={itemClass}
                   activeProps={{ className: activeClass }}
+                  activeOptions={{ exact: true }}
                 >
                   <Briefcase />
                   <span className="truncate">{workspace.name}</span>
                 </Link>
+                {current && workspace.id === current && (
+                  <WorkspaceLists workspaceId={current} onNavigate={onNavigate} />
+                )}
               </li>
             ))}
         </ul>

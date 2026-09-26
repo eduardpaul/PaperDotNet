@@ -16,6 +16,8 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppWIndexRouteImport } from './routes/_app/w/index'
 import { Route as AppWWorkspaceIdIndexRouteImport } from './routes/_app/w/$workspaceId/index'
+import { Route as AppWWorkspaceIdLListIdIndexRouteImport } from './routes/_app/w/$workspaceId/l/$listId/index'
+import { Route as AppWWorkspaceIdLListIdRecycleBinRouteImport } from './routes/_app/w/$workspaceId/l/$listId/recycle-bin'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -51,6 +53,18 @@ const AppWWorkspaceIdIndexRoute = AppWWorkspaceIdIndexRouteImport.update({
   path: '/w/$workspaceId/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppWWorkspaceIdLListIdIndexRoute =
+  AppWWorkspaceIdLListIdIndexRouteImport.update({
+    id: '/w/$workspaceId/l/$listId/',
+    path: '/w/$workspaceId/l/$listId/',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppWWorkspaceIdLListIdRecycleBinRoute =
+  AppWWorkspaceIdLListIdRecycleBinRouteImport.update({
+    id: '/w/$workspaceId/l/$listId/recycle-bin',
+    path: '/w/$workspaceId/l/$listId/recycle-bin',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -59,6 +73,8 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof AppNotificationsRoute
   '/w/': typeof AppWIndexRoute
   '/w/$workspaceId/': typeof AppWWorkspaceIdIndexRoute
+  '/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
+  '/w/$workspaceId/l/$listId/': typeof AppWWorkspaceIdLListIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/callback': typeof CallbackRoute
@@ -67,6 +83,8 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/w': typeof AppWIndexRoute
   '/w/$workspaceId': typeof AppWWorkspaceIdIndexRoute
+  '/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
+  '/w/$workspaceId/l/$listId': typeof AppWWorkspaceIdLListIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,13 +95,30 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/w/': typeof AppWIndexRoute
   '/_app/w/$workspaceId/': typeof AppWWorkspaceIdIndexRoute
+  '/_app/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
+  '/_app/w/$workspaceId/l/$listId/': typeof AppWWorkspaceIdLListIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/callback' | '/login' | '/notifications' | '/w/' | '/w/$workspaceId/'
+    | '/'
+    | '/callback'
+    | '/login'
+    | '/notifications'
+    | '/w/'
+    | '/w/$workspaceId/'
+    | '/w/$workspaceId/l/$listId/recycle-bin'
+    | '/w/$workspaceId/l/$listId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/callback' | '/login' | '/notifications' | '/' | '/w' | '/w/$workspaceId'
+  to:
+    | '/callback'
+    | '/login'
+    | '/notifications'
+    | '/'
+    | '/w'
+    | '/w/$workspaceId'
+    | '/w/$workspaceId/l/$listId/recycle-bin'
+    | '/w/$workspaceId/l/$listId'
   id:
     | '__root__'
     | '/_app'
@@ -93,6 +128,8 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/w/'
     | '/_app/w/$workspaceId/'
+    | '/_app/w/$workspaceId/l/$listId/recycle-bin'
+    | '/_app/w/$workspaceId/l/$listId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -152,6 +189,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWWorkspaceIdIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/w/$workspaceId/l/$listId/': {
+      id: '/_app/w/$workspaceId/l/$listId/'
+      path: '/w/$workspaceId/l/$listId'
+      fullPath: '/w/$workspaceId/l/$listId/'
+      preLoaderRoute: typeof AppWWorkspaceIdLListIdIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/w/$workspaceId/l/$listId/recycle-bin': {
+      id: '/_app/w/$workspaceId/l/$listId/recycle-bin'
+      path: '/w/$workspaceId/l/$listId/recycle-bin'
+      fullPath: '/w/$workspaceId/l/$listId/recycle-bin'
+      preLoaderRoute: typeof AppWWorkspaceIdLListIdRecycleBinRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -160,6 +211,8 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppWIndexRoute: typeof AppWIndexRoute
   AppWWorkspaceIdIndexRoute: typeof AppWWorkspaceIdIndexRoute
+  AppWWorkspaceIdLListIdRecycleBinRoute: typeof AppWWorkspaceIdLListIdRecycleBinRoute
+  AppWWorkspaceIdLListIdIndexRoute: typeof AppWWorkspaceIdLListIdIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -167,6 +220,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppWIndexRoute: AppWIndexRoute,
   AppWWorkspaceIdIndexRoute: AppWWorkspaceIdIndexRoute,
+  AppWWorkspaceIdLListIdRecycleBinRoute: AppWWorkspaceIdLListIdRecycleBinRoute,
+  AppWWorkspaceIdLListIdIndexRoute: AppWWorkspaceIdLListIdIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

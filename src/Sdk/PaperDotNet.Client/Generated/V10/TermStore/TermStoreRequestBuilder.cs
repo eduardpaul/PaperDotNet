@@ -5,6 +5,7 @@ using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.V10.TermStore.Groups;
 using PaperDotNet.Client.V10.TermStore.Keywords;
 using PaperDotNet.Client.V10.TermStore.Sets;
+using PaperDotNet.Client.V10.TermStore.Terms;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -31,6 +32,11 @@ namespace PaperDotNet.Client.V10.TermStore
         public global::PaperDotNet.Client.V10.TermStore.Sets.SetsRequestBuilder Sets
         {
             get => new global::PaperDotNet.Client.V10.TermStore.Sets.SetsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The terms property</summary>
+        public global::PaperDotNet.Client.V10.TermStore.Terms.TermsRequestBuilder Terms
+        {
+            get => new global::PaperDotNet.Client.V10.TermStore.Terms.TermsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.TermStore.TermStoreRequestBuilder"/> and sets the default values.

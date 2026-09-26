@@ -99,7 +99,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `eventsource` (npm, + `eventsource-parser`) | MIT | Server-sent events with an Authorization header in the TypeScript SDK (ADR-0032) |
 | **Web UI** (`web/`, ADR-0033; runtime packages are bundled into the served app) | | |
 | `react`, `react-dom` | MIT | UI library |
-| `@tanstack/react-router`, `@tanstack/react-query`, `@tanstack/router-plugin` (build) | MIT | Typed routing with state in the URL; server-state cache |
+| `@tanstack/react-router`, `@tanstack/react-query`, `@tanstack/react-table` (+ `@tanstack/table-core`, `@tanstack/store`), `@tanstack/router-plugin` (build) | MIT | Typed routing with state in the URL; server-state cache; headless tables |
 | `radix-ui` (Radix primitives, + `aria-hidden`, `react-remove-scroll`, `@floating-ui/*`) | MIT | Accessible dialogs, menus, popovers, tooltips |
 | `cmdk` | MIT | Command palette |
 | `sonner` | MIT | Toasts |

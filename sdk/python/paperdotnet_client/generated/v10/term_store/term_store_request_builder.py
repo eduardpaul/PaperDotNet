@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from .groups.groups_request_builder import GroupsRequestBuilder
     from .keywords.keywords_request_builder import KeywordsRequestBuilder
     from .sets.sets_request_builder import SetsRequestBuilder
+    from .terms.terms_request_builder import TermsRequestBuilder
 
 class TermStoreRequestBuilder(BaseRequestBuilder):
     """
@@ -49,5 +50,14 @@ class TermStoreRequestBuilder(BaseRequestBuilder):
         from .sets.sets_request_builder import SetsRequestBuilder
 
         return SetsRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def terms(self) -> TermsRequestBuilder:
+        """
+        The terms property
+        """
+        from .terms.terms_request_builder import TermsRequestBuilder
+
+        return TermsRequestBuilder(self.request_adapter, self.path_parameters)
     
 

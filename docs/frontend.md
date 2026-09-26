@@ -104,7 +104,9 @@ Rules:
   invalidate by key, and live events invalidate what they touch.
 - Dates, numbers and time zones are formatted with `lib/format.ts`, which
   follows the user's preferences. Never use `toLocaleString` directly.
-- A field type has one editor and one display component in the field registry.
+- A field type has one editor (`features/fields/editors.tsx`) and one display (`display.tsx`). Names of
+  ids in values (people, terms, looked-up items) are resolved once per page by `ValueNamesProvider`.
+- Tabs of the item panel register in `extensibility/item-panels.tsx`.
 
 ## Development
 
@@ -126,7 +128,7 @@ run on PostgreSQL with the variables shown in [sdk/README.md](../sdk/README.md#e
 | Slice | Content | Status |
 |---|---|---|
 | **8a Foundation** | Stack and tooling; host serves the UI; sign-in (password, passkey) and sign-out; shell with sidebar, workspaces, command palette, theme, notifications bell and live events; Home; end-to-end harness | ✅ |
-| 8b Lists and items | Workspaces; list views (table with sorting, filters, columns, saved views, board, gallery); folders; item panel with field editors per type; create, edit (ETag conflicts), delete, bulk edit; versions; recycle bin | planned |
+| **8b Lists and items** | New lists from templates; list page with saved views (table with server-side sort, board with drag and drop and a keyboard "Move to" menu), title search, folders with breadcrumbs, selection with bulk edit and delete, paging; item panel (`?item=`) with an editor per field type (text, note, email, URL, number, currency, boolean, date, date-time in the user's time zone, choice, people, lookup, managed metadata, keywords, JSON for extension types), create and edit with merge patches and If-Match (conflicts: reload or save anyway), validation next to the field, delete; version history with restore; recycle bin; lists in the sidebar and the command palette; Home, agenda, approvals and notifications open their items | ✅ |
 | 8c Documents | Upload with drag and drop (library, Inbox, group inbox), duplicate warnings, processing status, viewer with page images and search hits, downloads, file versions, page operations, language per file | planned |
 | 8d Search and navigation | Search page (modes, facets, page hits), tag and term pickers, keyword autocomplete, smart folders with grouping and drop to classify | planned |
 | 8e Tasks, calendar, approvals | My tasks, board, checklist, subtasks and dependencies, recurrence; calendar month, week and agenda, event editor with RRULE, .ics import, feeds; approvals | planned |

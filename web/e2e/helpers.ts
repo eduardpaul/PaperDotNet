@@ -17,3 +17,16 @@ export async function signIn(page: Page, path = '/', userName = adminUser, passw
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Account' })).toBeVisible();
 }
+
+/** Creates a workspace and a list from a template through the UI; returns the list page URL. */
+export async function createList(page: Page, template: string, name: string) {
+  await page.goto('/w?create=true');
+  await page.getByLabel('Name').fill(unique('Workspace'));
+  await page.getByRole('button', { name: 'Create workspace' }).click();
+  await page.getByRole('button', { name: 'New list' }).first().click();
+  await page.getByRole('radio', { name: new RegExp(`^${template}`) }).click();
+  await page.getByLabel('Name', { exact: true }).fill(name);
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(page.getByRole('heading', { name })).toBeVisible();
+  return page.url();
+}

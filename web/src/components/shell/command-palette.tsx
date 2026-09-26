@@ -1,13 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Briefcase, LogOut, Moon, Sun } from 'lucide-react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { signOut } from '@/api/client';
-import { workspacesQuery } from '@/api/queries';
+import { listsQuery, workspacesQuery } from '@/api/queries';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/feedback';
 import { navigation } from '@/extensibility/navigation';
+import { ListIcon } from '@/features/lists/list-icon';
 import { useSetTheme } from './user-menu';
 
 const PaletteContext = createContext<{ open: () => void }>({ open: () => {} });
@@ -76,6 +77,8 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
 function Palette({ close }: { close: () => void }) {
   const navigate = useNavigate();
   const { data: workspaces } = useQuery(workspacesQuery);
+  const lists = useQueries({ queries: (workspaces ?? []).map((w) => listsQuery(w.id!)) }).flatMap((q) => q.data ?? []);
+  const workspaceName = new Map((workspaces ?? []).map((w) => [w.id, w.name]));
   const setTheme = useSetTheme();
   const run = useCallback(
     (action: () => unknown) => () => {
@@ -118,6 +121,26 @@ function Palette({ close }: { close: () => void }) {
                   {workspace.name}
                 </CommandItem>
               ))}
+          </CommandGroup>
+        )}
+        {lists.length > 0 && (
+          <CommandGroup heading="Lists and libraries">
+            {lists.map((list) => (
+              <CommandItem
+                key={list.id}
+                value={`list ${list.name} ${workspaceName.get(list.workspaceId) ?? ''} ${list.id}`}
+                onSelect={run(() =>
+                  navigate({
+                    to: '/w/$workspaceId/l/$listId',
+                    params: { workspaceId: list.workspaceId!, listId: list.id! },
+                  }),
+                )}
+              >
+                <ListIcon list={list} />
+                <span className="flex-1">{list.name}</span>
+                <span className="text-xs text-muted">{workspaceName.get(list.workspaceId)}</span>
+              </CommandItem>
+            ))}
           </CommandGroup>
         )}
         <CommandGroup heading="Actions">

@@ -107,6 +107,12 @@ All changes go through the normal item pipeline: validation, permissions,
 mutators, versions, events and automation. The list must be one the folder
 covers.
 
+## Showing term values
+
+Managed metadata and keyword fields store term ids. `GET /v1.0/termStore/terms?ids=a,b,c`
+(at most 200, any term set) returns those terms with their names, labels and colors, so a
+client can show a page of items with one request. Unknown ids are left out.
+
 ## Promoting keywords (TAX-05)
 
 - `GET /v1.0/termStore/keywords/popular?top=50` returns keywords by the number
