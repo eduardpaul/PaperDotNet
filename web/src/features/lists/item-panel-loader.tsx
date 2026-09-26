@@ -10,13 +10,18 @@ export function ItemPanelLoader({
   tab,
   onTab,
   onClose,
+  onCreated,
+  initialValues,
 }: {
   workspaceId: string;
   listId: string;
+  /** An item id, or "new". */
   itemId: string;
   tab: string;
   onTab: (tab: string) => void;
   onClose: () => void;
+  onCreated?: (itemId: string) => void;
+  initialValues?: Record<string, unknown>;
 }) {
   const { data: list } = useQuery(listQuery(workspaceId, listId));
   if (!list) return null;
@@ -28,7 +33,8 @@ export function ItemPanelLoader({
       tab={tab}
       onTab={onTab}
       onClose={onClose}
-      onCreated={() => {}}
+      onCreated={onCreated ?? (() => {})}
+      initialValues={initialValues}
     />
   );
 }

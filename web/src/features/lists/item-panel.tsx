@@ -27,6 +27,7 @@ export function ItemPanel({
   list,
   itemId,
   parentId,
+  initialValues,
   tab,
   onTab,
   onClose,
@@ -36,6 +37,7 @@ export function ItemPanel({
   list: ListResponse;
   itemId: string;
   parentId?: string;
+  initialValues?: Record<string, unknown>;
   tab: string;
   onTab: (tab: string) => void;
   onClose: () => void;
@@ -105,6 +107,7 @@ export function ItemPanel({
             workspaceId={workspaceId}
             list={list}
             parentId={parentId}
+            initialValues={initialValues}
             onSaved={(saved) => onCreated(saved.id!)}
             onCancel={onClose}
           />

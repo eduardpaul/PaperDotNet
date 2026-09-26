@@ -13,9 +13,12 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppApprovalsRouteImport } from './routes/_app/approvals'
+import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppSearchRouteImport } from './routes/_app/search'
+import { Route as AppTasksRouteImport } from './routes/_app/tasks'
 import { Route as AppFFolderIdRouteImport } from './routes/_app/f/$folderId'
 import { Route as AppWIndexRouteImport } from './routes/_app/w/index'
 import { Route as AppWWorkspaceIdIndexRouteImport } from './routes/_app/w/$workspaceId/index'
@@ -41,6 +44,16 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppApprovalsRoute = AppApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCalendarRoute = AppCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppInboxRoute = AppInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
@@ -54,6 +67,11 @@ const AppNotificationsRoute = AppNotificationsRouteImport.update({
 const AppSearchRoute = AppSearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTasksRoute = AppTasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
   getParentRoute: () => AppRoute,
 } as any)
 const AppFFolderIdRoute = AppFFolderIdRouteImport.update({
@@ -88,9 +106,12 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/callback': typeof CallbackRoute
   '/login': typeof LoginRoute
+  '/approvals': typeof AppApprovalsRoute
+  '/calendar': typeof AppCalendarRoute
   '/inbox': typeof AppInboxRoute
   '/notifications': typeof AppNotificationsRoute
   '/search': typeof AppSearchRoute
+  '/tasks': typeof AppTasksRoute
   '/f/$folderId': typeof AppFFolderIdRoute
   '/w/': typeof AppWIndexRoute
   '/w/$workspaceId/': typeof AppWWorkspaceIdIndexRoute
@@ -100,9 +121,12 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/callback': typeof CallbackRoute
   '/login': typeof LoginRoute
+  '/approvals': typeof AppApprovalsRoute
+  '/calendar': typeof AppCalendarRoute
   '/inbox': typeof AppInboxRoute
   '/notifications': typeof AppNotificationsRoute
   '/search': typeof AppSearchRoute
+  '/tasks': typeof AppTasksRoute
   '/': typeof AppIndexRoute
   '/f/$folderId': typeof AppFFolderIdRoute
   '/w': typeof AppWIndexRoute
@@ -115,9 +139,12 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/callback': typeof CallbackRoute
   '/login': typeof LoginRoute
+  '/_app/approvals': typeof AppApprovalsRoute
+  '/_app/calendar': typeof AppCalendarRoute
   '/_app/inbox': typeof AppInboxRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/search': typeof AppSearchRoute
+  '/_app/tasks': typeof AppTasksRoute
   '/_app/': typeof AppIndexRoute
   '/_app/f/$folderId': typeof AppFFolderIdRoute
   '/_app/w/': typeof AppWIndexRoute
@@ -131,9 +158,12 @@ export interface FileRouteTypes {
     | '/'
     | '/callback'
     | '/login'
+    | '/approvals'
+    | '/calendar'
     | '/inbox'
     | '/notifications'
     | '/search'
+    | '/tasks'
     | '/f/$folderId'
     | '/w/'
     | '/w/$workspaceId/'
@@ -143,9 +173,12 @@ export interface FileRouteTypes {
   to:
     | '/callback'
     | '/login'
+    | '/approvals'
+    | '/calendar'
     | '/inbox'
     | '/notifications'
     | '/search'
+    | '/tasks'
     | '/'
     | '/f/$folderId'
     | '/w'
@@ -157,9 +190,12 @@ export interface FileRouteTypes {
     | '/_app'
     | '/callback'
     | '/login'
+    | '/_app/approvals'
+    | '/_app/calendar'
     | '/_app/inbox'
     | '/_app/notifications'
     | '/_app/search'
+    | '/_app/tasks'
     | '/_app/'
     | '/_app/f/$folderId'
     | '/_app/w/'
@@ -204,6 +240,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/approvals': {
+      id: '/_app/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof AppApprovalsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/calendar': {
+      id: '/_app/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AppCalendarRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/inbox': {
       id: '/_app/inbox'
       path: '/inbox'
@@ -223,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof AppSearchRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/tasks': {
+      id: '/_app/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof AppTasksRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/f/$folderId': {
@@ -264,9 +321,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppApprovalsRoute: typeof AppApprovalsRoute
+  AppCalendarRoute: typeof AppCalendarRoute
   AppInboxRoute: typeof AppInboxRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppSearchRoute: typeof AppSearchRoute
+  AppTasksRoute: typeof AppTasksRoute
   AppIndexRoute: typeof AppIndexRoute
   AppFFolderIdRoute: typeof AppFFolderIdRoute
   AppWIndexRoute: typeof AppWIndexRoute
@@ -276,9 +336,12 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppApprovalsRoute: AppApprovalsRoute,
+  AppCalendarRoute: AppCalendarRoute,
   AppInboxRoute: AppInboxRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppSearchRoute: AppSearchRoute,
+  AppTasksRoute: AppTasksRoute,
   AppIndexRoute: AppIndexRoute,
   AppFFolderIdRoute: AppFFolderIdRoute,
   AppWIndexRoute: AppWIndexRoute,

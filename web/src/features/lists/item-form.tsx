@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { FieldEditor } from '@/features/fields/editors';
 import { ValueNamesProvider } from '@/features/fields/lookups';
+import { withLinkedValues } from '@/features/fields/linked';
 import { changes, normalize } from '@/features/fields/values';
 import { problemMessage } from '@/lib/errors';
 import { listBuilder } from './queries';
@@ -24,6 +25,7 @@ export function ItemForm({
   list,
   item,
   parentId,
+  initialValues,
   onSaved,
   onCancel,
 }: {
@@ -31,6 +33,8 @@ export function ItemForm({
   list: ListResponse;
   item?: ItemResponse;
   parentId?: string;
+  /** Values a new item starts with (e.g. the day clicked in the calendar). */
+  initialValues?: Record<string, unknown>;
   onSaved: (item: ItemResponse) => void;
   onCancel?: () => void;
 }) {
@@ -39,7 +43,11 @@ export function ItemForm({
   const contentType = contentTypeOf(list, contentTypeId);
   const fields = useMemo(() => withTitle(contentType?.fields ?? list.columns), [contentType, list.columns]);
   const original = useMemo(() => (item ? fieldsOf(item) : {}), [item]);
-  const [values, setValues] = useState<Record<string, unknown>>(() => ({ ...defaults(fields, !item), ...original }));
+  const [values, setValues] = useState<Record<string, unknown>>(() => ({
+    ...defaults(fields, !item),
+    ...(item ? {} : initialValues),
+    ...original,
+  }));
   // A newer version from elsewhere (live update, automation, smart folder) replaces the values unless the user has
   // edited them; then the save's If-Match decides. Adjusted during render, as React recommends for prop changes.
   const [baseline, setBaseline] = useState(original);
@@ -151,7 +159,7 @@ export function ItemForm({
                   field={field}
                   value={values[field.name!]}
                   invalid={!!messages}
-                  onChange={(value) => setValues((current) => ({ ...current, [field.name!]: value }))}
+                  onChange={(value) => setValues((current) => withLinkedValues(current, field.name!, value))}
                 />
                 {field.description && !messages && <p className="text-xs text-muted">{field.description}</p>}
                 {messages && <p className="text-xs text-danger">{messages.join(' ')}</p>}
