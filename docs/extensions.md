@@ -68,6 +68,12 @@ limited to lists created from a template (`o.ListTemplates.Add(...)`). Mark
 how fields count in search with `FieldDefinition.Search` (`None`, `Normal`,
 `High`; SRC-06).
 
+Request and response types of your endpoints become OpenAPI schemas named
+after the type, and names must be unique in the whole host: prefix them
+(`InvoiceApprovalResponse`, not `ApprovalResponse`). A clash with another type
+of the same name fails the OpenAPI document instead of giving SDKs a wrong
+shape.
+
 Every contribution is active only in tenants that enabled the extension:
 endpoints answer 404 `extensionDisabled`, mutators, subscribers and jobs
 skip, and the field types cannot be used in new content types. Read the

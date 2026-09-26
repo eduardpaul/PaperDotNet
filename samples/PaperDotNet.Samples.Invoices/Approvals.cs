@@ -54,9 +54,9 @@ public sealed class InvoicesDbContext(DbContextOptions<InvoicesDbContext> option
 
 public sealed record ApproveRequest(string? Comment);
 
-public sealed record ApprovalResponse(Guid Id, Guid WorkspaceId, Guid ListId, Guid ItemId, decimal Amount, string? Comment, Guid? ApprovedBy, DateTimeOffset ApprovedAt)
+public sealed record InvoiceApprovalResponse(Guid Id, Guid WorkspaceId, Guid ListId, Guid ItemId, decimal Amount, string? Comment, Guid? ApprovedBy, DateTimeOffset ApprovedAt)
 {
-    internal static ApprovalResponse From(ApprovalRecord r) => new(r.Id, r.WorkspaceId, r.ListId, r.ItemId, r.Amount, r.Comment, r.CreatedBy, r.CreatedAt);
+    internal static InvoiceApprovalResponse From(ApprovalRecord r) => new(r.Id, r.WorkspaceId, r.ListId, r.ItemId, r.Amount, r.Comment, r.CreatedBy, r.CreatedAt);
 }
 
 /// <summary>Approves invoices through <see cref="IListItemStore"/> (as the caller) and records who approved them.</summary>
@@ -69,7 +69,7 @@ internal static class ApprovalEndpoints
         api.MapGet("/approvals", ListAsync).RequireScope($"{InvoicesExtension.Id}.read");
     }
 
-    private static async Task<Results<Ok<ApprovalResponse>, ProblemHttpResult, ValidationProblem>> ApproveAsync(
+    private static async Task<Results<Ok<InvoiceApprovalResponse>, ProblemHttpResult, ValidationProblem>> ApproveAsync(
         Guid workspaceId, Guid listId, Guid itemId, ApproveRequest? request, IListItemStore items, InvoicesDbContext db, CancellationToken ct)
     {
         var item = await items.GetAsync(workspaceId, listId, itemId, ct);
@@ -112,11 +112,11 @@ internal static class ApprovalEndpoints
         };
         db.Approvals.Add(record);
         await db.SaveChangesAsync(ct);
-        return TypedResults.Ok(ApprovalResponse.From(record));
+        return TypedResults.Ok(InvoiceApprovalResponse.From(record));
     }
 
-    private static async Task<Ok<List<ApprovalResponse>>> ListAsync(InvoicesDbContext db, CancellationToken ct) =>
+    private static async Task<Ok<List<InvoiceApprovalResponse>>> ListAsync(InvoicesDbContext db, CancellationToken ct) =>
         TypedResults.Ok((await db.Approvals.AsNoTracking().OrderByDescending(a => a.CreatedAt).Take(100).ToListAsync(ct))
-            .Select(ApprovalResponse.From)
+            .Select(InvoiceApprovalResponse.From)
             .ToList());
 }

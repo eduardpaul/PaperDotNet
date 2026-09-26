@@ -11,17 +11,19 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface ImportRequestBuilder extends BaseRequestBuilder<ImportRequestBuilder> {
     /**
+     * @param body Binary request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ImportResult>}
      * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 4XX or 5XX status code
      */
-     post(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ImportResult | undefined>;
+     post(body: ArrayBuffer | undefined, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ImportResult | undefined>;
     /**
+     * @param body Binary request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
-     toPostRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
+     toPostRequestInformation(body: ArrayBuffer | undefined, requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
 }
 /**
  * Uri template for the request builder.
@@ -40,6 +42,8 @@ export const ImportRequestBuilderRequestsMetadata: RequestsMetadata = {
         },
         adapterMethodName: "send",
         responseBodyFactory:  createImportResultFromDiscriminatorValue,
+        requestBodyContentType: "text/calendar",
+        requestInformationContentSetMethod: "setStreamContent",
     },
 };
 /* tslint:enable */

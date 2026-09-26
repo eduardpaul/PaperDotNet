@@ -1484,6 +1484,24 @@ export function createEditPagesRequestFromDiscriminatorValue(parseNode: ParseNod
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {EventSeriesRequest}
+ */
+// @ts-ignore
+export function createEventSeriesRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoEventSeriesRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {EventSeriesResponse}
+ */
+// @ts-ignore
+export function createEventSeriesResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoEventSeriesResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ExportRequest}
  */
 // @ts-ignore
@@ -1679,6 +1697,15 @@ export function createImportResultFromDiscriminatorValue(parseNode: ParseNode | 
 // @ts-ignore
 export function createInboxResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoInboxResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {InvoiceApprovalResponse}
+ */
+// @ts-ignore
+export function createInvoiceApprovalResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoInvoiceApprovalResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1932,6 +1959,15 @@ export function createNoteLinksResponseFromDiscriminatorValue(parseNode: ParseNo
 // @ts-ignore
 export function createNotificationResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoNotificationResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {OccurrenceOverrideResponse}
+ */
+// @ts-ignore
+export function createOccurrenceOverrideResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoOccurrenceOverrideResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -3788,6 +3824,32 @@ export function deserializeIntoEditPagesRequest(editPagesRequest: Partial<EditPa
 }
 /**
  * The deserialization information for the current model
+ * @param EventSeriesRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoEventSeriesRequest(eventSeriesRequest: Partial<EventSeriesRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "rule": n => { eventSeriesRequest.rule = n.getStringValue(); },
+        "timeZone": n => { eventSeriesRequest.timeZone = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param EventSeriesResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoEventSeriesResponse(eventSeriesResponse: Partial<EventSeriesResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "cancelled": n => { eventSeriesResponse.cancelled = n.getCollectionOfPrimitiveValues<Date>("Date"); },
+        "moved": n => { eventSeriesResponse.moved = n.getCollectionOfObjectValues<OccurrenceOverrideResponse>(createOccurrenceOverrideResponseFromDiscriminatorValue); },
+        "rule": n => { eventSeriesResponse.rule = n.getStringValue(); },
+        "timeZone": n => { eventSeriesResponse.timeZone = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ExportRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -4112,6 +4174,24 @@ export function deserializeIntoInboxResponse(inboxResponse: Partial<InboxRespons
         "listId": n => { inboxResponse.listId = n.getGuidValue(); },
         "listName": n => { inboxResponse.listName = n.getStringValue(); },
         "workspaceId": n => { inboxResponse.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param InvoiceApprovalResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoInvoiceApprovalResponse(invoiceApprovalResponse: Partial<InvoiceApprovalResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "amount": n => { invoiceApprovalResponse.amount = n.getNumberValue(); },
+        "approvedAt": n => { invoiceApprovalResponse.approvedAt = n.getDateValue(); },
+        "approvedBy": n => { invoiceApprovalResponse.approvedBy = n.getGuidValue(); },
+        "comment": n => { invoiceApprovalResponse.comment = n.getStringValue(); },
+        "id": n => { invoiceApprovalResponse.id = n.getGuidValue(); },
+        "itemId": n => { invoiceApprovalResponse.itemId = n.getGuidValue(); },
+        "listId": n => { invoiceApprovalResponse.listId = n.getGuidValue(); },
+        "workspaceId": n => { invoiceApprovalResponse.workspaceId = n.getGuidValue(); },
     }
 }
 /**
@@ -4449,6 +4529,18 @@ export function deserializeIntoNotificationResponse(notificationResponse: Partia
         "title": n => { notificationResponse.title = n.getStringValue(); },
         "type": n => { notificationResponse.type = n.getStringValue(); },
         "workspaceId": n => { notificationResponse.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param OccurrenceOverrideResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoOccurrenceOverrideResponse(occurrenceOverrideResponse: Partial<OccurrenceOverrideResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "itemId": n => { occurrenceOverrideResponse.itemId = n.getGuidValue(); },
+        "originalStart": n => { occurrenceOverrideResponse.originalStart = n.getDateValue(); },
     }
 }
 /**
@@ -5767,6 +5859,34 @@ export interface EditPagesRequest extends AdditionalDataHolder, Parsable {
      */
     pages?: PageSpec[] | null;
 }
+export interface EventSeriesRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The rule property
+     */
+    rule?: string | null;
+    /**
+     * The timeZone property
+     */
+    timeZone?: string | null;
+}
+export interface EventSeriesResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The cancelled property
+     */
+    cancelled?: Date[] | null;
+    /**
+     * The moved property
+     */
+    moved?: OccurrenceOverrideResponse[] | null;
+    /**
+     * The rule property
+     */
+    rule?: string | null;
+    /**
+     * The timeZone property
+     */
+    timeZone?: string | null;
+}
 export interface ExportRequest extends AdditionalDataHolder, Parsable {
     /**
      * The workspaceId property
@@ -6296,6 +6416,40 @@ export interface InboxResponse extends AdditionalDataHolder, Parsable {
      * The listName property
      */
     listName?: string | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
+export interface InvoiceApprovalResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The amount property
+     */
+    amount?: number | null;
+    /**
+     * The approvedAt property
+     */
+    approvedAt?: Date | null;
+    /**
+     * The approvedBy property
+     */
+    approvedBy?: Guid | null;
+    /**
+     * The comment property
+     */
+    comment?: string | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The itemId property
+     */
+    itemId?: Guid | null;
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
     /**
      * The workspaceId property
      */
@@ -6847,6 +7001,16 @@ export interface NotificationResponse extends AdditionalDataHolder, Parsable {
      * The workspaceId property
      */
     workspaceId?: Guid | null;
+}
+export interface OccurrenceOverrideResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The itemId property
+     */
+    itemId?: Guid | null;
+    /**
+     * The originalStart property
+     */
+    originalStart?: Date | null;
 }
 /**
  * Changes for one occurrence: `fields` are merged over the series' values (e.g. a new `start`).
@@ -8612,6 +8776,34 @@ export function serializeEditPagesRequest(writer: SerializationWriter, editPages
 }
 /**
  * Serializes information the current object
+ * @param EventSeriesRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeEventSeriesRequest(writer: SerializationWriter, eventSeriesRequest: Partial<EventSeriesRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!eventSeriesRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("rule", eventSeriesRequest.rule);
+    writer.writeStringValue("timeZone", eventSeriesRequest.timeZone);
+    writer.writeAdditionalData(eventSeriesRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param EventSeriesResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeEventSeriesResponse(writer: SerializationWriter, eventSeriesResponse: Partial<EventSeriesResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!eventSeriesResponse || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<Date>("cancelled", eventSeriesResponse.cancelled);
+    writer.writeCollectionOfObjectValues<OccurrenceOverrideResponse>("moved", eventSeriesResponse.moved, serializeOccurrenceOverrideResponse);
+    writer.writeStringValue("rule", eventSeriesResponse.rule);
+    writer.writeStringValue("timeZone", eventSeriesResponse.timeZone);
+    writer.writeAdditionalData(eventSeriesResponse.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param ExportRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -8958,6 +9150,25 @@ export function serializeInboxResponse(writer: SerializationWriter, inboxRespons
     writer.writeStringValue("listName", inboxResponse.listName);
     writer.writeGuidValue("workspaceId", inboxResponse.workspaceId);
     writer.writeAdditionalData(inboxResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param InvoiceApprovalResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeInvoiceApprovalResponse(writer: SerializationWriter, invoiceApprovalResponse: Partial<InvoiceApprovalResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!invoiceApprovalResponse || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("amount", invoiceApprovalResponse.amount);
+    writer.writeDateValue("approvedAt", invoiceApprovalResponse.approvedAt);
+    writer.writeGuidValue("approvedBy", invoiceApprovalResponse.approvedBy);
+    writer.writeStringValue("comment", invoiceApprovalResponse.comment);
+    writer.writeGuidValue("id", invoiceApprovalResponse.id);
+    writer.writeGuidValue("itemId", invoiceApprovalResponse.itemId);
+    writer.writeGuidValue("listId", invoiceApprovalResponse.listId);
+    writer.writeGuidValue("workspaceId", invoiceApprovalResponse.workspaceId);
+    writer.writeAdditionalData(invoiceApprovalResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -9317,6 +9528,19 @@ export function serializeNotificationResponse(writer: SerializationWriter, notif
     writer.writeStringValue("type", notificationResponse.type);
     writer.writeGuidValue("workspaceId", notificationResponse.workspaceId);
     writer.writeAdditionalData(notificationResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param OccurrenceOverrideResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeOccurrenceOverrideResponse(writer: SerializationWriter, occurrenceOverrideResponse: Partial<OccurrenceOverrideResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!occurrenceOverrideResponse || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("itemId", occurrenceOverrideResponse.itemId);
+    writer.writeDateValue("originalStart", occurrenceOverrideResponse.originalStart);
+    writer.writeAdditionalData(occurrenceOverrideResponse.additionalData);
 }
 /**
  * Serializes information the current object

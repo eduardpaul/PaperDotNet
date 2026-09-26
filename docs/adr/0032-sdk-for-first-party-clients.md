@@ -49,6 +49,8 @@ TypeScript client against the API showed gaps:
   - Numbers are numbers only.
   - Multipart forms are flattened to one object with binary properties.
   - Unused component schemas are dropped.
+  - Schema names are unique: two types with the same name (e.g. a `RecurrenceRequest` in two modules) fail the
+    document (`SchemaNames`) instead of silently sharing one schema.
 - **Guarded by a test:** `SdkContractTests` fails when any of these regress.
   It covers paged responses without paging parameters, inconsistent sibling
   parameter names, string-typed numbers and a named `JsonElement`.

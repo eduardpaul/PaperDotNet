@@ -15,8 +15,8 @@ from warnings import warn
 
 if TYPE_CHECKING:
     from .........models.api_problem import ApiProblem
-    from .........models.recurrence_request import RecurrenceRequest
-    from .........models.recurrence_response import RecurrenceResponse
+    from .........models.event_series_request import EventSeriesRequest
+    from .........models.event_series_response import EventSeriesResponse
     from .occurrences.occurrences_request_builder import OccurrencesRequestBuilder
 
 class SeriesRequestBuilder(BaseRequestBuilder):
@@ -49,10 +49,10 @@ class SeriesRequestBuilder(BaseRequestBuilder):
             raise Exception("Http core is null") 
         return await self.request_adapter.send_no_response_content_async(request_info, error_mapping)
     
-    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[RecurrenceResponse]:
+    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[EventSeriesResponse]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
-        Returns: Optional[RecurrenceResponse]
+        Returns: Optional[EventSeriesResponse]
         """
         request_info = self.to_get_request_information(
             request_configuration
@@ -64,15 +64,15 @@ class SeriesRequestBuilder(BaseRequestBuilder):
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
-        from .........models.recurrence_response import RecurrenceResponse
+        from .........models.event_series_response import EventSeriesResponse
 
-        return await self.request_adapter.send_async(request_info, RecurrenceResponse, error_mapping)
+        return await self.request_adapter.send_async(request_info, EventSeriesResponse, error_mapping)
     
-    async def put(self,body: RecurrenceRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[RecurrenceResponse]:
+    async def put(self,body: EventSeriesRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[EventSeriesResponse]:
         """
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
-        Returns: Optional[RecurrenceResponse]
+        Returns: Optional[EventSeriesResponse]
         """
         if body is None:
             raise TypeError("body cannot be null.")
@@ -87,9 +87,9 @@ class SeriesRequestBuilder(BaseRequestBuilder):
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
-        from .........models.recurrence_response import RecurrenceResponse
+        from .........models.event_series_response import EventSeriesResponse
 
-        return await self.request_adapter.send_async(request_info, RecurrenceResponse, error_mapping)
+        return await self.request_adapter.send_async(request_info, EventSeriesResponse, error_mapping)
     
     def to_delete_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
@@ -111,7 +111,7 @@ class SeriesRequestBuilder(BaseRequestBuilder):
         request_info.headers.try_add("Accept", "application/json")
         return request_info
     
-    def to_put_request_information(self,body: RecurrenceRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_put_request_information(self,body: EventSeriesRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.

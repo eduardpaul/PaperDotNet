@@ -15,8 +15,8 @@ from warnings import warn
 
 if TYPE_CHECKING:
     from ...........models.api_problem import ApiProblem
-    from ...........models.approval_response import ApprovalResponse
     from ...........models.approve_request import ApproveRequest
+    from ...........models.invoice_approval_response import InvoiceApprovalResponse
 
 class ApproveRequestBuilder(BaseRequestBuilder):
     """
@@ -31,11 +31,11 @@ class ApproveRequestBuilder(BaseRequestBuilder):
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/ext/samples.invoices/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/approve", path_parameters)
     
-    async def post(self,body: ApproveRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ApprovalResponse]:
+    async def post(self,body: ApproveRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[InvoiceApprovalResponse]:
         """
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
-        Returns: Optional[ApprovalResponse]
+        Returns: Optional[InvoiceApprovalResponse]
         """
         if body is None:
             raise TypeError("body cannot be null.")
@@ -50,9 +50,9 @@ class ApproveRequestBuilder(BaseRequestBuilder):
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
-        from ...........models.approval_response import ApprovalResponse
+        from ...........models.invoice_approval_response import InvoiceApprovalResponse
 
-        return await self.request_adapter.send_async(request_info, ApprovalResponse, error_mapping)
+        return await self.request_adapter.send_async(request_info, InvoiceApprovalResponse, error_mapping)
     
     def to_post_request_information(self,body: ApproveRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """

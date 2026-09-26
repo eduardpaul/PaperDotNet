@@ -33,7 +33,7 @@ namespace PaperDotNet.Client.V10.Ext.SamplesInvoices.Workspaces.Item.Lists.Item.
         public ApproveRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/ext/samples.invoices/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/approve", rawUrl)
         {
         }
-        /// <returns>A <see cref="global::PaperDotNet.Client.Models.ApprovalResponse"/></returns>
+        /// <returns>A <see cref="global::PaperDotNet.Client.Models.InvoiceApprovalResponse"/></returns>
         /// <param name="body">The request body</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
@@ -41,11 +41,11 @@ namespace PaperDotNet.Client.V10.Ext.SamplesInvoices.Workspaces.Item.Lists.Item.
         /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public async Task<global::PaperDotNet.Client.Models.ApprovalResponse?> PostAsync(global::PaperDotNet.Client.Models.ApproveRequest body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<global::PaperDotNet.Client.Models.InvoiceApprovalResponse?> PostAsync(global::PaperDotNet.Client.Models.ApproveRequest body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #nullable restore
 #else
-        public async Task<global::PaperDotNet.Client.Models.ApprovalResponse> PostAsync(global::PaperDotNet.Client.Models.ApproveRequest body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<global::PaperDotNet.Client.Models.InvoiceApprovalResponse> PostAsync(global::PaperDotNet.Client.Models.ApproveRequest body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #endif
             if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
@@ -55,7 +55,7 @@ namespace PaperDotNet.Client.V10.Ext.SamplesInvoices.Workspaces.Item.Lists.Item.
                 { "400", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
                 { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
             };
-            return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.ApprovalResponse>(requestInfo, global::PaperDotNet.Client.Models.ApprovalResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
+            return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.InvoiceApprovalResponse>(requestInfo, global::PaperDotNet.Client.Models.InvoiceApprovalResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="body">The request body</param>

@@ -15,7 +15,7 @@ from warnings import warn
 
 if TYPE_CHECKING:
     from .....models.api_problem import ApiProblem
-    from .....models.approval_response import ApprovalResponse
+    from .....models.invoice_approval_response import InvoiceApprovalResponse
 
 class ApprovalsRequestBuilder(BaseRequestBuilder):
     """
@@ -30,10 +30,10 @@ class ApprovalsRequestBuilder(BaseRequestBuilder):
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/ext/samples.invoices/approvals", path_parameters)
     
-    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[list[ApprovalResponse]]:
+    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[list[InvoiceApprovalResponse]]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
-        Returns: Optional[list[ApprovalResponse]]
+        Returns: Optional[list[InvoiceApprovalResponse]]
         """
         request_info = self.to_get_request_information(
             request_configuration
@@ -45,9 +45,9 @@ class ApprovalsRequestBuilder(BaseRequestBuilder):
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
-        from .....models.approval_response import ApprovalResponse
+        from .....models.invoice_approval_response import InvoiceApprovalResponse
 
-        return await self.request_adapter.send_collection_async(request_info, ApprovalResponse, error_mapping)
+        return await self.request_adapter.send_collection_async(request_info, InvoiceApprovalResponse, error_mapping)
     
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """

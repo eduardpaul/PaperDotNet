@@ -33,17 +33,17 @@ namespace PaperDotNet.Client.V10.Ext.SamplesInvoices.Approvals
         public ApprovalsRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/ext/samples.invoices/approvals", rawUrl)
         {
         }
-        /// <returns>A List&lt;global::PaperDotNet.Client.Models.ApprovalResponse&gt;</returns>
+        /// <returns>A List&lt;global::PaperDotNet.Client.Models.InvoiceApprovalResponse&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
         /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public async Task<List<global::PaperDotNet.Client.Models.ApprovalResponse>?> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<List<global::PaperDotNet.Client.Models.InvoiceApprovalResponse>?> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #nullable restore
 #else
-        public async Task<List<global::PaperDotNet.Client.Models.ApprovalResponse>> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<List<global::PaperDotNet.Client.Models.InvoiceApprovalResponse>> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #endif
             var requestInfo = ToGetRequestInformation(requestConfiguration);
@@ -51,7 +51,7 @@ namespace PaperDotNet.Client.V10.Ext.SamplesInvoices.Approvals
             {
                 { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
             };
-            var collectionResult = await RequestAdapter.SendCollectionAsync<global::PaperDotNet.Client.Models.ApprovalResponse>(requestInfo, global::PaperDotNet.Client.Models.ApprovalResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
+            var collectionResult = await RequestAdapter.SendCollectionAsync<global::PaperDotNet.Client.Models.InvoiceApprovalResponse>(requestInfo, global::PaperDotNet.Client.Models.InvoiceApprovalResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
             return collectionResult?.AsList();
         }
         /// <returns>A <see cref="RequestInformation"/></returns>

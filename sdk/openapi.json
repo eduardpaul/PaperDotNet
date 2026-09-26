@@ -10137,7 +10137,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RecurrenceResponse"
+                  "$ref": "#/components/schemas/EventSeriesResponse"
                 }
               }
             }
@@ -10202,7 +10202,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RecurrenceRequest"
+                "$ref": "#/components/schemas/EventSeriesRequest"
               }
             }
           },
@@ -10214,7 +10214,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RecurrenceResponse"
+                  "$ref": "#/components/schemas/EventSeriesResponse"
                 }
               }
             }
@@ -10659,6 +10659,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "text/calendar": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -14334,7 +14344,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApprovalResponse"
+                  "$ref": "#/components/schemas/InvoiceApprovalResponse"
                 }
               }
             }
@@ -14385,7 +14395,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ApprovalResponse"
+                    "$ref": "#/components/schemas/InvoiceApprovalResponse"
                   }
                 }
               }
@@ -16574,6 +16584,54 @@
         },
         "description": "The pages of the new version in order: pages left out are deleted (DOC-05)."
       },
+      "EventSeriesRequest": {
+        "required": [
+          "rule",
+          "timeZone"
+        ],
+        "type": "object",
+        "properties": {
+          "rule": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "EventSeriesResponse": {
+        "required": [
+          "rule",
+          "timeZone",
+          "cancelled",
+          "moved"
+        ],
+        "type": "object",
+        "properties": {
+          "rule": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "cancelled": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "moved": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OccurrenceOverrideResponse"
+            }
+          }
+        }
+      },
       "ExportRequest": {
         "required": [
           "workspaceId"
@@ -17437,6 +17495,58 @@
         },
         "description": "An inbox the caller can upload into: \u0060personal\u0060 (Home/Inbox) or \u0060group\u0060."
       },
+      "InvoiceApprovalResponse": {
+        "required": [
+          "id",
+          "workspaceId",
+          "listId",
+          "itemId",
+          "amount",
+          "comment",
+          "approvedBy",
+          "approvedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "comment": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "approvedBy": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "approvedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "ItemPage": {
         "required": [
           "value",
@@ -18295,6 +18405,23 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "OccurrenceOverrideResponse": {
+        "required": [
+          "originalStart",
+          "itemId"
+        ],
+        "type": "object",
+        "properties": {
+          "originalStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },

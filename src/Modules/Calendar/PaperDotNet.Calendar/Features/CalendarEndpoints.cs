@@ -18,11 +18,11 @@ using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Calendar.Features;
 
-public sealed record RecurrenceRequest(string Rule, string? TimeZone);
+public sealed record EventSeriesRequest(string Rule, string? TimeZone);
 
-public sealed record RecurrenceResponse(string Rule, string TimeZone, IReadOnlyList<DateTimeOffset> Cancelled, IReadOnlyList<OverrideResponse> Moved);
+public sealed record EventSeriesResponse(string Rule, string TimeZone, IReadOnlyList<DateTimeOffset> Cancelled, IReadOnlyList<OccurrenceOverrideResponse> Moved);
 
-public sealed record OverrideResponse(DateTimeOffset OriginalStart, Guid ItemId);
+public sealed record OccurrenceOverrideResponse(DateTimeOffset OriginalStart, Guid ItemId);
 
 /// <summary>Changes for one occurrence: <c>fields</c> are merged over the series' values (e.g. a new <c>start</c>).</summary>
 public sealed record OccurrenceRequest(JsonObject? Fields);
@@ -56,7 +56,8 @@ internal static class CalendarEndpoints
         var list = endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}", "Calendar");
         list.MapGet("/calendar", ListRangeAsync).RequireScope(CalendarScopes.Read).WithName("GetListCalendar");
         list.MapGet("/calendar.ics", ExportAsync).RequireScope(CalendarScopes.Read).WithName("ExportListCalendar").ProducesBinary("text/calendar");
-        list.MapPost("/calendar/import", ImportAsync).RequireScope(CalendarScopes.Write).WithName("ImportCalendar");
+        list.MapPost("/calendar/import", ImportAsync).RequireScope(CalendarScopes.Write).WithName("ImportCalendar")
+            .Accepts<string>("text/calendar");
 
         var me = endpoints.MapV1Group("me", "Calendar");
         me.MapGet("/calendar", MyRangeAsync).RequireScope(CalendarScopes.Read).WithName("GetMyCalendar");
@@ -73,7 +74,7 @@ internal static class CalendarEndpoints
 
     // ---- Recurrence -----------------------------------------------------------
 
-    private static async Task<Results<Ok<RecurrenceResponse>, ProblemHttpResult>> GetRecurrenceAsync(
+    private static async Task<Results<Ok<EventSeriesResponse>, ProblemHttpResult>> GetRecurrenceAsync(
         Guid workspaceId, Guid listId, Guid itemId, CalendarAccess access, CalendarDbContext db, CancellationToken ct)
     {
         var recurrence = await access.EventAsync(workspaceId, listId, itemId, ct) is null
@@ -83,8 +84,8 @@ internal static class CalendarEndpoints
     }
 
     /// <summary>Makes the event repeat (RFC 5545 RRULE) in an IANA time zone (default: the caller's preferred time zone).</summary>
-    private static async Task<Results<Ok<RecurrenceResponse>, ValidationProblem, ProblemHttpResult>> SetRecurrenceAsync(
-        Guid workspaceId, Guid listId, Guid itemId, RecurrenceRequest request, CalendarAccess access, CalendarDbContext db,
+    private static async Task<Results<Ok<EventSeriesResponse>, ValidationProblem, ProblemHttpResult>> SetRecurrenceAsync(
+        Guid workspaceId, Guid listId, Guid itemId, EventSeriesRequest request, CalendarAccess access, CalendarDbContext db,
         IUserPreferences preferences, ICurrentUser user, CancellationToken ct)
     {
         var rule = request.Rule?.Trim() ?? string.Empty;
@@ -245,14 +246,14 @@ internal static class CalendarEndpoints
         };
     }
 
-    private static async Task<RecurrenceResponse> ResponseAsync(CalendarDbContext db, EventRecurrence recurrence, CancellationToken ct)
+    private static async Task<EventSeriesResponse> ResponseAsync(CalendarDbContext db, EventRecurrence recurrence, CancellationToken ct)
     {
         var exceptions = await db.OccurrenceChanges.AsNoTracking().Where(e => e.MasterItemId == recurrence.ItemId).OrderBy(e => e.OriginalStart).ToListAsync(ct);
-        return new RecurrenceResponse(
+        return new EventSeriesResponse(
             recurrence.Rule,
             recurrence.TimeZone,
             [.. exceptions.Where(e => e.OverrideItemId is null).Select(e => e.OriginalStart)],
-            [.. exceptions.Where(e => e.OverrideItemId is not null).Select(e => new OverrideResponse(e.OriginalStart, e.OverrideItemId!.Value))]);
+            [.. exceptions.Where(e => e.OverrideItemId is not null).Select(e => new OccurrenceOverrideResponse(e.OriginalStart, e.OverrideItemId!.Value))]);
     }
 
     private static bool IsValidRule(string rule)

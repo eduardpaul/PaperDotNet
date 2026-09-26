@@ -144,6 +144,7 @@ public static class PaperDotNetHost
 
         services.AddOpenApi("v1", o =>
         {
+            o.CreateSchemaReferenceId = SchemaNames.Unique;
             o.AddDocumentTransformer<BearerSecurityTransformer>();
             o.AddOperationTransformer<SdkOperationTransformer>();
             o.AddSchemaTransformer<SdkSchemaTransformer>();
