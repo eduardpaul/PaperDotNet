@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
 export const adminUser = 'admin';
 export const adminPassword = process.env.PAPERDOTNET_ADMIN_PASSWORD ?? 'admin-password-e2e';
@@ -57,4 +57,29 @@ export function textPdf(...pages: string[]): Buffer {
   pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`;
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return Buffer.from(pdf, 'latin1');
+}
+
+/** The administrator's API headers (password grant of the first-party client), for setting up test data. */
+export async function adminHeaders(request: APIRequestContext) {
+  const response = await request.post('/connect/token', {
+    form: {
+      grant_type: 'password',
+      client_id: 'paperdotnet',
+      username: adminUser,
+      password: adminPassword,
+      scope: 'api',
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  return { Authorization: `Bearer ${(await response.json()).access_token}` };
+}
+
+/** Creates a user through the API; returns its id. */
+export async function createUser(request: APIRequestContext, userName: string, displayName?: string) {
+  const response = await request.post('/v1.0/users', {
+    headers: await adminHeaders(request),
+    data: { userName, password: 'user-password-e2e', displayName },
+  });
+  expect(response.status()).toBe(201);
+  return (await response.json()).id as string;
 }

@@ -2779,6 +2779,59 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/members/{userId}": {
+      "delete": {
+        "tags": [
+          "Workspaces"
+        ],
+        "operationId": "RemoveWorkspaceMember",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/termStore/groups": {
       "get": {
         "tags": [
@@ -21349,6 +21402,10 @@
               "string"
             ],
             "description": "The ETag for \u0060If-Match\u0060 on changes (the same as the \u0060ETag\u0060 header)."
+          },
+          "access": {
+            "description": "What the caller may do here: \u0060manage\u0060 (owners, administrators), \u0060contribute\u0060 or \u0060read\u0060.",
+            "$ref": "#/components/schemas/WorkspaceAccessLevel"
           }
         }
       },

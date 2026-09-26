@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Identity.Contracts;
+using PaperDotNet.Workspaces.Contracts;
 using PaperDotNet.Workspaces.Data;
 
 namespace PaperDotNet.Workspaces.Features;
@@ -17,6 +18,9 @@ public sealed record WorkspaceResponse(Guid Id, string Name, string? Description
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
     [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
     public string? ETag { get; init; }
+
+    /// <summary>What the caller may do here: <c>manage</c> (owners, administrators), <c>contribute</c> or <c>read</c>.</summary>
+    public WorkspaceAccessLevel Access { get; init; }
 }
 
 public sealed record CreateWorkspaceRequest(
@@ -44,18 +48,21 @@ internal static class WorkspaceEndpoints
         group.MapDelete("/{workspaceId:guid}", DeleteAsync).RequireScope(WorkspaceScopes.Read).WithName("DeleteWorkspace");
         group.MapGet("/{workspaceId:guid}/members", ListMembersAsync).RequireScope(WorkspaceScopes.Read).WithName("ListWorkspaceMembers");
         group.MapPost("/{workspaceId:guid}/members", AddMemberAsync).RequireScope(WorkspaceScopes.Read).WithName("AddWorkspaceMember");
+        group.MapDelete("/{workspaceId:guid}/members/{userId:guid}", RemoveMemberAsync).RequireScope(WorkspaceScopes.Read).WithName("RemoveWorkspaceMember");
     }
 
     private static async Task<Ok<Page<WorkspaceResponse>>> ListAsync(
         HttpRequest http, WorkspaceAccess access, WorkspacesDbContext db, CancellationToken ct)
     {
         var page = PageRequest.From(http);
+        var levels = (await access.GetMyWorkspacesAsync(ct)).ToDictionary(m => m.WorkspaceId, m => m.Level);
         var items = await (await access.VisibleAsync(db.Workspaces.AsNoTracking(), ct))
             .Where(w => page.After == null || w.Id.CompareTo(page.After.Value) > 0)
             .OrderBy(w => w.Id)
             .Take(page.Top + 1)
             .Select(w => new WorkspaceResponse(w.Id, w.Name, w.Description, w.PersonalOwnerId != null, w.CreatedAt, w.UpdatedAt) { ETag = ETags.From(w.Version) })
             .ToListAsync(ct);
+        items = [.. items.Select(w => w with { Access = levels.GetValueOrDefault(w.Id, WorkspaceAccessLevel.Read) })];
         return TypedResults.Ok(Page.Create(items, page, http, w => w.Id));
     }
 
@@ -72,7 +79,7 @@ internal static class WorkspaceEndpoints
         db.Workspaces.Add(workspace);
         await db.SaveChangesAsync(ct);
         ETags.Set(response, workspace.Version);
-        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspace.Id}", ToResponse(workspace));
+        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspace.Id}", ToResponse(workspace, WorkspaceAccessLevel.Manage));
     }
 
     private static async Task<Results<Ok<WorkspaceResponse>, ProblemHttpResult>> GetAsync(
@@ -85,7 +92,7 @@ internal static class WorkspaceEndpoints
         }
 
         ETags.Set(response, workspace.Version);
-        return TypedResults.Ok(ToResponse(workspace));
+        return TypedResults.Ok(ToResponse(workspace, await access.GetPermissionAsync(id, ct)));
     }
 
     private static async Task<Results<Ok<WorkspaceResponse>, ValidationProblem, ProblemHttpResult>> UpdateAsync(
@@ -115,7 +122,7 @@ internal static class WorkspaceEndpoints
         }
 
         ETags.Set(response, workspace.Version);
-        return TypedResults.Ok(ToResponse(workspace));
+        return TypedResults.Ok(ToResponse(workspace, WorkspaceAccessLevel.Manage));
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteAsync(
@@ -186,12 +193,49 @@ internal static class WorkspaceEndpoints
         }
         else
         {
+            if (request.Role != WorkspaceRole.Owner && await IsLastOwnerAsync(db, member, ct))
+            {
+                return LastOwner();
+            }
+
             member.Role = request.Role;
         }
 
         await db.SaveChangesAsync(ct);
         return TypedResults.NoContent();
     }
+
+    /// <summary>Removes a member; the last owner stays, so someone can always manage the workspace.</summary>
+    private static async Task<Results<NoContent, ProblemHttpResult>> RemoveMemberAsync(
+        [FromRoute(Name = "workspaceId")] Guid id, Guid userId, WorkspaceAccess access, WorkspacesDbContext db, CancellationToken ct)
+    {
+        if (!await access.CanManageAsync(id, ct))
+        {
+            return ApiErrors.NotFound();
+        }
+
+        var member = await db.Members.FirstOrDefaultAsync(m => m.WorkspaceId == id && m.UserId == userId, ct);
+        if (member is null)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        if (await IsLastOwnerAsync(db, member, ct))
+        {
+            return LastOwner();
+        }
+
+        db.Members.Remove(member);
+        await db.SaveChangesAsync(ct);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<bool> IsLastOwnerAsync(WorkspacesDbContext db, WorkspaceMember member, CancellationToken ct) =>
+        member.Role == WorkspaceRole.Owner
+        && !await db.Members.AnyAsync(m => m.WorkspaceId == member.WorkspaceId && m.UserId != member.UserId && m.Role == WorkspaceRole.Owner, ct);
+
+    private static ProblemHttpResult LastOwner() =>
+        ApiErrors.Conflict("lastOwner", "A workspace needs at least one owner. Make someone else an owner first.");
 
     /// <summary>Loads a workspace the caller may change, enforcing <c>If-Match</c>.</summary>
     private static async Task<(Workspace? Workspace, ProblemHttpResult? Problem)> LoadForChangeAsync(
@@ -223,5 +267,6 @@ internal static class WorkspaceEndpoints
         return (workspace, null);
     }
 
-    private static WorkspaceResponse ToResponse(Workspace w) => new(w.Id, w.Name, w.Description, w.PersonalOwnerId is not null, w.CreatedAt, w.UpdatedAt) { ETag = ETags.From(w.Version) };
+    private static WorkspaceResponse ToResponse(Workspace w, WorkspaceAccessLevel access) =>
+        new(w.Id, w.Name, w.Description, w.PersonalOwnerId is not null, w.CreatedAt, w.UpdatedAt) { ETag = ETags.From(w.Version), Access = access };
 }

@@ -29,6 +29,11 @@ import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/
 import { Route as AppSettingsTokensRouteImport } from './routes/_app/settings/tokens'
 import { Route as AppWIndexRouteImport } from './routes/_app/w/index'
 import { Route as AppWWorkspaceIdIndexRouteImport } from './routes/_app/w/$workspaceId/index'
+import { Route as AppWWorkspaceIdSettingsRouteImport } from './routes/_app/w/$workspaceId/settings'
+import { Route as AppWWorkspaceIdSettingsIndexRouteImport } from './routes/_app/w/$workspaceId/settings/index'
+import { Route as AppWWorkspaceIdSettingsAutomationsRouteImport } from './routes/_app/w/$workspaceId/settings/automations'
+import { Route as AppWWorkspaceIdSettingsMembersRouteImport } from './routes/_app/w/$workspaceId/settings/members'
+import { Route as AppWWorkspaceIdSettingsRunsRouteImport } from './routes/_app/w/$workspaceId/settings/runs'
 import { Route as AppWWorkspaceIdLListIdIndexRouteImport } from './routes/_app/w/$workspaceId/l/$listId/index'
 import { Route as AppWWorkspaceIdLListIdRecycleBinRouteImport } from './routes/_app/w/$workspaceId/l/$listId/recycle-bin'
 
@@ -133,6 +138,35 @@ const AppWWorkspaceIdIndexRoute = AppWWorkspaceIdIndexRouteImport.update({
   path: '/w/$workspaceId/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppWWorkspaceIdSettingsRoute = AppWWorkspaceIdSettingsRouteImport.update({
+  id: '/w/$workspaceId/settings',
+  path: '/w/$workspaceId/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWWorkspaceIdSettingsIndexRoute =
+  AppWWorkspaceIdSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AppWWorkspaceIdSettingsRoute,
+  } as any)
+const AppWWorkspaceIdSettingsAutomationsRoute =
+  AppWWorkspaceIdSettingsAutomationsRouteImport.update({
+    id: '/automations',
+    path: '/automations',
+    getParentRoute: () => AppWWorkspaceIdSettingsRoute,
+  } as any)
+const AppWWorkspaceIdSettingsMembersRoute =
+  AppWWorkspaceIdSettingsMembersRouteImport.update({
+    id: '/members',
+    path: '/members',
+    getParentRoute: () => AppWWorkspaceIdSettingsRoute,
+  } as any)
+const AppWWorkspaceIdSettingsRunsRoute =
+  AppWWorkspaceIdSettingsRunsRouteImport.update({
+    id: '/runs',
+    path: '/runs',
+    getParentRoute: () => AppWWorkspaceIdSettingsRoute,
+  } as any)
 const AppWWorkspaceIdLListIdIndexRoute =
   AppWWorkspaceIdLListIdIndexRouteImport.update({
     id: '/w/$workspaceId/l/$listId/',
@@ -165,7 +199,12 @@ export interface FileRoutesByFullPath {
   '/settings/tokens': typeof AppSettingsTokensRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/w/': typeof AppWIndexRoute
+  '/w/$workspaceId/settings': typeof AppWWorkspaceIdSettingsRouteWithChildren
   '/w/$workspaceId/': typeof AppWWorkspaceIdIndexRoute
+  '/w/$workspaceId/settings/automations': typeof AppWWorkspaceIdSettingsAutomationsRoute
+  '/w/$workspaceId/settings/members': typeof AppWWorkspaceIdSettingsMembersRoute
+  '/w/$workspaceId/settings/runs': typeof AppWWorkspaceIdSettingsRunsRoute
+  '/w/$workspaceId/settings/': typeof AppWWorkspaceIdSettingsIndexRoute
   '/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
   '/w/$workspaceId/l/$listId/': typeof AppWWorkspaceIdLListIdIndexRoute
 }
@@ -188,6 +227,10 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsIndexRoute
   '/w': typeof AppWIndexRoute
   '/w/$workspaceId': typeof AppWWorkspaceIdIndexRoute
+  '/w/$workspaceId/settings/automations': typeof AppWWorkspaceIdSettingsAutomationsRoute
+  '/w/$workspaceId/settings/members': typeof AppWWorkspaceIdSettingsMembersRoute
+  '/w/$workspaceId/settings/runs': typeof AppWWorkspaceIdSettingsRunsRoute
+  '/w/$workspaceId/settings': typeof AppWWorkspaceIdSettingsIndexRoute
   '/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
   '/w/$workspaceId/l/$listId': typeof AppWWorkspaceIdLListIdIndexRoute
 }
@@ -212,7 +255,12 @@ export interface FileRoutesById {
   '/_app/settings/tokens': typeof AppSettingsTokensRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/w/': typeof AppWIndexRoute
+  '/_app/w/$workspaceId/settings': typeof AppWWorkspaceIdSettingsRouteWithChildren
   '/_app/w/$workspaceId/': typeof AppWWorkspaceIdIndexRoute
+  '/_app/w/$workspaceId/settings/automations': typeof AppWWorkspaceIdSettingsAutomationsRoute
+  '/_app/w/$workspaceId/settings/members': typeof AppWWorkspaceIdSettingsMembersRoute
+  '/_app/w/$workspaceId/settings/runs': typeof AppWWorkspaceIdSettingsRunsRoute
+  '/_app/w/$workspaceId/settings/': typeof AppWWorkspaceIdSettingsIndexRoute
   '/_app/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
   '/_app/w/$workspaceId/l/$listId/': typeof AppWWorkspaceIdLListIdIndexRoute
 }
@@ -237,7 +285,12 @@ export interface FileRouteTypes {
     | '/settings/tokens'
     | '/settings/'
     | '/w/'
+    | '/w/$workspaceId/settings'
     | '/w/$workspaceId/'
+    | '/w/$workspaceId/settings/automations'
+    | '/w/$workspaceId/settings/members'
+    | '/w/$workspaceId/settings/runs'
+    | '/w/$workspaceId/settings/'
     | '/w/$workspaceId/l/$listId/recycle-bin'
     | '/w/$workspaceId/l/$listId/'
   fileRoutesByTo: FileRoutesByTo
@@ -260,6 +313,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/w'
     | '/w/$workspaceId'
+    | '/w/$workspaceId/settings/automations'
+    | '/w/$workspaceId/settings/members'
+    | '/w/$workspaceId/settings/runs'
+    | '/w/$workspaceId/settings'
     | '/w/$workspaceId/l/$listId/recycle-bin'
     | '/w/$workspaceId/l/$listId'
   id:
@@ -283,7 +340,12 @@ export interface FileRouteTypes {
     | '/_app/settings/tokens'
     | '/_app/settings/'
     | '/_app/w/'
+    | '/_app/w/$workspaceId/settings'
     | '/_app/w/$workspaceId/'
+    | '/_app/w/$workspaceId/settings/automations'
+    | '/_app/w/$workspaceId/settings/members'
+    | '/_app/w/$workspaceId/settings/runs'
+    | '/_app/w/$workspaceId/settings/'
     | '/_app/w/$workspaceId/l/$listId/recycle-bin'
     | '/_app/w/$workspaceId/l/$listId/'
   fileRoutesById: FileRoutesById
@@ -436,6 +498,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWWorkspaceIdIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/w/$workspaceId/settings': {
+      id: '/_app/w/$workspaceId/settings'
+      path: '/w/$workspaceId/settings'
+      fullPath: '/w/$workspaceId/settings'
+      preLoaderRoute: typeof AppWWorkspaceIdSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/w/$workspaceId/settings/': {
+      id: '/_app/w/$workspaceId/settings/'
+      path: '/'
+      fullPath: '/w/$workspaceId/settings/'
+      preLoaderRoute: typeof AppWWorkspaceIdSettingsIndexRouteImport
+      parentRoute: typeof AppWWorkspaceIdSettingsRoute
+    }
+    '/_app/w/$workspaceId/settings/automations': {
+      id: '/_app/w/$workspaceId/settings/automations'
+      path: '/automations'
+      fullPath: '/w/$workspaceId/settings/automations'
+      preLoaderRoute: typeof AppWWorkspaceIdSettingsAutomationsRouteImport
+      parentRoute: typeof AppWWorkspaceIdSettingsRoute
+    }
+    '/_app/w/$workspaceId/settings/members': {
+      id: '/_app/w/$workspaceId/settings/members'
+      path: '/members'
+      fullPath: '/w/$workspaceId/settings/members'
+      preLoaderRoute: typeof AppWWorkspaceIdSettingsMembersRouteImport
+      parentRoute: typeof AppWWorkspaceIdSettingsRoute
+    }
+    '/_app/w/$workspaceId/settings/runs': {
+      id: '/_app/w/$workspaceId/settings/runs'
+      path: '/runs'
+      fullPath: '/w/$workspaceId/settings/runs'
+      preLoaderRoute: typeof AppWWorkspaceIdSettingsRunsRouteImport
+      parentRoute: typeof AppWWorkspaceIdSettingsRoute
+    }
     '/_app/w/$workspaceId/l/$listId/': {
       id: '/_app/w/$workspaceId/l/$listId/'
       path: '/w/$workspaceId/l/$listId'
@@ -475,6 +572,27 @@ const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
   AppSettingsRouteChildren,
 )
 
+interface AppWWorkspaceIdSettingsRouteChildren {
+  AppWWorkspaceIdSettingsAutomationsRoute: typeof AppWWorkspaceIdSettingsAutomationsRoute
+  AppWWorkspaceIdSettingsMembersRoute: typeof AppWWorkspaceIdSettingsMembersRoute
+  AppWWorkspaceIdSettingsRunsRoute: typeof AppWWorkspaceIdSettingsRunsRoute
+  AppWWorkspaceIdSettingsIndexRoute: typeof AppWWorkspaceIdSettingsIndexRoute
+}
+
+const AppWWorkspaceIdSettingsRouteChildren: AppWWorkspaceIdSettingsRouteChildren =
+  {
+    AppWWorkspaceIdSettingsAutomationsRoute:
+      AppWWorkspaceIdSettingsAutomationsRoute,
+    AppWWorkspaceIdSettingsMembersRoute: AppWWorkspaceIdSettingsMembersRoute,
+    AppWWorkspaceIdSettingsRunsRoute: AppWWorkspaceIdSettingsRunsRoute,
+    AppWWorkspaceIdSettingsIndexRoute: AppWWorkspaceIdSettingsIndexRoute,
+  }
+
+const AppWWorkspaceIdSettingsRouteWithChildren =
+  AppWWorkspaceIdSettingsRoute._addFileChildren(
+    AppWWorkspaceIdSettingsRouteChildren,
+  )
+
 interface AppRouteChildren {
   AppApprovalsRoute: typeof AppApprovalsRoute
   AppCalendarRoute: typeof AppCalendarRoute
@@ -486,6 +604,7 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppFFolderIdRoute: typeof AppFFolderIdRoute
   AppWIndexRoute: typeof AppWIndexRoute
+  AppWWorkspaceIdSettingsRoute: typeof AppWWorkspaceIdSettingsRouteWithChildren
   AppWWorkspaceIdIndexRoute: typeof AppWWorkspaceIdIndexRoute
   AppWWorkspaceIdLListIdRecycleBinRoute: typeof AppWWorkspaceIdLListIdRecycleBinRoute
   AppWWorkspaceIdLListIdIndexRoute: typeof AppWWorkspaceIdLListIdIndexRoute
@@ -502,6 +621,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppFFolderIdRoute: AppFFolderIdRoute,
   AppWIndexRoute: AppWIndexRoute,
+  AppWWorkspaceIdSettingsRoute: AppWWorkspaceIdSettingsRouteWithChildren,
   AppWWorkspaceIdIndexRoute: AppWWorkspaceIdIndexRoute,
   AppWWorkspaceIdLListIdRecycleBinRoute: AppWWorkspaceIdLListIdRecycleBinRoute,
   AppWWorkspaceIdLListIdIndexRoute: AppWWorkspaceIdLListIdIndexRoute,

@@ -4,12 +4,20 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createWorkspaceMemberResponseFromDiscriminatorValue, serializeAddWorkspaceMemberRequest, type AddWorkspaceMemberRequest, type ApiProblem, type WorkspaceMemberResponse } from '../../../../models/index.js';
 // @ts-ignore
-import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
+import { type WithUserItemRequestBuilder, WithUserItemRequestBuilderRequestsMetadata } from './item/index.js';
+// @ts-ignore
+import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
  * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/members
  */
 export interface MembersRequestBuilder extends BaseRequestBuilder<MembersRequestBuilder> {
+    /**
+     * Gets an item from the paperdotnet.v10.workspaces.item.members.item collection
+     * @param userId Unique identifier of the item
+     * @returns {WithUserItemRequestBuilder}
+     */
+     byUserId(userId: Guid) : WithUserItemRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<WorkspaceMemberResponse[]>}
@@ -39,6 +47,15 @@ export interface MembersRequestBuilder extends BaseRequestBuilder<MembersRequest
  * Uri template for the request builder.
  */
 export const MembersRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/members";
+/**
+ * Metadata for all the navigation properties in the request builder.
+ */
+export const MembersRequestBuilderNavigationMetadata: Record<Exclude<keyof MembersRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+    byUserId: {
+        requestsMetadata: WithUserItemRequestBuilderRequestsMetadata,
+        pathParametersMappings: ["userId"],
+    },
+};
 /**
  * Metadata for all the requests in the request builder.
  */

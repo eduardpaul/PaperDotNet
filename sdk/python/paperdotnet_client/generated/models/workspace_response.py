@@ -6,11 +6,16 @@ from kiota_abstractions.serialization import AdditionalDataHolder, Parsable, Par
 from typing import Any, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
+if TYPE_CHECKING:
+    from .workspace_access_level import WorkspaceAccessLevel
+
 @dataclass
 class WorkspaceResponse(AdditionalDataHolder, Parsable):
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
+    # What the caller may do here: `manage` (owners, administrators), `contribute` or `read`.
+    access: Optional[WorkspaceAccessLevel] = None
     # The createdAt property
     created_at: Optional[datetime.datetime] = None
     # The description property
@@ -42,7 +47,12 @@ class WorkspaceResponse(AdditionalDataHolder, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .workspace_access_level import WorkspaceAccessLevel
+
+        from .workspace_access_level import WorkspaceAccessLevel
+
         fields: dict[str, Callable[[Any], None]] = {
+            "access": lambda n : setattr(self, 'access', n.get_enum_value(WorkspaceAccessLevel)),
             "createdAt": lambda n : setattr(self, 'created_at', n.get_datetime_value()),
             "description": lambda n : setattr(self, 'description', n.get_str_value()),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
@@ -61,6 +71,7 @@ class WorkspaceResponse(AdditionalDataHolder, Parsable):
         """
         if writer is None:
             raise TypeError("writer cannot be null.")
+        writer.write_enum_value("access", self.access)
         writer.write_datetime_value("createdAt", self.created_at)
         writer.write_str_value("description", self.description)
         writer.write_uuid_value("id", self.id)

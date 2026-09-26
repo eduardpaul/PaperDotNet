@@ -11,12 +11,14 @@ from kiota_abstractions.request_information import RequestInformation
 from kiota_abstractions.request_option import RequestOption
 from kiota_abstractions.serialization import Parsable, ParsableFactory
 from typing import Any, Optional, TYPE_CHECKING, Union
+from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
     from .....models.add_workspace_member_request import AddWorkspaceMemberRequest
     from .....models.api_problem import ApiProblem
     from .....models.workspace_member_response import WorkspaceMemberResponse
+    from .item.with_user_item_request_builder import WithUserItemRequestBuilder
 
 class MembersRequestBuilder(BaseRequestBuilder):
     """
@@ -30,6 +32,20 @@ class MembersRequestBuilder(BaseRequestBuilder):
         Returns: None
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/members", path_parameters)
+    
+    def by_user_id(self,user_id: UUID) -> WithUserItemRequestBuilder:
+        """
+        Gets an item from the paperdotnet_client.generated.v10.workspaces.item.members.item collection
+        param user_id: Unique identifier of the item
+        Returns: WithUserItemRequestBuilder
+        """
+        if user_id is None:
+            raise TypeError("user_id cannot be null.")
+        from .item.with_user_item_request_builder import WithUserItemRequestBuilder
+
+        url_tpl_params = get_path_parameters(self.path_parameters)
+        url_tpl_params["userId"] = user_id
+        return WithUserItemRequestBuilder(self.request_adapter, url_tpl_params)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[list[WorkspaceMemberResponse]]:
         """

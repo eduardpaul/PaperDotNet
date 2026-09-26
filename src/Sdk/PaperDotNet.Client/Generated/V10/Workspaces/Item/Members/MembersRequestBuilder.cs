@@ -4,6 +4,7 @@ using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
+using PaperDotNet.Client.V10.Workspaces.Item.Members.Item;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -17,6 +18,18 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Members
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class MembersRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>Gets an item from the PaperDotNet.Client.v10.workspaces.item.members.item collection</summary>
+        /// <param name="position">Unique identifier of the item</param>
+        /// <returns>A <see cref="global::PaperDotNet.Client.V10.Workspaces.Item.Members.Item.WithUserItemRequestBuilder"/></returns>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Members.Item.WithUserItemRequestBuilder this[Guid position]
+        {
+            get
+            {
+                var urlTplParams = new Dictionary<string, object>(PathParameters);
+                urlTplParams.Add("userId", position);
+                return new global::PaperDotNet.Client.V10.Workspaces.Item.Members.Item.WithUserItemRequestBuilder(urlTplParams, RequestAdapter);
+            }
+        }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Workspaces.Item.Members.MembersRequestBuilder"/> and sets the default values.
         /// </summary>

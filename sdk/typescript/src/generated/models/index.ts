@@ -5806,6 +5806,7 @@ export function deserializeIntoWorkspaceMemberResponse(workspaceMemberResponse: 
 // @ts-ignore
 export function deserializeIntoWorkspaceResponse(workspaceResponse: Partial<WorkspaceResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "access": n => { workspaceResponse.access = n.getEnumValue<WorkspaceAccessLevel>(WorkspaceAccessLevelObject); },
         "createdAt": n => { workspaceResponse.createdAt = n.getDateValue(); },
         "description": n => { workspaceResponse.description = n.getStringValue(); },
         "id": n => { workspaceResponse.id = n.getGuidValue(); },
@@ -10908,6 +10909,7 @@ export function serializeWorkspaceMemberResponse(writer: SerializationWriter, wo
 // @ts-ignore
 export function serializeWorkspaceResponse(writer: SerializationWriter, workspaceResponse: Partial<WorkspaceResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!workspaceResponse || isSerializingDerivedType) { return; }
+    writer.writeEnumValue<WorkspaceAccessLevel>("access", workspaceResponse.access);
     writer.writeDateValue("createdAt", workspaceResponse.createdAt);
     writer.writeStringValue("description", workspaceResponse.description);
     writer.writeGuidValue("id", workspaceResponse.id);
@@ -11741,6 +11743,10 @@ export interface WorkspaceMemberResponse extends AdditionalDataHolder, Parsable 
 }
 export interface WorkspaceResponse extends AdditionalDataHolder, Parsable {
     /**
+     * What the caller may do here: `manage` (owners, administrators), `contribute` or `read`.
+     */
+    access?: WorkspaceAccessLevel | null;
+    /**
      * The createdAt property
      */
     createdAt?: Date | null;
@@ -11879,7 +11885,7 @@ export const ViewLayoutObject = {
     Gallery: "gallery",
 } as const;
 /**
- * What the current user may do in a workspace. Ordered: higher includes lower.
+ * What the caller may do here: `manage` (owners, administrators), `contribute` or `read`.
  */
 export const WorkspaceAccessLevelObject = {
     None: "none",

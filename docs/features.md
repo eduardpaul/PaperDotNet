@@ -423,6 +423,7 @@ The web UI, built on the TypeScript SDK with React, TanStack and Tailwind
 | **8e Tasks, calendar, approvals** | TSK-03 My tasks with quick add and complete; TSK-01 checklist; TSK-02 subtasks and dependencies; TSK-05 repeat; CAL-01/02/03 calendar month and agenda, new events, repeat editor in the user's time zone, skipping one occurrence; CAL-04 .ics import; EVT-08 approvals page. API: calendar series records renamed (they shared the Tasks schema), unique OpenAPI schema names enforced, .ics import body described | ✅ |
 | **8f Collaboration and notes** | LST-17 comments with replies, @mentions and history; NTF-03 follow an item; LST-18 Markdown notes with preview, `[[wiki links]]` and backlinks | ✅ |
 | **8g Settings** | IAM-14 own display name (new `PATCH /v1.0/me`); PLT-17 preferences; IAM-01 password change and passkeys; NTF-03 followed items; NTF-04/05 channels, webhook, quiet hours, digest; IAM-03 API tokens; CAL-04 calendar feeds | ✅ |
+| **8h Workspace settings** | PLT-07 workspace name, description and members (new `DELETE …/members/{userId}`, caller's `access` on workspaces); EVT-07…09 automation editor and runs | ✅ |
 
 ## Idea → feature mapping
 

@@ -1,9 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { Briefcase, Library, Plus } from 'lucide-react';
+import { Briefcase, Library, Plus, Settings } from 'lucide-react';
 import { useState } from 'react';
-import { api } from '@/api/client';
-import { keys } from '@/api/keys';
 import { listsQuery } from '@/api/queries';
 import { Page, PageHeader } from '@/components/page';
 import { Button } from '@/components/ui/button';
@@ -11,12 +9,8 @@ import { Card } from '@/components/ui/card';
 import { EmptyState, Skeleton } from '@/components/ui/feedback';
 import { ListIcon } from '@/features/lists/list-icon';
 import { NewListDialog } from '@/features/workspaces/new-list-dialog';
+import { workspaceQuery } from '@/features/workspaces/queries';
 import { useFormat } from '@/lib/preferences';
-
-export const workspaceQuery = (workspaceId: string) => ({
-  queryKey: keys.workspace(workspaceId),
-  queryFn: async () => (await api.v10.workspaces.byWorkspaceId(workspaceId).get())!,
-});
 
 export const Route = createFileRoute('/_app/w/$workspaceId/')({
   loader: ({ context, params }) => context.queryClient.ensureQueryData(workspaceQuery(params.workspaceId)),
@@ -37,9 +31,18 @@ function Workspace() {
         title={workspace?.name}
         description={workspace?.description}
         actions={
-          <Button variant="primary" onClick={() => setNewList(true)}>
-            <Plus /> New list
-          </Button>
+          <>
+            {workspace?.access === 'manage' && (
+              <Button asChild>
+                <Link to="/w/$workspaceId/settings" params={{ workspaceId }}>
+                  <Settings /> Settings
+                </Link>
+              </Button>
+            )}
+            <Button variant="primary" onClick={() => setNewList(true)}>
+              <Plus /> New list
+            </Button>
+          </>
         }
       />
       <h2 className="mb-3 text-xs font-medium tracking-wide text-muted uppercase">Lists and libraries</h2>

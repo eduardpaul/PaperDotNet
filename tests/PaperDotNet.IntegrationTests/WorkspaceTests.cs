@@ -79,4 +79,43 @@ public sealed class WorkspaceTests(PaperDotNetApiFactory factory)
         Assert.DoesNotContain(hidden, visible);
         Assert.Equal(HttpStatusCode.NotFound, (await member.GetAsync($"/v1.0/workspaces/{hidden}", Ct)).StatusCode);
     }
+
+    [Fact]
+    public async Task Members_are_removed_but_the_last_owner_stays()
+    {
+        await factory.CreateTenantAsync("members-remove");
+        await factory.CreateTenantAsync("members-remove-other");
+        var admin = await ApiClient.CreateAsync(factory, "members-remove");
+        var id = await admin.CreateWorkspaceAsync("Team");
+        var ownerId = (await (await admin.GetAsync("/v1.0/me", Ct)).ReadJsonAsync()).GetProperty("id").GetGuid();
+        var created = await admin.PostAsJsonAsync("/v1.0/users", new { userName = "helper", password = "helper-password-1" }, Ct);
+        var helperId = (await created.ReadJsonAsync()).GetProperty("id").GetGuid();
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsJsonAsync($"/v1.0/workspaces/{id}/members", new { userId = helperId, role = "member" }, Ct)).StatusCode);
+
+        // Responses say what the caller may do there.
+        var helper = await ApiClient.CreateAsync(factory, "members-remove", "helper", "helper-password-1");
+        Assert.Equal("manage", (await (await admin.GetAsync($"/v1.0/workspaces/{id}", Ct)).ReadJsonAsync()).GetProperty("access").GetString());
+        Assert.Equal("contribute", (await (await helper.GetAsync($"/v1.0/workspaces/{id}", Ct)).ReadJsonAsync()).GetProperty("access").GetString());
+        var listed = (await (await helper.GetAsync("/v1.0/workspaces", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray()
+            .Single(w => w.GetProperty("id").GetGuid() == id);
+        Assert.Equal("contribute", listed.GetProperty("access").GetString());
+
+        // A member cannot remove anyone; another tenant does not see the workspace.
+        Assert.Equal(HttpStatusCode.NotFound, (await helper.DeleteAsync($"/v1.0/workspaces/{id}/members/{ownerId}", Ct)).StatusCode);
+        var other = await ApiClient.CreateAsync(factory, "members-remove-other");
+        Assert.Equal(HttpStatusCode.NotFound, (await other.DeleteAsync($"/v1.0/workspaces/{id}/members/{helperId}", Ct)).StatusCode);
+
+        // The only owner can be neither removed nor demoted.
+        var removeOwner = await admin.DeleteAsync($"/v1.0/workspaces/{id}/members/{ownerId}", Ct);
+        Assert.Equal(HttpStatusCode.Conflict, removeOwner.StatusCode);
+        Assert.Equal("lastOwner", (await removeOwner.ReadJsonAsync()).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync($"/v1.0/workspaces/{id}/members", new { userId = ownerId, role = "member" }, Ct)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/v1.0/workspaces/{id}/members/{helperId}", Ct)).StatusCode);
+        var members = (await (await admin.GetAsync($"/v1.0/workspaces/{id}/members", Ct)).ReadJsonAsync()).EnumerateArray()
+            .Select(m => m.GetProperty("userId").GetGuid()).ToList();
+        Assert.Equal([ownerId], members);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.DeleteAsync($"/v1.0/workspaces/{id}/members/{helperId}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await helper.GetAsync($"/v1.0/workspaces/{id}", Ct)).StatusCode);
+    }
 }

@@ -12,6 +12,8 @@ namespace PaperDotNet.Client.Models
     public partial class WorkspaceResponse : IAdditionalDataHolder, IParsable
     #pragma warning restore CS1591
     {
+        /// <summary>What the caller may do here: `manage` (owners, administrators), `contribute` or `read`.</summary>
+        public global::PaperDotNet.Client.Models.WorkspaceAccessLevel? Access { get; set; }
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
         /// <summary>The createdAt property</summary>
@@ -71,6 +73,7 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "access", n => { Access = n.GetEnumValue<global::PaperDotNet.Client.Models.WorkspaceAccessLevel>(); } },
                 { "createdAt", n => { CreatedAt = n.GetDateTimeOffsetValue(); } },
                 { "description", n => { Description = n.GetStringValue(); } },
                 { "id", n => { Id = n.GetGuidValue(); } },
@@ -87,6 +90,7 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteEnumValue<global::PaperDotNet.Client.Models.WorkspaceAccessLevel>("access", Access);
             writer.WriteDateTimeOffsetValue("createdAt", CreatedAt);
             writer.WriteStringValue("description", Description);
             writer.WriteGuidValue("id", Id);

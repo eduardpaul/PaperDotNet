@@ -8,7 +8,7 @@ import { AutomationsRequestBuilderNavigationMetadata, AutomationsRequestBuilderR
 // @ts-ignore
 import { ListsRequestBuilderNavigationMetadata, ListsRequestBuilderRequestsMetadata, type ListsRequestBuilder } from './lists/index.js';
 // @ts-ignore
-import { MembersRequestBuilderRequestsMetadata, type MembersRequestBuilder } from './members/index.js';
+import { MembersRequestBuilderNavigationMetadata, MembersRequestBuilderRequestsMetadata, type MembersRequestBuilder } from './members/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -82,6 +82,7 @@ export const WithWorkspaceItemRequestBuilderNavigationMetadata: Record<Exclude<k
     },
     members: {
         requestsMetadata: MembersRequestBuilderRequestsMetadata,
+        navigationMetadata: MembersRequestBuilderNavigationMetadata,
     },
 };
 /**

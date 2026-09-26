@@ -3,7 +3,7 @@ using System.Runtime.Serialization;
 using System;
 namespace PaperDotNet.Client.Models
 {
-    /// <summary>What the current user may do in a workspace. Ordered: higher includes lower.</summary>
+    /// <summary>What the caller may do here: `manage` (owners, administrators), `contribute` or `read`.</summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public enum WorkspaceAccessLevel
     {
