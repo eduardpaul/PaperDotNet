@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { itemPanels, type ItemPanelContext } from '@/extensibility/item-panels';
+import { FollowButton } from '@/features/collaboration/follow-button';
 import { MoveDocumentDialog } from '@/features/documents/move-dialog';
 import { AddToFolderDialog } from '@/features/smart-folders/add-dialog';
 import { useFormat } from '@/lib/preferences';
@@ -78,6 +79,7 @@ export function ItemPanel({
               </SheetDescription>
             )}
           </div>
+          {item && !item.isFolder && <FollowButton workspaceId={workspaceId} listId={list.id!} item={item} />}
           {item && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

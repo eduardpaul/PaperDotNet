@@ -85,3 +85,54 @@
     @apply outline-2 outline-offset-2 outline-ring;
   }
 }
+
+/* Rendered Markdown of notes (LST-18): readable defaults without a typography plugin. */
+@layer components {
+  .prose-note > * + * {
+    @apply mt-3;
+  }
+  .prose-note h1 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+  .prose-note h2 {
+    @apply text-lg font-semibold;
+  }
+  .prose-note h3 {
+    @apply text-base font-semibold;
+  }
+  .prose-note ul {
+    @apply list-disc pl-5;
+  }
+  .prose-note ol {
+    @apply list-decimal pl-5;
+  }
+  .prose-note li > ul,
+  .prose-note li > ol {
+    @apply mt-1;
+  }
+  .prose-note blockquote {
+    @apply border-l-4 pl-3 text-muted;
+  }
+  .prose-note code {
+    @apply rounded bg-surface-muted px-1 py-0.5 font-mono text-[0.9em];
+  }
+  .prose-note pre {
+    @apply overflow-x-auto rounded-md bg-surface-muted p-3;
+  }
+  .prose-note pre code {
+    @apply bg-transparent p-0;
+  }
+  .prose-note table {
+    @apply w-full border-collapse text-[13px];
+  }
+  .prose-note th,
+  .prose-note td {
+    @apply border px-2 py-1 text-left;
+  }
+  .prose-note input[type='checkbox'] {
+    @apply mr-1.5 align-middle;
+  }
+  .prose-note hr {
+    @apply my-4;
+  }
+}

@@ -9,6 +9,7 @@ import { Alert, Spinner } from '@/components/ui/feedback';
 import { Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { FieldEditor } from '@/features/fields/editors';
+import { NoteEditor } from '@/features/notes/note-editor';
 import { ValueNamesProvider } from '@/features/fields/lookups';
 import { withLinkedValues } from '@/features/fields/linked';
 import { changes, normalize } from '@/features/fields/values';
@@ -154,13 +155,22 @@ export function ItemForm({
                     {field.required && <span className="ml-0.5 text-danger">*</span>}
                   </Label>
                 )}
-                <FieldEditor
-                  id={id}
-                  field={field}
-                  value={values[field.name!]}
-                  invalid={!!messages}
-                  onChange={(value) => setValues((current) => withLinkedValues(current, field.name!, value))}
-                />
+                {contentType?.key === 'note' && field.name === 'body' ? (
+                  <NoteEditor
+                    id={id}
+                    value={String(values.body ?? '')}
+                    onChange={(value) => setValues((current) => ({ ...current, body: value }))}
+                    context={item ? { workspaceId, listId: list.id!, itemId: item.id! } : undefined}
+                  />
+                ) : (
+                  <FieldEditor
+                    id={id}
+                    field={field}
+                    value={values[field.name!]}
+                    invalid={!!messages}
+                    onChange={(value) => setValues((current) => withLinkedValues(current, field.name!, value))}
+                  />
+                )}
                 {field.description && !messages && <p className="text-xs text-muted">{field.description}</p>}
                 {messages && <p className="text-xs text-danger">{messages.join(' ')}</p>}
               </div>

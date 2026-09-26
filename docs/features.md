@@ -421,6 +421,7 @@ The web UI, built on the TypeScript SDK with React, TanStack and Tailwind
 | **8c Documents** | DOC-01 uploads (button, drag and drop) into libraries, the Inbox and group inboxes (DOC-16) with an upload tray; DOC-10 duplicate warnings; DOC-04 thumbnails and a thumbnail grid; LST-07 Inbox page; DOC-09 live processing status; DOC-08 downloads; DOC-03 replace file and file versions with restore; DOC-07 run OCR again; DOC-05/06 rotate, delete, reorder and split off pages; filing into another library (copy and delete until the API can move documents across lists) | ✅ |
 | **8d Search and navigation** | SRC-01…03 search page with facets and highlighted snippets, SRC-07/08 modes, SRC-09 page hits that open the page; palette search; TAX-08 smart folders (rules, personal or shared), TAX-10 sub-folders, TAX-09 add from the item menu or by dragging list rows onto a folder; DOC-17 OCR languages per file | ✅ |
 | **8e Tasks, calendar, approvals** | TSK-03 My tasks with quick add and complete; TSK-01 checklist; TSK-02 subtasks and dependencies; TSK-05 repeat; CAL-01/02/03 calendar month and agenda, new events, repeat editor in the user's time zone, skipping one occurrence; CAL-04 .ics import; EVT-08 approvals page. API: calendar series records renamed (they shared the Tasks schema), unique OpenAPI schema names enforced, .ics import body described | ✅ |
+| **8f Collaboration and notes** | LST-17 comments with replies, @mentions and history; NTF-03 follow an item; LST-18 Markdown notes with preview, `[[wiki links]]` and backlinks | ✅ |
 
 ## Idea → feature mapping
 

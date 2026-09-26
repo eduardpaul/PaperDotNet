@@ -106,6 +106,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `class-variance-authority` | Apache-2.0 | Component variants |
 | `clsx`, `tailwind-merge` | MIT | Class names |
 | `date-fns` | MIT | Calendar math |
+| `react-markdown`, `remark-gfm` (+ the unified/remark/micromark/mdast/hast packages) | MIT | Rendering notes as Markdown (LST-18); no raw HTML, so no sanitizer needed |
 | `tailwindcss`, `@tailwindcss/vite` (build) | MIT | Styling |
 | `vite`, `@vitejs/plugin-react`, `typescript`, `eslint`, `typescript-eslint`, `eslint-plugin-react-hooks`, `prettier`, `prettier-plugin-tailwindcss`, `vitest` (build and test) | MIT / Apache-2.0 | Build, lint, format, unit tests |
 | `@playwright/test` (test) | Apache-2.0 | End-to-end tests |
@@ -133,6 +134,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | Valkey | BSD-3-Clause | Alternative to Garnet as a cache server (optional) |
 | `lucide-react` | ISC | Icons of the web UI; the de-facto icon set of the React ecosystem (ISC is MIT-equivalent) |
 | `tslib` (via Radix's `aria-hidden`) | 0BSD | TypeScript helpers; 0BSD has no conditions at all |
+| `@ungap/structured-clone` (via `react-markdown`'s `remark-rehype`) | ISC | `structuredClone` polyfill used by the Markdown pipeline (ISC is MIT-equivalent) |
 | `isbot` (via TanStack Router) | Unlicense (public-domain dedication) | Bot detection for server rendering; not used by our client-only build. Public domain, so no conditions; accepted as a transitive dependency (2026-09-26) |
 
 ### ⛔ Removed from the proposal
