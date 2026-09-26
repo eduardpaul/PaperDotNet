@@ -1,7 +1,8 @@
 import type { ListResponse } from '@paperdotnet/client';
 import { fieldsOf, ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MoreHorizontal, Trash2 } from 'lucide-react';
+import { FolderInput, MoreHorizontal, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { keys } from '@/api/keys';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { itemPanels, type ItemPanelContext } from '@/extensibility/item-panels';
+import { MoveDocumentDialog } from '@/features/documents/move-dialog';
 import { useFormat } from '@/lib/preferences';
 import { ItemForm } from './item-form';
 import { itemQuery, listBuilder } from './queries';
@@ -39,6 +41,7 @@ export function ItemPanel({
   onCreated: (itemId: string) => void;
 }) {
   const isNew = itemId === 'new';
+  const [moving, setMoving] = useState(false);
   const format = useFormat();
   const queryClient = useQueryClient();
   const { data: item, isPending } = useQuery({ ...itemQuery(workspaceId, list.id!, itemId), enabled: !isNew });
@@ -79,6 +82,11 @@ export function ItemPanel({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {list.kind === 'library' && !item.isFolder && (
+                  <DropdownMenuItem onSelect={() => setMoving(true)}>
+                    <FolderInput /> Move to a library…
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem tone="danger" onSelect={() => remove.mutate()}>
                   <Trash2 /> Delete
                 </DropdownMenuItem>
@@ -127,6 +135,16 @@ export function ItemPanel({
               </TabsContent>
             ))}
           </Tabs>
+        )}
+        {item && moving && (
+          <MoveDocumentDialog
+            workspaceId={workspaceId}
+            list={list}
+            item={item}
+            open
+            onOpenChange={setMoving}
+            onMoved={onClose}
+          />
         )}
       </SheetContent>
     </Sheet>

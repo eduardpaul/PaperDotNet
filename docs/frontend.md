@@ -80,6 +80,11 @@ Tailwind ([ADR-0033](adr/0033-web-frontend.md)). This page describes:
 | Admin: organization defaults, extensions, applications | `/admin/*` | PLT-18, EXT-03, IAM-02 |
 | Admin: audit log, reindex, provisioning, export/import | `/admin/*` | LST-14, SRC-10, PRV-01…02, PLT-13, PLT-15 |
 
+Known API gaps (the UI works around them, to be closed in the API):
+- **Moving a document to another library** copies its pages (extract) and deletes the original, so fields other than the
+  title and older versions stay behind. A move endpoint that keeps them is planned.
+- **Language per file** (DOC-17) and search-hit highlighting in the viewer come with slice 8d.
+
 Not in the web UI: operator work done with the CLI or configuration (backup,
 tenants, quotas), and protocol clients (MCP, WebDAV, CalDAV, the client CLI).
 
@@ -129,7 +134,7 @@ run on PostgreSQL with the variables shown in [sdk/README.md](../sdk/README.md#e
 |---|---|---|
 | **8a Foundation** | Stack and tooling; host serves the UI; sign-in (password, passkey) and sign-out; shell with sidebar, workspaces, command palette, theme, notifications bell and live events; Home; end-to-end harness | ✅ |
 | **8b Lists and items** | New lists from templates; list page with saved views (table with server-side sort, board with drag and drop and a keyboard "Move to" menu), title search, folders with breadcrumbs, selection with bulk edit and delete, paging; item panel (`?item=`) with an editor per field type (text, note, email, URL, number, currency, boolean, date, date-time in the user's time zone, choice, people, lookup, managed metadata, keywords, JSON for extension types), create and edit with merge patches and If-Match (conflicts: reload or save anyway), validation next to the field, delete; version history with restore; recycle bin; lists in the sidebar and the command palette; Home, agenda, approvals and notifications open their items | ✅ |
-| 8c Documents | Upload with drag and drop (library, Inbox, group inbox), duplicate warnings, processing status, viewer with page images and search hits, downloads, file versions, page operations, language per file | planned |
+| **8c Documents** | Uploads by button or drag and drop into libraries (current folder), the Inbox and group inboxes, with a tray (state, duplicate warnings, links); libraries as a table with thumbnails or a thumbnail grid; Inbox page (personal and group inboxes, count on Home); Preview tab: live processing status, download, replace file, run OCR again, page images, rotate, delete, reorder and split off pages (saved as a new version), file versions with restore; "Move to a library" | ✅ |
 | 8d Search and navigation | Search page (modes, facets, page hits), tag and term pickers, keyword autocomplete, smart folders with grouping and drop to classify | planned |
 | 8e Tasks, calendar, approvals | My tasks, board, checklist, subtasks and dependencies, recurrence; calendar month, week and agenda, event editor with RRULE, .ics import, feeds; approvals | planned |
 | 8f Collaboration and notes | Comments with @mentions, activity, links and backlinks, follow, notifications page, Markdown notes with `[[links]]` | planned |

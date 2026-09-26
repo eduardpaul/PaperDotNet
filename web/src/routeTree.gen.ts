@@ -13,6 +13,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppInboxRouteImport } from './routes/_app/inbox'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppWIndexRouteImport } from './routes/_app/w/index'
 import { Route as AppWWorkspaceIdIndexRouteImport } from './routes/_app/w/$workspaceId/index'
@@ -36,6 +37,11 @@ const LoginRoute = LoginRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInboxRoute = AppInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => AppRoute,
 } as any)
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/callback': typeof CallbackRoute
   '/login': typeof LoginRoute
+  '/inbox': typeof AppInboxRoute
   '/notifications': typeof AppNotificationsRoute
   '/w/': typeof AppWIndexRoute
   '/w/$workspaceId/': typeof AppWWorkspaceIdIndexRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/callback': typeof CallbackRoute
   '/login': typeof LoginRoute
+  '/inbox': typeof AppInboxRoute
   '/notifications': typeof AppNotificationsRoute
   '/': typeof AppIndexRoute
   '/w': typeof AppWIndexRoute
@@ -91,6 +99,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/callback': typeof CallbackRoute
   '/login': typeof LoginRoute
+  '/_app/inbox': typeof AppInboxRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/': typeof AppIndexRoute
   '/_app/w/': typeof AppWIndexRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
     | '/'
     | '/callback'
     | '/login'
+    | '/inbox'
     | '/notifications'
     | '/w/'
     | '/w/$workspaceId/'
@@ -113,6 +123,7 @@ export interface FileRouteTypes {
   to:
     | '/callback'
     | '/login'
+    | '/inbox'
     | '/notifications'
     | '/'
     | '/w'
@@ -124,6 +135,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/callback'
     | '/login'
+    | '/_app/inbox'
     | '/_app/notifications'
     | '/_app/'
     | '/_app/w/'
@@ -168,6 +180,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/inbox': {
+      id: '/_app/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof AppInboxRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/notifications': {
       id: '/_app/notifications'
       path: '/notifications'
@@ -207,6 +226,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppInboxRoute: typeof AppInboxRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppWIndexRoute: typeof AppWIndexRoute
@@ -216,6 +236,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppInboxRoute: AppInboxRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppIndexRoute: AppIndexRoute,
   AppWIndexRoute: AppWIndexRoute,

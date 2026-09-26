@@ -3,7 +3,18 @@ import { fields as fieldValues, fieldsOf, ifMatch } from '@paperdotnet/client';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { RowSelectionState } from '@tanstack/react-table';
-import { FolderPlus, Inbox, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import {
+  FolderPlus,
+  Inbox,
+  LayoutGrid,
+  List as ListLayout,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { keys } from '@/api/keys';
@@ -12,6 +23,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState, Skeleton, Spinner } from '@/components/ui/feedback';
 import { Input } from '@/components/ui/input';
+import { DropZone, FilePickerButton } from '@/features/documents/drop-zone';
+import { DocumentGrid } from '@/features/documents/document-grid';
+import { acceptedTypes } from '@/features/documents/paths';
+import { useUploads } from '@/features/documents/uploads';
 import { ValueNamesProvider } from '@/features/fields/lookups';
 import { BulkEditDialog } from '@/features/lists/bulk-edit-dialog';
 import { FolderBreadcrumb } from '@/features/lists/folder-breadcrumb';
@@ -33,6 +48,8 @@ interface ListSearch {
   folder?: string;
   item?: string;
   tab?: string;
+  /** Libraries: grid of thumbnails instead of the table. */
+  layout?: 'grid';
 }
 
 const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined);
@@ -45,6 +62,7 @@ export const Route = createFileRoute('/_app/w/$workspaceId/l/$listId/')({
     folder: text(search.folder),
     item: text(search.item),
     tab: text(search.tab),
+    layout: search.layout === 'grid' ? 'grid' : undefined,
   }),
   loader: ({ context, params }) => context.queryClient.ensureQueryData(listQuery(params.workspaceId, params.listId)),
   component: ListPage,
@@ -62,6 +80,7 @@ function ListPage() {
   const [selection, setSelection] = useState<RowSelectionState>({});
   const [bulkEdit, setBulkEdit] = useState(false);
   const [newFolder, setNewFolder] = useState(false);
+  const { upload } = useUploads();
 
   const setSearch = (patch: Partial<ListSearch>, replace = false) =>
     void navigate({ search: (current) => ({ ...current, ...patch }), replace });
@@ -133,6 +152,9 @@ function ListPage() {
   const open = (item: ItemResponse) => setSearch({ item: item.id!, tab: undefined });
 
   if (!list) return null;
+  const isLibrary = list.kind === 'library';
+  const uploadHere = (files: File[]) =>
+    upload(files, { kind: 'library', workspaceId, listId, folderId: search.folder, name: list.name ?? 'library' });
 
   return (
     <Page wide className="max-w-[1600px]">
@@ -151,9 +173,15 @@ function ListPage() {
                 <FolderPlus /> New folder
               </Button>
             )}
-            <Button variant="primary" onClick={() => setSearch({ item: 'new', tab: undefined })}>
-              <Plus /> New {list.contentTypes?.length === 1 ? list.contentTypes[0]!.name?.toLowerCase() : 'item'}
-            </Button>
+            {isLibrary ? (
+              <FilePickerButton variant="primary" accept={acceptedTypes} onFiles={uploadHere}>
+                <Upload /> Upload
+              </FilePickerButton>
+            ) : (
+              <Button variant="primary" onClick={() => setSearch({ item: 'new', tab: undefined })}>
+                <Plus /> New {list.contentTypes?.length === 1 ? list.contentTypes[0]!.name?.toLowerCase() : 'item'}
+              </Button>
+            )}
           </>
         }
       />
@@ -181,7 +209,32 @@ function ListPage() {
             ))}
           </div>
         )}
-        <div className="relative ml-auto w-full max-w-xs">
+        {isLibrary && !groupBy && (
+          <div role="group" aria-label="Layout" className="ml-auto flex rounded-md bg-surface-muted p-0.5">
+            <button
+              type="button"
+              aria-pressed={!search.layout}
+              aria-label="Table"
+              onClick={() => setSearch({ layout: undefined })}
+              className={cn('rounded p-1 text-muted', !search.layout && 'bg-surface text-foreground shadow-xs')}
+            >
+              <ListLayout className="size-4" />
+            </button>
+            <button
+              type="button"
+              aria-pressed={search.layout === 'grid'}
+              aria-label="Thumbnails"
+              onClick={() => setSearch({ layout: 'grid' })}
+              className={cn(
+                'rounded p-1 text-muted',
+                search.layout === 'grid' && 'bg-surface text-foreground shadow-xs',
+              )}
+            >
+              <LayoutGrid className="size-4" />
+            </button>
+          </div>
+        )}
+        <div className={cn('relative w-full max-w-xs', !(isLibrary && !groupBy) && 'ml-auto')}>
           <Search className="absolute top-2.5 left-2.5 size-4 text-muted" />
           <Input
             aria-label="Search this list"
@@ -228,53 +281,70 @@ function ListPage() {
         </div>
       )}
 
-      <ValueNamesProvider fields={columns} values={rows.map((r) => fieldsOf(r))}>
-        {items.isPending ? (
-          <div className="space-y-2">
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-          </div>
-        ) : items.isError ? (
-          <Card>
-            <EmptyState title="The items could not be loaded">{problemMessage(items.error)}</EmptyState>
-          </Card>
-        ) : rows.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon={Inbox}
-              title={deferredQuery ? 'No matching items' : search.folder ? 'This folder is empty' : 'No items yet'}
-            >
-              {!deferredQuery && (
-                <Button variant="primary" className="mt-2" onClick={() => setSearch({ item: 'new' })}>
-                  <Plus /> Add the first one
-                </Button>
-              )}
-            </EmptyState>
-          </Card>
-        ) : groupBy ? (
-          <ItemsBoard
-            workspaceId={workspaceId}
-            list={list}
-            items={rows}
-            groupBy={groupBy}
-            cardFields={columns}
-            onOpen={open}
-          />
-        ) : (
-          <ItemsTable
-            items={rows}
-            fields={columns}
-            sort={sort}
-            onSort={(next) => setSearch({ sort: next ? `${next.descending ? '-' : ''}${next.field}` : undefined })}
-            selection={selection}
-            onSelectionChange={setSelection}
-            onOpen={open}
-            onOpenFolder={(folder) => setSearch({ folder: folder.id! })}
-            activeId={search.item}
-          />
-        )}
-      </ValueNamesProvider>
+      <DropZone
+        onFiles={uploadHere}
+        disabled={!isLibrary}
+        label={`Drop to upload to ${list.name}`}
+        className="min-h-40"
+      >
+        <ValueNamesProvider fields={columns} values={rows.map((r) => fieldsOf(r))}>
+          {items.isPending ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+            </div>
+          ) : items.isError ? (
+            <Card>
+              <EmptyState title="The items could not be loaded">{problemMessage(items.error)}</EmptyState>
+            </Card>
+          ) : rows.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={Inbox}
+                title={deferredQuery ? 'No matching items' : search.folder ? 'This folder is empty' : 'No items yet'}
+              >
+                {!deferredQuery && (
+                  <Button variant="primary" className="mt-2" onClick={() => setSearch({ item: 'new' })}>
+                    <Plus /> Add the first one
+                  </Button>
+                )}
+              </EmptyState>
+            </Card>
+          ) : isLibrary && search.layout === 'grid' ? (
+            <DocumentGrid
+              workspaceId={workspaceId}
+              listId={listId}
+              items={rows}
+              onOpen={(item) =>
+                item.isFolder ? setSearch({ folder: item.id! }) : setSearch({ item: item.id!, tab: 'preview' })
+              }
+            />
+          ) : groupBy ? (
+            <ItemsBoard
+              workspaceId={workspaceId}
+              list={list}
+              items={rows}
+              groupBy={groupBy}
+              cardFields={columns}
+              onOpen={open}
+            />
+          ) : (
+            <ItemsTable
+              items={rows}
+              fields={columns}
+              sort={sort}
+              onSort={(next) => setSearch({ sort: next ? `${next.descending ? '-' : ''}${next.field}` : undefined })}
+              selection={selection}
+              onSelectionChange={setSelection}
+              onOpen={open}
+              onOpenFolder={(folder) => setSearch({ folder: folder.id! })}
+              activeId={search.item}
+              thumbnails={isLibrary ? { workspaceId, listId } : undefined}
+            />
+          )}
+        </ValueNamesProvider>
+      </DropZone>
 
       <div className="mt-3 flex items-center gap-3 text-xs text-muted">
         {total !== undefined && total !== null && (

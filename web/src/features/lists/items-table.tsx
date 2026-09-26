@@ -10,6 +10,7 @@ import {
 import { ArrowDown, ArrowUp, ChevronsUpDown, Folder } from 'lucide-react';
 import { useMemo, type KeyboardEvent } from 'react';
 import { Checkbox } from '@/components/ui/select';
+import { Thumbnail } from '@/features/documents/thumbnail';
 import { FieldValue } from '@/features/fields/display';
 import type { FieldDefinition } from '@/features/fields/values';
 import { useFormat } from '@/lib/preferences';
@@ -42,6 +43,7 @@ export function ItemsTable({
   onOpen,
   onOpenFolder,
   activeId,
+  thumbnails,
 }: {
   items: ItemResponse[];
   fields: FieldDefinition[];
@@ -52,6 +54,8 @@ export function ItemsTable({
   onOpen: (item: ItemResponse) => void;
   onOpenFolder: (item: ItemResponse) => void;
   activeId?: string;
+  /** Libraries: a small thumbnail next to each document's title. */
+  thumbnails?: { workspaceId: string; listId: string };
 }) {
   const format = useFormat();
   const columns = useMemo(
@@ -85,7 +89,18 @@ export function ItemsTable({
             cell: ({ row }) =>
               field.name === 'title' ? (
                 <span className="flex items-center gap-2 font-medium">
-                  {row.original.isFolder && <Folder className="size-4 shrink-0 fill-current/20 text-accent" />}
+                  {row.original.isFolder ? (
+                    <Folder className="size-4 shrink-0 fill-current/20 text-accent" />
+                  ) : (
+                    thumbnails && (
+                      <Thumbnail
+                        {...thumbnails}
+                        itemId={row.original.id!}
+                        version={row.original.odataEtag}
+                        className="h-8 w-6 shrink-0"
+                      />
+                    )
+                  )}
                   <span className="truncate">{String(fieldsOf(row.original).title ?? 'Untitled')}</span>
                 </span>
               ) : (
@@ -103,7 +118,7 @@ export function ItemsTable({
           ),
         }),
       ]),
-    [fields, format],
+    [fields, format, thumbnails],
   );
 
   const table = useTable({

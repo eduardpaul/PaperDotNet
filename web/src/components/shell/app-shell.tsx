@@ -2,6 +2,7 @@ import { Menu, Search } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { UploadsProvider } from '@/features/documents/uploads';
 import { Kbd } from '@/components/ui/feedback';
 import { CommandPaletteProvider, useCommandPalette } from './command-palette';
 import { NotificationsPopover } from './notifications-popover';
@@ -13,29 +14,31 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <CommandPaletteProvider>
-      <div className="flex min-h-dvh">
-        <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 lg:block">
-          <Sidebar />
-        </aside>
-        <DialogPrimitive.Root open={drawer} onOpenChange={setDrawer}>
-          <DialogPrimitive.Portal>
-            <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/40 lg:hidden" />
-            <DialogPrimitive.Content
-              className="fixed inset-y-0 left-0 z-50 w-72 shadow-xl lg:hidden"
-              aria-describedby={undefined}
-            >
-              <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
-              <Sidebar onNavigate={() => setDrawer(false)} />
-            </DialogPrimitive.Content>
-          </DialogPrimitive.Portal>
-        </DialogPrimitive.Root>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar onMenu={() => setDrawer(true)} />
-          <main id="main" className="flex-1">
-            {children}
-          </main>
+      <UploadsProvider>
+        <div className="flex min-h-dvh">
+          <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 lg:block">
+            <Sidebar />
+          </aside>
+          <DialogPrimitive.Root open={drawer} onOpenChange={setDrawer}>
+            <DialogPrimitive.Portal>
+              <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/40 lg:hidden" />
+              <DialogPrimitive.Content
+                className="fixed inset-y-0 left-0 z-50 w-72 shadow-xl lg:hidden"
+                aria-describedby={undefined}
+              >
+                <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
+                <Sidebar onNavigate={() => setDrawer(false)} />
+              </DialogPrimitive.Content>
+            </DialogPrimitive.Portal>
+          </DialogPrimitive.Root>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <TopBar onMenu={() => setDrawer(true)} />
+            <main id="main" className="flex-1">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </UploadsProvider>
     </CommandPaletteProvider>
   );
 }
