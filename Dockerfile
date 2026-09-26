@@ -16,8 +16,10 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY global.json Directory.Build.props Directory.Packages.props PaperDotNet.slnx .editorconfig ./
 COPY src/ src/
-RUN dotnet restore src/PaperDotNet.Host/PaperDotNet.Host.csproj
-RUN dotnet publish src/PaperDotNet.Host/PaperDotNet.Host.csproj -c Release -o /app --no-restore
+# Framework-dependent ReadyToRun for linux-x64 (the aspnet runtime image). Not Native AOT:
+# the host still loads handlers by reflection.
+RUN dotnet restore src/PaperDotNet.Host/PaperDotNet.Host.csproj -r linux-x64
+RUN dotnet publish src/PaperDotNet.Host/PaperDotNet.Host.csproj -c Release -r linux-x64 --self-contained false -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 # OCR (DOC-07): the Tesseract CLI with English and German; add more tesseract-ocr-<lang> packages as needed.

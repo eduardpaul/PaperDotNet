@@ -64,7 +64,9 @@ public sealed class SmartFolderTests(PaperDotNetApiFactory factory)
     public async Task A_smart_folder_shows_tagged_items_of_all_lists_including_child_terms()
     {
         var s = await SetupAsync("smart-terms");
-        var lander = (await (await s.Admin.GetAsync($"/v1.0/termStore/sets/{(await (await s.Admin.GetAsync("/v1.0/termStore/sets", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray().Single(x => x.GetProperty("name").GetString() == "Projects").GetProperty("id").GetGuid()}/terms?parentId={s.Apollo}", Ct)).ReadJsonAsync())
+        var sets = await (await s.Admin.GetAsync("/v1.0/termStore/sets", Ct)).ReadJsonAsync();
+        var projects = sets.GetProperty("value").EnumerateArray().Single(x => x.GetProperty("name").GetString() == "Projects").GetProperty("id").GetGuid();
+        var lander = (await (await s.Admin.GetAsync($"/v1.0/termStore/sets/{projects}/terms?parentId={s.Apollo}", Ct)).ReadJsonAsync())
             .GetProperty("value")[0].GetProperty("id").GetGuid();
         await ItemAsync(s.Admin, s.Workspace, s.Tasks, new { title = "Launch plan", project = s.Apollo.ToString() });
         await ItemAsync(s.Admin, s.Workspace, s.Docs, new { title = "Lander spec", project = lander.ToString() });

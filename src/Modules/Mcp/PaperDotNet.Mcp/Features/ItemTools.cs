@@ -8,6 +8,7 @@ namespace PaperDotNet.Mcp.Features;
 /// <summary>Base for the built-in tools: name, description, schema and scope as data.</summary>
 internal abstract class BuiltInTool(string name, string description, JsonElement schema, string scope, bool readOnly) : IMcpTool
 {
+    protected const int DefaultPageSize = 50;
     public string Name => name;
 
     public string Description => description;
@@ -36,12 +37,21 @@ internal abstract class BuiltInTool(string name, string description, JsonElement
         item.Id,
         item.WorkspaceId,
         item.ListId,
+        item.ContentTypeId,
         item.ParentId,
         item.IsFolder,
+        access = item.Access.ToString(),
         item.Version,
+        item.CreatedAt,
         item.UpdatedAt,
         item.Fields,
     };
+
+    protected static McpToolResult Page(IReadOnlyList<ListItemData> items, string? nextCursor) =>
+        McpToolResult.FromJson(new { items = items.Select(Item), nextCursor });
+
+    protected static uint? Version(McpArguments arguments) =>
+        arguments.GetInt32("version") is { } version and >= 0 ? (uint)version : null;
 }
 
 internal sealed class WorkspacesTool(IWorkspaceAccess workspaces) : BuiltInTool(
@@ -58,9 +68,23 @@ internal sealed class WorkspacesTool(IWorkspaceAccess workspaces) : BuiltInTool(
     }
 }
 
+internal sealed class HomeTool(IListItemStore items) : BuiltInTool(
+    "get_home",
+    "The signed-in user's personal workspace, with its Documents library and Inbox library. They are created on first use.",
+    McpSchema.ObjectSchema(),
+    "list.read",
+    true)
+{
+    public override async Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken)
+    {
+        var home = await items.EnsureHomeAsync(cancellationToken);
+        return McpToolResult.FromJson(new { home.WorkspaceId, home.DocumentsListId, home.InboxListId });
+    }
+}
+
 internal sealed class ListsTool(IListItemStore items) : BuiltInTool(
     "list_lists",
-    "Lists the lists and document libraries you can read (optionally in one workspace). templateKey tells the kind: tasks, events, documents, …",
+    "Lists the lists and document libraries you can read (optionally in one workspace). templateKey tells the kind: tasks, events, documents, notes. isLibrary means items can have files. Call describe_list for columns.",
     McpSchema.ObjectSchema(("workspaceId", "string", "Only lists of this workspace (id).", false)),
     "list.read",
     true)
@@ -70,38 +94,102 @@ internal sealed class ListsTool(IListItemStore items) : BuiltInTool(
         var lists = await items.GetListsAsync(arguments.GetGuid("workspaceId"), null, cancellationToken);
         return McpToolResult.FromJson(new
         {
-            lists = lists.Select(l => new { l.Id, l.WorkspaceId, l.Name, l.TemplateKey, l.IsLibrary, contentTypes = l.ContentTypes.Select(c => c.Name) }),
+            lists = lists.Select(l => new
+            {
+                l.Id,
+                l.WorkspaceId,
+                l.Name,
+                l.TemplateKey,
+                l.IsLibrary,
+                contentTypes = l.ContentTypes.Select(c => new { c.Id, c.Name, c.Key }),
+            }),
         });
     }
 }
 
-internal sealed class QueryItemsTool(IListItemStore items) : BuiltInTool(
-    "query_items",
-    "Reads items of a list (tasks, events, documents, …). filter and orderBy use OData over the fields, e.g. filter \"fields/status eq 'open'\", orderBy \"fields/dueDate asc\".",
-    McpSchema.ObjectSchema(
-        ("workspaceId", "string", "Workspace id.", true),
-        ("listId", "string", "List id.", true),
-        ("filter", "string", "OData $filter, e.g. fields/title eq 'x'.", false),
-        ("orderBy", "string", "OData $orderby.", false),
-        ("top", "integer", "Maximum number of items (1-200, default 50).", false)),
+internal sealed class DescribeListTool(IListItemStore items) : BuiltInTool(
+    "describe_list",
+    "Columns and content types of one list. title is required on every item. The first content type is the default for create_item. Call this before creating or editing items so field names, types and choices are known.",
+    McpSchema.ObjectSchema(("workspaceId", "string", "Workspace id.", true), ("listId", "string", "List id.", true)),
     "list.read",
     true)
 {
     public override async Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken)
     {
-        var top = Math.Clamp(arguments.GetInt32("top") ?? 50, 1, 200);
-        var (found, error) = await items.QueryAsync(
-            arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"),
-            new ListItemQuery(arguments.GetString("filter"), arguments.GetString("orderBy"), top), cancellationToken);
-        return error is not null
-            ? McpToolResult.Error(error)
-            : McpToolResult.FromJson(new { items = found.Select(Item) });
+        var list = await items.DescribeListAsync(arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"), cancellationToken);
+        if (list is null)
+        {
+            return McpToolResult.Error("The list was not found (or you cannot read it).");
+        }
+
+        return McpToolResult.FromJson(new
+        {
+            list.Id,
+            list.WorkspaceId,
+            list.Name,
+            list.Description,
+            list.TemplateKey,
+            list.IsLibrary,
+            list.AllowFolders,
+            access = list.Access.ToString(),
+            contentTypes = list.ContentTypes.Select((contentType, index) => new
+            {
+                contentType.Id,
+                contentType.Name,
+                contentType.Key,
+                contentType.Description,
+                isDefault = index == 0,
+                fields = contentType.Fields.Select(Field).Prepend(Field(new ListFieldInfo("title", "Title", "text", true, false, "Required on every item."))),
+            }),
+        });
     }
+
+    private static object Field(ListFieldInfo field) => new
+    {
+        name = field.Name,
+        displayName = field.DisplayName,
+        type = field.Type,
+        required = field.Required,
+        allowMultiple = field.AllowMultiple,
+        description = field.Description,
+        maxLength = field.MaxLength,
+        minimum = field.Minimum,
+        maximum = field.Maximum,
+        choices = field.Choices,
+    };
+}
+
+internal sealed class QueryItemsTool(IListItemStore items) : BuiltInTool(
+    "query_items",
+    "Reads items of a list in every folder (folders themselves are omitted; use list_children for those). " +
+    "filter and orderBy are OData. Examples: fields/status eq 'notStarted', fields/dueDate le @next7Days. " +
+    "Call describe_list for the real field names and choices. Date aliases: @me, @today, @next7Days, @last30Days. " +
+    $"Returns at most top items (1-{ListItemQuery.MaxTop}, default {DefaultPageSize}). " +
+    "When nextCursor is present, call again with cursor set to it and the same filter and orderBy.",
+    McpSchema.ObjectSchema(
+        ("workspaceId", "string", "Workspace id.", true),
+        ("listId", "string", "List id.", true),
+        ("filter", "string", "OData $filter, e.g. fields/title eq 'x'.", false),
+        ("orderBy", "string", "OData $orderby, e.g. fields/dueDate asc.", false),
+        ("top", "integer", $"Page size (1-{ListItemQuery.MaxTop}, default {DefaultPageSize}).", false),
+        ("cursor", "string", "nextCursor from the previous page. Omit to start at the first page.", false)),
+    "list.read",
+    true)
+{
+    public override async Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken)
+    {
+        var (page, error) = await items.QueryPageAsync(
+            arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"), PageQuery(arguments), cancellationToken);
+        return error is not null ? McpToolResult.Error(error) : Page(page!.Items, page.NextCursor);
+    }
+
+    internal static ListItemQuery PageQuery(McpArguments arguments) => new(
+        arguments.GetString("filter"), arguments.GetString("orderBy"), Math.Clamp(arguments.GetInt32("top") ?? DefaultPageSize, 1, ListItemQuery.MaxTop), arguments.GetString("cursor"));
 }
 
 internal sealed class GetItemTool(IListItemStore items) : BuiltInTool(
     "get_item",
-    "Reads one item with all its fields.",
+    "Reads one item with its fields, content type, version and your access level.",
     McpSchema.ObjectSchema(("workspaceId", "string", "Workspace id.", true), ("listId", "string", "List id.", true), ("itemId", "string", "Item id.", true)),
     "list.read",
     true)
@@ -119,14 +207,16 @@ internal sealed class CreateItemTool(IListItemStore items) : BuiltInTool(
     McpSchema.ObjectSchema(
         ("workspaceId", "string", "Workspace id.", true),
         ("listId", "string", "List id.", true),
-        ("fields", "object", "Field values by field name, e.g. {\"title\": \"Call Bob\", \"dueDate\": \"2026-10-01\"}.", true),
-        ("contentTypeId", "string", "Content type id (default: the list's first).", false)),
+        ("fields", "object", "Field values by field name. Call describe_list for the names, types and choices. title is required.", true),
+        ("contentTypeId", "string", "Content type id from describe_list (default: the list's first).", false),
+        ("parentId", "string", "Folder id to create the item in. Omit for the list root.", false)),
     "list.write",
     false)
 {
     public override async Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken) =>
         FromResult(await items.CreateAsync(
-            arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"), arguments.GetRequiredObject("fields"), arguments.GetGuid("contentTypeId"), cancellationToken));
+            arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"), arguments.GetRequiredObject("fields"), arguments.GetGuid("contentTypeId"),
+            arguments.GetGuid("parentId"), cancellationToken));
 }
 
 internal sealed class UpdateItemTool(IListItemStore items) : BuiltInTool(
@@ -144,5 +234,5 @@ internal sealed class UpdateItemTool(IListItemStore items) : BuiltInTool(
     public override async Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken) =>
         FromResult(await items.UpdateAsync(
             arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"), arguments.GetRequiredGuid("itemId"), arguments.GetRequiredObject("fields"),
-            arguments.GetInt32("version") is { } version and >= 0 ? (uint)version : null, cancellationToken));
+            Version(arguments), cancellationToken));
 }

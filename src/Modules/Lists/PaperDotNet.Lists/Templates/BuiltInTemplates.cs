@@ -8,6 +8,9 @@ namespace PaperDotNet.Lists.Templates;
 /// </summary>
 internal static class BuiltInTemplates
 {
+    internal const string DocumentKey = "document";
+    internal const string DocumentsListKey = "documents";
+
     private static FieldDefinition Field(string name, string displayName, string type, Action<FieldDefinition>? configure = null)
     {
         var field = new FieldDefinition { Name = name, DisplayName = displayName, Type = type };
@@ -17,7 +20,7 @@ internal static class BuiltInTemplates
 
     public static readonly ContentTypeTemplate[] ContentTypes =
     [
-        new("document", "Document", "A document with a description and keywords.",
+        new(DocumentKey, "Document", "A document with a description and keywords.",
         [
             Field("description", "Description", "note"),
             Field("keywords", "Keywords", "keywords", f => { f.AllowMultiple = true; f.Search = FieldSearchWeight.High; }),
@@ -34,7 +37,7 @@ internal static class BuiltInTemplates
 
     public static readonly ListTemplateDefinition[] Lists =
     [
-        new("documents", "Documents", "A document library with keywords and version history.", ["document"],
+        new(DocumentsListKey, "Documents", "A document library with keywords and version history.", [DocumentKey],
         [
             new ViewTemplate("All documents", ["title", "description", "keywords"], IsDefault: true),
         ])

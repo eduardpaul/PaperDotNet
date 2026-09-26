@@ -1,0 +1,8 @@
+<Project>
+  <!-- Skip tests/Directory.Build.props (it imports xUnit). This runner is not a test project. -->
+  <Import Project="../../Directory.Build.props" />
+  <PropertyGroup>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CA2007;CA1515</NoWarn>
+  </PropertyGroup>
+</Project>

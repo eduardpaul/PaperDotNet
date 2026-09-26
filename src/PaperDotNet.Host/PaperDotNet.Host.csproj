@@ -3,6 +3,14 @@
     <AssemblyName>paperdotnet</AssemblyName>
     <RootNamespace>PaperDotNet.Host</RootNamespace>
     <UserSecretsId>paperdotnet-host</UserSecretsId>
+    <!--
+      Published images are framework-dependent ReadyToRun (Dockerfile passes -r linux-x64).
+      Native AOT and trimming do not fit: Wolverine, the EF JSON translators and the event
+      dispatcher bind handlers with reflection, and both database providers ship in one binary.
+      The Minimal API request-delegate generator is left off: for several Results signatures
+      in this API it emits code that does not compile.
+    -->
+    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PaperDotNet.ServiceDefaults\PaperDotNet.ServiceDefaults.csproj" />

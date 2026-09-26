@@ -89,6 +89,17 @@ npm run check -w web                               # typecheck, lint, format, un
 npm run test:e2e -w web                            # Playwright against a real host
 ```
 
+Performance (not part of `dotnet test`). One process, the real API, a fresh database per provider. It seeds a list, then ramps concurrency on create, read, filtered query and search until p95 passes 1000 ms or any request fails. That concurrency is the limit for the budget.
+
+```bash
+dotnet run --project tests/PaperDotNet.Performance -c Release -- sqlite
+dotnet run --project tests/PaperDotNet.Performance -c Release -- postgresql   # Docker, or PAPERDOTNET_TEST_POSTGRES
+dotnet run --project tests/PaperDotNet.Performance -c Release -- both
+dotnet run --project tests/PaperDotNet.Performance -- --smoke sqlite          # 20 items, 1 s, one caller
+```
+
+`PERF_ITEMS` (200), `PERF_SECONDS` (3 per concurrency step), `PERF_MAX_CONCURRENCY` (16), `PERF_P95_MS` (1000) and `PERF_OUTPUT` (`perf-results.json`) override the run. Use Release for numbers you keep.
+
 Configuration comes from environment variables `PAPERDOTNET__Section__Key`.
 Semantic search needs an embedding model (optional; see `docs/search.md`).
 PostgreSQL: `PAPERDOTNET__Database__Provider=PostgreSql` and

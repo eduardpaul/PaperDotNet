@@ -7,6 +7,7 @@ using PaperDotNet.Documents.Features;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Mcp.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Provisioning.Contracts;
 
@@ -44,6 +45,10 @@ public sealed class DocumentsModule : IModule
         services.AddScoped<PageRenderer>();
         services.AddOperationHandler<DocumentProcessor>();
         services.AddScoped<IItemSearchContributor, DocumentSearchContent>();
+        services.AddScoped<IMcpTool, UploadDocumentTool>();
+        services.AddScoped<IMcpTool, ReplaceDocumentTool>();
+        services.AddScoped<IMcpTool, GetFileTool>();
+        services.AddScoped<IMcpTool, ReadDocumentTool>();
         services.AddEventSubscriber<ItemPurged, PurgedItemFiles>();
         services.AddEventSubscriber<PrincipalDeleted, DeletedGroupInbox>();
         services.AddTenantRecurringJob<StoredFileCleanupJob>(StoredFileCleanupJob.Name, StoredFileCleanupJob.Schedule);

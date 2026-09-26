@@ -11,6 +11,8 @@
     <!-- CS1591: missing XML comments. Public API docs are added where they matter. -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <Deterministic>true</Deterministic>
+    <!-- Compile configuration binding instead of reflecting over options types. -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <Authors>Eduard Paul</Authors>
     <Copyright>Copyright 2026 Eduard Paul</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

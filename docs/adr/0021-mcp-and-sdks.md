@@ -36,10 +36,14 @@ put nothing between the assistant and the user's permissions.
 - **Tool names** follow `^[A-Za-z0-9_-]{1,64}$`, which common assistant APIs
   require. Extension tools start with the extension id with `_` instead of `.`
   and `-`.
-- **Built-in tools:** `search` (Search module), `list_workspaces`,
-  `list_lists`, `query_items`, `get_item`, `create_item` and `update_item`.
-  Documents, tasks and events are list items, so these generic tools cover
-  them.
+- **Built-in tools:** `search` (Search module); discovery
+  `list_workspaces`, `get_home`, `list_lists`, `describe_list`; item reads
+  `query_items` (cursor, up to 1000 per page), `get_item`, `list_children`;
+  item writes `create_item`, `update_item`, `create_folder`, `ensure_folder`,
+  `move_item`, `delete_item`; library files `upload_document`,
+  `replace_document`, `get_file`, `read_document` (Documents module).
+  Documents, tasks and events are list items. File bytes are their own tools
+  because they are not fields.
 - **SDKs are generated with Kiota** (MIT; runtime libraries MIT) from a
   committed `sdk/openapi.json`.
   - A test compares the committed document with the live one. It rewrites the

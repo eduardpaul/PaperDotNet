@@ -10,6 +10,7 @@ using Microsoft.OData;
 using Microsoft.OData.UriParser;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
@@ -22,7 +23,7 @@ namespace PaperDotNet.Lists.Querying;
 internal sealed record ItemQueryOptions(string? Filter, string? OrderBy, int Top, string? SkipToken, bool Count, IReadOnlyList<string>? Select)
 {
     public const int DefaultTop = 100;
-    public const int MaxTop = 1000;
+    public const int MaxTop = ListItemQuery.MaxTop;
 
     public static ItemQueryOptions From(HttpRequest request)
     {
@@ -94,7 +95,33 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
     /// <summary>Readable items (no folders) matching <paramref name="filter"/>, for code (<c>IListItemStore</c>).</summary>
     public async Task<(List<ListItem>? Items, string? Error)> ListAsync(ListSchema schema, string? filter, string? orderBy, int top, CancellationToken ct)
     {
-        IQueryable<ListItem> query = db.Items.AsNoTracking().Where(i => i.ListId == schema.List.Id && !i.IsFolder);
+        var (items, _, error) = await ListPageAsync(schema, filter, orderBy, top, null, null, false, ct);
+        return (items, error);
+    }
+
+    /// <summary>
+    /// One page of readable items. <paramref name="oneFolder"/> limits the page to the children of <paramref name="parentId"/>
+    /// (null: the list root) and includes folders; otherwise folders are excluded and the parent is ignored.
+    /// The cursor from <see cref="ItemCursor"/> is only valid with the same filter and order.
+    /// </summary>
+    public async Task<(List<ListItem>? Items, string? NextCursor, string? Error)> ListPageAsync(
+        ListSchema schema, string? filter, string? orderBy, int top, string? skipToken, Guid? parentId, bool oneFolder, CancellationToken ct)
+    {
+        if (!ItemCursor.TryDecode(skipToken, out var cursor))
+        {
+            return (null, null, "The cursor is not valid. Omit it to read the first page.");
+        }
+
+        IQueryable<ListItem> query = db.Items.AsNoTracking().Where(i => i.ListId == schema.List.Id);
+        if (oneFolder)
+        {
+            query = parentId is { } parent ? query.Where(i => i.ParentId == parent) : query.Where(i => i.ParentId == null);
+        }
+        else
+        {
+            query = query.Where(i => !i.IsFolder);
+        }
+
         if (schema.Access.Filter(WorkspaceAccessLevel.Read) is { } readable)
         {
             query = query.Where(readable);
@@ -109,12 +136,40 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
                 query = query.Where(translator.Filter(filterClause));
             }
 
-            var ordered = orderByClause is null ? query.OrderBy(i => i.Id) : translator.OrderBy(query, orderByClause);
-            return (await ordered.Take(Math.Clamp(top, 1, ItemQueryOptions.MaxTop)).ToListAsync(ct), null);
+            var customOrder = orderByClause is not null;
+            if ((cursor.After is not null && customOrder) || (cursor.Offset > 0 && !customOrder))
+            {
+                return (null, null, "The cursor does not match this ordering. Omit it to read the first page.");
+            }
+
+            if (!customOrder)
+            {
+                if (cursor.After is { } after)
+                {
+                    query = query.Where(i => i.Id.CompareTo(after) > 0);
+                }
+
+                query = query.OrderBy(i => i.Id);
+            }
+            else
+            {
+                query = translator.OrderBy(query, orderByClause!).Skip(cursor.Offset);
+            }
+
+            var take = Math.Clamp(top, 1, ItemQueryOptions.MaxTop);
+            var rows = await query.Take(take + 1).ToListAsync(ct);
+            var hasMore = rows.Count > take;
+            if (hasMore)
+            {
+                rows.RemoveAt(rows.Count - 1);
+            }
+
+            var next = hasMore ? customOrder ? ItemCursor.ForOffset(cursor.Offset + take) : ItemCursor.Keyset(rows[^1].Id) : null;
+            return (rows, next, null);
         }
         catch (ODataException ex)
         {
-            return (null, ex.Message);
+            return (null, null, ex.Message);
         }
     }
 
@@ -345,11 +400,15 @@ internal readonly record struct ItemCursor(Guid? After, int Offset)
 
     public static string ForOffset(int offset) => Encode("o:" + offset.ToString(CultureInfo.InvariantCulture));
 
-    public static ItemCursor Decode(string? token)
+    public static ItemCursor Decode(string? token) => TryDecode(token, out var cursor) ? cursor : default;
+
+    /// <summary>False when <paramref name="token"/> is present but not a cursor this server issued.</summary>
+    public static bool TryDecode(string? token, out ItemCursor cursor)
     {
-        if (token is null)
+        cursor = default;
+        if (string.IsNullOrEmpty(token))
         {
-            return default;
+            return true;
         }
 
         string text;
@@ -359,17 +418,22 @@ internal readonly record struct ItemCursor(Guid? After, int Offset)
         }
         catch (FormatException)
         {
-            return default;
+            return false;
         }
 
         if (text.StartsWith("k:", StringComparison.Ordinal) && Guid.TryParseExact(text[2..], "N", out var id))
         {
-            return new ItemCursor(id, 0);
+            cursor = new ItemCursor(id, 0);
+            return true;
         }
 
-        return text.StartsWith("o:", StringComparison.Ordinal) && int.TryParse(text[2..], CultureInfo.InvariantCulture, out var offset) && offset >= 0
-            ? new ItemCursor(null, offset)
-            : default;
+        if (text.StartsWith("o:", StringComparison.Ordinal) && int.TryParse(text[2..], NumberStyles.None, CultureInfo.InvariantCulture, out var offset) && offset >= 0)
+        {
+            cursor = new ItemCursor(null, offset);
+            return true;
+        }
+
+        return false;
     }
 
     private static string Encode(string value) => Base64Url.EncodeToString(Encoding.UTF8.GetBytes(value));

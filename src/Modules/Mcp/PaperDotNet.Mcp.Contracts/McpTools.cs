@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace PaperDotNet.Mcp.Contracts;
 
@@ -36,7 +37,11 @@ public interface IMcpTool
 /// <summary>The result of a tool call: text for the assistant, optionally structured data.</summary>
 public sealed record McpToolResult(string Text, bool IsError = false, JsonNode? Structured = null)
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = false };
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = false,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
 
     /// <summary>Returns <paramref name="value"/> as JSON (text and structured content).</summary>
     public static McpToolResult FromJson(object value)

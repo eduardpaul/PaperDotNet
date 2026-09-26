@@ -63,7 +63,8 @@ public sealed class ListsModule : IModule
         services.AddScoped<SmartFolderQuery>();
         services.AddScoped<IListItemStore>(sp => new ListItemStore(
             sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ListSchemaLoader>(), sp.GetRequiredService<ItemQueryRunner>(),
-            sp.GetRequiredService<ItemWriter>(), sp.GetRequiredService<IWorkspaceAccess>(), sp.GetRequiredService<ListItemSearchDocuments>()));
+            sp.GetRequiredService<ItemWriter>(), sp.GetRequiredService<IWorkspaceAccess>(), sp.GetRequiredService<ListItemSearchDocuments>(),
+            sp.GetRequiredService<ContentTypeProvisioner>(), sp.GetRequiredService<ListTemplateRegistry>()));
         services.AddScoped<ITenantInitializer, ListsTenantInitializer>();
         services.AddScoped<ListTemplateLookups>();
         services.AddScoped<ITemplateHandler, ContentTypeTemplateHandler>();

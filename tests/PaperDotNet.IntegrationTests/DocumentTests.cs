@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.Documents.Features;
+using PaperDotNet.Lists.Data;
 using PaperDotNet.Tenancy.Contracts;
 
 namespace PaperDotNet.IntegrationTests;
@@ -196,6 +197,47 @@ public sealed class DocumentTests(PaperDotNetApiFactory factory)
 
         Assert.Equal(home.GetProperty("inboxListId").GetGuid(), document.GetProperty("listId").GetGuid());
         Assert.Equal("Scan from the copier", document.GetProperty("fields").GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task Home_libraries_use_the_document_content_type()
+    {
+        var tenant = await factory.CreateTenantAsync("doc-home-type");
+        var client = await ApiClient.CreateAsync(factory, "doc-home-type");
+        var home = await (await client.GetAsync("/v1.0/me/home", Ct)).ReadJsonAsync();
+        var ws = home.GetProperty("workspaceId").GetGuid();
+        var library = home.GetProperty("documentsListId").GetGuid();
+
+        var list = await (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{library}", Ct)).ReadJsonAsync();
+        var contentType = list.GetProperty("contentTypes")[0];
+        Assert.Equal("document", contentType.GetProperty("key").GetString());
+        Assert.Contains(contentType.GetProperty("fields").EnumerateArray(), field => field.GetProperty("name").GetString() == "description");
+
+        var created = await client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists/{library}/items", new { fields = new { title = "Scan", description = "From the copier" } }, Ct);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var item = (await created.ReadJsonAsync()).GetProperty("id").GetGuid();
+        Assert.Equal("From the copier", (await (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{library}/items/{item}", Ct)).ReadJsonAsync()).GetProperty("fields").GetProperty("description").GetString());
+
+        // A library left on the generic Item type (older homes) is switched, and its items move with it.
+        var plain = await client.CreateListAsync(ws, "Plain");
+        var generic = (await (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{plain}", Ct)).ReadJsonAsync()).GetProperty("contentTypes")[0].GetProperty("id").GetGuid();
+        await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ListsDbContext>();
+            var row = await db.Lists.FirstAsync(l => l.Id == library, Ct);
+            row.TemplateKey = null;
+            row.ContentTypeIds = [generic];
+            (await db.Items.FirstAsync(i => i.Id == item, Ct)).ContentTypeId = generic;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        Assert.Equal(library, (await (await client.GetAsync("/v1.0/me/home", Ct)).ReadJsonAsync()).GetProperty("documentsListId").GetGuid());
+        var repaired = await (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{library}/items/{item}", Ct)).ReadJsonAsync();
+        Assert.Equal(contentType.GetProperty("id").GetGuid(), repaired.GetProperty("contentTypeId").GetGuid());
+        var etag = (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{library}/items/{item}", Ct)).Headers.ETag!.Tag;
+        var updated = await client.SendWithEtagAsync(HttpMethod.Patch, $"/v1.0/workspaces/{ws}/lists/{library}/items/{item}", etag, new { fields = new { description = "Filed by the agent" } });
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        Assert.Equal("Filed by the agent", (await updated.ReadJsonAsync()).GetProperty("fields").GetProperty("description").GetString());
     }
 
     [Fact]

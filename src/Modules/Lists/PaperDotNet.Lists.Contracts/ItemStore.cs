@@ -25,6 +25,37 @@ public sealed record ListContentType(Guid Id, string Name, string? Key);
 /// <summary>The caller's personal workspace with its Documents and Inbox libraries (LST-07).</summary>
 public sealed record HomeData(Guid WorkspaceId, Guid DocumentsListId, Guid InboxListId);
 
+/// <summary>A column of a list, as returned by <see cref="IListItemStore.DescribeListAsync"/>.</summary>
+public sealed record ListFieldInfo(
+    string Name,
+    string DisplayName,
+    string Type,
+    bool Required,
+    bool AllowMultiple,
+    string? Description = null,
+    int? MaxLength = null,
+    decimal? Minimum = null,
+    decimal? Maximum = null,
+    IReadOnlyList<string>? Choices = null);
+
+/// <summary>A content type of a list, with its columns. The list's first content type is the default.</summary>
+public sealed record ListContentTypeInfo(Guid Id, string Name, string? Key, string? Description, IReadOnlyList<ListFieldInfo> Fields);
+
+/// <summary>A list the caller can read, including its columns.</summary>
+public sealed record ListDescription(
+    Guid Id,
+    Guid WorkspaceId,
+    string Name,
+    string? Description,
+    string? TemplateKey,
+    bool IsLibrary,
+    bool AllowFolders,
+    WorkspaceAccessLevel Access,
+    IReadOnlyList<ListContentTypeInfo> ContentTypes);
+
+/// <summary>One page of a query. <see cref="NextCursor"/> is null on the last page; pass it back as <see cref="ListItemQuery.SkipToken"/>.</summary>
+public sealed record ListItemPage(IReadOnlyList<ListItemData> Items, string? NextCursor);
+
 /// <summary>An item: <see cref="Fields"/> holds every value, including <c>title</c>.</summary>
 public sealed record ListItemData(
     Guid Id,
@@ -44,8 +75,15 @@ public sealed record ListItemData(
     public WorkspaceAccessLevel Access { get; init; } = WorkspaceAccessLevel.Read;
 }
 
-/// <summary>An item query: OData <c>$filter</c>/<c>$orderby</c> over the list's fields (as in the items API).</summary>
-public sealed record ListItemQuery(string? Filter = null, string? OrderBy = null, int Top = 100);
+/// <summary>
+/// An item query: OData <c>$filter</c>/<c>$orderby</c> over the list's fields (as in the items API).
+/// <see cref="SkipToken"/> continues a previous page. <see cref="Top"/> is clamped to <see cref="MaxTop"/>.
+/// </summary>
+public sealed record ListItemQuery(string? Filter = null, string? OrderBy = null, int Top = 100, string? SkipToken = null)
+{
+    /// <summary>Most items one call returns.</summary>
+    public const int MaxTop = 1000;
+}
 
 /// <summary>One list's page from a query run against several lists.</summary>
 public sealed record ListQueryResult(ListData List, IReadOnlyList<ListItemData> Items);
@@ -96,13 +134,28 @@ public interface IListItemStore
     /// <summary>One list with the caller's access, or null when it is not visible.</summary>
     Task<ListData?> GetListAsync(Guid workspaceId, Guid listId, CancellationToken cancellationToken);
 
+    /// <summary>The list's content types and columns, or null when it is not visible.</summary>
+    Task<ListDescription?> DescribeListAsync(Guid workspaceId, Guid listId, CancellationToken cancellationToken);
+
     /// <summary>The caller's Home workspace and libraries, created on first use (needs a user).</summary>
     Task<HomeData> EnsureHomeAsync(CancellationToken cancellationToken);
 
     Task<ListItemData?> GetAsync(Guid workspaceId, Guid listId, Guid itemId, CancellationToken cancellationToken);
 
-    /// <summary>Items matching the query (up to <see cref="ListItemQuery.Top"/>, max 1000); folders are excluded.</summary>
+    /// <summary>Items matching the query (up to <see cref="ListItemQuery.Top"/>, at most <see cref="ListItemQuery.MaxTop"/>); folders are excluded.</summary>
     Task<(IReadOnlyList<ListItemData> Items, string? Error)> QueryAsync(Guid workspaceId, Guid listId, ListItemQuery query, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// As <see cref="QueryAsync(Guid, Guid, ListItemQuery, CancellationToken)"/>, plus a cursor for the next page.
+    /// The cursor is only valid with the same filter and order. Folders are excluded.
+    /// </summary>
+    Task<(ListItemPage? Page, string? Error)> QueryPageAsync(Guid workspaceId, Guid listId, ListItemQuery query, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Folders and items directly inside <paramref name="folderId"/> (null: the list root), with the same paging as
+    /// <see cref="QueryPageAsync"/>.
+    /// </summary>
+    Task<(ListItemPage? Page, string? Error)> ListChildrenAsync(Guid workspaceId, Guid listId, Guid? folderId, ListItemQuery query, CancellationToken cancellationToken);
 
     /// <summary>
     /// Runs <paramref name="query"/> against each list. The first error stops the rest.
@@ -114,6 +167,9 @@ public interface IListItemStore
 
     /// <summary>Creates the item in <paramref name="parentId"/> (null: the list root). The parent must be a folder of the list.</summary>
     Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, Guid? parentId, CancellationToken cancellationToken);
+
+    /// <summary>Creates a folder with <paramref name="title"/> in <paramref name="parentId"/> (null: the list root).</summary>
+    Task<ListItemResult> CreateFolderAsync(Guid workspaceId, Guid listId, string title, Guid? parentId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates the item with <paramref name="itemId"/> (e.g. a stable id of an operation that may be repeated). When that

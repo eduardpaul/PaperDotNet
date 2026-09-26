@@ -172,7 +172,10 @@ internal static class Batch
     private static async Task<BatchResponseItem> SendAsync(BatchRequestItem item, HttpContext outer, RequestDelegate pipeline, CancellationToken ct)
     {
         var (path, query) = Target(item.Url)!.Value;
+        // ContentType is an extension on the interface; the concrete type loses it.
+#pragma warning disable CA1859
         IHeaderDictionary headers = new HeaderDictionary();
+#pragma warning restore CA1859
         var tenantHeader = outer.RequestServices.GetRequiredService<IOptions<TenancyOptions>>().Value.HeaderName;
         foreach (var header in outer.Request.Headers.Where(h => Inherited.Contains(h.Key) || string.Equals(h.Key, tenantHeader, StringComparison.OrdinalIgnoreCase)))
         {

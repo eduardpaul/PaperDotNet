@@ -1,5 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -126,4 +129,152 @@ public sealed class McpTests(PaperDotNetApiFactory factory)
         await admin.PostAsync("/v1.0/extensions/samples.invoices/disable", null, Ct);
         Assert.DoesNotContain("samples_invoices_pending", (await mcp.ListToolsAsync(cancellationToken: Ct)).Select(t => t.Name));
     }
+
+    [Fact]
+    public async Task Agents_can_page_describe_and_organize_folders()
+    {
+        await factory.CreateTenantAsync("mcp-pages");
+        var admin = await ApiClient.CreateAsync(factory, "mcp-pages");
+        var ws = await admin.CreateWorkspaceAsync("Work");
+        var tasksResponse = await admin.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name = "Tasks", templateKey = "tasks" }, Ct);
+        var tasks = (await tasksResponse.ReadJsonAsync()).GetProperty("id").GetGuid();
+        var contentType = await admin.CreateContentTypeAsync("Note", [new { name = "state", type = "text" }]);
+        var list = await admin.CreateListAsync(ws, "Notes", contentType);
+
+        await using var mcp = await ConnectAsync(admin);
+        var home = await CallAsync(mcp, "get_home", []);
+        Assert.NotEqual(Guid.Empty, home.GetProperty("documentsListId").GetGuid());
+
+        var lists = await CallAsync(mcp, "list_lists", new() { ["workspaceId"] = ws.ToString() });
+        var taskList = lists.GetProperty("lists").EnumerateArray().Single(item => item.GetProperty("id").GetGuid() == tasks);
+        Assert.Equal("task", taskList.GetProperty("contentTypes")[0].GetProperty("key").GetString());
+
+        var described = await CallAsync(mcp, "describe_list", new() { ["workspaceId"] = ws.ToString(), ["listId"] = tasks.ToString() });
+        var status = described.GetProperty("contentTypes")[0].GetProperty("fields").EnumerateArray().Single(field => field.GetProperty("name").GetString() == "status");
+        Assert.Contains("notStarted", status.GetProperty("choices").EnumerateArray().Select(choice => choice.GetString()));
+        Assert.True(described.GetProperty("contentTypes")[0].GetProperty("fields").EnumerateArray().First().GetProperty("required").GetBoolean());
+
+        await CallAsync(mcp, "create_item", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["fields"] = new Dictionary<string, object> { ["title"] = "one" } });
+        await CallAsync(mcp, "create_item", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["fields"] = new Dictionary<string, object> { ["title"] = "two" } });
+        await CallAsync(mcp, "create_item", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["fields"] = new Dictionary<string, object> { ["title"] = "three" } });
+        var first = await CallAsync(mcp, "query_items", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["top"] = 2 });
+        Assert.Equal(["one", "two"], Titles(first));
+        var cursor = first.GetProperty("nextCursor").GetString();
+        var second = await CallAsync(mcp, "query_items", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["top"] = 2, ["cursor"] = cursor });
+        Assert.Equal(["three"], Titles(second));
+        Assert.False(second.TryGetProperty("nextCursor", out _));
+        var invalid = await mcp.CallToolAsync("query_items", new Dictionary<string, object?> { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["cursor"] = "nope" }, cancellationToken: Ct);
+        Assert.True(invalid.IsError);
+
+        var folder = await CallAsync(mcp, "create_folder", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["title"] = "Contracts" });
+        var folderId = folder.GetProperty("id").GetGuid();
+        var nested = await CallAsync(mcp, "create_item", new()
+        {
+            ["workspaceId"] = ws.ToString(),
+            ["listId"] = list.ToString(),
+            ["parentId"] = folderId.ToString(),
+            ["fields"] = new Dictionary<string, object> { ["title"] = "signed" },
+        });
+        var children = await CallAsync(mcp, "list_children", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["folderId"] = folderId.ToString() });
+        Assert.Equal(["signed"], Titles(children));
+        var ensured = await CallAsync(mcp, "ensure_folder", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["path"] = "Contracts/2026" });
+        Assert.NotEqual(folderId, ensured.GetProperty("folderId").GetGuid());
+
+        var blocked = await mcp.CallToolAsync("delete_item", new Dictionary<string, object?> { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["itemId"] = folderId.ToString() }, cancellationToken: Ct);
+        Assert.True(blocked.IsError);
+        await CallAsync(mcp, "delete_item", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["itemId"] = ensured.GetProperty("folderId").ToString() });
+        await CallAsync(mcp, "move_item", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["itemId"] = nested.GetProperty("id").ToString() });
+        var root = await CallAsync(mcp, "list_children", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString() });
+        Assert.Contains(Titles(root), title => title == "signed");
+        await CallAsync(mcp, "delete_item", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["itemId"] = nested.GetProperty("id").ToString() });
+        var after = await CallAsync(mcp, "query_items", new() { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString(), ["filter"] = "fields/title eq 'signed'" });
+        Assert.Empty(Titles(after));
+    }
+
+    [Fact]
+    public async Task Agents_can_upload_and_read_library_files()
+    {
+        await factory.CreateTenantAsync("mcp-files");
+        var admin = await ApiClient.CreateAsync(factory, "mcp-files");
+        var ws = await admin.CreateWorkspaceAsync("Records");
+        var libraryResponse = await admin.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name = "Documents", templateKey = "documents" }, Ct);
+        var library = (await libraryResponse.ReadJsonAsync()).GetProperty("id").GetGuid();
+        var plain = await admin.CreateListAsync(ws, "Plain");
+        var pdf = Encoding.ASCII.GetBytes("%PDF-1.4\n% marker\n%%EOF\n");
+        var png = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4 };
+
+        await using var mcp = await ConnectAsync(admin);
+        var rejected = await mcp.CallToolAsync("upload_document", new Dictionary<string, object?>
+        {
+            ["workspaceId"] = ws.ToString(),
+            ["listId"] = plain.ToString(),
+            ["fileName"] = "a.pdf",
+            ["contentBase64"] = Convert.ToBase64String(pdf),
+        }, cancellationToken: Ct);
+        Assert.True(rejected.IsError);
+
+        var uploaded = await CallAsync(mcp, "upload_document", new()
+        {
+            ["workspaceId"] = ws.ToString(),
+            ["listId"] = library.ToString(),
+            ["fileName"] = "Invoice 42.pdf",
+            ["title"] = "Invoice 42",
+            ["contentBase64"] = Convert.ToBase64String(pdf),
+        });
+        var itemId = uploaded.GetProperty("itemId").GetGuid();
+        Assert.Equal("Invoice 42.pdf", uploaded.GetProperty("file").GetProperty("fileName").GetString());
+        var sha = Convert.ToHexStringLower(SHA256.HashData(pdf));
+        var file = await CallAsync(mcp, "get_file", new() { ["workspaceId"] = ws.ToString(), ["listId"] = library.ToString(), ["itemId"] = itemId.ToString() });
+        Assert.Equal(sha, file.GetProperty("file").GetProperty("sha256").GetString());
+
+        var text = await CallAsync(mcp, "read_document", new() { ["workspaceId"] = ws.ToString(), ["listId"] = library.ToString(), ["itemId"] = itemId.ToString() });
+        Assert.False(string.IsNullOrEmpty(text.GetProperty("processingStatus").GetString()));
+
+        var stale = await mcp.CallToolAsync("replace_document", new Dictionary<string, object?>
+        {
+            ["workspaceId"] = ws.ToString(),
+            ["listId"] = library.ToString(),
+            ["itemId"] = itemId.ToString(),
+            ["fileName"] = "scan.png",
+            ["contentBase64"] = Convert.ToBase64String(png),
+            ["sha256"] = "0000",
+        }, cancellationToken: Ct);
+        Assert.True(stale.IsError);
+
+        var replaced = await CallAsync(mcp, "replace_document", new()
+        {
+            ["workspaceId"] = ws.ToString(),
+            ["listId"] = library.ToString(),
+            ["itemId"] = itemId.ToString(),
+            ["fileName"] = "scan.png",
+            ["contentBase64"] = Convert.ToBase64String(png),
+            ["sha256"] = sha,
+        });
+        Assert.Equal(2, replaced.GetProperty("file").GetProperty("number").GetInt32());
+        Assert.Equal("image/png", replaced.GetProperty("file").GetProperty("mediaType").GetString());
+    }
+
+    [Fact]
+    public async Task A_read_only_token_hides_write_tools()
+    {
+        await factory.CreateTenantAsync("mcp-readonly");
+        var admin = await ApiClient.CreateAsync(factory, "mcp-readonly");
+        var created = await admin.PostAsJsonAsync("/v1.0/me/apiTokens", new { name = "assistant", scopes = new[] { "mcp.use", "list.read", "workspace.read", "document.read", "search.read" } }, Ct);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var secret = (await created.ReadJsonAsync()).GetProperty("secret").GetString();
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Tenant", "mcp-readonly");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secret);
+
+        await using var mcp = await ConnectAsync(client);
+        var tools = (await mcp.ListToolsAsync(cancellationToken: Ct)).Select(tool => tool.Name).ToList();
+        Assert.Contains("describe_list", tools);
+        Assert.Contains("read_document", tools);
+        Assert.DoesNotContain("create_item", tools);
+        Assert.DoesNotContain("upload_document", tools);
+        Assert.DoesNotContain("delete_item", tools);
+    }
+
+    private static IEnumerable<string?> Titles(JsonElement page) =>
+        page.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("fields").GetProperty("title").GetString());
 }

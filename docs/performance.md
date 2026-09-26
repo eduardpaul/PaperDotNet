@@ -1,0 +1,74 @@
+# Performance
+
+One Release smoke run of `tests/PaperDotNet.Performance` on SQLite. PostgreSQL was not measured, and concurrency never went above one caller. This is a baseline, not a capacity limit.
+
+## How it was run
+
+- Binary: `tests/PaperDotNet.Performance/bin/Release/net10.0/PaperDotNet.Performance.dll --smoke sqlite`
+- In-process API (`WebApplicationFactory`), not a socket and not a reverse proxy. Numbers exclude network and TLS.
+- Fresh SQLite file, WAL, the same pragmas as a normal install. Jobs were held off for an hour so the scheduler did not run during the sample.
+- 20 items in one list (`alpha note N` / `beta note N`), then about 1 second per scenario at one caller. The p95 budget was 1000 ms. A step "holds" when it has no failed responses and p95 stays under that budget.
+- Machine: WSL, 16 logical CPUs, 7.6 GiB RAM. The editor's language service was running. Treat the absolute rates as this machine, not a server.
+
+Startup, including migrations, the first administrator, and seeding those 20 items, took 10.0 s. Keyword search could see `alpha` 2.3 s after the seed finished.
+
+## Results
+
+| Scenario | Requests in 1 s | req/s | p50 | p95 | p99 | Errors |
+|---|---:|---:|---:|---:|---:|---:|
+| Read one item | 208 | 208 | 4.4 ms | 6.8 ms | 12 ms | 0 |
+| Filtered list (`contains(fields/title,'alpha')`, `$top=20`) | 131 | 131 | 5.6 ms | 8.7 ms | 11 ms | 0 |
+| Create an item | 70 | 69 | 10 ms | 39 ms | 59 ms | 0 |
+| Keyword search (`q=alpha` in that workspace) | 58 | 58 | 17 ms | 20 ms | 21 ms | 0 |
+
+Create is the expensive call. It validates fields, writes the item, and publishes the change that search indexes. A point read is about three times that rate, and the filtered page is in between. Search is the slowest read: one query is about 17 ms even on a 20-item index, and it does not get faster just because the list is small.
+
+During the create second, EF logged `An error occurred using a transaction` once. The runner still counted zero failed responses. That line is the in-flight create cancelled when the one-second window closed, not a rejected write. The same cutoff is why p99 on create (59 ms) sits well above p50 (10 ms): the last request is interrupted.
+
+`limitConcurrency: 1` in the JSON means the smoke cap was one caller. It does not mean a second caller fails.
+
+## Build-time compilation
+
+Native AOT and trimming were not turned on. Wolverine, the EF JSON translators and the event dispatcher bind handlers with reflection (`MakeGenericMethod` and `GetMethod`), and one binary contains both SQLite and PostgreSQL. Trimming or AOT drops that code and the process fails at runtime. The Minimal API request-delegate generator was tried and turned back off: for several `Results<…>` endpoints it emits source that does not compile.
+
+What is on:
+
+- **Configuration binding source generator**, for every project (`EnableConfigurationBindingGenerator`). `BindConfiguration` is compiled instead of reflecting over the options type. The generated binder is in the Release host binary.
+- **ReadyToRun** when publishing with a runtime identifier. The image build publishes framework-dependent `linux-x64` (`--self-contained false`), so `dotnet paperdotnet.dll` still works and Crossgen2 has already compiled the IL. Dev builds and this smoke runner do not go through that publish, so the table below does not include ReadyToRun.
+
+The same SQLite smoke, after the binding generator was enabled:
+
+| Scenario | req/s | p50 | p95 | Compared with the first smoke |
+|---|---:|---:|---:|---|
+| Read one item | 178 | 4.9 ms | 12 ms | slower (was 208 req/s, p95 6.8 ms) |
+| Filtered list | 144 | 5.3 ms | 7.4 ms | about the same (was 131 req/s, p95 8.7 ms) |
+| Create an item | 103 | 6.9 ms | 20 ms | faster (was 69 req/s, p95 39 ms) |
+| Keyword search | 47 | 21 ms | 23 ms | slower (was 58 req/s, p95 20 ms) |
+
+Ready time was 9.5 s (was 10.0 s). Search saw `alpha` after 2.1 s (was 2.3 s). Two in-flight creates were cancelled at the end of the one-second window and logged as transaction errors; neither was a failed response.
+
+That is not a speedup. The binding generator does not run on these requests, and a one-second sample on a busy machine moves by this much on its own. Create looking faster and search looking slower is noise. ReadyToRun would show up as a shorter cold start of the published process, which this in-process runner does not measure.
+
+## What this does not say
+
+- No PostgreSQL numbers. SQLite's single writer will show up only when several creates run together.
+- No concurrency ramp. One caller left a lot of CPU unused, so these rates are latency of the API plus the database, not a saturated throughput.
+- The list had 20 rows. A filtered query and a search over thousands of items will be slower. The index lag of 2.3 s is for 20 items.
+- In-process calls skip Kestrel's socket path. A deployed process will be a bit slower per call and will spend extra time in TLS and the proxy.
+
+## Running it again
+
+Smoke, SQLite only:
+
+```bash
+dotnet tests/PaperDotNet.Performance/bin/Release/net10.0/PaperDotNet.Performance.dll --smoke sqlite
+```
+
+A real limit check (still one provider at a time) raises concurrency from 1 through 16, three seconds per step, 200 items, and stops when any response fails or p95 crosses 1000 ms:
+
+```bash
+dotnet tests/PaperDotNet.Performance/bin/Release/net10.0/PaperDotNet.Performance.dll sqlite
+dotnet tests/PaperDotNet.Performance/bin/Release/net10.0/PaperDotNet.Performance.dll postgresql
+```
+
+PostgreSQL needs Docker, or `PAPERDOTNET_TEST_POSTGRES` pointing at a server the runner may create a database on. Do not run both providers, or a rebuild, while the machine is already short of memory. `PERF_ITEMS`, `PERF_SECONDS`, `PERF_MAX_CONCURRENCY`, and `PERF_P95_MS` change the run. Results go to `perf-results.json` unless `PERF_OUTPUT` is set.

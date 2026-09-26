@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Querying;
+using PaperDotNet.Lists.Templates;
 using PaperDotNet.Persistence;
 using PaperDotNet.Workspaces.Contracts;
 
@@ -15,10 +16,10 @@ namespace PaperDotNet.Lists.Features;
 /// </summary>
 internal sealed class ListItemStore(
     ListsDbContext db, ListSchemaLoader loader, ItemQueryRunner runner, ItemWriter writer, IWorkspaceAccess workspaces,
-    ListItemSearchDocuments search, bool system = false)
+    ListItemSearchDocuments search, ContentTypeProvisioner contentTypes, ListTemplateRegistry templates, bool system = false)
     : IListItemStore
 {
-    public IListItemStore AsSystem() => system ? this : new ListItemStore(db, loader, runner, writer, workspaces, search, system: true);
+    public IListItemStore AsSystem() => system ? this : new ListItemStore(db, loader, runner, writer, workspaces, search, contentTypes, templates, system: true);
 
     public Task ReindexAsync(Guid itemId, CancellationToken cancellationToken) => search.IndexItemAsync(itemId, cancellationToken);
 
@@ -76,9 +77,20 @@ internal sealed class ListItemStore(
             };
     }
 
+    public async Task<ListDescription?> DescribeListAsync(Guid workspaceId, Guid listId, CancellationToken cancellationToken)
+    {
+        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
+        return schema is null
+            ? null
+            : new ListDescription(
+                schema.List.Id, schema.List.WorkspaceId, schema.List.Name, schema.List.Description, schema.List.TemplateKey,
+                schema.List.Kind == ListKind.Library, schema.List.AllowFolders, schema.Access.ListLevel,
+                schema.ContentTypes.Select(c => new ListContentTypeInfo(c.Id, c.Name, c.Key, c.Description, c.Fields.Select(FieldInfo).ToList())).ToList());
+    }
+
     public async Task<HomeData> EnsureHomeAsync(CancellationToken cancellationToken)
     {
-        var home = await HomeEndpoints.EnsureHomeAsync(workspaces, db, cancellationToken);
+        var home = await HomeEndpoints.EnsureHomeAsync(workspaces, db, contentTypes, templates, cancellationToken);
         return new HomeData(home.WorkspaceId, home.DocumentsListId, home.InboxListId);
     }
 
@@ -92,14 +104,39 @@ internal sealed class ListItemStore(
     public async Task<(IReadOnlyList<ListItemData> Items, string? Error)> QueryAsync(
         Guid workspaceId, Guid listId, ListItemQuery query, CancellationToken cancellationToken)
     {
+        var (page, error) = await QueryPageAsync(workspaceId, listId, query, cancellationToken);
+        return (page?.Items ?? [], error);
+    }
+
+    public async Task<(ListItemPage? Page, string? Error)> QueryPageAsync(
+        Guid workspaceId, Guid listId, ListItemQuery query, CancellationToken cancellationToken)
+    {
         var schema = await LoadAsync(workspaceId, listId, cancellationToken);
         if (schema is null)
         {
-            return ([], "The list was not found.");
+            return (null, "The list was not found.");
         }
 
-        var (items, error) = await runner.ListAsync(schema, query.Filter, query.OrderBy, query.Top, cancellationToken);
-        return items is null ? ([], error) : (items.Select(i => ToData(schema, i)).ToList(), null);
+        var (items, next, error) = await runner.ListPageAsync(schema, query.Filter, query.OrderBy, query.Top, query.SkipToken, null, false, cancellationToken);
+        return error is not null ? (null, error) : (new ListItemPage(items!.Select(i => ToData(schema, i)).ToList(), next), null);
+    }
+
+    public async Task<(ListItemPage? Page, string? Error)> ListChildrenAsync(
+        Guid workspaceId, Guid listId, Guid? folderId, ListItemQuery query, CancellationToken cancellationToken)
+    {
+        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
+        if (schema is null)
+        {
+            return (null, "The list was not found.");
+        }
+
+        if (folderId is { } id && await GetAsync(workspaceId, listId, id, cancellationToken) is not { IsFolder: true })
+        {
+            return (null, "The folder was not found (or you cannot read it).");
+        }
+
+        var (items, next, error) = await runner.ListPageAsync(schema, query.Filter, query.OrderBy, query.Top, query.SkipToken, folderId, true, cancellationToken);
+        return error is not null ? (null, error) : (new ListItemPage(items!.Select(i => ToData(schema, i)).ToList(), next), null);
     }
 
     public async Task<(IReadOnlyList<ListQueryResult> Results, string? Error)> QueryAsync(
@@ -133,6 +170,18 @@ internal sealed class ListItemStore(
         }
 
         return ToResult(schema, await writer.CreateAsync(schema, contentTypeId, parentId, isFolder: false, Element(fields), cancellationToken));
+    }
+
+    public async Task<ListItemResult> CreateFolderAsync(
+        Guid workspaceId, Guid listId, string title, Guid? parentId, CancellationToken cancellationToken)
+    {
+        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
+        if (schema is null)
+        {
+            return new ListItemResult(ListItemStatus.NotFound);
+        }
+
+        return ToResult(schema, await writer.CreateAsync(schema, null, parentId, isFolder: true, Element(new JsonObject { ["title"] = title }), cancellationToken));
     }
 
     public Task<ListItemResult> CreateAsync(
@@ -289,6 +338,10 @@ internal sealed class ListItemStore(
 
         return (schema, item, null);
     }
+
+    private static ListFieldInfo FieldInfo(FieldDefinition field) => new(
+        field.Name, field.DisplayName, field.Type, field.Required, field.AllowMultiple, field.Description,
+        field.MaxLength, field.Minimum, field.Maximum, field.Choices.Count > 0 ? field.Choices : null);
 
     private static JsonElement Element(JsonObject fields) => JsonSerializer.SerializeToElement(fields);
 
