@@ -81,6 +81,7 @@ const item = await items.post({ fields: fields({ title: 'Invoice', amount: 120 }
 fieldsOf(item).title;                                             // values as a plain object
 // Any-JSON values: jsonOf(node) reads one, jsonNode(value) builds one for a request body (e.g. a WebAuthn credential).
 // Time-of-day and date values (e.g. quiet hours) use the exported TimeOnly and DateOnly: new TimeOnly({ hours: 22 }).
+// null clears optional values, enums included (the client fixes Kiota writing a null enum as "null").
 
 for await (const entry of all(items, { queryParameters: { filter: "fields/amount gt 100", orderby: 'fields/due desc', top: 50 } })) { … }
 

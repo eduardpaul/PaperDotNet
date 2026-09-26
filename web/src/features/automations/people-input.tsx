@@ -1,20 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { UserRound, Users } from 'lucide-react';
-import { api } from '@/api/client';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
-import { userName, usersQuery } from '@/features/fields/directory';
-
-const groupsQuery = {
-  queryKey: ['groups'],
-  queryFn: async () => {
-    try {
-      return (await api.v10.groups.get({ queryParameters: { top: 200 } }))?.value ?? [];
-    } catch {
-      return []; // Without the directory scope, groups can still be typed as group:Name.
-    }
-  },
-  staleTime: 5 * 60_000,
-};
+import { groupsQuery, userName, usersQuery } from '@/features/fields/directory';
 
 /**
  * People in automations are names, so automations stay portable (docs/automation.md): user names, group:Name,

@@ -4,6 +4,7 @@ import type { ComponentType } from 'react';
 import { SeriesTab } from '@/features/calendar/series-tab';
 import { ActivityTab } from '@/features/collaboration/activity-tab';
 import { PreviewTab } from '@/features/documents/preview-tab';
+import { AccessTab } from '@/features/list-settings/access-tab';
 import { VersionsTab } from '@/features/lists/versions-tab';
 import { NoteLinksTab } from '@/features/notes/links-tab';
 import { ChecklistTab, RelatedTab, TaskRepeatTab } from '@/features/tasks/task-panels';
@@ -42,4 +43,5 @@ export const itemPanels: ItemPanel[] = [
     component: PreviewTab,
   },
   { key: 'versions', label: 'Versions', applies: ({ list }) => list.versioning !== 'off', component: VersionsTab },
+  { key: 'access', label: 'Access', applies: () => true, component: AccessTab },
 ];

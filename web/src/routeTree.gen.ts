@@ -36,6 +36,12 @@ import { Route as AppWWorkspaceIdSettingsMembersRouteImport } from './routes/_ap
 import { Route as AppWWorkspaceIdSettingsRunsRouteImport } from './routes/_app/w/$workspaceId/settings/runs'
 import { Route as AppWWorkspaceIdLListIdIndexRouteImport } from './routes/_app/w/$workspaceId/l/$listId/index'
 import { Route as AppWWorkspaceIdLListIdRecycleBinRouteImport } from './routes/_app/w/$workspaceId/l/$listId/recycle-bin'
+import { Route as AppWWorkspaceIdLListIdSettingsRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings'
+import { Route as AppWWorkspaceIdLListIdSettingsIndexRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings/index'
+import { Route as AppWWorkspaceIdLListIdSettingsColumnsRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings/columns'
+import { Route as AppWWorkspaceIdLListIdSettingsDocumentsRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings/documents'
+import { Route as AppWWorkspaceIdLListIdSettingsPermissionsRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings/permissions'
+import { Route as AppWWorkspaceIdLListIdSettingsViewsRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings/views'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -179,6 +185,42 @@ const AppWWorkspaceIdLListIdRecycleBinRoute =
     path: '/w/$workspaceId/l/$listId/recycle-bin',
     getParentRoute: () => AppRoute,
   } as any)
+const AppWWorkspaceIdLListIdSettingsRoute =
+  AppWWorkspaceIdLListIdSettingsRouteImport.update({
+    id: '/w/$workspaceId/l/$listId/settings',
+    path: '/w/$workspaceId/l/$listId/settings',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppWWorkspaceIdLListIdSettingsIndexRoute =
+  AppWWorkspaceIdLListIdSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AppWWorkspaceIdLListIdSettingsRoute,
+  } as any)
+const AppWWorkspaceIdLListIdSettingsColumnsRoute =
+  AppWWorkspaceIdLListIdSettingsColumnsRouteImport.update({
+    id: '/columns',
+    path: '/columns',
+    getParentRoute: () => AppWWorkspaceIdLListIdSettingsRoute,
+  } as any)
+const AppWWorkspaceIdLListIdSettingsDocumentsRoute =
+  AppWWorkspaceIdLListIdSettingsDocumentsRouteImport.update({
+    id: '/documents',
+    path: '/documents',
+    getParentRoute: () => AppWWorkspaceIdLListIdSettingsRoute,
+  } as any)
+const AppWWorkspaceIdLListIdSettingsPermissionsRoute =
+  AppWWorkspaceIdLListIdSettingsPermissionsRouteImport.update({
+    id: '/permissions',
+    path: '/permissions',
+    getParentRoute: () => AppWWorkspaceIdLListIdSettingsRoute,
+  } as any)
+const AppWWorkspaceIdLListIdSettingsViewsRoute =
+  AppWWorkspaceIdLListIdSettingsViewsRouteImport.update({
+    id: '/views',
+    path: '/views',
+    getParentRoute: () => AppWWorkspaceIdLListIdSettingsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -206,7 +248,13 @@ export interface FileRoutesByFullPath {
   '/w/$workspaceId/settings/runs': typeof AppWWorkspaceIdSettingsRunsRoute
   '/w/$workspaceId/settings/': typeof AppWWorkspaceIdSettingsIndexRoute
   '/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
+  '/w/$workspaceId/l/$listId/settings': typeof AppWWorkspaceIdLListIdSettingsRouteWithChildren
   '/w/$workspaceId/l/$listId/': typeof AppWWorkspaceIdLListIdIndexRoute
+  '/w/$workspaceId/l/$listId/settings/columns': typeof AppWWorkspaceIdLListIdSettingsColumnsRoute
+  '/w/$workspaceId/l/$listId/settings/documents': typeof AppWWorkspaceIdLListIdSettingsDocumentsRoute
+  '/w/$workspaceId/l/$listId/settings/permissions': typeof AppWWorkspaceIdLListIdSettingsPermissionsRoute
+  '/w/$workspaceId/l/$listId/settings/views': typeof AppWWorkspaceIdLListIdSettingsViewsRoute
+  '/w/$workspaceId/l/$listId/settings/': typeof AppWWorkspaceIdLListIdSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/callback': typeof CallbackRoute
@@ -233,6 +281,11 @@ export interface FileRoutesByTo {
   '/w/$workspaceId/settings': typeof AppWWorkspaceIdSettingsIndexRoute
   '/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
   '/w/$workspaceId/l/$listId': typeof AppWWorkspaceIdLListIdIndexRoute
+  '/w/$workspaceId/l/$listId/settings/columns': typeof AppWWorkspaceIdLListIdSettingsColumnsRoute
+  '/w/$workspaceId/l/$listId/settings/documents': typeof AppWWorkspaceIdLListIdSettingsDocumentsRoute
+  '/w/$workspaceId/l/$listId/settings/permissions': typeof AppWWorkspaceIdLListIdSettingsPermissionsRoute
+  '/w/$workspaceId/l/$listId/settings/views': typeof AppWWorkspaceIdLListIdSettingsViewsRoute
+  '/w/$workspaceId/l/$listId/settings': typeof AppWWorkspaceIdLListIdSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -262,7 +315,13 @@ export interface FileRoutesById {
   '/_app/w/$workspaceId/settings/runs': typeof AppWWorkspaceIdSettingsRunsRoute
   '/_app/w/$workspaceId/settings/': typeof AppWWorkspaceIdSettingsIndexRoute
   '/_app/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
+  '/_app/w/$workspaceId/l/$listId/settings': typeof AppWWorkspaceIdLListIdSettingsRouteWithChildren
   '/_app/w/$workspaceId/l/$listId/': typeof AppWWorkspaceIdLListIdIndexRoute
+  '/_app/w/$workspaceId/l/$listId/settings/columns': typeof AppWWorkspaceIdLListIdSettingsColumnsRoute
+  '/_app/w/$workspaceId/l/$listId/settings/documents': typeof AppWWorkspaceIdLListIdSettingsDocumentsRoute
+  '/_app/w/$workspaceId/l/$listId/settings/permissions': typeof AppWWorkspaceIdLListIdSettingsPermissionsRoute
+  '/_app/w/$workspaceId/l/$listId/settings/views': typeof AppWWorkspaceIdLListIdSettingsViewsRoute
+  '/_app/w/$workspaceId/l/$listId/settings/': typeof AppWWorkspaceIdLListIdSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -292,7 +351,13 @@ export interface FileRouteTypes {
     | '/w/$workspaceId/settings/runs'
     | '/w/$workspaceId/settings/'
     | '/w/$workspaceId/l/$listId/recycle-bin'
+    | '/w/$workspaceId/l/$listId/settings'
     | '/w/$workspaceId/l/$listId/'
+    | '/w/$workspaceId/l/$listId/settings/columns'
+    | '/w/$workspaceId/l/$listId/settings/documents'
+    | '/w/$workspaceId/l/$listId/settings/permissions'
+    | '/w/$workspaceId/l/$listId/settings/views'
+    | '/w/$workspaceId/l/$listId/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/callback'
@@ -319,6 +384,11 @@ export interface FileRouteTypes {
     | '/w/$workspaceId/settings'
     | '/w/$workspaceId/l/$listId/recycle-bin'
     | '/w/$workspaceId/l/$listId'
+    | '/w/$workspaceId/l/$listId/settings/columns'
+    | '/w/$workspaceId/l/$listId/settings/documents'
+    | '/w/$workspaceId/l/$listId/settings/permissions'
+    | '/w/$workspaceId/l/$listId/settings/views'
+    | '/w/$workspaceId/l/$listId/settings'
   id:
     | '__root__'
     | '/_app'
@@ -347,7 +417,13 @@ export interface FileRouteTypes {
     | '/_app/w/$workspaceId/settings/runs'
     | '/_app/w/$workspaceId/settings/'
     | '/_app/w/$workspaceId/l/$listId/recycle-bin'
+    | '/_app/w/$workspaceId/l/$listId/settings'
     | '/_app/w/$workspaceId/l/$listId/'
+    | '/_app/w/$workspaceId/l/$listId/settings/columns'
+    | '/_app/w/$workspaceId/l/$listId/settings/documents'
+    | '/_app/w/$workspaceId/l/$listId/settings/permissions'
+    | '/_app/w/$workspaceId/l/$listId/settings/views'
+    | '/_app/w/$workspaceId/l/$listId/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -547,6 +623,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWWorkspaceIdLListIdRecycleBinRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/w/$workspaceId/l/$listId/settings': {
+      id: '/_app/w/$workspaceId/l/$listId/settings'
+      path: '/w/$workspaceId/l/$listId/settings'
+      fullPath: '/w/$workspaceId/l/$listId/settings'
+      preLoaderRoute: typeof AppWWorkspaceIdLListIdSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/w/$workspaceId/l/$listId/settings/': {
+      id: '/_app/w/$workspaceId/l/$listId/settings/'
+      path: '/'
+      fullPath: '/w/$workspaceId/l/$listId/settings/'
+      preLoaderRoute: typeof AppWWorkspaceIdLListIdSettingsIndexRouteImport
+      parentRoute: typeof AppWWorkspaceIdLListIdSettingsRoute
+    }
+    '/_app/w/$workspaceId/l/$listId/settings/columns': {
+      id: '/_app/w/$workspaceId/l/$listId/settings/columns'
+      path: '/columns'
+      fullPath: '/w/$workspaceId/l/$listId/settings/columns'
+      preLoaderRoute: typeof AppWWorkspaceIdLListIdSettingsColumnsRouteImport
+      parentRoute: typeof AppWWorkspaceIdLListIdSettingsRoute
+    }
+    '/_app/w/$workspaceId/l/$listId/settings/documents': {
+      id: '/_app/w/$workspaceId/l/$listId/settings/documents'
+      path: '/documents'
+      fullPath: '/w/$workspaceId/l/$listId/settings/documents'
+      preLoaderRoute: typeof AppWWorkspaceIdLListIdSettingsDocumentsRouteImport
+      parentRoute: typeof AppWWorkspaceIdLListIdSettingsRoute
+    }
+    '/_app/w/$workspaceId/l/$listId/settings/permissions': {
+      id: '/_app/w/$workspaceId/l/$listId/settings/permissions'
+      path: '/permissions'
+      fullPath: '/w/$workspaceId/l/$listId/settings/permissions'
+      preLoaderRoute: typeof AppWWorkspaceIdLListIdSettingsPermissionsRouteImport
+      parentRoute: typeof AppWWorkspaceIdLListIdSettingsRoute
+    }
+    '/_app/w/$workspaceId/l/$listId/settings/views': {
+      id: '/_app/w/$workspaceId/l/$listId/settings/views'
+      path: '/views'
+      fullPath: '/w/$workspaceId/l/$listId/settings/views'
+      preLoaderRoute: typeof AppWWorkspaceIdLListIdSettingsViewsRouteImport
+      parentRoute: typeof AppWWorkspaceIdLListIdSettingsRoute
+    }
   }
 }
 
@@ -593,6 +711,33 @@ const AppWWorkspaceIdSettingsRouteWithChildren =
     AppWWorkspaceIdSettingsRouteChildren,
   )
 
+interface AppWWorkspaceIdLListIdSettingsRouteChildren {
+  AppWWorkspaceIdLListIdSettingsColumnsRoute: typeof AppWWorkspaceIdLListIdSettingsColumnsRoute
+  AppWWorkspaceIdLListIdSettingsDocumentsRoute: typeof AppWWorkspaceIdLListIdSettingsDocumentsRoute
+  AppWWorkspaceIdLListIdSettingsPermissionsRoute: typeof AppWWorkspaceIdLListIdSettingsPermissionsRoute
+  AppWWorkspaceIdLListIdSettingsViewsRoute: typeof AppWWorkspaceIdLListIdSettingsViewsRoute
+  AppWWorkspaceIdLListIdSettingsIndexRoute: typeof AppWWorkspaceIdLListIdSettingsIndexRoute
+}
+
+const AppWWorkspaceIdLListIdSettingsRouteChildren: AppWWorkspaceIdLListIdSettingsRouteChildren =
+  {
+    AppWWorkspaceIdLListIdSettingsColumnsRoute:
+      AppWWorkspaceIdLListIdSettingsColumnsRoute,
+    AppWWorkspaceIdLListIdSettingsDocumentsRoute:
+      AppWWorkspaceIdLListIdSettingsDocumentsRoute,
+    AppWWorkspaceIdLListIdSettingsPermissionsRoute:
+      AppWWorkspaceIdLListIdSettingsPermissionsRoute,
+    AppWWorkspaceIdLListIdSettingsViewsRoute:
+      AppWWorkspaceIdLListIdSettingsViewsRoute,
+    AppWWorkspaceIdLListIdSettingsIndexRoute:
+      AppWWorkspaceIdLListIdSettingsIndexRoute,
+  }
+
+const AppWWorkspaceIdLListIdSettingsRouteWithChildren =
+  AppWWorkspaceIdLListIdSettingsRoute._addFileChildren(
+    AppWWorkspaceIdLListIdSettingsRouteChildren,
+  )
+
 interface AppRouteChildren {
   AppApprovalsRoute: typeof AppApprovalsRoute
   AppCalendarRoute: typeof AppCalendarRoute
@@ -607,6 +752,7 @@ interface AppRouteChildren {
   AppWWorkspaceIdSettingsRoute: typeof AppWWorkspaceIdSettingsRouteWithChildren
   AppWWorkspaceIdIndexRoute: typeof AppWWorkspaceIdIndexRoute
   AppWWorkspaceIdLListIdRecycleBinRoute: typeof AppWWorkspaceIdLListIdRecycleBinRoute
+  AppWWorkspaceIdLListIdSettingsRoute: typeof AppWWorkspaceIdLListIdSettingsRouteWithChildren
   AppWWorkspaceIdLListIdIndexRoute: typeof AppWWorkspaceIdLListIdIndexRoute
 }
 
@@ -624,6 +770,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppWWorkspaceIdSettingsRoute: AppWWorkspaceIdSettingsRouteWithChildren,
   AppWWorkspaceIdIndexRoute: AppWWorkspaceIdIndexRoute,
   AppWWorkspaceIdLListIdRecycleBinRoute: AppWWorkspaceIdLListIdRecycleBinRoute,
+  AppWWorkspaceIdLListIdSettingsRoute:
+    AppWWorkspaceIdLListIdSettingsRouteWithChildren,
   AppWWorkspaceIdLListIdIndexRoute: AppWWorkspaceIdLListIdIndexRoute,
 }
 

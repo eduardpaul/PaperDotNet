@@ -424,6 +424,7 @@ The web UI, built on the TypeScript SDK with React, TanStack and Tailwind
 | **8f Collaboration and notes** | LST-17 comments with replies, @mentions and history; NTF-03 follow an item; LST-18 Markdown notes with preview, `[[wiki links]]` and backlinks | ✅ |
 | **8g Settings** | IAM-14 own display name (new `PATCH /v1.0/me`); PLT-17 preferences; IAM-01 password change and passkeys; NTF-03 followed items; NTF-04/05 channels, webhook, quiet hours, digest; IAM-03 API tokens; CAL-04 calendar feeds | ✅ |
 | **8h Workspace settings** | PLT-07 workspace name, description and members (new `DELETE …/members/{userId}`, caller's `access` on workspaces); EVT-07…09 automation editor and runs | ✅ |
+| **8i List settings** | LST-01/11 list settings and versioning; LST-02/03 content types and field definitions; LST-09 views; DOC-07/10/17 library settings; IAM-07 list and item permissions. SDK: null enums sent as null | ✅ |
 
 ## Idea → feature mapping
 

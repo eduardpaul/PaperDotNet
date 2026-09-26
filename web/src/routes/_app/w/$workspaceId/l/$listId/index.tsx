@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Settings,
   Trash2,
   Upload,
   X,
@@ -35,6 +36,7 @@ import { ItemsBoard } from '@/features/lists/items-board';
 import { ItemsTable, orderByOf, type Sort } from '@/features/lists/items-table';
 import { ListIcon } from '@/features/lists/list-icon';
 import { NameDialog } from '@/features/lists/name-dialog';
+import { listPermissionsQuery } from '@/features/list-settings/queries';
 import { itemsQuery, listBuilder, listQuery, odataString, viewsQuery } from '@/features/lists/queries';
 import { listFields } from '@/features/lists/schema';
 import { problemMessage } from '@/lib/errors';
@@ -78,6 +80,7 @@ function ListPage() {
   const queryClient = useQueryClient();
   const { data: list } = useQuery(listQuery(workspaceId, listId));
   const { data: views } = useQuery(viewsQuery(workspaceId, listId));
+  const { data: permissions } = useQuery(listPermissionsQuery(workspaceId, listId));
   const [query, setQuery] = useState(search.q ?? '');
   const deferredQuery = useDeferredValue(query.trim());
   const [selection, setSelection] = useState<RowSelectionState>({});
@@ -171,6 +174,13 @@ function ListPage() {
         description={list.description}
         actions={
           <>
+            {permissions?.effectiveLevel === 'manage' && (
+              <Button asChild variant="ghost" size="icon" aria-label="List settings">
+                <Link to="/w/$workspaceId/l/$listId/settings" params={{ workspaceId, listId }}>
+                  <Settings />
+                </Link>
+              </Button>
+            )}
             {list.allowFolders && (
               <Button onClick={() => setNewFolder(true)}>
                 <FolderPlus /> New folder

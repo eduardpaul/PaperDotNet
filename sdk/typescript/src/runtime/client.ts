@@ -1,8 +1,9 @@
 // The client factory: the Kiota-generated client with authentication, the tenant and one retry after a refreshed token.
-import type { AuthenticationProvider, RequestInformation } from '@microsoft/kiota-abstractions';
+import type { AuthenticationProvider, RequestInformation, SerializationWriterFactoryRegistry } from '@microsoft/kiota-abstractions';
 import { FetchRequestAdapter, KiotaClientFactory } from '@microsoft/kiota-http-fetchlibrary';
 import { createPaperDotNetApiClient, type PaperDotNetApiClient } from '../generated/paperDotNetApiClient.js';
 import { staticToken, type TokenSource } from './auth.js';
+import { useNullSafeJson } from './serialization.js';
 
 export interface PaperDotNetClientOptions {
   /** Address of the installation, e.g. https://dms.example.com */
@@ -41,7 +42,9 @@ export function createPaperDotNetClient(options: PaperDotNetClientOptions): Pape
   };
   const adapter = new FetchRequestAdapter(authentication, undefined, undefined, KiotaClientFactory.create(authenticatedFetch));
   adapter.baseUrl = baseUrl;
-  return { api: createPaperDotNetApiClient(adapter), baseUrl, tenant: options.tenant, auth, fetch: authenticatedFetch };
+  const api = createPaperDotNetApiClient(adapter);
+  useNullSafeJson(adapter.getSerializationWriterFactory() as SerializationWriterFactoryRegistry);
+  return { api, baseUrl, tenant: options.tenant, auth, fetch: authenticatedFetch };
 }
 
 function createAuthenticatedFetch(auth: TokenSource | undefined, tenant: string | undefined, inner: typeof fetch): typeof fetch {

@@ -70,3 +70,13 @@ test('a missing item is a 404 problem; deleting needs the ETag of the current ve
   await items.byItemId(item.id).delete(ifMatch(item));
   assert.ok(isStatus(await items.byItemId(item.id).get().then(() => undefined, (e) => e), 404));
 });
+
+test('a null enum is sent as null, so optional enums can be left empty', async () => {
+  const name = `Enum ${Date.now()}`;
+  const created = await client.api.v10.contentTypes.post({
+    name,
+    fields: [{ name: 'weight', displayName: 'Weight', type: 'number', search: null }],
+  });
+  assert.equal(created.fields[0].name, 'weight');
+  assert.ok(!created.fields[0].search, 'no search weight was set');
+});

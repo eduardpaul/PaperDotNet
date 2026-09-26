@@ -11,6 +11,19 @@ export const usersQuery = queryOptions({
   staleTime: 5 * 60_000,
 });
 
+/** The organization's groups; empty without the directory scope (groups can still be typed by name). */
+export const groupsQuery = queryOptions({
+  queryKey: ['groups'],
+  queryFn: async () => {
+    try {
+      return await toArray(all(api.v10.groups, { queryParameters: { top: 200 } }));
+    } catch {
+      return [];
+    }
+  },
+  staleTime: 5 * 60_000,
+});
+
 export function useUsers(): Map<string, UserResponse> {
   const { data } = useQuery(usersQuery);
   const users = new Map<string, UserResponse>();
