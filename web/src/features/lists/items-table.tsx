@@ -11,6 +11,7 @@ import { ArrowDown, ArrowUp, ChevronsUpDown, Folder } from 'lucide-react';
 import { useMemo, type KeyboardEvent } from 'react';
 import { Checkbox } from '@/components/ui/select';
 import { Thumbnail } from '@/features/documents/thumbnail';
+import { ItemDragType, type DraggedItem } from '@/features/smart-folders/queries';
 import { FieldValue } from '@/features/fields/display';
 import type { FieldDefinition } from '@/features/fields/values';
 import { useFormat } from '@/lib/preferences';
@@ -44,6 +45,7 @@ export function ItemsTable({
   onOpenFolder,
   activeId,
   thumbnails,
+  source,
 }: {
   items: ItemResponse[];
   fields: FieldDefinition[];
@@ -56,6 +58,8 @@ export function ItemsTable({
   activeId?: string;
   /** Libraries: a small thumbnail next to each document's title. */
   thumbnails?: { workspaceId: string; listId: string };
+  /** Where the rows come from; rows can then be dragged onto smart folders. */
+  source?: { workspaceId: string; listId: string };
 }) {
   const format = useFormat();
   const columns = useMemo(
@@ -203,6 +207,17 @@ export function ItemsTable({
               key={row.id}
               tabIndex={0}
               aria-selected={row.getIsSelected()}
+              draggable={!!source && !row.original.isFolder}
+              onDragStart={(e) => {
+                if (!source) return;
+                const dragged: DraggedItem = {
+                  ...source,
+                  itemId: row.original.id!,
+                  title: String(fieldsOf(row.original).title ?? ''),
+                };
+                e.dataTransfer.setData(ItemDragType, JSON.stringify(dragged));
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
               onClick={() => open(row.original)}
               onKeyDown={(e) => onKeyDown(e, row.original)}
               className={cn(

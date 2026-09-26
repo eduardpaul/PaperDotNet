@@ -50,6 +50,8 @@ interface ListSearch {
   tab?: string;
   /** Libraries: grid of thumbnails instead of the table. */
   layout?: 'grid';
+  /** Documents: the page to show in the preview (search page hits). */
+  page?: number;
 }
 
 const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined);
@@ -63,6 +65,7 @@ export const Route = createFileRoute('/_app/w/$workspaceId/l/$listId/')({
     item: text(search.item),
     tab: text(search.tab),
     layout: search.layout === 'grid' ? 'grid' : undefined,
+    page: Number.isInteger(Number(search.page)) && Number(search.page) > 0 ? Number(search.page) : undefined,
   }),
   loader: ({ context, params }) => context.queryClient.ensureQueryData(listQuery(params.workspaceId, params.listId)),
   component: ListPage,
@@ -341,6 +344,7 @@ function ListPage() {
               onOpenFolder={(folder) => setSearch({ folder: folder.id! })}
               activeId={search.item}
               thumbnails={isLibrary ? { workspaceId, listId } : undefined}
+              source={{ workspaceId, listId }}
             />
           )}
         </ValueNamesProvider>
@@ -367,7 +371,7 @@ function ListPage() {
           parentId={search.folder}
           tab={search.tab ?? 'details'}
           onTab={(tab) => setSearch({ tab: tab === 'details' ? undefined : tab }, true)}
-          onClose={() => setSearch({ item: undefined, tab: undefined })}
+          onClose={() => setSearch({ item: undefined, tab: undefined, page: undefined })}
           onCreated={(id) => setSearch({ item: id }, true)}
         />
       )}

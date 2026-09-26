@@ -40,6 +40,13 @@ export function ItemForm({
   const fields = useMemo(() => withTitle(contentType?.fields ?? list.columns), [contentType, list.columns]);
   const original = useMemo(() => (item ? fieldsOf(item) : {}), [item]);
   const [values, setValues] = useState<Record<string, unknown>>(() => ({ ...defaults(fields, !item), ...original }));
+  // A newer version from elsewhere (live update, automation, smart folder) replaces the values unless the user has
+  // edited them; then the save's If-Match decides. Adjusted during render, as React recommends for prop changes.
+  const [baseline, setBaseline] = useState(original);
+  if (baseline !== original) {
+    setBaseline(original);
+    if (item && Object.keys(changes(baseline, values)).length === 0) setValues({ ...original });
+  }
   const [conflict, setConflict] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const items = listBuilder(workspaceId, list.id!).items;

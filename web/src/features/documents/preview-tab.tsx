@@ -1,7 +1,7 @@
 import type { FileVersionResponse } from '@paperdotnet/client';
 import { downloadFile, uploadBody } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 
 import {
   ArrowLeft,
@@ -25,6 +25,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, EmptyState, Skeleton, Spinner } from '@/components/ui/feedback';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Input, Label } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/select';
 import type { ItemPanelContext } from '@/extensibility/item-panels';
 import { userName, useUsers } from '@/features/fields/directory';
@@ -131,9 +133,15 @@ function FileHeader({
       await refresh();
     },
   });
+  const [languages, setLanguages] = useState(file.languages ?? '');
+  const [ocrOpen, setOcrOpen] = useState(false);
   const reprocess = useMutation({
-    mutationFn: () => listBuilder(workspaceId, listId).items.byItemId(itemId).file.process.post({ forceOcr: true }),
+    mutationFn: () =>
+      listBuilder(workspaceId, listId)
+        .items.byItemId(itemId)
+        .file.process.post({ forceOcr: true, languages: languages.trim() || undefined }),
     onSuccess: async () => {
+      setOcrOpen(false);
       toast.success('Processing started. The text will be searchable when it is done.');
       await refresh();
     },
@@ -165,13 +173,39 @@ function FileHeader({
         >
           {replace.isPending ? <Spinner /> : <Upload />} Replace file
         </FilePickerButton>
-        <Button
-          size="sm"
-          disabled={reprocess.isPending || file.processingStatus === 'running' || file.processingStatus === 'scheduled'}
-          onClick={() => reprocess.mutate()}
-        >
-          <RefreshCw /> Run OCR again
-        </Button>
+        <Popover open={ocrOpen} onOpenChange={setOcrOpen}>
+          <PopoverTrigger asChild>
+            <Button size="sm" disabled={file.processingStatus === 'running' || file.processingStatus === 'scheduled'}>
+              <RefreshCw /> Run OCR again
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72 p-4">
+            <form
+              className="flex flex-col gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                reprocess.mutate();
+              }}
+            >
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="ocr-languages">Languages of this file</Label>
+                <Input
+                  id="ocr-languages"
+                  placeholder="e.g. deu+eng"
+                  value={languages}
+                  onChange={(e) => setLanguages(e.target.value)}
+                />
+                <p className="text-xs text-muted">
+                  Tesseract codes joined with +; kept for this file (DOC-17). Empty: the library’s.
+                </p>
+              </div>
+              {reprocess.isError && <Alert>{problemMessage(reprocess.error)}</Alert>}
+              <Button type="submit" size="sm" variant="primary" disabled={reprocess.isPending}>
+                {reprocess.isPending && <Spinner className="text-current" />} Run OCR
+              </Button>
+            </form>
+          </PopoverContent>
+        </Popover>
       </div>
     </section>
   );
@@ -228,7 +262,11 @@ function Pages({
   const original = Array.from({ length: file.pageCount ?? 0 }, (_, i) => ({ page: i + 1, rotate: 0 }));
   const [pages, setPages] = useState<PageState[]>(original);
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [large, setLarge] = useState<number>();
+  // A search hit on a page opens it large (SRC-09).
+  const { page: hitPage } = useSearch({ strict: false }) as { page?: number };
+  const [large, setLarge] = useState<number | undefined>(
+    hitPage && hitPage <= (file.pageCount ?? 0) ? hitPage : undefined,
+  );
   const changed = JSON.stringify(pages) !== JSON.stringify(original);
   const editable = file.mediaType === 'application/pdf';
   const refresh = () => queryClient.invalidateQueries({ queryKey: keys.item(workspaceId, listId, itemId) });

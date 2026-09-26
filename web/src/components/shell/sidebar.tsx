@@ -8,6 +8,7 @@ import { Logo } from '@/components/brand/logo';
 import { Skeleton } from '@/components/ui/feedback';
 import { navigation } from '@/extensibility/navigation';
 import { ListIcon } from '@/features/lists/list-icon';
+import { SidebarSmartFolders } from '@/features/smart-folders/sidebar-folders';
 import { cn } from '@/lib/utils';
 
 const itemClass =
@@ -46,6 +47,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             </li>
           ))}
         </ul>
+        <SidebarSmartFolders itemClass={itemClass} activeClass={activeClass} onNavigate={onNavigate} />
         <Workspaces onNavigate={onNavigate} />
       </div>
     </nav>

@@ -1,7 +1,16 @@
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { Briefcase, LogOut, Moon, Sun } from 'lucide-react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Briefcase, FileText, LogOut, Moon, Search, Sun } from 'lucide-react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { signOut } from '@/api/client';
 import { listsQuery, workspacesQuery } from '@/api/queries';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -9,6 +18,8 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/feedback';
 import { navigation } from '@/extensibility/navigation';
 import { ListIcon } from '@/features/lists/list-icon';
+import { hitLink } from '@/features/search/hit-link';
+import { searchQuery } from '@/features/search/queries';
 import { useSetTheme } from './user-menu';
 
 const PaletteContext = createContext<{ open: () => void }>({ open: () => {} });
@@ -80,6 +91,9 @@ function Palette({ close }: { close: () => void }) {
   const lists = useQueries({ queries: (workspaces ?? []).map((w) => listsQuery(w.id!)) }).flatMap((q) => q.data ?? []);
   const workspaceName = new Map((workspaces ?? []).map((w) => [w.id, w.name]));
   const setTheme = useSetTheme();
+  const [text, setText] = useState('');
+  const query = useDeferredValue(text.trim());
+  const hits = useInfiniteQuery({ ...searchQuery({ q: query }, 5), enabled: query.length >= 2 });
   const run = useCallback(
     (action: () => unknown) => () => {
       close();
@@ -90,9 +104,40 @@ function Palette({ close }: { close: () => void }) {
 
   return (
     <Command loop>
-      <CommandInput placeholder="Type a command or go to…" />
+      <CommandInput placeholder="Search, go to or run a command…" value={text} onValueChange={setText} />
       <CommandList>
         <CommandEmpty>Nothing found.</CommandEmpty>
+        {query.length >= 2 && (
+          <CommandGroup heading="Search" forceMount>
+            <CommandItem
+              forceMount
+              value={`search ${query}`}
+              onSelect={run(() => navigate({ to: '/search', search: { q: query } }))}
+            >
+              <Search />
+              <span className="flex-1">
+                Search for “<span className="font-medium">{query}</span>”
+              </span>
+            </CommandItem>
+            {hits.data?.pages[0]?.value?.map((hit) => {
+              const link = hitLink(hit);
+              return (
+                link && (
+                  <CommandItem
+                    key={`${hit.id}-${hit.page ?? ''}`}
+                    forceMount
+                    value={`hit ${hit.id} ${hit.page ?? ''}`}
+                    onSelect={run(() => navigate(link))}
+                  >
+                    <FileText />
+                    <span className="min-w-0 flex-1 truncate">{hit.title}</span>
+                    {hit.page && <span className="text-xs text-muted">Page {hit.page}</span>}
+                  </CommandItem>
+                )
+              );
+            })}
+          </CommandGroup>
+        )}
         <CommandGroup heading="Go to">
           {navigation.map((entry) => (
             <CommandItem key={entry.to} value={`go ${entry.label}`} onSelect={run(() => navigate({ to: entry.to }))}>

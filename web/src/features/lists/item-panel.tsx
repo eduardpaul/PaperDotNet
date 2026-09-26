@@ -1,7 +1,7 @@
 import type { ListResponse } from '@paperdotnet/client';
 import { fieldsOf, ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderInput, MoreHorizontal, Trash2 } from 'lucide-react';
+import { FolderInput, FolderSearch, MoreHorizontal, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { keys } from '@/api/keys';
@@ -12,6 +12,7 @@ import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { itemPanels, type ItemPanelContext } from '@/extensibility/item-panels';
 import { MoveDocumentDialog } from '@/features/documents/move-dialog';
+import { AddToFolderDialog } from '@/features/smart-folders/add-dialog';
 import { useFormat } from '@/lib/preferences';
 import { ItemForm } from './item-form';
 import { itemQuery, listBuilder } from './queries';
@@ -42,6 +43,7 @@ export function ItemPanel({
 }) {
   const isNew = itemId === 'new';
   const [moving, setMoving] = useState(false);
+  const [classifying, setClassifying] = useState(false);
   const format = useFormat();
   const queryClient = useQueryClient();
   const { data: item, isPending } = useQuery({ ...itemQuery(workspaceId, list.id!, itemId), enabled: !isNew });
@@ -87,6 +89,9 @@ export function ItemPanel({
                     <FolderInput /> Move to a library…
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onSelect={() => setClassifying(true)}>
+                  <FolderSearch /> Add to smart folder…
+                </DropdownMenuItem>
                 <DropdownMenuItem tone="danger" onSelect={() => remove.mutate()}>
                   <Trash2 /> Delete
                 </DropdownMenuItem>
@@ -135,6 +140,15 @@ export function ItemPanel({
               </TabsContent>
             ))}
           </Tabs>
+        )}
+        {item && classifying && (
+          <AddToFolderDialog
+            workspaceId={workspaceId}
+            listId={list.id!}
+            item={item}
+            open
+            onOpenChange={setClassifying}
+          />
         )}
         {item && moving && (
           <MoveDocumentDialog
