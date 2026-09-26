@@ -2763,6 +2763,15 @@ export function createUpdateListRequestFromDiscriminatorValue(parseNode: ParseNo
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UpdateMeRequest}
+ */
+// @ts-ignore
+export function createUpdateMeRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUpdateMeRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {UpdateRoleRequest}
  */
 // @ts-ignore
@@ -5642,6 +5651,17 @@ export function deserializeIntoUpdateListRequest(updateListRequest: Partial<Upda
         "maxVersions": n => { updateListRequest.maxVersions = n.getNumberValue(); },
         "name": n => { updateListRequest.name = n.getStringValue(); },
         "versioning": n => { updateListRequest.versioning = n.getEnumValue<ListVersioning>(ListVersioningObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param UpdateMeRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUpdateMeRequest(updateMeRequest: Partial<UpdateMeRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "displayName": n => { updateMeRequest.displayName = n.getStringValue(); },
     }
 }
 /**
@@ -10727,6 +10747,18 @@ export function serializeUpdateListRequest(writer: SerializationWriter, updateLi
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UpdateMeRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUpdateMeRequest(writer: SerializationWriter, updateMeRequest: Partial<UpdateMeRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!updateMeRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("displayName", updateMeRequest.displayName);
+    writer.writeAdditionalData(updateMeRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param UpdateRoleRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -11495,6 +11527,15 @@ export interface UpdateListRequest extends AdditionalDataHolder, Parsable {
      * The versioning property
      */
     versioning?: ListVersioning | null;
+}
+/**
+ * What users change on their own profile; the email and user name are managed by administrators.
+ */
+export interface UpdateMeRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The displayName property
+     */
+    displayName?: string | null;
 }
 export interface UpdateRoleRequest extends AdditionalDataHolder, Parsable {
     /**

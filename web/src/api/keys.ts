@@ -9,6 +9,7 @@ export const keys = {
   myCalendar: (start: string, end: string) => ['me', 'calendar', start, end] as const,
   approvals: (status?: string) => ['me', 'approvals', status ?? 'all'] as const,
   notifications: ['me', 'notifications'] as const,
+  subscriptions: ['me', 'subscriptions'] as const,
   unreadCount: ['me', 'notifications', 'unreadCount'] as const,
   workspaces: ['workspaces'] as const,
   workspace: (workspaceId: string) => ['workspaces', workspaceId] as const,

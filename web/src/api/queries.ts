@@ -66,3 +66,9 @@ export const pendingApprovalsQuery = queryOptions({
   queryFn: async () =>
     (await api.v10.me.approvals.get({ queryParameters: { status: 'pending', top: 50 } }))?.value ?? [],
 });
+
+/** What the user follows (NTF-03). */
+export const subscriptionsQuery = queryOptions({
+  queryKey: keys.subscriptions,
+  queryFn: async () => (await api.v10.me.subscriptions.get()) ?? [],
+});

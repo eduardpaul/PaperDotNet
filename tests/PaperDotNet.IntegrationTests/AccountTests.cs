@@ -35,6 +35,35 @@ public sealed class AccountTests(PaperDotNetApiFactory factory)
         (await response.ReadJsonAsync()).TryGetProperty("code", out var code) ? code.GetString() : null;
 
     [Fact]
+    public async Task Users_change_their_own_display_name_only_in_their_tenant()
+    {
+        await factory.CreateTenantAsync("accounts-profile");
+        await factory.CreateTenantAsync("accounts-profile-other");
+        var admin = await ApiClient.CreateAsync(factory, "accounts-profile");
+        await CreateUserAsync(admin, "carol", "carol-password-1");
+        var carol = await ApiClient.CreateAsync(factory, "accounts-profile", "carol", "carol-password-1");
+
+        var updated = await PatchAsync(carol, "/v1.0/me", new { displayName = "  Carol C.  " });
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        Assert.Equal("Carol C.", (await updated.ReadJsonAsync()).GetProperty("displayName").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, (await PatchAsync(carol, "/v1.0/me", new { displayName = new string('x', 201) })).StatusCode);
+
+        // An empty name falls back to the user name; the email is not changed by the user.
+        var reset = await (await PatchAsync(carol, "/v1.0/me", new { displayName = "", email = "x@example.com" })).ReadJsonAsync();
+        Assert.Equal("carol", reset.GetProperty("displayName").GetString());
+        Assert.False(reset.TryGetProperty("email", out var email) && email.ValueKind == JsonValueKind.String);
+
+        // Only the caller changes: the administrator, and the same user name in another tenant, keep their names.
+        Assert.Equal("admin", (await (await admin.GetAsync("/v1.0/me", Ct)).ReadJsonAsync()).GetProperty("userName").GetString());
+        Assert.NotEqual("Carol C.", (await (await admin.GetAsync("/v1.0/me", Ct)).ReadJsonAsync()).GetProperty("displayName").GetString());
+        var otherAdmin = await ApiClient.CreateAsync(factory, "accounts-profile-other");
+        await CreateUserAsync(otherAdmin, "carol", "carol-password-1");
+        var otherCarol = await ApiClient.CreateAsync(factory, "accounts-profile-other", "carol", "carol-password-1");
+        await PatchAsync(carol, "/v1.0/me", new { displayName = "Carol C." });
+        Assert.Equal("carol", (await (await otherCarol.GetAsync("/v1.0/me", Ct)).ReadJsonAsync()).GetProperty("displayName").GetString());
+    }
+
+    [Fact]
     public async Task Users_are_updated_disabled_and_their_passwords_reset_or_changed()
     {
         await factory.CreateTenantAsync("accounts-users");

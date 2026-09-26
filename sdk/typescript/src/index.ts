@@ -12,3 +12,6 @@ export * from './runtime/fields.js';
 export * from './runtime/operations.js';
 export * from './runtime/paging.js';
 export * from './runtime/uploads.js';
+
+// Value types the models use (e.g. quiet hours are TimeOnly), so apps need no direct Kiota dependency.
+export { DateOnly, TimeOnly } from '@microsoft/kiota-abstractions';

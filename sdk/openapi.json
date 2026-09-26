@@ -768,6 +768,64 @@
             }
           }
         }
+      },
+      "patch": {
+        "tags": [
+          "Me"
+        ],
+        "operationId": "UpdateMe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1.0/me/apiTokens": {
@@ -20840,6 +20898,23 @@
             "format": "int32"
           }
         }
+      },
+      "UpdateMeRequest": {
+        "required": [
+          "displayName"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "What users change on their own profile; the email and user name are managed by administrators."
       },
       "UpdateRoleRequest": {
         "required": [

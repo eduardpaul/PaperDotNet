@@ -143,6 +143,30 @@ namespace PaperDotNet.Client.V10.Me
             };
             return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.MeResponse>(requestInfo, global::PaperDotNet.Client.Models.MeResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
+        /// <returns>A <see cref="global::PaperDotNet.Client.Models.MeResponse"/></returns>
+        /// <param name="body">What users change on their own profile; the email and user name are managed by administrators.</param>
+        /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
+        /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 400 status code</exception>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public async Task<global::PaperDotNet.Client.Models.MeResponse?> PatchAsync(global::PaperDotNet.Client.Models.UpdateMeRequest body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
+        {
+#nullable restore
+#else
+        public async Task<global::PaperDotNet.Client.Models.MeResponse> PatchAsync(global::PaperDotNet.Client.Models.UpdateMeRequest body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
+        {
+#endif
+            if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
+            var requestInfo = ToPatchRequestInformation(body, requestConfiguration);
+            var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
+            {
+                { "400", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
+                { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
+            };
+            return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.MeResponse>(requestInfo, global::PaperDotNet.Client.Models.MeResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
+        }
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -157,6 +181,25 @@ namespace PaperDotNet.Client.V10.Me
             var requestInfo = new RequestInformation(Method.GET, UrlTemplate, PathParameters);
             requestInfo.Configure(requestConfiguration);
             requestInfo.Headers.TryAdd("Accept", "application/json");
+            return requestInfo;
+        }
+        /// <returns>A <see cref="RequestInformation"/></returns>
+        /// <param name="body">What users change on their own profile; the email and user name are managed by administrators.</param>
+        /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public RequestInformation ToPatchRequestInformation(global::PaperDotNet.Client.Models.UpdateMeRequest body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default)
+        {
+#nullable restore
+#else
+        public RequestInformation ToPatchRequestInformation(global::PaperDotNet.Client.Models.UpdateMeRequest body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default)
+        {
+#endif
+            if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
+            var requestInfo = new RequestInformation(Method.PATCH, UrlTemplate, PathParameters);
+            requestInfo.Configure(requestConfiguration);
+            requestInfo.Headers.TryAdd("Accept", "application/json");
+            requestInfo.SetContentFromParsable(RequestAdapter, "application/json", body);
             return requestInfo;
         }
         /// <summary>

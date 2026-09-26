@@ -20,6 +20,9 @@ public sealed record MeResponse(
     string? TenantIdentifier,
     IReadOnlyList<string> Scopes);
 
+/// <summary>What users change on their own profile; the email and user name are managed by administrators.</summary>
+public sealed record UpdateMeRequest([property: StringLength(200)] string? DisplayName);
+
 public sealed record ApiTokenResponse(
     Guid Id,
     string Name,
@@ -43,6 +46,7 @@ internal static class MeEndpoints
     {
         var me = endpoints.MapV1Group("me", "Me");
         me.MapGet("", GetMeAsync).WithName("GetMe");
+        me.MapPatch("", UpdateMeAsync).WithName("UpdateMe");
         me.MapGet("/apiTokens", ListTokensAsync).WithName("ListMyApiTokens");
         me.MapPost("/apiTokens", CreateTokenAsync).WithName("CreateMyApiToken");
         me.MapDelete("/apiTokens/{id:guid}", RevokeTokenAsync).WithName("RevokeMyApiToken");
@@ -55,6 +59,32 @@ internal static class MeEndpoints
         if (user is null)
         {
             return ApiErrors.NotFound();
+        }
+
+        var granted = await scopes.GetScopesAsync(user.Id, ct) ?? new HashSet<string>();
+        return TypedResults.Ok(new MeResponse(
+            user.Id, user.UserName, user.DisplayName, user.Email, user.TenantId, tenant.TenantIdentifier, granted.Order().ToList()));
+    }
+
+    /// <summary>Changes the caller's display name; an empty name falls back to the user name.</summary>
+    private static async Task<Results<Ok<MeResponse>, ValidationProblem, ProblemHttpResult>> UpdateMeAsync(
+        UpdateMeRequest request, ICurrentUser current, ITenantContext tenant, IdentityDbContext db, IEffectiveScopeProvider scopes, CancellationToken ct)
+    {
+        if (RequestValidation.Validate(request) is { } invalid)
+        {
+            return invalid;
+        }
+
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == current.UserId, ct);
+        if (user is null)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        if (request.DisplayName is { } name)
+        {
+            user.DisplayName = name.Trim().Length == 0 ? user.UserName : name.Trim();
+            await db.SaveChangesAsync(ct);
         }
 
         var granted = await scopes.GetScopesAsync(user.Id, ct) ?? new HashSet<string>();

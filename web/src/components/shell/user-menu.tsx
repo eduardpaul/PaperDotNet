@@ -1,6 +1,7 @@
 import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut, Monitor, Moon, Sun } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import { api, signOut } from '@/api/client';
 import { keys } from '@/api/keys';
 import { meQuery, preferencesQuery } from '@/api/queries';
@@ -44,6 +45,12 @@ export function UserMenu() {
           <p className="truncate text-[13px] font-medium">{me?.displayName ?? me?.userName}</p>
           <p className="truncate text-xs text-muted">{me?.email ?? me?.userName}</p>
         </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/settings">
+            <Settings /> Settings
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme.mutate(value as Theme)}>

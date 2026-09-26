@@ -3,13 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, BellOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/api/client';
+import { subscriptionsQuery } from '@/api/queries';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/popover';
-
-const subscriptionsQuery = {
-  queryKey: ['me', 'subscriptions'],
-  queryFn: async () => (await api.v10.me.subscriptions.get()) ?? [],
-};
 
 /** Follow an item to be notified when it changes (NTF-03). */
 export function FollowButton({

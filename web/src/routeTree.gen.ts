@@ -18,8 +18,15 @@ import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppSearchRouteImport } from './routes/_app/search'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppTasksRouteImport } from './routes/_app/tasks'
 import { Route as AppFFolderIdRouteImport } from './routes/_app/f/$folderId'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
+import { Route as AppSettingsCalendarFeedsRouteImport } from './routes/_app/settings/calendar-feeds'
+import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/settings/notifications'
+import { Route as AppSettingsPreferencesRouteImport } from './routes/_app/settings/preferences'
+import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
+import { Route as AppSettingsTokensRouteImport } from './routes/_app/settings/tokens'
 import { Route as AppWIndexRouteImport } from './routes/_app/w/index'
 import { Route as AppWWorkspaceIdIndexRouteImport } from './routes/_app/w/$workspaceId/index'
 import { Route as AppWWorkspaceIdLListIdIndexRouteImport } from './routes/_app/w/$workspaceId/l/$listId/index'
@@ -69,6 +76,11 @@ const AppSearchRoute = AppSearchRouteImport.update({
   path: '/search',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTasksRoute = AppTasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
@@ -78,6 +90,38 @@ const AppFFolderIdRoute = AppFFolderIdRouteImport.update({
   id: '/f/$folderId',
   path: '/f/$folderId',
   getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsCalendarFeedsRoute =
+  AppSettingsCalendarFeedsRouteImport.update({
+    id: '/calendar-feeds',
+    path: '/calendar-feeds',
+    getParentRoute: () => AppSettingsRoute,
+  } as any)
+const AppSettingsNotificationsRoute =
+  AppSettingsNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AppSettingsRoute,
+  } as any)
+const AppSettingsPreferencesRoute = AppSettingsPreferencesRouteImport.update({
+  id: '/preferences',
+  path: '/preferences',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsSecurityRoute = AppSettingsSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsTokensRoute = AppSettingsTokensRouteImport.update({
+  id: '/tokens',
+  path: '/tokens',
+  getParentRoute: () => AppSettingsRoute,
 } as any)
 const AppWIndexRoute = AppWIndexRouteImport.update({
   id: '/w/',
@@ -111,8 +155,15 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof AppInboxRoute
   '/notifications': typeof AppNotificationsRoute
   '/search': typeof AppSearchRoute
+  '/settings': typeof AppSettingsRouteWithChildren
   '/tasks': typeof AppTasksRoute
   '/f/$folderId': typeof AppFFolderIdRoute
+  '/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
+  '/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/settings/preferences': typeof AppSettingsPreferencesRoute
+  '/settings/security': typeof AppSettingsSecurityRoute
+  '/settings/tokens': typeof AppSettingsTokensRoute
+  '/settings/': typeof AppSettingsIndexRoute
   '/w/': typeof AppWIndexRoute
   '/w/$workspaceId/': typeof AppWWorkspaceIdIndexRoute
   '/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
@@ -129,6 +180,12 @@ export interface FileRoutesByTo {
   '/tasks': typeof AppTasksRoute
   '/': typeof AppIndexRoute
   '/f/$folderId': typeof AppFFolderIdRoute
+  '/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
+  '/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/settings/preferences': typeof AppSettingsPreferencesRoute
+  '/settings/security': typeof AppSettingsSecurityRoute
+  '/settings/tokens': typeof AppSettingsTokensRoute
+  '/settings': typeof AppSettingsIndexRoute
   '/w': typeof AppWIndexRoute
   '/w/$workspaceId': typeof AppWWorkspaceIdIndexRoute
   '/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
@@ -144,9 +201,16 @@ export interface FileRoutesById {
   '/_app/inbox': typeof AppInboxRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/search': typeof AppSearchRoute
+  '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/tasks': typeof AppTasksRoute
   '/_app/': typeof AppIndexRoute
   '/_app/f/$folderId': typeof AppFFolderIdRoute
+  '/_app/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
+  '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
+  '/_app/settings/preferences': typeof AppSettingsPreferencesRoute
+  '/_app/settings/security': typeof AppSettingsSecurityRoute
+  '/_app/settings/tokens': typeof AppSettingsTokensRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/w/': typeof AppWIndexRoute
   '/_app/w/$workspaceId/': typeof AppWWorkspaceIdIndexRoute
   '/_app/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
@@ -163,8 +227,15 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/notifications'
     | '/search'
+    | '/settings'
     | '/tasks'
     | '/f/$folderId'
+    | '/settings/calendar-feeds'
+    | '/settings/notifications'
+    | '/settings/preferences'
+    | '/settings/security'
+    | '/settings/tokens'
+    | '/settings/'
     | '/w/'
     | '/w/$workspaceId/'
     | '/w/$workspaceId/l/$listId/recycle-bin'
@@ -181,6 +252,12 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/'
     | '/f/$folderId'
+    | '/settings/calendar-feeds'
+    | '/settings/notifications'
+    | '/settings/preferences'
+    | '/settings/security'
+    | '/settings/tokens'
+    | '/settings'
     | '/w'
     | '/w/$workspaceId'
     | '/w/$workspaceId/l/$listId/recycle-bin'
@@ -195,9 +272,16 @@ export interface FileRouteTypes {
     | '/_app/inbox'
     | '/_app/notifications'
     | '/_app/search'
+    | '/_app/settings'
     | '/_app/tasks'
     | '/_app/'
     | '/_app/f/$folderId'
+    | '/_app/settings/calendar-feeds'
+    | '/_app/settings/notifications'
+    | '/_app/settings/preferences'
+    | '/_app/settings/security'
+    | '/_app/settings/tokens'
+    | '/_app/settings/'
     | '/_app/w/'
     | '/_app/w/$workspaceId/'
     | '/_app/w/$workspaceId/l/$listId/recycle-bin'
@@ -275,6 +359,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSearchRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/tasks': {
       id: '/_app/tasks'
       path: '/tasks'
@@ -288,6 +379,48 @@ declare module '@tanstack/react-router' {
       fullPath: '/f/$folderId'
       preLoaderRoute: typeof AppFFolderIdRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/calendar-feeds': {
+      id: '/_app/settings/calendar-feeds'
+      path: '/calendar-feeds'
+      fullPath: '/settings/calendar-feeds'
+      preLoaderRoute: typeof AppSettingsCalendarFeedsRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/notifications': {
+      id: '/_app/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof AppSettingsNotificationsRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/preferences': {
+      id: '/_app/settings/preferences'
+      path: '/preferences'
+      fullPath: '/settings/preferences'
+      preLoaderRoute: typeof AppSettingsPreferencesRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/security': {
+      id: '/_app/settings/security'
+      path: '/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof AppSettingsSecurityRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/tokens': {
+      id: '/_app/settings/tokens'
+      path: '/tokens'
+      fullPath: '/settings/tokens'
+      preLoaderRoute: typeof AppSettingsTokensRouteImport
+      parentRoute: typeof AppSettingsRoute
     }
     '/_app/w/': {
       id: '/_app/w/'
@@ -320,12 +453,35 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppSettingsRouteChildren {
+  AppSettingsCalendarFeedsRoute: typeof AppSettingsCalendarFeedsRoute
+  AppSettingsNotificationsRoute: typeof AppSettingsNotificationsRoute
+  AppSettingsPreferencesRoute: typeof AppSettingsPreferencesRoute
+  AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
+  AppSettingsTokensRoute: typeof AppSettingsTokensRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+}
+
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsCalendarFeedsRoute: AppSettingsCalendarFeedsRoute,
+  AppSettingsNotificationsRoute: AppSettingsNotificationsRoute,
+  AppSettingsPreferencesRoute: AppSettingsPreferencesRoute,
+  AppSettingsSecurityRoute: AppSettingsSecurityRoute,
+  AppSettingsTokensRoute: AppSettingsTokensRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
+
 interface AppRouteChildren {
   AppApprovalsRoute: typeof AppApprovalsRoute
   AppCalendarRoute: typeof AppCalendarRoute
   AppInboxRoute: typeof AppInboxRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppSearchRoute: typeof AppSearchRoute
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppTasksRoute: typeof AppTasksRoute
   AppIndexRoute: typeof AppIndexRoute
   AppFFolderIdRoute: typeof AppFFolderIdRoute
@@ -341,6 +497,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppInboxRoute: AppInboxRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppSearchRoute: AppSearchRoute,
+  AppSettingsRoute: AppSettingsRouteWithChildren,
   AppTasksRoute: AppTasksRoute,
   AppIndexRoute: AppIndexRoute,
   AppFFolderIdRoute: AppFFolderIdRoute,

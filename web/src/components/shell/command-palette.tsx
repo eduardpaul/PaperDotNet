@@ -17,6 +17,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/feedback';
 import { navigation } from '@/extensibility/navigation';
+import { settingsPages } from '@/extensibility/settings';
 import { ListIcon } from '@/features/lists/list-icon';
 import { hitLink } from '@/features/search/hit-link';
 import { searchQuery } from '@/features/search/queries';
@@ -188,6 +189,18 @@ function Palette({ close }: { close: () => void }) {
             ))}
           </CommandGroup>
         )}
+        <CommandGroup heading="Settings">
+          {settingsPages.map((page) => (
+            <CommandItem
+              key={page.to}
+              value={`settings ${page.label} ${page.keywords ?? ''}`}
+              onSelect={run(() => navigate({ to: page.to }))}
+            >
+              <page.icon />
+              {page.label}
+            </CommandItem>
+          ))}
+        </CommandGroup>
         <CommandGroup heading="Actions">
           <CommandItem value="theme light" onSelect={run(() => setTheme.mutate('light'))}>
             <Sun /> Switch to light theme
