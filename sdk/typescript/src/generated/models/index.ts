@@ -4286,6 +4286,7 @@ export function deserializeIntoListSummary(listSummary: Partial<ListSummary> | u
         "id": n => { listSummary.id = n.getGuidValue(); },
         "kind": n => { listSummary.kind = n.getEnumValue<ListKind>(ListKindObject); },
         "name": n => { listSummary.name = n.getStringValue(); },
+        "templateKey": n => { listSummary.templateKey = n.getStringValue(); },
         "updatedAt": n => { listSummary.updatedAt = n.getDateValue(); },
         "workspaceId": n => { listSummary.workspaceId = n.getGuidValue(); },
     }
@@ -6602,6 +6603,10 @@ export interface ListSummary extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+    /**
+     * The templateKey property
+     */
+    templateKey?: string | null;
     /**
      * The updatedAt property
      */
@@ -9137,6 +9142,7 @@ export function serializeListSummary(writer: SerializationWriter, listSummary: P
     writer.writeGuidValue("id", listSummary.id);
     writer.writeEnumValue<ListKind>("kind", listSummary.kind);
     writer.writeStringValue("name", listSummary.name);
+    writer.writeStringValue("templateKey", listSummary.templateKey);
     writer.writeDateValue("updatedAt", listSummary.updatedAt);
     writer.writeGuidValue("workspaceId", listSummary.workspaceId);
     writer.writeAdditionalData(listSummary.additionalData);

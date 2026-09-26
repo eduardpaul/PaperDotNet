@@ -15,7 +15,7 @@ using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
-public sealed record ListSummary(Guid Id, Guid WorkspaceId, string Name, string? Description, ListKind Kind, bool AllowFolders, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+public sealed record ListSummary(Guid Id, Guid WorkspaceId, string Name, string? Description, ListKind Kind, bool AllowFolders, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, string? TemplateKey);
 
 /// <summary>A list with its content types and effective columns.</summary>
 public sealed record ListResponse(
@@ -83,7 +83,7 @@ internal static class ListEndpoints
         }
 
         var lists = (await loader.VisibleListsAsync(workspaceId, level, ct))
-            .Select(l => new ListSummary(l.Id, l.WorkspaceId, l.Name, l.Description, l.Kind, l.AllowFolders, l.CreatedAt, l.UpdatedAt))
+            .Select(l => new ListSummary(l.Id, l.WorkspaceId, l.Name, l.Description, l.Kind, l.AllowFolders, l.CreatedAt, l.UpdatedAt, l.TemplateKey))
             .ToList();
         return TypedResults.Ok(lists);
     }

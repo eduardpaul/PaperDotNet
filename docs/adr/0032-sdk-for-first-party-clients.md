@@ -67,7 +67,7 @@ lives in `sdk/typescript/src/runtime`:
 | `problemOf`, `isStatus`, `validationErrors` | Reading the generated `ApiProblem` |
 | `ifMatch(entity)` | `If-Match` from `@odata.etag` |
 | `pages`, `all`, `toArray` | Following `@odata.nextLink` |
-| `fields`, `fieldsOf`, `jsonOf` | Item values and any-JSON values as plain objects |
+| `fields`, `fieldsOf`, `jsonOf`, `jsonNode` | Item values and any-JSON values as plain objects, both ways |
 | `uploadBody`, `downloadFile` | Multipart bodies for the generated upload calls; downloads with file name and type |
 | `subscribeLiveEvents` (`eventsource`, MIT) | `/v1.0/me/events` with the Authorization header and reconnects |
 | `waitForOperation` | Polling long-running operations |

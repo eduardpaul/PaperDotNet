@@ -112,6 +112,9 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
         Assert.NotEqual(JsonValueKind.Null, run.GetProperty("eventId").ValueKind);
         await Task.Delay(500, Ct);
         Assert.Empty(Values(await GetAsync(s.Admin, $"{s.Automations}/runs?itemId={small}")));
+        Assert.Single(Values(await GetAsync(s.Admin, $"{s.Automations}/runs?automationId={automation}&status=completed")));
+        Assert.Empty(Values(await GetAsync(s.Admin, $"{s.Automations}/runs?automationId={automation}&status=failed")));
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.Admin.GetAsync($"{s.Automations}/runs?status=done", Ct)).StatusCode);
 
         // Path template: folders from the created year and the counterparty ('/' is not allowed in names), then renamed.
         var filed = await GetAsync(s.Admin, s.Item(big));
@@ -235,6 +238,12 @@ public sealed class AutomationTests(PaperDotNetApiFactory factory)
         Assert.Equal(HttpStatusCode.NotFound, (await bob.PostAsJsonAsync($"/v1.0/me/approvals/{approvalId}/decision", new { outcome = "approved" }, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await alice.PostAsJsonAsync($"/v1.0/me/approvals/{approvalId}/decision", new { outcome = "approved", comment = "fine" }, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await alice.PostAsJsonAsync($"/v1.0/me/approvals/{approvalId}/decision", new { outcome = "rejected" }, Ct)).StatusCode);
+        // Enum filters take the documented camelCase names (as SDKs send them) in any case, and reject anything else.
+        Assert.Equal(approvalId, Values(await GetAsync(alice, "/v1.0/me/approvals?status=approved")).Single().GetProperty("id").GetGuid());
+        Assert.Single(Values(await GetAsync(alice, "/v1.0/me/approvals?status=Approved")));
+        Assert.Empty(Values(await GetAsync(alice, "/v1.0/me/approvals?status=pending")));
+        Assert.Equal(HttpStatusCode.BadRequest, (await alice.GetAsync("/v1.0/me/approvals?status=1", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await alice.GetAsync("/v1.0/me/approvals?status=maybe", Ct)).StatusCode);
         var completed = await WaitAsync(s.Admin, $"{s.Automations}/runs/{firstRun}", r => Status(r) is "completed" or "failed");
         Assert.Equal("completed", Status(completed));
         Assert.Equal("approved", completed.GetProperty("outcomes").GetProperty("Manager").GetString());

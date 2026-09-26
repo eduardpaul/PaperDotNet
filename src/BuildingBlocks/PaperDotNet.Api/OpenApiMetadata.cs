@@ -35,6 +35,9 @@ public sealed record QueryOptionsMetadata(QueryOptions Options);
 /// <summary>Endpoint metadata: the documented request body when the handler reads raw JSON (e.g. merge patches).</summary>
 public sealed record RequestBodySchemaMetadata(Type Type);
 
+/// <summary>Endpoint metadata: a string query parameter that holds a value of <see cref="EnumType"/> (see <see cref="EnumQuery"/>).</summary>
+public sealed record QueryEnumMetadata(string Name, Type EnumType);
+
 /// <summary>Endpoint metadata: a successful response is a file in one of these media types.</summary>
 public sealed record BinaryResponseMetadata(IReadOnlyList<string> ContentTypes);
 
@@ -66,6 +69,11 @@ public static class OpenApiEndpointExtensions
     public static TBuilder WithRequestBodySchema<T, TBuilder>(this TBuilder builder)
         where TBuilder : IEndpointConventionBuilder =>
         builder.WithMetadata(new RequestBodySchemaMetadata(typeof(T)));
+
+    /// <summary>Documents the string query parameter <paramref name="name"/> as a value of <typeparamref name="TEnum"/>.</summary>
+    public static RouteHandlerBuilder WithQueryEnum<TEnum>(this RouteHandlerBuilder builder, string name)
+        where TEnum : struct, Enum =>
+        builder.WithMetadata(new QueryEnumMetadata(name, typeof(TEnum)));
 
     /// <summary>Documents a file response in these media types (default <c>application/octet-stream</c>).</summary>
     public static TBuilder ProducesBinary<TBuilder>(this TBuilder builder, params string[] contentTypes)

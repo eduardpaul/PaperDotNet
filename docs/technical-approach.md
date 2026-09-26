@@ -14,7 +14,7 @@ technical decisions.
 2. Security and tenant isolation by default.
 3. Built-in .NET features first, then mature permissive libraries. Never hand-roll security, protocol or file-format code.
 4. Provider-agnostic data access through EF Core. PostgreSQL-specific code is isolated.
-5. Backend API first. The API must be complete enough for any future UI.
+5. Backend API first. The API must be complete enough for any UI; the web UI uses only the public SDK (ADR-0033).
 
 ---
 

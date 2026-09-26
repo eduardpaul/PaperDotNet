@@ -21,6 +21,7 @@ export interface RunsRequestBuilder extends BaseRequestBuilder<RunsRequestBuilde
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PageOfRunResponse>}
+     * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 4XX or 5XX status code
      */
      get(requestConfiguration?: RequestConfiguration<RunsRequestBuilderGetQueryParameters> | undefined) : Promise<PageOfRunResponse | undefined>;
@@ -72,6 +73,7 @@ export const RunsRequestBuilderRequestsMetadata: RequestsMetadata = {
         uriTemplate: RunsRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
+            400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             XXX: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "send",

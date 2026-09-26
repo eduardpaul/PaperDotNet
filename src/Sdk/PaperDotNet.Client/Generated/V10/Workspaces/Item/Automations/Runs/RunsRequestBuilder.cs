@@ -49,6 +49,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Automations.Runs
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.PageOfRunResponse"/></returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
+        /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 400 status code</exception>
         /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -62,6 +63,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Automations.Runs
             var requestInfo = ToGetRequestInformation(requestConfiguration);
             var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
             {
+                { "400", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
                 { "XXX", global::PaperDotNet.Client.Models.ApiProblem.CreateFromDiscriminatorValue },
             };
             return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.PageOfRunResponse>(requestInfo, global::PaperDotNet.Client.Models.PageOfRunResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);

@@ -79,6 +79,7 @@ import { fields, fieldsOf, ifMatch, all, isStatus, validationErrors } from '@pap
 const items = api.v10.workspaces.byWorkspaceId(ws).lists.byListId(list).items;
 const item = await items.post({ fields: fields({ title: 'Invoice', amount: 120 }) });
 fieldsOf(item).title;                                             // values as a plain object
+// Any-JSON values: jsonOf(node) reads one, jsonNode(value) builds one for a request body (e.g. a WebAuthn credential).
 
 for await (const entry of all(items, { queryParameters: { filter: "fields/amount gt 100", orderby: 'fields/due desc', top: 50 } })) { … }
 
@@ -132,7 +133,8 @@ const done = await waitForOperation(client, operationId, { onProgress: (o) => pr
 ### End-to-end tests
 
 ```bash
-cd sdk/typescript && npm install && npm run test:e2e
+npm install                                   # at the repository root (npm workspaces)
+npm run test:e2e -w @paperdotnet/client
 ```
 
 This builds and starts the server on a free port with a temporary SQLite
@@ -164,5 +166,5 @@ npm run test:e2e
 3. Check them:
    - C#: `dotnet build` (the integration tests use the C# client against the
      API);
-   - TypeScript: `cd sdk/typescript && npm install && npm run build && npm run test:e2e`;
+   - TypeScript: `npm install && npm run test:e2e -w @paperdotnet/client` (at the repository root), then `npm run check -w web`;
    - Python: `pip install ./sdk/python`.

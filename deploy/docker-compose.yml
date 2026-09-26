@@ -19,6 +19,8 @@ services:
       PAPERDOTNET__Auth__RequireHttps: ${REQUIRE_HTTPS:-true}
       PAPERDOTNET__Bootstrap__AdminPassword: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       PAPERDOTNET__Tenancy__DefaultTenant: ${DEFAULT_TENANT:-default}
+      # The web UI is served at PUBLIC_URL; its sign-in returns to /callback.
+      PAPERDOTNET__Auth__FirstPartyRedirectUris__0: ${PUBLIC_URL:-http://localhost:8080}/callback
       # Set to true when running behind a reverse proxy (Traefik, Caddy, nginx).
       PAPERDOTNET__ForwardedHeaders__Enabled: ${BEHIND_PROXY:-false}
     volumes:

@@ -140,6 +140,8 @@ public static class PaperDotNetHost
                 .AllowCredentials()));
         }
 
+        WebUi.AddServices(services, builder.Configuration, builder.Environment);
+
         services.AddOpenApi("v1", o =>
         {
             o.AddDocumentTransformer<BearerSecurityTransformer>();
@@ -188,6 +190,7 @@ public static class PaperDotNetHost
             app.UseCors();
         }
 
+        WebUi.UseStaticFiles(app);
         app.UsePaperDotNetTenantResolution();
         app.UseAuthentication();
         app.UsePaperDotNetTenantGuard();
@@ -204,6 +207,7 @@ public static class PaperDotNetHost
 
         app.MapPaperDotNetExtensions();
         Batch.Map(app);
+        WebUi.MapFallback(app);
 
         return app;
     }

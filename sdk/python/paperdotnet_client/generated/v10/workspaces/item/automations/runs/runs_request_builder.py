@@ -58,6 +58,7 @@ class RunsRequestBuilder(BaseRequestBuilder):
         from ......models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
+            "400": ApiProblem,
             "XXX": ApiProblem,
         }
         if not self.request_adapter:

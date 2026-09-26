@@ -38,6 +38,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string Name { get; set; }
 #endif
+        /// <summary>The templateKey property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? TemplateKey { get; set; }
+#nullable restore
+#else
+        public string TemplateKey { get; set; }
+#endif
         /// <summary>The updatedAt property</summary>
         public DateTimeOffset? UpdatedAt { get; set; }
         /// <summary>The workspaceId property</summary>
@@ -73,6 +81,7 @@ namespace PaperDotNet.Client.Models
                 { "id", n => { Id = n.GetGuidValue(); } },
                 { "kind", n => { Kind = n.GetEnumValue<global::PaperDotNet.Client.Models.ListKind>(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
+                { "templateKey", n => { TemplateKey = n.GetStringValue(); } },
                 { "updatedAt", n => { UpdatedAt = n.GetDateTimeOffsetValue(); } },
                 { "workspaceId", n => { WorkspaceId = n.GetGuidValue(); } },
             };
@@ -90,6 +99,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteGuidValue("id", Id);
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.ListKind>("kind", Kind);
             writer.WriteStringValue("name", Name);
+            writer.WriteStringValue("templateKey", TemplateKey);
             writer.WriteDateTimeOffsetValue("updatedAt", UpdatedAt);
             writer.WriteGuidValue("workspaceId", WorkspaceId);
             writer.WriteAdditionalData(AdditionalData);

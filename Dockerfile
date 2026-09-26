@@ -1,5 +1,16 @@
 # syntax=docker/dockerfile:1
-# PaperDotNet API: one image, runs the API or admin commands (`paperdotnet migrate`, …).
+# PaperDotNet: one image with the API and the web UI; runs the server or admin commands (`paperdotnet migrate`, …).
+
+# The web UI (ADR-0033): the TypeScript SDK and the app, built with Node; only the static files are kept.
+FROM node:22-bookworm-slim AS web
+WORKDIR /src
+COPY package.json package-lock.json ./
+COPY sdk/typescript/package.json sdk/typescript/
+COPY web/package.json web/
+RUN npm ci --no-audit --no-fund
+COPY sdk/typescript/ sdk/typescript/
+COPY web/ web/
+RUN npm run build -w @paperdotnet/web
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
@@ -17,6 +28,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app .
+# The host serves the UI from wwwroot (same origin as the API); list its callback in Auth:FirstPartyRedirectUris.
+COPY --from=web /src/web/dist ./wwwroot
 # /data holds the SQLite database (default) and the stored files (/data/blobs).
 RUN mkdir -p /data && chown $APP_UID /data
 ENV ASPNETCORE_HTTP_PORTS=8080 \

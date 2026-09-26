@@ -9,6 +9,7 @@ inspired by Papermerge and SharePoint lists/libraries.
 - Papermerge feature catalog: `docs/papermerge-features.md`
 - .NET building blocks (libraries/platform features to use): `docs/dotnet-building-blocks.md`
 - Dependency license register and policy: `docs/dependency-licenses.md`
+- Web frontend (screens, UX principles, slices): `docs/frontend.md`
 - Raw ideas (to be mapped to features): `ideas/` (see `ideas/README.md`)
 
 ## Guiding principle
@@ -26,8 +27,10 @@ inspired by Papermerge and SharePoint lists/libraries.
 
 ## Current scope
 
-**Backend API only.** Do not build web UI, frontend SDK or mobile app work
-until the user says so. Design the API so a future UI has everything it needs.
+**Web UI (Phase 8)** on the TypeScript SDK with React, TanStack and Tailwind
+(ADR-0033, plan and screen map in `docs/frontend.md`). The UI is an SDK
+consumer: gaps are fixed in the API and regenerated, never worked around in
+`web/`. No mobile app until the user says so.
 
 ## Decided
 
@@ -52,6 +55,11 @@ dotnet format PaperDotNet.slnx --verify-no-changes
 dotnet test --solution PaperDotNet.slnx                     # SQLite (default)
 PAPERDOTNET_TEST_PROVIDER=postgresql dotnet test --solution PaperDotNet.slnx   # Testcontainers PostgreSQL
 PAPERDOTNET_TEST_PROVIDER=postgresql PAPERDOTNET_TEST_POSTGRES="Host=localhost;Username=postgres;Password=postgres" dotnet test --solution PaperDotNet.slnx
+# Web UI and TypeScript SDK (npm workspaces at the repository root):
+npm install
+npm run check -w web                                        # typecheck, lint, format check, unit tests
+npm run test:e2e -w web                                     # Playwright against a real host
+npm run test:e2e -w @paperdotnet/client                     # SDK end-to-end tests
 # Every model change needs a migration for BOTH providers:
 dotnet tool restore
 dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Sqlite -c <Module>DbContext -o Generated/<Module>
@@ -113,6 +121,10 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
 - Configuration must be portable (PRV, ADR-0017): a module with its own configuration
   implements `ITemplateHandler` (Provisioning.Contracts) for its template section,
   referencing other objects by name and honoring `TemplateContext.DryRun`.
+- Web UI (`web/`, ADR-0033): API calls only through `@paperdotnet/client` with query keys from
+  `web/src/api/keys.ts`; routes are TanStack Router files with typed search params (state in the URL);
+  primitives in `components/ui` (Radix + Tailwind); format dates and numbers with `lib/format.ts`
+  (user preferences); send `If-Match` on edits and handle 412; every screen gets a Playwright test.
 - Record decisions as ADRs in `docs/adr/`.
 
 ## Ideas workflow

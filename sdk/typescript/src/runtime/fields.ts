@@ -1,5 +1,13 @@
 // Item values are a JSON object per content type (JsonObject: its properties are in `additionalData`).
-import type { UntypedNode } from '@microsoft/kiota-abstractions';
+import {
+  createUntypedArray,
+  createUntypedBoolean,
+  createUntypedNull,
+  createUntypedNumber,
+  createUntypedObject,
+  createUntypedString,
+  type UntypedNode,
+} from '@microsoft/kiota-abstractions';
 import type { JsonObject } from '../generated/models/index.js';
 
 /** The item's values as a plain object: `fieldsOf(item).title`. */
@@ -28,4 +36,34 @@ export function jsonOf(node: UntypedNode | null | undefined): unknown {
   }
 
   return value;
+}
+
+/** Plain data as an any-JSON body value (e.g. a WebAuthn credential): the reverse of `jsonOf`. */
+export function jsonNode(value: unknown): UntypedNode {
+  if (value === null || value === undefined) {
+    return createUntypedNull();
+  }
+
+  if (Array.isArray(value)) {
+    return createUntypedArray(value.map(jsonNode));
+  }
+
+  switch (typeof value) {
+    case 'string':
+      return createUntypedString(value);
+    case 'number':
+      return createUntypedNumber(value);
+    case 'boolean':
+      return createUntypedBoolean(value);
+    case 'object':
+      return createUntypedObject(
+        Object.fromEntries(
+          Object.entries(value as Record<string, unknown>)
+            .filter(([, entry]) => entry !== undefined)
+            .map(([key, entry]) => [key, jsonNode(entry)]),
+        ),
+      );
+    default:
+      throw new TypeError(`A ${typeof value} cannot be sent as JSON.`);
+  }
 }

@@ -1,0 +1,12 @@
+{
+  "name": "paperdotnet",
+  "private": true,
+  "description": "npm workspaces: the TypeScript SDK and the web UI that is built on it (ADR-0033).",
+  "workspaces": [
+    "sdk/typescript",
+    "web"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
+}

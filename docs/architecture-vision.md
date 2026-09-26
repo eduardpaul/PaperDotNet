@@ -5,13 +5,11 @@
 - Papermerge, a document management system (see [papermerge-features.md](papermerge-features.md))
 - SharePoint lists and libraries
 
-> **Current scope (decided 2026-09-24): backend API only.** Work focuses on the
-> ASP.NET Core API, workers, data model, extension runtime (server side), SDK
-> generation and MCP. The web UI, the frontend SDK, UI extension points and the
-> mobile app are **deferred**. The UI-related parts of this document stay as
-> the long-term direction, but no UI work is planned yet. The API must still
-> provide everything a future UI needs (e.g. real-time events, thumbnails,
-> view definitions).
+> **Current scope (updated 2026-09-26):** the backend API (P0–P7) is in place.
+> The web UI is Phase 8, a React/TypeScript app on the generated TypeScript SDK
+> ([ADR-0033](adr/0033-web-frontend.md), [frontend.md](frontend.md)). UI
+> extension points (section 3) come after the built-in screens. The mobile app
+> stays deferred.
 
 > **Guiding principle (decided 2026-09-24): self-hosting and practicality come first.**
 > Simplicity here means **practicality**: whatever is easiest to build,
@@ -175,11 +173,11 @@ The roadmap (phases P0–P7 with the features in each phase) is maintained in
 
 | # | Question | Decision / recommendation |
 |---|---|---|
-| 1 | Frontend: React/TypeScript or Blazor? | **Deferred** (backend-only for now). Leaning **React/TS**: a larger extension-developer audience and a mature dynamic-module ecosystem. Parts of Papermerge's UI ideas can be reused |
+| 1 | Frontend: React/TypeScript or Blazor? | **Decided (2026-09-26, ADR-0033): React/TypeScript** on the generated TypeScript SDK, with TanStack Router/Query/Table and Tailwind; served by the host |
 | 2 | Deployment: self-hosted single-tenant, SaaS multi-tenant, or both? | **Decided (2026-09-24): multitenancy from the start.** Shared DB with `TenantId` on every row. Self-hosted = one default tenant |
 | 3 | Extension trust: in-process only, or remote from day one? | **Decided (2026-09-24): in-process extensions first** (phase 2). Contracts are designed so remote extensions can be added in phase 6 |
 | 4 | Database: PostgreSQL only, or also SQL Server/SQLite? | **Decided (2026-09-24, ADR-0009): SQLite by default, PostgreSQL optional**, everything through EF Core and working on both. Provider-specific features stay behind abstractions (see section 4) |
 | 5 | License / business model | Decide early. It affects extension licensing (e.g. MIT core with a commercial marketplace) |
-| 6 | Mobile / offline support | **Deferred** with the UI. Out of scope for v1. Keep the API sync-friendly (ETags, `modifiedSince`) |
+| 6 | Mobile / offline support | **Deferred** (the web UI comes first). Out of scope for v1. Keep the API sync-friendly (ETags, `modifiedSince`) |
 | 7 | Dependency licenses | **Decided (2026-09-24):** MIT / Apache-2.0, plus BSD / PostgreSQL License with notice when there is no alternative. See [dependency-licenses.md](dependency-licenses.md) |
 | 8 | Priorities | **Decided (2026-09-24): self-hosting and practicality first.** Minimal install = one PaperDotNet container (SQLite), everything else optional. Use mature in-process libraries rather than reinventing them |

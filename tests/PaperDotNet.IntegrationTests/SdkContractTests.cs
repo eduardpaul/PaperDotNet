@@ -1,6 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PaperDotNet.IntegrationTests;
 
@@ -29,6 +34,23 @@ public sealed class SdkContractTests(PaperDotNetApiFactory factory)
         Assert.StartsWith("\"", group.GetProperty("@odata.etag").GetString(), StringComparison.Ordinal);
         var groups = await (await client.GetAsync("/v1.0/groups", Ct)).ReadJsonAsync();
         Assert.All(groups.GetProperty("value").EnumerateArray(), g => Assert.True(g.TryGetProperty("@odata.etag", out _)));
+    }
+
+    [Fact]
+    public void No_endpoint_binds_an_enum_from_the_query_string()
+    {
+        // Minimal APIs parse query enums case-sensitively ("Pending"), but the API documents camelCase ("pending"):
+        // such parameters are strings parsed with EnumQuery and documented with WithQueryEnum<T>.
+        static bool IsEnum(Type type) => (Nullable.GetUnderlyingType(type) ?? type).IsEnum;
+        var offenders = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .SelectMany(e => e.Metadata.OfType<MethodInfo>().Take(1).SelectMany(m => m.GetParameters())
+                .Where(p => IsEnum(p.ParameterType) && p.GetCustomAttribute<FromBodyAttribute>() is null
+                    && !e.RoutePattern.Parameters.Any(r => r.Name == p.Name))
+                .Select(p => $"{e.RoutePattern.RawText} ({p.Name})"))
+            .ToList();
+
+        Assert.Empty(offenders);
     }
 
     [Fact]

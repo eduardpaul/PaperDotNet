@@ -13285,6 +13285,16 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
           "4XX": {
             "description": "Client error",
             "content": {
@@ -13555,6 +13565,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PageOfApprovalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
                 }
               }
             }
@@ -17781,7 +17801,8 @@
           "kind",
           "allowFolders",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "templateKey"
         ],
         "type": "object",
         "properties": {
@@ -17815,6 +17836,12 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "templateKey": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

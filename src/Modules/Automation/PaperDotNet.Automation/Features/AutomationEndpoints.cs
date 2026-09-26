@@ -66,7 +66,7 @@ internal static class AutomationEndpoints
         group.MapPost("", CreateAsync).RequireScope(AutomationScopes.Write).WithName("CreateAutomation");
         group.MapPut("/{id:guid}", ReplaceAsync).RequireScope(AutomationScopes.Write).WithName("ReplaceAutomation");
         group.MapDelete("/{id:guid}", DeleteAsync).RequireScope(AutomationScopes.Write).WithName("DeleteAutomation");
-        group.MapGet("/runs", ListRunsAsync).RequireScope(AutomationScopes.Read).WithName("ListAutomationRuns");
+        group.MapGet("/runs", ListRunsAsync).RequireScope(AutomationScopes.Read).WithName("ListAutomationRuns").WithQueryEnum<RunStatus>("status");
         group.MapGet("/runs/{id:guid}", GetRunAsync).RequireScope(AutomationScopes.Read).WithName("GetAutomationRun");
         group.MapPost("/runs/{id:guid}/cancel", CancelRunAsync).RequireScope(AutomationScopes.Write).WithName("CancelAutomationRun");
 
@@ -74,7 +74,7 @@ internal static class AutomationEndpoints
             .MapPost("", StartAsync).RequireScope(AutomationScopes.Write).WithName("StartAutomation");
 
         var me = endpoints.MapV1Group("me/approvals", "Automation");
-        me.MapGet("", ListApprovalsAsync).RequireScope(AutomationScopes.Read).WithName("ListMyApprovals");
+        me.MapGet("", ListApprovalsAsync).RequireScope(AutomationScopes.Read).WithName("ListMyApprovals").WithQueryEnum<ApprovalStatus>("status");
         me.MapPost("/{id:guid}/decision", DecideAsync).RequireScope(AutomationScopes.Write).WithName("DecideApproval");
 
         var catalog = endpoints.MapV1Group("automation", "Automation");
@@ -278,10 +278,15 @@ internal static class AutomationEndpoints
     }
 
     /// <summary>Runs in the workspace, newest first; filter by <c>automationId</c>, <c>itemId</c> or <c>status</c>.</summary>
-    private static async Task<Results<Ok<Page<RunResponse>>, ProblemHttpResult>> ListRunsAsync(
-        Guid workspaceId, Guid? automationId, Guid? itemId, RunStatus? status, IWorkspaceAccess workspaces, AutomationDbContext db, HttpRequest http,
+    private static async Task<Results<Ok<Page<RunResponse>>, ValidationProblem, ProblemHttpResult>> ListRunsAsync(
+        Guid workspaceId, Guid? automationId, Guid? itemId, string? status, IWorkspaceAccess workspaces, AutomationDbContext db, HttpRequest http,
         CancellationToken ct)
     {
+        if (!EnumQuery.TryParse<RunStatus>(status, out var statusFilter))
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["status"] = EnumQuery.Invalid<RunStatus>() });
+        }
+
         if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Read, ct) is { } denied)
         {
             return denied;
@@ -291,7 +296,7 @@ internal static class AutomationEndpoints
         var query = db.Runs.AsNoTracking().Where(r => r.WorkspaceId == workspaceId);
         query = itemId is { } item ? query.Where(r => r.ItemId == item) : query;
         query = automationId is { } automation ? query.Where(r => r.AutomationId == automation) : query;
-        query = status is { } wanted ? query.Where(r => r.Status == wanted) : query;
+        query = statusFilter is { } wanted ? query.Where(r => r.Status == wanted) : query;
         if (page.After is { } after)
         {
             query = query.Where(r => r.Id.CompareTo(after) < 0);
@@ -352,11 +357,16 @@ internal static class AutomationEndpoints
     // ---- Approvals ---------------------------------------------------------------------
 
     /// <summary>Approvals assigned to the caller, newest first; <c>status</c> filters (default: pending).</summary>
-    private static async Task<Ok<Page<ApprovalResponse>>> ListApprovalsAsync(
-        ApprovalStatus? status, AutomationDbContext db, ICurrentUser user, HttpRequest http, CancellationToken ct)
+    private static async Task<Results<Ok<Page<ApprovalResponse>>, ValidationProblem>> ListApprovalsAsync(
+        string? status, AutomationDbContext db, ICurrentUser user, HttpRequest http, CancellationToken ct)
     {
+        if (!EnumQuery.TryParse<ApprovalStatus>(status, out var statusFilter))
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["status"] = EnumQuery.Invalid<ApprovalStatus>() });
+        }
+
         var page = PageRequest.From(http);
-        var wanted = status ?? ApprovalStatus.Pending;
+        var wanted = statusFilter ?? ApprovalStatus.Pending;
         var userId = user.UserId!.Value;
         var query = db.Approvals.AsNoTracking().Where(a => a.Status == wanted && a.Assignees.Contains(userId));
         if (page.After is { } after)

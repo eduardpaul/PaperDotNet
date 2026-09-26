@@ -10,7 +10,7 @@ This is the product backlog. It is built from:
 Each feature has at least one end-user story. The technical approach is in
 [technical-approach.md](technical-approach.md).
 
-**Scope:** backend API only for now. UI stories describe what the API must enable.
+**Scope:** the backend covers P0–P7; the web UI is Phase 8 ([frontend.md](frontend.md), ADR-0033).
 
 ## Legend
 
@@ -45,6 +45,7 @@ Each feature has at least one end-user story. The technical approach is in
 | **P5** | Collaboration, automation and integrations |
 | **P6** | AI and semantic search |
 | **P7** | Ecosystem |
+| **P8** | Web UI |
 
 The phases are described in [Roadmap](#roadmap).
 
@@ -291,6 +292,7 @@ Configuration only by default; data portability is PLT-13.
 | **P5 Collaboration, automation & integrations** | Share, automate, connect | PRV-01…03, PRV-05 (first), EVT-07…09 (automations), TAX-05, TAX-08…11, DOC-14, LST-17, API-03…06, API-08, API-09; deferred: IAM-04, PLT-06, NTF-04 (email, ntfy, Gotify), NTF-06, DOC-05, DOC-06, DOC-15 (S3) |
 | **P6 AI & semantic search** | Understand documents | AI-01…06, SRC-07…09, DOC-12, IAM-08…12 (sharing, moved from P5) |
 | **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PLT-15, PLT-17, PLT-18, IAM-14, IAM-15, LST-19, DOC-16, DOC-17, API-13, PRV-04, API-10 (WebDAV), CAL-05 (CalDAV), CAL-06 (CardDAV) |
+| **P8 Web UI** | The first-party web app on the SDK | Screens for the features above, in slices 8a–8h ([frontend.md](frontend.md)) |
 
 ## Phase 0 status
 
@@ -405,6 +407,16 @@ Content and portability first; the rest of P7 (extensions in other languages, sy
 | **7f Document gaps** | Guide [documents.md](documents.md). DOC-05 `PUT …/file/pages` (delete, reorder, rotate in one request) and DOC-06 `…/file/pages/extract` (one document or one per page, optionally removed from the source) and `…/file/pages/move` (append, prepend, replace; moving all pages merges and recycles the source), with PDFsharp: new file versions, page texts carried over (no OCR). DOC-17 `languages` on uploads and `…/file/process`, kept by new versions (file → library → uploader → organization). DOC-16 `/v1.0/groups/{id}/inbox` (a library as the group's inbox, uploads by members, `/v1.0/me/inboxes`, `GroupInbox` in templates). LST-19 folders hold values of their content type's fields (not required, no defaults), exported in packages | ✅ |
 | **7g Access at the edge** | IAM-15 sign-in through an authenticating reverse proxy ([ADR-0031](adr/0031-reverse-proxy-sign-in.md), [accounts-and-preferences.md](accounts-and-preferences.md#sign-in-through-a-reverse-proxy)): off by default, headers only from `TrustedProxies` (the direct peer, captured before forwarded headers) and only at `/connect/authorize`; users created without a password, name, e-mail and existing groups taken over. API-13 client CLI `pdn` on the C# SDK ([cli.md](cli.md)): `workspaces`, `libraries`, `upload` (files or folder trees into library folders or the Inbox), `download`, `search`; library uploads accept `folderId` | ✅ |
 | **7h SDK for our own frontend** | [ADR-0032](adr/0032-sdk-for-first-party-clients.md), [sdk/README.md](../sdk/README.md). API-03 follow-up: complete OpenAPI (OData query options, `ApiProblem` for every error, documented raw-JSON bodies, files, event streams, multipart forms, `JsonObject` as a dictionary, any-JSON and numbers typed; guarded by `SdkContractTests`); `@odata.etag` in bodies; optional `Cors:Origins`. TypeScript runtime: `OAuthSession` (PKCE, refresh, sign-out), client with tenant and 401 retry, problems, `ifMatch`, paging, fields, uploads/downloads, live events, operations; end-to-end tests against a real server (`npm run test:e2e`) | ✅ |
+
+## Phase 8 status
+
+The web UI, built on the TypeScript SDK with React, TanStack and Tailwind
+([ADR-0033](adr/0033-web-frontend.md)). The screen map and slices are in
+[frontend.md](frontend.md).
+
+| Slice | Features | Status |
+|---|---|---|
+| **8a Foundation** | `web/` (Vite, React, TanStack Router and Query, Tailwind, Radix) on `@paperdotnet/client` through npm workspaces; the host serves the built app from `wwwroot` with an `index.html` fallback, a strict Content-Security-Policy and `Auth:LoginUrl` defaulting to `/login`; sign-in with password or passkey (authorization code + PKCE through the server's sign-in session, IAM-01/02), sign-out; shell with sidebar, workspaces, command palette (⌘K, `g` shortcuts), notifications bell and page (NTF-01), live updates (API-07), themes and formats from preferences (PLT-17); Home with tasks (TSK-03), agenda (CAL-03) and approvals (EVT-08); workspaces (PLT-07). API gaps found and fixed: `templateKey` in list summaries, enum query values in camelCase (`EnumQuery`); SDK: `jsonNode`, typed `all()`. Playwright tests against the real host; CI job `web` | ✅ |
 
 ## Idea → feature mapping
 

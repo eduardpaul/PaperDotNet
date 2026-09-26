@@ -27,6 +27,13 @@ internal sealed class SdkOperationTransformer : IOpenApiOperationTransformer
     {
         var metadata = context.Description.ActionDescriptor.EndpointMetadata;
         AddQueryOptions(operation, context, metadata);
+        foreach (var queryEnum in metadata.OfType<QueryEnumMetadata>())
+        {
+            if (operation.Parameters?.FirstOrDefault(p => p.Name == queryEnum.Name && p.In == ParameterLocation.Query) is OpenApiParameter parameter)
+            {
+                parameter.Schema = await SchemaAsync(queryEnum.EnumType, context, cancellationToken);
+            }
+        }
 
         if (metadata.OfType<RequestBodySchemaMetadata>().LastOrDefault() is { } body)
         {

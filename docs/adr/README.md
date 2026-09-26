@@ -37,3 +37,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0030](0030-account-lifecycle-and-preferences.md) | Account lifecycle (anonymizing deletes, last administrator, ending access) and preferences with organization defaults | Accepted |
 | [0031](0031-reverse-proxy-sign-in.md) | Sign-in through an authenticating reverse proxy: trusted direct peers only, headers only at /connect/authorize | Accepted |
 | [0032](0032-sdk-for-first-party-clients.md) | Generated SDKs good enough for our own frontend: complete OpenAPI, ETags in bodies, thin runtime (auth, SSE, paging, files), end-to-end tests | Accepted |
+| [0033](0033-web-frontend.md) | Web frontend on the TypeScript SDK with React, TanStack Router/Query/Table and Tailwind, served by the host from the same origin | Accepted |

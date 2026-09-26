@@ -97,6 +97,18 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `@microsoft/kiota-bundle` (npm), `microsoft-kiota-bundle` (PyPI, with `httpx`: BSD-3-Clause) | MIT | Runtime of the TypeScript and Python SDKs (separate packages, not in the server) |
 | `oauth4webapi` (npm) | MIT | OAuth 2.0 / OpenID Connect in the TypeScript SDK: authorization code + PKCE, refresh, revocation (ADR-0032) |
 | `eventsource` (npm, + `eventsource-parser`) | MIT | Server-sent events with an Authorization header in the TypeScript SDK (ADR-0032) |
+| **Web UI** (`web/`, ADR-0033; runtime packages are bundled into the served app) | | |
+| `react`, `react-dom` | MIT | UI library |
+| `@tanstack/react-router`, `@tanstack/react-query`, `@tanstack/router-plugin` (build) | MIT | Typed routing with state in the URL; server-state cache |
+| `radix-ui` (Radix primitives, + `aria-hidden`, `react-remove-scroll`, `@floating-ui/*`) | MIT | Accessible dialogs, menus, popovers, tooltips |
+| `cmdk` | MIT | Command palette |
+| `sonner` | MIT | Toasts |
+| `class-variance-authority` | Apache-2.0 | Component variants |
+| `clsx`, `tailwind-merge` | MIT | Class names |
+| `date-fns` | MIT | Calendar math |
+| `tailwindcss`, `@tailwindcss/vite` (build) | MIT | Styling |
+| `vite`, `@vitejs/plugin-react`, `typescript`, `eslint`, `typescript-eslint`, `eslint-plugin-react-hooks`, `prettier`, `prettier-plugin-tailwindcss`, `vitest` (build and test) | MIT / Apache-2.0 | Build, lint, format, unit tests |
+| `@playwright/test` (test) | Apache-2.0 | End-to-end tests |
 | `CliWrap` | MIT | Running the Tesseract CLI |
 | `TngTech.ArchUnitNET` (+ `.xUnitV3`) | Apache-2.0 | Architecture tests |
 | `OpenIddict.EntityFrameworkCore` | Apache-2.0 | OpenIddict stores |
@@ -119,6 +131,9 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `LibTiff.Net` | BSD-3-Clause | Multi-page TIFF. Could be avoided by letting Tesseract read TIFFs directly |
 | `Markdig` | BSD-2-Clause | Markdown parsing (idea 0007), the de-facto .NET standard |
 | Valkey | BSD-3-Clause | Alternative to Garnet as a cache server (optional) |
+| `lucide-react` | ISC | Icons of the web UI; the de-facto icon set of the React ecosystem (ISC is MIT-equivalent) |
+| `tslib` (via Radix's `aria-hidden`) | 0BSD | TypeScript helpers; 0BSD has no conditions at all |
+| `isbot` (via TanStack Router) | Unlicense (public-domain dedication) | Bot detection for server rendering; not used by our client-only build. Public domain, so no conditions; accepted as a transitive dependency (2026-09-26) |
 
 ### ⛔ Removed from the proposal
 

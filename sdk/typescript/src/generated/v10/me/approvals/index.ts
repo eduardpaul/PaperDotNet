@@ -21,6 +21,7 @@ export interface ApprovalsRequestBuilder extends BaseRequestBuilder<ApprovalsReq
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PageOfApprovalResponse>}
+     * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 4XX or 5XX status code
      */
      get(requestConfiguration?: RequestConfiguration<ApprovalsRequestBuilderGetQueryParameters> | undefined) : Promise<PageOfApprovalResponse | undefined>;
@@ -69,6 +70,7 @@ export const ApprovalsRequestBuilderRequestsMetadata: RequestsMetadata = {
         uriTemplate: ApprovalsRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
+            400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             XXX: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "send",

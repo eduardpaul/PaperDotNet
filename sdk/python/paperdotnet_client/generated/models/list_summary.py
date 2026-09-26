@@ -26,6 +26,8 @@ class ListSummary(AdditionalDataHolder, Parsable):
     kind: Optional[ListKind] = None
     # The name property
     name: Optional[str] = None
+    # The templateKey property
+    template_key: Optional[str] = None
     # The updatedAt property
     updated_at: Optional[datetime.datetime] = None
     # The workspaceId property
@@ -58,6 +60,7 @@ class ListSummary(AdditionalDataHolder, Parsable):
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "kind": lambda n : setattr(self, 'kind', n.get_enum_value(ListKind)),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
+            "templateKey": lambda n : setattr(self, 'template_key', n.get_str_value()),
             "updatedAt": lambda n : setattr(self, 'updated_at', n.get_datetime_value()),
             "workspaceId": lambda n : setattr(self, 'workspace_id', n.get_uuid_value()),
         }
@@ -77,6 +80,7 @@ class ListSummary(AdditionalDataHolder, Parsable):
         writer.write_uuid_value("id", self.id)
         writer.write_enum_value("kind", self.kind)
         writer.write_str_value("name", self.name)
+        writer.write_str_value("templateKey", self.template_key)
         writer.write_datetime_value("updatedAt", self.updated_at)
         writer.write_uuid_value("workspaceId", self.workspace_id)
         writer.write_additional_data_value(self.additional_data)

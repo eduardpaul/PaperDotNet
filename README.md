@@ -5,11 +5,16 @@ documents (DMS), tasks and calendar on a SharePoint-style lists engine,
 inspired by [Papermerge](https://github.com/papermerge/papermerge-core).
 Self-hosted with just **one container** (SQLite built in; PostgreSQL optional).
 
-> **Status:** phases 0–3 done (foundation, lists engine, extensions, documents).
-> A backend API only; no UI yet. See the [roadmap](docs/features.md#roadmap).
+> **Status:** the backend (phases 0–7) is done; the web UI (phase 8) is being
+> built on the generated TypeScript SDK. See the [roadmap](docs/features.md#roadmap)
+> and the [frontend plan](docs/frontend.md).
 
 ## What works today
 
+- **Web UI:** React app served by the same container: sign-in (password,
+  passkey), Home with today's tasks, agenda and approvals, workspaces,
+  notifications, command palette (⌘K), light and dark themes
+  ([frontend.md](docs/frontend.md)).
 - **Platform:** multi-tenant from the start (EF Core filters, PostgreSQL
   row-level security), SQLite by default or PostgreSQL, one container.
 - **Identity:** OAuth 2.0 / OpenID Connect (OpenIddict), passkeys, API tokens,
@@ -39,7 +44,8 @@ cp deploy/.env.example deploy/.env      # set the admin password (REQUIRE_HTTPS=
 docker compose -f deploy/docker-compose.yml up -d --build
 # or with PostgreSQL:
 # docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.postgres.yml up -d --build
-# Access token (first-party client, password grant); apps use authorization code + PKCE or client credentials.
+# Open PUBLIC_URL (default http://localhost:8080) and sign in as admin.
+# API access token (first-party client, password grant); apps use authorization code + PKCE or client credentials.
 curl -s localhost:8080/connect/token \
   -d grant_type=password -d client_id=paperdotnet -d scope="api offline_access" \
   -d username=admin -d password='<ADMIN_PASSWORD>'
@@ -68,6 +74,7 @@ Keep backups outside the data volume (copy them off, or mount a backup volume).
 
 Requirements:
 - .NET 10 SDK
+- Node.js 22+ for the web UI and the TypeScript SDK
 - Optional: PostgreSQL 16+ (or Docker) to run against PostgreSQL
 
 ```bash
@@ -75,6 +82,11 @@ dotnet build PaperDotNet.slnx
 dotnet run --project src/PaperDotNet.Host          # Development: SQLite in ./data, admin / admin-password-dev
 dotnet test --solution PaperDotNet.slnx            # SQLite
 PAPERDOTNET_TEST_PROVIDER=postgresql dotnet test --solution PaperDotNet.slnx   # PostgreSQL via Testcontainers
+
+npm install                                        # web UI + TypeScript SDK (npm workspaces)
+npm run dev -w web                                 # UI on http://localhost:5173, proxied to the API on :5080
+npm run check -w web                               # typecheck, lint, format, unit tests
+npm run test:e2e -w web                            # Playwright against a real host
 ```
 
 Configuration comes from environment variables `PAPERDOTNET__Section__Key`.

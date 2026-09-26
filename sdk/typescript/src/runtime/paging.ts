@@ -12,8 +12,11 @@ export interface PagedRequestBuilder<TPage, TConfig> {
   withUrl(rawUrl: string): { get(requestConfiguration?: TConfig): Promise<TPage | undefined> };
 }
 
+/** The entry type of a page type: `PageEntry<PageOfWorkspaceResponse>` is `WorkspaceResponse`. */
+export type PageEntry<TPage> = TPage extends PageLike<infer T> ? T : never;
+
 /** Pages one after another: `for await (const page of pages(api.v10.workspaces)) …`. */
-export async function* pages<T, TPage extends PageLike<T>, TConfig>(
+export async function* pages<TPage extends PageLike<unknown>, TConfig>(
   builder: PagedRequestBuilder<TPage, TConfig>, requestConfiguration?: TConfig): AsyncGenerator<TPage> {
   let page = await builder.get(requestConfiguration);
   while (page) {
@@ -23,10 +26,10 @@ export async function* pages<T, TPage extends PageLike<T>, TConfig>(
 }
 
 /** Every entry of all pages: `for await (const item of all(builder, { queryParameters: { filter } })) …`. */
-export async function* all<T, TPage extends PageLike<T>, TConfig>(
-  builder: PagedRequestBuilder<TPage, TConfig>, requestConfiguration?: TConfig): AsyncGenerator<T> {
-  for await (const page of pages<T, TPage, TConfig>(builder, requestConfiguration)) {
-    yield* page.value ?? [];
+export async function* all<TPage extends PageLike<unknown>, TConfig>(
+  builder: PagedRequestBuilder<TPage, TConfig>, requestConfiguration?: TConfig): AsyncGenerator<PageEntry<TPage>> {
+  for await (const page of pages(builder, requestConfiguration)) {
+    yield* (page.value ?? []) as PageEntry<TPage>[];
   }
 }
 
