@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Bell, CheckCheck } from 'lucide-react';
 import { useState } from 'react';
@@ -14,7 +14,8 @@ export function NotificationsPopover() {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
   const { data: unread } = useQuery(unreadCountQuery);
-  const { data, isPending } = useQuery({ ...notificationsQuery, enabled: open });
+  const notifications = useInfiniteQuery({ ...notificationsQuery, enabled: open });
+  const data = notifications.data?.pages.flatMap((page) => page.value ?? []) ?? [];
   const markAll = useMutation({
     mutationFn: () => api.v10.me.notifications.read.post(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.notifications }),
@@ -45,12 +46,12 @@ export function NotificationsPopover() {
           </Button>
         </div>
         <div className="max-h-[60vh] overflow-y-auto">
-          {isPending ? (
+          {notifications.isPending ? (
             <div className="flex flex-col gap-3 p-4">
               <Skeleton className="h-10" />
               <Skeleton className="h-10" />
             </div>
-          ) : data?.length ? (
+          ) : data.length ? (
             <ul className="divide-y">
               {data.slice(0, 8).map((n) => (
                 <NotificationRow key={n.id} notification={n} compact onOpen={() => setOpen(false)} />

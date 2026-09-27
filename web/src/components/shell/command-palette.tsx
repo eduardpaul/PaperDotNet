@@ -21,6 +21,8 @@ import { settingsPages } from '@/extensibility/settings';
 import { ListIcon } from '@/features/lists/list-icon';
 import { hitLink } from '@/features/search/hit-link';
 import { searchQuery } from '@/features/search/queries';
+import { useAdminAccess } from '@/features/admin/access';
+import { visibleAdminPages } from '@/features/admin/pages';
 import { useSetTheme } from './user-menu';
 
 const PaletteContext = createContext<{ open: () => void }>({ open: () => {} });
@@ -92,6 +94,8 @@ function Palette({ close }: { close: () => void }) {
   const lists = useQueries({ queries: (workspaces ?? []).map((w) => listsQuery(w.id!)) }).flatMap((q) => q.data ?? []);
   const workspaceName = new Map((workspaces ?? []).map((w) => [w.id, w.name]));
   const setTheme = useSetTheme();
+  const admin = useAdminAccess();
+  const adminPages = visibleAdminPages(admin.has);
   const [text, setText] = useState('');
   const query = useDeferredValue(text.trim());
   const hits = useInfiniteQuery({ ...searchQuery({ q: query }, 5), enabled: query.length >= 2 });
@@ -185,6 +189,20 @@ function Palette({ close }: { close: () => void }) {
                 <ListIcon list={list} />
                 <span className="flex-1">{list.name}</span>
                 <span className="text-xs text-muted">{workspaceName.get(list.workspaceId)}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        {adminPages.length > 0 && (
+          <CommandGroup heading="Administration">
+            {adminPages.map((page) => (
+              <CommandItem
+                key={page.to}
+                value={`admin ${page.label} ${page.keywords ?? ''}`}
+                onSelect={run(() => navigate({ to: page.to }))}
+              >
+                <page.icon />
+                {page.label}
               </CommandItem>
             ))}
           </CommandGroup>

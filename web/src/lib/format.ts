@@ -34,6 +34,8 @@ export interface Formatter {
   hour(value: Date | string): number;
   /** The weekday name of a moment in the user's time zone and language. */
   weekday(value: Date | string, style?: 'long' | 'short'): string;
+  /** "March 2026" in the user's language and time zone. */
+  monthYear(value: Date | string): string;
 }
 
 type Parts = { year: string; month: string; day: string; hour: string; minute: string };
@@ -161,6 +163,13 @@ export function createFormatter(preferences: Partial<FormatPreferences> = {}): F
       return safe(
         () => new Intl.DateTimeFormat(p.language, { weekday: style, timeZone: 'UTC' }).format(noon),
         () => new Intl.DateTimeFormat('en', { weekday: style, timeZone: 'UTC' }).format(noon),
+      );
+    },
+    monthYear: (value) => {
+      const date = toDate(value);
+      return safe(
+        () => new Intl.DateTimeFormat(p.language, { month: 'long', year: 'numeric', timeZone: p.timeZone }).format(date),
+        () => new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date),
       );
     },
   };

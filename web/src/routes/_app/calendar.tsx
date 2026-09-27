@@ -35,7 +35,7 @@ import { fromZonedInput } from '@/lib/zoned';
 import { cn } from '@/lib/utils';
 
 interface CalendarSearch {
-  view?: 'agenda';
+  view?: 'agenda' | 'week';
   /** A day in the month shown (yyyy-MM-dd); today when omitted. */
   date?: string;
   /** The open item: "workspaceId/listId/itemId" ("new" as item for a new event). */
@@ -49,7 +49,7 @@ const isDay = (value: unknown): value is string => typeof value === 'string' && 
 
 export const Route = createFileRoute('/_app/calendar')({
   validateSearch: (search: Record<string, unknown>): CalendarSearch => ({
-    view: search.view === 'agenda' ? 'agenda' : undefined,
+    view: search.view === 'agenda' || search.view === 'week' ? search.view : undefined,
     date: isDay(search.date) ? search.date : undefined,
     open: typeof search.open === 'string' && search.open.split('/').length === 3 ? search.open : undefined,
     day: isDay(search.day) ? search.day : undefined,
@@ -58,7 +58,7 @@ export const Route = createFileRoute('/_app/calendar')({
   component: CalendarPage,
 });
 
-/** Events and due tasks of every calendar and task list (CAL-01…04), by month or as an agenda. */
+/** Events and due tasks of every calendar and task list (CAL-01…04), by month, week or as an agenda. */
 function CalendarPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -72,8 +72,9 @@ function CalendarPage() {
     void navigate({ search: (c) => ({ ...c, ...patch }), replace });
 
   const agenda = search.view === 'agenda';
-  const first = agenda ? anchor : startOfWeek(startOfMonth(anchor), { weekStartsOn: 1 });
-  const last = agenda ? addDays(anchor, 30) : endOfWeek(endOfMonth(anchor), { weekStartsOn: 1 });
+  const week = search.view === 'week';
+  const first = agenda ? anchor : startOfWeek(week ? anchor : startOfMonth(anchor), { weekStartsOn: 1 });
+  const last = agenda ? addDays(anchor, 30) : endOfWeek(week ? anchor : endOfMonth(anchor), { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: first, end: last }).map((d) => formatDate(d, 'yyyy-MM-dd'));
   const start = new Date(fromZonedInput(`${days[0]}T00:00`, zone)!);
   const end = new Date(fromZonedInput(`${formatDate(addDays(last, 1), 'yyyy-MM-dd')}T00:00`, zone)!);
@@ -95,17 +96,20 @@ function CalendarPage() {
     else setChoose(day);
   };
   const [openWs, openList, openItem] = search.open?.split('/') ?? [];
-  const move = (months: number) =>
-    setSearch({ date: formatDate(agenda ? addDays(anchor, months * 30) : addMonths(anchor, months), 'yyyy-MM-dd') });
+  const move = (step: number) =>
+    setSearch({
+      date: formatDate(
+        agenda ? addDays(anchor, step * 30) : week ? addDays(anchor, step * 7) : addMonths(anchor, step),
+        'yyyy-MM-dd',
+      ),
+    });
 
   return (
     <Page wide className="max-w-[1400px]">
       <PageHeader
         icon={CalendarDays}
         title={
-          agenda
-            ? 'Agenda'
-            : new Intl.DateTimeFormat(format.preferences.language, { month: 'long', year: 'numeric' }).format(anchor)
+          agenda ? 'Agenda' : week ? `${format.date(days[0]!)} – ${format.date(days[6]!)}` : format.monthYear(anchor)
         }
         actions={
           <>
@@ -127,6 +131,7 @@ function CalendarPage() {
         <div role="tablist" aria-label="Calendar view" className="ml-auto flex rounded-md bg-surface-muted p-0.5">
           {[
             { key: undefined, label: 'Month' },
+            { key: 'week' as const, label: 'Week' },
             { key: 'agenda' as const, label: 'Agenda' },
           ].map((v) => (
             <button
@@ -200,7 +205,7 @@ function CalendarPage() {
                   role="gridcell"
                   aria-label={format.date(day)}
                   className={cn(
-                    'group min-h-28 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0',
+                    week ? 'group min-h-48 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0' : 'group min-h-28 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0',
                     !inMonth && 'bg-surface-muted/40',
                   )}
                 >
@@ -224,21 +229,21 @@ function CalendarPage() {
                     </button>
                   </div>
                   <ul className="flex flex-col gap-0.5">
-                    {entries.slice(0, 3).map((entry) => (
+                    {entries.slice(0, week ? 8 : 3).map((entry) => (
                       <EntryChip
                         key={`${entry.itemId}-${entry.occurrenceStart?.toISOString() ?? ''}`}
                         entry={entry}
                         onOpen={(open) => setSearch({ open })}
                       />
                     ))}
-                    {entries.length > 3 && (
+                    {entries.length > (week ? 8 : 3) && (
                       <li>
                         <button
                           type="button"
                           className="px-1 text-[11px] text-muted hover:underline"
                           onClick={() => setSearch({ view: 'agenda', date: day })}
                         >
-                          +{entries.length - 3} more
+                          +{entries.length - (week ? 8 : 3)} more
                         </button>
                       </li>
                     )}

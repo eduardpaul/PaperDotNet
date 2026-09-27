@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 import { meQuery, myCalendarQuery } from '@/api/queries';
 import { Page } from '@/components/page';
 import { AgendaCard } from '@/features/home/agenda-card';
-import { InboxCard } from '@/features/home/inbox-card';
+import { DocumentsCard, InboxCard } from '@/features/home/inbox-card';
 import { ApprovalsCard } from '@/features/home/approvals-card';
 import { TasksCard } from '@/features/home/tasks-card';
 import { WorkspacesCard } from '@/features/home/workspaces-card';
@@ -51,6 +51,7 @@ function Home() {
         </div>
         <div className="flex flex-col gap-4">
           <InboxCard />
+          <DocumentsCard />
           <AgendaCard entries={calendar.data} loading={calendar.isPending} />
           <WorkspacesCard />
         </div>

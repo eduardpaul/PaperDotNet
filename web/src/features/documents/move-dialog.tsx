@@ -1,5 +1,5 @@
 import type { ItemResponse, ListResponse } from '@paperdotnet/client';
-import { fieldsOf, ifMatch } from '@paperdotnet/client';
+import { fields as fieldValues, fieldsOf, ifMatch } from '@paperdotnet/client';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
@@ -19,13 +19,14 @@ import { Alert, Spinner } from '@/components/ui/feedback';
 import { Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { listBuilder } from '@/features/lists/queries';
+import { listFields } from '@/features/lists/schema';
 import { problemMessage } from '@/lib/errors';
 import { fileVersionsQuery } from './queries';
 
 /**
- * Files a document into another library (e.g. from the Inbox). The API has no cross-list move yet, so its pages are
- * copied into a new document there (DOC-06 extract; texts are carried over, nothing is OCRed again) with the same
- * title, and then the original goes to the recycle bin. If that last step fails, the user has a copy, never a loss.
+ * Files a document into another library. There is no cross-list move, so the pages are copied (text included, no new
+ * OCR) and the fields the target library has are copied onto the new item. Versions, comments and links stay on the
+ * original, which then goes to the recycle bin. If that last step fails, the user has a copy, never a loss.
  */
 export function MoveDocumentDialog({
   workspaceId,
@@ -64,8 +65,23 @@ export function MoveDocumentDialog({
         listId: library.id,
         title: String(fieldsOf(item).title ?? ''),
       });
+      const created = result?.documents?.[0];
+      if (created?.itemId) {
+        const targetList = await listBuilder(library.workspaceId!, library.id!).get();
+        const allowed = new Set(listFields(targetList).map((field) => field.name));
+        const patch = Object.fromEntries(
+          Object.entries(fieldsOf(item)).filter(
+            ([name, value]) => name !== 'title' && allowed.has(name) && value !== undefined && value !== null,
+          ),
+        );
+        if (Object.keys(patch).length) {
+          await listBuilder(created.workspaceId!, created.listId!)
+            .items.byItemId(created.itemId)
+            .patch({ fields: fieldValues(patch) });
+        }
+      }
       await source.delete(ifMatch(await source.get()));
-      return { library, created: result?.documents?.[0] };
+      return { library, created };
     },
     onSuccess: async ({ library, created }) => {
       onOpenChange(false);
@@ -74,7 +90,7 @@ export function MoveDocumentDialog({
         queryClient.invalidateQueries({ queryKey: keys.list(workspaceId, list.id!) }),
         queryClient.invalidateQueries({ queryKey: keys.items(library.workspaceId!, library.id!) }),
       ]);
-      toast.success(`Moved to ${library.name}.`, {
+      toast.success(`Filed in ${library.name}.`, {
         action: created
           ? {
               label: 'Open',
@@ -100,9 +116,10 @@ export function MoveDocumentDialog({
       <DialogContent>
         <form onSubmit={onSubmit}>
           <DialogHeader>
-            <DialogTitle>Move to a library</DialogTitle>
+            <DialogTitle>File in a library</DialogTitle>
             <DialogDescription>
-              The document and its text move; fields other than the title are set in the new library.
+              The file is copied, and so are the fields this library has. Versions, comments and links stay on the
+              original, which then goes to the recycle bin.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 px-5 pb-5">
@@ -120,7 +137,7 @@ export function MoveDocumentDialog({
           <DialogFooter>
             <Button onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" variant="primary" disabled={!target || !pageCount || move.isPending}>
-              {move.isPending && <Spinner className="text-current" />} Move
+              {move.isPending && <Spinner className="text-current" />} File
             </Button>
           </DialogFooter>
         </form>

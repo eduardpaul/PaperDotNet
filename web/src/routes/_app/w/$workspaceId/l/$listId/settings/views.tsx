@@ -21,6 +21,8 @@ export const Route = createFileRoute('/_app/w/$workspaceId/l/$listId/settings/vi
 const layouts: { value: ViewLayout; label: string }[] = [
   { value: 'table', label: 'Table' },
   { value: 'board', label: 'Board (grouped by a choice)' },
+  { value: 'calendar', label: 'Calendar (by a date)' },
+  { value: 'gallery', label: 'Gallery' },
 ];
 
 /** Saved views (LST-09): columns, order, filter, grouping and layout; one is the default. */
@@ -144,6 +146,7 @@ function ViewDialog({
   const [groupBy, setGroupBy] = useState(view?.groupBy ?? '');
   const [isDefault, setIsDefault] = useState(!!view?.isDefault);
   const choiceFields = fields.filter((f) => f.type === 'choice' && !f.allowMultiple);
+  const dateFields = fields.filter((f) => f.type === 'date' || f.type === 'dateTime');
   const save = useMutation({
     meta: { silent: true },
     mutationFn: () => {
@@ -152,7 +155,7 @@ function ViewDialog({
         columns,
         filter: filter.trim() || null,
         orderBy: sortField ? `${orderKey(sortField)}${sortDesc ? ' desc' : ''}` : null,
-        groupBy: layout === 'board' ? groupBy || null : null,
+        groupBy: layout === 'board' || layout === 'calendar' ? groupBy || null : null,
         layout,
         isDefault,
       };
@@ -194,7 +197,11 @@ function ViewDialog({
                 <Label htmlFor="view-layout">Layout</Label>
                 <Select id="view-layout" value={layout} onChange={(e) => setLayout(e.target.value as ViewLayout)}>
                   {layouts.map((l) => (
-                    <option key={l.value} value={l.value} disabled={l.value === 'board' && !choiceFields.length}>
+                    <option
+                      key={l.value}
+                      value={l.value}
+                      disabled={(l.value === 'board' && !choiceFields.length) || (l.value === 'calendar' && !dateFields.length)}
+                    >
                       {l.label}
                     </option>
                   ))}
@@ -208,6 +215,19 @@ function ViewDialog({
                 <Select id="view-group" required value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
                   <option value="">Choose a choice field…</option>
                   {choiceFields.map((f) => (
+                    <option key={f.name} value={f.name!}>
+                      {fieldLabel(f)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+            {layout === 'calendar' && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="view-date">Date of each item</Label>
+                <Select id="view-date" required value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
+                  <option value="">Choose a date field…</option>
+                  {dateFields.map((f) => (
                     <option key={f.name} value={f.name!}>
                       {fieldLabel(f)}
                     </option>

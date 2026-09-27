@@ -37,7 +37,8 @@ internal sealed class ItemWriter(
     ITenantContext tenant,
     ICurrentUser currentUser,
     EventCausation causation,
-    TimeProvider time) : IFieldValidationContext
+    TimeProvider time,
+    ILiveEvents live) : IFieldValidationContext
 {
     public const int TitleMaxLength = 1024;
     private const int MaxFolderDepth = 64;
@@ -125,6 +126,7 @@ internal sealed class ItemWriter(
         var changed = Values(item).Select(p => p.Key).Order(StringComparer.Ordinal).ToList();
         await AddVersionAsync(schema, item, changed, ct);
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Adding, item, schema, changed)], cancellationToken: ct);
+        PublishChanged("added", schema, item);
         return new ItemWriteResult(item);
     }
 
@@ -211,6 +213,7 @@ internal sealed class ItemWriter(
         var scopeMoved = item.IsFolder && oldScopeId != item.ScopeId;
         await outbox.SaveChangesAsync(
             db, [Event(ItemEventKind.Updating, item, schema, changed)], scopeMoved ? [ScopeChange(schema, item, oldScopeId)] : null, ct);
+        PublishChanged("updated", schema, item);
         if (scopeMoved)
         {
             await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
@@ -237,6 +240,7 @@ internal sealed class ItemWriter(
 
         db.Items.Remove(item);
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Deleting, item, schema, [])], cancellationToken: ct);
+        PublishChanged("deleted", schema, item);
         return new ItemWriteResult(item);
     }
 
@@ -272,6 +276,7 @@ internal sealed class ItemWriter(
         };
         var scopeMoved = item.IsFolder && oldScopeId != item.ScopeId;
         await outbox.SaveChangesAsync(db, [restored], scopeMoved ? [ScopeChange(schema, item, oldScopeId)] : null, ct);
+        PublishChanged("restored", schema, item);
         if (scopeMoved)
         {
             await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
@@ -507,6 +512,25 @@ internal sealed class ItemWriter(
             ContentTypeKey = schema.FindContentType(item.ContentTypeId)?.Key,
             ListTemplate = schema.List.TemplateKey,
         };
+
+    /// <summary>
+    /// Tells connected clients to reload this item. Ids only, to every user of the tenant: the API still decides who may read it.
+    /// </summary>
+    private void PublishChanged(string kind, ListSchema schema, ListItem item)
+    {
+        if (tenant.TenantId is not { } tenantId)
+        {
+            return;
+        }
+
+        live.Publish(new LiveEvent("item.changed", tenantId, null, new
+        {
+            Kind = kind,
+            WorkspaceId = schema.List.WorkspaceId,
+            ListId = schema.List.Id,
+            ItemId = item.Id,
+        }));
+    }
 
     private ItemEvent Event(ItemEventKind kind, ListItem item, ListSchema schema, IReadOnlyList<string> changed)
     {

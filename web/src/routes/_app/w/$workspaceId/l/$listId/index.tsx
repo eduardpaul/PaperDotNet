@@ -25,7 +25,6 @@ import { Card } from '@/components/ui/card';
 import { EmptyState, Skeleton, Spinner } from '@/components/ui/feedback';
 import { Input } from '@/components/ui/input';
 import { DropZone, FilePickerButton } from '@/features/documents/drop-zone';
-import { DocumentGrid } from '@/features/documents/document-grid';
 import { acceptedTypes } from '@/features/documents/paths';
 import { useUploads } from '@/features/documents/uploads';
 import { ValueNamesProvider } from '@/features/fields/lookups';
@@ -36,7 +35,9 @@ import { ItemsBoard } from '@/features/lists/items-board';
 import { ItemsTable, orderByOf, type Sort } from '@/features/lists/items-table';
 import { ListIcon } from '@/features/lists/list-icon';
 import { NameDialog } from '@/features/lists/name-dialog';
-import { listPermissionsQuery } from '@/features/list-settings/queries';
+import { FollowButton } from '@/features/collaboration/follow-button';
+import { useListAccess } from '@/features/list-settings/queries';
+import { ItemsCalendar, ItemsGallery } from '@/features/lists/items-layouts';
 import { itemsQuery, listBuilder, listQuery, odataString, viewsQuery } from '@/features/lists/queries';
 import { listFields } from '@/features/lists/schema';
 import { problemMessage } from '@/lib/errors';
@@ -50,8 +51,8 @@ interface ListSearch {
   folder?: string;
   item?: string;
   tab?: string;
-  /** Libraries: grid of thumbnails instead of the table. */
-  layout?: 'grid';
+  /** Overrides the saved view: table, board, calendar or gallery. `grid` is the old name for gallery. */
+  layout?: 'table' | 'board' | 'calendar' | 'gallery';
   /** Documents: the page to show in the preview (search page hits). */
   page?: number;
 }
@@ -66,7 +67,12 @@ export const Route = createFileRoute('/_app/w/$workspaceId/l/$listId/')({
     folder: text(search.folder),
     item: text(search.item),
     tab: text(search.tab),
-    layout: search.layout === 'grid' ? 'grid' : undefined,
+    layout:
+      search.layout === 'gallery' || search.layout === 'grid'
+        ? 'gallery'
+        : search.layout === 'table' || search.layout === 'board' || search.layout === 'calendar'
+          ? search.layout
+          : undefined,
     page: Number.isInteger(Number(search.page)) && Number(search.page) > 0 ? Number(search.page) : undefined,
   }),
   loader: ({ context, params }) => context.queryClient.ensureQueryData(listQuery(params.workspaceId, params.listId)),
@@ -80,7 +86,7 @@ function ListPage() {
   const queryClient = useQueryClient();
   const { data: list } = useQuery(listQuery(workspaceId, listId));
   const { data: views } = useQuery(viewsQuery(workspaceId, listId));
-  const { data: permissions } = useQuery(listPermissionsQuery(workspaceId, listId));
+  const access = useListAccess(workspaceId, listId);
   const [query, setQuery] = useState(search.q ?? '');
   const deferredQuery = useDeferredValue(query.trim());
   const [selection, setSelection] = useState<RowSelectionState>({});
@@ -125,21 +131,40 @@ function ListPage() {
   const total = items.data?.pages[0]?.odataCount;
   const selectedIds = Object.keys(selection).filter((id) => selection[id]);
 
+  const layout =
+    search.layout ??
+    (view?.layout === 'board' || view?.layout === 'calendar' || view?.layout === 'gallery' || view?.layout === 'table'
+      ? view.layout
+      : 'table');
   const groupBy =
-    view?.layout === 'board' ? allFields.find((f) => f.name === view.groupBy && f.type === 'choice') : undefined;
+    layout === 'board' ? allFields.find((f) => f.name === view?.groupBy && f.type === 'choice') : undefined;
+  const dateField =
+    layout === 'calendar'
+      ? (allFields.find((f) => f.name === view?.groupBy && (f.type === 'date' || f.type === 'dateTime')) ??
+        allFields.find((f) => f.type === 'date' || f.type === 'dateTime'))
+      : undefined;
 
   const removeSelected = useMutation({
     mutationFn: async () => {
+      const failed: string[] = [];
       for (const item of rows.filter((r) => selection[r.id!])) {
-        await listBuilder(workspaceId, listId).items.byItemId(item.id!).delete(ifMatch(item));
+        try {
+          await listBuilder(workspaceId, listId).items.byItemId(item.id!).delete(ifMatch(item));
+        } catch {
+          failed.push(item.id!);
+        }
       }
+      return failed;
     },
-    onSettled: async () => {
-      setSelection({});
-      // Items and the recycle bin.
+    onSuccess: async (failed) => {
+      setSelection(Object.fromEntries(failed.map((id) => [id, true])));
+      if (failed.length)
+        toast.error(
+          `${failed.length} ${failed.length === 1 ? 'item stays selected' : 'items stay selected'}: they could not be deleted.`,
+        );
+      else toast.success('Moved to the recycle bin.');
       await queryClient.invalidateQueries({ queryKey: keys.list(workspaceId, listId) });
     },
-    onSuccess: () => toast.success('Moved to the recycle bin.'),
   });
   const createFolder = useMutation({
     meta: { silent: true },
@@ -174,27 +199,29 @@ function ListPage() {
         description={list.description}
         actions={
           <>
-            {permissions?.effectiveLevel === 'manage' && (
+            <FollowButton workspaceId={workspaceId} listId={listId} label="Follow this list" />
+            {access.canManage && (
               <Button asChild variant="ghost" size="icon" aria-label="List settings">
                 <Link to="/w/$workspaceId/l/$listId/settings" params={{ workspaceId, listId }}>
                   <Settings />
                 </Link>
               </Button>
             )}
-            {list.allowFolders && (
+            {access.canContribute && list.allowFolders && (
               <Button onClick={() => setNewFolder(true)}>
                 <FolderPlus /> New folder
               </Button>
             )}
-            {isLibrary ? (
-              <FilePickerButton variant="primary" accept={acceptedTypes} onFiles={uploadHere}>
-                <Upload /> Upload
-              </FilePickerButton>
-            ) : (
-              <Button variant="primary" onClick={() => setSearch({ item: 'new', tab: undefined })}>
-                <Plus /> New {list.contentTypes?.length === 1 ? list.contentTypes[0]!.name?.toLowerCase() : 'item'}
-              </Button>
-            )}
+            {access.canContribute &&
+              (isLibrary ? (
+                <FilePickerButton variant="primary" accept={acceptedTypes} onFiles={uploadHere}>
+                  <Upload /> Upload
+                </FilePickerButton>
+              ) : (
+                <Button variant="primary" onClick={() => setSearch({ item: 'new', tab: undefined })}>
+                  <Plus /> New {list.contentTypes?.length === 1 ? list.contentTypes[0]!.name?.toLowerCase() : 'item'}
+                </Button>
+              ))}
           </>
         }
       />
@@ -222,32 +249,32 @@ function ListPage() {
             ))}
           </div>
         )}
-        {isLibrary && !groupBy && (
+        {layout !== 'board' && layout !== 'calendar' && (
           <div role="group" aria-label="Layout" className="ml-auto flex rounded-md bg-surface-muted p-0.5">
             <button
               type="button"
-              aria-pressed={!search.layout}
+              aria-pressed={layout === 'table'}
               aria-label="Table"
-              onClick={() => setSearch({ layout: undefined })}
-              className={cn('rounded p-1 text-muted', !search.layout && 'bg-surface text-foreground shadow-xs')}
+              onClick={() => setSearch({ layout: 'table' })}
+              className={cn('rounded p-1 text-muted', layout === 'table' && 'bg-surface text-foreground shadow-xs')}
             >
               <ListLayout className="size-4" />
             </button>
             <button
               type="button"
-              aria-pressed={search.layout === 'grid'}
-              aria-label="Thumbnails"
-              onClick={() => setSearch({ layout: 'grid' })}
+              aria-pressed={layout === 'gallery'}
+              aria-label="Gallery"
+              onClick={() => setSearch({ layout: 'gallery' })}
               className={cn(
                 'rounded p-1 text-muted',
-                search.layout === 'grid' && 'bg-surface text-foreground shadow-xs',
+                layout === 'gallery' && 'bg-surface text-foreground shadow-xs',
               )}
             >
               <LayoutGrid className="size-4" />
             </button>
           </div>
         )}
-        <div className={cn('relative w-full max-w-xs', !(isLibrary && !groupBy) && 'ml-auto')}>
+        <div className={cn('relative w-full max-w-xs', (layout === 'board' || layout === 'calendar') && 'ml-auto')}>
           <Search className="absolute top-2.5 left-2.5 size-4 text-muted" />
           <Input
             aria-label="Search this list"
@@ -279,7 +306,7 @@ function ListPage() {
         />
       )}
 
-      {selectedIds.length > 0 && (
+      {access.canContribute && selectedIds.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-accent-soft px-3 py-2 text-[13px]">
           <span className="font-medium">{selectedIds.length} selected</span>
           <Button size="sm" onClick={() => setBulkEdit(true)}>
@@ -296,7 +323,7 @@ function ListPage() {
 
       <DropZone
         onFiles={uploadHere}
-        disabled={!isLibrary}
+        disabled={!isLibrary || !access.canContribute}
         label={`Drop to upload to ${list.name}`}
         className="min-h-40"
       >
@@ -317,22 +344,26 @@ function ListPage() {
                 icon={Inbox}
                 title={deferredQuery ? 'No matching items' : search.folder ? 'This folder is empty' : 'No items yet'}
               >
-                {!deferredQuery && (
+                {!deferredQuery && access.canContribute && (
                   <Button variant="primary" className="mt-2" onClick={() => setSearch({ item: 'new' })}>
                     <Plus /> Add the first one
                   </Button>
                 )}
               </EmptyState>
             </Card>
-          ) : isLibrary && search.layout === 'grid' ? (
-            <DocumentGrid
+          ) : layout === 'gallery' ? (
+            <ItemsGallery
               workspaceId={workspaceId}
               listId={listId}
               items={rows}
+              isLibrary={isLibrary}
+              fields={columns}
               onOpen={(item) =>
-                item.isFolder ? setSearch({ folder: item.id! }) : setSearch({ item: item.id!, tab: 'preview' })
+                item.isFolder ? setSearch({ folder: item.id! }) : setSearch({ item: item.id!, tab: isLibrary ? 'preview' : undefined })
               }
             />
+          ) : layout === 'calendar' ? (
+            <ItemsCalendar items={rows} dateField={dateField} onOpen={open} />
           ) : groupBy ? (
             <ItemsBoard
               workspaceId={workspaceId}

@@ -29,6 +29,7 @@ import { Input, Label } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/select';
 import type { ItemPanelContext } from '@/extensibility/item-panels';
+import { useItemAccess } from '@/features/list-settings/queries';
 import { userName, useUsers } from '@/features/fields/directory';
 import { listBuilder } from '@/features/lists/queries';
 import { useAuthedImage } from '@/lib/authed-image';
@@ -36,6 +37,7 @@ import { problemMessage } from '@/lib/errors';
 import { useFormat } from '@/lib/preferences';
 import { cn } from '@/lib/utils';
 import { FilePickerButton } from './drop-zone';
+import { MovePagesDialog } from './move-pages-dialog';
 import { acceptedTypes, filePath, pageImagePath } from './paths';
 import { fileVersionsQuery } from './queries';
 
@@ -47,6 +49,7 @@ interface PageState {
 
 /** The file of a document: status, downloads, pages with tools (DOC-05/06) and its versions (DOC-03). */
 export function PreviewTab({ workspaceId, list, item }: ItemPanelContext) {
+  const { canContribute } = useItemAccess(workspaceId, list.id!, item.id!);
   const { data: versions, isPending } = useQuery(fileVersionsQuery(workspaceId, list.id!, item.id!));
   const current = versions?.find((v) => v.isCurrent) ?? versions?.[0];
 
@@ -61,15 +64,22 @@ export function PreviewTab({ workspaceId, list, item }: ItemPanelContext) {
 
   return (
     <div className="flex flex-col gap-5 p-5">
-      <FileHeader workspaceId={workspaceId} listId={list.id!} itemId={item.id!} file={current} />
+      <FileHeader workspaceId={workspaceId} listId={list.id!} itemId={item.id!} file={current} canWrite={canContribute} />
       <Pages
         key={`${current.number}-${current.pageCount}`}
         workspaceId={workspaceId}
         listId={list.id!}
         itemId={item.id!}
         file={current}
+        canWrite={canContribute}
       />
-      <FileHistory workspaceId={workspaceId} listId={list.id!} itemId={item.id!} versions={versions ?? []} />
+      <FileHistory
+        workspaceId={workspaceId}
+        listId={list.id!}
+        itemId={item.id!}
+        versions={versions ?? []}
+        canWrite={canContribute}
+      />
     </div>
   );
 }
@@ -102,11 +112,13 @@ function FileHeader({
   listId,
   itemId,
   file,
+  canWrite,
 }: {
   workspaceId: string;
   listId: string;
   itemId: string;
   file: FileVersionResponse;
+  canWrite: boolean;
 }) {
   const format = useFormat();
   const queryClient = useQueryClient();
@@ -164,6 +176,7 @@ function FileHeader({
         <Button size="sm" disabled={download.isPending} onClick={() => download.mutate()}>
           {download.isPending ? <Spinner /> : <Download />} Download
         </Button>
+        {canWrite && (
         <FilePickerButton
           size="sm"
           accept={acceptedTypes}
@@ -173,6 +186,8 @@ function FileHeader({
         >
           {replace.isPending ? <Spinner /> : <Upload />} Replace file
         </FilePickerButton>
+        )}
+        {canWrite && (
         <Popover open={ocrOpen} onOpenChange={setOcrOpen}>
           <PopoverTrigger asChild>
             <Button size="sm" disabled={file.processingStatus === 'running' || file.processingStatus === 'scheduled'}>
@@ -206,6 +221,7 @@ function FileHeader({
             </form>
           </PopoverContent>
         </Popover>
+        )}
       </div>
     </section>
   );
@@ -251,11 +267,13 @@ function Pages({
   listId,
   itemId,
   file,
+  canWrite,
 }: {
   workspaceId: string;
   listId: string;
   itemId: string;
   file: FileVersionResponse;
+  canWrite: boolean;
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -267,6 +285,7 @@ function Pages({
   const [large, setLarge] = useState<number | undefined>(
     hitPage && hitPage <= (file.pageCount ?? 0) ? hitPage : undefined,
   );
+  const [moving, setMoving] = useState(false);
   const changed = JSON.stringify(pages) !== JSON.stringify(original);
   const editable = file.mediaType === 'application/pdf';
   const refresh = () => queryClient.invalidateQueries({ queryKey: keys.item(workspaceId, listId, itemId) });
@@ -342,7 +361,7 @@ function Pages({
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="flex-1 text-[13px] font-semibold">Pages</h3>
-        {editable && selected.size > 0 && (
+        {canWrite && editable && selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-1" role="toolbar" aria-label="Page tools">
             <span className="mr-1 text-xs text-muted">{selected.size} selected</span>
             <Button size="icon" variant="ghost" aria-label="Rotate left" onClick={() => rotate(-90)}>
@@ -386,6 +405,9 @@ function Pages({
             >
               <Scissors /> Split off
             </Button>
+            <Button size="sm" onClick={() => setMoving(true)}>
+              Move into…
+            </Button>
             <Button size="icon" variant="ghost" aria-label="Clear selection" onClick={() => setSelected(new Set())}>
               <X />
             </Button>
@@ -404,7 +426,7 @@ function Pages({
               type="button"
               aria-pressed={selected.has(p.page)}
               aria-label={`Page ${index + 1}${p.page !== index + 1 ? ` (was ${p.page})` : ''}`}
-              onClick={() => (editable ? toggle(p.page) : setLarge(p.page))}
+              onClick={() => (canWrite && editable ? toggle(p.page) : setLarge(p.page))}
               onDoubleClick={() => setLarge(p.page)}
               className={cn('rounded-md p-0.5 outline-offset-2', selected.has(p.page) && 'ring-2 ring-accent')}
             >
@@ -456,6 +478,20 @@ function Pages({
           )}
         </DialogContent>
       </Dialog>
+      {moving && (
+        <MovePagesDialog
+          workspaceId={workspaceId}
+          listId={listId}
+          itemId={itemId}
+          pages={[...selected].sort((a, b) => a - b)}
+          open
+          onOpenChange={setMoving}
+          onMoved={() => {
+            setSelected(new Set());
+            void refresh();
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -465,11 +501,13 @@ function FileHistory({
   listId,
   itemId,
   versions,
+  canWrite,
 }: {
   workspaceId: string;
   listId: string;
   itemId: string;
   versions: FileVersionResponse[];
+  canWrite: boolean;
 }) {
   const format = useFormat();
   const users = useUsers();
@@ -495,7 +533,7 @@ function FileHistory({
             <span className="min-w-0 flex-1 truncate text-xs text-muted">
               {v.source} · {userName(users.get(v.createdBy ?? ''), v.createdBy ?? '')} · {format.relative(v.createdAt)}
             </span>
-            {!v.isCurrent && (
+            {canWrite && !v.isCurrent && (
               <Button size="sm" variant="ghost" disabled={restore.isPending} onClick={() => restore.mutate(v.number!)}>
                 <RotateCcw /> Restore
               </Button>

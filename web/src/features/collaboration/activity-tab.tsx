@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, Skeleton } from '@/components/ui/feedback';
 import type { ItemPanelContext } from '@/extensibility/item-panels';
 import { userName, useUsers } from '@/features/fields/directory';
+import { useItemAccess } from '@/features/list-settings/queries';
 import { listBuilder } from '@/features/lists/queries';
 import { fieldLabel, listFields } from '@/features/lists/schema';
 import { problemMessage } from '@/lib/errors';
@@ -28,6 +29,7 @@ export function ActivityTab({ workspaceId, list, item }: ItemPanelContext) {
     queryKey: [...key, 'activity'],
     queryFn: () => toArray(all(builder.activity, { queryParameters: { top: 100 } }), 200),
   });
+  const { canContribute } = useItemAccess(workspaceId, list.id!, item.id!);
   const topLevel = (comments.data ?? []).filter((c) => !c.parentId);
   const replies = (id: string) => (comments.data ?? []).filter((c) => c.parentId === id);
 
@@ -43,12 +45,12 @@ export function ActivityTab({ workspaceId, list, item }: ItemPanelContext) {
           <ol className="flex flex-col gap-4">
             {topLevel.map((comment) => (
               <li key={comment.id} className="flex flex-col gap-3">
-                <CommentView context={{ workspaceId, list, item }} comment={comment} />
+                <CommentView context={{ workspaceId, list, item }} comment={comment} canWrite={canContribute} />
                 {replies(comment.id!).length > 0 && (
                   <ol className="ml-9 flex flex-col gap-3 border-l pl-3">
                     {replies(comment.id!).map((reply) => (
                       <li key={reply.id}>
-                        <CommentView context={{ workspaceId, list, item }} comment={reply} isReply />
+                        <CommentView context={{ workspaceId, list, item }} comment={reply} isReply canWrite={canContribute} />
                       </li>
                     ))}
                   </ol>
@@ -57,7 +59,7 @@ export function ActivityTab({ workspaceId, list, item }: ItemPanelContext) {
             ))}
           </ol>
         )}
-        <Composer context={{ workspaceId, list, item }} />
+        {canContribute && <Composer context={{ workspaceId, list, item }} />}
       </section>
       <section className="flex flex-col gap-2">
         <h3 className="flex items-center gap-2 text-[13px] font-semibold">
@@ -131,10 +133,12 @@ function CommentView({
   context,
   comment,
   isReply,
+  canWrite,
 }: {
   context: ItemPanelContext;
   comment: CommentResponse;
   isReply?: boolean;
+  canWrite?: boolean;
 }) {
   const format = useFormat();
   const users = useUsers();
@@ -205,7 +209,7 @@ function CommentView({
               <CommentText text={comment.text ?? ''} mentions={comment.mentions ?? []} />
             </p>
           )}
-          {!editing && (
+          {!editing && canWrite && (
             <div className="mt-1 flex gap-3 text-xs text-muted opacity-70 group-hover:opacity-100">
               {!isReply && (
                 <button

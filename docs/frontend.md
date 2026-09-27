@@ -75,17 +75,18 @@ Tailwind ([ADR-0033](adr/0033-web-frontend.md)). This page describes:
 | Settings: API tokens, calendar feeds, notification channels, subscriptions | `/settings/*` | IAM-03, CAL-04, NTF-03…05, API-06 |
 | Workspace settings: lists, members, permissions, automations, runs | `/w/$workspaceId/settings/*` | PLT-07, LST-16, IAM-07, EVT-07, EVT-08 |
 | List settings: fields, content types, views, versioning, documents, permissions | `/w/$workspaceId/l/$listId/settings/*` | LST-02, LST-03, LST-09, LST-11, DOC-07, DOC-10, DOC-14, IAM-07 |
-| Admin: users, groups, roles | `/admin/people` | IAM-05, IAM-06, IAM-14 |
+| Admin: users, groups, roles | `/admin` | IAM-05, IAM-06, IAM-14 |
 | Admin: term store, keyword promotion, CSV import | `/admin/terms` | TAX-01…03, TAX-05, TAX-11 |
-| Admin: organization defaults, extensions, applications | `/admin/*` | PLT-18, EXT-03, IAM-02 |
-| Admin: audit log, reindex, provisioning, export/import | `/admin/*` | LST-14, SRC-10, PRV-01…02, PLT-13, PLT-15 |
+| Admin: organization defaults | `/admin/organization` | PLT-18 |
+| Admin: applications | `/admin/applications` | IAM-02 |
+| Admin: extensions, audit log, reindex, provisioning, export/import | `/admin/maintenance` | EXT-03, LST-14, SRC-10, PRV-01…02, PLT-13 |
 
 Known API gaps (the UI works around them, to be closed in the API):
 - **Columns for one list only**: columns come from content types, which belong to the organization, so
   adding a column to one list means a new content type (or changing a shared one for all its lists).
   List columns (SharePoint-style site/list columns) would make this simpler.
-- **Moving a document to another library** copies its pages (extract) and deletes the original, so fields other than the
-  title and older versions stay behind. A move endpoint that keeps them is planned.
+- **Moving a document to another library** copies its pages (extract) and the fields the target library has, then
+  recycles the original. Versions, comments and links stay on the original. A move endpoint that keeps them is planned.
 
 Not in the web UI: operator work done with the CLI or configuration (backup,
 tenants, quotas), and protocol clients (MCP, WebDAV, CalDAV, the client CLI).
@@ -143,4 +144,4 @@ run on PostgreSQL with the variables shown in [sdk/README.md](../sdk/README.md#e
 | **8g Settings** | `/settings` with a page per topic (a registry, like the navigation; also in the account menu and the command palette): profile (display name; API: `PATCH /v1.0/me`), preferences with the organization's defaults and live examples (language, time zone, date/time/number formats, theme, OCR languages), password change and passkeys (add with the browser's passkey dialog, remove), notification channels per type, webhook with a once-shown signing secret and a test, quiet hours, digest hour, followed items and lists (how often, unfollow), API tokens (scopes you hold, expiry, secret shown once, revoke) and calendar feeds (one calendar or task list, or everything; address shown once) | ✅ |
 | **8h Workspace settings** | `/w/$workspaceId/settings` (a Settings button for owners): name and description, delete; members (add people with a role, change roles, remove; the last owner stays); automations (list with on/off, editor with trigger, list, content type, changed fields and condition, steps as cards: actions with forms for notify, update item, file, create task and JSON inputs for extension actions, approvals with people tokens, if/then/else on an approval or a filter, waits; a JSON view of the whole automation) and runs (filter by automation and status, outcomes, log, error, link to the item, cancel). API: `DELETE /workspaces/{id}/members/{userId}` (last-owner guard) and the caller's `access` on workspaces | ✅ |
 | **8i List settings** | `/w/$workspaceId/l/$listId/settings` (a settings button for managers): name, description, folders, version history, delete; columns with where they come from; content types (add, remove, create; an editor for the organization's content types with fields of every type, choices, lookups, term sets, defaults and search weight, warning which lists a change affects); views (columns and their order, sort, OData filter, board grouping, default); library settings (duplicates, processing, OCR mode and languages); permissions (inherit or unique, grants for people and groups) and the same editor as an Access tab on items. SDK: null enums are sent as null | ✅ |
-| 8j Organization administration | Users, groups, roles, term store, organization defaults, extensions, applications, audit log, reindex, provisioning, export and import | planned |
+| **8j Organization administration** | Users, groups and roles (create, disable, reset a password, delete; group members, rename and delete; custom roles and assignments); term store (groups, sets, terms, keyword promotion, SharePoint CSV import); organization defaults; applications; extensions; audit log; reindex; provisioning templates (export, dry run, apply) and content export/import. Papermerge import stays a CLI command | ✅ |

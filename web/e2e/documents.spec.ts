@@ -71,11 +71,11 @@ test('the Inbox takes dropped files and documents are filed into a library', asy
   const panel = page.getByRole('dialog');
   await expect(panel.getByText('Searchable')).toBeVisible({ timeout: 30_000 });
   await panel.getByRole('button', { name: 'Item actions' }).click();
-  await page.getByRole('menuitem', { name: 'Move to a library…' }).click();
+  await page.getByRole('menuitem', { name: 'File in a library…' }).click();
   const library = page.getByLabel('Library', { exact: true });
   await library.selectOption((await library.locator('option', { hasText: 'Finance' }).getAttribute('value'))!);
-  await page.getByRole('button', { name: 'Move', exact: true }).click();
-  await expect(page.getByText('Moved to Finance.')).toBeVisible();
+  await page.getByRole('button', { name: 'File', exact: true }).click();
+  await expect(page.getByText('Filed in Finance.')).toBeVisible();
   await expect(page.getByRole('button', { name: new RegExp(title) })).toBeHidden();
 
   await page.getByRole('button', { name: 'Open' }).click();

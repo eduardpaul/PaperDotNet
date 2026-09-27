@@ -5,7 +5,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { CircleCheckBig, ListChecks, Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { meQuery, myTasksQuery } from '@/api/queries';
+import { meQuery, myTasksLimit, myTasksQuery } from '@/api/queries';
 import { Page, PageHeader } from '@/components/page';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -80,6 +80,9 @@ function Tasks() {
         description="Open tasks from every task list, by when they are due."
       />
       <QuickAdd />
+      {(data?.length ?? 0) >= myTasksLimit && (
+        <p className="mb-3 text-xs text-muted">Showing the first {myTasksLimit} open tasks.</p>
+      )}
       <div role="tablist" aria-label="Task view" className="mb-4 inline-flex rounded-md bg-surface-muted p-0.5">
         {views.map((v) => (
           <button

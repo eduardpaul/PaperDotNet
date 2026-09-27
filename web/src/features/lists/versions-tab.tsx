@@ -53,6 +53,7 @@ export function VersionsTab({
             list={list}
             item={item}
             version={version}
+            previous={(data ?? []).find((v) => v.number === (version.number ?? 0) - 1)}
             fields={fields}
           />
         ))}
@@ -66,18 +67,21 @@ function VersionRow({
   list,
   item,
   version,
+  previous,
   fields,
 }: {
   workspaceId: string;
   list: ListResponse;
   item: ItemResponse;
   version: ItemVersionResponse;
+  previous?: ItemVersionResponse;
   fields: ReturnType<typeof listFields>;
 }) {
   const format = useFormat();
   const names = useValueNames();
   const queryClient = useQueryClient();
   const values = fieldsOf(version);
+  const before = previous ? fieldsOf(previous) : undefined;
   const changed = (version.changedFields ?? []).map(
     (name) => fields.find((f) => f.name === name) ?? { name, type: 'text' },
   );
@@ -110,6 +114,11 @@ function VersionRow({
             <div key={field.name} className="contents">
               <dt className="truncate text-muted">{fieldLabel(field)}</dt>
               <dd className="min-w-0">
+                {before && (
+                  <span className="mr-2 text-muted line-through">
+                    <FieldValue field={field} value={before[field.name!]} />
+                  </span>
+                )}
                 <FieldValue field={field} value={values[field.name!]} />
               </dd>
             </div>

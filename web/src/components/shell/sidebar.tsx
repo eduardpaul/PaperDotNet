@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
-import { Briefcase, ChevronRight, Plus } from 'lucide-react';
+import { Briefcase, ChevronRight, Files, Plus, Shield } from 'lucide-react';
 import { Collapsible } from 'radix-ui';
 import { useState } from 'react';
-import { listsQuery, unreadCountQuery, workspacesQuery } from '@/api/queries';
+import { homeQuery, listsQuery, unreadCountQuery, workspacesQuery } from '@/api/queries';
 import { Logo } from '@/components/brand/logo';
 import { Skeleton } from '@/components/ui/feedback';
 import { navigation } from '@/extensibility/navigation';
+import { useAdminAccess } from '@/features/admin/access';
+import { inboxCountQuery } from '@/features/home/inbox-card';
 import { ListIcon } from '@/features/lists/list-icon';
 import { SidebarSmartFolders } from '@/features/smart-folders/sidebar-folders';
 import { cn } from '@/lib/utils';
@@ -17,6 +19,8 @@ const activeClass = 'bg-accent-soft! text-accent! font-medium [&_svg]:text-accen
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { data: unread } = useQuery(unreadCountQuery);
+  const { data: home } = useQuery(homeQuery);
+  const { data: inboxCount } = useQuery(inboxCountQuery(home?.workspaceId, home?.inboxListId));
 
   return (
     <nav aria-label="Main" className="flex h-full flex-col border-r bg-sidebar">
@@ -38,19 +42,60 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               >
                 <entry.icon />
                 <span className="flex-1">{entry.label}</span>
-                {entry.to === '/notifications' && !!unread && (
-                  <span className="rounded-full bg-accent px-1.5 text-[11px] leading-4 font-semibold text-accent-foreground">
-                    {unread > 99 ? '99+' : unread}
-                  </span>
-                )}
+                {entry.to === '/notifications' && !!unread && <Count count={unread} />}
+                {entry.to === '/inbox' && !!inboxCount && <Count count={inboxCount} />}
               </Link>
             </li>
           ))}
         </ul>
+        <MyFiles onNavigate={onNavigate} />
         <SidebarSmartFolders itemClass={itemClass} activeClass={activeClass} onNavigate={onNavigate} />
         <Workspaces onNavigate={onNavigate} />
+        <AdminLink onNavigate={onNavigate} />
       </div>
     </nav>
+  );
+}
+
+function Count({ count }: { count: number }) {
+  return (
+    <span className="rounded-full bg-accent px-1.5 text-[11px] leading-4 font-semibold text-accent-foreground">
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
+
+/** The personal Documents library. The Inbox stays in the main navigation. */
+function MyFiles({ onNavigate }: { onNavigate?: () => void }) {
+  const { data: home } = useQuery(homeQuery);
+  if (!home?.workspaceId || !home.documentsListId) return null;
+  return (
+    <div className="mt-5">
+      <p className="px-2 pb-1 text-xs font-medium text-muted">My files</p>
+      <Link
+        to="/w/$workspaceId/l/$listId"
+        params={{ workspaceId: home.workspaceId, listId: home.documentsListId }}
+        onClick={onNavigate}
+        className={itemClass}
+        activeProps={{ className: activeClass }}
+      >
+        <Files />
+        <span className="truncate">Documents</span>
+      </Link>
+    </div>
+  );
+}
+
+function AdminLink({ onNavigate }: { onNavigate?: () => void }) {
+  const admin = useAdminAccess();
+  if (!admin.any) return null;
+  return (
+    <div className="mt-5">
+      <Link to="/admin" onClick={onNavigate} className={itemClass} activeProps={{ className: activeClass }}>
+        <Shield />
+        <span>Administration</span>
+      </Link>
+    </div>
   );
 }
 

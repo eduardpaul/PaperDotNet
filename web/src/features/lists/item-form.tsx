@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, Spinner } from '@/components/ui/feedback';
 import { Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { FieldValue } from '@/features/fields/display';
 import { FieldEditor } from '@/features/fields/editors';
 import { NoteEditor } from '@/features/notes/note-editor';
 import { ValueNamesProvider } from '@/features/fields/lookups';
@@ -27,6 +28,7 @@ export function ItemForm({
   item,
   parentId,
   initialValues,
+  readOnly,
   onSaved,
   onCancel,
 }: {
@@ -36,6 +38,8 @@ export function ItemForm({
   parentId?: string;
   /** Values a new item starts with (e.g. the day clicked in the calendar). */
   initialValues?: Record<string, unknown>;
+  /** A reader sees the values and cannot save. */
+  readOnly?: boolean;
   onSaved: (item: ItemResponse) => void;
   onCancel?: () => void;
 }) {
@@ -57,6 +61,7 @@ export function ItemForm({
     if (item && Object.keys(changes(baseline, values)).length === 0) setValues({ ...original });
   }
   const [conflict, setConflict] = useState(false);
+  const [theirs, setTheirs] = useState<Record<string, unknown> | null>(null);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const items = listBuilder(workspaceId, list.id!).items;
   const edited = item ? changes(original, values) : values;
@@ -88,7 +93,14 @@ export function ItemForm({
       onSaved(saved);
     },
     onError: (error) => {
-      if (isStatus(error, 412)) setConflict(true);
+      if (isStatus(error, 412)) {
+        setConflict(true);
+        if (item) {
+          void items.byItemId(item.id!).get().then((latest) => {
+            if (latest) setTheirs(fieldsOf(latest));
+          });
+        }
+      }
       setErrors(validationErrors(error));
     },
   });
@@ -101,6 +113,7 @@ export function ItemForm({
     });
     setValues(fieldsOf(latest));
     setConflict(false);
+    setTheirs(null);
     onSaved(latest);
   };
 
@@ -114,10 +127,27 @@ export function ItemForm({
   return (
     <ValueNamesProvider fields={fields} values={[values]}>
       <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
-        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+        <fieldset disabled={readOnly} className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
           {conflict && (
             <Alert tone="warning" className="flex flex-col gap-2">
               <span>Someone else changed this item after you opened it.</span>
+              {theirs && (
+                <ul className="flex flex-col gap-1.5 text-[13px]">
+                  {fields
+                    .filter((field) => JSON.stringify(theirs[field.name!]) !== JSON.stringify(values[field.name!]))
+                    .map((field) => (
+                      <li key={field.name} className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="font-medium">{fieldLabel(field)}</span>
+                        <span className="text-muted">
+                          theirs <FieldValue field={field} value={theirs[field.name!]} />
+                        </span>
+                        <span>
+                          yours <FieldValue field={field} value={values[field.name!]} />
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              )}
               <span className="flex gap-2">
                 <Button size="sm" onClick={() => void reload()}>
                   <RotateCcw /> Reload their version
@@ -176,19 +206,22 @@ export function ItemForm({
               </div>
             );
           })}
-        </div>
+        </fieldset>
         <div className="flex items-center justify-end gap-2 border-t bg-surface px-5 py-3">
+          {readOnly && <span className="mr-auto text-xs text-muted">You can read this item.</span>}
           {item && dirty && <span className="mr-auto text-xs text-muted">Unsaved changes</span>}
           {onCancel && <Button onClick={onCancel}>{item ? 'Close' : 'Cancel'}</Button>}
-          {item && dirty && (
+          {!readOnly && item && dirty && (
             <Button onClick={() => setValues({ ...original })} disabled={save.isPending}>
               Discard
             </Button>
           )}
+          {!readOnly && (
           <Button type="submit" variant="primary" disabled={!dirty || save.isPending}>
             {save.isPending ? <Spinner className="text-current" /> : <Save />}
             {item ? 'Save' : 'Create'}
           </Button>
+          )}
         </div>
       </form>
     </ValueNamesProvider>

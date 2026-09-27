@@ -36,6 +36,29 @@ export const termSetsQuery = queryOptions({
 
 /** True when the caller manages the list (its settings are editable). */
 export function useCanManageList(workspaceId: string, listId: string): boolean {
-  const { data } = useQuery(listPermissionsQuery(workspaceId, listId));
-  return data?.effectiveLevel === 'manage';
+  return useListAccess(workspaceId, listId).canManage;
+}
+
+const levelRank = { none: 0, read: 1, contribute: 2, manage: 3 } as const;
+
+/** What the caller may do. Unknown or still loading means the write actions stay hidden. */
+export function accessOf(level: string | null | undefined) {
+  const rank = levelRank[level as keyof typeof levelRank] ?? 0;
+  return { canContribute: rank >= levelRank.contribute, canManage: rank >= levelRank.manage };
+}
+
+export function useListAccess(workspaceId: string, listId: string) {
+  const { data, isPending } = useQuery(listPermissionsQuery(workspaceId, listId));
+  return { ...accessOf(data?.effectiveLevel), isPending };
+}
+
+export const itemPermissionsQuery = (workspaceId: string, listId: string, itemId: string) =>
+  queryOptions({
+    queryKey: [...keys.item(workspaceId, listId, itemId), 'permissions'],
+    queryFn: async () => (await listBuilder(workspaceId, listId).items.byItemId(itemId).permissions.get())!,
+  });
+
+export function useItemAccess(workspaceId: string, listId: string, itemId: string) {
+  const { data, isPending } = useQuery({ ...itemPermissionsQuery(workspaceId, listId, itemId), enabled: !!itemId });
+  return { ...accessOf(data?.effectiveLevel), isPending };
 }

@@ -25,6 +25,13 @@ export function useLiveEvents() {
         void queryClient.invalidateQueries({ queryKey: keys.item(event.workspaceId, event.listId, event.itemId) });
         void queryClient.invalidateQueries({ queryKey: keys.items(event.workspaceId, event.listId), exact: false });
       },
+      'item.changed': (event) => {
+        void queryClient.invalidateQueries({ queryKey: keys.item(event.workspaceId, event.listId, event.itemId) });
+        void queryClient.invalidateQueries({ queryKey: keys.items(event.workspaceId, event.listId), exact: false });
+        void queryClient.invalidateQueries({ queryKey: ['me', 'tasks'] });
+        void queryClient.invalidateQueries({ queryKey: ['me', 'calendar'] });
+        void queryClient.invalidateQueries({ queryKey: ['me', 'home'] });
+      },
       operation: (operation) => {
         void queryClient.invalidateQueries({ queryKey: ['operations', operation.id] });
       },

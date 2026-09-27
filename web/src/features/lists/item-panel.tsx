@@ -1,7 +1,7 @@
 import type { ListResponse } from '@paperdotnet/client';
 import { fieldsOf, ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderInput, FolderSearch, MoreHorizontal, Trash2 } from 'lucide-react';
+import { FolderInput, FolderSearch, ListTodo, MoreHorizontal, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { keys } from '@/api/keys';
@@ -13,7 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { itemPanels, type ItemPanelContext } from '@/extensibility/item-panels';
 import { FollowButton } from '@/features/collaboration/follow-button';
 import { MoveDocumentDialog } from '@/features/documents/move-dialog';
+import { useItemAccess, useListAccess } from '@/features/list-settings/queries';
 import { AddToFolderDialog } from '@/features/smart-folders/add-dialog';
+import { CreateTaskDialog } from '@/features/tasks/create-task-dialog';
 import { useFormat } from '@/lib/preferences';
 import { ItemForm } from './item-form';
 import { itemQuery, listBuilder } from './queries';
@@ -47,6 +49,10 @@ export function ItemPanel({
   const isNew = itemId === 'new';
   const [moving, setMoving] = useState(false);
   const [classifying, setClassifying] = useState(false);
+  const [task, setTask] = useState(false);
+  const itemAccess = useItemAccess(workspaceId, list.id!, isNew ? '' : itemId);
+  const listAccess = useListAccess(workspaceId, list.id!);
+  const canWrite = isNew ? listAccess.canContribute : itemAccess.canContribute;
   const format = useFormat();
   const queryClient = useQueryClient();
   const { data: item, isPending } = useQuery({ ...itemQuery(workspaceId, list.id!, itemId), enabled: !isNew });
@@ -79,8 +85,8 @@ export function ItemPanel({
               </SheetDescription>
             )}
           </div>
-          {item && !item.isFolder && <FollowButton workspaceId={workspaceId} listId={list.id!} item={item} />}
-          {item && (
+          {item && <FollowButton workspaceId={workspaceId} listId={list.id!} item={item} />}
+          {item && canWrite && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Item actions">
@@ -90,7 +96,12 @@ export function ItemPanel({
               <DropdownMenuContent align="end">
                 {list.kind === 'library' && !item.isFolder && (
                   <DropdownMenuItem onSelect={() => setMoving(true)}>
-                    <FolderInput /> Move to a library…
+                    <FolderInput /> File in a library…
+                  </DropdownMenuItem>
+                )}
+                {list.kind === 'library' && !item.isFolder && (
+                  <DropdownMenuItem onSelect={() => setTask(true)}>
+                    <ListTodo /> Create a task…
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onSelect={() => setClassifying(true)}>
@@ -110,6 +121,7 @@ export function ItemPanel({
             list={list}
             parentId={parentId}
             initialValues={initialValues}
+            readOnly={!canWrite}
             onSaved={(saved) => onCreated(saved.id!)}
             onCancel={onClose}
           />
@@ -135,6 +147,7 @@ export function ItemPanel({
                 workspaceId={workspaceId}
                 list={list}
                 item={item}
+                readOnly={!canWrite}
                 onSaved={() => {}}
                 onCancel={onClose}
               />
@@ -153,6 +166,16 @@ export function ItemPanel({
             item={item}
             open
             onOpenChange={setClassifying}
+          />
+        )}
+        {item && task && (
+          <CreateTaskDialog
+            workspaceId={workspaceId}
+            listId={list.id!}
+            itemId={item.id!}
+            title={String(fieldsOf(item).title ?? '')}
+            open
+            onOpenChange={setTask}
           />
         )}
         {item && moving && (

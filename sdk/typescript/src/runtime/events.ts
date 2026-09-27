@@ -44,11 +44,20 @@ export interface NotificationEvent {
   readAt?: string | null;
 }
 
+/** `item.changed`: an item was added, updated, deleted or restored. Ids only; clients reload through the API. */
+export interface ItemChangedEvent {
+  kind: 'added' | 'updated' | 'deleted' | 'restored' | string;
+  workspaceId: string;
+  listId: string;
+  itemId: string;
+}
+
 export interface LiveEventMap {
   connected: ConnectedEvent;
   operation: OperationEvent;
   'document.processing': DocumentProcessingEvent;
   notification: NotificationEvent;
+  'item.changed': ItemChangedEvent;
 }
 
 export type LiveEventHandlers = { [K in keyof LiveEventMap]?: (data: LiveEventMap[K]) => void } & {
@@ -63,7 +72,7 @@ export interface LiveEventSubscription {
   close(): void;
 }
 
-const KnownTypes = ['connected', 'operation', 'document.processing', 'notification'] as const;
+const KnownTypes = ['connected', 'operation', 'document.processing', 'notification', 'item.changed'] as const;
 
 /**
  * Subscribes to the signed-in user's live events:

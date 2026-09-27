@@ -33,7 +33,7 @@ export function orderByOf(sort: Sort | undefined): string | undefined {
   return `${property}${sort.descending ? ' desc' : ''}`;
 }
 
-/** The items of a list as a table: server-side sort by column, selection, keyboard (arrows, Enter, x). */
+/** The items of a list as a table: server-side sort by column, selection, keyboard (arrows, Enter, x, e). */
 export function ItemsTable({
   items,
   fields,
@@ -138,6 +138,7 @@ export function ItemsTable({
   const onKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, item: ItemResponse) => {
     const row = event.currentTarget;
     if (event.key === 'Enter') open(item);
+    else if (event.key === 'e') onOpen(item);
     else if (event.key === 'x') {
       const next = { ...selection };
       if (next[item.id!]) delete next[item.id!];

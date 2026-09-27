@@ -39,9 +39,11 @@ function Workspace() {
                 </Link>
               </Button>
             )}
-            <Button variant="primary" onClick={() => setNewList(true)}>
-              <Plus /> New list
-            </Button>
+            {workspace?.access === 'manage' && (
+              <Button variant="primary" onClick={() => setNewList(true)}>
+                <Plus /> New list
+              </Button>
+            )}
           </>
         }
       />
@@ -77,9 +79,11 @@ function Workspace() {
         <Card>
           <EmptyState icon={Library} title="No lists yet">
             <p className="mb-3">Lists and libraries hold the documents, tasks, events and notes of this workspace.</p>
-            <Button variant="primary" onClick={() => setNewList(true)}>
-              <Plus /> New list
-            </Button>
+            {workspace?.access === 'manage' && (
+              <Button variant="primary" onClick={() => setNewList(true)}>
+                <Plus /> New list
+              </Button>
+            )}
           </EmptyState>
         </Card>
       )}

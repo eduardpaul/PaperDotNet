@@ -13,6 +13,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as AppApprovalsRouteImport } from './routes/_app/approvals'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
@@ -20,6 +21,11 @@ import { Route as AppNotificationsRouteImport } from './routes/_app/notification
 import { Route as AppSearchRouteImport } from './routes/_app/search'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppTasksRouteImport } from './routes/_app/tasks'
+import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
+import { Route as AppAdminApplicationsRouteImport } from './routes/_app/admin/applications'
+import { Route as AppAdminMaintenanceRouteImport } from './routes/_app/admin/maintenance'
+import { Route as AppAdminOrganizationRouteImport } from './routes/_app/admin/organization'
+import { Route as AppAdminTermsRouteImport } from './routes/_app/admin/terms'
 import { Route as AppFFolderIdRouteImport } from './routes/_app/f/$folderId'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsCalendarFeedsRouteImport } from './routes/_app/settings/calendar-feeds'
@@ -62,6 +68,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppApprovalsRoute = AppApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
@@ -96,6 +107,31 @@ const AppTasksRoute = AppTasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
   getParentRoute: () => AppRoute,
+} as any)
+const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminApplicationsRoute = AppAdminApplicationsRouteImport.update({
+  id: '/applications',
+  path: '/applications',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminMaintenanceRoute = AppAdminMaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminOrganizationRoute = AppAdminOrganizationRouteImport.update({
+  id: '/organization',
+  path: '/organization',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminTermsRoute = AppAdminTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => AppAdminRoute,
 } as any)
 const AppFFolderIdRoute = AppFFolderIdRouteImport.update({
   id: '/f/$folderId',
@@ -226,6 +262,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/callback': typeof CallbackRoute
   '/login': typeof LoginRoute
+  '/admin': typeof AppAdminRouteWithChildren
   '/approvals': typeof AppApprovalsRoute
   '/calendar': typeof AppCalendarRoute
   '/inbox': typeof AppInboxRoute
@@ -233,12 +270,17 @@ export interface FileRoutesByFullPath {
   '/search': typeof AppSearchRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/tasks': typeof AppTasksRoute
+  '/admin/applications': typeof AppAdminApplicationsRoute
+  '/admin/maintenance': typeof AppAdminMaintenanceRoute
+  '/admin/organization': typeof AppAdminOrganizationRoute
+  '/admin/terms': typeof AppAdminTermsRoute
   '/f/$folderId': typeof AppFFolderIdRoute
   '/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/preferences': typeof AppSettingsPreferencesRoute
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/tokens': typeof AppSettingsTokensRoute
+  '/admin/': typeof AppAdminIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/w/': typeof AppWIndexRoute
   '/w/$workspaceId/settings': typeof AppWWorkspaceIdSettingsRouteWithChildren
@@ -266,12 +308,17 @@ export interface FileRoutesByTo {
   '/search': typeof AppSearchRoute
   '/tasks': typeof AppTasksRoute
   '/': typeof AppIndexRoute
+  '/admin/applications': typeof AppAdminApplicationsRoute
+  '/admin/maintenance': typeof AppAdminMaintenanceRoute
+  '/admin/organization': typeof AppAdminOrganizationRoute
+  '/admin/terms': typeof AppAdminTermsRoute
   '/f/$folderId': typeof AppFFolderIdRoute
   '/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/preferences': typeof AppSettingsPreferencesRoute
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/tokens': typeof AppSettingsTokensRoute
+  '/admin': typeof AppAdminIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/w': typeof AppWIndexRoute
   '/w/$workspaceId': typeof AppWWorkspaceIdIndexRoute
@@ -292,6 +339,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/callback': typeof CallbackRoute
   '/login': typeof LoginRoute
+  '/_app/admin': typeof AppAdminRouteWithChildren
   '/_app/approvals': typeof AppApprovalsRoute
   '/_app/calendar': typeof AppCalendarRoute
   '/_app/inbox': typeof AppInboxRoute
@@ -300,12 +348,17 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/tasks': typeof AppTasksRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/admin/applications': typeof AppAdminApplicationsRoute
+  '/_app/admin/maintenance': typeof AppAdminMaintenanceRoute
+  '/_app/admin/organization': typeof AppAdminOrganizationRoute
+  '/_app/admin/terms': typeof AppAdminTermsRoute
   '/_app/f/$folderId': typeof AppFFolderIdRoute
   '/_app/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
   '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
   '/_app/settings/preferences': typeof AppSettingsPreferencesRoute
   '/_app/settings/security': typeof AppSettingsSecurityRoute
   '/_app/settings/tokens': typeof AppSettingsTokensRoute
+  '/_app/admin/': typeof AppAdminIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/w/': typeof AppWIndexRoute
   '/_app/w/$workspaceId/settings': typeof AppWWorkspaceIdSettingsRouteWithChildren
@@ -329,6 +382,7 @@ export interface FileRouteTypes {
     | '/'
     | '/callback'
     | '/login'
+    | '/admin'
     | '/approvals'
     | '/calendar'
     | '/inbox'
@@ -336,12 +390,17 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/tasks'
+    | '/admin/applications'
+    | '/admin/maintenance'
+    | '/admin/organization'
+    | '/admin/terms'
     | '/f/$folderId'
     | '/settings/calendar-feeds'
     | '/settings/notifications'
     | '/settings/preferences'
     | '/settings/security'
     | '/settings/tokens'
+    | '/admin/'
     | '/settings/'
     | '/w/'
     | '/w/$workspaceId/settings'
@@ -369,12 +428,17 @@ export interface FileRouteTypes {
     | '/search'
     | '/tasks'
     | '/'
+    | '/admin/applications'
+    | '/admin/maintenance'
+    | '/admin/organization'
+    | '/admin/terms'
     | '/f/$folderId'
     | '/settings/calendar-feeds'
     | '/settings/notifications'
     | '/settings/preferences'
     | '/settings/security'
     | '/settings/tokens'
+    | '/admin'
     | '/settings'
     | '/w'
     | '/w/$workspaceId'
@@ -394,6 +458,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/callback'
     | '/login'
+    | '/_app/admin'
     | '/_app/approvals'
     | '/_app/calendar'
     | '/_app/inbox'
@@ -402,12 +467,17 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/tasks'
     | '/_app/'
+    | '/_app/admin/applications'
+    | '/_app/admin/maintenance'
+    | '/_app/admin/organization'
+    | '/_app/admin/terms'
     | '/_app/f/$folderId'
     | '/_app/settings/calendar-feeds'
     | '/_app/settings/notifications'
     | '/_app/settings/preferences'
     | '/_app/settings/security'
     | '/_app/settings/tokens'
+    | '/_app/admin/'
     | '/_app/settings/'
     | '/_app/w/'
     | '/_app/w/$workspaceId/settings'
@@ -462,6 +532,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/admin': {
+      id: '/_app/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/approvals': {
       id: '/_app/approvals'
       path: '/approvals'
@@ -510,6 +587,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/tasks'
       preLoaderRoute: typeof AppTasksRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/admin/': {
+      id: '/_app/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AppAdminIndexRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/applications': {
+      id: '/_app/admin/applications'
+      path: '/applications'
+      fullPath: '/admin/applications'
+      preLoaderRoute: typeof AppAdminApplicationsRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/maintenance': {
+      id: '/_app/admin/maintenance'
+      path: '/maintenance'
+      fullPath: '/admin/maintenance'
+      preLoaderRoute: typeof AppAdminMaintenanceRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/organization': {
+      id: '/_app/admin/organization'
+      path: '/organization'
+      fullPath: '/admin/organization'
+      preLoaderRoute: typeof AppAdminOrganizationRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/terms': {
+      id: '/_app/admin/terms'
+      path: '/terms'
+      fullPath: '/admin/terms'
+      preLoaderRoute: typeof AppAdminTermsRouteImport
+      parentRoute: typeof AppAdminRoute
     }
     '/_app/f/$folderId': {
       id: '/_app/f/$folderId'
@@ -668,6 +780,26 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppAdminRouteChildren {
+  AppAdminApplicationsRoute: typeof AppAdminApplicationsRoute
+  AppAdminMaintenanceRoute: typeof AppAdminMaintenanceRoute
+  AppAdminOrganizationRoute: typeof AppAdminOrganizationRoute
+  AppAdminTermsRoute: typeof AppAdminTermsRoute
+  AppAdminIndexRoute: typeof AppAdminIndexRoute
+}
+
+const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminApplicationsRoute: AppAdminApplicationsRoute,
+  AppAdminMaintenanceRoute: AppAdminMaintenanceRoute,
+  AppAdminOrganizationRoute: AppAdminOrganizationRoute,
+  AppAdminTermsRoute: AppAdminTermsRoute,
+  AppAdminIndexRoute: AppAdminIndexRoute,
+}
+
+const AppAdminRouteWithChildren = AppAdminRoute._addFileChildren(
+  AppAdminRouteChildren,
+)
+
 interface AppSettingsRouteChildren {
   AppSettingsCalendarFeedsRoute: typeof AppSettingsCalendarFeedsRoute
   AppSettingsNotificationsRoute: typeof AppSettingsNotificationsRoute
@@ -739,6 +871,7 @@ const AppWWorkspaceIdLListIdSettingsRouteWithChildren =
   )
 
 interface AppRouteChildren {
+  AppAdminRoute: typeof AppAdminRouteWithChildren
   AppApprovalsRoute: typeof AppApprovalsRoute
   AppCalendarRoute: typeof AppCalendarRoute
   AppInboxRoute: typeof AppInboxRoute
@@ -757,6 +890,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAdminRoute: AppAdminRouteWithChildren,
   AppApprovalsRoute: AppApprovalsRoute,
   AppCalendarRoute: AppCalendarRoute,
   AppInboxRoute: AppInboxRoute,

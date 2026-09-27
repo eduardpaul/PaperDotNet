@@ -1,6 +1,6 @@
-import type { ChecklistEntryDto, LinkedItem } from '@paperdotnet/client';
+import type { ChecklistEntryDto, LinkedItem, SearchHit } from '@paperdotnet/client';
 import { fields as fieldValues, fieldsOf, isStatus } from '@paperdotnet/client';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Check, GripVertical, Link2, Plus, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
@@ -15,6 +15,7 @@ import { Checkbox } from '@/components/ui/select';
 import type { ItemPanelContext } from '@/extensibility/item-panels';
 import { choiceLabel } from '@/features/fields/values';
 import { listBuilder, odataString } from '@/features/lists/queries';
+import { searchQuery } from '@/features/search/queries';
 import { problemMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { RepeatEditor } from './repeat-editor';
@@ -149,6 +150,7 @@ export function RelatedTab(context: ItemPanelContext) {
   });
   const [subtask, setSubtask] = useState('');
   const [search, setSearch] = useState('');
+  const [docQuery, setDocQuery] = useState('');
   const refresh = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: key }),
@@ -191,6 +193,22 @@ export function RelatedTab(context: ItemPanelContext) {
   const unlink = useMutation({
     mutationFn: (linkId: string) => items.byItemId(item.id!).links.byLinkId(linkId).delete(),
     onSuccess: refresh,
+  });
+  const documentsFound = useInfiniteQuery({ ...searchQuery({ q: docQuery.trim() }, 8), enabled: docQuery.trim().length >= 2 });
+  const addDocument = useMutation({
+    meta: { silent: true },
+    mutationFn: (hit: SearchHit) =>
+      items.byItemId(item.id!).links.post({
+        kind: 'document',
+        workspaceId: hit.workspaceId,
+        listId: hit.containerId,
+        itemId: hit.id,
+      }),
+    onSuccess: async () => {
+      setDocQuery('');
+      await refresh();
+    },
+    onError: (error) => toast.error(problemMessage(error)),
   });
 
   if (isPending) return <Skeleton className="m-5 h-24" />;
@@ -264,6 +282,31 @@ export function RelatedTab(context: ItemPanelContext) {
       </section>
       {section('Blocking', data?.blocking, false)}
       {section('Documents', data?.documents)}
+      <section className="flex flex-col gap-2">
+        <h3 className="text-xs font-medium text-muted">Link a document</h3>
+        <Input
+          aria-label="Find a document"
+          placeholder="Search documents to link…"
+          value={docQuery}
+          onChange={(e) => setDocQuery(e.target.value)}
+        />
+        {documentsFound.data?.pages[0]?.value?.length ? (
+          <ul className="divide-y rounded-md border">
+            {documentsFound.data.pages[0].value.map((hit) => (
+              <li key={hit.id}>
+                <button
+                  type="button"
+                  className="w-full truncate px-3 py-2 text-left text-[13px] hover:bg-surface-muted"
+                  disabled={addDocument.isPending}
+                  onClick={() => addDocument.mutate(hit)}
+                >
+                  {hit.title ?? 'Untitled'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
     </div>
   );
 }

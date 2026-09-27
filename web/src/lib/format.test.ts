@@ -38,6 +38,7 @@ describe('createFormatter', () => {
     const berlin = createFormatter({ timeZone: 'Europe/Berlin', language: 'en' });
     const newYork = createFormatter({ timeZone: 'America/New_York', language: 'de' });
     expect(berlin.hour(moment)).toBe(1);
+    expect(berlin.monthYear(moment)).toBe('March 2026');
     expect(berlin.weekday(moment)).toBe('Sunday');
     expect(newYork.hour(moment)).toBe(20);
     expect(newYork.weekday(moment)).toBe('Samstag');

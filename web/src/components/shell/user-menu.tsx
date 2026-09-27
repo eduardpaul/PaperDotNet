@@ -1,7 +1,7 @@
 import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
+import { LogOut, Monitor, Moon, Settings, Shield, Sun } from 'lucide-react';
 import { api, signOut } from '@/api/client';
 import { keys } from '@/api/keys';
 import { meQuery, preferencesQuery } from '@/api/queries';
@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/menu';
+import { useAdminAccess } from '@/features/admin/access';
 import { applyTheme, storedTheme, type Theme } from '@/lib/preferences';
 
 export function useSetTheme() {
@@ -33,6 +34,7 @@ export function UserMenu() {
   const { data: me } = useQuery(meQuery);
   const { data: preferences } = useQuery(preferencesQuery);
   const setTheme = useSetTheme();
+  const admin = useAdminAccess();
   const theme = (preferences?.theme as Theme | undefined) ?? storedTheme();
 
   return (
@@ -51,6 +53,13 @@ export function UserMenu() {
             <Settings /> Settings
           </Link>
         </DropdownMenuItem>
+        {admin.any && (
+          <DropdownMenuItem asChild>
+            <Link to="/admin">
+              <Shield /> Administration
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme.mutate(value as Theme)}>

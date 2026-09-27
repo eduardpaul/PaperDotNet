@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { Bell, CheckCheck } from 'lucide-react';
 import { api } from '@/api/client';
@@ -14,7 +14,8 @@ export const Route = createFileRoute('/_app/notifications')({ component: Notific
 
 function Notifications() {
   const queryClient = useQueryClient();
-  const { data, isPending } = useQuery(notificationsQuery);
+  const notifications = useInfiniteQuery(notificationsQuery);
+  const data = notifications.data?.pages.flatMap((page) => page.value ?? []) ?? [];
   const { data: unread } = useQuery(unreadCountQuery);
   const markAll = useMutation({
     mutationFn: () => api.v10.me.notifications.read.post(),
@@ -33,13 +34,13 @@ function Notifications() {
         }
       />
       <Card>
-        {isPending ? (
+        {notifications.isPending ? (
           <div className="flex flex-col gap-3 p-4">
             <Skeleton className="h-12" />
             <Skeleton className="h-12" />
             <Skeleton className="h-12" />
           </div>
-        ) : data?.length ? (
+        ) : data.length ? (
           <ul className="divide-y">
             {data.map((n) => (
               <NotificationRow key={n.id} notification={n} />
@@ -49,6 +50,15 @@ function Notifications() {
           <EmptyState icon={Bell} title="No notifications">
             You will be notified about mentions, reminders, approvals and items you follow.
           </EmptyState>
+        )}
+        {notifications.hasNextPage && (
+          <Button
+            className="mt-3"
+            disabled={notifications.isFetchingNextPage}
+            onClick={() => void notifications.fetchNextPage()}
+          >
+            Load more
+          </Button>
         )}
       </Card>
     </Page>
