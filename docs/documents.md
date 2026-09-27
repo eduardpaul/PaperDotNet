@@ -34,6 +34,22 @@ involved.
 - `409 pdfRequired`: the current file is not a PDF.
 - `409 pdfNotEditable`: the PDF is encrypted or damaged.
 
+## OCR engine
+
+The default image runs the Tesseract CLI (`Documents:Engine` = `tesseract`).
+`Dockerfile.glm` is an optional image that runs GLM-OCR through Ollama instead
+([ADR-0034](adr/0034-optional-glm-ocr.md)):
+
+```bash
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.glm.yml up -d --build
+```
+
+`ocrLanguages` is still stored and still selects the stemming language. GLM-OCR
+does not use Tesseract language codes. Search keeps the recognized text,
+including accents. The invisible text inside the PDF is ASCII, because that
+layer uses a standard PDF font. A full-page photo needs `Documents:GlmContext`
+(default 16384) and about 5 GB of GPU memory, or the same on the CPU.
+
 ## Languages per file
 
 Uploads (`…/documents`, `/v1.0/me/inbox/documents`, group inboxes) and file

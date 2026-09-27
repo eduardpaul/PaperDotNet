@@ -69,7 +69,8 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | Keycloak | Apache-2.0 | Example external IdP |
 | OpenSearch / Qdrant / Meilisearch Community | Apache-2.0 / Apache-2.0 / MIT | Optional external search/vector engines |
 | SeaweedFS | Apache-2.0 | S3-compatible store for tests |
-| Ollama | MIT | Optional local LLM runtime |
+| Ollama | MIT | Optional local LLM runtime; also the runtime of the optional GLM-OCR image (ADR-0034) |
+| GLM-OCR model (`glm-ocr`, weights) | MIT (project code Apache-2.0) | Optional OCR engine in `Dockerfile.glm`. Not in the default image |
 | `EFCore.NamingConventions` | Apache-2.0 | snake_case table and column names |
 | `Microsoft.EntityFrameworkCore.Sqlite`, `Microsoft.Data.Sqlite` | MIT | SQLite provider (default database, ADR-0009) |
 | `SQLitePCLRaw.*` (via Microsoft.Data.Sqlite) | Apache-2.0 | Native SQLite bindings |

@@ -1,0 +1,94 @@
+# syntax=docker/dockerfile:1
+# Optional PaperDotNet image: GLM-OCR (Ollama, model glm-ocr) instead of Tesseract.
+# The default Dockerfile is unchanged. Build and run this one with:
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.glm.yml up -d --build
+#
+# The model is downloaded while the image builds (about 2.2 GB) and Ollama's libraries make the
+# image large. Ollama uses a GPU when the container is started with one (`--gpus all`) and the CPU
+# otherwise. The 16384-token context used for a full-page photo needs about 5 GB of memory.
+
+# The web UI (ADR-0033): the TypeScript SDK and the app, built with Node; only the static files are kept.
+FROM node:22-bookworm-slim AS web
+WORKDIR /src
+COPY package.json package-lock.json ./
+COPY sdk/typescript/package.json sdk/typescript/
+COPY web/package.json web/
+RUN npm ci --no-audit --no-fund
+COPY sdk/typescript/ sdk/typescript/
+COPY web/ web/
+RUN npm run build -w @paperdotnet/web
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY global.json Directory.Build.props Directory.Packages.props PaperDotNet.slnx .editorconfig ./
+COPY src/ src/
+# Framework-dependent ReadyToRun for linux-x64 (the aspnet runtime image). Not Native AOT:
+# the host still loads handlers by reflection.
+RUN dotnet restore src/PaperDotNet.Host/PaperDotNet.Host.csproj -r linux-x64
+RUN dotnet publish src/PaperDotNet.Host/PaperDotNet.Host.csproj -c Release -r linux-x64 --self-contained false -o /app --no-restore
+
+# Pull glm-ocr into a model directory. The same Ollama version the receipt was read with.
+FROM ollama/ollama:0.23.2 AS glm
+ENV OLLAMA_MODELS=/models \
+    OLLAMA_HOST=127.0.0.1:11434
+RUN mkdir -p /models \
+    && /bin/ollama serve & pid=$! \
+    && i=0 \
+    && while [ "$i" -lt 60 ]; do \
+         /bin/ollama list >/dev/null 2>&1 && break; \
+         i=$((i + 1)); \
+         sleep 1; \
+       done \
+    && /bin/ollama pull glm-ocr \
+    && kill "$pid" \
+    && wait "$pid" || true
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+# libfontconfig1 is needed by SkiaSharp (page rendering). libopenblas0 and libvulkan1 are what the
+# Ollama runners link against. postgresql-client (pg_dump/pg_restore) is used by backup/restore.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libfontconfig1 libopenblas0 libvulkan1 postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build /app .
+COPY --from=web /src/web/dist ./wwwroot
+COPY --from=glm /usr/bin/ollama /usr/bin/ollama
+COPY --from=glm /usr/lib/ollama /usr/lib/ollama
+COPY --from=glm /models /models
+COPY <<'EOF' /app/glm-ocr-entrypoint.sh
+#!/bin/sh
+# Admin commands (migrate, backup, healthcheck, ...) do not need the model.
+if [ "$#" -eq 0 ]; then
+  ollama serve &
+  i=0
+  while [ "$i" -lt 90 ]; do
+    if ollama list >/dev/null 2>&1; then
+      break
+    fi
+    i=$((i + 1))
+    sleep 1
+  done
+  if ! ollama list >/dev/null 2>&1; then
+    echo "GLM-OCR: Ollama did not start." >&2
+    exit 1
+  fi
+fi
+exec dotnet /app/paperdotnet.dll "$@"
+EOF
+RUN chmod 755 /app/glm-ocr-entrypoint.sh \
+    && mkdir -p /data \
+    && chown -R "$APP_UID" /data /models /app
+ENV ASPNETCORE_HTTP_PORTS=8080 \
+    DOTNET_RUNNING_IN_CONTAINER=true \
+    PAPERDOTNET__Storage__DataPath=/data \
+    OLLAMA_MODELS=/models \
+    OLLAMA_HOST=127.0.0.1:11434 \
+    PAPERDOTNET__Documents__Engine=glm \
+    PAPERDOTNET__Documents__GlmBaseUrl=http://127.0.0.1:11434 \
+    PAPERDOTNET__Documents__GlmModel=glm-ocr \
+    PAPERDOTNET__Documents__GlmContext=16384
+VOLUME /data
+EXPOSE 8080
+USER $APP_UID
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 CMD ["dotnet", "/app/paperdotnet.dll", "healthcheck"]
+ENTRYPOINT ["/app/glm-ocr-entrypoint.sh"]

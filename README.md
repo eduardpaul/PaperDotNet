@@ -23,8 +23,8 @@ Self-hosted with just **one container** (SQLite built in; PostgreSQL optional).
   folders, views, OData queries, versions, recycle bin, permission inheritance,
   list templates, taxonomy (managed metadata and keywords), audit log.
 - **Documents:** upload into libraries or your Inbox, type detection by
-  content, file versions, deduplicated storage, OCR (Tesseract) into searchable
-  PDFs, thumbnails and page images, processing status.
+  content, file versions, deduplicated storage, OCR (Tesseract, or optional
+  GLM-OCR) into searchable PDFs, thumbnails and page images, processing status.
 - **Search:** full-text across items and document text, stemming, facets,
   security trimming.
 - **Events & jobs:** before/after item receivers, integration events with a
@@ -44,6 +44,8 @@ cp deploy/.env.example deploy/.env      # set the admin password (REQUIRE_HTTPS=
 docker compose -f deploy/docker-compose.yml up -d --build
 # or with PostgreSQL:
 # docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.postgres.yml up -d --build
+# or with GLM-OCR instead of Tesseract (optional image, needs a GPU or several GB of RAM):
+# docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.glm.yml up -d --build
 # Open PUBLIC_URL (default http://localhost:8080) and sign in as admin.
 # API access token (first-party client, password grant); apps use authorization code + PKCE or client credentials.
 curl -s localhost:8080/connect/token \

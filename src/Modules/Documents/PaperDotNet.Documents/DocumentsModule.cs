@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.Documents.Features;
@@ -37,6 +38,10 @@ public sealed class DocumentsModule : IModule
     {
         services.AddModuleDbContext<DocumentsDbContext>(DocumentsDbContext.Schema);
         services.AddOptions<DocumentsOptions>().BindConfiguration(DocumentsOptions.Section);
+        services.AddHttpClient(GlmOcr.HttpClientName, (sp, client) =>
+        {
+            client.Timeout = sp.GetRequiredService<IOptions<DocumentsOptions>>().Value.OcrTimeout;
+        });
         services.AddScoped<FileIntake>();
         services.AddScoped<DocumentService>();
         services.AddScoped<PageEditor>();

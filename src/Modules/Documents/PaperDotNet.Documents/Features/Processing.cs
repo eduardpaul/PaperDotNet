@@ -259,13 +259,24 @@ internal static class TextExtractor
 }
 
 /// <summary>
-/// OCR with the Tesseract CLI (ADR-0015): one call reads all pages (an image, a multi-page TIFF or a
-/// list of page images) and writes a searchable PDF (page image + invisible text) and the plain text.
+/// OCR (ADR-0015, ADR-0034). <c>tesseract</c> is one CLI call over an image, a multi-page TIFF or a
+/// list of page images. <c>glm</c> calls Ollama once per page. Both write a searchable PDF (page image
+/// plus invisible text) and the plain text.
 /// </summary>
-internal sealed class OcrEngine(IOptions<DocumentsOptions> options)
+internal sealed class OcrEngine(IOptions<DocumentsOptions> options, IHttpClientFactory http)
 {
     public async Task<(string Pdf, IReadOnlyList<string> Pages)> RecognizeAsync(string input, string languages, string outputBase, CancellationToken ct)
     {
+        if (GlmOcr.Uses(options.Value.Engine))
+        {
+            return await new GlmOcr(options.Value, http.CreateClient(GlmOcr.HttpClientName)).RecognizeAsync(input, outputBase, ct);
+        }
+
+        if (!UsesTesseract(options.Value.Engine))
+        {
+            throw new InvalidOperationException($"Unknown OCR engine '{options.Value.Engine}'. Use \"tesseract\" or \"glm\".");
+        }
+
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(options.Value.OcrTimeout);
         BufferedCommandResult result;
@@ -298,6 +309,9 @@ internal sealed class OcrEngine(IOptions<DocumentsOptions> options)
 
         return (pdf, pages);
     }
+
+    private static bool UsesTesseract(string? engine) =>
+        string.IsNullOrWhiteSpace(engine) || engine.Trim().Equals("tesseract", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
