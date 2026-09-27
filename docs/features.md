@@ -263,6 +263,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | AI-04 | Summaries & key dates | As a **Member**, I want a summary and extracted key dates, optionally turned into tasks or events, so that deadlines from documents are tracked | Ext | P6 | #0017 |
 | AI-05 | Ask your documents | As a **Member**, I want to ask questions and get answers with citations to documents and pages, so that I find information instead of files | Ext | P6 | #0013 |
 | AI-06 | AI usage limits & audit | As an **Admin**, I want quotas, caching and an audit of what was sent to which model, so that AI use is controlled | Core | P6 | #0017 |
+| AI-07 | AI extraction as an automation step | As an **Owner**, I want an automation action, scoped to a content type or tag, that fills chosen fields with an LLM structured-output extraction (e.g. supermarket receipts: store, total, products), so that filing a document type also structures its data | Ext | P6 | #0022, #0017, #0009 |
 
 ## 14. Provisioning templates (PRV)
 
@@ -448,6 +449,7 @@ The web UI, built on the TypeScript SDK with React, TanStack and Tailwind
 | [0015](../ideas/0015-sharing-links-and-guest-access.md) Sharing links & guests | IAM-09…12 |
 | [0016](../ideas/0016-notifications-alerts-subscriptions.md) Notifications | NTF-01…06, API-06 |
 | [0017](../ideas/0017-ai-metadata-extraction.md) AI metadata extraction | AI-01…04, AI-06, TSK-06 |
+| [0022](../ideas/0022-llm-extraction-workflow-step.md) LLM extraction workflow step (content type/tag scoped) | AI-07 |
 | [0018](../ideas/0018-webdav-access-to-libraries.md) WebDAV | API-10 |
 | [0019](../ideas/0019-caldav-carddav-server.md) CalDAV / CardDAV | CAL-05, CAL-06 |
 | [0020](../ideas/0020-smart-folders.md) Smart folders | TAX-08…10, TSK-03 |

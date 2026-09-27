@@ -52,6 +52,7 @@ It will be turned into a file during review.
 | [0019](0019-caldav-carddav-server.md) | CalDAV / CardDAV server for tasks, calendar and contacts | Integrations / Calendar / Tasks | mapped | CAL-05, CAL-06 |
 | [0020](0020-smart-folders.md) | Smart folders (more than saved searches) | Platform / Navigation / Metadata | mapped | TAX-08…10, TSK-03 |
 | [0021](0021-portable-configuration-templates.md) | Portable configuration templates (export/import as XML, like PnP provisioning) | Lists/Platform | mapped | PRV-01…05 |
+| [0022](0022-llm-extraction-workflow-step.md) | LLM extraction workflow step, scoped to a content type/tag (structured output mapped to fields; sample: supermarket receipts) | AI / Automation | mapped | AI-07 |
 
 ## Quick ideas
 
