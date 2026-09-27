@@ -53,6 +53,7 @@ It will be turned into a file during review.
 | [0020](0020-smart-folders.md) | Smart folders (more than saved searches) | Platform / Navigation / Metadata | mapped | TAX-08…10, TSK-03 |
 | [0021](0021-portable-configuration-templates.md) | Portable configuration templates (export/import as XML, like PnP provisioning) | Lists/Platform | mapped | PRV-01…05 |
 | [0022](0022-llm-extraction-workflow-step.md) | LLM extraction workflow step, scoped to a content type/tag (structured output mapped to fields; sample: supermarket receipts) | AI / Automation | mapped | AI-07 |
+| [0023](0023-pluggable-search-indexing-pipeline.md) | Separate indexing/embedding/query, event-driven, pluggable search backend | Search / Platform | mapped | SRC-11 |
 
 ## Quick ideas
 

@@ -234,6 +234,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | SRC-08 | Hybrid ranking | As a **Member**, I want keyword and semantic results combined into one ranked list, so that the best matches come first | Ext | P6 | #0013 |
 | SRC-09 | Page-level hits | As a **Member**, I want results to point to the page of a document that matched, so that I jump straight to it | Ext | P6 | #0013 |
 | SRC-10 | Reindexing | As an **Operator**, I want to rebuild the index (per tenant, in the background, with progress), so that schema or model changes take effect | Core | P3 | #0013 |
+| SRC-11 | Pluggable search backend | As an **Operator**, I want indexing, embedding and query kept behind separate abstractions, chunked/embedded asynchronously as soon as an item changes, so that a tenant can later move to a dedicated search engine (Meilisearch, Qdrant, etc.) without an API change | Ext | P6 | #0023 |
 
 ## 12. API, SDKs & integrations (API)
 
@@ -450,6 +451,7 @@ The web UI, built on the TypeScript SDK with React, TanStack and Tailwind
 | [0016](../ideas/0016-notifications-alerts-subscriptions.md) Notifications | NTF-01…06, API-06 |
 | [0017](../ideas/0017-ai-metadata-extraction.md) AI metadata extraction | AI-01…04, AI-06, TSK-06 |
 | [0022](../ideas/0022-llm-extraction-workflow-step.md) LLM extraction workflow step (content type/tag scoped) | AI-07 |
+| [0023](../ideas/0023-pluggable-search-indexing-pipeline.md) Pluggable search backend, event-driven indexing/embedding | SRC-11 |
 | [0018](../ideas/0018-webdav-access-to-libraries.md) WebDAV | API-10 |
 | [0019](../ideas/0019-caldav-carddav-server.md) CalDAV / CardDAV | CAL-05, CAL-06 |
 | [0020](../ideas/0020-smart-folders.md) Smart folders | TAX-08…10, TSK-03 |
