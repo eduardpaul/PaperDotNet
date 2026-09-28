@@ -64,7 +64,13 @@ export function PreviewTab({ workspaceId, list, item }: ItemPanelContext) {
 
   return (
     <div className="flex flex-col gap-5 p-5">
-      <FileHeader workspaceId={workspaceId} listId={list.id!} itemId={item.id!} file={current} canWrite={canContribute} />
+      <FileHeader
+        workspaceId={workspaceId}
+        listId={list.id!}
+        itemId={item.id!}
+        file={current}
+        canWrite={canContribute}
+      />
       <Pages
         key={`${current.number}-${current.pageCount}`}
         workspaceId={workspaceId}
@@ -177,50 +183,50 @@ function FileHeader({
           {download.isPending ? <Spinner /> : <Download />} Download
         </Button>
         {canWrite && (
-        <FilePickerButton
-          size="sm"
-          accept={acceptedTypes}
-          multiple={false}
-          disabled={replace.isPending}
-          onFiles={([f]) => replace.mutate(f!)}
-        >
-          {replace.isPending ? <Spinner /> : <Upload />} Replace file
-        </FilePickerButton>
+          <FilePickerButton
+            size="sm"
+            accept={acceptedTypes}
+            multiple={false}
+            disabled={replace.isPending}
+            onFiles={([f]) => replace.mutate(f!)}
+          >
+            {replace.isPending ? <Spinner /> : <Upload />} Replace file
+          </FilePickerButton>
         )}
         {canWrite && (
-        <Popover open={ocrOpen} onOpenChange={setOcrOpen}>
-          <PopoverTrigger asChild>
-            <Button size="sm" disabled={file.processingStatus === 'running' || file.processingStatus === 'scheduled'}>
-              <RefreshCw /> Run OCR again
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 p-4">
-            <form
-              className="flex flex-col gap-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                reprocess.mutate();
-              }}
-            >
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="ocr-languages">Languages of this file</Label>
-                <Input
-                  id="ocr-languages"
-                  placeholder="e.g. deu+eng"
-                  value={languages}
-                  onChange={(e) => setLanguages(e.target.value)}
-                />
-                <p className="text-xs text-muted">
-                  Tesseract codes joined with +; kept for this file (DOC-17). Empty: the library’s.
-                </p>
-              </div>
-              {reprocess.isError && <Alert>{problemMessage(reprocess.error)}</Alert>}
-              <Button type="submit" size="sm" variant="primary" disabled={reprocess.isPending}>
-                {reprocess.isPending && <Spinner className="text-current" />} Run OCR
+          <Popover open={ocrOpen} onOpenChange={setOcrOpen}>
+            <PopoverTrigger asChild>
+              <Button size="sm" disabled={file.processingStatus === 'running' || file.processingStatus === 'scheduled'}>
+                <RefreshCw /> Run OCR again
               </Button>
-            </form>
-          </PopoverContent>
-        </Popover>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72 p-4">
+              <form
+                className="flex flex-col gap-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  reprocess.mutate();
+                }}
+              >
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ocr-languages">Languages of this file</Label>
+                  <Input
+                    id="ocr-languages"
+                    placeholder="e.g. deu+eng"
+                    value={languages}
+                    onChange={(e) => setLanguages(e.target.value)}
+                  />
+                  <p className="text-xs text-muted">
+                    Tesseract codes joined with +; kept for this file (DOC-17). Empty: the library’s.
+                  </p>
+                </div>
+                {reprocess.isError && <Alert>{problemMessage(reprocess.error)}</Alert>}
+                <Button type="submit" size="sm" variant="primary" disabled={reprocess.isPending}>
+                  {reprocess.isPending && <Spinner className="text-current" />} Run OCR
+                </Button>
+              </form>
+            </PopoverContent>
+          </Popover>
         )}
       </div>
     </section>

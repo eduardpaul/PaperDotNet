@@ -16,13 +16,12 @@ import { listsQuery, workspacesQuery } from '@/api/queries';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/feedback';
+import { useAdminPages } from '@/extensibility/admin';
 import { navigation } from '@/extensibility/navigation';
 import { settingsPages } from '@/extensibility/settings';
 import { ListIcon } from '@/features/lists/list-icon';
 import { hitLink } from '@/features/search/hit-link';
 import { searchQuery } from '@/features/search/queries';
-import { useAdminAccess } from '@/features/admin/access';
-import { visibleAdminPages } from '@/features/admin/pages';
 import { useSetTheme } from './user-menu';
 
 const PaletteContext = createContext<{ open: () => void }>({ open: () => {} });
@@ -94,8 +93,7 @@ function Palette({ close }: { close: () => void }) {
   const lists = useQueries({ queries: (workspaces ?? []).map((w) => listsQuery(w.id!)) }).flatMap((q) => q.data ?? []);
   const workspaceName = new Map((workspaces ?? []).map((w) => [w.id, w.name]));
   const setTheme = useSetTheme();
-  const admin = useAdminAccess();
-  const adminPages = visibleAdminPages(admin.has);
+  const adminPages = useAdminPages();
   const [text, setText] = useState('');
   const query = useDeferredValue(text.trim());
   const hits = useInfiniteQuery({ ...searchQuery({ q: query }, 5), enabled: query.length >= 2 });

@@ -47,19 +47,29 @@ export function ItemForm({
   const [contentTypeId, setContentTypeId] = useState(item?.contentTypeId ?? list.contentTypes?.[0]?.id ?? undefined);
   const contentType = contentTypeOf(list, contentTypeId);
   const fields = useMemo(() => withTitle(contentType?.fields ?? list.columns), [contentType, list.columns]);
-  const original = useMemo(() => (item ? fieldsOf(item) : {}), [item]);
+  // The version the user's edits start from: its values are compared and its ETag is sent with the save.
+  const [base, setBase] = useState(item);
+  const original = useMemo(() => (base ? fieldsOf(base) : {}), [base]);
   const [values, setValues] = useState<Record<string, unknown>>(() => ({
     ...defaults(fields, !item),
     ...(item ? {} : initialValues),
     ...original,
   }));
   // A newer version from elsewhere (live update, automation, smart folder) replaces the values unless the user has
-  // edited them; then the save's If-Match decides. Adjusted during render, as React recommends for prop changes.
-  const [baseline, setBaseline] = useState(original);
-  if (baseline !== original) {
-    setBaseline(original);
-    if (item && Object.keys(changes(baseline, values)).length === 0) setValues({ ...original });
+  // edited them; then the edits stay on the version they started from and the save's If-Match catches the conflict.
+  // Adjusted during render, as React recommends for prop changes.
+  const [seen, setSeen] = useState(item);
+  if (seen !== item) {
+    setSeen(item);
+    if (item && Object.keys(changes(original, values)).length === 0) {
+      setBase(item);
+      setValues(fieldsOf(item));
+    }
   }
+  const rebase = (latest: ItemResponse) => {
+    setBase(latest);
+    setValues(fieldsOf(latest));
+  };
   const [conflict, setConflict] = useState(false);
   const [theirs, setTheirs] = useState<Record<string, unknown> | null>(null);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
@@ -80,7 +90,7 @@ export function ItemForm({
         return (await items.post({ contentTypeId, parentId, fields: fieldValues(body) }))!;
       }
       // "Save anyway" sends the same changes over the latest version.
-      const current = force ? await items.byItemId(item.id!).get() : item;
+      const current = force ? await items.byItemId(item.id!).get() : base;
       return (await items.byItemId(item.id!).patch({ fields: fieldValues(body) }, ifMatch(current)))!;
     },
     onMutate: () => {
@@ -88,6 +98,7 @@ export function ItemForm({
       setConflict(false);
     },
     onSuccess: async (saved) => {
+      if (item) rebase(saved);
       queryClient.setQueryData(keys.item(workspaceId, list.id!, saved.id!), saved);
       await queryClient.invalidateQueries({ queryKey: keys.items(workspaceId, list.id!) });
       onSaved(saved);
@@ -96,9 +107,12 @@ export function ItemForm({
       if (isStatus(error, 412)) {
         setConflict(true);
         if (item) {
-          void items.byItemId(item.id!).get().then((latest) => {
-            if (latest) setTheirs(fieldsOf(latest));
-          });
+          void items
+            .byItemId(item.id!)
+            .get()
+            .then((latest) => {
+              if (latest) setTheirs(fieldsOf(latest));
+            });
         }
       }
       setErrors(validationErrors(error));
@@ -111,7 +125,7 @@ export function ItemForm({
       staleTime: 0,
       queryFn: async () => (await items.byItemId(item!.id!).get())!,
     });
-    setValues(fieldsOf(latest));
+    rebase(latest);
     setConflict(false);
     setTheirs(null);
     onSaved(latest);
@@ -212,15 +226,15 @@ export function ItemForm({
           {item && dirty && <span className="mr-auto text-xs text-muted">Unsaved changes</span>}
           {onCancel && <Button onClick={onCancel}>{item ? 'Close' : 'Cancel'}</Button>}
           {!readOnly && item && dirty && (
-            <Button onClick={() => setValues({ ...original })} disabled={save.isPending}>
+            <Button onClick={() => (item ? rebase(item) : undefined)} disabled={save.isPending}>
               Discard
             </Button>
           )}
           {!readOnly && (
-          <Button type="submit" variant="primary" disabled={!dirty || save.isPending}>
-            {save.isPending ? <Spinner className="text-current" /> : <Save />}
-            {item ? 'Save' : 'Create'}
-          </Button>
+            <Button type="submit" variant="primary" disabled={!dirty || save.isPending}>
+              {save.isPending ? <Spinner className="text-current" /> : <Save />}
+              {item ? 'Save' : 'Create'}
+            </Button>
           )}
         </div>
       </form>

@@ -194,7 +194,10 @@ export function RelatedTab(context: ItemPanelContext) {
     mutationFn: (linkId: string) => items.byItemId(item.id!).links.byLinkId(linkId).delete(),
     onSuccess: refresh,
   });
-  const documentsFound = useInfiniteQuery({ ...searchQuery({ q: docQuery.trim() }, 8), enabled: docQuery.trim().length >= 2 });
+  const documentsFound = useInfiniteQuery({
+    ...searchQuery({ q: docQuery.trim() }, 8),
+    enabled: docQuery.trim().length >= 2,
+  });
   const addDocument = useMutation({
     meta: { silent: true },
     mutationFn: (hit: SearchHit) =>

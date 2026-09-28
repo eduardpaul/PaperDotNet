@@ -265,10 +265,7 @@ function ListPage() {
               aria-pressed={layout === 'gallery'}
               aria-label="Gallery"
               onClick={() => setSearch({ layout: 'gallery' })}
-              className={cn(
-                'rounded p-1 text-muted',
-                layout === 'gallery' && 'bg-surface text-foreground shadow-xs',
-              )}
+              className={cn('rounded p-1 text-muted', layout === 'gallery' && 'bg-surface text-foreground shadow-xs')}
             >
               <LayoutGrid className="size-4" />
             </button>
@@ -359,7 +356,9 @@ function ListPage() {
               isLibrary={isLibrary}
               fields={columns}
               onOpen={(item) =>
-                item.isFolder ? setSearch({ folder: item.id! }) : setSearch({ item: item.id!, tab: isLibrary ? 'preview' : undefined })
+                item.isFolder
+                  ? setSearch({ folder: item.id! })
+                  : setSearch({ item: item.id!, tab: isLibrary ? 'preview' : undefined })
               }
             />
           ) : layout === 'calendar' ? (

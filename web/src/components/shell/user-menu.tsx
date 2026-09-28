@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/menu';
-import { useAdminAccess } from '@/features/admin/access';
+import { useAdminPages } from '@/extensibility/admin';
 import { applyTheme, storedTheme, type Theme } from '@/lib/preferences';
 
 export function useSetTheme() {
@@ -34,7 +34,7 @@ export function UserMenu() {
   const { data: me } = useQuery(meQuery);
   const { data: preferences } = useQuery(preferencesQuery);
   const setTheme = useSetTheme();
-  const admin = useAdminAccess();
+  const adminPages = useAdminPages();
   const theme = (preferences?.theme as Theme | undefined) ?? storedTheme();
 
   return (
@@ -53,9 +53,9 @@ export function UserMenu() {
             <Settings /> Settings
           </Link>
         </DropdownMenuItem>
-        {admin.any && (
+        {adminPages.length > 0 && (
           <DropdownMenuItem asChild>
-            <Link to="/admin">
+            <Link to={adminPages[0]!.to}>
               <Shield /> Administration
             </Link>
           </DropdownMenuItem>

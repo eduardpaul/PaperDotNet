@@ -17,8 +17,19 @@ namespace PaperDotNet.Identity.Features;
 
 public sealed record UpdateUserRequest(
     [property: StringLength(200)] string? DisplayName,
-    [property: EmailAddress, StringLength(256)] string? Email,
+    [property: EmailOrEmpty, StringLength(256)] string? Email,
     bool? IsDisabled);
+
+/// <summary>An e-mail address, or an empty string that removes it.</summary>
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter)]
+public sealed class EmailOrEmptyAttribute : ValidationAttribute
+{
+    private static readonly EmailAddressAttribute Email = new();
+
+    public EmailOrEmptyAttribute() : base("The {0} field is not a valid e-mail address.") { }
+
+    public override bool IsValid(object? value) => value is not string text || text.Trim().Length == 0 || Email.IsValid(text.Trim());
+}
 
 public sealed record SetPasswordRequest([property: Required, StringLength(256, MinimumLength = 1)] string Password);
 

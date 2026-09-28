@@ -1,31 +1,25 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { Shield } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { Page, PageHeader } from '@/components/page';
 import { SubNav, SubNavLayout, SubNavLink } from '@/components/sub-nav';
-import { useAdminAccess } from '@/features/admin/access';
-import { visibleAdminPages } from '@/features/admin/pages';
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/feedback';
+import { useAdminPages } from '@/extensibility/admin';
 
-export const Route = createFileRoute('/_app/admin')({ component: AdminLayout });
+export const Route = createFileRoute('/_app/admin')({ component: Administration });
 
-function AdminLayout() {
-  const admin = useAdminAccess();
-  const visible = visibleAdminPages(admin.has);
-
+/** Organization administration (IAM, TAX, EXT, PLT): one page per area the user may manage. */
+function Administration() {
+  const pages = useAdminPages();
   return (
-    <Page className="max-w-5xl">
-      <PageHeader
-        icon={Shield}
-        title="Administration"
-        description="People, vocabulary and the organization. What you see follows your roles."
-      />
-      {!admin.any ? (
-        <p className="text-sm text-muted">You do not administer this organization.</p>
-      ) : (
+    <Page className="max-w-6xl">
+      <PageHeader icon={ShieldCheck} title="Administration" description="Settings of the whole organization." />
+      {pages.length ? (
         <SubNavLayout
           nav={
             <SubNav label="Administration">
-              {visible.map((page) => (
-                <SubNavLink key={page.to} to={page.to} activeOptions={{ exact: 'exact' in page && page.exact }}>
+              {pages.map((page) => (
+                <SubNavLink key={page.to} to={page.to} activeOptions={{ exact: true }}>
                   <page.icon />
                   {page.label}
                 </SubNavLink>
@@ -35,6 +29,12 @@ function AdminLayout() {
         >
           <Outlet />
         </SubNavLayout>
+      ) : (
+        <Card>
+          <EmptyState icon={ShieldCheck} title="Nothing to administer">
+            Administrators give access to these settings with roles.
+          </EmptyState>
+        </Card>
       )}
     </Page>
   );

@@ -60,6 +60,9 @@ test('a change by someone else is not overwritten silently', async ({ page, cont
   await newTask(page, 'Shared task');
   await page.getByRole('row', { name: /Shared task/ }).click();
   const itemUrl = page.url();
+  // An untouched form follows live changes; one being edited keeps the user's values.
+  const panel = page.getByRole('dialog');
+  await panel.getByLabel('Priority').selectOption('high');
 
   const other = await context.newPage();
   await other.goto(itemUrl);
@@ -67,10 +70,10 @@ test('a change by someone else is not overwritten silently', async ({ page, cont
   await other.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   await expect(other.getByRole('dialog').getByText('Unsaved changes')).toBeHidden();
 
-  const panel = page.getByRole('dialog');
-  await panel.getByLabel('Priority').selectOption('high');
+  await expect(panel.getByLabel('Priority')).toHaveValue('high');
   await panel.getByRole('button', { name: 'Save' }).click();
   await expect(panel.getByText('Someone else changed this item')).toBeVisible();
+  await expect(panel.getByRole('listitem').filter({ hasText: /Priority.*theirs.*Low.*yours.*High/i })).toBeVisible();
   await panel.getByRole('button', { name: 'Reload their version' }).click();
   await expect(panel.getByLabel('Priority')).toHaveValue('low');
   expect(url).toContain('/l/');
