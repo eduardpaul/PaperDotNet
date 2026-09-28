@@ -47,6 +47,24 @@ Every result line starts with `@@` and is collected in `$OUT/results.txt`.
 `RUN_SECONDS` changes the length of each pgbench run (default 8), `PGBENCH`
 the pgbench binary.
 
+## EF Core check
+
+`ef/run-ef.sh` runs the permission queries through the real `ListsDbContext`
+(registered like the host, with the tenant filter and the RLS interceptor) on
+the same data in EF's own schema: it prints the SQL EF generates on both
+providers, times today's access queries and option A's shapes (`Contains`, a
+subquery, `EF.Parameter`), and counts connection opens. Needs the .NET 10 SDK
+as well.
+
+```bash
+PGHOST=localhost PGPORT=5432 PGUSER=postgres OUT=/tmp/item-storage-ef \
+  ./tests/benchmarks/item-storage/ef/run-ef.sh
+```
+
+It creates the database `efprobe`. The probe (`ef/EfProbe.csproj`) is not part
+of the solution and has its own `Directory.Build.props`, so the repository's
+analyzers do not apply to it.
+
 ## Files
 
 | File | What it does |
@@ -61,3 +79,4 @@ the pgbench binary.
 | `pg/09_fanout.sql` | Rewriting the scope of a subtree |
 | `pgbench/today.sql`, `pgbench/option_a.sql` | One list page request (access + page) for a random user |
 | `sqlite/load.py`, `sqlite/bench.py` | The same rows in SQLite (EF-style TEXT GUIDs), the same queries, and the write-lock test |
+| `ef/` | EF Core check: probe console, SQLite loader from EF's DDL, option A data shape |

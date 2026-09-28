@@ -1,6 +1,6 @@
 # 0007: PostgreSQL RLS tenant-setting overhead under connection pooling is unmeasured
 
-- **Status:** possible
+- **Status:** confirmed
 - **Area:** Other
 - **Date:** 2026-09-27
 
@@ -42,12 +42,18 @@ any change is made.
 
 ## Update (2026-09-28)
 
-From reading the code: `TenantSessionInterceptor` runs on every
-`ConnectionOpened`. EF Core opens and closes the connection for each query
-outside a transaction, so the extra round trip is per query already, even
-without a pooler. Under a transaction-mode pooler there is also a correctness
-problem: `set_config(…, false)` and the next query run as separate
-transactions and can land on different server connections, so the query can
+Measured through the real `ListsDbContext` (EF Core 10.0.12, Npgsql 10.0.3,
+[`tests/benchmarks/item-storage/ef`](../tests/benchmarks/item-storage/ef/run-ef.sh)):
+five queries outside a transaction opened five connections, and PostgreSQL
+logged five `SELECT set_config('app.tenant_id', $1, false)`. The same five
+queries in one transaction opened one connection. So the extra round trip is
+paid per query today, even without a pooler: EF Core opens and closes the
+connection for each query outside a transaction, and
+`TenantSessionInterceptor` runs on every open.
+
+Under a transaction-mode pooler there is also a correctness problem (not
+tested): `set_config(…, false)` and the next query run as separate
+transactions and can land on different server connections, so a query can
 run with another request's tenant setting. RLS then hides rows that the EF
 filter expects. The setting has to travel with the query (in the same
 transaction or the same batch), or the connection has to stay open for the

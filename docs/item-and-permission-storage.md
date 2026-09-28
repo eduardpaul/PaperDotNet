@@ -6,7 +6,9 @@ scope model stays) and how ADR-0012 trims search.
 
 **Inputs:** issues [0001](../issues/0001-list-pages-slow-as-a-folder-grows.md)–[0012](../issues/0012-permission-change-forces-full-delta-resync.md),
 and the benchmark in [`tests/benchmarks/item-storage`](../tests/benchmarks/item-storage/README.md).
-Every number below comes from that benchmark and can be run again.
+Every number below comes from that benchmark and can be run again. The
+permission queries were also checked through the real `ListsDbContext` with
+EF Core 10 ([EF check](#checked-through-ef-core-10)).
 
 ## Summary
 
@@ -52,7 +54,9 @@ It runs SQL shaped like the queries EF Core generates today, and like the
 queries each candidate would generate. Tables mirror the EF model. PostgreSQL 16 (1 GB shared buffers) and
 SQLite 3.45 (WAL, the app's pragmas) ran on the same 4-core VM with warm
 caches. `u1` reads 3 scopes, `u5` reads 202 (about 50,000 documents). The
-application, EF Core and the network are not included.
+application, EF Core and the network are not included; the
+[EF check](#checked-through-ef-core-10) adds EF Core for the permission
+queries.
 
 What today's design costs:
 
@@ -77,7 +81,9 @@ Found by reading the code (not in the benchmark):
   ([0011](../issues/0011-item-live-events-reach-every-tenant-user.md)).
 - On PostgreSQL, the tenant `set_config` runs each time EF opens a connection.
   Outside a transaction EF opens one per query, so it is an extra round trip
-  per query, not per physical connection
+  per query, not per physical connection. Confirmed in the
+  [EF check](#checked-through-ef-core-10): five queries, five opens, five
+  `set_config` in the PostgreSQL log
   ([0007](../issues/0007-postgresql-rls-session-overhead-under-pooling.md)).
 
 ## 2. What the design must handle
@@ -159,13 +165,52 @@ Reading the table:
   and 92 ms with A on PostgreSQL, and 271 ms and
   37 ms on SQLite. Count once, not on every page
   ([0001](../issues/0001-list-pages-slow-as-a-folder-grows.md)).
-- **The query shape must differ per provider.** PostgreSQL plans well with
-  the allowed scopes as an array parameter (`ScopeId = ANY(@allowed)`): it sees
-  the values. SQLite plans well with a subquery on the ACL or `json_each`. With
-  a plain `IN (…)` list of 203 values, SQLite chose the scope index for
-  "everything by id" and took 502 ms, compared with
-  2.7 ms as a subquery. This goes behind the
-  provider abstraction, like the JSON functions.
+- **SQLite needs the allowed scopes as one parameter.** With a plain
+  `IN (…)` list of 203 values, SQLite chose the scope index for "everything
+  by id" and took 502 ms, compared with 2.7 ms with a subquery or
+  `json_each`. EF Core 10 sends exactly that list by default on SQLite, one
+  parameter per value. `EF.Parameter(allowed)` fixes it with one LINQ shape
+  for both providers (see the [EF check](#checked-through-ef-core-10)).
+
+### Checked through EF Core 10
+
+The benchmark runs hand-written SQL. To check what the application would
+actually send, [`tests/benchmarks/item-storage/ef`](../tests/benchmarks/item-storage/ef/run-ef.sh)
+runs the permission queries through the real `ListsDbContext`, registered as
+the host does (`AddPaperDotNetSqlite` / `AddPaperDotNetPostgreSql`,
+`AddModuleDbContext`, with the tenant filter and the RLS interceptor), on the
+same 1.6M rows in EF's own schema. EF Core 10.0.12, Npgsql 10.0.3, user `u5`
+(202 allowed scopes), median of 5:
+
+| EF query | SQLite | PostgreSQL |
+|---|---:|---:|
+| Today: all unique scope ids of the list (`ListSchemaLoader`) | 386 ms | 81 ms |
+| Today: all readable documents by id, `allowed.Contains` | 304 ms | 4.3 ms |
+| A: allowed scopes from the ACL by principal | 1.0 ms | 2.1 ms |
+| A: all readable documents by id, `allowed.Contains` | **639 ms** | 7.1 ms |
+| A: the same with a subquery on the ACL | 4.9 ms | 12 ms |
+| A: the same with `EF.Parameter(allowed).Contains` | **5.8 ms** | **6.6 ms** |
+| A: folder page with `EF.Parameter(allowed).Contains` | 1.7 ms | 2.5 ms |
+
+What it showed:
+
+- **EF Core 10 translates `allowed.Contains(x)` differently per provider.**
+  PostgreSQL gets one array parameter (`= ANY (@allowed)`). SQLite gets one
+  parameter per value (`IN (@allowed1, @allowed2, …)`), and SQLite then
+  picks the bad plan, today as well (304 ms). `EF.Parameter(allowed)` makes
+  SQLite use one JSON parameter with `json_each`, and PostgreSQL keeps its
+  array. That is one LINQ shape for both, with no provider-specific code. The
+  global switch (`UseParameterizedCollectionMode`) would change every query
+  of the context, so the per-query form is safer.
+- **Nullable `ScopeId`:** EF adds an `array_position(@allowed, NULL)` term on
+  PostgreSQL. Make the property non-nullable.
+- **Today's cost is real in EF too:** loading every unique scope took 386 ms
+  (SQLite) and 81 ms (PostgreSQL) per request.
+- **One connection open per query:** five queries outside a transaction
+  opened five connections on both providers. On PostgreSQL, the server log
+  showed five `set_config('app.tenant_id', …)`. In one transaction: one
+  open. On SQLite, every open also runs the connection pragmas and registers
+  `pdn_json_contains` again.
 
 ### Why A
 
@@ -189,7 +234,10 @@ Reading the table:
 ### A in detail
 
 - `items.ScopeId` is never null. It is the list id when the item inherits
-  from the list. "Has unique permissions" becomes `ScopeId == Id`.
+  from the list. "Has unique permissions" becomes `ScopeId == Id`. The
+  property must be `Guid`, not `Guid?`: with a nullable property EF adds
+  `OR (scope_id IS NULL AND array_position(@allowed, NULL) IS NOT NULL)` to
+  every PostgreSQL filter.
 - `lists.acl_entries`: `ScopeId`, `PrincipalKind` (user, group, workspace
   visitors, members, owners; later guest, link, everyone), `PrincipalId`,
   `Level` stored as a number (today it is a string, so `>=` cannot be
@@ -209,6 +257,10 @@ Reading the table:
   IN (@principals) [AND ListId = @list] GROUP BY ScopeId`. Point checks
   (`Level(scopeId)`) read this set. A scope that is not in it means no access,
   so the list's other scopes are never listed.
+- Queries filter with `EF.Parameter(allowed).Contains(i.ScopeId)`. EF sends
+  one array parameter on PostgreSQL (`scope_id = ANY (@allowed)`) and one JSON
+  parameter on SQLite (`scope_id IN (SELECT … FROM json_each(@allowed))`).
+  Plain `allowed.Contains(…)` is wrong on SQLite (see below).
 - Other modules get this through a contract (`IItemAccess` in
   Lists.Contracts): the principal set, the allowed scopes for a list or the
   tenant, and the filter. Modules cannot join another module's tables in EF.
@@ -375,7 +427,8 @@ SQLite:
   1.2 s when its pages were not cached).
 - No JSON parsing per row in filters: promote the fields
   ([0010](../issues/0010-sqlite-field-filters-parse-json-per-row.md)).
-- Access filter as a subquery (see the per-provider note in decision 1).
+- Access filter as one JSON parameter (`EF.Parameter`), not one parameter
+  per scope (decision 1).
 
 ## Target model (sketch)
 
@@ -402,7 +455,7 @@ There are no users yet, so the API can change where that helps:
 ## Order of work
 
 1. A: principal-set cache, non-null scope, `acl_entries`, `IItemAccess`,
-   provider-specific filter shape, tenant-isolation and permission tests, and
+   the `EF.Parameter` filter shape, tenant-isolation and permission tests, and
    a permission-heavy scenario in `PaperDotNet.Performance` (0002, 0003, 0006).
 2. Fan-out: chunked background moves, search by scope, delta scope markers,
    live-event audience (0004, 0008, 0011, 0012).
