@@ -75,6 +75,19 @@ done
 echo "== fan-out"
 psql_run -f "$HERE/pg/09_fanout.sql" | awk '/^@@ /{sub(/^@@ /, ""); label=$0} /^UPDATE/{u=1; next} /^Time:/{if (u) printf "@@ pg %s: %s ms\n", label, $2; u=0}'
 
+echo "== multi-value fields (500k items)"
+psql_run -q -f "$HERE/pg/10_multi_values.sql" 2>/dev/null | sed -n '/@@ sizes/,$p'
+explain 11_multi_queries.sql ""
+psql_run -q -f "$HERE/pg/12_multi_compact.sql" 2>/dev/null | sed -n '/@@ sizes/,$p'
+explain 13_multi_compact_queries.sql ""
+explain 14_multi_in_queries.sql ""
+
+echo "== 10 text, 10 number, 10 date slots (8 clients)"
+psql_run -q -f "$HERE/pg/15_slots30.sql" 2>/dev/null
+for round in 1 2 3; do
+  for s in upd_base upd_slots3 upd_slots30 ins_base ins_slots3 ins_slots30; do pgbench_run "$s round $round" "$s.sql" 8; done
+done
+
 echo "== SQLite (same rows)"
 for q in \
   "items:SELECT upper(id::text), upper(tenant_id::text), upper(list_id::text), upper(content_type_id::text), upper(parent_id::text), is_folder::int, has_unique_permissions::int, upper(scope_id::text), title, fields::text, to_char(created_at,'YYYY-MM-DD HH24:MI:SS+00:00'), upper(created_by::text), to_char(updated_at,'YYYY-MM-DD HH24:MI:SS+00:00'), upper(updated_by::text), NULL, NULL, version, upper(scope2::text), s_text1, s_num1, s_date1::text FROM bench.items" \
@@ -87,6 +100,8 @@ done
 python3 "$HERE/sqlite/load.py" "$OUT"
 rm -f "$OUT"/*.csv
 python3 "$HERE/sqlite/bench.py" "$OUT"
+python3 "$HERE/sqlite/multi.py" "$OUT"
+rm -f "$OUT/multi.db"*
 }
 
 main 2>&1 | tee "$OUT/log.txt"

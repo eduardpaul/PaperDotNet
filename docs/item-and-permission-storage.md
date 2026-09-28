@@ -1,8 +1,9 @@
 # Item and permission storage: options
 
-**Status:** proposal, waiting for a decision (2026-09-28). The options chosen
-here become ADR-0035. It would replace how ADR-0011 evaluates permissions (the
-scope model stays) and how ADR-0012 trims search.
+**Status:** decided in [ADR-0035](adr/0035-item-storage-and-permissions-at-scale.md)
+(2026-09-28). This document keeps the options and measurements behind it; where
+they differ, the ADR wins (it extends the reference table of decision 2 to
+multi-select choices and allows 10 promoted fields of each type).
 
 **Inputs:** issues [0001](../issues/0001-list-pages-slow-as-a-folder-grows.md)–[0012](../issues/0012-permission-change-forces-full-delta-resync.md),
 and the benchmark in [`tests/benchmarks/item-storage`](../tests/benchmarks/item-storage/README.md).
@@ -463,56 +464,20 @@ There are no users yet, so the API can change where that helps:
    content types promoted (0001, 0005, 0010).
 4. Queries across lists as one query: My tasks, calendar, smart folders (0009).
 
-## Open questions
+## Decisions taken
 
-Each question has the options, what each one implies, and a proposal.
+The open questions were answered on 2026-09-28 and are recorded in
+[ADR-0035](adr/0035-item-storage-and-permissions-at-scale.md):
 
-### 1. How many fields per list can be indexed?
-
-Indexed ("promoted") fields get a typed column so they sort and filter fast.
-The number of columns is fixed in the schema.
-
-| Option | Implication |
-|---|---|
-| **Small: 4 text, 2 number, 4 date (proposal)** | Covers built-in types (tasks, events, documents) and typical CRM views. Each column costs some write speed, but only on lists that use it. A list that needs more must choose which fields to index. |
-| Large: 10+ per type | Fewer "you must choose" moments, but a wider `items` table and more indexes to maintain. |
-| No limit (a pivot table) | Measured slower to read and 2× slower to write; rejected. |
-
-Changing the number later is a migration, not a redesign.
-
-### 2. What happens while a large folder is moved or its permissions reset?
-
-Moving a folder of 100,000 items between permission scopes rewrites those
-items in the background. That takes a few seconds.
-
-| Option | Implication |
-|---|---|
-| **Allow a short window (proposal)** | The move answers immediately. For a few seconds, moved items keep their old access: people who could see them before still can, and new readers see them a moment later. Simple and fast. |
-| Block until done | Access is always exact. The move answers 202, and the folder cannot be edited or moved again until the operation finishes. |
-
-Break and reset of inheritance have no window: they are ordered so that
-access is correct at every step.
-
-### 3. Will groups contain groups, or access follow a management hierarchy?
-
-| Option | Implication |
-|---|---|
-| **No: flat groups only (proposal, as today)** | Option A as designed. A user's groups are one lookup. |
-| Yes, later | Add one table that expands nested groups per user and is refreshed when memberships change. Everything else stays. Decide before building group management further. |
-
-### 4. How does "share with a person" (IAM-08) work?
-
-| Option | Implication |
-|---|---|
-| **Break and copy, like SharePoint (proposal)** | Sharing an item or folder gives it its own permissions: a copy of the inherited ones plus the new person. Works with option A as designed. Later changes to the parent folder's permissions no longer reach the shared item. |
-| Add on top, like Google Drive | The item keeps inheriting and the share only adds a person. Parent changes keep flowing down. Needs a second access check on every query (items shared with me), and "Shared with me" has its own list of ids. More work, and the check must stay cheap as shares grow. |
-
-### 5. Keep the JSON index on PostgreSQL?
-
-Today PostgreSQL has a GIN index on all field values, so equality filters on
-any field are fast. SQLite has no such index.
-
-| Option | Implication |
-|---|---|
-| **Keep it for now (proposal)** | Ad-hoc filters on fields that are not indexed stay fast on PostgreSQL. Every item change also updates this index, which costs write speed. |
-| Drop it | Faster writes. Filters on fields that are not indexed scan the list, the same as on SQLite today. Easy to revisit once indexed fields cover the common filters. |
+1. **Indexed fields per list:** configurable per type, starting at 10 text,
+   10 number and 10 date. Multi-select choices and multi-lookups were reviewed
+   and go to one value table with the other multi-value fields. Measured
+   again for this: 30 slots in the schema cost about 28% of raw write
+   throughput when rows fill 3 of them and 54–69% when they fill all 30. The
+   value table makes "one of", "all of", "none of", counts per value and
+   reverse lookups index lookups, at about 240 bytes per value.
+2. **Large moves:** allow the short window; up to 5,000 items are reassigned
+   in the request, larger subtrees in the background.
+3. **Groups:** groups can contain groups (a group closure table in Identity).
+4. **Sharing (IAM-08):** break and copy.
+5. **GIN on PostgreSQL:** kept.

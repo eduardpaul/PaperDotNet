@@ -1,6 +1,7 @@
 # ADR-0012: Full-text search in the database (FTS5 / tsvector) with principal trimming
 
-**Status:** Accepted (2026-09-24)
+**Status:** Accepted (2026-09-24). Security trimming by per-document principals is replaced by
+scope ids on documents ([ADR-0035](0035-item-storage-and-permissions-at-scale.md)).
 
 ## Context
 SRC-01…04 need one search across all data types with phrases, OR, NOT and

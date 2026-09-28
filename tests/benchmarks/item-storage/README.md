@@ -79,4 +79,6 @@ analyzers do not apply to it.
 | `pg/09_fanout.sql` | Rewriting the scope of a subtree |
 | `pgbench/today.sql`, `pgbench/option_a.sql` | One list page request (access + page) for a random user |
 | `sqlite/load.py`, `sqlite/bench.py` | The same rows in SQLite (EF-style TEXT GUIDs), the same queries, and the write-lock test |
+| `pg/10`–`14_multi_*.sql`, `sqlite/multi.py` | Multi-select and multi-lookup fields: JSON vs. a value table (text and compact uuid), `EXISTS` vs. `IN` |
+| `pg/15_slots30.sql`, `pgbench/*_base.sql`, `*_slots3.sql`, `*_slots30.sql` | Write cost of 10 text, 10 number and 10 date slots, by slots filled |
 | `ef/` | EF Core check: probe console, SQLite loader from EF's DDL, option A data shape |

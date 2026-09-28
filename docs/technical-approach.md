@@ -148,6 +148,9 @@ PaperDotNet.slnx
   2. **Resource permissions** (ACL with inheritance and sharing) are checked
      by a central `IPermissionService`, cached per user and tenant. The
      permission service is also used to filter queries and search.
+     *ADR-0035:* items point to a security scope; the ACL is indexed by
+     principal, so the caller's allowed scopes come from one lookup
+     (`IItemAccess`), and groups can contain groups.
 - **Data protection:** the Data Protection key ring is stored in the database
   (`identity.data_protection_keys`, both providers).
 - **OAuth / OIDC (1f, ADR-0013):** OpenIddict with Data Protection token format,
@@ -210,6 +213,11 @@ PaperDotNet.slnx
   - A new provider implements this translation, its model customizer, and
     search.
   - Values are validated by field-type handlers before saving.
+  - *ADR-0035:* fields marked `indexed` are also copied to typed columns on
+    the item (10 text, 10 number, 10 date; the limit per list is
+    configurable) or, for multi-value and reference fields, to
+    `lists.item_values`, so sorting, ranges, grouping and reverse lookups use
+    indexes on both providers.
 - **Hierarchies** (taxonomy terms, later folders) use a **materialized path**
   column (`/id/id/`) with a normal index: subtree queries are `StartsWith`,
   which translates to an indexed prefix match on both providers. PostgreSQL
@@ -321,7 +329,9 @@ outbox dispatcher (BackgroundService)
   - The **app** maintains it: owning modules push documents through
     `ISearchIndex` from their integration events. That keeps logic portable
     and lets extensions declare what is indexed (SRC-06).
-- **Security trimming** in SQL: documents store reader principals (user,
+- **Security trimming** in SQL (*ADR-0035 replaces this with the item's
+  scope id on each document and the caller's allowed scopes*): documents
+  store reader principals (user,
   group, workspace member, workspace owner), matched against the caller's
   principals with an indexed `EXISTS`.
 - **Vector search (P6, [ADR-0027](adr/0027-semantic-and-hybrid-search.md)):**
