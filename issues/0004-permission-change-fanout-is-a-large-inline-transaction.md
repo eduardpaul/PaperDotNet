@@ -49,10 +49,11 @@ on an approach.
 ## Measured (2026-09-28)
 
 With [the storage benchmark](../tests/benchmarks/item-storage/README.md), rewriting the scope of 100,000 items in
-one statement took 5.1 s on PostgreSQL, holding row locks on the subtree. On
-SQLite it took 2.06 s under the database-wide write lock: an edit in another
-list waited 2.04 s. At about 250,000 rows the 5 s `busy_timeout` would expire
-and other writes would fail. 10,000 rows took 871 ms and 109 ms. The search
+one statement took 4.2 s on PostgreSQL, holding row locks on the subtree. On
+SQLite it took 1.4–1.5 s under the database-wide write lock: an edit in
+another list waited just as long. At roughly 300,000 rows the 5 s
+`busy_timeout` would expire and other writes would fail. 10,000 rows took
+644 ms on PostgreSQL and 0.4–1.2 s on SQLite. The search
 side is worse than assumed: the whole list is reindexed
 ([0008](0008-permission-change-rebuilds-list-search-index.md)). Options:
 [item-and-permission-storage.md](../docs/item-and-permission-storage.md), decision 3.

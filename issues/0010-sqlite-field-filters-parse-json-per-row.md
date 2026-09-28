@@ -15,9 +15,9 @@ also scan the list.
 
 Measured with [the storage benchmark](../tests/benchmarks/item-storage/README.md)
 on a 500,000-row list: `stage = 'Negotiation'` sorted by `closeDate` took
-480 ms with `json_extract` and 2.1 s through a per-row JSON function (a
-Python stand-in for the C# one); a lookup equality took 480 ms. With the
-fields in indexed columns: 1.5 ms and 0.12 ms.
+475 ms with `json_extract` and 2.0 s through a per-row JSON function (a
+Python stand-in for the C# one); a lookup equality took 474 ms. With the
+fields in indexed columns: 1.6 ms and 0.11 ms.
 
 ## Where it shows up
 

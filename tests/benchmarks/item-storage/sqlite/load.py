@@ -12,7 +12,7 @@ CREATE TABLE items(
   Id TEXT NOT NULL PRIMARY KEY, TenantId TEXT NOT NULL, ListId TEXT NOT NULL, ContentTypeId TEXT NOT NULL, ParentId TEXT,
   IsFolder INTEGER NOT NULL, HasUniquePermissions INTEGER NOT NULL, ScopeId TEXT, Title TEXT NOT NULL, Fields TEXT NOT NULL,
   CreatedAt TEXT NOT NULL, CreatedBy TEXT, UpdatedAt TEXT NOT NULL, UpdatedBy TEXT, DeletedAt TEXT, DeletedBy TEXT, Version INTEGER NOT NULL,
-  Scope2 TEXT NOT NULL, OwnerId TEXT, SText1 TEXT, SNum1 REAL, SDate1 TEXT);
+  Scope2 TEXT NOT NULL, SText1 TEXT, SNum1 REAL, SDate1 TEXT);
 CREATE TABLE permission_grants(Id TEXT NOT NULL PRIMARY KEY, TenantId TEXT NOT NULL, ListId TEXT NOT NULL, ObjectId TEXT NOT NULL,
   PrincipalType TEXT NOT NULL, PrincipalId TEXT NOT NULL, Level TEXT NOT NULL);
 CREATE TABLE acl(TenantId TEXT NOT NULL, ListId TEXT NOT NULL, ScopeId TEXT NOT NULL, PrincipalId TEXT NOT NULL, Level INTEGER NOT NULL,
@@ -28,7 +28,7 @@ def load(table, n):
         db.executemany(f"INSERT INTO {table} VALUES ({','.join('?'*n)})", rows)
     db.commit()
     print(table, round(time.time() - t, 1), 's', flush=True)
-load('items', 22); load('permission_grants', 7); load('acl', 5); load('group_members', 2); load('item_values', 9)
+load('items', 21); load('permission_grants', 7); load('acl', 5); load('group_members', 2); load('item_values', 9)
 t = time.time()
 db.executescript("""
 -- Today's indexes (ListsDbContext + conventions; the JSON containment index is dropped on SQLite).
@@ -45,7 +45,6 @@ CREATE INDEX IX_acl_Principal ON acl(PrincipalId, ListId, ScopeId, Level);
 CREATE INDEX IX_items_SText1 ON items(ListId, SText1, Id) WHERE SText1 IS NOT NULL;
 CREATE INDEX IX_items_SNum1 ON items(ListId, SNum1, Id) WHERE SNum1 IS NOT NULL;
 CREATE INDEX IX_items_SDate1 ON items(ListId, SDate1, Id) WHERE SDate1 IS NOT NULL;
-CREATE INDEX IX_items_Owner ON items(ListId, OwnerId, Id) WHERE OwnerId IS NOT NULL;
 CREATE INDEX IX_values_Text ON item_values(ListId, Field, VText, ItemId) WHERE VText IS NOT NULL;
 CREATE INDEX IX_values_Date ON item_values(ListId, Field, VDate, ItemId) WHERE VDate IS NOT NULL;
 CREATE INDEX IX_values_Guid ON item_values(Field, VGuid, ListId, ItemId) WHERE VGuid IS NOT NULL;

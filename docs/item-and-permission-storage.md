@@ -15,15 +15,15 @@ with unique permissions (SharePoint's `ScopeId`), and a query filters on it.
 What does not scale is how the allowed scopes are computed: **every request
 loads every unique scope of the list.** The benchmark library is laid out like
 a Papermerge import (1M documents, 7,500 unique scopes). There, that load is a
-full scan of `items` on every request: 94–121 ms on PostgreSQL and
-312–317 ms on SQLite. It caps the list page at about 12 requests/s
+full scan of `items` on every request: 84–94 ms on PostgreSQL and
+260–265 ms on SQLite. It caps the list page at about 18 requests/s
 on 4 cores. The other two limits are sorting or
 filtering on JSON fields, and rebuilding whole lists after a permission
 change.
 
 | Decision | Recommended | Good alternative |
 |---|---|---|
-| [1. Permissions](#decision-1-permission-model) | **A. Scope ACL, looked up by principal**, plus **ownership rules** for private records (CRM) | **C. Access expanded per user**, if nested groups or manager hierarchies become a requirement |
+| [1. Permissions](#decision-1-permission-model) | **A. Scope ACL, looked up by principal** | **C. Access expanded per user**, if nested groups or role hierarchies become a requirement |
 | [2. Fields](#decision-2-field-storage) | **H. Typed slot columns for promoted fields, plus a reference table for multi-valued people, lookups and terms**. JSON stays the source | **S. Slot columns only** (no index for multi-valued fields) |
 | [3. Derived data](#decision-3-search-delta-live-events-and-fan-out) | **Scope id on search documents, delta and live events**; subtree rewrites as chunked background work | **Per-document principals as today**, rebuilt only for the affected items |
 
@@ -31,12 +31,12 @@ What the recommendation changes, measured on the same data and machine:
 
 | | Today | Recommended |
 |---|---:|---:|
-| List page request (access + page), PostgreSQL, 1 / 4 / 16 clients | 9 / 13 / 12 req/s | 1,030 / 5,289 / 4,074 req/s |
-| Access check before the page, PostgreSQL / SQLite | 122 ms / 321 ms | 0.16 ms / 0.07 ms |
-| CRM view, 500k deals: one stage, by close date, PostgreSQL / SQLite | 243 ms / 480 ms | 2.9 ms / 1.5 ms |
-| My tasks over 50 task lists, PostgreSQL / SQLite | ≥ 130 ms / ≥ 152 ms | 1.5 ms / 0.53 ms |
-| Deals of one account (lookup), SQLite | 480 ms | 0.12 ms |
-| Raw write throughput with four promoted fields, 8 writers, PostgreSQL: update / insert | 6,276 / 7,895 tps | 4,367 / 5,162 tps (−30% / −35%) |
+| List page request (access + page), PostgreSQL, 1 / 4 / 16 clients | 12 / 16 / 18 req/s | 1,114 / 5,891 / 4,858 req/s |
+| Access check before the page, PostgreSQL / SQLite | 96 ms / 271 ms | 0.13 ms / 0.08 ms |
+| CRM view, 500k deals: one stage, by close date, PostgreSQL / SQLite | 160 ms / 475 ms | 1.9 ms / 1.6 ms |
+| My tasks over 50 task lists, PostgreSQL / SQLite | ≥ 93 ms / ≥ 135 ms | 0.79 ms / 0.37 ms |
+| Deals of one account (lookup), SQLite | 474 ms | 0.11 ms |
+| Raw write throughput with three promoted fields, 8 writers, PostgreSQL: update / insert | 7,254 / 9,007 tps | 5,573 / 7,260 tps (−23% / −19%) |
 
 ## 1. What was measured
 
@@ -58,13 +58,13 @@ What today's design costs:
 
 | Finding | PostgreSQL | SQLite | Issue |
 |---|---:|---:|---|
-| Loading every unique scope of the list (no index can serve `HasUniquePermissions`) | 94–121 ms, parallel scan of all of `items` | 312–317 ms | [0003](../issues/0003-permission-scope-preload-grows-with-list-size.md) |
-| The same with a partial index (minimal fix): still grows with unique scopes | 6.2 ms | – | 0003 |
-| List page request, 16 clients | 12 req/s, 1.29 s average | – | [0002](../issues/0002-uncached-permission-lookups-on-every-request.md) |
-| Stage filter + sort by date on a JSON field, 500k rows | 243 ms | 480 ms (`json_extract`), 2.08 s through a per-row JSON function like `pdn_json_contains` | [0005](../issues/0005-dynamic-json-fields-no-promotion-path-for-hot-columns.md), [0010](../issues/0010-sqlite-field-filters-parse-json-per-row.md) |
-| Board counts per stage, 500k rows | 307 ms | 819 ms | 0005 |
-| My tasks over 50 lists, one list at a time (only the access check and the query of each list, so a lower bound) | 130 ms | 152 ms | [0009](../issues/0009-cross-list-queries-load-access-per-list.md) |
-| Rewriting the scope of 100,000 items (break inheritance, move) in one statement | 5.11 s, row locks on the subtree | 2.06 s, database-wide write lock; an edit in another list waited 2.04 s | [0004](../issues/0004-permission-change-fanout-is-a-large-inline-transaction.md) |
+| Loading every unique scope of the list (no index can serve `HasUniquePermissions`) | 84–94 ms, parallel scan of all of `items` | 260–265 ms | [0003](../issues/0003-permission-scope-preload-grows-with-list-size.md) |
+| The same with a partial index (minimal fix): still grows with unique scopes | 5.1 ms | – | 0003 |
+| List page request, 16 clients | 18 req/s, 904 ms average | – | [0002](../issues/0002-uncached-permission-lookups-on-every-request.md) |
+| Stage filter + sort by date on a JSON field, 500k rows | 160 ms | 475 ms (`json_extract`), 2.00 s through a per-row JSON function like `pdn_json_contains` | [0005](../issues/0005-dynamic-json-fields-no-promotion-path-for-hot-columns.md), [0010](../issues/0010-sqlite-field-filters-parse-json-per-row.md) |
+| Board counts per stage, 500k rows | 299 ms | 770 ms | 0005 |
+| My tasks over 50 lists, one list at a time (only the access check and the query of each list, so a lower bound) | 93 ms | 135 ms | [0009](../issues/0009-cross-list-queries-load-access-per-list.md) |
+| Rewriting the scope of 100,000 items (break inheritance, move) in one statement | 4.23 s, row locks on the subtree | 1.53 s, database-wide write lock; an edit in another list waited 1.53 s | [0004](../issues/0004-permission-change-fanout-is-a-large-inline-transaction.md) |
 
 Found by reading the code (not in the benchmark):
 
@@ -86,7 +86,7 @@ Found by reading the code (not in the benchmark):
 |---|---|---|
 | **DMS** (Papermerge-like) | Home folders with unique permissions, group-shared folders, most items inherit | Browse a folder (folders first, by title), search, recent documents |
 | **DMS with sharing** (IAM-08…11) | Many individually shared folders and documents, guests, links | "Shared with me", the same browsing for guests |
-| **CRM** | Flat lists of 100k–1M records; private by owner or team, managers see all | Views filtered and sorted by fields (stage, amount, close date), board counts, reverse lookups (deals of an account), many small concurrent edits |
+| **CRM** | Flat lists of 100k–1M records, access per list or folder | Views filtered and sorted by fields (stage, amount, close date), board counts, reverse lookups (deals of an account), many small concurrent edits |
 | **Tasks and calendar** | Many lists, mostly inherited access | "Mine" across all lists, date ranges |
 | **Search** | Trimmed by the same rules | Keyword, semantic and hybrid over everything readable |
 
@@ -126,7 +126,7 @@ no schema changes at runtime.
 | Queries across lists (My tasks, search, smart folders) | One access load per list | One lookup for the tenant | One lookup for the tenant | A list of all readable objects is needed first (becomes C) |
 | Storage (benchmark tenant) | 11,052 grants | 11,052 entries (2.6 MB) | 449,000 rows (75 MB) | Closure rows ≈ items × depth |
 | Consistency | Immediate | Immediate | Refresh after each change (sync or background) | Immediate |
-| Nested groups, manager hierarchies | No | No (flat groups) | Yes | Yes |
+| Nested groups, role hierarchies | No | No (flat groups) | Yes | Yes |
 | Fits one container, SQLite and PostgreSQL | Yes | Yes | Yes | Closure: yes. Engine: an extra service, no SQLite |
 | Change from today | Small | Medium | Large | Large |
 
@@ -134,19 +134,19 @@ no schema changes at runtime.
 
 | | P0 patch | A | C |
 |---|---:|---:|---:|
-| Access check, PostgreSQL (u1 / u5) | 6.2 ms + 1.3 ms | 0.06 ms / 0.16 ms | 0.07 ms / 0.98 ms |
-| Access check, SQLite (u1 / u5) | – | 0.01 ms / 0.07 ms | – |
-| List page request, PostgreSQL, 1 / 4 / 16 clients | 104 / 463 / 410 req/s | 1,030 / 5,289 / 4,074 req/s | as A |
+| Access check, PostgreSQL (u1 / u5) | 5.1 ms + 1.3 ms | 0.04 ms / 0.13 ms | 0.05 ms / 0.85 ms |
+| Access check, SQLite (u1 / u5) | – | 0.01 ms / 0.08 ms | – |
+| List page request, PostgreSQL, 1 / 4 / 16 clients | 138 / 552 / 506 req/s | 1,114 / 5,891 / 4,858 req/s | as A |
 
 After the access check, A and C run the same page queries. Page queries
 compared with today, PostgreSQL / SQLite:
 
 | Query (u1 / u5) | Today | A |
 |---|---|---|
-| Own sub-folder, folders first by title | 0.17 ms / 0.17 ms · 0.15 ms / 0.29 ms | 0.12 ms / 0.09 ms · 0.15 ms / 0.21 ms |
-| List root (5,001 folders, a few visible) | 6.1 ms / 8.8 ms · 1.1 ms / 1.4 ms | 1.4 ms / 5.6 ms · 1.4 ms / 1.4 ms |
-| All readable documents by id (first page) | 46 ms / 11 ms · 6.9 ms / 30 ms | 47 ms / 14 ms · 0.41 ms / 2.6 ms |
-| Count readable documents | 8.4 ms / 20 ms · 4.9 ms / 264 ms | 6.7 ms / 60 ms · 6.2 ms / 31 ms |
+| Own sub-folder, folders first by title | 0.14 ms / 0.13 ms · 0.13 ms / 0.23 ms | 0.06 ms / 0.10 ms · 0.15 ms / 0.20 ms |
+| List root (5,001 folders, a few visible) | 6.1 ms / 6.4 ms · 1.1 ms / 1.4 ms | 2.4 ms / 6.4 ms · 2.2 ms / 1.3 ms |
+| All readable documents by id (first page) | 31 ms / 9.3 ms · 8.5 ms / 43 ms | 36 ms / 9.7 ms · 0.35 ms / 2.7 ms |
+| Count readable documents | 6.3 ms / 17 ms · 6.1 ms / 271 ms | 18 ms / 92 ms · 8.1 ms / 37 ms |
 
 Reading the table:
 
@@ -155,21 +155,22 @@ Reading the table:
   parent indexes. On SQLite it is the same as today.
 - On SQLite, "everything by id" is faster with A (subquery shape).
 - Counts grow with the rows the user can see, in every design, and the plan
-  decides the rest. Counting u5's 50,000 documents went from 20 to 60 ms on
-  PostgreSQL and from 264 to 31 ms on SQLite. Count once, not on every page
+  decides the rest. Counting u5's 50,000 documents took 17 ms today
+  and 92 ms with A on PostgreSQL, and 271 ms and
+  37 ms on SQLite. Count once, not on every page
   ([0001](../issues/0001-list-pages-slow-as-a-folder-grows.md)).
 - **The query shape must differ per provider.** PostgreSQL plans well with
   the allowed scopes as an array parameter (`ScopeId = ANY(@allowed)`): it sees
   the values. SQLite plans well with a subquery on the ACL or `json_each`. With
   a plain `IN (…)` list of 203 values, SQLite chose the scope index for
-  "everything by id" and took 577 ms, compared with
-  2.6 ms as a subquery. This goes behind the
+  "everything by id" and took 502 ms, compared with
+  2.7 ms as a subquery. This goes behind the
   provider abstraction, like the JSON functions.
 
 ### Why A
 
 - It removes the cost that grows with the list. The access check is an
-  index-only lookup (0.16 ms for 202 scopes). It can be cached, but
+  index-only lookup (0.13 ms for 202 scopes). It can be cached, but
   does not have to be.
 - Grants stay small rows. Unlike C, workspace and group membership changes
   write nothing, and nothing is stale.
@@ -177,7 +178,8 @@ Reading the table:
   folders, search, MCP, live events, delta.
 - It is ADR-0011 evaluated from the principal side. The API, the grants UI and
   SharePoint semantics (break, copy, reset) stay.
-- C only wins when groups nest or managers see their reports' records. In
+- C only wins when groups nest or access follows a role hierarchy (a manager
+  inherits what their reports can read). In
   that case, add a group-expansion table to A rather than expanding every
   grant.
 - R makes permission writes cheap and every read expensive. Filtering, sorting
@@ -210,25 +212,6 @@ Reading the table:
 - Other modules get this through a contract (`IItemAccess` in
   Lists.Contracts): the principal set, the allowed scopes for a list or the
   tenant, and the filter. Modules cannot join another module's tables in EF.
-- Ownership rules (next section) add one condition.
-
-### Ownership rules (add-on for any option)
-
-A CRM list is private per record: people see the deals they own, and managers
-see all. With scopes alone, every record needs its own unique scope: 500,000
-scopes, over a million ACL rows, and a rewrite on every change of owner.
-SharePoint has a list setting for this ("Read items that were created by the
-user"), and Dynamics has user-level access.
-
-- Add a system column `OwnerId` (a user or a group; defaults to the creator,
-  can be reassigned) with an index on `(ListId, OwnerId, Id)`.
-- Add a list setting `itemAccess`: `all` (default) or `own`. A later value,
-  `ownOrAssigned`, would also match a person field. It applies to callers
-  below Manage on the item's scope.
-- The filter becomes `ScopeId IN @manage OR (ScopeId IN @read AND OwnerId IN
-  @principals)`. Team ownership is a group as owner.
-- Measured: "my deals" newest first in 500,000 rows took 0.30 ms on
-  PostgreSQL and 0.34 ms on SQLite.
 
 ## Decision 2: field storage
 
@@ -260,8 +243,8 @@ user"), and Dynamics has user-level access.
 | Sort, range, equality on a promoted field | Scan | Index | Index for one field; several fields join badly | Index | Index | Index |
 | "Contains me", tags, reverse lookup | GIN on PostgreSQL, scan on SQLite | No | Index | Index | Needs its own table | No |
 | Same field across lists (My tasks) | Scan per list | Index when the slot is fixed per content type | Index | Index | One table per list | No |
-| Raw writes, 8 writers, PostgreSQL (update / insert tps) | 6,276 / 7,895 | 4,367 / 5,162 (−30% / −35%) | 3,152 / 3,746 (−50% / −53%) | S, plus one row per id value | Best | Grows with every index on the shared table |
-| Extra storage (600k items) | – | Small | 652 MB (2.8M rows) | Only the references | – | Per index |
+| Raw writes, 8 writers, PostgreSQL (update / insert tps) | 7,254 / 9,007 | 5,573 / 7,260 (−23% / −19%) | 3,865 / 4,088 (−47% / −55%) | S, plus one row per id value | Best | Grows with every index on the shared table |
+| Extra storage (600k items) | – | Small | 658 MB (2.8M rows) | Only the references | – | Per index |
 | EF model, both providers, no DDL at runtime | Yes | Yes | Yes | Yes | No | No |
 | Limit | – | Slots per type per list | – | Slots per type per list | – | – |
 
@@ -269,23 +252,24 @@ user"), and Dynamics has user-level access.
 
 | Query | F0 JSON (PostgreSQL / SQLite) | S slots | V pivot | H |
 |---|---|---|---|---|
-| C1 stage = Negotiation, by close date, first 100 of 500k | 243 ms / 480 ms | 2.9 ms / 1.5 ms | 237 ms (hash joins over 83k and 500k values) | as S |
-| C2 amount range and close-date range, count | 114 ms | 4.0 ms | 13 ms | as S |
-| C3 board: count per stage | 307 ms / 819 ms | 86 ms / 45 ms | 140 ms | as S |
-| C4 deals of one account | 0.17 ms (GIN) / 480 ms | – | 0.21 ms / 0.12 ms | as V |
-| T1 my open tasks across 50 lists by due date | ≥ 130 ms / ≥ 152 ms (one list at a time); 9.5 ms as one JSON query on PostgreSQL | – | – | 1.5 ms / 0.53 ms |
+| C1 stage = Negotiation, by close date, first 100 of 500k | 160 ms / 475 ms | 1.9 ms / 1.6 ms | 148 ms (hash joins over 83k and 500k values) | as S |
+| C2 amount range and close-date range, count | 101 ms | 4.6 ms | 16 ms | as S |
+| C3 board: count per stage | 299 ms / 770 ms | 55 ms / 44 ms | 100 ms | as S |
+| C4 deals of one account | 0.14 ms (GIN) / 474 ms | – | 0.24 ms / 0.11 ms | as V |
+| T1 my open tasks across 50 lists by due date | 93 ms / 135 ms (one list at a time); 7.3 ms as one JSON query on PostgreSQL | – | – | 0.79 ms / 0.37 ms |
 
 ### Why H
 
-- On promoted fields the CRM view (C1) ran 84 times (PostgreSQL) and 320
-  times (SQLite) faster than on JSON, the range count (C2) 28 times, and the
-  board counts (C3) 4 and 18 times.
+- On promoted fields the CRM view (C1) ran 85 times (PostgreSQL) and
+  302 times (SQLite) faster than on JSON, the range count (C2)
+  22 times, and the board counts (C3) 5 and 17
+  times.
 - V fails exactly where CRM views live: a filter on one field sorted by
   another. The planner hash-joins the value sets instead of walking one index,
   and V costs the most on writes. H uses rows only for id values, where a
   lookup by value is the whole query.
-- Promoted fields are not free. With four slots indexed and filled on every
-  row, raw updates ran −30% and inserts −35%
+- Promoted fields are not free. With three slots indexed and filled on every
+  row, raw updates ran −23% and inserts −19%
   compared with JSON only (median of three interleaved rounds). In the
   application each write also writes a version, the change log, the audit
   log and the outbox, so the share is smaller, and the absolute rates are far
@@ -331,8 +315,7 @@ user"), and Dynamics has user-level access.
 
 **D2 is recommended.** A heavy user's allowed set for the whole tenant can
 reach thousands of scopes. That is still a small array for PostgreSQL and
-`json_each` for SQLite, and it is cached per user. Ownership rules add
-`OwnerId` to the search document.
+`json_each` for SQLite, and it is cached per user.
 
 ### Fan-out rules (any option)
 
@@ -350,9 +333,11 @@ reach thousands of scopes. That is still a small array for PostgreSQL and
   that finishes, moved items keep their old access for a short time; this has
   to be documented or accepted (open question 2).
 - **Why chunks:** 100,000 rows in one statement held the SQLite write lock for
-  2.06 s, blocking every writer in the database. About 250,000 rows
-  would pass the 5 s `busy_timeout`, and other writes would start failing.
-  10,000 rows took 109 ms (SQLite) and 871 ms (PostgreSQL).
+  1.53 s (1.4–1.5 s in two more runs), blocking every writer in the
+  database. Roughly 300,000 rows would pass the 5 s `busy_timeout`, and other
+  writes would start failing. 10,000 rows took 0.4–1.2 s on SQLite across
+  three runs (pages not yet in the cache are read while the lock is held) and
+  644 ms on PostgreSQL.
 - **Delta:** log `ScopeChanged(scopeId)` instead of a list-wide reset. The
   next delta call returns that scope's items as changed or removed, depending
   on the caller's access, with 410 only above a size limit ([0012](../issues/0012-permission-change-forces-full-delta-resync.md)).
@@ -364,7 +349,7 @@ reach thousands of scopes. That is still a small array for PostgreSQL and
 PostgreSQL:
 
 - With A, the access check is an index-only read, so reads scale with cores:
-  5,289 requests/s with 4 clients on 4 cores, compared with 13
+  5,891 requests/s with 4 clients on 4 cores, compared with 16
   today.
 - Item writes touch only their own rows: no counters on folders or lists
   (checked in `ItemWriter`). Keep it that way; count once instead of storing
@@ -374,8 +359,8 @@ PostgreSQL:
   stay behind the outbox.
 - Every index on `items` is paid on every update that changes an indexed
   column. The GIN index on `Fields` makes every field change such an update.
-  Keep the set small: primary key, browse, `(ScopeId, Id)`,
-  `(ListId, OwnerId, Id)`, the partial slot indexes, and GIN on `Fields`. Once
+  Keep the set small: primary key, browse, `(ScopeId, Id)`, the partial slot
+  indexes, and GIN on `Fields`. Once
   hot fields are promoted, check whether GIN still earns its write cost.
 - Send the tenant setting once per request or connection, not before each
   query. Under a transaction-mode pooler it must be in the same transaction as
@@ -386,7 +371,8 @@ PostgreSQL:
 SQLite:
 
 - There is one writer. Long write transactions are the main risk, hence the
-  chunked fan-out (10,000 rows held the lock for 109 ms).
+  chunked fan-out in small chunks (10,000 rows held the lock for up to
+  1.2 s when its pages were not cached).
 - No JSON parsing per row in filters: promote the fields
   ([0010](../issues/0010-sqlite-field-filters-parse-json-per-row.md)).
 - Access filter as a subquery (see the per-provider note in decision 1).
@@ -398,19 +384,18 @@ lists.items
   Id, TenantId, ListId, ContentTypeId, ParentId, IsFolder, Title
   Fields                 JSON, the source of truth
   ScopeId    not null    list id, or the nearest folder/item with unique permissions
-  OwnerId    null        user or group; defaults to the creator
   Text1..4, Number1..2, Date1..4        promoted single-valued fields
   CreatedAt/By, UpdatedAt/By, DeletedAt/By, Version
 lists.item_refs     (ItemId, FieldKey, Value) + ListId, TenantId          ids in person, lookup and term fields
 lists.acl_entries   (ScopeId, PrincipalKind, PrincipalId) + Level, ListId, WorkspaceId, TenantId
-search.documents    + ScopeId, OwnerId;  document_principals removed
+search.documents    + ScopeId;  document_principals removed
 ```
 
 There are no users yet, so the API can change where that helps:
 
 - permission responses show role principals ("members of the workspace")
   instead of expanded members;
-- items get `ownerId`, field definitions `indexed`, lists `itemAccess`;
+- field definitions get `indexed`;
 - break, reset and large moves may answer 202 with an operation;
 - migrations are generated again for both providers (no data to migrate).
 
@@ -421,10 +406,9 @@ There are no users yet, so the API can change where that helps:
    a permission-heavy scenario in `PaperDotNet.Performance` (0002, 0003, 0006).
 2. Fan-out: chunked background moves, search by scope, delta scope markers,
    live-event audience (0004, 0008, 0011, 0012).
-3. Ownership rules for CRM-style lists.
-4. H: slots, `item_refs`, translator mapping, promotion backfill; built-in
+3. H: slots, `item_refs`, translator mapping, promotion backfill; built-in
    content types promoted (0001, 0005, 0010).
-5. Queries across lists as one query: My tasks, calendar, smart folders (0009).
+4. Queries across lists as one query: My tasks, calendar, smart folders (0009).
 
 ## Open questions
 
@@ -432,7 +416,7 @@ There are no users yet, so the API can change where that helps:
    4 text, 2 number, 4 date)?
 2. **Large moves:** accept a few seconds of old access for moved items, or
    block the move until the reassignment finishes?
-3. **Groups:** will groups nest, or managers see their reports' records? Only
+3. **Groups:** will groups nest, or access follow a role hierarchy? Only
    then add a group-expansion table (the useful part of C).
 4. **Sharing (IAM-08):** break and copy as SharePoint does (supported by A as
    is), or additive shares as Google Drive does, which need a second filter

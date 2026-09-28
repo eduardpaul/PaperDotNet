@@ -17,9 +17,9 @@ cost grows with the number of lists the user can see, not with the page.
 
 Measured with [the storage benchmark](../tests/benchmarks/item-storage/README.md)
 (50 task lists of 2,000 tasks, only the access check and item query of each
-list, so a lower bound): 130 ms on PostgreSQL and 152 ms on SQLite for My
+list, so a lower bound): 93 ms on PostgreSQL and 135 ms on SQLite for My
 tasks. One query over all 50 lists, with the assignee, status and due date
-indexed, took 1.5 ms and 0.5 ms.
+indexed, took 0.8 ms and 0.4 ms.
 
 ## Where it shows up
 

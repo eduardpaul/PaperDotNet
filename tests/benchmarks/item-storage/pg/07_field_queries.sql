@@ -41,10 +41,6 @@ EXPLAIN (ANALYZE, COSTS OFF) SELECT * FROM items WHERE tenant_id = :'t' AND list
 \echo @@ C4 pivot
 EXPLAIN (ANALYZE, COSTS OFF) SELECT i.* FROM item_values v JOIN items i ON i.id = v.item_id WHERE v.field = 'account' AND v.v_guid = md5('acc42')::uuid AND v.list_id = :'crm' ORDER BY i.id LIMIT 101;
 
--- C5 private-by-owner: my deals, newest first
-\echo @@ C5 owner column predicate
-EXPLAIN (ANALYZE, COSTS OFF) SELECT * FROM items WHERE tenant_id = :'t' AND list_id = :'crm' AND deleted_at IS NULL AND owner_id = :'me' ORDER BY id DESC LIMIT 101;
-
 -- T1 my open tasks across 50 task lists by due date
 \echo @@ T1 JSON one list (today runs this per list, x50, plus the per-list access preload)
 EXPLAIN (ANALYZE, COSTS OFF) SELECT * FROM items WHERE tenant_id = :'t' AND list_id = md5('list-tasks7')::uuid AND deleted_at IS NULL

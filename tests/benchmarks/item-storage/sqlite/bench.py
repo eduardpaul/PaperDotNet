@@ -77,7 +77,6 @@ run('C3 JSON board counts', "SELECT json_extract(Fields,'$.stage'), count(*) FRO
 run('C3 slots board counts', 'SELECT SText1, count(*) FROM items WHERE ListId=? AND SText1 IS NOT NULL GROUP BY 1', (CRM,))
 run('C4 JSON deals of one account', "SELECT * FROM items WHERE TenantId=? AND ListId=? AND DeletedAt IS NULL AND json_extract(Fields,'$.account')=? ORDER BY Id LIMIT 101", (T, CRM, g('acc42').lower()), n=3)
 run('C4 junction deals of one account', "SELECT i.* FROM item_values v JOIN items i ON i.Id=v.ItemId WHERE v.Field='account' AND v.VGuid=? AND v.ListId=? ORDER BY i.Id LIMIT 101", (g('acc42'), CRM))
-run('C5 owner column my deals', 'SELECT * FROM items WHERE TenantId=? AND ListId=? AND DeletedAt IS NULL AND OwnerId=? ORDER BY Id DESC LIMIT 101', (T, CRM, g('u17')))
 me, tasklists = g('u17'), [g(f'list-tasks{l}') for l in range(1, 51)]
 times = []
 for _ in range(3):

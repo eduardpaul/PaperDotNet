@@ -66,7 +66,7 @@ has to count its own rows.
 ## Measured (2026-09-28)
 
 [The storage benchmark](../tests/benchmarks/item-storage/README.md) measured the JSON sort part only: one stage
-of 500,000 deals sorted by a JSON date took 243 ms on PostgreSQL and 480 ms on
-SQLite, and 2.9 ms and 1.5 ms from indexed columns. Paging and repeated counts
+of 500,000 deals sorted by a JSON date took 160 ms on PostgreSQL and 475 ms on
+SQLite, and 1.9 ms and 1.6 ms from indexed columns. Paging and repeated counts
 were not measured. Options: [item-and-permission-storage.md](../docs/item-and-permission-storage.md),
 decision 2.

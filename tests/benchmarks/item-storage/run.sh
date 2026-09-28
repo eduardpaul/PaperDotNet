@@ -77,7 +77,7 @@ psql_run -f "$HERE/pg/09_fanout.sql" | awk '/^@@ /{sub(/^@@ /, ""); label=$0} /^
 
 echo "== SQLite (same rows)"
 for q in \
-  "items:SELECT upper(id::text), upper(tenant_id::text), upper(list_id::text), upper(content_type_id::text), upper(parent_id::text), is_folder::int, has_unique_permissions::int, upper(scope_id::text), title, fields::text, to_char(created_at,'YYYY-MM-DD HH24:MI:SS+00:00'), upper(created_by::text), to_char(updated_at,'YYYY-MM-DD HH24:MI:SS+00:00'), upper(updated_by::text), NULL, NULL, version, upper(scope2::text), upper(owner_id::text), s_text1, s_num1, s_date1::text FROM bench.items" \
+  "items:SELECT upper(id::text), upper(tenant_id::text), upper(list_id::text), upper(content_type_id::text), upper(parent_id::text), is_folder::int, has_unique_permissions::int, upper(scope_id::text), title, fields::text, to_char(created_at,'YYYY-MM-DD HH24:MI:SS+00:00'), upper(created_by::text), to_char(updated_at,'YYYY-MM-DD HH24:MI:SS+00:00'), upper(updated_by::text), NULL, NULL, version, upper(scope2::text), s_text1, s_num1, s_date1::text FROM bench.items" \
   "permission_grants:SELECT upper(id::text), upper(tenant_id::text), upper(list_id::text), upper(object_id::text), principal_type, upper(principal_id::text), level FROM bench.permission_grants" \
   "acl:SELECT upper(tenant_id::text), upper(list_id::text), upper(scope_id::text), upper(principal_id::text), level FROM bench.acl" \
   "group_members:SELECT upper(group_id::text), upper(user_id::text) FROM bench.group_members" \

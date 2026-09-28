@@ -9,14 +9,13 @@ CREATE INDEX ON w_json(tenant_id); CREATE INDEX ON w_json(list_id, parent_id); C
 CREATE INDEX ON w_json USING gin (fields jsonb_path_ops);
 
 CREATE TABLE w_slots AS SELECT id, tenant_id, list_id, content_type_id, parent_id, is_folder, has_unique_permissions, scope2 AS scope_id, title, fields,
-  created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, version, owner_id, s_text1, s_num1, s_date1 FROM items WHERE list_id = md5('list-crm')::uuid;
+  created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, version, s_text1, s_num1, s_date1 FROM items WHERE list_id = md5('list-crm')::uuid;
 ALTER TABLE w_slots ADD PRIMARY KEY (id);
 CREATE INDEX ON w_slots(tenant_id); CREATE INDEX ON w_slots(list_id, parent_id); CREATE INDEX ON w_slots(scope_id, id);
 CREATE INDEX ON w_slots USING gin (fields jsonb_path_ops);
 CREATE INDEX ON w_slots(list_id, s_text1, id) WHERE s_text1 IS NOT NULL;
 CREATE INDEX ON w_slots(list_id, s_num1, id) WHERE s_num1 IS NOT NULL;
 CREATE INDEX ON w_slots(list_id, s_date1, id) WHERE s_date1 IS NOT NULL;
-CREATE INDEX ON w_slots(list_id, owner_id, id) WHERE owner_id IS NOT NULL;
 
 CREATE TABLE w_pivot AS SELECT * FROM w_json;
 ALTER TABLE w_pivot ADD PRIMARY KEY (id);

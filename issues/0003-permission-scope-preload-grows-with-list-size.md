@@ -45,7 +45,7 @@ before choosing a fix.
 
 With [the storage benchmark](../tests/benchmarks/item-storage/README.md) (a library laid out like a Papermerge
 import: 1M documents, 7,500 unique scopes), loading every unique scope id took
-94–121 ms on PostgreSQL and 312–317 ms on SQLite per request. No index serves
+84–94 ms on PostgreSQL and 260–265 ms on SQLite per request. No index serves
 `HasUniquePermissions`, so PostgreSQL scans all of `items` in parallel. A
-partial index brings it to 6.2 ms, but it still grows with the number of
+partial index brings it to 5.1 ms, but it still grows with the number of
 unique scopes. Options: [item-and-permission-storage.md](../docs/item-and-permission-storage.md), decision 1.

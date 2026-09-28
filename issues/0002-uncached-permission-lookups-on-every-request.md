@@ -48,10 +48,10 @@ cheaper fixes (see [0001](0001-list-pages-slow-as-a-folder-grows.md)).
 ## Measured (2026-09-28)
 
 With [the storage benchmark](../tests/benchmarks/item-storage/README.md) (a library of 1M documents with 7,500
-unique scopes), the four access queries took 122 ms on PostgreSQL and 321 ms
+unique scopes), the four access queries took 96 ms on PostgreSQL and 271 ms
 on SQLite per request. Nearly all of that is the unique-scope load of
 [0003](0003-permission-scope-preload-grows-with-list-size.md). A list page
-request (access and page) reached 9, 13 and 12 requests/s with 1, 4 and 16
-clients on 4 cores. Looking the allowed scopes up by principal took 0.16 ms
-and 0.07 ms, and the same request reached 5,289 requests/s with 4 clients.
+request (access and page) reached 12, 16 and 18 requests/s with 1, 4 and 16
+clients on 4 cores. Looking the allowed scopes up by principal took 0.13 ms
+and 0.08 ms, and the same request reached 5,891 requests/s with 4 clients.
 Options: [item-and-permission-storage.md](../docs/item-and-permission-storage.md), decision 1.

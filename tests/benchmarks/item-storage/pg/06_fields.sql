@@ -1,8 +1,8 @@
 -- Field storage candidates: typed slot columns on items (S) and a typed pivot index table (V).
 SET search_path = bench;
 -- Option S2: typed slot columns on items (filled from promoted fields), one index per slot.
-ALTER TABLE items ADD COLUMN owner_id uuid, ADD COLUMN s_text1 varchar(255), ADD COLUMN s_num1 numeric, ADD COLUMN s_date1 date;
-UPDATE items SET owner_id = created_by,
+ALTER TABLE items ADD COLUMN s_text1 varchar(255), ADD COLUMN s_num1 numeric, ADD COLUMN s_date1 date;
+UPDATE items SET
   s_text1 = coalesce(fields->>'stage', fields->>'status'),
   s_num1  = (fields->>'amount')::numeric,
   s_date1 = coalesce(fields->>'closeDate', fields->>'dueDate')::date
@@ -10,7 +10,6 @@ WHERE list_id = md5('list-crm')::uuid OR content_type_id = md5('ct-task')::uuid;
 CREATE INDEX ix_items_s_text1 ON items(list_id, s_text1, id) WHERE s_text1 IS NOT NULL;
 CREATE INDEX ix_items_s_num1  ON items(list_id, s_num1, id)  WHERE s_num1 IS NOT NULL;
 CREATE INDEX ix_items_s_date1 ON items(list_id, s_date1, id) WHERE s_date1 IS NOT NULL;
-CREATE INDEX ix_items_owner   ON items(list_id, owner_id, id) WHERE owner_id IS NOT NULL;
 
 -- Option S3: typed pivot index (one row per promoted value; multi-valued fields give several rows).
 CREATE TABLE item_values(

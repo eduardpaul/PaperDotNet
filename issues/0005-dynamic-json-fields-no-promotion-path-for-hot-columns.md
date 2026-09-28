@@ -50,10 +50,10 @@ With [the storage benchmark](../tests/benchmarks/item-storage/README.md) on 500,
 
 | Query | JSON (PostgreSQL / SQLite) | Typed columns |
 |---|---|---|
-| One stage, sorted by close date | 243 ms / 480 ms | 2.9 ms / 1.5 ms |
-| Amount range and date range, count | 114 ms | 4.0 ms |
-| Count per stage (board) | 307 ms / 819 ms | 86 ms / 45 ms |
+| One stage, sorted by close date | 160 ms / 475 ms | 1.9 ms / 1.6 ms |
+| Amount range and date range, count | 101 ms | 4.6 ms |
+| Count per stage (board) | 299 ms / 770 ms | 55 ms / 44 ms |
 
 A typed pivot table was also measured and rejected: it joins badly when one
-field filters and another sorts (237 ms), and costs the most on writes.
+field filters and another sorts (148 ms), and costs the most on writes.
 Options: [item-and-permission-storage.md](../docs/item-and-permission-storage.md), decision 2.
