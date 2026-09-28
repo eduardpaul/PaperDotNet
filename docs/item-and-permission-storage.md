@@ -465,14 +465,54 @@ There are no users yet, so the API can change where that helps:
 
 ## Open questions
 
-1. **Slot budget:** how many promoted fields per type and list (proposal:
-   4 text, 2 number, 4 date)?
-2. **Large moves:** accept a few seconds of old access for moved items, or
-   block the move until the reassignment finishes?
-3. **Groups:** will groups nest, or access follow a role hierarchy? Only
-   then add a group-expansion table (the useful part of C).
-4. **Sharing (IAM-08):** break and copy as SharePoint does (supported by A as
-   is), or additive shares as Google Drive does, which need a second filter
-   term (`OR Id IN @sharedWithMe`)?
-5. **GIN on PostgreSQL:** keep it for ad-hoc equality on fields that are not
-   promoted, or drop it for write throughput?
+Each question has the options, what each one implies, and a proposal.
+
+### 1. How many fields per list can be indexed?
+
+Indexed ("promoted") fields get a typed column so they sort and filter fast.
+The number of columns is fixed in the schema.
+
+| Option | Implication |
+|---|---|
+| **Small: 4 text, 2 number, 4 date (proposal)** | Covers built-in types (tasks, events, documents) and typical CRM views. Each column costs some write speed, but only on lists that use it. A list that needs more must choose which fields to index. |
+| Large: 10+ per type | Fewer "you must choose" moments, but a wider `items` table and more indexes to maintain. |
+| No limit (a pivot table) | Measured slower to read and 2× slower to write; rejected. |
+
+Changing the number later is a migration, not a redesign.
+
+### 2. What happens while a large folder is moved or its permissions reset?
+
+Moving a folder of 100,000 items between permission scopes rewrites those
+items in the background. That takes a few seconds.
+
+| Option | Implication |
+|---|---|
+| **Allow a short window (proposal)** | The move answers immediately. For a few seconds, moved items keep their old access: people who could see them before still can, and new readers see them a moment later. Simple and fast. |
+| Block until done | Access is always exact. The move answers 202, and the folder cannot be edited or moved again until the operation finishes. |
+
+Break and reset of inheritance have no window: they are ordered so that
+access is correct at every step.
+
+### 3. Will groups contain groups, or access follow a management hierarchy?
+
+| Option | Implication |
+|---|---|
+| **No: flat groups only (proposal, as today)** | Option A as designed. A user's groups are one lookup. |
+| Yes, later | Add one table that expands nested groups per user and is refreshed when memberships change. Everything else stays. Decide before building group management further. |
+
+### 4. How does "share with a person" (IAM-08) work?
+
+| Option | Implication |
+|---|---|
+| **Break and copy, like SharePoint (proposal)** | Sharing an item or folder gives it its own permissions: a copy of the inherited ones plus the new person. Works with option A as designed. Later changes to the parent folder's permissions no longer reach the shared item. |
+| Add on top, like Google Drive | The item keeps inheriting and the share only adds a person. Parent changes keep flowing down. Needs a second access check on every query (items shared with me), and "Shared with me" has its own list of ids. More work, and the check must stay cheap as shares grow. |
+
+### 5. Keep the JSON index on PostgreSQL?
+
+Today PostgreSQL has a GIN index on all field values, so equality filters on
+any field are fast. SQLite has no such index.
+
+| Option | Implication |
+|---|---|
+| **Keep it for now (proposal)** | Ad-hoc filters on fields that are not indexed stay fast on PostgreSQL. Every item change also updates this index, which costs write speed. |
+| Drop it | Faster writes. Filters on fields that are not indexed scan the list, the same as on SQLite today. Easy to revisit once indexed fields cover the common filters. |
