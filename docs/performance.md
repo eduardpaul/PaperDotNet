@@ -56,6 +56,8 @@ That is not a speedup. The binding generator does not run on these requests, and
 - The list had 20 rows. A filtered query and a search over thousands of items will be slower. The index lag of 2.3 s is for 20 items.
 - In-process calls skip Kestrel's socket path. A deployed process will be a bit slower per call and will spend extra time in TLS and the proxy.
 
+For storage and permission queries at scale (1.6M items, thousands of unique scopes, both providers, a concurrency ramp), see [`tests/benchmarks/item-storage`](../tests/benchmarks/item-storage/README.md) and [item-and-permission-storage.md](item-and-permission-storage.md). That benchmark runs SQL directly, without the application.
+
 ## Running it again
 
 Smoke, SQLite only:

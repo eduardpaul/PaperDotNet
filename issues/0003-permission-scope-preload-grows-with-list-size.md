@@ -1,6 +1,6 @@
 # 0003: Loading a user's permission scopes preloads every unique scope in the list
 
-- **Status:** possible
+- **Status:** confirmed
 - **Area:** Lists
 - **Date:** 2026-09-27
 
@@ -40,3 +40,12 @@ or whether tenants actually hit this pattern often enough to matter. A
 reproduction with a list containing hundreds or thousands of broken-inheritance
 folders, measured with `PaperDotNet.Performance`, would confirm the cost
 before choosing a fix.
+
+## Measured (2026-09-28)
+
+With [the storage benchmark](../tests/benchmarks/item-storage/README.md) (a library laid out like a Papermerge
+import: 1M documents, 7,500 unique scopes), loading every unique scope id took
+94–121 ms on PostgreSQL and 312–317 ms on SQLite per request. No index serves
+`HasUniquePermissions`, so PostgreSQL scans all of `items` in parallel. A
+partial index brings it to 6.2 ms, but it still grows with the number of
+unique scopes. Options: [item-and-permission-storage.md](../docs/item-and-permission-storage.md), decision 1.

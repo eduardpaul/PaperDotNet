@@ -39,3 +39,16 @@ measured; it's a reading of the ADR's own wording against a deployment shape
 to have been written against. A test with PgBouncer in front of PostgreSQL,
 compared to a direct connection, would confirm whether this is real before
 any change is made.
+
+## Update (2026-09-28)
+
+From reading the code: `TenantSessionInterceptor` runs on every
+`ConnectionOpened`. EF Core opens and closes the connection for each query
+outside a transaction, so the extra round trip is per query already, even
+without a pooler. Under a transaction-mode pooler there is also a correctness
+problem: `set_config(…, false)` and the next query run as separate
+transactions and can land on different server connections, so the query can
+run with another request's tenant setting. RLS then hides rows that the EF
+filter expects. The setting has to travel with the query (in the same
+transaction or the same batch), or the connection has to stay open for the
+request.

@@ -1,6 +1,6 @@
 # 0005: No promotion path from a hot dynamic field to a real indexed column
 
-- **Status:** possible
+- **Status:** confirmed
 - **Area:** Lists
 - **Date:** 2026-09-27
 
@@ -43,3 +43,17 @@ self-hosted product) or a small, fixed set of promoted fields for built-in
 content types only. That decision needs a look at which fields are actually
 sorted/filtered by range in practice (tasks' due date, calendar dates) before
 committing to either shape.
+
+## Measured (2026-09-28)
+
+With [the storage benchmark](../tests/benchmarks/item-storage/README.md) on 500,000 CRM deals:
+
+| Query | JSON (PostgreSQL / SQLite) | Typed columns |
+|---|---|---|
+| One stage, sorted by close date | 243 ms / 480 ms | 2.9 ms / 1.5 ms |
+| Amount range and date range, count | 114 ms | 4.0 ms |
+| Count per stage (board) | 307 ms / 819 ms | 86 ms / 45 ms |
+
+A typed pivot table was also measured and rejected: it joins badly when one
+field filters and another sorts (237 ms), and costs the most on writes.
+Options: [item-and-permission-storage.md](../docs/item-and-permission-storage.md), decision 2.

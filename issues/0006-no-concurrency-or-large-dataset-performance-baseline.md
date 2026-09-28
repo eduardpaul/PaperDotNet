@@ -43,3 +43,12 @@ speculative.
 **This needs more investigation before scheduling:** this issue is itself the
 investigation step for the others above; it should probably be done before,
 or alongside, any of them rather than after.
+
+## Update (2026-09-28)
+
+[`tests/benchmarks/item-storage`](../tests/benchmarks/item-storage/README.md) now measures the SQL shapes at
+scale on both providers: 1.6M items with 7,500 unique scopes and groups, a
+concurrency ramp for the list-page request (pgbench, 1–16 clients), write
+throughput with 8 writers, and the subtree rewrite with a concurrent writer.
+It does not run the application, so the ramp in `PaperDotNet.Performance`
+against the real API is still to be recorded.

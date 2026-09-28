@@ -1,6 +1,6 @@
 # 0002: Permission and membership lookups are uncached on every list/item request
 
-- **Status:** possible
+- **Status:** confirmed
 - **Area:** Lists
 - **Date:** 2026-09-27
 
@@ -44,3 +44,14 @@ may be frequent enough in some tenants to limit the benefit). A concurrency
 ramp in `PaperDotNet.Performance` against a list with several unique
 permission scopes would confirm whether this is worth doing before other,
 cheaper fixes (see [0001](0001-list-pages-slow-as-a-folder-grows.md)).
+
+## Measured (2026-09-28)
+
+With [the storage benchmark](../tests/benchmarks/item-storage/README.md) (a library of 1M documents with 7,500
+unique scopes), the four access queries took 122 ms on PostgreSQL and 321 ms
+on SQLite per request. Nearly all of that is the unique-scope load of
+[0003](0003-permission-scope-preload-grows-with-list-size.md). A list page
+request (access and page) reached 9, 13 and 12 requests/s with 1, 4 and 16
+clients on 4 cores. Looking the allowed scopes up by principal took 0.16 ms
+and 0.07 ms, and the same request reached 5,289 requests/s with 4 clients.
+Options: [item-and-permission-storage.md](../docs/item-and-permission-storage.md), decision 1.
