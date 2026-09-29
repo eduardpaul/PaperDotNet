@@ -3,6 +3,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenAI;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.AI;
 
@@ -60,6 +61,7 @@ public static class AiServiceCollectionExtensions
     public static IServiceCollection AddPaperDotNetAI(this IServiceCollection services, IConfiguration configuration)
     {
         AddChat(services, configuration);
+        AddBatch(services, configuration);
         var options = configuration.GetSection(EmbeddingOptions.Section).Get<EmbeddingOptions>() ?? new EmbeddingOptions();
         switch (options.Provider.ToLowerInvariant())
         {
@@ -80,6 +82,30 @@ public static class AiServiceCollectionExtensions
                 return services;
             default:
                 throw new InvalidOperationException($"Unknown {EmbeddingOptions.Section}:Provider '{options.Provider}' (use none or openai).");
+        }
+    }
+
+    /// <summary>
+    /// Registers <see cref="IAiBatchClient"/> when <c>AI:Batch:Provider</c> is set; its endpoint and key default to the chat
+    /// model's, so a batch deployment next to the chat model needs only the provider.
+    /// </summary>
+    private static void AddBatch(IServiceCollection services, IConfiguration configuration)
+    {
+        var options = configuration.GetSection(AiBatchApiOptions.Section).Get<AiBatchApiOptions>() ?? new AiBatchApiOptions();
+        switch (options.Provider.ToLowerInvariant())
+        {
+            case "none" or "":
+                return;
+            case "openai":
+                var chat = configuration.GetSection(ChatModelOptions.Section).Get<ChatModelOptions>() ?? new ChatModelOptions();
+                var key = options.ApiKey is { Length: > 0 } batchKey ? batchKey : chat.ApiKey;
+                var client = new OpenAIClient(
+                    new ApiKeyCredential(key is { Length: > 0 } ? key : "none"),
+                    new OpenAIClientOptions { Endpoint = options.Endpoint ?? chat.Endpoint ?? new Uri("https://api.openai.com/v1") });
+                services.AddSingleton<IAiBatchClient>(new OpenAiBatchClient(client, options.CompletionWindow));
+                return;
+            default:
+                throw new InvalidOperationException($"Unknown {AiBatchApiOptions.Section}:Provider '{options.Provider}' (use none or openai).");
         }
     }
 

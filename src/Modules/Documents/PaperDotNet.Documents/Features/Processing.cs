@@ -478,6 +478,30 @@ internal sealed class PageRenderer(DocumentsDbContext db, IBlobStore blobs, IOpt
     }
 }
 
+/// <summary>The pages of an item's current file as JPEGs for AI that reads images (1600 pixels wide, cached like previews).</summary>
+internal sealed class DocumentPageImages(DocumentsDbContext db, PageRenderer renderer) : IItemPageImageSource
+{
+    public async Task<IReadOnlyList<ItemPageImage>> GetPageImagesAsync(Guid itemId, int maxPages, CancellationToken cancellationToken)
+    {
+        var version = await db.FileVersions.AsNoTracking().FirstOrDefaultAsync(v => v.ItemId == itemId && v.IsCurrent, cancellationToken);
+        var images = new List<ItemPageImage>();
+        for (var page = 1; version is not null && page <= maxPages; page++)
+        {
+            await using var image = await renderer.RenderAsync(version, page, PageRenderer.Widths[^1], cancellationToken);
+            if (image is null)
+            {
+                break;
+            }
+
+            using var content = new MemoryStream();
+            await image.CopyToAsync(content, cancellationToken);
+            images.Add(new ItemPageImage(page, "image/jpeg", content.ToArray()));
+        }
+
+        return images;
+    }
+}
+
 /// <summary>Adds the text of an item's current file to its search document, with its language (SRC-05).</summary>
 internal sealed class DocumentSearchContent(DocumentsDbContext db) : IItemSearchContributor
 {

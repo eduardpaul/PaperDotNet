@@ -64,8 +64,14 @@ public sealed record WorkflowResumedWait(string Kind, string Key, JsonObject? Da
     public bool TimedOut => Payload?["outcome"]?.GetValueKind() == System.Text.Json.JsonValueKind.String && Payload["outcome"]!.GetValue<string>() == "timeout";
 }
 
-/// <summary>One question of an AI batch: <see cref="CustomId"/> identifies its answer (the same question is sent once).</summary>
-public sealed record AiBatchLine(string CustomId, string Model, string Instructions, string Input, JsonObject? Schema);
+/// <summary>
+/// One question of an AI batch: <see cref="CustomId"/> identifies its answer (the same question is sent once).
+/// <see cref="Images"/> are sent with the input for models that read images (e.g. the pages of a photographed receipt).
+/// </summary>
+public sealed record AiBatchLine(string CustomId, string Model, string Instructions, string Input, JsonObject? Schema, IReadOnlyList<AiBatchImage>? Images = null);
+
+/// <summary>An image of an AI batch line (e.g. <c>image/jpeg</c>).</summary>
+public sealed record AiBatchImage(string MediaType, byte[] Content);
 
 /// <summary>The answer to one line (or its error), with the tokens it used.</summary>
 public sealed record AiBatchResult(string CustomId, string? Text, long InputTokens = 0, long OutputTokens = 0, string? Error = null);

@@ -105,6 +105,7 @@
     <Project Path="samples/PaperDotNet.Samples.Invoices.Migrations.PostgreSql/PaperDotNet.Samples.Invoices.Migrations.PostgreSql.csproj" />
     <Project Path="samples/PaperDotNet.Samples.Invoices.Migrations.Sqlite/PaperDotNet.Samples.Invoices.Migrations.Sqlite.csproj" />
     <Project Path="samples/PaperDotNet.Samples.Invoices.Tests/PaperDotNet.Samples.Invoices.Tests.csproj" />
+    <Project Path="samples/PaperDotNet.Samples.Receipts/PaperDotNet.Samples.Receipts.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PaperDotNet.ArchitectureTests/PaperDotNet.ArchitectureTests.csproj" />

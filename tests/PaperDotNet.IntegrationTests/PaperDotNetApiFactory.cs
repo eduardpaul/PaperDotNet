@@ -86,6 +86,11 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
             PaperDotNetHost.AdditionalExtensions.Add(new PaperDotNet.Samples.Invoices.InvoicesExtension());
         }
 
+        if (!PaperDotNetHost.AdditionalExtensions.Any(e => e is PaperDotNet.Samples.Receipts.ReceiptsExtension))
+        {
+            PaperDotNetHost.AdditionalExtensions.Add(new PaperDotNet.Samples.Receipts.ReceiptsExtension());
+        }
+
         // Start the host now so migrations and bootstrap run once.
         _ = Server;
     }

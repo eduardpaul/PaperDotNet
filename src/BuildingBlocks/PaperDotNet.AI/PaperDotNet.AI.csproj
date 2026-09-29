@@ -6,6 +6,10 @@
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The batch API client implements the workflows' contract for batched AI (AI-08). -->
+    <ProjectReference Include="..\..\Modules\Workflows\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
   </ItemGroup>
 </Project>

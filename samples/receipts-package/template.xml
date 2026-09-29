@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Receipts: a ready-made workspace that reads receipts ("tickets") with AI in the batch window.
+  Upload a photo or a PDF of a receipt to the library "Receipts" and tag it "ticket" (or a tag below it, such as
+  "Groceries"): the next batch reads the store, the date, the currency, the total and every line, and fills the receipt
+  and the list "Receipt lines".
+  Needs the extension samples.receipts in the server build and a chat model (AI:Chat), ideally with a batch API
+  (AI:Batch). See README.md.
+-->
+<Template xmlns="urn:paperdotnet:template:1" SchemaVersion="1.0" Scope="Tenant" Name="Receipts">
+  <Parameters>
+    <Parameter Name="Workspace" Default="Receipts" Description="Name of the workspace." />
+    <Parameter Name="Tag" Default="ticket" Description="The tag that marks a document as a receipt." />
+    <Parameter Name="BatchSchedule" Default="0 * * * *" Description="When the AI batch sends the waiting receipts (cron, UTC)." />
+    <Parameter Name="OcrLanguages" Default="eng" Description="Tesseract languages of the receipts, e.g. deu+eng." />
+  </Parameters>
+  <Extensions>
+    <Extension Id="samples.receipts" />
+  </Extensions>
+  <TermGroups>
+    <TermGroup Name="Receipts" Description="Tags of the receipts workspace.">
+      <TermSet Name="Tags" Description="Tag a document to have it read as a receipt." Open="true">
+        <Term Name="{parameter:Tag}" Description="A shop receipt: read by AI in the batch window.">
+          <Synonym>receipt</Synonym>
+          <Term Name="Groceries" />
+          <Term Name="Restaurant" />
+          <Term Name="Fuel" />
+        </Term>
+        <Term Name="Warranty" Description="Kept with a receipt; not read." />
+      </TermSet>
+    </TermGroup>
+  </TermGroups>
+  <ContentTypes>
+    <ContentType Name="Receipt" Description="A photo or PDF of a receipt, read by AI.">
+      <Field Name="tags" DisplayName="Tags" Type="managedMetadata" TermSet="Receipts/Tags" AllowMultiple="true" Search="High" />
+      <Field Name="status" DisplayName="Status" Type="choice" DefaultValue="&quot;New&quot;">
+        <Choice>New</Choice>
+        <Choice>Read</Choice>
+        <Choice>Needs review</Choice>
+      </Field>
+      <Field Name="store" DisplayName="Store" Type="text" MaxLength="255" Search="High" />
+      <Field Name="purchaseDate" DisplayName="Date" Type="date" />
+      <Field Name="currency" DisplayName="Currency" Type="text" MaxLength="3" />
+      <Field Name="total" DisplayName="Total" Type="number" />
+    </ContentType>
+    <ContentType Name="Receipt line" Description="One line of a receipt.">
+      <Field Name="receipt" DisplayName="Receipt" Type="lookup" LookupList="{parameter:Workspace}/Receipts" Required="true" />
+      <Field Name="quantity" DisplayName="Quantity" Type="number" />
+      <Field Name="unitPrice" DisplayName="Unit price" Type="number" />
+      <Field Name="amount" DisplayName="Amount" Type="number" />
+    </ContentType>
+  </ContentTypes>
+  <Workspaces>
+    <Workspace Name="{parameter:Workspace}" Description="Receipts read by AI: tag a photo or PDF with &quot;{parameter:Tag}&quot;.">
+      <w:Workflows xmlns:w="urn:paperdotnet:workflow:1">
+        <w:Workflow Name="AI batch" BuiltIn="ai.batchWindow" Enabled="true">{"schedule": "{parameter:BatchSchedule}", "pollMinutes": 5}</w:Workflow>
+        <w:Workflow Name="Read tagged receipts" Description="Reads a receipt when it is tagged, in the AI batch." Enabled="true">{
+          "trigger": {
+            "type": "itemUpdated",
+            "list": "Receipts",
+            "changedFields": [
+              "tags"
+            ],
+            "terms": [
+              "Receipts/Tags/{parameter:Tag}"
+            ]
+          },
+          "flow": {
+            "start": "read",
+            "nodes": {
+              "read": {
+                "activity": "ai.prompt",
+                "inputs": {
+                  "execution": "batch",
+                  "onDeadline": "fail",
+                  "deadlineHours": 48,
+                  "system": "You read shop receipts (tickets) from photos and scans. The OCR text below the question can be noisy or miss the prices; the images are the source. Use only what the receipt says.",
+                  "prompt": "Read this receipt: the store, the purchase date, the currency, the total, and every item line with its description, quantity, unit price and amount. Leave out lines that are not items (subtotals, taxes, payment, change).",
+                  "includeContent": true,
+                  "includeImages": 2,
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "store": {
+                        "type": "string",
+                        "description": "The store or company name as printed."
+                      },
+                      "date": {
+                        "type": "string",
+                        "description": "The purchase date as yyyy-MM-dd."
+                      },
+                      "currency": {
+                        "type": "string",
+                        "description": "ISO 4217 code, e.g. EUR."
+                      },
+                      "total": {
+                        "type": "number",
+                        "description": "The total paid."
+                      },
+                      "lines": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "description": {
+                              "type": "string"
+                            },
+                            "quantity": {
+                              "type": "number"
+                            },
+                            "unitPrice": {
+                              "type": "number"
+                            },
+                            "amount": {
+                              "type": "number",
+                              "description": "The line's amount as printed."
+                            }
+                          },
+                          "required": [
+                            "description",
+                            "amount"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "store",
+                      "date",
+                      "currency",
+                      "total",
+                      "lines"
+                    ]
+                  }
+                },
+                "next": {
+                  "done": "save",
+                  "error": "review"
+                }
+              },
+              "save": {
+                "activity": "samples.receipts.save",
+                "inputs": {
+                  "receipt": "{step:read.json}",
+                  "linesList": "Receipt lines",
+                  "lookupField": "receipt"
+                },
+                "next": {
+                  "error": "review"
+                }
+              },
+              "review": {
+                "activity": "item.update",
+                "inputs": {
+                  "fields": {
+                    "status": "Needs review"
+                  }
+                }
+              }
+            }
+          }
+        }</w:Workflow>
+        <w:Workflow Name="Read new receipts" Description="Reads a receipt uploaded with the tag once its text is ready, in the AI batch." Enabled="true">{
+          "trigger": {
+            "type": "document.processed",
+            "list": "Receipts",
+            "terms": [
+              "Receipts/Tags/{parameter:Tag}"
+            ]
+          },
+          "flow": {
+            "start": "read",
+            "nodes": {
+              "read": {
+                "activity": "ai.prompt",
+                "inputs": {
+                  "execution": "batch",
+                  "onDeadline": "fail",
+                  "deadlineHours": 48,
+                  "system": "You read shop receipts (tickets) from photos and scans. The OCR text below the question can be noisy or miss the prices; the images are the source. Use only what the receipt says.",
+                  "prompt": "Read this receipt: the store, the purchase date, the currency, the total, and every item line with its description, quantity, unit price and amount. Leave out lines that are not items (subtotals, taxes, payment, change).",
+                  "includeContent": true,
+                  "includeImages": 2,
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "store": {
+                        "type": "string",
+                        "description": "The store or company name as printed."
+                      },
+                      "date": {
+                        "type": "string",
+                        "description": "The purchase date as yyyy-MM-dd."
+                      },
+                      "currency": {
+                        "type": "string",
+                        "description": "ISO 4217 code, e.g. EUR."
+                      },
+                      "total": {
+                        "type": "number",
+                        "description": "The total paid."
+                      },
+                      "lines": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "description": {
+                              "type": "string"
+                            },
+                            "quantity": {
+                              "type": "number"
+                            },
+                            "unitPrice": {
+                              "type": "number"
+                            },
+                            "amount": {
+                              "type": "number",
+                              "description": "The line's amount as printed."
+                            }
+                          },
+                          "required": [
+                            "description",
+                            "amount"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "store",
+                      "date",
+                      "currency",
+                      "total",
+                      "lines"
+                    ]
+                  }
+                },
+                "next": {
+                  "done": "save",
+                  "error": "review"
+                }
+              },
+              "save": {
+                "activity": "samples.receipts.save",
+                "inputs": {
+                  "receipt": "{step:read.json}",
+                  "linesList": "Receipt lines",
+                  "lookupField": "receipt"
+                },
+                "next": {
+                  "error": "review"
+                }
+              },
+              "review": {
+                "activity": "item.update",
+                "inputs": {
+                  "fields": {
+                    "status": "Needs review"
+                  }
+                }
+              }
+            }
+          }
+        }</w:Workflow>
+      </w:Workflows>
+      <Lists>
+        <List Name="Receipts" Kind="Library" Description="Photos and PDFs of receipts.">
+          <ContentTypes><ContentTypeRef Name="Receipt" /></ContentTypes>
+          <Views>
+            <View Name="All receipts" Default="true" OrderBy="fields/purchaseDate desc">
+              <Column>title</Column><Column>store</Column><Column>purchaseDate</Column><Column>total</Column><Column>currency</Column><Column>status</Column><Column>tags</Column>
+            </View>
+            <View Name="Needs review" Filter="fields/status eq 'Needs review'">
+              <Column>title</Column><Column>store</Column><Column>total</Column>
+            </View>
+          </Views>
+          <doc:LibrarySettings xmlns:doc="urn:paperdotnet:documents:1" OcrLanguages="{parameter:OcrLanguages}" />
+        </List>
+        <List Name="Receipt lines" Description="The lines of the receipts.">
+          <ContentTypes><ContentTypeRef Name="Receipt line" /></ContentTypes>
+          <Views>
+            <!-- The lookup "receipt" is added after the lists exist, so a view of this template cannot show it yet. -->
+            <View Name="All lines" Default="true">
+              <Column>title</Column><Column>quantity</Column><Column>unitPrice</Column><Column>amount</Column>
+            </View>
+          </Views>
+        </List>
+      </Lists>
+    </Workspace>
+  </Workspaces>
+</Template>

@@ -49,8 +49,18 @@ internal sealed class AiCallCleanupJob(AiWorkflowsDbContext db, IOptions<Workflo
     }
 }
 
-/// <summary>A question to the chat model: instructions, the input, and optionally a JSON Schema the answer must follow.</summary>
-internal sealed record AiQuestion(string Activity, string Instructions, string Input, JsonObject? Schema = null);
+/// <summary>
+/// A question to the chat model: instructions, the input, optionally a JSON Schema the answer must follow, and images of
+/// the item's pages.
+/// </summary>
+internal sealed record AiQuestion(string Activity, string Instructions, string Input, JsonObject? Schema = null, AiImages? Images = null);
+
+/// <summary>
+/// The first <paramref name="Pages"/> pages of an item as images, sent with the question (<c>includeImages</c>). Kept as a
+/// reference (batched questions wait with it) and loaded when the question is sent; <paramref name="Digest"/> identifies
+/// the images for the cache.
+/// </summary>
+internal sealed record AiImages(Guid ItemId, int Pages, string Digest);
 
 /// <summary>The model's answer (text, or JSON when a schema was given).</summary>
 internal sealed record AiAnswer(string Text, bool Cached, long Tokens)
@@ -188,7 +198,13 @@ internal sealed class AiGateway(
         ChatResponse response;
         try
         {
-            response = await _client.GetResponseAsync([new(ChatRole.System, question.Instructions), new(ChatRole.User, question.Input)], chat, ct);
+            List<AIContent> input = [new TextContent(question.Input)];
+            if (question.Images is { } images)
+            {
+                input.AddRange((await LoadImagesAsync(images.ItemId, images.Pages, ct)).Select(i => new DataContent(i.Content, i.MediaType)));
+            }
+
+            response = await _client.GetResponseAsync([new(ChatRole.System, question.Instructions), new(ChatRole.User, input)], chat, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -227,7 +243,31 @@ internal sealed class AiGateway(
     }
 
     public static string Hash(string model, AiQuestion question) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\0', model, question.Instructions, question.Input, question.Schema?.ToJsonString() ?? string.Empty))));
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\0',
+            [model, question.Instructions, question.Input, question.Schema?.ToJsonString() ?? string.Empty, .. question.Images is { } images ? [images.Digest] : Array.Empty<string>()]))));
+
+    /// <summary>The item's page images the activity asks for (<c>includeImages</c>), or null for none.</summary>
+    public async Task<AiImages?> ImagesAsync(WorkflowActivityContext context, CancellationToken ct)
+    {
+        var pages = AiActivity.ImagePages(context.Inputs);
+        if (pages == 0 || context.Item is not { } item)
+        {
+            return null;
+        }
+
+        var images = await LoadImagesAsync(item.ItemId, pages, ct);
+        if (images.Count == 0)
+        {
+            return null;
+        }
+
+        var digest = Convert.ToHexString(SHA256.HashData([.. images.SelectMany(i => SHA256.HashData(i.Content))]));
+        return new AiImages(item.ItemId, pages, digest);
+    }
+
+    /// <summary>The page images of an item (none without a source, e.g. an item without a file).</summary>
+    public async Task<IReadOnlyList<ItemPageImage>> LoadImagesAsync(Guid itemId, int pages, CancellationToken ct) =>
+        services.GetService<IItemPageImageSource>() is { } source ? await source.GetPageImagesAsync(itemId, pages, ct) : [];
 
     public static AiCall NewCall(string activity, string source, Guid? runId, string model, string hash, string? response, bool cached, DateTimeOffset at) => new()
     {
@@ -316,6 +356,18 @@ internal static class AiActivity
     public const string DeadlineHours = "deadlineHours";
     public const string OnDeadline = "onDeadline";
     public const string Fail = "fail";
+    public const string IncludeImages = "includeImages";
+
+    /// <summary>Most pages sent as images.</summary>
+    public const int MaxImagePages = 10;
+
+    /// <summary>How many pages go as images: <c>includeImages</c> true (3) or a number of pages; 0 without.</summary>
+    public static int ImagePages(JsonObject inputs) => inputs[IncludeImages] switch
+    {
+        JsonValue value when value.GetValueKind() == JsonValueKind.True => 3,
+        JsonValue value when value.GetValueKind() == JsonValueKind.Number => Math.Clamp((int)value.GetValue<double>(), 0, MaxImagePages),
+        _ => 0,
+    };
 
     /// <summary>The inputs of an AI activity with those every AI activity has (batch execution).</summary>
     public static JsonObject Schema(string[] required, params (string Name, JsonObject Schema)[] properties) => ActivitySchemas.Of(required,
@@ -325,6 +377,8 @@ internal static class AiActivity
             + "the run waits); default from AI:Batch:Execution.")),
         (DeadlineHours, ActivitySchemas.Number("With batch: the longest wait in hours (default from AI:Batch:DeadlineHours).")),
         (OnDeadline, ActivitySchemas.Text("With batch, when the deadline passes without an answer: immediate (default: call the model now) or fail.")),
+        (IncludeImages, ActivitySchemas.Any($"true (3 pages) or a number of pages (up to {MaxImagePages}) to send the item's pages as images, "
+            + "for models that read images (e.g. photos of receipts).")),
     ]);
 
     /// <summary>Checks the inputs every AI activity has.</summary>
@@ -343,6 +397,12 @@ internal static class AiActivity
         if (ActivityInputs.Text(inputs, OnDeadline) is { } onDeadline && onDeadline is not (Immediate or Fail))
         {
             yield return "onDeadline must be immediate or fail.";
+        }
+
+        if (inputs[IncludeImages] is { } images && !(images.GetValueKind() is JsonValueKind.True or JsonValueKind.False
+            || (images.GetValueKind() == JsonValueKind.Number && ActivityInputs.Number(inputs, IncludeImages) is >= 0 and <= MaxImagePages)))
+        {
+            yield return $"includeImages must be true, false or a number of pages up to {MaxImagePages}.";
         }
     }
 
@@ -490,7 +550,7 @@ internal sealed class AiExtractActivity(AiGateway ai, IListItemStore items) : IW
         var instructions = "Extract these fields from the document. Answer with JSON: \"values\" by field (null when the document does not say) "
             + "and \"confidence\" by field from 0 to 1. Dates as yyyy-MM-dd, numbers without currency symbols.\n" + described
             + (ActivityInputs.Text(context.Inputs, "instructions") is { } extra ? "\n" + await context.ExpandAsync(extra, cancellationToken) : string.Empty);
-        var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, instructions, await ai.ItemTextAsync(item, cancellationToken), format), context, cancellationToken);
+        var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, instructions, await ai.ItemTextAsync(item, cancellationToken), format, await ai.ImagesAsync(context, cancellationToken)), context, cancellationToken);
 
         if (wait is not null)
         {
@@ -605,7 +665,7 @@ internal sealed class AiClassifyActivity(AiGateway ai, IListItemStore items, ITe
         var instructions = "Classify the document with exactly one of these terms, or null when none fits. Answer with JSON: \"term\" and "
             + "\"confidence\" from 0 to 1.\nTerms: " + string.Join(", ", candidates.Select(t => t.Name).Distinct())
             + (ActivityInputs.Text(context.Inputs, "instructions") is { } extra ? "\n" + await context.ExpandAsync(extra, cancellationToken) : string.Empty);
-        var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, instructions, await ai.ItemTextAsync(item, cancellationToken), format), context, cancellationToken);
+        var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, instructions, await ai.ItemTextAsync(item, cancellationToken), format, await ai.ImagesAsync(context, cancellationToken)), context, cancellationToken);
 
         if (wait is not null)
         {
@@ -680,7 +740,7 @@ internal sealed class AiSummarizeActivity(AiGateway ai, IListItemStore items) : 
         var words = (int)(ActivityInputs.Number(context.Inputs, "maxWords") ?? 80);
         var instructions = $"Summarize the document in at most {words.ToString(CultureInfo.InvariantCulture)} words. Answer with the summary only."
             + (ActivityInputs.Text(context.Inputs, "instructions") is { } extra ? "\n" + await context.ExpandAsync(extra, cancellationToken) : string.Empty);
-        var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, instructions, await ai.ItemTextAsync(item, cancellationToken)), context, cancellationToken);
+        var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, instructions, await ai.ItemTextAsync(item, cancellationToken), null, await ai.ImagesAsync(context, cancellationToken)), context, cancellationToken);
 
         if (wait is not null)
         {
@@ -737,7 +797,7 @@ internal sealed class AiPromptActivity(AiGateway ai) : IWorkflowActivity
 
         var system = ActivityInputs.Text(context.Inputs, "system") is { } text ? await context.ExpandAsync(text, cancellationToken) : "You help automate work with documents and lists.";
         var schema = context.Inputs["schema"] as JsonObject;
-        var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, system, prompt, schema?.DeepClone().AsObject()), context, cancellationToken);
+        var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, system, prompt, schema?.DeepClone().AsObject(), await ai.ImagesAsync(context, cancellationToken)), context, cancellationToken);
 
         if (wait is not null)
         {

@@ -5,7 +5,12 @@ PaperDotNet extensions are .NET class libraries **compiled into the host**
 future Native AOT host). Operators install extension code; tenant admins
 enable, configure and disable it for their organization.
 
-Sample: [`samples/PaperDotNet.Samples.Invoices`](../samples/PaperDotNet.Samples.Invoices).
+Samples:
+
+- [`samples/PaperDotNet.Samples.Invoices`](../samples/PaperDotNet.Samples.Invoices): most extension points.
+- [`samples/PaperDotNet.Samples.Receipts`](../samples/PaperDotNet.Samples.Receipts): one workflow action, used by the
+  importable package [`samples/receipts-package`](../samples/receipts-package/README.md), which reads receipts with AI.
+  It shows the usual split: configuration in a template, code only where configuration cannot do it.
 
 ## 1. Project
 
@@ -296,4 +301,6 @@ with its own tables also needs its migrations projects referenced; without
 them startup stops with a message naming the missing assembly.
 
 Tests and custom hosts can also add instances to
-`PaperDotNetHost.AdditionalExtensions` before the host is built.
+`PaperDotNetHost.AdditionalExtensions` before the host is built. To try the
+samples, build the host with `-p:IncludeSamples=true`
+(`dotnet run --project src/PaperDotNet.Host -p:IncludeSamples=true`).

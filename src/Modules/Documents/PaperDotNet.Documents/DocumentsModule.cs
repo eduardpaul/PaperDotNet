@@ -51,6 +51,7 @@ public sealed class DocumentsModule : IModule
         services.AddScoped<PageRenderer>();
         services.AddOperationHandler<DocumentProcessor>();
         services.AddScoped<IItemSearchContributor, DocumentSearchContent>();
+        services.AddScoped<IItemPageImageSource, DocumentPageImages>();
         services.AddScoped<IMcpTool, UploadDocumentTool>();
         services.AddScoped<IMcpTool, ReplaceDocumentTool>();
         services.AddScoped<IMcpTool, GetFileTool>();

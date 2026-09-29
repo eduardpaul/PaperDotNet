@@ -34,12 +34,16 @@ internal sealed partial class ReadingChatClient : IChatClient
             ? Structured(JsonNode.Parse(schema.GetRawText())!.AsObject(), input).ToJsonString()
             : system.StartsWith("Summarize", StringComparison.Ordinal)
                 ? string.Join(' ', input.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries).Take(6))
-                : "Echo: " + input.Split('\n')[0];
+                : "Echo: " + input.Split('\n')[0] + Images(list);
         return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, answer))
         {
             Usage = new UsageDetails { InputTokenCount = (system.Length + input.Length) / 4, OutputTokenCount = answer.Length / 4 },
         });
     }
+
+    /// <summary>Says how many images the question had, if any (vision input, <c>includeImages</c>).</summary>
+    private static string Images(List<ChatMessage> messages) =>
+        messages.SelectMany(m => m.Contents).OfType<DataContent>().Count(c => c.HasTopLevelMediaType("image")) is > 0 and var count ? $" [{count} image(s)]" : string.Empty;
 
     private static JsonObject Structured(JsonObject schema, string input)
     {

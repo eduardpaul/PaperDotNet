@@ -18,6 +18,9 @@ internal sealed class FakeBatchClient : IAiBatchClient
 
     public AiBatchState State { get; set; } = AiBatchState.Completed;
 
+    /// <summary>The answer to a line; default: <c>Batch: </c> and the input.</summary>
+    public Func<AiBatchLine, string>? Answer { get; set; }
+
     /// <summary>The client of a tenant that uses one (created on first use), else null.</summary>
     public static FakeBatchClient? For(string? tenantIdentifier) =>
         tenantIdentifier is not null && tenantIdentifier.StartsWith("wf-batch-api", StringComparison.Ordinal) ? Clients.GetOrAdd(tenantIdentifier, _ => new()) : null;
@@ -51,7 +54,7 @@ internal sealed class FakeBatchClient : IAiBatchClient
         }
 
         return Task.FromResult(State == AiBatchState.Completed
-            ? new AiBatchStatus(AiBatchState.Completed, [.. lines.Select(l => new AiBatchResult(l.CustomId, "Batch: " + l.Input, 10, 5))])
+            ? new AiBatchStatus(AiBatchState.Completed, [.. lines.Select(l => new AiBatchResult(l.CustomId, Answer?.Invoke(l) ?? "Batch: " + l.Input, 10, 5))])
             : new AiBatchStatus(State, [], State == AiBatchState.Failed ? "expired" : null));
     }
 }

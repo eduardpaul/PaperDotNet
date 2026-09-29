@@ -52,10 +52,16 @@ internal static class AiBatch
         ["instructions"] = question.Instructions,
         ["input"] = question.Input,
         ["schema"] = question.Schema?.DeepClone(),
+        ["images"] = question.Images is { } images
+            ? new JsonObject { ["item"] = images.ItemId.ToString(), ["pages"] = images.Pages, ["digest"] = images.Digest }
+            : null,
     };
 
     public static AiQuestion Question(JsonObject data) =>
-        new(Text(data, "activity") ?? "ai.prompt", Text(data, "instructions") ?? string.Empty, Text(data, "input") ?? string.Empty, data["schema"] as JsonObject);
+        new(Text(data, "activity") ?? "ai.prompt", Text(data, "instructions") ?? string.Empty, Text(data, "input") ?? string.Empty, data["schema"] as JsonObject,
+            data["images"] is JsonObject images && Guid.TryParse(Text(images, "item"), out var item) && images["pages"] is JsonValue pages
+                ? new AiImages(item, pages.GetValue<int>(), Text(images, "digest") ?? string.Empty)
+                : null);
 
     public static string? Text(JsonObject? data, string name) => data?[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
@@ -222,11 +228,16 @@ internal sealed partial class AiBatchActivity(
         var batches = new JsonArray();
         foreach (var model in waiting.GroupBy(w => AiBatch.Text(w.Data, "model") ?? "default"))
         {
-            var lines = model.GroupBy(w => AiBatch.Text(w.Data, "hash") ?? string.Empty).Select(g =>
+            var lines = new List<AiBatchLine>();
+            foreach (var group in model.GroupBy(w => AiBatch.Text(w.Data, "hash") ?? string.Empty))
             {
-                var question = AiBatch.Question(g.First().Data ?? []);
-                return new AiBatchLine(g.Key, model.Key, question.Instructions, question.Input, question.Schema);
-            }).ToList();
+                // Images are loaded now: the waits keep only which pages of which item.
+                var question = AiBatch.Question(group.First().Data ?? []);
+                var images = question.Images is { } pages
+                    ? [.. (await gateway.LoadImagesAsync(pages.ItemId, pages.Pages, ct)).Select(i => new AiBatchImage(i.MediaType, i.Content))]
+                    : (List<AiBatchImage>?)null;
+                lines.Add(new AiBatchLine(group.Key, model.Key, question.Instructions, question.Input, question.Schema, images));
+            }
 
             // The same tag when the step runs again: a batch sent before a crash or failure is adopted, not sent twice.
             var tag = Tag(work.Context.ExecutionId, model.Key);

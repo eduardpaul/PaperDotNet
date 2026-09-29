@@ -243,10 +243,17 @@ PAPERDOTNET__AI__Chat__DailyTokens=200000         # per organization and UTC day
 | `ai.extract` | `fields` (default: all it can fill: text, note, email, url, number, currency, boolean, date, dateTime, choice), `instructions`, `mode` (`apply` or `suggest`), `minConfidence` (default 0.7) | `values`, `confidence`, `applied`, `uncertain`; port `lowConfidence` when a field stays empty or uncertain |
 | `ai.classify` | `termSet` (`Group/Set`), `field` (a managed metadata field to set), `instructions`, `mode`, `minConfidence` | `term`, `termId`, `confidence`, `applied`; port `lowConfidence` when no term fits well enough |
 | `ai.summarize` | `maxWords` (default 80), `field` (a text field to write it to), `instructions` | `summary` |
-| `ai.prompt` | `prompt`, `system` (templates), `includeContent`, `schema` (JSON Schema for structured output) | `text`, or `json` with a schema |
+| `ai.prompt` | `prompt`, `system` (templates), `includeContent`, `schema` (JSON Schema for structured output), `includeImages` | `text`, or `json` with a schema |
 
 - The model reads the item's values and the text of its document (the same
   text search uses), up to `AI:Chat:MaxInputCharacters` (24000).
+- **Images:** `includeImages` (every AI activity) also sends the item's pages
+  as images: `true` for the first 3 pages, or a number of pages (up to 10).
+  Use it with a model that reads images (such as gpt-4.1 or gpt-4o) when the
+  text is not enough, for example photos of receipts, where OCR often loses
+  the prices. Documents renders the pages (JPEG, 1600 pixels wide, cached with
+  the previews); the images are part of the cache key. Batched steps keep only
+  which pages to send, and the images are loaded when the batch is sent.
 - With `mode: apply` (default) values with at least `minConfidence` are
   written to the item; `suggest` only puts them in the node's output for
   later nodes (for example a review task).
@@ -297,9 +304,9 @@ activities.
 - **Without a batch API**, `ai.batch` asks the chat model each question once,
   within the daily budget. This is still useful: the calls happen outside
   working hours, and duplicates are asked once.
-- **With a batch API**, a server registers an `IAiBatchClient`
-  (Workflows.Contracts), for example for the Azure OpenAI or OpenAI Batch API.
-  `ai.batch` then sends one batch per model and waits: it checks every
+- **With a batch API** (`AI:Batch:Provider=openai`, below, or any other
+  `IAiBatchClient` of Workflows.Contracts), `ai.batch` sends one batch per model
+  and waits: it checks every
   `pollMinutes` with a run-again wait that keeps the provider's batch ids as
   its data. When a batch has finished, it records each answer's tokens and
   lets the steps go on. Questions a failed or expired batch did not answer are
@@ -309,6 +316,25 @@ activities.
   an id derived from the step's execution id. When the step runs again after a
   failure (its retry policy) or a crash, it finds its batch at the provider
   (`FindAsync`) instead of sending it twice.
+- **The OpenAI Batch API** works with OpenAI, Azure OpenAI and Azure AI
+  Foundry (`…/openai/v1/`). It uses the chat model's endpoint and key unless
+  `AI:Batch:Endpoint` and `AI:Batch:ApiKey` are set; the model is `AI:Chat:Model`
+  (on Azure, the name of a deployment of type *Global Batch*, which answers
+  only batches):
+
+  ```bash
+  PAPERDOTNET__AI__Chat__Provider=openai
+  PAPERDOTNET__AI__Chat__Endpoint=https://<resource>.services.ai.azure.com/openai/v1/
+  PAPERDOTNET__AI__Chat__Model=gpt-4.1               # the deployment
+  PAPERDOTNET__AI__Chat__ApiKey=…
+  PAPERDOTNET__AI__Batch__Provider=openai
+  PAPERDOTNET__AI__Batch__Execution=batch            # optional: batch by default
+  ```
+
+  Each batch is a JSONL file of chat completion requests (with the JSON schema
+  and images of the step), tagged with its id in the batch's metadata, and the
+  answers are read from its output and error files. A batch-only deployment
+  cannot answer right away, so give batched steps `"onDeadline": "fail"`.
 - While the day's budget is used up, nothing is sent. The questions wait for
   the next run or their deadline.
 - Batches are per workspace. Batching across the whole organization comes
@@ -329,6 +355,11 @@ Example: read receipts and send uncertain ones to review.
   }
 }
 ```
+
+A complete, importable example is the receipts package
+([samples/receipts-package](../samples/receipts-package/README.md)): a tagged
+photo or PDF of a receipt is read in the batch window, with its images, into
+the receipt's fields and one item per line.
 
 ## Built-in workflows
 

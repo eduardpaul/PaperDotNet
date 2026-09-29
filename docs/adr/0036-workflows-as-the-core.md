@@ -390,3 +390,19 @@ These defaults were chosen when implementation started; each can still be change
   - `IWorkflowBookmarks` now works in its own scope, so activities can call it during a run without touching the
     run's unsaved state.
 
+
+**Batch API, images and the receipts sample (after 9d):**
+
+- **A real batch API.** `AI:Batch:Provider=openai` registers an `IAiBatchClient` on the OpenAI Batch API, which
+  OpenAI, Azure OpenAI and Azure AI Foundry share. It lives in the AI building block, next to the chat model, which
+  now references the Workflows contracts for the interface. It uses the OpenAI SDK's file and batch clients, and
+  builds the upload form itself: the SDK's typed upload sends the file part without a content type, which Azure
+  rejects.
+- **Images are a reference until sent.** `includeImages` sends an item's pages as images. The question keeps only
+  which pages of which item, plus a digest of the images for the cache key. The images are loaded when the question
+  is sent: directly, or when the batch is built. So a batched step's wait data stays small.
+- **Pages come from a contract.** `IItemPageImageSource` in Lists.Contracts is next to `IItemSearchContributor`.
+  Documents implements it with the page renderer and its cache. AiWorkflows stays on the SDK.
+- **The sample shows the split.** The receipts package is configuration only: tags, content types, lists, the
+  prompt, the schema and the workflows. Its extension adds the one action configuration cannot express: JSON to
+  typed fields and line items.
