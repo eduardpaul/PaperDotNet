@@ -83,6 +83,8 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
+          # Document screens wait for OCR (DOC-07), as in the Dockerfile.
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu
 
       - name: Check (typecheck, lint, format, unit tests)
         run: npm run check -w web
