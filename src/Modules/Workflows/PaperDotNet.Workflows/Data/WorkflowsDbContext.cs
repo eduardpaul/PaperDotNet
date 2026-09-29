@@ -260,6 +260,115 @@ public sealed class WorkflowBookmark : ITenantOwned, IVersioned
     /// <summary>What completed it as a JSON object; becomes the node's output (its <c>outcome</c> picks the port).</summary>
     public string? Payload { get; set; }
 
+    /// <summary>When completed, the node runs again instead of taking the payload as its output (<c>WaitAndRunAgain</c>).</summary>
+    public bool RunAgain { get; set; }
+
+    public uint Version { get; set; }
+}
+
+public enum AiBatchRequestStatus
+{
+    /// <summary>Waiting for the next batch.</summary>
+    Queued = 0,
+
+    /// <summary>Part of a batch sent to the provider (<see cref="AiBatchRequest.BatchId"/>).</summary>
+    Submitted = 1,
+
+    /// <summary>Answered (<see cref="AiBatchRequest.Response"/>).</summary>
+    Completed = 2,
+
+    /// <summary>Not answered: the model failed on it, or its deadline passed without a batch answering it.</summary>
+    Failed = 3,
+}
+
+/// <summary>
+/// A question of an AI activity with <c>execution: batch</c> (AI-08, ADR-0036), answered in the organization's next
+/// batch. Runs asking the same question (model and input) while it is pending share it; each waits on a bookmark of kind
+/// <c>ai.batch</c> whose key starts with the request's id, and runs its node again when the answer is there.
+/// </summary>
+[NotAudited]
+public sealed class AiBatchRequest : ITenantOwned, IVersioned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    /// <summary>The activity that asked first (<c>ai.extract</c>, …).</summary>
+    public required string Activity { get; set; }
+
+    /// <summary>Where it was asked first, e.g. <c>workflow:File receipts</c>.</summary>
+    public required string Source { get; set; }
+
+    public required string Model { get; set; }
+
+    /// <summary>SHA-256 of the model, the instructions, the input and the response format (as in <see cref="AiCall"/>).</summary>
+    public required string InputHash { get; set; }
+
+    /// <summary>
+    /// <see cref="InputHash"/> while the request is pending (queued or submitted), else null: unique, so runs asking the same
+    /// at the same time share one request (the second save conflicts, and the retry joins it).
+    /// </summary>
+    public string? PendingHash { get; set; }
+
+    /// <summary>The question (instructions, input, schema) as JSON until it is answered; then removed.</summary>
+    public string? Question { get; set; }
+
+    public AiBatchRequestStatus Status { get; set; }
+
+    /// <summary>The batch it was sent in.</summary>
+    public Guid? BatchId { get; set; }
+
+    public string? Response { get; set; }
+
+    public string? Error { get; set; }
+
+    /// <summary>Runs waiting for it (joining it also makes a concurrent answer and join conflict, so none is missed).</summary>
+    public int Waiters { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>Waiting runs stop waiting at this time (they call the model at once, or fail: <c>onDeadline</c>).</summary>
+    public DateTimeOffset DeadlineAt { get; set; }
+
+    public DateTimeOffset? CompletedAt { get; set; }
+
+    public uint Version { get; set; }
+}
+
+public enum AiBatchPhase
+{
+    /// <summary>Being sent; a batch still preparing after a crash is looked up at the provider (adopted or queued again).</summary>
+    Preparing = 0,
+    Submitted = 1,
+    Completed = 2,
+    Failed = 3,
+}
+
+/// <summary>A batch of questions sent to the provider's batch API (<c>IAiBatchClient</c>).</summary>
+[NotAudited]
+public sealed class AiBatch : ITenantOwned, IVersioned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public required string Model { get; set; }
+
+    /// <summary>The provider's batch id, once submitted.</summary>
+    public string? ProviderId { get; set; }
+
+    public AiBatchPhase Status { get; set; }
+
+    public int Lines { get; set; }
+
+    public string? Error { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset? SubmittedAt { get; set; }
+
+    public DateTimeOffset? CompletedAt { get; set; }
+
     public uint Version { get; set; }
 }
 
@@ -340,6 +449,10 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
 
     public DbSet<AiCall> AiCalls => Set<AiCall>();
 
+    public DbSet<AiBatchRequest> AiBatchRequests => Set<AiBatchRequest>();
+
+    public DbSet<AiBatch> AiBatches => Set<AiBatch>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
@@ -400,6 +513,29 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
             b.Property(c => c.Error).HasMaxLength(2000);
             b.HasIndex(c => new { c.TenantId, c.InputHash, c.CreatedAt });
             b.HasIndex(c => new { c.TenantId, c.CreatedAt });
+        });
+        modelBuilder.Entity<AiBatchRequest>(b =>
+        {
+            b.ToTable("ai_batch_requests");
+            b.Property(r => r.Activity).HasMaxLength(200);
+            b.Property(r => r.Source).HasMaxLength(300);
+            b.Property(r => r.Model).HasMaxLength(200);
+            b.Property(r => r.InputHash).HasMaxLength(64);
+            b.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+            b.Property(r => r.Error).HasMaxLength(2000);
+            b.Property(r => r.PendingHash).HasMaxLength(64);
+            b.HasIndex(r => new { r.TenantId, r.PendingHash }).IsUnique();
+            b.HasIndex(r => new { r.TenantId, r.Status, r.CreatedAt });
+            b.HasIndex(r => r.BatchId);
+        });
+        modelBuilder.Entity<AiBatch>(b =>
+        {
+            b.ToTable("ai_batches");
+            b.Property(a => a.Model).HasMaxLength(200);
+            b.Property(a => a.ProviderId).HasMaxLength(200);
+            b.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
+            b.Property(a => a.Error).HasMaxLength(2000);
+            b.HasIndex(a => new { a.TenantId, a.Status });
         });
         modelBuilder.Entity<WorkflowSchedule>(b =>
         {

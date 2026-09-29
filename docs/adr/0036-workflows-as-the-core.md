@@ -267,7 +267,7 @@ These defaults were chosen when implementation started; each can still be change
 2. Elsa is a design reference only (see above); no durable execution framework.
 3. Organization workflows come in 9g.
 4. "Run as the triggering user" applies to manual starts only.
-5. Batched AI: `immediate` stays the default; the organization can choose `batch` (decided in 9c2).
+5. Batched AI: `immediate` stays the default. The server's `AI:Batch:Execution` or an activity's `execution` input chooses `batch` (decided in 9c2).
 
 ## Implementation notes
 
@@ -319,3 +319,21 @@ These defaults were chosen when implementation started; each can still be change
   with the designer and inbox work.
 - Large outputs still count against the 256 KB run limit; extraction outputs are small, so moving them to the
   blob store stays deferred.
+
+**9c2 (done):**
+
+- **Run again.** A batched activity returns `WaitAndRunAgain`. When the bookmark is completed (the answer is
+  there) or its time passes (the deadline), the node runs again with the same execution id and finds the answer
+  itself. The completion payload does not carry the answer. This way many runs can share one answer, and the
+  batch job never needs to know the runs' outputs.
+- **Requests.** One pending request per question (`ai_batch_requests`, unique pending hash). A run asking the
+  same question at the same time conflicts, retries and joins it. Joining changes the request's version, so it
+  cannot slip past a concurrent answer. The question text is kept only until it is answered.
+- **Bookmark keys** are `{request id}:{execution id}`. The job completes all waits of a request by prefix, and
+  a node finds its own request through its run's bookmark.
+- **Batch API.** It is a contract (`IAiBatchClient`: submit, find by our batch id, get status and results), with
+  no provider package in the module. A batch is saved as preparing before it is sent. After a crash the results
+  job looks it up by our id (`FindAsync`) and adopts it, or queues its questions again, so nothing is paid twice.
+  Without a client, the batch window calls the chat model for each queued question.
+- **Budget.** Questions are counted when they are answered (the batch's call record holds the tokens). Each
+  run's use of an answer is recorded as a cached call.

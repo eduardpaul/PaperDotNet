@@ -31,10 +31,66 @@ public sealed record WorkflowActivityResult(bool Succeeded, string? Error = null
     /// </summary>
     public static WorkflowActivityResult Wait(string kind, string key, DateTimeOffset? resumeAt = null) =>
         new(true) { Waiting = new WorkflowWait(kind, key, resumeAt) };
+
+    /// <summary>
+    /// Suspends the run like <see cref="Wait(string, string, DateTimeOffset?)"/>, but when the wait is completed (or
+    /// <paramref name="resumeAt"/> passes) the activity runs again with the same execution id and key, instead of the
+    /// payload becoming its output: for activities that look up the result themselves (e.g. a batch answer).
+    /// </summary>
+    public static WorkflowActivityResult WaitAndRunAgain(string kind, string key, DateTimeOffset? resumeAt = null) =>
+        new(true) { Waiting = new WorkflowWait(kind, key, resumeAt) { RunAgain = true } };
 }
 
 /// <summary>A durable wait: <see cref="Kind"/> (e.g. <c>{extension id}.batch</c>) and <see cref="Key"/> identify it within the tenant.</summary>
-public sealed record WorkflowWait(string Kind, string Key, DateTimeOffset? ResumeAt = null);
+public sealed record WorkflowWait(string Kind, string Key, DateTimeOffset? ResumeAt = null)
+{
+    /// <summary>Run the activity again when the wait ends (see <see cref="WorkflowActivityResult.WaitAndRunAgain"/>).</summary>
+    public bool RunAgain { get; init; }
+}
+
+/// <summary>One question of an AI batch: <see cref="CustomId"/> identifies its answer.</summary>
+public sealed record AiBatchLine(string CustomId, string Model, string Instructions, string Input, JsonObject? Schema);
+
+/// <summary>The answer to one line (or its error), with the tokens it used.</summary>
+public sealed record AiBatchResult(string CustomId, string? Text, long InputTokens = 0, long OutputTokens = 0, string? Error = null);
+
+public enum AiBatchState
+{
+    /// <summary>Validating, running or finalizing.</summary>
+    Running,
+
+    /// <summary>Done; <see cref="AiBatchStatus.Results"/> holds the answers.</summary>
+    Completed,
+
+    /// <summary>Failed, expired or cancelled; lines without a result are queued again.</summary>
+    Failed,
+}
+
+/// <summary>Where a provider's batch is: its state and, when finished, the results it has.</summary>
+public sealed record AiBatchStatus(AiBatchState State, IReadOnlyList<AiBatchResult> Results, string? Error = null);
+
+/// <summary>
+/// A provider's batch API for AI activities with <c>execution: batch</c> (AI-08, ADR-0036), e.g. the Azure OpenAI or
+/// OpenAI Batch API: cheaper, with a separate quota and results within a day. Register one to send queued questions
+/// in batches; without one, the batch job answers them itself in the batch window. A batch holds one model's lines.
+/// </summary>
+public interface IAiBatchClient
+{
+    /// <summary>Most lines in one batch.</summary>
+    int MaxLines => 50_000;
+
+    /// <summary>Submits the lines as one batch tagged with <paramref name="batchId"/>; returns the provider's batch id.</summary>
+    Task<string> SubmitAsync(Guid batchId, IReadOnlyList<AiBatchLine> lines, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The provider's id of the batch tagged with <paramref name="batchId"/>, or null when there is none: after a crash
+    /// between submitting and saving the id, the job adopts the batch instead of paying for it twice.
+    /// </summary>
+    Task<string?> FindAsync(Guid batchId, CancellationToken cancellationToken);
+
+    /// <summary>The batch's state, with the results once it has finished.</summary>
+    Task<AiBatchStatus> GetAsync(string providerBatchId, CancellationToken cancellationToken);
+}
 
 /// <summary>
 /// Completes waits of workflow runs from other modules and extensions (ADR-0036): e.g. an AI batch job completing the

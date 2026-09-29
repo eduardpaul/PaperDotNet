@@ -48,6 +48,7 @@ public sealed class WorkflowsModule : IModule
         services.AddScoped<IWorkflowActivity, TaskCreateAction>();
         services.AddScoped<IWorkflowActivity, NotifyAction>();
         services.Configure<WorkflowAiOptions>(configuration.GetSection(WorkflowAiOptions.Section));
+        services.Configure<AiBatchOptions>(configuration.GetSection(AiBatchOptions.Section));
         services.AddScoped<AiGateway>();
         services.AddScoped<IWorkflowActivity, AiExtractActivity>();
         services.AddScoped<IWorkflowActivity, AiClassifyActivity>();
@@ -70,6 +71,9 @@ public sealed class WorkflowsModule : IModule
         services.AddTenantRecurringJob<WorkflowTimerJob>(WorkflowTimerJob.Name, WorkflowTimerJob.Schedule);
         services.AddTenantRecurringJob<WorkflowScheduleJob>(WorkflowScheduleJob.Name, WorkflowScheduleJob.Schedule);
         services.AddTenantRecurringJob<WorkflowRunCleanupJob>(WorkflowRunCleanupJob.Name, WorkflowRunCleanupJob.Schedule);
+        services.AddTenantRecurringJob<AiBatchSubmitJob>(
+            AiBatchSubmitJob.Name, configuration.GetSection(AiBatchOptions.Section).Get<AiBatchOptions>()?.Schedule ?? new AiBatchOptions().Schedule);
+        services.AddTenantRecurringJob<AiBatchResultsJob>(AiBatchResultsJob.Name, AiBatchResultsJob.Schedule);
 
         services.AddScoped<ITemplateHandler, WorkflowTemplateHandler>();
         services.AddScoped<ITemplateHandler, LegacyAutomationTemplateHandler>();

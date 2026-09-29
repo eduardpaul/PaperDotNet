@@ -533,7 +533,12 @@ internal sealed partial class WorkflowInterpreter(
             run.Status = RunStatus.Running;
             run.WaitingOn = null;
             run.NextCheckAt = null;
-            if (bookmark.Kind != BookmarkKinds.Retry)
+            if (bookmark.RunAgain)
+            {
+                // The node runs again (same execution id) and looks up what it waited for itself, e.g. a batch answer.
+                Log($"{bookmark.Node}: running again");
+            }
+            else if (bookmark.Kind != BookmarkKinds.Retry)
             {
                 var payload = bookmark.Payload is { } text ? JsonNode.Parse(text) as JsonObject ?? [] : [];
                 outputs[bookmark.Node] = payload;
@@ -668,8 +673,17 @@ internal sealed partial class WorkflowInterpreter(
                         }
 
                         var waitOn = existing ?? NewBookmark(run, id, wait.Kind, wait.Key, wait.ResumeAt);
+                        if (wait.RunAgain && existing is { CompletedAt: not null } && existing.RunId == run.Id)
+                        {
+                            // The node ran again and still waits for the same thing: wait anew.
+                            existing.CompletedAt = null;
+                            existing.Payload = null;
+                            existing.ResumeAt = wait.ResumeAt;
+                        }
+
                         waitOn.RunId = run.Id;
                         waitOn.Node = id;
+                        waitOn.RunAgain = wait.RunAgain;
                         Log($"{id}: waiting ({wait.Kind})");
                         await WaitAsync(waitOn, waitOn.CompletedAt is null ? null : [new ResumeRun(run.Id, waitOn.Id, tenant.TenantId!.Value, tenant.TenantIdentifier!)]);
                         return;
@@ -1030,7 +1044,7 @@ public sealed class WorkflowOptions
     public int RunRetentionDays { get; set; } = 30;
 }
 
-/// <summary>Daily: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals and bookmarks, old unclaimed completions and old AI call records.</summary>
+/// <summary>Daily: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals and bookmarks, old unclaimed completions, old AI call records and finished AI batches.</summary>
 internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<WorkflowOptions> options, IOptions<WorkflowAiOptions> ai, TimeProvider time) : ITenantRecurringJob
 {
     public const string Name = "workflows.runCleanup";
@@ -1047,6 +1061,9 @@ internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<Work
         // Records of AI calls, kept as long as runs and the AI cache need them.
         var aiCutoff = time.GetUtcNow().AddDays(-Math.Max(Math.Max(1, options.Value.RunRetentionDays), ai.Value.CacheDays));
         await db.AiCalls.Where(c => c.CreatedAt < aiCutoff).ExecuteDeleteAsync(cancellationToken);
+        await db.AiBatchRequests.Where(r => (r.Status == AiBatchRequestStatus.Completed || r.Status == AiBatchRequestStatus.Failed) && r.CompletedAt < cutoff)
+            .ExecuteDeleteAsync(cancellationToken);
+        await db.AiBatches.Where(b => (b.Status == AiBatchPhase.Completed || b.Status == AiBatchPhase.Failed) && b.CompletedAt < cutoff).ExecuteDeleteAsync(cancellationToken);
         while (true)
         {
             var ids = await db.Runs
