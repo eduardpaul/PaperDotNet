@@ -640,7 +640,7 @@ internal sealed partial class WorkflowInterpreter(
 
                     var result = await executor.ExecuteAsync(
                         new ActionDefinition(node.Activity, node.Inputs), run.WorkspaceId, item, run.StartedBy, data, outputs, variables,
-                        $"workflow:{workflow.Name}", $"run:{run.Id:N}:{run.StepExecutionId.Value:N}", run.StepExecutionId.Value, ct);
+                        $"workflow:{workflow.Name}", $"run:{run.Id:N}:{run.StepExecutionId.Value:N}", run.StepExecutionId.Value, ct, run.Id);
                     if (!result.Succeeded)
                     {
                         if (!await FailedAsync(id, node, result.Error ?? "The action failed."))
@@ -1030,8 +1030,8 @@ public sealed class WorkflowOptions
     public int RunRetentionDays { get; set; } = 30;
 }
 
-/// <summary>Daily: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals and bookmarks, and old unclaimed completions.</summary>
-internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<WorkflowOptions> options, TimeProvider time) : ITenantRecurringJob
+/// <summary>Daily: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals and bookmarks, old unclaimed completions and old AI call records.</summary>
+internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<WorkflowOptions> options, IOptions<WorkflowAiOptions> ai, TimeProvider time) : ITenantRecurringJob
 {
     public const string Name = "workflows.runCleanup";
     public const string Schedule = "17 3 * * *";
@@ -1043,6 +1043,10 @@ internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<Work
 
         // Completions no run ever waited for.
         await db.Bookmarks.Where(b => b.RunId == WorkflowBookmarks.Unclaimed && b.CompletedAt < cutoff).ExecuteDeleteAsync(cancellationToken);
+
+        // Records of AI calls, kept as long as runs and the AI cache need them.
+        var aiCutoff = time.GetUtcNow().AddDays(-Math.Max(Math.Max(1, options.Value.RunRetentionDays), ai.Value.CacheDays));
+        await db.AiCalls.Where(c => c.CreatedAt < aiCutoff).ExecuteDeleteAsync(cancellationToken);
         while (true)
         {
             var ids = await db.Runs

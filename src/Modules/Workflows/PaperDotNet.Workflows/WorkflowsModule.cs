@@ -47,6 +47,12 @@ public sealed class WorkflowsModule : IModule
         services.AddScoped<IWorkflowActivity, ItemFileAction>();
         services.AddScoped<IWorkflowActivity, TaskCreateAction>();
         services.AddScoped<IWorkflowActivity, NotifyAction>();
+        services.Configure<WorkflowAiOptions>(configuration.GetSection(WorkflowAiOptions.Section));
+        services.AddScoped<AiGateway>();
+        services.AddScoped<IWorkflowActivity, AiExtractActivity>();
+        services.AddScoped<IWorkflowActivity, AiClassifyActivity>();
+        services.AddScoped<IWorkflowActivity, AiSummarizeActivity>();
+        services.AddScoped<IWorkflowActivity, AiPromptActivity>();
 
         services.AddIntegrationEvent<WorkflowTriggerRaised>();
         services.AddScoped<IWorkflowTriggers, WorkflowTriggerPublisher>();

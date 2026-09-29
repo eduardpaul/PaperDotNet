@@ -225,6 +225,55 @@ Term values become term names and person values become user names. `{{` and
 - `creator` (of the item);
 - `actor` (the user who started the run or whose change triggered it).
 
+## AI activities
+
+With a chat model configured, workflows can read documents and items with AI
+([ADR-0036](adr/0036-workflows-as-the-core.md); off by default):
+
+```bash
+PAPERDOTNET__AI__Chat__Provider=openai            # any OpenAI-compatible API
+PAPERDOTNET__AI__Chat__Endpoint=http://ollama:11434/v1   # or https://api.openai.com/v1, Azure OpenAI …/openai/v1/
+PAPERDOTNET__AI__Chat__Model=llama3.1
+PAPERDOTNET__AI__Chat__ApiKey=…                   # if the service needs one
+PAPERDOTNET__AI__Chat__DailyTokens=200000         # per organization and UTC day; 0 = no limit
+```
+
+| Activity | Inputs | Output and ports |
+|---|---|---|
+| `ai.extract` | `fields` (default: all it can fill: text, note, email, url, number, currency, boolean, date, dateTime, choice), `instructions`, `mode` (`apply` or `suggest`), `minConfidence` (default 0.7) | `values`, `confidence`, `applied`, `uncertain`; port `lowConfidence` when a field stays empty or uncertain |
+| `ai.classify` | `termSet` (`Group/Set`), `field` (a managed metadata field to set), `instructions`, `mode`, `minConfidence` | `term`, `termId`, `confidence`, `applied`; port `lowConfidence` when no term fits well enough |
+| `ai.summarize` | `maxWords` (default 80), `field` (a text field to write it to), `instructions` | `summary` |
+| `ai.prompt` | `prompt`, `system` (templates), `includeContent`, `schema` (JSON Schema for structured output) | `text`, or `json` with a schema |
+
+- The model reads the item's values and the text of its document (the same
+  text search uses), up to `AI:Chat:MaxInputCharacters` (24000).
+- With `mode: apply` (default) values with at least `minConfidence` are
+  written to the item; `suggest` only puts them in the node's output for
+  later nodes (for example a review task).
+- **Cache:** the same model and input reuse the earlier answer for
+  `AI:Chat:CacheDays` (30) days, without calling the model.
+- **Budget and record:** every call is recorded with its workflow run, model,
+  tokens and a hash of what was sent (not the text). When the organization's
+  `DailyTokens` are used up, AI activities fail; retry the runs later
+  (`…/runs/{id}/retry`) or give the node a `retry` policy.
+- Without a configured model, AI activities fail with a clear error.
+
+Example: read receipts and send uncertain ones to review.
+
+```json
+"flow": {
+  "start": "extract",
+  "nodes": {
+    "extract": { "activity": "ai.extract",
+                 "inputs": { "fields": ["store", "purchaseDate", "total"], "minConfidence": 0.8 },
+                 "next": { "done": "classify", "lowConfidence": "review" } },
+    "review":  { "activity": "task.create", "inputs": { "list": "Tasks", "title": "Check {title}: {step:extract.uncertain}" },
+                 "next": { "done": "classify" } },
+    "classify": { "activity": "ai.classify", "inputs": { "termSet": "Documents/Kinds", "field": "kind" } }
+  }
+}
+```
+
 ## Export and import
 
 Workflows travel in the same templates and packages as lists and libraries

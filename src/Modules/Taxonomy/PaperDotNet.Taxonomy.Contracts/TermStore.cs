@@ -36,6 +36,9 @@ public interface ITermStore
     /// <summary>Name, translated labels and synonyms of each term (for search indexing).</summary>
     Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetLabelsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
 
+    /// <summary>The terms of a term set that can be used (not deprecated), children included, by name.</summary>
+    Task<IReadOnlyList<TermInfo>> ListTermsAsync(Guid termSetId, CancellationToken cancellationToken);
+
     /// <summary>The terms with these ids (unknown ids are omitted).</summary>
     Task<IReadOnlyList<TermInfo>> GetTermsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
 

@@ -69,6 +69,9 @@ public sealed class WorkflowActivityContext
     /// <summary>Data of an extension trigger, if any.</summary>
     public JsonObject? Data { get; init; }
 
+    /// <summary>The run the activity is part of (null when an activity runs outside a run).</summary>
+    public Guid? RunId { get; init; }
+
     /// <summary>Where the action runs, e.g. <c>workflow:File invoices</c>.</summary>
     public required string Source { get; init; }
 

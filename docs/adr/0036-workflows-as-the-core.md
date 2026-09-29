@@ -303,3 +303,19 @@ These defaults were chosen when implementation started; each can still be change
 - **Terms** are matched by path, with the terms below them, in any field of the item.
 - **Manual inputs** are a JSON Schema object on the trigger, checked with a small validator (types and
   required only). The form built from them comes with the designer (9f).
+
+**9c (done):**
+
+- **Provider.** One chat model per server (`AI:Chat`, any OpenAI-compatible API through
+  Microsoft.Extensions.AI), like embeddings (ADR-0027). A provider per tenant (AI-01) is not needed for the
+  self-hosted setup yet; the gateway is where it would plug in.
+- **AI activities live in the Workflows module** and reach the model only through `AiGateway`: the cache (same
+  model and input), the daily token budget per organization and the record of every call (`ai_calls`, saved with
+  the run's step, so atomic with its progress). Only a hash of the input is stored, never the text.
+- **Structured output** uses JSON Schema built from the list's field definitions (types, choices, nullable
+  values) or the term set's names, with a confidence per value; fields the model cannot fill (people,
+  lookups, several values) are refused when asked for.
+- **Suggestions** stay in the node's output (`mode: suggest`); a review screen for suggestions (AI-03) comes
+  with the designer and inbox work.
+- Large outputs still count against the 256 KB run limit; extraction outputs are small, so moving them to the
+  blob store stays deferred.
