@@ -32,7 +32,7 @@ feature idea. Ideas stay in [`ideas/`](../ideas/README.md).
 | [0006](0006-no-concurrency-or-large-dataset-performance-baseline.md) | No concurrency ramp or large-dataset/permission-heavy performance baseline | Other | possible |
 | [0007](0007-postgresql-rls-session-overhead-under-pooling.md) | PostgreSQL RLS tenant-setting overhead under connection pooling is unmeasured | Other | confirmed |
 | [0008](0008-permission-change-rebuilds-list-search-index.md) | A permission change rebuilds the list's whole search index and drops its embeddings | Search | done |
-| [0009](0009-cross-list-queries-load-access-per-list.md) | Queries across lists load the full access of every list, one list at a time | Lists | confirmed |
+| [0009](0009-cross-list-queries-load-access-per-list.md) | Queries across lists load the full access of every list, one list at a time | Lists | done |
 | [0010](0010-sqlite-field-filters-parse-json-per-row.md) | On SQLite, every equality filter on a field parses the JSON of every row | Lists | done |
 | [0011](0011-item-live-events-reach-every-tenant-user.md) | Item change events reach every user of the tenant | API | done |
 | [0012](0012-permission-change-forces-full-delta-resync.md) | Any permission change makes every delta client of the list sync it again | API | done |

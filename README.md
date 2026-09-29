@@ -91,7 +91,7 @@ npm run check -w web                               # typecheck, lint, format, un
 npm run test:e2e -w web                            # Playwright against a real host
 ```
 
-Performance (not part of `dotnet test`). One process, the real API, a fresh database per provider. It seeds a list and a list of folders with unique permissions, then ramps concurrency on create, read, filtered query, a member's page of the shared list and search until p95 passes 1000 ms or any request fails. That concurrency is the limit for the budget.
+Performance (not part of `dotnet test`). One process, the real API, a fresh database per provider. It seeds a list and a list of folders with unique permissions, then ramps concurrency on create, read, filtered query, a member's page of the shared list, a member's tasks across 20 task lists and search until p95 passes 1000 ms or any request fails. That concurrency is the limit for the budget.
 
 ```bash
 dotnet run --project tests/PaperDotNet.Performance -c Release -- sqlite

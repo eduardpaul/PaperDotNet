@@ -1,6 +1,6 @@
 # 0009: Queries across lists load the full access of every list, one list at a time
 
-- **Status:** confirmed
+- **Status:** done
 - **Area:** Lists
 - **Date:** 2026-09-28
 
@@ -40,3 +40,12 @@ indexed, took 0.8 ms and 0.4 ms.
 With [ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 1 the access of each list is one index
 lookup, not a scan, but the lists are still queried one at a time. `IItemAccess.GetScopesAsync` can already return the
 allowed scopes of many lists (or the tenant) in one query; using it for one query across lists is step 5.
+
+## Done (2026-09-29)
+
+[ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 5. `ListSchemaLoader.LoadManyAsync` loads
+every list's schema and access in four queries whatever the number of lists; lists whose fields and indexed places
+match (lists from one template) run as one query (`ItemQueryRunner.MatchingManyAsync`), with the readable scopes as one
+parameter. `IListItemStore.QueryAsync(lists, …)`, smart folders (items and group counts) and listing the user's lists
+use it. `PaperDotNet.Performance` "mytasks" (a member, 20 task lists, SQLite): 18 → 106 requests/s with one caller
+(p95 108 → 13 ms), 46 → 367 with eight (p95 238 → 31 ms).

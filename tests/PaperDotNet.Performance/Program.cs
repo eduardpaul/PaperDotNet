@@ -53,7 +53,7 @@ public static class Program
         using var member = await SignInAsync(host, SharedWorld.MemberName, SharedWorld.MemberPassword, cancellationToken);
         Console.WriteLine(
             $"Ready in {started.Elapsed.TotalSeconds:0.0}s. {options.Items} items, search indexed in {world.IndexSeconds:0.0}s; "
-            + $"{shared.Folders} folders with unique permissions, half shared with the member's group.");
+            + $"{shared.Folders} folders with unique permissions, half shared with the member's group; {SharedWorld.TaskLists} task lists.");
 
         var reports = new List<ScenarioReport>();
         reports.Add(await MeasureAsync(provider, "create", options, client, (worker, http, ct) => CreateAsync(http, world, worker, ct), cancellationToken));
@@ -62,6 +62,7 @@ public static class Program
 
         // A member without full control: every request resolves their principals and allowed scopes (ADR-0035).
         reports.Add(await MeasureAsync(provider, "shared", options, member, (_, http, ct) => GetAsync(http, shared.PageUrl, ct), cancellationToken));
+        reports.Add(await MeasureAsync(provider, "mytasks", options, member, (_, http, ct) => GetAsync(http, "/v1.0/me/tasks", ct), cancellationToken));
         if (world.SearchReady)
         {
             reports.Add(await MeasureAsync(provider, "search", options, client, (_, http, ct) => GetAsync(http, world.SearchUrl, ct), cancellationToken));
@@ -238,6 +239,18 @@ public static class Program
             }
         }
 
+        // Task lists for My tasks: one query across them all (ADR-0035 step 5).
+        for (var l = 0; l < SharedWorld.TaskLists; l++)
+        {
+            var tasks = await PostIdAsync(admin, $"/v1.0/workspaces/{workspace}/lists", new { name = $"Tasks {l}", templateKey = "tasks" }, cancellationToken);
+            for (var t = 0; t < Math.Max(1, items / 40); t++)
+            {
+                var assignedTo = t % 2 == 0 ? new[] { member } : [];
+                await PostIdAsync(admin, $"/v1.0/workspaces/{workspace}/lists/{tasks}/items",
+                    new { fields = new { title = $"task {l}.{t}", dueDate = $"2026-{1 + (t % 12):00}-{1 + (l % 28):00}", assignedTo } }, cancellationToken);
+            }
+        }
+
         return new SharedWorld(folders, $"{itemsUrl}?$top=20");
     }
 
@@ -344,6 +357,9 @@ internal sealed record SharedWorld(int Folders, string PageUrl)
 {
     public const string MemberName = "member";
     public const string MemberPassword = "perf-member-password-1";
+
+    /// <summary>Task lists in the workspace, for the "mytasks" scenario.</summary>
+    public const int TaskLists = 20;
 }
 
 internal sealed record StepReport(int Concurrency, int Requests, int Errors, double PerSecond, double P50Ms, double P95Ms, double P99Ms);

@@ -27,24 +27,13 @@ internal sealed class SmartFolderQuery(
         var workspaceIds = folder.WorkspaceId is { } ws
             ? memberships.Where(m => m.WorkspaceId == ws).ToList()
             : memberships.ToList();
-        var visible = new List<ListDefinition>();
-        foreach (var membership in workspaceIds)
-        {
-            foreach (var list in await loader.VisibleListsAsync(membership.WorkspaceId, membership.Level, ct))
-            {
-                if (definition.Lists is { Count: > 0 } names && !names.Contains(list.Name, StringComparer.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (definition.ListTemplates is { Count: > 0 } templates && !templates.Contains(list.TemplateKey ?? "", StringComparer.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                visible.Add(list);
-            }
-        }
+        // Workspace order first, as before, then list name.
+        var order = workspaceIds.Select((m, n) => (m.WorkspaceId, n)).ToDictionary(x => x.WorkspaceId, x => x.n);
+        var visible = (await loader.VisibleListsAsync(workspaceIds, ct))
+            .Where(list => definition.Lists is not { Count: > 0 } names || names.Contains(list.Name, StringComparer.OrdinalIgnoreCase))
+            .Where(list => definition.ListTemplates is not { Count: > 0 } templates || templates.Contains(list.TemplateKey ?? "", StringComparer.OrdinalIgnoreCase))
+            .OrderBy(list => order[list.WorkspaceId])
+            .ToList();
 
         if (definition.ContentTypes is { Count: > 0 } wanted)
         {
@@ -55,9 +44,10 @@ internal sealed class SmartFolderQuery(
         }
 
         var candidates = new List<Candidate>();
+        var schemas = (await loader.LoadManyAsync([.. visible.Select(l => l.Id)], system: false, ct)).ToDictionary(s => s.List.Id);
         foreach (var list in visible)
         {
-            if (await loader.LoadAsync(list.WorkspaceId, list.Id, ct) is not { } schema)
+            if (!schemas.TryGetValue(list.Id, out var schema))
             {
                 continue;
             }
@@ -84,30 +74,38 @@ internal sealed class SmartFolderQuery(
         var found = new List<Found>();
         string? firstError = null;
         var queried = 0;
-        foreach (var candidate in await ListsAsync(folder, definition, ct))
-        {
-            if (Filter(candidate.Schema, definition, termInfo) is not { } filter)
-            {
-                continue;
-            }
 
-            // A list without a field of the filter cannot hold matching items: skip it. The error is reported
-            // only when no list could run the filter (e.g. a syntax error).
-            var (listItems, error) = await RecentAsync(candidate.Schema, filter.Length == 0 ? null : filter, Extra(definition, path), after, take, ct);
+        // Lists with the same fields and the same filter run as one query (ADR-0035).
+        foreach (var group in Batches(await ListsAsync(folder, definition, ct), definition, termInfo))
+        {
+            var (listItems, error) = await RecentAsync(group.Schemas, group.Filter, Extra(definition, path), after, take, ct);
             if (error is not null)
             {
+                // A list without a field of the filter cannot hold matching items: skip it. The error is reported
+                // only when no list could run the filter (e.g. a syntax error).
                 firstError ??= error;
                 continue;
             }
 
             queried++;
-            found.AddRange(listItems!.Select(i => new Found(candidate.WorkspaceId, candidate.Schema.List.Name, i)));
+            var byId = group.Candidates.ToDictionary(c => c.Schema.List.Id);
+            found.AddRange(listItems!.Select(i => new Found(byId[i.ListId].WorkspaceId, byId[i.ListId].Schema.List.Name, i)));
         }
 
         return queried == 0 && firstError is not null
             ? ([], firstError)
             : (found.OrderByDescending(f => f.Item.UpdatedAt).ThenByDescending(f => f.Item.Id).Take(take).ToList(), null);
     }
+
+    /// <summary>The candidates in groups that share one query: the same query shape and the same filter.</summary>
+    private static IEnumerable<(IReadOnlyList<Candidate> Candidates, IReadOnlyList<ListSchema> Schemas, string? Filter)> Batches(
+        IEnumerable<Candidate> candidates, SmartFolderDefinition definition, IReadOnlyList<TermInfo> termInfo) =>
+        candidates
+            .Select(c => (Candidate: c, Filter: Filter(c.Schema, definition, termInfo)))
+            .Where(c => c.Filter is not null)
+            .GroupBy(c => (ItemQueryRunner.QueryShape(c.Candidate.Schema), c.Filter))
+            .Select(g => ((IReadOnlyList<Candidate>)[.. g.Select(c => c.Candidate)], (IReadOnlyList<ListSchema>)[.. g.Select(c => c.Candidate.Schema)],
+                g.Key.Filter!.Length == 0 ? null : g.Key.Filter));
 
     public async Task<(List<SmartFolderGroup> Groups, string? Error)> GroupsAsync(
         SmartFolder folder, SmartFolderDefinition definition, string?[] path, SmartFolderGroupBy level, CancellationToken ct)
@@ -118,20 +116,16 @@ internal sealed class SmartFolderQuery(
         string? firstError = null;
         var queried = 0;
         FieldDefinition? sample = null;
-        foreach (var candidate in await ListsAsync(folder, definition, ct))
+        foreach (var batch in Batches(await ListsAsync(folder, definition, ct), definition, termInfo))
         {
-            if (Filter(candidate.Schema, definition, termInfo) is not { } filter)
-            {
-                continue;
-            }
-
-            if (candidate.Schema.Fields.TryGetValue(level.Field, out var field) && !SmartFolders.IsGroupable(field, fieldTypes))
+            // Lists in one batch have the same fields.
+            if (batch.Schemas[0].Fields.TryGetValue(level.Field, out var field) && !SmartFolders.IsGroupable(field, fieldTypes))
             {
                 continue;
             }
 
             sample ??= field;
-            var (groups, none, error) = await GroupAsync(candidate.Schema, filter.Length == 0 ? null : filter, Extra(definition, path), ItemFields.GroupKey(level.Field, level.By), ct);
+            var (groups, none, error) = await GroupAsync(batch.Schemas, batch.Filter, Extra(definition, path), ItemFields.GroupKey(level.Field, level.By), ct);
             if (error is not null)
             {
                 // As for items: skip lists that cannot run the filter, report it when none can.
@@ -228,9 +222,9 @@ internal sealed class SmartFolderQuery(
     }
 
     private async Task<(List<ListItem>? Items, string? Error)> RecentAsync(
-        ListSchema schema, string? filter, Expression<Func<ListItem, bool>>? extra, (DateTimeOffset At, Guid Id)? after, int take, CancellationToken ct)
+        IReadOnlyList<ListSchema> schemas, string? filter, Expression<Func<ListItem, bool>>? extra, (DateTimeOffset At, Guid Id)? after, int take, CancellationToken ct)
     {
-        var (query, error) = await runner.MatchingAsync(schema, filter, extra, ct);
+        var (query, _, _, error) = await runner.MatchingManyAsync(schemas, filter, null, extra, ct);
         if (query is null)
         {
             return (null, error);
@@ -247,9 +241,9 @@ internal sealed class SmartFolderQuery(
     }
 
     private async Task<(Dictionary<string, int>? Groups, int Empty, string? Error)> GroupAsync(
-        ListSchema schema, string? filter, Expression<Func<ListItem, bool>>? extra, Expression<Func<ListItem, string?>> key, CancellationToken ct)
+        IReadOnlyList<ListSchema> schemas, string? filter, Expression<Func<ListItem, bool>>? extra, Expression<Func<ListItem, string?>> key, CancellationToken ct)
     {
-        var (query, error) = await runner.MatchingAsync(schema, filter, extra, ct);
+        var (query, _, _, error) = await runner.MatchingManyAsync(schemas, filter, null, extra, ct);
         if (query is null)
         {
             return (null, 0, error);

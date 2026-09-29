@@ -179,6 +179,56 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         ListSchema schema, string? filter, Expression<Func<ListItem, bool>>? extra, CancellationToken ct) =>
         ReadableAsync(schema, filter, extra, ct);
 
+    /// <summary>
+    /// A key that is the same for lists whose queries translate the same way (the same fields, the same ready indexed
+    /// places), so they can run as one query (ADR-0035). Lists made from one template share it.
+    /// </summary>
+    internal static string QueryShape(ListSchema schema) =>
+        string.Join(";", schema.Fields.Values.OrderBy(f => f.Name, StringComparer.Ordinal).Select(f => $"{f.Name}:{f.Type}:{f.AllowMultiple}"))
+        + "|" + string.Join(";", schema.List.IndexedFields.Where(e => e.Ready).OrderBy(e => e.Field, StringComparer.Ordinal)
+            .Select(e => $"{e.Field}:{e.Column}:{e.ValueField}"));
+
+    /// <summary>
+    /// Readable items of several lists of the same <see cref="QueryShape"/> matching <paramref name="filter"/> and
+    /// <paramref name="extra"/>, as one query: the lists' permission scopes are one parameter, and the filter is
+    /// translated once. Also returns the translator and order for sorting.
+    /// </summary>
+    internal async Task<(IQueryable<ListItem>? Query, ItemQueryTranslator? Translator, OrderByClause? OrderBy, string? Error)> MatchingManyAsync(
+        IReadOnlyList<ListSchema> schemas, string? filter, string? orderBy, Expression<Func<ListItem, bool>>? extra, CancellationToken ct)
+    {
+        var ids = schemas.Select(s => s.List.Id).ToArray();
+        IQueryable<ListItem> query = db.Items.AsNoTracking().Where(i => EF.Parameter(ids).Contains(i.ListId));
+        if (schemas.Any(s => !s.Access.FullControl))
+        {
+            var full = schemas.Where(s => s.Access.FullControl).Select(s => s.List.Id).ToArray();
+            var allowed = schemas.SelectMany(s => s.Access.Scopes(WorkspaceAccessLevel.Read)).Distinct().ToArray();
+            query = query.Where(i => EF.Parameter(full).Contains(i.ListId) || EF.Parameter(allowed).Contains(i.ScopeId));
+        }
+
+        if (extra is not null)
+        {
+            query = query.Where(extra);
+        }
+
+        try
+        {
+            var first = schemas[0];
+            var hierarchy = await TermHierarchyAsync(first, [filter], ct);
+            var (translator, clause, order) = Parse(first, filter, orderBy, hierarchy);
+            translator.ListIds = ids;
+            if (clause is not null)
+            {
+                query = query.Where(await PreparedAsync(translator, clause, ids, ct));
+            }
+
+            return (query, translator, order, null);
+        }
+        catch (ODataException ex)
+        {
+            return (null, null, null, ex.Message);
+        }
+    }
+
     /// <summary>Parses a filter for callers that need the translator (smart-folder classification). No term expansion.</summary>
     internal (ItemQueryTranslator? Translator, FilterClause? Clause, string? Error) TryFilter(ListSchema schema, string? filter)
     {
@@ -406,7 +456,10 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
     /// Counts (up to <see cref="SelectiveLimit"/>) the items of each value-table filter, so rare values are read by id
     /// and common ones tested per item (ADR-0035). Cheap: one index range per filter.
     /// </summary>
-    private async Task<Expression<Func<ListItem, bool>>> PreparedAsync(ItemQueryTranslator translator, FilterClause clause, Guid listId, CancellationToken ct)
+    private Task<Expression<Func<ListItem, bool>>> PreparedAsync(ItemQueryTranslator translator, FilterClause clause, Guid listId, CancellationToken ct) =>
+        PreparedAsync(translator, clause, [listId], ct);
+
+    private async Task<Expression<Func<ListItem, bool>>> PreparedAsync(ItemQueryTranslator translator, FilterClause clause, Guid[] listIds, CancellationToken ct)
     {
         foreach (var (field, ids) in translator.ValueFilters(clause))
         {
@@ -417,7 +470,7 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
             }
 
             var count = await db.ItemValues.AsNoTracking()
-                .Where(v => v.ListId == listId && v.Field == field && EF.Parameter(ids).Contains(v.Value))
+                .Where(v => EF.Parameter(listIds).Contains(v.ListId) && v.Field == field && EF.Parameter(ids).Contains(v.Value))
                 .Take(SelectiveLimit + 1)
                 .CountAsync(ct);
             if (count <= SelectiveLimit)

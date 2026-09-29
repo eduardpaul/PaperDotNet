@@ -35,6 +35,9 @@ internal sealed class ItemQueryTranslator(
 
     internal static string SelectivityKey(short field, IEnumerable<Guid> ids) => $"{field}:{string.Join(',', ids.Order())}";
 
+    /// <summary>The lists the query covers (one query over lists of the same shape, ADR-0035); the list itself by default.</summary>
+    public Guid[]? ListIds { get; set; }
+
     private static readonly ParameterExpression Item = Expression.Parameter(typeof(ListItem), "i");
     internal static readonly MethodInfo JsonText = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Text))!;
     private static readonly MethodInfo JsonNumber = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Number))!;
@@ -395,7 +398,7 @@ internal sealed class ItemQueryTranslator(
     private Expression HasValues(IndexedField entry, Guid[]? ids)
     {
         var source = values!;
-        var listId = list!.Id;
+        var listIds = ListIds ?? [list!.Id];
         var field = entry.ValueField!.Value;
         Expression<Func<ListItem, bool>> test;
         if (ids is null)
@@ -404,7 +407,7 @@ internal sealed class ItemQueryTranslator(
         }
         else if (Selective.Contains(SelectivityKey(field, ids)))
         {
-            test = i => source.Where(v => v.ListId == listId && v.Field == field && ids.Contains(v.Value)).Select(v => v.ItemId).Contains(i.Id);
+            test = i => source.Where(v => listIds.Contains(v.ListId) && v.Field == field && ids.Contains(v.Value)).Select(v => v.ItemId).Contains(i.Id);
         }
         else
         {

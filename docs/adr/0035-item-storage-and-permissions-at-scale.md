@@ -1,6 +1,6 @@
 # ADR-0035: Item storage and permissions at scale
 
-- **Status:** Accepted; steps 1–4 implemented (ACL by principal, nested groups, fan-out, indexed fields)
+- **Status:** Accepted; steps 1–5 implemented (ACL by principal, nested groups, fan-out, indexed fields, queries across lists)
 - **Date:** 2026-09-28
 - **Replaces:** how ADR-0011 evaluates permissions (its scope model stays) and
   how ADR-0012 trims search.
@@ -357,3 +357,21 @@ Done as decided, with these details:
   and `fields/title` continue after the last row. No case-insensitive title
   index: the search box does `contains`, which no b-tree index serves.
 - **Web:** the field editor has an "Indexed" option.
+
+### Step 5: queries across lists (2026-09-29)
+
+- `ListSchemaLoader.LoadManyAsync` loads the schemas and access of many lists
+  in four queries (lists, content types, the user's workspaces, the allowed
+  scopes of all the lists); `VisibleListsAsync` takes several workspaces at
+  once.
+- `ItemQueryRunner.QueryShape` groups lists whose fields and ready indexed
+  places match; `MatchingManyAsync` runs one query per group, with the lists'
+  readable scopes as one parameter (full-control lists by list id) and value
+  subqueries over all the group's lists.
+- `IListItemStore.QueryAsync(lists, …)` (My tasks, the calendar, the
+  iCalendar export, reminders) returns up to `Top` items per group in the
+  query's order instead of per list; callers already merged and cut. Lists the
+  caller cannot read are left out instead of failing the call. Smart folders
+  batch their item and group queries the same way (per group and filter).
+- Measured with `PaperDotNet.Performance` "mytasks" (20 task lists, SQLite):
+  18 → 106 requests/s at one caller, 46 → 367 at eight.

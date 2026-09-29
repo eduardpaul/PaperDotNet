@@ -72,6 +72,10 @@ internal sealed class ListAccess(Guid listId, bool fullControl, IReadOnlyDiction
     public WorkspaceAccessLevel Level(Guid scopeId) =>
         FullControl ? WorkspaceAccessLevel.Manage : scopes.GetValueOrDefault(scopeId, WorkspaceAccessLevel.None);
 
+    /// <summary>The scopes (of any list) the user has at least <paramref name="minimum"/> on; empty with full control.</summary>
+    public IEnumerable<Guid> Scopes(WorkspaceAccessLevel minimum) =>
+        FullControl ? [] : scopes.Where(s => s.Value >= minimum).Select(s => s.Key);
+
     /// <summary>
     /// Items the user has at least <paramref name="minimum"/> on, as a query filter (null = all). One parameter on
     /// both databases: an array on PostgreSQL, JSON on SQLite (plain <c>Contains</c> would send one per scope).
@@ -118,6 +122,43 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
         return new ListSchema(list, contentTypes, listAccess);
     }
 
+    /// <summary>
+    /// Loads the schemas of many lists at once (ADR-0035): one query each for the lists, their content types, the
+    /// user's workspaces and their permission scopes, instead of all of that per list. Lists the user cannot read are
+    /// left out; <paramref name="system"/> loads them all with full control.
+    /// </summary>
+    public async Task<List<ListSchema>> LoadManyAsync(IReadOnlyCollection<Guid> listIds, bool system, CancellationToken ct)
+    {
+        var ids = listIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return [];
+        }
+
+        var lists = await db.Lists.AsNoTracking().Where(l => EF.Parameter(ids).Contains(l.Id)).ToListAsync(ct);
+        var typeIds = lists.SelectMany(l => l.ContentTypeIds).Distinct().ToArray();
+        var contentTypes = await db.ContentTypes.AsNoTracking().Where(c => EF.Parameter(typeIds).Contains(c.Id)).ToListAsync(ct);
+        if (system)
+        {
+            return [.. lists.Select(l => new ListSchema(l, contentTypes, ListAccess.Full(l.Id)))];
+        }
+
+        var levels = (await workspaces.GetMyWorkspacesAsync(ct)).ToDictionary(m => m.WorkspaceId, m => m.Level);
+        var scopes = await access.GetScopesAsync(ids, ct);
+        var result = new List<ListSchema>();
+        foreach (var list in lists)
+        {
+            var level = levels.GetValueOrDefault(list.WorkspaceId, WorkspaceAccessLevel.None);
+            var listAccess = level == WorkspaceAccessLevel.Manage ? ListAccess.Full(list.Id) : new ListAccess(list.Id, fullControl: false, scopes);
+            if (level != WorkspaceAccessLevel.None && listAccess.ListLevel != WorkspaceAccessLevel.None)
+            {
+                result.Add(new ListSchema(list, contentTypes, listAccess));
+            }
+        }
+
+        return result;
+    }
+
     /// <summary>Loads a list of the current tenant with full control, without checking the user (system work).</summary>
     public async Task<ListSchema?> LoadAsSystemAsync(Guid workspaceId, Guid listId, CancellationToken ct, bool tracking = false)
     {
@@ -142,23 +183,31 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
     }
 
     /// <summary>Lists of the workspace the user can see: those whose own scope gives them access.</summary>
-    public async Task<List<ListDefinition>> VisibleListsAsync(Guid workspaceId, WorkspaceAccessLevel workspaceLevel, CancellationToken ct)
+    public Task<List<ListDefinition>> VisibleListsAsync(Guid workspaceId, WorkspaceAccessLevel workspaceLevel, CancellationToken ct) =>
+        VisibleListsAsync([new WorkspaceMembership(workspaceId, workspaceLevel)], ct);
+
+    /// <summary>Lists of several workspaces the user can see, in two queries whatever the number of workspaces.</summary>
+    public async Task<List<ListDefinition>> VisibleListsAsync(IReadOnlyCollection<WorkspaceMembership> memberships, CancellationToken ct)
     {
-        var lists = await db.Lists.AsNoTracking().Where(l => l.WorkspaceId == workspaceId).OrderBy(l => l.Name).ToListAsync(ct);
-        if (workspaceLevel == WorkspaceAccessLevel.Manage || lists.Count == 0)
+        var workspaceIds = memberships.Where(m => m.Level > WorkspaceAccessLevel.None).Select(m => m.WorkspaceId).ToArray();
+        var lists = workspaceIds.Length == 0
+            ? []
+            : await db.Lists.AsNoTracking().Where(l => EF.Parameter(workspaceIds).Contains(l.WorkspaceId)).OrderBy(l => l.Name).ToListAsync(ct);
+        var managed = memberships.Where(m => m.Level == WorkspaceAccessLevel.Manage).Select(m => m.WorkspaceId).ToHashSet();
+        if (lists.All(l => managed.Contains(l.WorkspaceId)))
         {
             return lists;
         }
 
         var principals = await access.GetPrincipalIdsAsync(ct);
-        var listIds = lists.Select(l => l.Id).ToArray();
+        var listIds = lists.Where(l => !managed.Contains(l.WorkspaceId)).Select(l => l.Id).ToArray();
         var visible = (await db.AclEntries.AsNoTracking()
                 .Where(e => EF.Parameter(principals).Contains(e.PrincipalId) && EF.Parameter(listIds).Contains(e.ListId) && e.ScopeId == e.ListId)
                 .Select(e => e.ListId)
                 .Distinct()
                 .ToListAsync(ct))
             .ToHashSet();
-        return lists.Where(l => visible.Contains(l.Id)).ToList();
+        return lists.Where(l => managed.Contains(l.WorkspaceId) || visible.Contains(l.Id)).ToList();
     }
 }
 

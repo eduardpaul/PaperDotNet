@@ -75,6 +75,21 @@ log had no duplicate-key errors or deadlocks (2,526 and 18 before), and the read
 Most of the gain is the missing reindex backlog competing for the database, not a faster query path; one run each,
 same machine.
 
+### Queries across lists (step 5), SQLite
+
+`PERF_ITEMS=400 PERF_MAX_CONCURRENCY=8`: a member reads My tasks (`/v1.0/me/tasks`) over 20 task lists of 10 tasks,
+half assigned to them. The same runner on the commit before step 5 and after it:
+
+| Callers | Before req/s | p95 | After req/s | p95 |
+|---:|---:|---:|---:|---:|
+| 1 | 18 | 108 ms | 106 | 13 ms |
+| 2 | 30 | 122 ms | 218 | 13 ms |
+| 4 | 42 | 155 ms | 371 | 17 ms |
+| 8 | 46 | 238 ms | 367 | 31 ms |
+
+Before, each list loaded its own schema and access and ran its own query; now the 20 lists are one group and one
+query.
+
 ## Build-time compilation
 
 Native AOT and trimming were not turned on. Wolverine, the EF JSON translators and the event dispatcher bind handlers with reflection (`MakeGenericMethod` and `GetMethod`), and one binary contains both SQLite and PostgreSQL. Trimming or AOT drops that code and the process fails at runtime. The Minimal API request-delegate generator was tried and turned back off: for several `Results<…>` endpoints it emits source that does not compile.
