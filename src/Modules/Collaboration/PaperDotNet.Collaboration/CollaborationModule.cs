@@ -7,6 +7,7 @@ using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Collaboration.Features;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Collaboration;
 
@@ -43,6 +44,7 @@ public sealed class CollaborationModule : IModule
         services.AddEventSubscriber<ItemDeleted, ItemActivityRecorder>();
         services.AddEventSubscriber<ItemRestored, ItemActivityRecorder>();
         services.AddEventSubscriber<ItemPurged, ItemActivityRecorder>();
+        services.AddSingleton(new WorkflowTriggerDefinition(WorkflowTriggers.CommentAdded, "A comment was added to an item (data: commentId, text, author, reply)."));
         services.AddScopes(CollaborationScopes.All);
     }
 

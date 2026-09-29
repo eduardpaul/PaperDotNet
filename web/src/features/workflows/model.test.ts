@@ -41,4 +41,33 @@ describe('workflow model', () => {
     expect(request.flow).toBeUndefined();
     expect(request.steps).toEqual([{ type: 'delay', hours: 2 }]);
   });
+
+  it('keeps trigger settings: schedules, dates, terms and inputs', () => {
+    const inputs = { properties: { label: { type: 'string' } }, required: ['label'] };
+    const manual = requestFrom(
+      fromPlain({ name: 'Stamp', trigger: { type: 'manual', list: 'Papers', terms: ['Docs/Tags/Receipt'], inputs } }),
+    );
+    expect(manual.trigger?.terms).toEqual(['Docs/Tags/Receipt']);
+    expect(manual.trigger?.inputs?.additionalData).toEqual(inputs);
+
+    const schedule = toPlain(
+      fromPlain({
+        name: 'Morning',
+        trigger: { type: 'schedule', cron: '0 8 * * 1-5', timeZone: 'Europe/Berlin', list: 'X' },
+      }),
+    );
+    expect(schedule.trigger).toMatchObject({
+      type: 'schedule',
+      cron: '0 8 * * 1-5',
+      timeZone: 'Europe/Berlin',
+      list: null,
+    });
+    expect(schedule.trigger).not.toHaveProperty('field');
+
+    const date = toPlain(
+      fromPlain({ name: 'Due', trigger: { type: 'date', list: 'Tasks', field: 'dueDate', offsetHours: -24 } }),
+    );
+    expect(date.trigger).toMatchObject({ type: 'date', list: 'Tasks', field: 'dueDate', offsetHours: -24 });
+    expect(date.trigger).not.toHaveProperty('cron');
+  });
 });

@@ -34,6 +34,12 @@ const triggerLabels: Record<string, string> = {
   itemUpdated: 'An item changes',
   itemDeleted: 'An item is deleted',
   itemRestored: 'An item is restored',
+  schedule: 'On a schedule',
+  date: 'A date of an item is reached',
+  'document.processed': 'A document is processed',
+  'task.completed': 'A task is completed',
+  'comment.added': 'Someone comments',
+  'approval.decided': 'An approval is decided',
 };
 
 /** Creates or changes a workflow (EVT-07…09): trigger, condition and steps, or the whole thing as JSON. */
@@ -162,22 +168,79 @@ export function WorkflowEditor({
                         </Select>
                       )}
                     </Row>
-                    <Row label="List">
-                      {(id) => (
-                        <Select
-                          id={id}
-                          value={draft.trigger.list}
-                          onChange={(e) => setTrigger({ list: e.target.value, contentType: '', changedFields: [] })}
-                        >
-                          <option value="">Any list</option>
-                          {lists?.map((l) => (
-                            <option key={l.id} value={l.name!}>
-                              {l.name}
-                            </option>
-                          ))}
-                        </Select>
-                      )}
-                    </Row>
+                    {draft.trigger.type === 'schedule' && (
+                      <>
+                        <Row label="Cron" hint="Minute hour day month weekday, e.g. 0 8 * * 1-5 (weekdays at 8:00).">
+                          {(id) => (
+                            <Input
+                              id={id}
+                              className="font-mono text-xs"
+                              value={draft.trigger.cron}
+                              onChange={(e) => setTrigger({ cron: e.target.value })}
+                            />
+                          )}
+                        </Row>
+                        <Row label="Time zone" hint="Optional, e.g. Europe/Berlin. Default: the organization's.">
+                          {(id) => (
+                            <Input
+                              id={id}
+                              value={draft.trigger.timeZone}
+                              onChange={(e) => setTrigger({ timeZone: e.target.value })}
+                            />
+                          )}
+                        </Row>
+                      </>
+                    )}
+                    {draft.trigger.type !== 'schedule' && (
+                      <Row label="List">
+                        {(id) => (
+                          <Select
+                            id={id}
+                            value={draft.trigger.list}
+                            onChange={(e) => setTrigger({ list: e.target.value, contentType: '', changedFields: [] })}
+                          >
+                            <option value="">Any list</option>
+                            {lists?.map((l) => (
+                              <option key={l.id} value={l.name!}>
+                                {l.name}
+                              </option>
+                            ))}
+                          </Select>
+                        )}
+                      </Row>
+                    )}
+                    {draft.trigger.type === 'date' && (
+                      <>
+                        <Row label="Date field">
+                          {(id) => (
+                            <Select
+                              id={id}
+                              value={draft.trigger.field}
+                              onChange={(e) => setTrigger({ field: e.target.value })}
+                            >
+                              <option value="">Choose a field</option>
+                              {fields
+                                .filter((f) => f.type === 'date' || f.type === 'dateTime')
+                                .map((f) => (
+                                  <option key={f.name} value={f.name!}>
+                                    {fieldLabel(f)}
+                                  </option>
+                                ))}
+                            </Select>
+                          )}
+                        </Row>
+                        <Row label="Hours after the date" hint="Negative for before, e.g. -24 for a day before.">
+                          {(id) => (
+                            <Input
+                              id={id}
+                              type="number"
+                              value={draft.trigger.offsetHours}
+                              onChange={(e) => setTrigger({ offsetHours: e.target.value })}
+                            />
+                          )}
+                        </Row>
+                      </>
+                    )}
                     {triggerList && (list?.contentTypes?.length ?? 0) > 1 && (
                       <Row label="Content type">
                         {(id) => (

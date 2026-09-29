@@ -7,6 +7,7 @@ using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Tasks.Data;
 using PaperDotNet.Tasks.Features;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Tasks;
 
@@ -38,6 +39,8 @@ public sealed class TasksModule : IModule
         services.AddScoped<TaskAccess>();
         services.AddEventSubscriber<ItemUpdated, RecurringTaskSpawner>();
         services.AddEventSubscriber<ItemPurged, PurgedTaskData>();
+        services.AddEventSubscriber<ItemUpdated, TaskCompletedTrigger>();
+        services.AddSingleton(new WorkflowTriggerDefinition(WorkflowTriggers.TaskCompleted, "A task was completed (data: completedBy)."));
         services.AddTenantRecurringJob<DueTaskReminderJob>(DueTaskReminderJob.Name, DueTaskReminderJob.Schedule);
         services.AddScopes(TaskScopes.All);
     }

@@ -34,7 +34,8 @@ public static class ResumeRunHandler
 
 /// <summary>A run to start; with an <see cref="Error"/> (e.g. a condition that cannot be checked) it is saved as failed.</summary>
 internal sealed record WorkflowStart(
-    WorkflowDefinition Workflow, WorkflowItem? Item, Guid? EventId, string? Data, int Depth, Guid? StartedBy, string? Error = null);
+    WorkflowDefinition Workflow, WorkflowItem? Item, Guid? EventId, string? Data, int Depth, Guid? StartedBy, string? Error = null,
+    JsonObject? Variables = null);
 
 /// <summary>Starts runs of a workspace's workflows.</summary>
 internal sealed class WorkflowStarter(
@@ -71,6 +72,7 @@ internal sealed class WorkflowStarter(
                 ItemId = start.Item?.ItemId,
                 EventId = start.EventId,
                 Data = start.Data,
+                Variables = start.Variables?.ToJsonString() ?? "{}",
                 Status = RunStatus.Running,
                 Depth = start.Depth,
                 StartedBy = start.StartedBy,
@@ -97,55 +99,154 @@ internal sealed class WorkflowStarter(
         return runs;
     }
 
-    /// <summary>Starts a workflow with the <c>manual</c> trigger on an item, by name.</summary>
-    public async Task<(WorkflowRun? Run, string? Error)> StartManualAsync(WorkflowItem item, string name, Guid? startedBy, CancellationToken ct)
-    {
-        var workflow = await db.Workflows.AsNoTracking().FirstOrDefaultAsync(a => a.WorkspaceId == item.WorkspaceId && a.Name == name, ct);
-        if (workflow is null)
-        {
-            return (null, $"The workflow '{name}' does not exist in the workspace.");
-        }
+    /// <summary>Most items one manual start covers.</summary>
+    public const int MaxItemsPerStart = 100;
 
+    /// <summary>
+    /// Starts a workflow with the <c>manual</c> trigger: once per item, or once without an item when there are none
+    /// (only for triggers without a list). Every item and the inputs are checked before anything starts; the inputs
+    /// become the runs' variables.
+    /// </summary>
+    public async Task<(List<WorkflowRun> Runs, string? Error)> StartManualAsync(
+        WorkflowDefinition workflow, IReadOnlyList<WorkflowItem> targets, JsonObject? inputs, Guid? startedBy, CancellationToken ct)
+    {
+        var name = workflow.Name;
         if (workflow.Trigger != WorkflowTriggers.Manual)
         {
-            return (null, $"The workflow '{name}' is not started manually (its trigger is {workflow.Trigger}).");
+            return ([], $"The workflow '{name}' is not started manually (its trigger is {workflow.Trigger}).");
         }
 
         if (!workflow.Enabled)
         {
-            return (null, $"The workflow '{name}' is disabled.");
+            return ([], $"The workflow '{name}' is disabled.");
         }
 
         var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
+        if (WorkflowInputs.Check(spec.Trigger.Inputs, inputs) is { } invalid)
+        {
+            return ([], invalid);
+        }
+
+        if (targets.Count == 0 && spec.Trigger.List is { } needed)
+        {
+            return ([], $"The workflow '{name}' runs on items of the list '{needed}'; choose items.");
+        }
+
         var store = items.AsSystem();
-        var list = await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
-        if (spec.Trigger.List is { } listName && list?.Name != listName)
+        foreach (var item in targets)
         {
-            return (null, $"The workflow '{name}' only runs on items of the list '{listName}'.");
-        }
-
-        if (spec.Trigger.ContentType is { } type)
-        {
-            var data = await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
-            var contentType = list?.ContentTypes.FirstOrDefault(c => c.Id == data?.ContentTypeId);
-            if (contentType?.Name != type && contentType?.Key != type)
+            var list = await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
+            if (spec.Trigger.List is { } listName && list?.Name != listName)
             {
-                return (null, $"The workflow '{name}' only runs on items of the content type '{type}'.");
+                return ([], $"The workflow '{name}' only runs on items of the list '{listName}'.");
+            }
+
+            if (spec.Trigger.ContentType is { } type)
+            {
+                var data = await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
+                var contentType = list?.ContentTypes.FirstOrDefault(c => c.Id == data?.ContentTypeId);
+                if (contentType?.Name != type && contentType?.Key != type)
+                {
+                    return ([], $"The workflow '{name}' only runs on items of the content type '{type}'.");
+                }
+            }
+
+            if (spec.Condition is { } condition)
+            {
+                var (matches, error) = await CheckConditionAsync(item, condition, ct);
+                if (!matches)
+                {
+                    return ([], error ?? "The item does not match the workflow's condition.");
+                }
             }
         }
 
-        if (spec.Condition is { } condition)
+        var each = targets.Count == 0 ? [null] : targets.Select(t => (WorkflowItem?)t).ToList();
+        var runs = await StartAsync([.. each.Select(item => new WorkflowStart(workflow, item, null, null, causation.Depth, startedBy, Variables: inputs))], ct);
+        return (runs, null);
+    }
+}
+
+/// <summary>
+/// Inputs of manual starts: the trigger's <c>inputs</c> describe them as a JSON Schema object (<c>properties</c> with a
+/// <c>type</c> each, <c>required</c>); a start's values are checked against it and become run variables.
+/// </summary>
+internal static class WorkflowInputs
+{
+    private static readonly string[] Types = ["string", "number", "integer", "boolean", "array", "object"];
+
+    /// <summary>Checks the schema itself when a workflow is saved.</summary>
+    public static IEnumerable<string> ValidateSchema(JsonObject? schema)
+    {
+        if (schema is null)
         {
-            var (matches, error) = await CheckConditionAsync(item, condition, ct);
-            if (!matches)
+            yield break;
+        }
+
+        if (schema["properties"] is not JsonObject properties)
+        {
+            yield return "inputs needs properties (a JSON Schema object).";
+            yield break;
+        }
+
+        foreach (var (name, property) in properties)
+        {
+            if (property?["type"] is not JsonValue type || !Types.Contains(type.ToString()))
             {
-                return (null, error ?? "The item does not match the workflow's condition.");
+                yield return $"inputs.{name} needs a type ({string.Join(", ", Types)}).";
             }
         }
 
-        var runs = await StartAsync([new WorkflowStart(workflow, item, null, null, causation.Depth, startedBy)], ct);
-        return (runs[0], null);
+        foreach (var required in schema["required"] as JsonArray ?? [])
+        {
+            if (required?.ToString() is not { } name || !properties.ContainsKey(name))
+            {
+                yield return $"inputs.required names '{required}', which is not a property.";
+            }
+        }
+    }
+
+    /// <summary>Why the values do not fit the schema, or null (no schema: any values).</summary>
+    public static string? Check(JsonObject? schema, JsonObject? values)
+    {
+        if (schema?["properties"] is not JsonObject properties)
+        {
+            return null;
+        }
+
+        foreach (var required in schema["required"] as JsonArray ?? [])
+        {
+            if (required?.ToString() is { } name && values?[name] is null)
+            {
+                return $"The input '{name}' is required.";
+            }
+        }
+
+        foreach (var (name, value) in values ?? [])
+        {
+            if (properties[name]?["type"]?.ToString() is not { } type)
+            {
+                return $"Unknown input '{name}'.";
+            }
+
+            var kind = value?.GetValueKind();
+            var fits = type switch
+            {
+                "string" => kind == System.Text.Json.JsonValueKind.String,
+                "number" => kind == System.Text.Json.JsonValueKind.Number,
+                "integer" => kind == System.Text.Json.JsonValueKind.Number && value!.ToJsonString().All(c => char.IsDigit(c) || c == '-'),
+                "boolean" => kind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False,
+                "array" => kind == System.Text.Json.JsonValueKind.Array,
+                _ => kind == System.Text.Json.JsonValueKind.Object,
+            };
+            if (value is not null && !fits)
+            {
+                return $"The input '{name}' must be of type {type}.";
+            }
+        }
+
+        return null;
     }
 }
 
@@ -401,10 +502,15 @@ internal sealed partial class WorkflowInterpreter(
         if (run.Node is null)
         {
             run.Node = flow.Start;
-            if (spec.Variables is { } initial)
+
+            // The definition's initial variables, overridden by the inputs of a manual start.
+            var initial = spec.Variables?.DeepClone().AsObject() ?? [];
+            foreach (var (name, value) in variables)
             {
-                variables = initial.DeepClone().AsObject();
+                initial[name] = value?.DeepClone();
             }
+
+            variables = initial;
         }
 
         if (run.Status == RunStatus.Waiting)
@@ -723,9 +829,33 @@ internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantC
                 messages.Add(Resume(bookmark.RunId, bookmark.Id));
             }
 
+            // Workflows can react to the decision (approval.decided), one level deeper than the run that asked.
+            var origin = await db.Runs.AsNoTracking().Where(r => r.Id == approval.RunId)
+                .Select(r => new { r.Depth, Workflow = db.Workflows.Where(w => w.Id == r.WorkflowId).Select(w => w.Name).FirstOrDefault() })
+                .FirstOrDefaultAsync(ct);
+            var decided = new WorkflowTriggerRaised
+            {
+                TenantId = tenant.TenantId!.Value,
+                TenantIdentifier = tenant.TenantIdentifier!,
+                UserId = userId,
+                Depth = (origin?.Depth ?? 0) + 1,
+                Trigger = WorkflowTriggers.ApprovalDecided,
+                WorkspaceId = approval.WorkspaceId,
+                ListId = approval.ListId,
+                ItemId = approval.ItemId,
+                Data = new JsonObject
+                {
+                    ["workflow"] = origin?.Workflow,
+                    ["step"] = approval.StepName,
+                    ["outcome"] = outcome,
+                    ["comment"] = comment,
+                    ["decidedBy"] = userId.ToString(),
+                }.ToJsonString(),
+            };
+
             try
             {
-                await outbox.SaveChangesAsync(db, [], messages, ct);
+                await outbox.SaveChangesAsync(db, [decided], messages, ct);
             }
             catch (DbUpdateConcurrencyException) when (attempt < 3)
             {

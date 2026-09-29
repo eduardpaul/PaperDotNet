@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.Versioning;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using CliWrap;
 using CliWrap.Buffered;
@@ -13,6 +14,7 @@ using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
+using PaperDotNet.Workflows.Contracts;
 using SkiaSharp;
 using UglyToad.PdfPig;
 
@@ -66,6 +68,7 @@ internal sealed partial class DocumentProcessor(
     IListItemStore items,
     ILiveEvents live,
     IUserPreferences preferences,
+    IWorkflowTriggers triggers,
     ITenantContext tenant,
     ICurrentUser user,
     ILogger<DocumentProcessor> logger) : OperationHandler<ProcessFile>
@@ -90,6 +93,10 @@ internal sealed partial class DocumentProcessor(
         {
             var result = await ProcessAsync(version, payload, progress, ct);
             await SetStatusAsync(version, ProcessingStatus.Succeeded, null, ct);
+
+            // Workflows on the document's text (ADR-0036): item events come before the text exists.
+            await triggers.RaiseAsync(WorkflowTriggers.DocumentProcessed, version.WorkspaceId, new WorkflowItem(version.WorkspaceId, version.ListId, version.ItemId),
+                new JsonObject { ["version"] = result.Number, ["pageCount"] = result.PageCount, ["ocr"] = result.Ocr }, ct);
             return result;
         }
 #pragma warning disable CA1031 // Any failure is recorded on the version; the operation fails too.
@@ -104,7 +111,10 @@ internal sealed partial class DocumentProcessor(
         }
     }
 
-    private async Task<object> ProcessAsync(FileVersion version, ProcessFile payload, IOperationProgress progress, CancellationToken ct)
+    /// <summary>The operation's result: the current version, its pages and whether OCR ran.</summary>
+    private sealed record ProcessingResult(int Number, int? PageCount, bool Ocr);
+
+    private async Task<ProcessingResult> ProcessAsync(FileVersion version, ProcessFile payload, IOperationProgress progress, CancellationToken ct)
     {
         var stored = await db.StoredFiles.FirstAsync(f => f.Id == version.StoredFileId, ct);
         var settings = await db.LibrarySettings.AsNoTracking().FirstOrDefaultAsync(s => s.ListId == version.ListId, ct);
@@ -159,7 +169,7 @@ internal sealed partial class DocumentProcessor(
             await db.SaveChangesAsync(ct);
             await items.ReindexAsync(version.ItemId, ct);
             await renderer.WarmThumbnailAsync(current, ct);
-            return new { current.Number, current.PageCount, Ocr = needsOcr };
+            return new ProcessingResult(current.Number, current.PageCount, needsOcr);
         }
         finally
         {

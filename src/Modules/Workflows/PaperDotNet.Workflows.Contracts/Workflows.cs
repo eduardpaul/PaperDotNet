@@ -124,7 +124,14 @@ public sealed record WorkflowTriggerDefinition(string Key, string Description);
 /// <summary>Starts the workflows of an extension trigger (in the background, like item events).</summary>
 public interface IWorkflowTriggers
 {
-    Task RaiseAsync(string triggerKey, Guid workspaceId, WorkflowItem? item, JsonObject? data, CancellationToken cancellationToken);
+    Task RaiseAsync(string triggerKey, Guid workspaceId, WorkflowItem? item, JsonObject? data, CancellationToken cancellationToken) =>
+        RaiseAsync(triggerKey, workspaceId, item, data, Guid.CreateVersion7(), cancellationToken);
+
+    /// <summary>
+    /// Raises the trigger as the event <paramref name="eventId"/>: raising it again with the same id starts nothing new
+    /// (use the id of what caused it, e.g. the item event a subscriber handles, so a redelivery is harmless).
+    /// </summary>
+    Task RaiseAsync(string triggerKey, Guid workspaceId, WorkflowItem? item, JsonObject? data, Guid eventId, CancellationToken cancellationToken);
 }
 
 /// <summary>Built-in trigger types of workflows.</summary>
@@ -137,4 +144,22 @@ public static class WorkflowTriggers
     public const string ItemUpdated = "itemUpdated";
     public const string ItemDeleted = "itemDeleted";
     public const string ItemRestored = "itemRestored";
+
+    /// <summary>On a schedule: <c>cron</c> (5 fields) in <c>timeZone</c> (default: the organization's); no item.</summary>
+    public const string Schedule = "schedule";
+
+    /// <summary>A set time before or after a date field of the list's items (<c>list</c>, <c>field</c>, <c>offsetHours</c>).</summary>
+    public const string Date = "date";
+
+    /// <summary>A document's file was processed: text extracted and OCR done (raised by Documents; data: <c>version</c>, <c>pageCount</c>, <c>ocr</c>).</summary>
+    public const string DocumentProcessed = "document.processed";
+
+    /// <summary>An approval of a workflow run was decided (data: <c>workflow</c>, <c>step</c>, <c>outcome</c>, <c>comment</c>).</summary>
+    public const string ApprovalDecided = "approval.decided";
+
+    /// <summary>A task was completed (raised by Tasks; data: <c>completedBy</c>).</summary>
+    public const string TaskCompleted = "task.completed";
+
+    /// <summary>A comment was added to an item (raised by Collaboration; data: <c>commentId</c>, <c>text</c>, <c>author</c>).</summary>
+    public const string CommentAdded = "comment.added";
 }

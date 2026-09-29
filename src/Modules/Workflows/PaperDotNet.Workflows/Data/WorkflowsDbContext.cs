@@ -156,6 +156,30 @@ public sealed class WorkflowRun : ITenantOwned, IVersioned
     public uint Version { get; set; }
 }
 
+/// <summary>
+/// Where the schedule job is with a workflow that has a <c>schedule</c> or <c>date</c> trigger (kept apart from the
+/// audited definition). A row belongs to one version and enabled state of the workflow; a change starts over.
+/// </summary>
+[NotAudited]
+public sealed class WorkflowSchedule : ITenantOwned, IVersioned
+{
+    /// <summary>The workflow's id.</summary>
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    /// <summary>The workflow version the row was computed for.</summary>
+    public int WorkflowVersion { get; set; }
+
+    /// <summary>The next occurrence of a schedule.</summary>
+    public DateTimeOffset? NextAt { get; set; }
+
+    /// <summary>Up to when date triggers were checked.</summary>
+    public DateTimeOffset? CheckedUntil { get; set; }
+
+    public uint Version { get; set; }
+}
+
 /// <summary>Kinds of bookmarks the engine creates itself; other modules complete bookmarks of their own kinds.</summary>
 public static class BookmarkKinds
 {
@@ -273,6 +297,8 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
 
     public DbSet<WorkflowBookmark> Bookmarks => Set<WorkflowBookmark>();
 
+    public DbSet<WorkflowSchedule> Schedules => Set<WorkflowSchedule>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
@@ -322,6 +348,11 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
             b.HasIndex(k => new { k.TenantId, k.Kind, k.Key }).IsUnique();
             b.HasIndex(k => k.RunId);
             b.HasIndex(k => new { k.CompletedAt, k.ResumeAt });
+        });
+        modelBuilder.Entity<WorkflowSchedule>(b =>
+        {
+            b.ToTable("schedules");
+            b.Property(s => s.Id).ValueGeneratedNever();
         });
         modelBuilder.ApplyPaperDotNetConventions(this);
     }

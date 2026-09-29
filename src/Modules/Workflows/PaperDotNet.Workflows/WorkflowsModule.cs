@@ -62,6 +62,7 @@ public sealed class WorkflowsModule : IModule
         services.AddScoped<RunService>();
         services.AddScoped<IWorkflowBookmarks, WorkflowBookmarks>();
         services.AddTenantRecurringJob<WorkflowTimerJob>(WorkflowTimerJob.Name, WorkflowTimerJob.Schedule);
+        services.AddTenantRecurringJob<WorkflowScheduleJob>(WorkflowScheduleJob.Name, WorkflowScheduleJob.Schedule);
         services.AddTenantRecurringJob<WorkflowRunCleanupJob>(WorkflowRunCleanupJob.Name, WorkflowRunCleanupJob.Schedule);
 
         services.AddScoped<ITemplateHandler, WorkflowTemplateHandler>();

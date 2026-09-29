@@ -34,7 +34,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Workflows
         {
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.RunResponse"/></returns>
-        /// <param name="body">The request body</param>
+        /// <param name="body">Starts a `manual` workflow on an item, by name; `inputs` become run variables (checked against the trigger&apos;s `inputs`).</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
         /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 400 status code</exception>
@@ -58,7 +58,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Workflows
             return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.RunResponse>(requestInfo, global::PaperDotNet.Client.Models.RunResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <returns>A <see cref="RequestInformation"/></returns>
-        /// <param name="body">The request body</param>
+        /// <param name="body">Starts a `manual` workflow on an item, by name; `inputs` become run variables (checked against the trigger&apos;s `inputs`).</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable

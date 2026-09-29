@@ -11,7 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface WorkflowsRequestBuilder extends BaseRequestBuilder<WorkflowsRequestBuilder> {
     /**
-     * @param body The request body
+     * @param body Starts a `manual` workflow on an item, by name; `inputs` become run variables (checked against the trigger's `inputs`).
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<RunResponse>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -19,7 +19,7 @@ export interface WorkflowsRequestBuilder extends BaseRequestBuilder<WorkflowsReq
      */
      post(body: StartWorkflowRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<RunResponse | undefined>;
     /**
-     * @param body The request body
+     * @param body Starts a `manual` workflow on an item, by name; `inputs` become run variables (checked against the trigger's `inputs`).
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

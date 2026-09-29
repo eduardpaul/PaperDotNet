@@ -1,10 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Workflow (phase 5b): rules, workflows (resumed through Wolverine messages), approvals,
-    actions and triggers from extensions, path templates (EVT-07…09, DOC-14; ADR-0018, ADR-0019).
+    Workflows (ADR-0036; before: automation, phase 5b): flows resumed through Wolverine messages, approvals,
+    waits, schedules and date triggers, activities and triggers from modules and extensions, path templates
+    (EVT-07…11, DOC-14).
   -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Cronos" />
     <ProjectReference Include="..\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
     <ProjectReference Include="..\..\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
     <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />

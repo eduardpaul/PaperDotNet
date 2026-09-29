@@ -14,35 +14,35 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
-    from .........models.api_problem import ApiProblem
-    from .........models.run_response import RunResponse
-    from .........models.start_workflow_request import StartWorkflowRequest
+    from .......models.api_problem import ApiProblem
+    from .......models.run_response import RunResponse
+    from .......models.start_runs_request import StartRunsRequest
 
-class WorkflowsRequestBuilder(BaseRequestBuilder):
+class RunsRequestBuilder(BaseRequestBuilder):
     """
-    Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/workflows
+    Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/workflows/{id}/runs
     """
     def __init__(self,request_adapter: RequestAdapter, path_parameters: Union[str, dict[str, Any]]) -> None:
         """
-        Instantiates a new WorkflowsRequestBuilder and sets the default values.
+        Instantiates a new RunsRequestBuilder and sets the default values.
         param path_parameters: The raw url or the url-template parameters for the request.
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/workflows", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/workflows/{id}/runs", path_parameters)
     
-    async def post(self,body: StartWorkflowRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[RunResponse]:
+    async def post(self,body: StartRunsRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[list[RunResponse]]:
         """
-        param body: Starts a `manual` workflow on an item, by name; `inputs` become run variables (checked against the trigger's `inputs`).
+        param body: Starts a `manual` workflow: once per item of `itemIds` (in `listId`, at most 100), or once without anitem when there are none (for workflows whose trigger has no list). `inputs` become run variables.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
-        Returns: Optional[RunResponse]
+        Returns: Optional[list[RunResponse]]
         """
         if body is None:
             raise TypeError("body cannot be null.")
         request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from .........models.api_problem import ApiProblem
+        from .......models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
             "400": ApiProblem,
@@ -50,13 +50,13 @@ class WorkflowsRequestBuilder(BaseRequestBuilder):
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
-        from .........models.run_response import RunResponse
+        from .......models.run_response import RunResponse
 
-        return await self.request_adapter.send_async(request_info, RunResponse, error_mapping)
+        return await self.request_adapter.send_collection_async(request_info, RunResponse, error_mapping)
     
-    def to_post_request_information(self,body: StartWorkflowRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_post_request_information(self,body: StartRunsRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        param body: Starts a `manual` workflow on an item, by name; `inputs` become run variables (checked against the trigger's `inputs`).
+        param body: Starts a `manual` workflow: once per item of `itemIds` (in `listId`, at most 100), or once without anitem when there are none (for workflows whose trigger has no list). `inputs` become run variables.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
@@ -68,18 +68,18 @@ class WorkflowsRequestBuilder(BaseRequestBuilder):
         request_info.set_content_from_parsable(self.request_adapter, "application/json", body)
         return request_info
     
-    def with_url(self,raw_url: str) -> WorkflowsRequestBuilder:
+    def with_url(self,raw_url: str) -> RunsRequestBuilder:
         """
         Returns a request builder with the provided arbitrary URL. Using this method means any other path or query parameters are ignored.
         param raw_url: The raw URL to use for the request builder.
-        Returns: WorkflowsRequestBuilder
+        Returns: RunsRequestBuilder
         """
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
-        return WorkflowsRequestBuilder(self.request_adapter, raw_url)
+        return RunsRequestBuilder(self.request_adapter, raw_url)
     
     @dataclass
-    class WorkflowsRequestBuilderPostRequestConfiguration(RequestConfiguration[QueryParameters]):
+    class RunsRequestBuilderPostRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """

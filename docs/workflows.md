@@ -39,12 +39,33 @@ groups **by name**, so they are portable in templates.
 **Trigger** (`GET /v1.0/workflows/triggers`):
 
 - `type`:
-  - `manual`: a person starts it on an item (see below);
+  - `manual`: a person starts it (see below);
   - `itemAdded`, `itemUpdated`, `itemDeleted` (moved to the recycle bin),
     `itemRestored`;
+  - `schedule`: on `cron` (5 fields: minute hour day month weekday, e.g.
+    `0 8 * * 1-5`) in `timeZone` (default: the organization's). The run has
+    no item; `{trigger:occurrence}` is the time it is for.
+  - `date`: for each item of `list` when its date `field` plus `offsetHours`
+    (negative: before) is reached, e.g. a day before the due date
+    (`"field": "dueDate", "offsetHours": -24`). Dates without a time count
+    from midnight in the organization's time zone. `{trigger:date}` is the
+    date.
+  - `document.processed`: a document's file was processed, so its text
+    exists (data: `version`, `pageCount`, `ocr`). Use it instead of
+    `itemAdded` for anything that depends on the text.
+  - `task.completed` (data: `completedBy`), `comment.added` (data:
+    `commentId`, `text`, `author`, `reply`), `approval.decided` (data:
+    `workflow`, `step`, `outcome`, `comment`, `decidedBy`);
   - or an extension trigger.
 - `list`, `contentType` (name or key) and, for updates, `changedFields`
-  narrow it down. Folders never trigger workflows.
+  narrow it down. `terms` (term paths `Group/Set/Term`) needs the item to
+  have one of these terms, or a term below one, in any field. Folders never
+  trigger workflows.
+- **Timed triggers** start once per occurrence (`schedule`) or once per item
+  and date value (`date`), checked every minute. Only moments after the
+  workflow was saved or turned on count: a new workflow does not run for
+  dates in the past, and occurrences missed while the server was down run
+  once.
 
 **Condition:** an OData filter on the item, as in the items API. It needs the
 trigger's `list` and is checked when the trigger fires. An item that does not
@@ -127,10 +148,18 @@ The web editor edits steps; flows are edited in its JSON view for now.
 - **When runs start:** every trigger that matches starts one run, and the same
   event never starts a second run of the same workflow.
 - **Manual start:** start a `manual` workflow on an item with
-  `POST …/lists/{list}/items/{item}/workflows` `{ "workflow": "Invoice approval" }`.
-  - You need Contribute access to the item.
-  - The item must match the trigger's list and content type, and the
-    condition.
+  `POST …/lists/{list}/items/{item}/workflows` `{ "workflow": "Invoice approval" }`,
+  or on several items (up to 100) with
+  `POST …/workflows/{id}/runs` `{ "listId": …, "itemIds": [ … ] }`.
+  - You need Contribute access to the items.
+  - The items must match the trigger's list and content type, and the
+    condition; all are checked before anything starts.
+  - A `manual` workflow whose trigger has no list can also start without an
+    item: `POST …/workflows/{id}/runs` `{}` (Contribute on the workspace).
+  - The trigger's `inputs` describe what a person gives when starting it
+    (a JSON Schema object: `properties` with a `type` each, `required`).
+    Starts send `"inputs": { … }`; they are checked and become the run's
+    variables (`{var:label}`).
 - **Status and log:** `GET …/workflows/runs?workflowId=&itemId=&status=`
   shows each run's status (`running`, `waiting`, `completed`, `failed`,
   `cancelled`), its `node`, the approval `outcomes`, the `outputs` of the

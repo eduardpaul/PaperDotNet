@@ -164,3 +164,27 @@ test('a flow edited as JSON fails at a node and is retried from there', async ({
     await expect(run).toContainText('completed', { timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
 });
+
+test('a scheduled workflow is set up with a cron expression', async ({ page }) => {
+  const listUrl = await createList(page, 'Tasks', unique('Scheduled tasks'));
+  const workspaceUrl = listUrl.replace(/\/l\/.*$/, '');
+  await page.goto(`${workspaceUrl}/settings/workflows`);
+  await page.getByRole('button', { name: 'New workflow' }).click();
+
+  const editor = page.getByRole('dialog');
+  const name = unique('Morning plan');
+  await editor.getByLabel('Name', { exact: true }).fill(name);
+  await editor.getByLabel('Trigger').selectOption('schedule');
+  await expect(editor.getByLabel('List', { exact: true })).toBeHidden();
+  await editor.getByLabel('Cron').fill('0 8 * * 1-5');
+  await editor.getByLabel('Time zone').fill('Europe/Berlin');
+  const step = editor.getByRole('region', { name: /Step 1/ });
+  await step.getByLabel('Action').selectOption('notify');
+  await step.getByRole('combobox', { name: 'Notify' }).click();
+  await page.getByRole('option', { name: /creator/ }).click();
+  await page.keyboard.press('Escape');
+  await step.getByLabel('Title', { exact: true }).fill('Plan the day');
+  await editor.getByRole('button', { name: 'Create workflow' }).click();
+  await expect(page.getByText('Workflow created.')).toBeVisible();
+  await expect(page.getByRole('button', { name: new RegExp(`^${name}`) })).toContainText('On the schedule 0 8 * * 1-5');
+});

@@ -4,7 +4,7 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createWorkflowResponseFromDiscriminatorValue, serializeWorkflowRequest, serializeWorkflowResponse, type ApiProblem, type WorkflowRequest, type WorkflowResponse } from '../../../../models/index.js';
 // @ts-ignore
-import { type WorkflowsItemRequestBuilder, WorkflowsItemRequestBuilderRequestsMetadata } from './item/index.js';
+import { type WorkflowsItemRequestBuilder, WorkflowsItemRequestBuilderNavigationMetadata, WorkflowsItemRequestBuilderRequestsMetadata } from './item/index.js';
 // @ts-ignore
 import { RunsRequestBuilderNavigationMetadata, RunsRequestBuilderRequestsMetadata, type RunsRequestBuilder } from './runs/index.js';
 // @ts-ignore
@@ -60,6 +60,7 @@ export const WorkflowsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{w
 export const WorkflowsRequestBuilderNavigationMetadata: Record<Exclude<keyof WorkflowsRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     byId: {
         requestsMetadata: WorkflowsItemRequestBuilderRequestsMetadata,
+        navigationMetadata: WorkflowsItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["id"],
     },
     runs: {

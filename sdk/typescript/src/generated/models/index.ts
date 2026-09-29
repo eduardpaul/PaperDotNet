@@ -2440,6 +2440,15 @@ export function createSmartFolderResponseFromDiscriminatorValue(parseNode: Parse
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StartRunsRequest}
+ */
+// @ts-ignore
+export function createStartRunsRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStartRunsRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {StartWorkflowRequest}
  */
 // @ts-ignore
@@ -5318,12 +5327,26 @@ export function deserializeIntoSmartFolderResponse(smartFolderResponse: Partial<
 }
 /**
  * The deserialization information for the current model
+ * @param StartRunsRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStartRunsRequest(startRunsRequest: Partial<StartRunsRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "inputs": n => { startRunsRequest.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "itemIds": n => { startRunsRequest.itemIds = n.getCollectionOfPrimitiveValues<Guid>("string"); },
+        "listId": n => { startRunsRequest.listId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param StartWorkflowRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
 export function deserializeIntoStartWorkflowRequest(startWorkflowRequest: Partial<StartWorkflowRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "inputs": n => { startWorkflowRequest.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "workflow": n => { startWorkflowRequest.workflow = n.getStringValue(); },
     }
 }
@@ -5795,7 +5818,13 @@ export function deserializeIntoWorkflowTrigger(workflowTrigger: Partial<Workflow
     return {
         "changedFields": n => { workflowTrigger.changedFields = n.getCollectionOfPrimitiveValues<string>("string"); },
         "contentType": n => { workflowTrigger.contentType = n.getStringValue(); },
+        "cron": n => { workflowTrigger.cron = n.getStringValue(); },
+        "field": n => { workflowTrigger.field = n.getStringValue(); },
+        "inputs": n => { workflowTrigger.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "list": n => { workflowTrigger.list = n.getStringValue(); },
+        "offsetHours": n => { workflowTrigger.offsetHours = n.getNumberValue(); },
+        "terms": n => { workflowTrigger.terms = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "timeZone": n => { workflowTrigger.timeZone = n.getStringValue(); },
         "type": n => { workflowTrigger.type = n.getStringValue(); },
     }
 }
@@ -10516,12 +10545,27 @@ export function serializeSmartFolderResponse(writer: SerializationWriter, smartF
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StartRunsRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStartRunsRequest(writer: SerializationWriter, startRunsRequest: Partial<StartRunsRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!startRunsRequest || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<JsonObject>("inputs", startRunsRequest.inputs, serializeJsonObject);
+    writer.writeCollectionOfPrimitiveValues<Guid>("itemIds", startRunsRequest.itemIds);
+    writer.writeGuidValue("listId", startRunsRequest.listId);
+    writer.writeAdditionalData(startRunsRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param StartWorkflowRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
 export function serializeStartWorkflowRequest(writer: SerializationWriter, startWorkflowRequest: Partial<StartWorkflowRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!startWorkflowRequest || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<JsonObject>("inputs", startWorkflowRequest.inputs, serializeJsonObject);
     writer.writeStringValue("workflow", startWorkflowRequest.workflow);
     writer.writeAdditionalData(startWorkflowRequest.additionalData);
 }
@@ -11024,7 +11068,13 @@ export function serializeWorkflowTrigger(writer: SerializationWriter, workflowTr
     if (!workflowTrigger || isSerializingDerivedType) { return; }
     writer.writeCollectionOfPrimitiveValues<string>("changedFields", workflowTrigger.changedFields);
     writer.writeStringValue("contentType", workflowTrigger.contentType);
+    writer.writeStringValue("cron", workflowTrigger.cron);
+    writer.writeStringValue("field", workflowTrigger.field);
+    writer.writeObjectValue<JsonObject>("inputs", workflowTrigger.inputs, serializeJsonObject);
     writer.writeStringValue("list", workflowTrigger.list);
+    writer.writeNumberValue("offsetHours", workflowTrigger.offsetHours);
+    writer.writeCollectionOfPrimitiveValues<string>("terms", workflowTrigger.terms);
+    writer.writeStringValue("timeZone", workflowTrigger.timeZone);
     writer.writeStringValue("type", workflowTrigger.type);
     writer.writeAdditionalData(workflowTrigger.additionalData);
 }
@@ -11315,7 +11365,31 @@ export interface SmartFolderResponse extends AdditionalDataHolder, Parsable {
      */
     workspaceId?: Guid | null;
 }
+/**
+ * Starts a `manual` workflow: once per item of `itemIds` (in `listId`, at most 100), or once without anitem when there are none (for workflows whose trigger has no list). `inputs` become run variables.
+ */
+export interface StartRunsRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The inputs property
+     */
+    inputs?: JsonObject | null;
+    /**
+     * The itemIds property
+     */
+    itemIds?: Guid[] | null;
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
+}
+/**
+ * Starts a `manual` workflow on an item, by name; `inputs` become run variables (checked against the trigger's `inputs`).
+ */
 export interface StartWorkflowRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The inputs property
+     */
+    inputs?: JsonObject | null;
     /**
      * The workflow property
      */
@@ -11965,7 +12039,7 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      */
     steps?: WorkflowStep[] | null;
     /**
-     * When a workflow runs: `type` is `manual` (started on an item by a person), `itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored` or an extension trigger; `list` and`contentType` narrow it by name; `changedFields` (updates) needs one of them to change.
+     * When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization's). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).
      */
     trigger?: WorkflowTrigger | null;
     /**
@@ -12047,7 +12121,7 @@ export interface WorkflowStep extends AdditionalDataHolder, Parsable {
     type?: string | null;
 }
 /**
- * When a workflow runs: `type` is `manual` (started on an item by a person), `itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored` or an extension trigger; `list` and`contentType` narrow it by name; `changedFields` (updates) needs one of them to change.
+ * When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization's). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).
  */
 export interface WorkflowTrigger extends AdditionalDataHolder, Parsable {
     /**
@@ -12059,9 +12133,33 @@ export interface WorkflowTrigger extends AdditionalDataHolder, Parsable {
      */
     contentType?: string | null;
     /**
+     * The cron property
+     */
+    cron?: string | null;
+    /**
+     * The field property
+     */
+    field?: string | null;
+    /**
+     * The inputs property
+     */
+    inputs?: JsonObject | null;
+    /**
      * The list property
      */
     list?: string | null;
+    /**
+     * The offsetHours property
+     */
+    offsetHours?: number | null;
+    /**
+     * The terms property
+     */
+    terms?: string[] | null;
+    /**
+     * The timeZone property
+     */
+    timeZone?: string | null;
     /**
      * The type property
      */

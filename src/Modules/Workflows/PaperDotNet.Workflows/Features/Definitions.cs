@@ -6,11 +6,26 @@ using PaperDotNet.Workflows.Contracts;
 namespace PaperDotNet.Workflows.Features;
 
 /// <summary>
-/// When a workflow runs: <c>type</c> is <c>manual</c> (started on an item by a person), <c>itemAdded</c>,
-/// <c>itemUpdated</c>, <c>itemDeleted</c>, <c>itemRestored</c> or an extension trigger; <c>list</c> and
-/// <c>contentType</c> narrow it by name; <c>changedFields</c> (updates) needs one of them to change.
+/// When a workflow runs: <c>type</c> is <c>manual</c> (started by a person), an item event (<c>itemAdded</c>,
+/// <c>itemUpdated</c>, <c>itemDeleted</c>, <c>itemRestored</c>), <c>schedule</c>, <c>date</c>, a module trigger
+/// (<c>document.processed</c>, <c>approval.decided</c>, <c>task.completed</c>, <c>comment.added</c>) or an extension
+/// trigger. <c>list</c> and <c>contentType</c> narrow it by name; <c>changedFields</c> (updates) needs one of them to
+/// change; <c>terms</c> (term paths <c>Group/Set/Term</c>) needs the item to have one of them or a term below.
+/// <c>schedule</c> runs on <c>cron</c> (5 fields) in <c>timeZone</c> (default: the organization's). <c>date</c> runs for
+/// each item of <c>list</c> when its date <c>field</c> plus <c>offsetHours</c> (negative: before) is reached. <c>manual</c>
+/// may describe the <c>inputs</c> a person gives when starting it (a JSON Schema object; they become run variables).
 /// </summary>
-public sealed record WorkflowTrigger(string Type, string? List = null, string? ContentType = null, IReadOnlyList<string>? ChangedFields = null);
+public sealed record WorkflowTrigger(
+    string Type,
+    string? List = null,
+    string? ContentType = null,
+    IReadOnlyList<string>? ChangedFields = null,
+    IReadOnlyList<string>? Terms = null,
+    string? Cron = null,
+    string? TimeZone = null,
+    string? Field = null,
+    double? OffsetHours = null,
+    JsonObject? Inputs = null);
 
 /// <summary>An action with its inputs (strings may contain tokens such as <c>{title}</c>).</summary>
 public sealed record ActionDefinition(string Type, JsonObject? Inputs = null);
@@ -213,6 +228,8 @@ internal static class Definitions
             errors.Add("A condition needs the trigger's list (its fields).");
         }
 
+        errors.AddRange(ValidateTrigger(trigger));
+
         if (spec.Flow is not null && spec.Steps is { Count: > 0 })
         {
             errors.Add("Use either steps or flow, not both.");
@@ -227,6 +244,70 @@ internal static class Definitions
         }
 
         return errors;
+    }
+
+    /// <summary>Checks the settings of schedule and date triggers, and that other triggers do not use them.</summary>
+    private static IEnumerable<string> ValidateTrigger(WorkflowTrigger trigger)
+    {
+        var isSchedule = trigger.Type == WorkflowTriggers.Schedule;
+        var isDate = trigger.Type == WorkflowTriggers.Date;
+        if (isSchedule)
+        {
+            if (TriggerSchedules.ParseCron(trigger.Cron) is null)
+            {
+                yield return "schedule needs cron: 5 fields (minute hour day month weekday), e.g. 0 8 * * 1-5.";
+            }
+
+            if (trigger.List is not null || trigger.ContentType is not null || trigger.Terms is { Count: > 0 })
+            {
+                yield return "schedule runs without an item: list, contentType and terms do not apply.";
+            }
+        }
+        else if (trigger.Cron is not null)
+        {
+            yield return "cron is only used with schedule.";
+        }
+
+        if (trigger.TimeZone is { } zone && !TimeZoneInfo.TryFindSystemTimeZoneById(zone, out _))
+        {
+            yield return $"Unknown time zone '{zone}'.";
+        }
+        else if (trigger.TimeZone is not null && !isSchedule)
+        {
+            yield return "timeZone is only used with schedule.";
+        }
+
+        if (isDate)
+        {
+            if (trigger.List is null || string.IsNullOrWhiteSpace(trigger.Field))
+            {
+                yield return "date needs list and field (a date field of the list).";
+            }
+
+            if (trigger.OffsetHours is { } offset && (double.IsNaN(offset) || Math.Abs(offset) > 24 * 366))
+            {
+                yield return "offsetHours must be within a year.";
+            }
+        }
+        else if (trigger.Field is not null || trigger.OffsetHours is not null)
+        {
+            yield return "field and offsetHours are only used with date.";
+        }
+
+        if (trigger.Terms is { Count: > 0 } terms && terms.Any(string.IsNullOrWhiteSpace))
+        {
+            yield return "terms are term paths such as Group/Set/Term.";
+        }
+
+        if (trigger.Inputs is not null && trigger.Type != WorkflowTriggers.Manual)
+        {
+            yield return "inputs are only used with manual.";
+        }
+
+        foreach (var error in WorkflowInputs.ValidateSchema(trigger.Inputs))
+        {
+            yield return error;
+        }
     }
 
     /// <summary>The flow a run executes: the definition's flow, or its steps compiled into one.</summary>

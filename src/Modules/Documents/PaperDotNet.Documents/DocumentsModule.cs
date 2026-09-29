@@ -11,6 +11,7 @@ using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Mcp.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Provisioning.Contracts;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Documents;
 
@@ -57,6 +58,8 @@ public sealed class DocumentsModule : IModule
         services.AddEventSubscriber<ItemPurged, PurgedItemFiles>();
         services.AddEventSubscriber<PrincipalDeleted, DeletedGroupInbox>();
         services.AddTenantRecurringJob<StoredFileCleanupJob>(StoredFileCleanupJob.Name, StoredFileCleanupJob.Schedule);
+        services.AddSingleton(new WorkflowTriggerDefinition(WorkflowTriggers.DocumentProcessed,
+            "A document's file was processed: text extracted and OCR done (data: version, pageCount, ocr)."));
         services.AddScoped<ITemplateHandler, LibrarySettingsTemplateHandler>();
         services.AddScoped<ITemplateHandler, DocumentFilesTemplateHandler>();
         services.AddScopes(DocumentScopes.All);

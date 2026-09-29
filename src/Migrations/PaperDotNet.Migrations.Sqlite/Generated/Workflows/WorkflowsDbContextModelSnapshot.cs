@@ -496,6 +496,42 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                     b.ToTable("automation_runs", (string)null);
                 });
 
+            modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowSchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<long?>("CheckedUntil")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("checked_until");
+
+                    b.Property<long?>("NextAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("next_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version");
+
+                    b.Property<int>("WorkflowVersion")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("workflow_version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_automation_schedules");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_automation_schedules_tenant_id");
+
+                    b.ToTable("automation_schedules", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowVersion", b =>
                 {
                     b.Property<Guid>("Id")

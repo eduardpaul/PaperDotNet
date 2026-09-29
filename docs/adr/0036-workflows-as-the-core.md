@@ -111,7 +111,7 @@ A workflow has:
 ```json
 {
   "name": "Receipts: extract and file",
-  "triggers": [{ "type": "document.processed", "list": "Receipts", "terms": ["Tags/Receipt"] }],
+  "triggers": [{ "type": "document.processed", "list": "Receipts", "terms": ["Documents/Tags/Receipt"] }],
   "flow": {
     "start": "extract",
     "nodes": {
@@ -288,3 +288,18 @@ These defaults were chosen when implementation started; each can still be change
   Wolverine scheduled messages for more precise timers are left for later.
 - **Templates.** Workflow definitions export with lists and libraries in `urn:paperdotnet:workflow:1`
   (flows included). Organization workflows and built-in workflow states join the tenant level in 9d and 9g.
+
+**9b (done):**
+
+- **Module triggers** are ordinary raised triggers: Documents, Tasks and Collaboration register a
+  `WorkflowTriggerDefinition` and call `IWorkflowTriggers.RaiseAsync`, with the id of what caused it as the
+  event id where there is one (the item event, the comment), so a redelivery starts nothing twice.
+  `approval.decided` is saved with the decision. There is no separate trigger-provider contract.
+- **Timed triggers** run from one tenant job every minute (`workflows.schedules`). Its state lives in a
+  separate, non-audited table (`schedules`), so the job does not write audit entries. Event ids are derived
+  from the workflow and the occurrence (or the item and its date value), so the unique run per workflow and
+  event stops double starts. A date trigger queries the list with an OData filter on the date window, so
+  the field should be indexed at scale (ADR-0035).
+- **Terms** are matched by path, with the terms below them, in any field of the item.
+- **Manual inputs** are a JSON Schema object on the trigger, checked with a small validator (types and
+  required only). The form built from them comes with the designer (9f).

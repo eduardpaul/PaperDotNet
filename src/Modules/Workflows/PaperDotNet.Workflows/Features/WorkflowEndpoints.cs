@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workflows.Data;
 using PaperDotNet.Workspaces.Contracts;
@@ -37,7 +38,14 @@ public sealed record WorkflowResponse(
     public string? ETag { get; init; }
 }
 
-public sealed record StartWorkflowRequest([property: Required] string Workflow);
+/// <summary>Starts a <c>manual</c> workflow on an item, by name; <c>inputs</c> become run variables (checked against the trigger's <c>inputs</c>).</summary>
+public sealed record StartWorkflowRequest([property: Required] string Workflow, JsonObject? Inputs = null);
+
+/// <summary>
+/// Starts a <c>manual</c> workflow: once per item of <c>itemIds</c> (in <c>listId</c>, at most 100), or once without an
+/// item when there are none (for workflows whose trigger has no list). <c>inputs</c> become run variables.
+/// </summary>
+public sealed record StartRunsRequest(Guid? ListId = null, IReadOnlyList<Guid>? ItemIds = null, JsonObject? Inputs = null);
 
 /// <summary>
 /// A run: its <c>node</c> (next or waited on), the approval <c>outcomes</c> by node, the <c>outputs</c> of the nodes that
@@ -79,6 +87,7 @@ internal static class WorkflowEndpoints
         group.MapGet("/runs/{id:guid}", GetRunAsync).RequireScope(WorkflowScopes.Read).WithName("GetWorkflowRun");
         group.MapPost("/runs/{id:guid}/cancel", CancelRunAsync).RequireScope(WorkflowScopes.Write).WithName("CancelWorkflowRun");
         group.MapPost("/runs/{id:guid}/retry", RetryRunAsync).RequireScope(WorkflowScopes.Write).WithName("RetryWorkflowRun");
+        group.MapPost("/{id:guid}/runs", StartRunsAsync).RequireScope(WorkflowScopes.Write).WithName("StartWorkflowRuns");
 
         endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}/workflows", "Workflows")
             .MapPost("", StartAsync).RequireScope(WorkflowScopes.Write).WithName("StartWorkflow");
@@ -281,13 +290,77 @@ internal static class WorkflowEndpoints
             return ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "Contributing to the item is required.");
         }
 
-        var (run, error) = await starter.StartManualAsync(new WorkflowItem(workspaceId, listId, itemId), request.Workflow.Trim(), user.UserId, ct);
-        if (run is null)
+        var name = request.Workflow.Trim();
+        var workflow = await db.Workflows.AsNoTracking().FirstOrDefaultAsync(a => a.WorkspaceId == workspaceId && a.Name == name, ct);
+        if (workflow is null)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [error!] });
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [$"The workflow '{name}' does not exist in the workspace."] });
         }
 
-        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/workflows/runs/{run.Id}", await ToResponseAsync(db, run, ct));
+        var (runs, error) = await starter.StartManualAsync(workflow, [new WorkflowItem(workspaceId, listId, itemId)], request.Inputs, user.UserId, ct);
+        if (error is not null)
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [error] });
+        }
+
+        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/workflows/runs/{runs[0].Id}", await ToResponseAsync(db, runs[0], ct));
+    }
+
+    /// <summary>
+    /// Starts a <c>manual</c> workflow on several items (Contribute on each), or once without an item (Contribute on the
+    /// workspace); all items are checked before anything starts.
+    /// </summary>
+    private static async Task<Results<Ok<List<RunResponse>>, ValidationProblem, ProblemHttpResult>> StartRunsAsync(
+        Guid workspaceId, Guid id, StartRunsRequest request, IWorkspaceAccess workspaces, IListItemStore items, WorkflowStarter starter,
+        WorkflowsDbContext db, ICurrentUser user, CancellationToken ct)
+    {
+        if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Contribute, ct) is { } denied)
+        {
+            return denied;
+        }
+
+        var workflow = await db.Workflows.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id && a.WorkspaceId == workspaceId, ct);
+        if (workflow is null)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        var ids = request.ItemIds?.Distinct().ToList() ?? [];
+        if (ids.Count > WorkflowStarter.MaxItemsPerStart || (ids.Count > 0 && request.ListId is null))
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["itemIds"] = [$"Give listId and at most {WorkflowStarter.MaxItemsPerStart} items."] });
+        }
+
+        var targets = new List<WorkflowItem>();
+        foreach (var itemId in ids)
+        {
+            var item = await items.GetAsync(workspaceId, request.ListId!.Value, itemId, ct);
+            if (item is null)
+            {
+                return ApiErrors.Validation(new Dictionary<string, string[]> { ["itemIds"] = [$"The item {itemId} does not exist in the list."] });
+            }
+
+            if (item.Access < WorkspaceAccessLevel.Contribute)
+            {
+                return ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", $"Contributing to the item {itemId} is required.");
+            }
+
+            targets.Add(new WorkflowItem(workspaceId, request.ListId.Value, itemId));
+        }
+
+        var (runs, error) = await starter.StartManualAsync(workflow, targets, request.Inputs, user.UserId, ct);
+        if (error is not null)
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [error] });
+        }
+
+        var result = new List<RunResponse>();
+        foreach (var run in runs)
+        {
+            result.Add(await ToResponseAsync(db, run, ct));
+        }
+
+        return TypedResults.Ok(result);
     }
 
     /// <summary>Runs in the workspace, newest first; filter by <c>workflowId</c>, <c>itemId</c> or <c>status</c>.</summary>
@@ -447,7 +520,8 @@ internal static class WorkflowEndpoints
     {
         var level = await workspaces.GetPermissionAsync(workspaceId, ct);
         return level == WorkspaceAccessLevel.None ? ApiErrors.NotFound()
-            : level < needed ? ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "Managing the workspace is required.")
+            : level < needed ? ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied",
+                needed == WorkspaceAccessLevel.Manage ? "Managing the workspace is required." : "Contributing to the workspace is required.")
             : null;
     }
 
@@ -520,11 +594,19 @@ internal static class WorkflowWriter
 }
 
 /// <summary>Validation of workflows against the catalog and the workspace's lists.</summary>
-internal sealed class WorkflowValidator(TriggerCatalog triggers, ActionCatalog actions, IListItemStore items)
+internal sealed class WorkflowValidator(TriggerCatalog triggers, ActionCatalog actions, IListItemStore items, ITermStore terms)
 {
     public async Task<List<string>> ValidateAsync(Guid workspaceId, WorkflowSpec spec, CancellationToken ct)
     {
         var errors = Definitions.Validate(spec, triggers.Keys, actions);
+        foreach (var path in errors.Count > 0 ? [] : spec.Trigger.Terms ?? [])
+        {
+            if (await terms.FindTermByPathAsync(path, ct) is null)
+            {
+                errors.Add($"The term '{path}' does not exist (use a path such as Group/Set/Term).");
+            }
+        }
+
         if (errors.Count > 0 || spec.Trigger.List is not { } listName)
         {
             return errors;
@@ -540,6 +622,16 @@ internal sealed class WorkflowValidator(TriggerCatalog triggers, ActionCatalog a
         if (spec.Trigger.ContentType is { } type && !list.ContentTypes.Any(c => c.Name == type || c.Key == type))
         {
             errors.Add($"The list '{listName}' has no content type '{type}'.");
+        }
+
+        if (spec.Trigger.Type == WorkflowTriggers.Date)
+        {
+            var description = await items.AsSystem().DescribeListAsync(workspaceId, list.Id, ct);
+            var field = description?.ContentTypes.SelectMany(c => c.Fields).FirstOrDefault(f => f.Name == spec.Trigger.Field);
+            if (field?.Type is not ("date" or "dateTime"))
+            {
+                errors.Add($"The list '{listName}' has no date field '{spec.Trigger.Field}'.");
+            }
         }
 
         if (spec.Condition is { } condition)

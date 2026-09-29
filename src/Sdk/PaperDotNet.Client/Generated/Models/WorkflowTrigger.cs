@@ -8,7 +8,7 @@ using System;
 namespace PaperDotNet.Client.Models
 {
     /// <summary>
-    /// When a workflow runs: `type` is `manual` (started on an item by a person), `itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored` or an extension trigger; `list` and`contentType` narrow it by name; `changedFields` (updates) needs one of them to change.
+    /// When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization&apos;s). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WorkflowTrigger : IAdditionalDataHolder, IParsable
@@ -31,6 +31,30 @@ namespace PaperDotNet.Client.Models
 #else
         public string ContentType { get; set; }
 #endif
+        /// <summary>The cron property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Cron { get; set; }
+#nullable restore
+#else
+        public string Cron { get; set; }
+#endif
+        /// <summary>The field property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Field { get; set; }
+#nullable restore
+#else
+        public string Field { get; set; }
+#endif
+        /// <summary>The inputs property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? Inputs { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject Inputs { get; set; }
+#endif
         /// <summary>The list property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -38,6 +62,24 @@ namespace PaperDotNet.Client.Models
 #nullable restore
 #else
         public string List { get; set; }
+#endif
+        /// <summary>The offsetHours property</summary>
+        public double? OffsetHours { get; set; }
+        /// <summary>The terms property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<string>? Terms { get; set; }
+#nullable restore
+#else
+        public List<string> Terms { get; set; }
+#endif
+        /// <summary>The timeZone property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? TimeZone { get; set; }
+#nullable restore
+#else
+        public string TimeZone { get; set; }
 #endif
         /// <summary>The type property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -74,7 +116,13 @@ namespace PaperDotNet.Client.Models
             {
                 { "changedFields", n => { ChangedFields = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "contentType", n => { ContentType = n.GetStringValue(); } },
+                { "cron", n => { Cron = n.GetStringValue(); } },
+                { "field", n => { Field = n.GetStringValue(); } },
+                { "inputs", n => { Inputs = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "list", n => { List = n.GetStringValue(); } },
+                { "offsetHours", n => { OffsetHours = n.GetDoubleValue(); } },
+                { "terms", n => { Terms = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
+                { "timeZone", n => { TimeZone = n.GetStringValue(); } },
                 { "type", n => { Type = n.GetStringValue(); } },
             };
         }
@@ -87,7 +135,13 @@ namespace PaperDotNet.Client.Models
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteCollectionOfPrimitiveValues<string>("changedFields", ChangedFields);
             writer.WriteStringValue("contentType", ContentType);
+            writer.WriteStringValue("cron", Cron);
+            writer.WriteStringValue("field", Field);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputs", Inputs);
             writer.WriteStringValue("list", List);
+            writer.WriteDoubleValue("offsetHours", OffsetHours);
+            writer.WriteCollectionOfPrimitiveValues<string>("terms", Terms);
+            writer.WriteStringValue("timeZone", TimeZone);
             writer.WriteStringValue("type", Type);
             writer.WriteAdditionalData(AdditionalData);
         }

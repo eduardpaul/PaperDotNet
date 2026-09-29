@@ -69,7 +69,7 @@ namespace PaperDotNet.Client.Models
 #else
         public List<global::PaperDotNet.Client.Models.WorkflowStep> Steps { get; set; }
 #endif
-        /// <summary>When a workflow runs: `type` is `manual` (started on an item by a person), `itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored` or an extension trigger; `list` and`contentType` narrow it by name; `changedFields` (updates) needs one of them to change.</summary>
+        /// <summary>When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization&apos;s). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public global::PaperDotNet.Client.Models.WorkflowTrigger? Trigger { get; set; }

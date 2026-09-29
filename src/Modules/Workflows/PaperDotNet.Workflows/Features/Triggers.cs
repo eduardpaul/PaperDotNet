@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
+using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workflows.Data;
 
@@ -27,8 +28,12 @@ internal sealed class WorkflowTriggerPublisher(WorkflowsDbContext db, IOutbox ou
     : IWorkflowTriggers
 {
     public Task RaiseAsync(string triggerKey, Guid workspaceId, WorkflowItem? item, JsonObject? data, CancellationToken cancellationToken) =>
+        RaiseAsync(triggerKey, workspaceId, item, data, Ids.New(), cancellationToken);
+
+    public Task RaiseAsync(string triggerKey, Guid workspaceId, WorkflowItem? item, JsonObject? data, Guid eventId, CancellationToken cancellationToken) =>
         outbox.SaveChangesAsync(db, [new WorkflowTriggerRaised
         {
+            EventId = eventId,
             TenantId = tenant.TenantId!.Value,
             TenantIdentifier = tenant.TenantIdentifier!,
             UserId = user.UserId,
@@ -51,6 +56,9 @@ internal sealed class TriggerCatalog(IEnumerable<WorkflowTriggerDefinition> exte
         new(WorkflowTriggers.ItemUpdated, "An item was changed (optionally only when one of changedFields changed)."),
         new(WorkflowTriggers.ItemDeleted, "An item was moved to the recycle bin."),
         new(WorkflowTriggers.ItemRestored, "An item was restored from the recycle bin."),
+        new(WorkflowTriggers.Schedule, "On a schedule: cron (5 fields, e.g. 0 8 * * 1-5) in timeZone (default: the organization's); no item."),
+        new(WorkflowTriggers.Date, "For each item of list when its date field plus offsetHours (negative: before) is reached; once per item and date."),
+        new(WorkflowTriggers.ApprovalDecided, "An approval of a workflow run was decided (data: workflow, step, outcome, comment, decidedBy)."),
     ];
 
     public IReadOnlyList<WorkflowTriggerDefinition> All { get; } = [.. BuiltIn, .. extensionTriggers.OrderBy(t => t.Key, StringComparer.Ordinal)];
@@ -59,14 +67,14 @@ internal sealed class TriggerCatalog(IEnumerable<WorkflowTriggerDefinition> exte
 }
 
 /// <summary>
-/// Starts the workflows of a workspace for item events and extension triggers (EVT-07). The trigger's list,
-/// content type, changed fields and condition are checked when the event is handled; each matching workflow
-/// gets a run, saved with the message that starts it (transactional outbox). A run is unique per workflow and
-/// event, so a redelivered event starts nothing. Changes made by workflow carry a higher causation depth; from
-/// depth <see cref="MaxDepth"/> on nothing starts, which ends loops such as a workflow that updates its own item.
+/// Starts the workflows of a workspace for item events and raised triggers (modules and extensions; EVT-07, EVT-11).
+/// The trigger's list, content type, changed fields, terms and condition are checked when the event is handled; each
+/// matching workflow gets a run, saved with the message that starts it (transactional outbox). A run is unique per
+/// workflow and event, so a redelivered event starts nothing. Changes made by workflow carry a higher causation depth;
+/// from depth <see cref="MaxDepth"/> on nothing starts, which ends loops such as a workflow that updates its own item.
 /// </summary>
 internal sealed class WorkflowTriggerHandler(
-    WorkflowsDbContext db, IListItemStore items, WorkflowStarter starter)
+    WorkflowsDbContext db, IListItemStore items, ITermStore terms, WorkflowStarter starter)
     : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemDeleted>, IEventSubscriber<ItemRestored>,
       IEventSubscriber<WorkflowTriggerRaised>
 {
@@ -119,16 +127,45 @@ internal sealed class WorkflowTriggerHandler(
             return;
         }
 
-        var list = item is null ? null : await items.AsSystem().GetListAsync(item.WorkspaceId, item.ListId, ct);
-        var contentType = itemEvent is null ? null : list?.ContentTypes.FirstOrDefault(c => c.Id == itemEvent.ContentTypeId);
+        var store = items.AsSystem();
+        var list = item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
+
+        // The item's values, read once when a content type (of a raised trigger) or terms have to be checked.
+        ListItemData? current = null;
+        var loaded = false;
+        async Task<ListItemData?> CurrentAsync()
+        {
+            if (!loaded && item is not null)
+            {
+                current = await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
+                loaded = true;
+            }
+
+            return current;
+        }
+
         var starts = new List<WorkflowStart>();
         foreach (var workflow in workflows)
         {
             var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
             var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
             if ((spec.Trigger.List is { } listName && list?.Name != listName)
-                || (spec.Trigger.ContentType is { } type && contentType?.Name != type && contentType?.Key != type)
                 || (spec.Trigger.ChangedFields is { Count: > 0 } fields && itemEvent is not null && !fields.Intersect(itemEvent.ChangedFields).Any()))
+            {
+                continue;
+            }
+
+            if (spec.Trigger.ContentType is { } type)
+            {
+                var contentTypeId = itemEvent?.ContentTypeId ?? (await CurrentAsync())?.ContentTypeId;
+                var contentType = list?.ContentTypes.FirstOrDefault(c => c.Id == contentTypeId);
+                if (contentType?.Name != type && contentType?.Key != type)
+                {
+                    continue;
+                }
+            }
+
+            if (spec.Trigger.Terms is { Count: > 0 } wanted && !await HasTermAsync(await CurrentAsync(), wanted, ct))
             {
                 continue;
             }
@@ -144,5 +181,40 @@ internal sealed class WorkflowTriggerHandler(
         }
 
         await starter.StartAsync(starts, ct);
+    }
+
+    /// <summary>
+    /// Whether a value of the item is one of the terms (by path, e.g. <c>Documents/Tags/Receipt</c>) or a term below one of them.
+    /// Terms are looked for in every field, so the trigger does not depend on field names.
+    /// </summary>
+    private async Task<bool> HasTermAsync(ListItemData? item, IReadOnlyList<string> paths, CancellationToken ct)
+    {
+        if (item is null)
+        {
+            return false;
+        }
+
+        var wanted = new HashSet<Guid>();
+        foreach (var path in paths)
+        {
+            if (await terms.FindTermByPathAsync(path, ct) is { } id)
+            {
+                wanted.Add(id);
+            }
+        }
+
+        if (wanted.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var descendants in (await terms.GetDescendantsAsync(wanted, ct)).Values)
+        {
+            wanted.UnionWith(descendants);
+        }
+
+        return item.Fields.Select(f => f.Value)
+            .SelectMany(value => value is JsonArray array ? array.AsEnumerable() : [value])
+            .Any(value => value is JsonValue text && text.TryGetValue<string>(out var s) && Guid.TryParse(s, out var id) && wanted.Contains(id));
     }
 }

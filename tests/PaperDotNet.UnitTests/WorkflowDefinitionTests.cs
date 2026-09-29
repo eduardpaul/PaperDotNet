@@ -108,6 +108,46 @@ public sealed class WorkflowDefinitionTests
     }
 
     [Fact]
+    public void Timed_triggers_and_inputs_are_checked()
+    {
+        var triggers = new HashSet<string>(["schedule", "date", "manual", "itemAdded"]);
+        List<string> Check(WorkflowTrigger trigger) => Definitions.Validate(new WorkflowSpec(trigger, null, [Act("a")]), triggers, Actions);
+
+        Assert.Empty(Check(new WorkflowTrigger("schedule", Cron: "0 8 * * 1-5", TimeZone: "Europe/Berlin")));
+        Assert.Contains(Check(new WorkflowTrigger("schedule", Cron: "* * * * * *")), e => e.StartsWith("schedule needs cron", StringComparison.Ordinal));
+        Assert.Contains("Unknown time zone 'Mars/Olympus'.", Check(new WorkflowTrigger("schedule", Cron: "0 8 * * *", TimeZone: "Mars/Olympus")));
+        Assert.Contains("cron is only used with schedule.", Check(new WorkflowTrigger("itemAdded", Cron: "0 8 * * *")));
+        Assert.Empty(Check(new WorkflowTrigger("date", List: "Tasks", Field: "dueDate", OffsetHours: -48)));
+        Assert.Contains("date needs list and field (a date field of the list).", Check(new WorkflowTrigger("date", List: "Tasks")));
+        Assert.Contains("field and offsetHours are only used with date.", Check(new WorkflowTrigger("itemAdded", OffsetHours: 1)));
+
+        var inputs = new JsonObject
+        {
+            ["properties"] = new JsonObject { ["label"] = new JsonObject { ["type"] = "string" }, ["copies"] = new JsonObject { ["type"] = "integer" } },
+            ["required"] = new JsonArray("label"),
+        };
+        Assert.Empty(Check(new WorkflowTrigger("manual", Inputs: inputs)));
+        Assert.Contains("inputs are only used with manual.", Check(new WorkflowTrigger("itemAdded", Inputs: inputs)));
+        Assert.Contains("inputs.x needs a type (string, number, integer, boolean, array, object).",
+            Check(new WorkflowTrigger("manual", Inputs: new JsonObject { ["properties"] = new JsonObject { ["x"] = new JsonObject() } })));
+
+        Assert.Null(WorkflowInputs.Check(inputs, new JsonObject { ["label"] = "Paid", ["copies"] = 2 }));
+        Assert.Equal("The input 'label' is required.", WorkflowInputs.Check(inputs, new JsonObject { ["copies"] = 2 }));
+        Assert.Equal("The input 'copies' must be of type integer.", WorkflowInputs.Check(inputs, new JsonObject { ["label"] = "x", ["copies"] = 2.5 }));
+        Assert.Equal("Unknown input 'other'.", WorkflowInputs.Check(inputs, new JsonObject { ["label"] = "x", ["other"] = 1 }));
+        Assert.Null(WorkflowInputs.Check(null, new JsonObject { ["anything"] = 1 }));
+    }
+
+    [Fact]
+    public void Timed_starts_have_stable_event_ids()
+    {
+        var workflow = Guid.CreateVersion7();
+        Assert.Equal(TriggerSchedules.EventId(workflow, "2026-10-01T06:00:00Z"), TriggerSchedules.EventId(workflow, "2026-10-01T06:00:00Z"));
+        Assert.NotEqual(TriggerSchedules.EventId(workflow, "2026-10-01T06:00:00Z"), TriggerSchedules.EventId(workflow, "2026-10-02T06:00:00Z"));
+        Assert.NotEqual(TriggerSchedules.EventId(workflow, "x"), TriggerSchedules.EventId(Guid.CreateVersion7(), "x"));
+    }
+
+    [Fact]
     public void Workflows_use_either_steps_or_a_flow()
     {
         var triggers = new HashSet<string>(["manual"]);

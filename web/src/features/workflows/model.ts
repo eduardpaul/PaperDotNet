@@ -33,12 +33,42 @@ export interface WorkflowDraft {
   name: string;
   description: string;
   enabled: boolean;
-  trigger: { type: string; list: string; contentType: string; changedFields: string[] };
+  trigger: TriggerDraft;
   condition: string;
   steps: StepDraft[];
   /** A flow (nodes connected by outcome ports) instead of steps; kept as the API's JSON. */
   flow?: PlainFlow;
   variables?: Record<string, unknown>;
+}
+
+/** The trigger in the form: text inputs as strings; terms and manual inputs are kept as the API's JSON. */
+export interface TriggerDraft {
+  type: string;
+  list: string;
+  contentType: string;
+  changedFields: string[];
+  /** schedule: 5-field cron and an optional IANA time zone. */
+  cron: string;
+  timeZone: string;
+  /** date: the date field and the offset in hours (negative: before). */
+  field: string;
+  offsetHours: string;
+  terms?: string[];
+  inputs?: Record<string, unknown>;
+}
+
+/** A trigger as the API's JSON has it. */
+export interface PlainTrigger {
+  type?: string;
+  list?: string | null;
+  contentType?: string | null;
+  changedFields?: string[] | null;
+  terms?: string[] | null;
+  cron?: string | null;
+  timeZone?: string | null;
+  field?: string | null;
+  offsetHours?: number | null;
+  inputs?: Record<string, unknown> | null;
 }
 
 /** A flow as the API's JSON has it (docs/workflows.md). */
@@ -69,7 +99,7 @@ export interface PlainWorkflow {
   name?: string;
   description?: string | null;
   enabled?: boolean;
-  trigger?: { type?: string; list?: string | null; contentType?: string | null; changedFields?: string[] | null };
+  trigger?: PlainTrigger;
   condition?: string | null;
   steps?: PlainStep[];
   flow?: PlainFlow;
@@ -105,7 +135,16 @@ export function emptyWorkflow(): WorkflowDraft {
     name: '',
     description: '',
     enabled: true,
-    trigger: { type: 'itemAdded', list: '', contentType: '', changedFields: [] },
+    trigger: {
+      type: 'itemAdded',
+      list: '',
+      contentType: '',
+      changedFields: [],
+      cron: '',
+      timeZone: '',
+      field: '',
+      offsetHours: '',
+    },
     condition: '',
     steps: [newStep('action')],
   };
@@ -147,6 +186,12 @@ export function fromPlain(plain: PlainWorkflow): WorkflowDraft {
       list: plain.trigger?.list ?? '',
       contentType: plain.trigger?.contentType ?? '',
       changedFields: plain.trigger?.changedFields ?? [],
+      cron: plain.trigger?.cron ?? '',
+      timeZone: plain.trigger?.timeZone ?? '',
+      field: plain.trigger?.field ?? '',
+      offsetHours: text(plain.trigger?.offsetHours),
+      ...(plain.trigger?.terms?.length ? { terms: plain.trigger.terms } : {}),
+      ...(plain.trigger?.inputs ? { inputs: plain.trigger.inputs } : {}),
     },
     condition: plain.condition ?? '',
     steps: (plain.steps ?? []).map(stepFromPlain),
@@ -190,16 +235,27 @@ export function toPlain(draft: WorkflowDraft): PlainWorkflow {
     name: draft.name.trim(),
     description: orUndefined(draft.description) ?? null,
     enabled: draft.enabled,
-    trigger: {
-      type: draft.trigger.type,
-      list: orUndefined(draft.trigger.list) ?? null,
-      contentType: orUndefined(draft.trigger.contentType) ?? null,
-      changedFields:
-        draft.trigger.type === 'itemUpdated' && draft.trigger.changedFields.length ? draft.trigger.changedFields : null,
-    },
+    trigger: triggerToPlain(draft.trigger),
     condition: orUndefined(draft.condition) ?? null,
     ...(draft.flow ? { flow: draft.flow } : { steps: draft.steps.map(stepToPlain) }),
     ...(draft.variables ? { variables: draft.variables } : {}),
+  };
+}
+
+/** Only the settings the trigger type uses (the API rejects the others). */
+function triggerToPlain(trigger: TriggerDraft): PlainTrigger {
+  const { type } = trigger;
+  return {
+    type,
+    list: type === 'schedule' ? null : (orUndefined(trigger.list) ?? null),
+    contentType: type === 'schedule' ? null : (orUndefined(trigger.contentType) ?? null),
+    changedFields: type === 'itemUpdated' && trigger.changedFields.length ? trigger.changedFields : null,
+    ...(type === 'schedule' ? { cron: trigger.cron.trim(), timeZone: orUndefined(trigger.timeZone) ?? null } : {}),
+    ...(type === 'date'
+      ? { field: orUndefined(trigger.field) ?? null, offsetHours: number(trigger.offsetHours) ?? null }
+      : {}),
+    ...(trigger.terms?.length && type !== 'schedule' ? { terms: trigger.terms } : {}),
+    ...(trigger.inputs && type === 'manual' ? { inputs: trigger.inputs } : {}),
   };
 }
 
@@ -231,7 +287,12 @@ export function draftFrom(workflow: WorkflowResponse): WorkflowDraft {
     name: workflow.name ?? '',
     description: workflow.description,
     enabled: workflow.enabled ?? true,
-    trigger: workflow.trigger ?? undefined,
+    trigger: workflow.trigger
+      ? {
+          ...workflow.trigger,
+          inputs: workflow.trigger.inputs ? { ...fieldsOf({ fields: workflow.trigger.inputs }) } : undefined,
+        }
+      : undefined,
     condition: workflow.condition,
     steps: (workflow.steps ?? []).map(stepFromSdk),
     ...(workflow.flow
@@ -242,10 +303,11 @@ export function draftFrom(workflow: WorkflowResponse): WorkflowDraft {
 }
 
 export function requestFrom(draft: WorkflowDraft): WorkflowRequest {
-  const { flow, variables, steps, ...plain } = toPlain(draft);
+  const { flow, variables, steps, trigger, ...plain } = toPlain(draft);
+  const { inputs, ...triggerRest } = trigger ?? {};
   return {
     ...plain,
-    trigger: plain.trigger,
+    trigger: { ...triggerRest, ...(inputs ? { inputs: jsonObject(inputs) } : {}) },
     ...(flow
       ? { flow: { start: flow.start, nodes: { additionalData: flow.nodes } } }
       : { steps: (steps ?? []).map(stepToSdk) }),
@@ -266,7 +328,16 @@ export function approvalNames(steps: StepDraft[]): string[] {
 
 /** A short sentence for lists: "When an item is added in Invoices". */
 export function describeTrigger(
-  trigger: { type?: string | null; list?: string | null; contentType?: string | null } | null | undefined,
+  trigger:
+    | {
+        type?: string | null;
+        list?: string | null;
+        contentType?: string | null;
+        cron?: string | null;
+        field?: string | null;
+      }
+    | null
+    | undefined,
 ): string {
   const where = trigger?.list ? ` in ${trigger.list}` : '';
   const what = trigger?.contentType ? ` (${trigger.contentType})` : '';
@@ -281,6 +352,18 @@ export function describeTrigger(
       return `When an item is deleted${where}${what}`;
     case 'itemRestored':
       return `When an item is restored${where}${what}`;
+    case 'schedule':
+      return `On the schedule ${trigger?.cron ?? ''}`.trim();
+    case 'date':
+      return `When ${trigger?.field ?? 'a date'} is reached${where}`;
+    case 'document.processed':
+      return `When a document is processed${where}`;
+    case 'task.completed':
+      return `When a task is completed${where}`;
+    case 'comment.added':
+      return `When someone comments${where}`;
+    case 'approval.decided':
+      return 'When an approval is decided';
     default:
       return `On ${trigger?.type ?? 'an event'}${where}`;
   }

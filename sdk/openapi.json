@@ -13918,6 +13918,89 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/workflows/{id}/runs": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "StartWorkflowRuns",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRunsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/workflows": {
       "post": {
         "tags": [
@@ -20552,6 +20635,39 @@
           }
         }
       },
+      "StartRunsRequest": {
+        "type": "object",
+        "properties": {
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "itemIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "inputs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          }
+        },
+        "description": "Starts a \u0060manual\u0060 workflow: once per item of \u0060itemIds\u0060 (in \u0060listId\u0060, at most 100), or once without an\nitem when there are none (for workflows whose trigger has no list). \u0060inputs\u0060 become run variables."
+      },
       "StartWorkflowRequest": {
         "required": [
           "workflow"
@@ -20560,8 +20676,19 @@
         "properties": {
           "workflow": {
             "type": "string"
+          },
+          "inputs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
           }
-        }
+        },
+        "description": "Starts a \u0060manual\u0060 workflow on an item, by name; \u0060inputs\u0060 become run variables (checked against the trigger\u0027s \u0060inputs\u0060)."
       },
       "SubscriptionRequest": {
         "required": [
@@ -21886,9 +22013,53 @@
             "items": {
               "type": "string"
             }
+          },
+          "terms": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "cron": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "field": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "offsetHours": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "inputs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
           }
         },
-        "description": "When a workflow runs: \u0060type\u0060 is \u0060manual\u0060 (started on an item by a person), \u0060itemAdded\u0060,\n\u0060itemUpdated\u0060, \u0060itemDeleted\u0060, \u0060itemRestored\u0060 or an extension trigger; \u0060list\u0060 and\n\u0060contentType\u0060 narrow it by name; \u0060changedFields\u0060 (updates) needs one of them to change."
+        "description": "When a workflow runs: \u0060type\u0060 is \u0060manual\u0060 (started by a person), an item event (\u0060itemAdded\u0060,\n\u0060itemUpdated\u0060, \u0060itemDeleted\u0060, \u0060itemRestored\u0060), \u0060schedule\u0060, \u0060date\u0060, a module trigger\n(\u0060document.processed\u0060, \u0060approval.decided\u0060, \u0060task.completed\u0060, \u0060comment.added\u0060) or an extension\ntrigger. \u0060list\u0060 and \u0060contentType\u0060 narrow it by name; \u0060changedFields\u0060 (updates) needs one of them to\nchange; \u0060terms\u0060 (term paths \u0060Group/Set/Term\u0060) needs the item to have one of them or a term below.\n\u0060schedule\u0060 runs on \u0060cron\u0060 (5 fields) in \u0060timeZone\u0060 (default: the organization\u0027s). \u0060date\u0060 runs for\neach item of \u0060list\u0060 when its date \u0060field\u0060 plus \u0060offsetHours\u0060 (negative: before) is reached. \u0060manual\u0060\nmay describe the \u0060inputs\u0060 a person gives when starting it (a JSON Schema object; they become run variables)."
       },
       "WorkspaceAccessLevel": {
         "enum": [

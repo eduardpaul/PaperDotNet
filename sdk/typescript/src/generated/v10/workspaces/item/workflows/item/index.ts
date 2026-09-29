@@ -4,12 +4,18 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createWorkflowResponseFromDiscriminatorValue, serializeWorkflowRequest, serializeWorkflowResponse, type ApiProblem, type WorkflowRequest, type WorkflowResponse } from '../../../../../models/index.js';
 // @ts-ignore
-import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
+import { RunsRequestBuilderRequestsMetadata, type RunsRequestBuilder } from './runs/index.js';
+// @ts-ignore
+import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
  * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/workflows/{id}
  */
 export interface WorkflowsItemRequestBuilder extends BaseRequestBuilder<WorkflowsItemRequestBuilder> {
+    /**
+     * The runs property
+     */
+    get runs(): RunsRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @throws {ApiProblem} error when the service returns a 4XX or 5XX status code
@@ -50,6 +56,14 @@ export interface WorkflowsItemRequestBuilder extends BaseRequestBuilder<Workflow
  * Uri template for the request builder.
  */
 export const WorkflowsItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/workflows/{id}";
+/**
+ * Metadata for all the navigation properties in the request builder.
+ */
+export const WorkflowsItemRequestBuilderNavigationMetadata: Record<Exclude<keyof WorkflowsItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+    runs: {
+        requestsMetadata: RunsRequestBuilderRequestsMetadata,
+    },
+};
 /**
  * Metadata for all the requests in the request builder.
  */
