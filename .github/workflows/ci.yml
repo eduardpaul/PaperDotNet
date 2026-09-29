@@ -47,6 +47,17 @@ jobs:
             done
           done
 
+      # OCR (DOC-07) as in the Dockerfile; backups (PLT-12) need pg_dump at least as new as the server (postgres:17).
+      - name: Install Tesseract and PostgreSQL client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu
+          if [ "${{ matrix.provider }}" = "postgresql" ]; then
+            sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+            sudo apt-get install -y --no-install-recommends postgresql-client-17
+            echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          fi
+
       # PostgreSQL runs in Testcontainers (Docker is available on the runner); SQLite uses a temp file.
       - name: Test (${{ matrix.provider }})
         env:
