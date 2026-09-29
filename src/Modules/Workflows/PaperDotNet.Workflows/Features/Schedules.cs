@@ -110,7 +110,7 @@ internal sealed class WorkflowScheduleJob(
             return;
         }
 
-        state.NextAt ??= cron.GetNextOccurrence(state.CheckedUntil ?? now, zone);
+        state.NextAt ??= Next(cron, state.CheckedUntil ?? now, zone);
         if (state.NextAt is not { } due || due > now)
         {
             return;
@@ -124,7 +124,7 @@ internal sealed class WorkflowScheduleJob(
         }
 
         // Missed occurrences run once: the next one is after now.
-        state.NextAt = cron.GetNextOccurrence(now, zone);
+        state.NextAt = Next(cron, now, zone);
         state.CheckedUntil = now;
     }
 
@@ -181,6 +181,10 @@ internal sealed class WorkflowScheduleJob(
 
         state.CheckedUntil = now;
     }
+
+    /// <summary>The next occurrence in UTC (Cronos returns the zone's offset; PostgreSQL stores UTC only).</summary>
+    private static DateTimeOffset? Next(CronExpression cron, DateTimeOffset after, TimeZoneInfo zone) =>
+        cron.GetNextOccurrence(after, zone)?.ToUniversalTime();
 
     private static string Literal(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
