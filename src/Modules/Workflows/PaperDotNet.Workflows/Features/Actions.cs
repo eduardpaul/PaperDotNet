@@ -16,12 +16,52 @@ internal sealed class ActionCatalog(IEnumerable<IWorkflowActivity> actions)
 
     public IEnumerable<IWorkflowActivity> All => _byKey.Values.OrderBy(a => a.Key, StringComparer.Ordinal);
 
+    /// <summary>The flow activities (the engine's own) and the actions, with their ports and schemas.</summary>
+    public IEnumerable<ActivityDescriptor> Describe() =>
+        FlowActivityDescriptors.All.Concat(All.Select(a => new ActivityDescriptor(
+            a.Key, a.Description, ActivityDescriptor.ActionKind, [.. FlowActivities.Ports(a.Key).Order(StringComparer.Ordinal), .. a.Outcomes],
+            a.InputSchema, a.OutputSchema)));
+
     public IWorkflowActivity? Find(string key) => _byKey.GetValueOrDefault(key);
 
     public IEnumerable<string> Validate(ActionDefinition action) =>
         Find(action.Type) is { } found
             ? found.Validate(action.Inputs ?? [])
             : [$"Unknown action '{action.Type}'."];
+}
+
+/// <summary>Small JSON Schemas for the inputs and outputs of activities (the catalog, forms).</summary>
+internal static class Schemas
+{
+    public static JsonObject Object(string[] required, params (string Name, JsonObject Schema)[] properties)
+    {
+        var props = new JsonObject();
+        foreach (var (name, schema) in properties)
+        {
+            props[name] = schema;
+        }
+
+        var result = new JsonObject { ["type"] = "object", ["properties"] = props };
+        if (required.Length > 0)
+        {
+            result["required"] = new JsonArray([.. required.Select(r => JsonValue.Create(r))]);
+        }
+
+        return result;
+    }
+
+    public static JsonObject Text(string description) => new() { ["type"] = "string", ["description"] = description };
+
+    public static JsonObject Number(string description) => new() { ["type"] = "number", ["description"] = description };
+
+    public static JsonObject Texts(string description) =>
+        new() { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["description"] = description };
+
+    public static JsonObject Values(string description) => new() { ["type"] = "object", ["description"] = description };
+
+    public static JsonObject Any(string description) => new() { ["description"] = description };
+
+    public static JsonObject People(string description) => Texts(description + " User names, group:Name, field:name, creator or actor.");
 }
 
 /// <summary>Reading inputs of actions.</summary>
@@ -54,6 +94,8 @@ internal sealed class ItemUpdateAction(IListItemStore items) : IWorkflowActivity
 
     public IEnumerable<string> Validate(JsonObject inputs) =>
         inputs["fields"] is JsonObject { Count: > 0 } ? [] : ["fields must be an object with at least one value."];
+
+    public JsonObject? InputSchema => Schemas.Object(["fields"], ("fields", Schemas.Values("Field values to set by field name; text may contain tokens.")));
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
@@ -99,6 +141,12 @@ internal sealed class ItemFileAction(IListItemStore items) : IWorkflowActivity
 
     public IEnumerable<string> Validate(JsonObject inputs) =>
         Inputs.Text(inputs, "folder") is null && Inputs.Text(inputs, "title") is null ? ["folder or title is required."] : [];
+
+    public JsonObject? InputSchema => Schemas.Object([],
+        ("folder", Schemas.Text("Folder path template, e.g. {created:yyyy}/{counterparty}; missing folders are created.")),
+        ("title", Schemas.Text("New title (template).")));
+
+    public JsonObject? OutputSchema => Schemas.Object([], ("folder", Schemas.Text("The folder path it was filed in.")), ("title", Schemas.Text("The new title.")));
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
@@ -167,6 +215,16 @@ internal sealed class TaskCreateAction(IListItemStore items, RecipientResolver r
 
     public IEnumerable<string> Validate(JsonObject inputs) => Inputs.Required(inputs, "list", "title");
 
+    public JsonObject? InputSchema => Schemas.Object(["list", "title"],
+        ("list", Schemas.Text("A task list of the workspace, by name.")),
+        ("title", Schemas.Text("Title (template).")),
+        ("assignedTo", Schemas.People("Assignees.")),
+        ("dueInDays", Schemas.Number("Due this many days from now.")),
+        ("priority", Schemas.Text("Priority.")),
+        ("description", Schemas.Text("Description (template).")));
+
+    public JsonObject? OutputSchema => Schemas.Object([], ("taskId", Schemas.Text("Id of the task.")));
+
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
         var store = items.AsSystem();
@@ -215,6 +273,12 @@ internal sealed class NotifyAction(IListItemStore items, RecipientResolver recip
 
     public IEnumerable<string> Validate(JsonObject inputs) =>
         Inputs.Required(inputs, "title").Concat(Inputs.Texts(inputs, "to") is { Count: > 0 } ? [] : ["to is required."]);
+
+    public JsonObject? InputSchema => Schemas.Object(["to", "title"],
+        ("to", Schemas.People("Recipients.")), ("title", Schemas.Text("Title (template).")), ("body", Schemas.Text("Text (template).")));
+
+    public JsonObject? OutputSchema => Schemas.Object([],
+        ("recipients", Schemas.Number("How many people were notified.")), ("unknown", Schemas.Texts("Recipients that were not found.")));
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
@@ -279,4 +343,36 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
             return WorkflowActivityResult.Fail(ex.Message);
         }
     }
+}
+
+/// <summary>An activity in the catalog: <c>kind</c> is <c>flow</c> (run by the engine) or <c>action</c>.</summary>
+public sealed record ActivityDescriptor(string Key, string Description, string Kind, IReadOnlyList<string> Ports, JsonObject? InputSchema, JsonObject? OutputSchema)
+{
+    public const string FlowKind = "flow";
+    public const string ActionKind = "action";
+}
+
+/// <summary>Descriptors of the flow activities (docs/workflows.md).</summary>
+internal static class FlowActivityDescriptors
+{
+    public static readonly ActivityDescriptor[] All =
+    [
+        new(FlowActivities.Approval, "Asks people to approve or reject; overdue requests are escalated.", ActivityDescriptor.FlowKind, ["approved", "rejected", "done"],
+            Schemas.Object(["assignees"], ("assignees", Schemas.People("Who decides.")), ("title", Schemas.Text("Title (template).")),
+                ("dueInHours", Schemas.Number("Overdue after this many hours.")), ("escalateTo", Schemas.People("Added when overdue."))),
+            Schemas.Object([], ("outcome", Schemas.Text("approved or rejected.")), ("decidedBy", Schemas.Text("Id of the user who decided.")),
+                ("comment", Schemas.Text("Their comment.")))),
+        new(FlowActivities.Delay, "Waits a number of hours.", ActivityDescriptor.FlowKind, ["done"],
+            Schemas.Object(["hours"], ("hours", Schemas.Number("Hours to wait."))), null),
+        new(FlowActivities.If, "Continues with true or false: an OData filter on the item, an approval outcome, or a comparison.", ActivityDescriptor.FlowKind,
+            ["true", "false", "error"],
+            Schemas.Object([], ("filter", Schemas.Text("OData filter on the item.")), ("step", Schemas.Text("An approval node.")),
+                ("is", Schemas.Text("approved or rejected.")), ("left", Schemas.Text("Text with tokens.")),
+                ("op", Schemas.Text(string.Join(", ", Comparison.Operators))), ("right", Schemas.Text("Text with tokens."))), null),
+        new(FlowActivities.SetVariable, "Sets a variable of the run.", ActivityDescriptor.FlowKind, ["done"],
+            Schemas.Object(["name"], ("name", Schemas.Text("Variable name.")), ("value", Schemas.Any("Text with tokens, or any JSON value."))), null),
+        new(FlowActivities.End, "Ends the run as completed.", ActivityDescriptor.FlowKind, [], null, null),
+        new(FlowActivities.Fail, "Ends the run as failed.", ActivityDescriptor.FlowKind, [],
+            Schemas.Object([], ("message", Schemas.Text("The error (template)."))), null),
+    ];
 }

@@ -5,12 +5,47 @@ namespace PaperDotNet.Workflows.Contracts;
 /// <summary>The item a workflow runs on.</summary>
 public sealed record WorkflowItem(Guid WorkspaceId, Guid ListId, Guid ItemId);
 
-/// <summary>Outcome of an action; <see cref="Output"/> is recorded with the run.</summary>
+/// <summary>
+/// Outcome of an activity: done with an <see cref="Output"/> (recorded with the run), failed with an
+/// <see cref="Error"/>, or waiting for something else to complete it (<see cref="Wait"/>).
+/// </summary>
 public sealed record WorkflowActivityResult(bool Succeeded, string? Error = null, JsonObject? Output = null)
 {
+    /// <summary>The durable wait the run enters; null when the activity is done.</summary>
+    public WorkflowWait? Waiting { get; init; }
+
+    /// <summary>The outcome port to continue with (default <c>done</c>); one of <see cref="IWorkflowActivity.Outcomes"/>.</summary>
+    public string? Outcome { get; init; }
+
     public static WorkflowActivityResult Ok(JsonObject? output = null) => new(true, Output: output);
 
+    /// <summary>Done, continuing with the port <paramref name="outcome"/>.</summary>
+    public static WorkflowActivityResult Ok(string outcome, JsonObject? output = null) => new(true, Output: output) { Outcome = outcome };
+
     public static WorkflowActivityResult Fail(string error) => new(false, error);
+
+    /// <summary>
+    /// Suspends the run until <see cref="IWorkflowBookmarks.CompleteAsync"/> completes the wait (<paramref name="kind"/>,
+    /// <paramref name="key"/>), or until <paramref name="resumeAt"/> if given. The completion's payload becomes the node's
+    /// output, and its <c>outcome</c> (default <c>done</c>) picks the port.
+    /// </summary>
+    public static WorkflowActivityResult Wait(string kind, string key, DateTimeOffset? resumeAt = null) =>
+        new(true) { Waiting = new WorkflowWait(kind, key, resumeAt) };
+}
+
+/// <summary>A durable wait: <see cref="Kind"/> (e.g. <c>{extension id}.batch</c>) and <see cref="Key"/> identify it within the tenant.</summary>
+public sealed record WorkflowWait(string Kind, string Key, DateTimeOffset? ResumeAt = null);
+
+/// <summary>
+/// Completes waits of workflow runs from other modules and extensions (ADR-0036): e.g. an AI batch job completing the
+/// requests of many runs. Completing is atomic with the message that resumes the run, and harmless to repeat: call it
+/// after saving your own state, and again after a crash. A completion that arrives before the run has saved its wait is
+/// kept and picked up when the wait is created.
+/// </summary>
+public interface IWorkflowBookmarks
+{
+    /// <summary>Completes the wait (<paramref name="kind"/>, <paramref name="key"/>) with a payload; false when it was already completed.</summary>
+    Task<bool> CompleteAsync(string kind, string key, JsonObject? payload, CancellationToken cancellationToken);
 }
 
 /// <summary>What an action runs with.</summary>
@@ -72,6 +107,15 @@ public interface IWorkflowActivity
     IEnumerable<string> Validate(JsonObject inputs) => [];
 
     Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken);
+
+    /// <summary>The inputs as JSON Schema, for forms and the catalog (<c>GET /v1.0/workflows/activities</c>); null when not described.</summary>
+    JsonObject? InputSchema => null;
+
+    /// <summary>The output as JSON Schema; null when not described.</summary>
+    JsonObject? OutputSchema => null;
+
+    /// <summary>Outcome ports besides <c>done</c> and <c>error</c> (see <see cref="WorkflowActivityResult.Outcome"/>).</summary>
+    IReadOnlyList<string> Outcomes => [];
 }
 
 /// <summary>A trigger an extension offers to workflows (key starts with the extension id).</summary>

@@ -197,8 +197,12 @@ code with `IWorkflowTriggers.RaiseAsync(key, workspaceId, item, data)`.
 Workflows with that trigger then start in the background. Make actions safe
 to repeat with `context.ExecutionId` (for example as the id of an item you
 create with `IListItemStore.CreateAsync(workspaceId, listId, itemId, …)`) or
-`context.ExecutionKey`; both stay the same when a step runs again. See
-`docs/workflows.md`.
+`context.ExecutionKey`; both stay the same when a step runs again. Describe
+inputs and outputs with `InputSchema` and `OutputSchema`, and offer extra
+ports with `Outcomes`. To wait for something outside the run (a reply, a
+payment, a batch), return `WorkflowActivityResult.Wait("{extension id}.kind",
+key, resumeAt)` and complete it later with `IWorkflowBookmarks.CompleteAsync`.
+See `docs/workflows.md`.
 
 ## 5. Analyzers
 

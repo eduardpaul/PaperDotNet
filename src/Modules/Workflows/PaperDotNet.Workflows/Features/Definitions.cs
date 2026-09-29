@@ -402,7 +402,9 @@ internal static class Definitions
                     break;
             }
 
-            var ports = FlowActivities.Ports(node.Activity);
+            var ports = FlowActivities.All.Contains(node.Activity)
+                ? FlowActivities.Ports(node.Activity)
+                : new HashSet<string>([.. FlowActivities.Ports(node.Activity), .. actions.Find(node.Activity)?.Outcomes ?? []], StringComparer.Ordinal);
             foreach (var (port, target) in node.Next ?? new Dictionary<string, string>())
             {
                 if (!ports.Contains(port))

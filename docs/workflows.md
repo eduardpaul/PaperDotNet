@@ -169,7 +169,11 @@ The web editor edits steps; flows are edited in its JSON view for now.
 | `item.file` | `folder`: path template (each level becomes a folder; missing ones are created); `title`: new title |
 | `task.create` | `list` (a task list), `title`, `assignedTo`, `dueInDays`, `priority`, `description` |
 | `notify` | `to`, `title`, `body`; the notification links to the item |
-| `{extension}.…` | Actions of enabled extensions (`GET /v1.0/workflows/activities`) |
+| `{extension}.…` | Actions of enabled extensions |
+
+`GET /v1.0/workflows/activities` lists every activity: the flow activities
+(`kind: flow`) and the actions (`kind: action`), each with its `ports`, an
+`inputSchema` and an `outputSchema` (JSON Schema) for forms and tools.
 
 **Tokens** in text inputs:
 
@@ -222,5 +226,36 @@ Actions must be safe to run again: the same step can run again after a crash
 with the same `context.ExecutionKey` and `context.ExecutionId`. Use the id as
 the id of what the action creates (for example
 `IListItemStore.CreateAsync(workspaceId, listId, context.ExecutionId, …)`),
-and the key to find what an earlier attempt did or as a deduplication key. See `docs/extensions.md` and the
-sample `samples.invoices` (trigger `approvalNeeded`, action `approve`).
+and the key to find what an earlier attempt did or as a deduplication key.
+
+An activity can describe itself (`InputSchema`, `OutputSchema`) and offer
+more outcome ports than `done` and `error` (`Outcomes`; return
+`WorkflowActivityResult.Ok("approved", output)` to take one).
+
+**Waiting for something else** ([ADR-0036](adr/0036-workflows-as-the-core.md)):
+an activity returns `WorkflowActivityResult.Wait(kind, key, resumeAt)`. The run
+stops (it holds no server) until someone completes that wait:
+
+```csharp
+await bookmarks.CompleteAsync(kind, key, new JsonObject { ["outcome"] = "paid" }, ct); // IWorkflowBookmarks
+```
+
+- The payload becomes the node's output, and its `outcome` picks the port
+  (`done` when that port is not connected).
+- Completing is saved together with the message that resumes the run, and
+  completing again does nothing, so call it after saving your own state and
+  again after a crash.
+- A completion that arrives before the run has started waiting is kept, and
+  the run continues right away when it gets there.
+- When `resumeAt` passes first, the wait times out: the payload is
+  `{ "outcome": "timeout" }`.
+- Extension waits have kinds that start with the extension id; `approval`,
+  `delay` and `retry` belong to the engine. The key identifies the wait within
+  the kind (for example a request id), unique per tenant.
+
+This is how long-running work outside the engine joins a workflow, for example
+a daily batch of AI requests.
+
+See `docs/extensions.md` and the sample `samples.invoices` (trigger
+`approvalNeeded`, actions `approve` and `awaitPayment`, which waits until the
+invoice is paid or times out).

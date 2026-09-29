@@ -15,8 +15,9 @@ export const triggerCatalogQuery = queryOptions({
   staleTime: Infinity,
 });
 
+/** The actions steps can run (the catalog also lists the flow activities, which steps express as step types). */
 export const actionCatalogQuery = queryOptions({
   queryKey: ['workflows', 'activities'],
-  queryFn: async () => (await api.v10.workflows.activities.get()) ?? [],
+  queryFn: async () => ((await api.v10.workflows.activities.get()) ?? []).filter((a) => a.kind === 'action'),
   staleTime: Infinity,
 });

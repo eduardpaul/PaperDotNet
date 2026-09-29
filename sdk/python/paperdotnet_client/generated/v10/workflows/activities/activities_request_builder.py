@@ -14,8 +14,8 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
+    from ....models.activity_descriptor import ActivityDescriptor
     from ....models.api_problem import ApiProblem
-    from ....models.catalog_entry import CatalogEntry
 
 class ActivitiesRequestBuilder(BaseRequestBuilder):
     """
@@ -30,10 +30,10 @@ class ActivitiesRequestBuilder(BaseRequestBuilder):
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/workflows/activities", path_parameters)
     
-    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[list[CatalogEntry]]:
+    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[list[ActivityDescriptor]]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
-        Returns: Optional[list[CatalogEntry]]
+        Returns: Optional[list[ActivityDescriptor]]
         """
         request_info = self.to_get_request_information(
             request_configuration
@@ -45,9 +45,9 @@ class ActivitiesRequestBuilder(BaseRequestBuilder):
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
-        from ....models.catalog_entry import CatalogEntry
+        from ....models.activity_descriptor import ActivityDescriptor
 
-        return await self.request_adapter.send_collection_async(request_info, CatalogEntry, error_mapping)
+        return await self.request_adapter.send_collection_async(request_info, ActivityDescriptor, error_mapping)
     
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """

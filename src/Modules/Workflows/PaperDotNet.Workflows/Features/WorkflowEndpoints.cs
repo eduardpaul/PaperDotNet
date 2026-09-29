@@ -90,7 +90,7 @@ internal static class WorkflowEndpoints
         var catalog = endpoints.MapV1Group("workflows", "Workflows");
         catalog.MapGet("/triggers", (TriggerCatalog triggers) => TypedResults.Ok(triggers.All.Select(t => new CatalogEntry(t.Key, t.Description)).ToList()))
             .RequireScope(WorkflowScopes.Read).WithName("ListWorkflowTriggers");
-        catalog.MapGet("/activities", (ActionCatalog actions) => TypedResults.Ok(actions.All.Select(a => new CatalogEntry(a.Key, a.Description)).ToList()))
+        catalog.MapGet("/activities", (ActionCatalog actions) => TypedResults.Ok(actions.Describe().ToList()))
             .RequireScope(WorkflowScopes.Read).WithName("ListWorkflowActivities");
     }
 

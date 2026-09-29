@@ -5,6 +5,35 @@
 import { createUntypedNodeFromDiscriminatorValue, type AdditionalDataHolder, type ApiError, type DateOnly, type Guid, type Parsable, type ParseNode, type SerializationWriter, type TimeOnly, type UntypedNode } from '@microsoft/kiota-abstractions';
 
 export type AclPrincipalType = (typeof AclPrincipalTypeObject)[keyof typeof AclPrincipalTypeObject];
+/**
+ * An activity in the catalog: `kind` is `flow` (run by the engine) or `action`.
+ */
+export interface ActivityDescriptor extends AdditionalDataHolder, Parsable {
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The inputSchema property
+     */
+    inputSchema?: JsonObject | null;
+    /**
+     * The key property
+     */
+    key?: string | null;
+    /**
+     * The kind property
+     */
+    kind?: string | null;
+    /**
+     * The outputSchema property
+     */
+    outputSchema?: JsonObject | null;
+    /**
+     * The ports property
+     */
+    ports?: string[] | null;
+}
 export interface ActivityResponse extends AdditionalDataHolder, Parsable {
     /**
      * The actorId property
@@ -733,6 +762,15 @@ export interface Counters extends AdditionalDataHolder, Parsable {
      * The reminderRuns property
      */
     reminderRuns?: number | null;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ActivityDescriptor}
+ */
+// @ts-ignore
+export function createActivityDescriptorFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoActivityDescriptor;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2862,6 +2900,22 @@ export interface DeltaRemoved extends AdditionalDataHolder, Parsable {
      * The reason property
      */
     reason?: string | null;
+}
+/**
+ * The deserialization information for the current model
+ * @param ActivityDescriptor The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoActivityDescriptor(activityDescriptor: Partial<ActivityDescriptor> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "description": n => { activityDescriptor.description = n.getStringValue(); },
+        "inputSchema": n => { activityDescriptor.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "key": n => { activityDescriptor.key = n.getStringValue(); },
+        "kind": n => { activityDescriptor.kind = n.getStringValue(); },
+        "outputSchema": n => { activityDescriptor.outputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "ports": n => { activityDescriptor.ports = n.getCollectionOfPrimitiveValues<string>("string"); },
+    }
 }
 /**
  * The deserialization information for the current model
@@ -7872,6 +7926,23 @@ export interface SearchResponse extends AdditionalDataHolder, Parsable {
      * The value property
      */
     value?: SearchHit[] | null;
+}
+/**
+ * Serializes information the current object
+ * @param ActivityDescriptor The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeActivityDescriptor(writer: SerializationWriter, activityDescriptor: Partial<ActivityDescriptor> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!activityDescriptor || isSerializingDerivedType) { return; }
+    writer.writeStringValue("description", activityDescriptor.description);
+    writer.writeObjectValue<JsonObject>("inputSchema", activityDescriptor.inputSchema, serializeJsonObject);
+    writer.writeStringValue("key", activityDescriptor.key);
+    writer.writeStringValue("kind", activityDescriptor.kind);
+    writer.writeObjectValue<JsonObject>("outputSchema", activityDescriptor.outputSchema, serializeJsonObject);
+    writer.writeCollectionOfPrimitiveValues<string>("ports", activityDescriptor.ports);
+    writer.writeAdditionalData(activityDescriptor.additionalData);
 }
 /**
  * Serializes information the current object

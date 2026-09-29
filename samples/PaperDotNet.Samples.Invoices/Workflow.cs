@@ -48,6 +48,60 @@ public sealed class ApproveInvoiceAction(IListItemStore items) : IWorkflowActivi
     }
 }
 
+/// <summary>
+/// Activity <c>samples.invoices.awaitPayment</c> (ADR-0036): the run waits until the invoice's status becomes
+/// <c>paid</c> (<see cref="PaymentReceived"/> completes the wait) or <c>days</c> pass (default 30). Ports: <c>paid</c> and
+/// <c>timeout</c>. One payment wait per invoice.
+/// </summary>
+public sealed class AwaitPaymentActivity(TimeProvider time) : IWorkflowActivity
+{
+    public const string WaitKind = $"{InvoicesExtension.Id}.payment";
+
+    public string Key => $"{InvoicesExtension.Id}.awaitPayment";
+
+    public string Description => "Waits until the invoice is paid or { \"days\": 30 } pass (ports paid and timeout).";
+
+    public IReadOnlyList<string> Outcomes => ["paid", "timeout"];
+
+    public JsonObject? InputSchema => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject { ["days"] = new JsonObject { ["type"] = "number", ["description"] = "How long to wait for the payment (default 30)." } },
+    };
+
+    public IEnumerable<string> Validate(JsonObject inputs) =>
+        inputs["days"] is null || (inputs["days"] is JsonValue days && days.GetValueKind() == JsonValueKind.Number) ? [] : ["days must be a number."];
+
+    public Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
+    {
+        if (context.Item is not { } item)
+        {
+            return Task.FromResult(WorkflowActivityResult.Fail("An invoice is required."));
+        }
+
+        var days = context.Inputs["days"] is JsonValue value && value.GetValueKind() == JsonValueKind.Number ? value.GetValue<double>() : 30;
+        return Task.FromResult(WorkflowActivityResult.Wait(WaitKind, item.ItemId.ToString("N"), time.GetUtcNow().AddDays(days)));
+    }
+}
+
+/// <summary>Completes an invoice's payment wait (<see cref="AwaitPaymentActivity"/>) when its status becomes <c>paid</c>.</summary>
+public sealed class PaymentReceived(IListItemStore items, IWorkflowBookmarks bookmarks) : IEventSubscriber<ItemUpdated>
+{
+    public async Task HandleAsync(ItemUpdated integrationEvent, CancellationToken cancellationToken)
+    {
+        if (!integrationEvent.ChangedFields.Contains("status"))
+        {
+            return;
+        }
+
+        var item = await items.AsSystem().GetAsync(integrationEvent.WorkspaceId, integrationEvent.ListId, integrationEvent.ItemId, cancellationToken);
+        if (item?.Fields["status"]?.GetValue<string>() == "paid")
+        {
+            await bookmarks.CompleteAsync(AwaitPaymentActivity.WaitKind, item.Id.ToString("N"), new JsonObject { ["outcome"] = "paid" }, cancellationToken);
+        }
+    }
+}
+
 /// <summary>MCP tool <c>samples_invoices_pending</c> (API-09): invoices waiting for approval in a list the caller can read.</summary>
 public sealed class PendingInvoicesTool(IListItemStore items) : IMcpTool
 {

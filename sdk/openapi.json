@@ -14210,7 +14210,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/CatalogEntry"
+                    "$ref": "#/components/schemas/ActivityDescriptor"
                   }
                 }
               }
@@ -14844,6 +14844,55 @@
           "workspaceOwners"
         ],
         "description": "Who a permission entry gives access to: a user, a group, or a role of the list\u0027s workspace."
+      },
+      "ActivityDescriptor": {
+        "required": [
+          "key",
+          "description",
+          "kind",
+          "ports",
+          "inputSchema",
+          "outputSchema"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "ports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inputSchema": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "outputSchema": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          }
+        },
+        "description": "An activity in the catalog: \u0060kind\u0060 is \u0060flow\u0060 (run by the engine) or \u0060action\u0060."
       },
       "ActivityResponse": {
         "required": [

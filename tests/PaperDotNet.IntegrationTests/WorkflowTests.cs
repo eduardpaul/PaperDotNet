@@ -558,6 +558,81 @@ public sealed class WorkflowTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task Activities_wait_until_other_modules_complete_them_or_time_out()
+    {
+        var s = await SetupAsync("auto-wait");
+        Assert.True((await s.Admin.PostAsync("/v1.0/extensions/samples.invoices/enable", null, Ct)).IsSuccessStatusCode);
+        var invoices = await PostIdAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Invoices", templateKey = "samples.invoices.invoices" });
+        string Item(Guid id) => $"/v1.0/workspaces/{s.Workspace}/lists/{invoices}/items/{id}";
+
+        // The catalog lists flow activities and actions with their ports and input schemas.
+        var catalog = (await GetAsync(s.Admin, "/v1.0/workflows/activities")).EnumerateArray().ToList();
+        var awaitPayment = catalog.Single(a => a.GetProperty("key").GetString() == "samples.invoices.awaitPayment");
+        Assert.Equal("action", awaitPayment.GetProperty("kind").GetString());
+        Assert.Equal(["done", "error", "paid", "timeout"], awaitPayment.GetProperty("ports").EnumerateArray().Select(p => p.GetString()));
+        Assert.True(awaitPayment.GetProperty("inputSchema").GetProperty("properties").TryGetProperty("days", out _));
+        Assert.Equal("flow", catalog.Single(a => a.GetProperty("key").GetString() == "if").GetProperty("kind").GetString());
+        Assert.Contains("list", catalog.Single(a => a.GetProperty("key").GetString() == "task.create").GetProperty("inputSchema").GetProperty("required").ToString(), StringComparison.Ordinal);
+
+        await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Chase payment",
+            trigger = new { type = "manual", list = "Invoices" },
+            flow = new
+            {
+                start = "wait",
+                nodes = new Dictionary<string, object>
+                {
+                    ["wait"] = new { activity = "samples.invoices.awaitPayment", inputs = new { days = 14 }, next = new { paid = "thanks", timeout = "chase" } },
+                    ["thanks"] = new { activity = "item.update", inputs = new { fields = new { title = "Paid" } } },
+                    ["chase"] = new { activity = "item.update", inputs = new { fields = new { title = "Overdue" } } },
+                },
+            },
+        });
+        async Task<(Guid Invoice, Guid Run)> StartAsync()
+        {
+            var invoice = (await s.Admin.CreateItemAsync(s.Workspace, invoices, new { fields = new { title = "Invoice", amount = 10 } })).GetProperty("id").GetGuid();
+            return (invoice, await PostIdAsync(s.Admin, $"{Item(invoice)}/workflows", new { workflow = "Chase payment" }));
+        }
+
+        // The run waits until the invoice is marked paid; the extension completes the wait from its event subscriber.
+        var (paid, paidRun) = await StartAsync();
+        await WaitAsync(s.Admin, $"{s.Workflows}/runs/{paidRun}", r => Status(r) == "waiting");
+        var update = await s.Admin.SendWithEtagAsync(HttpMethod.Patch, Item(paid), (await s.Admin.GetAsync(Item(paid), Ct)).Headers.ETag!.Tag, new { fields = new { status = "paid" } });
+        Assert.True(update.IsSuccessStatusCode, await update.Content.ReadAsStringAsync(Ct));
+        var done = await WaitAsync(s.Admin, $"{s.Workflows}/runs/{paidRun}", r => Status(r) == "completed");
+        Assert.Equal("paid", done.GetProperty("outputs").GetProperty("wait").GetProperty("outcome").GetString());
+        Assert.Equal("Paid", (await GetAsync(s.Admin, Item(paid))).GetProperty("fields").GetProperty("title").GetString());
+
+        await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(s.Tenant.Id, s.Tenant.Identifier);
+        var bookmarks = scope.ServiceProvider.GetRequiredService<PaperDotNet.Workflows.Contracts.IWorkflowBookmarks>();
+        var db = scope.ServiceProvider.GetRequiredService<WorkflowsDbContext>();
+
+        // Completing again changes nothing; the engine's own waits cannot be completed from outside.
+        Assert.False(await bookmarks.CompleteAsync("samples.invoices.payment", paid.ToString("N"), null, Ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => bookmarks.CompleteAsync("approval", "x", null, Ct));
+
+        // A completion that arrives before the run waits is kept, and the run continues right away when it gets there.
+        var early = (await s.Admin.CreateItemAsync(s.Workspace, invoices, new { fields = new { title = "Invoice", amount = 10 } })).GetProperty("id").GetGuid();
+        Assert.True(await bookmarks.CompleteAsync("samples.invoices.payment", early.ToString("N"), new System.Text.Json.Nodes.JsonObject { ["outcome"] = "paid" }, Ct));
+        var earlyRun = await PostIdAsync(s.Admin, $"{Item(early)}/workflows", new { workflow = "Chase payment" });
+        await WaitAsync(s.Admin, $"{s.Workflows}/runs/{earlyRun}", r => Status(r) == "completed");
+        Assert.Equal("Paid", (await GetAsync(s.Admin, Item(early))).GetProperty("fields").GetProperty("title").GetString());
+
+        // Without a payment the wait times out (the minute job) and the run continues on the timeout port.
+        var (unpaid, unpaidRun) = await StartAsync();
+        await WaitAsync(s.Admin, $"{s.Workflows}/runs/{unpaidRun}", r => Status(r) == "waiting");
+        var wait = await db.Bookmarks.SingleAsync(b => b.RunId == unpaidRun, Ct);
+        Assert.Equal("samples.invoices.payment", wait.Kind);
+        Assert.True(wait.ResumeAt > DateTimeOffset.UtcNow.AddDays(13));
+        wait.ResumeAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        await db.SaveChangesAsync(Ct);
+        await scope.ServiceProvider.GetRequiredService<WorkflowTimerJob>().RunAsync(Ct);
+        await WaitAsync(s.Admin, $"{s.Workflows}/runs/{unpaidRun}", r => Status(r) == "completed");
+        Assert.Equal("Overdue", (await GetAsync(s.Admin, Item(unpaid))).GetProperty("fields").GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task Workflow_is_validated_needs_access_and_stays_in_the_tenant()
     {
         var s = await SetupAsync("auto-acl");

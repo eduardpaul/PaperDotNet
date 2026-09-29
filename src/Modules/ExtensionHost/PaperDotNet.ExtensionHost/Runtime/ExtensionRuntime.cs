@@ -390,16 +390,31 @@ internal sealed class GatedWorkflowActivity(string extensionId, IWorkflowActivit
 {
     public string Key => inner.Key.StartsWith(extensionId + ".", StringComparison.Ordinal)
         ? inner.Key
-        : throw new InvalidOperationException($"Workflow action '{inner.Key}' of extension {extensionId} must start with '{extensionId}.'.");
+        : throw new InvalidOperationException($"Workflow activity '{inner.Key}' of extension {extensionId} must start with '{extensionId}.'.");
 
     public string Description => inner.Description;
 
     public IEnumerable<string> Validate(System.Text.Json.Nodes.JsonObject inputs) => inner.Validate(inputs);
 
-    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken) =>
-        await state.IsEnabledAsync(extensionId, cancellationToken)
-            ? await inner.ExecuteAsync(context, cancellationToken)
-            : WorkflowActivityResult.Fail($"The extension '{extensionId}' is not enabled.");
+    public System.Text.Json.Nodes.JsonObject? InputSchema => inner.InputSchema;
+
+    public System.Text.Json.Nodes.JsonObject? OutputSchema => inner.OutputSchema;
+
+    public IReadOnlyList<string> Outcomes => inner.Outcomes;
+
+    /// <summary>Runs the activity when the extension is enabled; its waits must be of kinds that start with the extension id.</summary>
+    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
+    {
+        if (!await state.IsEnabledAsync(extensionId, cancellationToken))
+        {
+            return WorkflowActivityResult.Fail($"The extension '{extensionId}' is not enabled.");
+        }
+
+        var result = await inner.ExecuteAsync(context, cancellationToken);
+        return result.Waiting is { } wait && !wait.Kind.StartsWith(extensionId + ".", StringComparison.Ordinal)
+            ? WorkflowActivityResult.Fail($"Waits of extension {extensionId} must have kinds that start with '{extensionId}.' (not '{wait.Kind}').")
+            : result;
+    }
 }
 
 /// <summary>An extension's MCP tool: offered only where the extension is enabled; the name carries the extension id.</summary>

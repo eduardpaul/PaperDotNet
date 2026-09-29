@@ -545,6 +545,30 @@ internal sealed partial class WorkflowInterpreter(
                         break;
                     }
 
+                    if (result.Waiting is { } wait)
+                    {
+                        // The activity waits for something else (e.g. a batch) to complete (kind, key): a bookmark of this
+                        // node; a completion that came first (unclaimed) is taken over and resumes the run right away.
+                        var existing = await db.Bookmarks.FirstOrDefaultAsync(b => b.Kind == wait.Kind && b.Key == wait.Key, ct);
+                        var problem = WaitProblem(wait, existing, run, id);
+                        if (problem is not null)
+                        {
+                            if (!await FailedAsync(id, node, problem))
+                            {
+                                return;
+                            }
+
+                            break;
+                        }
+
+                        var waitOn = existing ?? NewBookmark(run, id, wait.Kind, wait.Key, wait.ResumeAt);
+                        waitOn.RunId = run.Id;
+                        waitOn.Node = id;
+                        Log($"{id}: waiting ({wait.Kind})");
+                        await WaitAsync(waitOn, waitOn.CompletedAt is null ? null : [new ResumeRun(run.Id, waitOn.Id, tenant.TenantId!.Value, tenant.TenantIdentifier!)]);
+                        return;
+                    }
+
                     outputs[id] = result.Output?.DeepClone() ?? new JsonObject();
                     if (outputs.ToJsonString().Length > MaxStateLength)
                     {
@@ -552,8 +576,8 @@ internal sealed partial class WorkflowInterpreter(
                         return;
                     }
 
-                    Log($"{id}: {node.Activity} done");
-                    if (!await ContinueAsync(id, "done"))
+                    Log($"{id}: {node.Activity} done" + (result.Outcome is { } chosen ? $" ({chosen})" : string.Empty));
+                    if (!await ContinueAsync(id, result.Outcome ?? "done"))
                     {
                         return;
                     }
@@ -566,6 +590,23 @@ internal sealed partial class WorkflowInterpreter(
     }
 
     public static string BookmarkKey(Guid approvalId) => approvalId.ToString("N");
+
+    /// <summary>Why an activity cannot wait on (kind, key), or null: a valid wait that is new, unclaimed or this node's own.</summary>
+    private static string? WaitProblem(WorkflowWait wait, WorkflowBookmark? existing, WorkflowRun run, string node)
+    {
+        try
+        {
+            WorkflowBookmarks.CheckWait(wait.Kind, wait.Key);
+        }
+        catch (ArgumentException ex)
+        {
+            return ex.Message;
+        }
+
+        return existing is null || existing.RunId == WorkflowBookmarks.Unclaimed || (existing.RunId == run.Id && existing.Node == node)
+            ? null
+            : $"The wait {wait.Kind} '{wait.Key}' belongs to another run.";
+    }
 
     public static string Truncate(string text) => text.Length > 2000 ? text[..2000] : text;
 
@@ -800,7 +841,8 @@ internal sealed class WorkflowTimerJob(WorkflowsDbContext db, RunService runs, I
         {
             foreach (var bookmark in dueBookmarks)
             {
-                runs.Complete(bookmark, null);
+                // A delay or retry is simply over; any other wait timed out (port timeout, else done).
+                runs.Complete(bookmark, bookmark.Kind is BookmarkKinds.Delay or BookmarkKinds.Retry ? null : new JsonObject { ["outcome"] = "timeout" });
             }
 
             try
@@ -858,7 +900,7 @@ public sealed class WorkflowOptions
     public int RunRetentionDays { get; set; } = 30;
 }
 
-/// <summary>Daily: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals.</summary>
+/// <summary>Daily: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals and bookmarks, and old unclaimed completions.</summary>
 internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<WorkflowOptions> options, TimeProvider time) : ITenantRecurringJob
 {
     public const string Name = "workflows.runCleanup";
@@ -868,6 +910,9 @@ internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<Work
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         var cutoff = time.GetUtcNow().AddDays(-Math.Max(1, options.Value.RunRetentionDays));
+
+        // Completions no run ever waited for.
+        await db.Bookmarks.Where(b => b.RunId == WorkflowBookmarks.Unclaimed && b.CompletedAt < cutoff).ExecuteDeleteAsync(cancellationToken);
         while (true)
         {
             var ids = await db.Runs
