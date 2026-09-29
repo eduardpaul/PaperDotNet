@@ -16,7 +16,7 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "baseUrl": ".",
+    "rootDir": "./src",
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src"]

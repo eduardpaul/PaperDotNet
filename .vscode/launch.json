@@ -1,0 +1,63 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": ".NET: Debug API",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/PaperDotNet.Host/bin/Debug/net10.0/paperdotnet.dll",
+            "cwd": "${workspaceFolder}/src/PaperDotNet.Host",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://localhost:5080"
+            },
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "Now listening on:\\s+(https?://\\S+)"
+            }
+        },
+        {
+            // Runs "dotnet watch" as the debuggee: edits apply with Hot Reload in the same process, breakpoints keep working.
+            "name": ".NET: Debug API (watch, hot reload)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "dotnet",
+            "args": [
+                "watch",
+                "run",
+                "--project",
+                "${workspaceFolder}/src/PaperDotNet.Host/PaperDotNet.Host.csproj",
+                "--non-interactive"
+            ],
+            "cwd": "${workspaceFolder}/src/PaperDotNet.Host",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://localhost:5080",
+                "DOTNET_USE_POLLING_FILE_WATCHER": "1"
+            }
+        },
+        {
+            "name": "Web: Chrome (Vite dev server)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:5173",
+            "webRoot": "${workspaceFolder}/web",
+            "preLaunchTask": "web: dev"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Full stack: API (hot reload) + Web",
+            "configurations": [".NET: Debug API (watch, hot reload)", "Web: Chrome (Vite dev server)"],
+            "stopAll": true
+        }
+    ]
+}
