@@ -12,7 +12,7 @@ function Permissions() {
   return (
     <PermissionsEditor
       queryKey={listPermissionsQuery(workspaceId, listId).queryKey}
-      builder={listBuilder(workspaceId, listId).permissions}
+      builder={() => listBuilder(workspaceId, listId).permissions}
       scope={list?.kind === 'library' ? 'library' : 'list'}
     />
   );

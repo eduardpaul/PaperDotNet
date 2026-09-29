@@ -44,14 +44,18 @@ export function PermissionsEditor({
   scope,
 }: {
   queryKey: readonly unknown[];
-  builder: PermissionsBuilder;
+  /**
+   * Returns the permission endpoints. A function, not the builder itself: Kiota builders are proxies that throw on
+   * unknown properties, and React's development tools read the props of every component.
+   */
+  builder: () => PermissionsBuilder;
   /** "list", "library" or "item", for the texts. */
   scope: string;
 }) {
   const queryClient = useQueryClient();
   const { data: permissions, isPending } = useQuery({
     queryKey,
-    queryFn: async () => (await builder.get())!,
+    queryFn: async () => (await builder().get())!,
   });
   const { data: users } = useQuery(usersQuery);
   const { data: groups } = useQuery(groupsQuery);
@@ -70,12 +74,12 @@ export function PermissionsEditor({
     else return queryClient.invalidateQueries({ queryKey });
   };
   const breakInheritance = useMutation({
-    mutationFn: () => builder.breakInheritance.post({ copyGrants: true }),
+    mutationFn: () => builder().breakInheritance.post({ copyGrants: true }),
     onSuccess: (updated) => done(updated, 'Permissions are now unique. Change them below.'),
   });
   const reset = useMutation({
     meta: { silent: true },
-    mutationFn: () => builder.resetInheritance.post(),
+    mutationFn: () => builder().resetInheritance.post(),
     onSuccess: async () => {
       setResetting(false);
       await done(undefined, 'Permissions are inherited again.');
@@ -83,7 +87,7 @@ export function PermissionsEditor({
   });
   const save = useMutation({
     meta: { silent: true },
-    mutationFn: () => builder.grants.put({ grants }),
+    mutationFn: () => builder().grants.put({ grants }),
     onSuccess: (updated) => done(updated, 'Permissions saved.'),
   });
 

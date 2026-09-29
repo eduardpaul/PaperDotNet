@@ -9,7 +9,7 @@ export function AccessTab({ workspaceId, list, item }: ItemPanelContext) {
     <div className="p-5">
       <PermissionsEditor
         queryKey={[...keys.item(workspaceId, list.id!, item.id!), 'permissions']}
-        builder={listBuilder(workspaceId, list.id!).items.byItemId(item.id!).permissions}
+        builder={() => listBuilder(workspaceId, list.id!).items.byItemId(item.id!).permissions}
         scope={item.isFolder ? 'folder' : 'item'}
       />
     </div>
