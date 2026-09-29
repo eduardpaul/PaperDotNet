@@ -168,7 +168,8 @@ export function createFormatter(preferences: Partial<FormatPreferences> = {}): F
     monthYear: (value) => {
       const date = toDate(value);
       return safe(
-        () => new Intl.DateTimeFormat(p.language, { month: 'long', year: 'numeric', timeZone: p.timeZone }).format(date),
+        () =>
+          new Intl.DateTimeFormat(p.language, { month: 'long', year: 'numeric', timeZone: p.timeZone }).format(date),
         () => new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date),
       );
     },

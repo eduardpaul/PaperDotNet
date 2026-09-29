@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { homeQuery, listsQuery, unreadCountQuery, workspacesQuery } from '@/api/queries';
 import { Logo } from '@/components/brand/logo';
 import { Skeleton } from '@/components/ui/feedback';
+import { useAdminPages } from '@/extensibility/admin';
 import { navigation } from '@/extensibility/navigation';
-import { useAdminAccess } from '@/features/admin/access';
 import { inboxCountQuery } from '@/features/home/inbox-card';
 import { ListIcon } from '@/features/lists/list-icon';
 import { SidebarSmartFolders } from '@/features/smart-folders/sidebar-folders';
@@ -87,11 +87,11 @@ function MyFiles({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function AdminLink({ onNavigate }: { onNavigate?: () => void }) {
-  const admin = useAdminAccess();
-  if (!admin.any) return null;
+  const adminPages = useAdminPages();
+  if (!adminPages.length) return null;
   return (
     <div className="mt-5">
-      <Link to="/admin" onClick={onNavigate} className={itemClass} activeProps={{ className: activeClass }}>
+      <Link to={adminPages[0]!.to} onClick={onNavigate} className={itemClass} activeProps={{ className: activeClass }}>
         <Shield />
         <span>Administration</span>
       </Link>

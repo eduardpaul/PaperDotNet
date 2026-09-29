@@ -73,6 +73,10 @@ public sealed class AccountTests(PaperDotNetApiFactory factory)
         var updated = await PatchAsync(admin, $"/v1.0/users/{bob}", new { displayName = "Bob Builder", email = "bob@example.com" });
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
         Assert.Equal("Bob Builder", (await updated.ReadJsonAsync()).GetProperty("displayName").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, (await PatchAsync(admin, $"/v1.0/users/{bob}", new { email = "not-an-address" })).StatusCode);
+        var cleared = await PatchAsync(admin, $"/v1.0/users/{bob}", new { email = "" });
+        Assert.Equal(HttpStatusCode.OK, cleared.StatusCode);
+        Assert.False((await cleared.ReadJsonAsync()).TryGetProperty("email", out _));
 
         // Disabled: tokens stop working and the password grant fails; enabled again, sign-in works.
         var bobClient = await ApiClient.CreateAsync(factory, "accounts-users", "bob", "bob-password-1");

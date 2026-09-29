@@ -200,7 +200,9 @@ function ViewDialog({
                     <option
                       key={l.value}
                       value={l.value}
-                      disabled={(l.value === 'board' && !choiceFields.length) || (l.value === 'calendar' && !dateFields.length)}
+                      disabled={
+                        (l.value === 'board' && !choiceFields.length) || (l.value === 'calendar' && !dateFields.length)
+                      }
                     >
                       {l.label}
                     </option>

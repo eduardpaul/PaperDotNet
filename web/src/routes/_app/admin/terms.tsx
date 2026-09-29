@@ -1,339 +1,577 @@
+import type { TermResponse, TermSetResponse } from '@paperdotnet/client';
+import { all, toArray } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { ArrowUpRight, ChevronRight, FileUp, FolderTree, Pencil, Plus, Tag, Tags } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { api } from '@/api/client';
-import { all, toArray } from '@paperdotnet/client';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, EmptyState, Skeleton } from '@/components/ui/feedback';
-import { Input, Label } from '@/components/ui/input';
+import { Input, Textarea } from '@/components/ui/input';
 import { Checkbox, Select } from '@/components/ui/select';
+import { Field } from '@/features/admin/common';
 import { termSetsQuery } from '@/features/list-settings/queries';
 import { SettingsSection } from '@/features/settings/section';
 import { problemMessage } from '@/lib/errors';
+import { cn } from '@/lib/utils';
 
-export const Route = createFileRoute('/_app/admin/terms')({ component: Terms });
+interface TermsSearch {
+  set?: string;
+}
+
+export const Route = createFileRoute('/_app/admin/terms')({
+  validateSearch: (search: Record<string, unknown>): TermsSearch => ({
+    set: typeof search.set === 'string' ? search.set : undefined,
+  }),
+  component: TermStore,
+});
 
 const groupsQuery = {
   queryKey: ['termStore', 'groups'],
-  queryFn: async () => (await api.v10.termStore.groups.get())?.value ?? [],
+  queryFn: () => toArray(all(api.v10.termStore.groups, { queryParameters: { top: 200 } })),
 };
 
-function Terms() {
-  const queryClient = useQueryClient();
-  const groups = useQuery(groupsQuery);
-  const sets = useQuery(termSetsQuery);
-  const [groupName, setGroupName] = useState('');
-  const [groupId, setGroupId] = useState('');
-  const [setName, setSetName] = useState('');
-  const [openSet, setOpenSet] = useState(false);
-  const [setId, setSetId] = useState('');
-  const [termName, setTermName] = useState('');
-  const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: groupsQuery.queryKey });
-    await queryClient.invalidateQueries({ queryKey: termSetsQuery.queryKey });
-  };
-  const createGroup = useMutation({
-    meta: { silent: true },
-    mutationFn: () => api.v10.termStore.groups.post({ name: groupName.trim() }),
-    onSuccess: async () => {
-      setGroupName('');
-      toast.success('Term group created.');
-      await refresh();
-    },
-  });
-  const createSet = useMutation({
-    meta: { silent: true },
-    mutationFn: () => api.v10.termStore.sets.post({ groupId, name: setName.trim(), isOpen: openSet }),
-    onSuccess: async () => {
-      setSetName('');
-      toast.success('Term set created. Content types and smart folders can use it.');
-      await refresh();
-    },
-  });
-  const terms = useQuery({
-    queryKey: ['termStore', 'sets', setId, 'terms'],
-    enabled: !!setId,
-    queryFn: () => toArray(all(api.v10.termStore.sets.bySetId(setId).terms, { queryParameters: { top: 200 } })),
-  });
-  const createTerm = useMutation({
-    meta: { silent: true },
-    mutationFn: () => api.v10.termStore.sets.bySetId(setId).terms.post({ name: termName.trim() }),
-    onSuccess: async () => {
-      setTermName('');
-      toast.success('Term added.');
-      await queryClient.invalidateQueries({ queryKey: ['termStore', 'sets', setId, 'terms'] });
-    },
-  });
+const termsKey = (setId: string, parentId?: string) => ['termStore', 'sets', setId, 'terms', parentId ?? 'root'];
+
+/** The term store (TAX-01…03, TAX-05, TAX-11): groups, term sets and their terms, CSV import, keyword promotion. */
+function TermStore() {
+  const { set: setId } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { data: groups, isPending } = useQuery(groupsQuery);
+  const { data: sets } = useQuery(termSetsQuery);
+  const [dialog, setDialog] = useState<
+    { kind: 'group' } | { kind: 'set'; groupId: string } | { kind: 'import'; groupId: string } | undefined
+  >();
+  const selected = sets?.find((s) => s.id === setId);
 
   return (
     <>
-      <SettingsSection
-        title="Term store"
-        description="Groups hold term sets. A set is the vocabulary a column or a smart folder uses."
-      >
-        {groups.isPending || sets.isPending ? (
-          <Skeleton className="h-16" />
-        ) : (
-          <ul className="divide-y text-[13px]">
-            {(groups.data ?? []).map((group) => (
-              <li key={group.id} className="py-2">
-                <p className="font-medium">{group.name}</p>
-                <ul className="mt-1 text-muted">
-                  {(sets.data ?? [])
-                    .filter((set) => set.groupId === group.id)
-                    .map((set) => (
-                      <li key={set.id}>
-                        {set.name}
-                        {set.isOpen && ' · open'}
-                        {set.isKeywords && ' · keywords'}
-                      </li>
-                    ))}
-                </ul>
-              </li>
-            ))}
-            {!groups.data?.length && <EmptyState title="No term groups yet" />}
-          </ul>
-        )}
-      </SettingsSection>
-      <form
-        onSubmit={(event: FormEvent) => {
-          event.preventDefault();
-          createGroup.mutate();
-        }}
-      >
-        <SettingsSection
-          title="New group"
-          actions={
-            <Button type="submit" variant="primary" disabled={!groupName.trim() || createGroup.isPending}>
-              Create group
+      <div className="grid gap-5 lg:grid-cols-[18rem_1fr]">
+        <Card className="self-start">
+          <header className="flex items-center gap-2 border-b px-4 py-3">
+            <FolderTree className="size-4 text-muted" />
+            <h2 className="flex-1 text-sm font-semibold">Term sets</h2>
+            <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: 'group' })}>
+              <Plus /> Group
             </Button>
-          }
-        >
-          {createGroup.isError && <Alert>{problemMessage(createGroup.error)}</Alert>}
-          <Labeled id="term-group-name" label="Name" value={groupName} onChange={setGroupName} />
-        </SettingsSection>
-      </form>
-      <form
-        onSubmit={(event: FormEvent) => {
-          event.preventDefault();
-          createSet.mutate();
-        }}
-      >
-        <SettingsSection
-          title="New term set"
-          actions={
-            <Button type="submit" variant="primary" disabled={!groupId || !setName.trim() || createSet.isPending}>
-              Create term set
-            </Button>
-          }
-        >
-          {createSet.isError && <Alert>{problemMessage(createSet.error)}</Alert>}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="term-group">Group</Label>
-              <Select id="term-group" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-                <option value="">Choose a group…</option>
-                {(groups.data ?? [])
-                  .filter((group) => !group.isSystem)
-                  .map((group) => (
-                    <option key={group.id} value={group.id!}>
-                      {group.name}
-                    </option>
-                  ))}
-              </Select>
-            </div>
-            <Labeled id="term-set-name" label="Name" value={setName} onChange={setSetName} />
-          </div>
-          <label className="mt-3 flex items-center gap-2 text-[13px]">
-            <Checkbox checked={openSet} onChange={(e) => setOpenSet(e.target.checked)} />
-            Open: people can add terms while tagging
-          </label>
-        </SettingsSection>
-      </form>
-      <form
-        onSubmit={(event: FormEvent) => {
-          event.preventDefault();
-          createTerm.mutate();
-        }}
-      >
-        <SettingsSection
-          title="Add a term"
-          actions={
-            <Button type="submit" variant="primary" disabled={!setId || !termName.trim() || createTerm.isPending}>
-              Add term
-            </Button>
-          }
-        >
-          {createTerm.isError && <Alert>{problemMessage(createTerm.error)}</Alert>}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="term-set">Term set</Label>
-              <Select id="term-set" value={setId} onChange={(e) => setSetId(e.target.value)}>
-                <option value="">Choose a term set…</option>
-                {(sets.data ?? [])
-                  .filter((set) => !set.isKeywords)
-                  .map((set) => (
-                    <option key={set.id} value={set.id!}>
-                      {set.name}
-                    </option>
-                  ))}
-              </Select>
-            </div>
-            <Labeled id="term-name" label="Term" value={termName} onChange={setTermName} />
-          </div>
-          {!!terms.data?.length && (
-            <p className="mt-2 text-xs text-muted">{terms.data.map((term) => term.name).join(', ')}</p>
+          </header>
+          {isPending ? (
+            <Skeleton className="m-4 h-24" />
+          ) : (
+            <ul className="flex flex-col gap-3 p-3">
+              {(groups ?? []).map((group) => (
+                <li key={group.id}>
+                  <div className="flex items-center gap-1 px-1 text-xs font-medium text-muted">
+                    <span className="flex-1 truncate">{group.name}</span>
+                    {!group.isSystem && (
+                      <>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label={`Import terms into ${group.name}`}
+                          onClick={() => setDialog({ kind: 'import', groupId: group.id! })}
+                        >
+                          <FileUp />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label={`New term set in ${group.name}`}
+                          onClick={() => setDialog({ kind: 'set', groupId: group.id! })}
+                        >
+                          <Plus />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  <ul>
+                    {(sets ?? [])
+                      .filter((s) => s.groupId === group.id)
+                      .map((set) => (
+                        <li key={set.id}>
+                          <button
+                            type="button"
+                            aria-current={set.id === setId ? 'page' : undefined}
+                            onClick={() => void navigate({ search: { set: set.id! } })}
+                            className={cn(
+                              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-surface-muted',
+                              set.id === setId && 'bg-accent-soft font-medium text-accent',
+                            )}
+                          >
+                            <Tags className="size-3.5" />
+                            <span className="flex-1 truncate">{set.name}</span>
+                            {set.isKeywords && <Badge>Keywords</Badge>}
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
           )}
-        </SettingsSection>
-      </form>
-      <Keywords sets={sets.data ?? []} />
-      <ImportCsv groups={groups.data ?? []} onImported={refresh} />
+        </Card>
+        <div className="flex min-w-0 flex-col gap-5">
+          {selected ? (
+            selected.isKeywords ? (
+              <PopularKeywords sets={(sets ?? []).filter((s) => !s.isKeywords)} />
+            ) : (
+              <TermSetView set={selected} />
+            )
+          ) : (
+            <Card>
+              <EmptyState icon={Tags} title="Choose a term set">
+                Terms are shared tags and categories: managed metadata fields pick them from a set, keywords are free
+                tags people add.
+              </EmptyState>
+            </Card>
+          )}
+        </div>
+      </div>
+      {dialog?.kind === 'group' && (
+        <NameDialog
+          title="New term group"
+          onClose={() => setDialog(undefined)}
+          onSave={(name, description) => api.v10.termStore.groups.post({ name, description })}
+          invalidate={groupsQuery.queryKey}
+        />
+      )}
+      {dialog?.kind === 'set' && (
+        <NameDialog
+          title="New term set"
+          withOpen
+          onClose={() => setDialog(undefined)}
+          onSave={(name, description, isOpen) =>
+            api.v10.termStore.sets.post({ groupId: dialog.groupId, name, description, isOpen })
+          }
+          invalidate={termSetsQuery.queryKey}
+        />
+      )}
+      {dialog?.kind === 'import' && <ImportDialog groupId={dialog.groupId} onClose={() => setDialog(undefined)} />}
     </>
   );
 }
 
-function Keywords({ sets }: { sets: { id?: string | null; name?: string | null; isKeywords?: boolean | null }[] }) {
+function TermSetView({ set }: { set: TermSetResponse }) {
+  const [adding, setAdding] = useState(false);
+  return (
+    <SettingsSection
+      title={set.name ?? ''}
+      description={
+        <>
+          {set.description && <>{set.description} · </>}
+          {set.isOpen ? 'Open: people can add terms while tagging.' : 'Closed: only term store managers add terms.'}
+        </>
+      }
+      className="px-0 pb-0"
+      actions={
+        <Button variant="primary" onClick={() => setAdding(true)}>
+          <Plus /> New term
+        </Button>
+      }
+    >
+      <div className="border-t py-1">
+        <TermLevel setId={set.id!} depth={0} />
+      </div>
+      {adding && <TermDialog setId={set.id!} onClose={() => setAdding(false)} />}
+    </SettingsSection>
+  );
+}
+
+function TermLevel({ setId, parentId, depth }: { setId: string; parentId?: string; depth: number }) {
+  const { data: terms, isPending } = useQuery({
+    queryKey: termsKey(setId, parentId),
+    queryFn: () =>
+      toArray(
+        all(api.v10.termStore.sets.bySetId(setId).terms, {
+          queryParameters: { parentId, includeDeprecated: true, top: 200 },
+        }),
+      ),
+  });
+  if (isPending) return <Skeleton className="mx-5 my-2 h-6" />;
+  if (!terms?.length) return depth === 0 ? <p className="px-5 py-4 text-[13px] text-muted">No terms yet.</p> : null;
+  return (
+    <ul>
+      {terms.map((term) => (
+        <TermRow key={term.id} term={term} depth={depth} />
+      ))}
+    </ul>
+  );
+}
+
+function TermRow({ term, depth }: { term: TermResponse; depth: number }) {
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [addingChild, setAddingChild] = useState(false);
+  return (
+    <li>
+      <div
+        className="group flex items-center gap-2 py-1 pr-5 hover:bg-surface-muted/50"
+        style={{ paddingLeft: `${1.25 + depth * 1.25}rem` }}
+      >
+        <button
+          type="button"
+          aria-label={open ? `Collapse ${term.name}` : `Expand ${term.name}`}
+          className={cn('text-muted', !term.hasChildren && 'invisible')}
+          onClick={() => setOpen(!open)}
+        >
+          <ChevronRight className={cn('size-4 transition-transform', open && 'rotate-90')} />
+        </button>
+        <span className="size-2.5 rounded-full" style={{ background: term.color ?? 'var(--color-border)' }} />
+        <span className={cn('flex-1 truncate text-[13px]', term.isDeprecated && 'text-muted line-through')}>
+          {term.name}
+        </span>
+        {!!term.synonyms?.length && <span className="truncate text-xs text-muted">{term.synonyms.join(', ')}</span>}
+        {term.isDeprecated && <Badge>Deprecated</Badge>}
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label={`Add a term under ${term.name}`}
+          onClick={() => setAddingChild(true)}
+        >
+          <Plus />
+        </Button>
+        <Button size="icon" variant="ghost" aria-label={`Edit ${term.name}`} onClick={() => setEditing(true)}>
+          <Pencil />
+        </Button>
+      </div>
+      {open && <TermLevel setId={term.termSetId!} parentId={term.id!} depth={depth + 1} />}
+      {editing && <TermDialog setId={term.termSetId!} term={term} onClose={() => setEditing(false)} />}
+      {addingChild && <TermDialog setId={term.termSetId!} parentId={term.id!} onClose={() => setAddingChild(false)} />}
+    </li>
+  );
+}
+
+function TermDialog({
+  setId,
+  term,
+  parentId,
+  onClose,
+}: {
+  setId: string;
+  term?: TermResponse;
+  parentId?: string;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
-  const popular = useQuery({
+  const [name, setName] = useState(term?.name ?? '');
+  const [description, setDescription] = useState(term?.description ?? '');
+  const [color, setColor] = useState(term?.color ?? '');
+  const [synonyms, setSynonyms] = useState((term?.synonyms ?? []).join(', '));
+  const [deprecated, setDeprecated] = useState(!!term?.isDeprecated);
+  const [mergeInto, setMergeInto] = useState('');
+  const { data: others } = useQuery({
+    queryKey: ['termStore', 'sets', setId, 'all'],
+    queryFn: () => toArray(all(api.v10.termStore.sets.bySetId(setId).terms, { queryParameters: { top: 200 } })),
+    enabled: !!term,
+  });
+  const done = async (message: string) => {
+    toast.success(message);
+    await queryClient.invalidateQueries({ queryKey: ['termStore', 'sets', setId] });
+    onClose();
+  };
+  const list = (text: string) =>
+    text
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  const save = useMutation({
+    meta: { silent: true },
+    mutationFn: () => {
+      const terms = api.v10.termStore.sets.bySetId(setId).terms;
+      return term
+        ? terms.byTermId(term.id!).patch({
+            name: name.trim(),
+            description: description.trim(),
+            color: color || null,
+            synonyms: list(synonyms),
+            isDeprecated: deprecated,
+          })
+        : terms.post({
+            name: name.trim(),
+            parentId,
+            description: description.trim() || undefined,
+            color: color || undefined,
+            synonyms: list(synonyms),
+          });
+    },
+    onSuccess: () => done(term ? 'Term saved.' : 'Term created.'),
+  });
+  const merge = useMutation({
+    meta: { silent: true },
+    mutationFn: () =>
+      api.v10.termStore.sets.bySetId(setId).terms.byTermId(term!.id!).merge.post({ targetTermId: mergeInto }),
+    onSuccess: () => done('Terms merged: items now carry the other term.'),
+  });
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    save.mutate();
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <form onSubmit={onSubmit}>
+          <DialogHeader>
+            <DialogTitle>{term ? `Term “${term.name}”` : parentId ? 'New term below' : 'New term'}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 px-5 pb-4">
+            <Field id="term-name" label="Name">
+              <Input id="term-name" required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+            <Field
+              id="term-synonyms"
+              label="Synonyms"
+              hint="Separated by commas; search and tagging find the term by them."
+            >
+              <Input id="term-synonyms" value={synonyms} onChange={(e) => setSynonyms(e.target.value)} />
+            </Field>
+            <div className="grid grid-cols-[1fr_auto] gap-3">
+              <Field id="term-description" label="Description">
+                <Input id="term-description" value={description} onChange={(e) => setDescription(e.target.value)} />
+              </Field>
+              <Field id="term-color" label="Color">
+                <Input
+                  id="term-color"
+                  type="color"
+                  className="w-16 p-1"
+                  value={color || '#8b8b8b'}
+                  onChange={(e) => setColor(e.target.value)}
+                />
+              </Field>
+            </div>
+            {term && (
+              <>
+                <label className="flex items-center gap-2 text-[13px]">
+                  <Checkbox checked={deprecated} onChange={(e) => setDeprecated(e.target.checked)} />
+                  Deprecated: stays on items, cannot be chosen any more
+                </label>
+                <div className="flex items-end gap-2 rounded-md border p-3">
+                  <Field id="term-merge" label="Merge into">
+                    <Select id="term-merge" value={mergeInto} onChange={(e) => setMergeInto(e.target.value)}>
+                      <option value="">Choose a term…</option>
+                      {(others ?? [])
+                        .filter((t) => t.id !== term.id && !t.mergedIntoId)
+                        .map((t) => (
+                          <option key={t.id} value={t.id!}>
+                            {t.name}
+                          </option>
+                        ))}
+                    </Select>
+                  </Field>
+                  <Button type="button" disabled={!mergeInto || merge.isPending} onClick={() => merge.mutate()}>
+                    Merge
+                  </Button>
+                </div>
+              </>
+            )}
+            {(save.isError || merge.isError) && <Alert>{problemMessage(save.error ?? merge.error)}</Alert>}
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={!name.trim() || save.isPending}>
+              {term ? 'Save' : 'Create term'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NameDialog({
+  title,
+  withOpen,
+  invalidate,
+  onSave,
+  onClose,
+}: {
+  title: string;
+  withOpen?: boolean;
+  invalidate: readonly unknown[];
+  onSave: (name: string, description: string | undefined, isOpen: boolean) => Promise<unknown>;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const save = useMutation({
+    meta: { silent: true },
+    mutationFn: () => onSave(name.trim(), description.trim() || undefined, isOpen),
+    onSuccess: async () => {
+      toast.success('Created.');
+      await queryClient.invalidateQueries({ queryKey: invalidate });
+      onClose();
+    },
+  });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            save.mutate();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 px-5 pb-4">
+            <Field id="ts-name" label="Name">
+              <Input id="ts-name" required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+            <Field id="ts-description" label="Description">
+              <Textarea
+                id="ts-description"
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </Field>
+            {withOpen && (
+              <label className="flex items-center gap-2 text-[13px]">
+                <Checkbox checked={isOpen} onChange={(e) => setIsOpen(e.target.checked)} />
+                Open: people may add terms while tagging
+              </label>
+            )}
+            {save.isError && <Alert>{problemMessage(save.error)}</Alert>}
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={!name.trim() || save.isPending}>
+              Create
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** CSV with a term set per file: "Term,Parent" rows (TAX-11). */
+function ImportDialog({ groupId, onClose }: { groupId: string; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [csv, setCsv] = useState('');
+  const importTerms = useMutation({
+    meta: { silent: true },
+    mutationFn: async () =>
+      (await api.v10.termStore.groups
+        .byGroupId(groupId)
+        .importEscaped.post(new TextEncoder().encode(csv).buffer as ArrayBuffer))!,
+    onSuccess: async (result) => {
+      toast.success(`${result.termsCreated} terms imported${result.created ? ' into a new term set' : ''}.`);
+      await queryClient.invalidateQueries({ queryKey: ['termStore'] });
+      onClose();
+    },
+  });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Import terms from CSV</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-3 px-5 pb-4">
+          <p className="text-xs text-muted">
+            The format of SharePoint term set imports: a header row, then one term per row with its levels in columns
+            (term set name first). Choose a file or paste the text.
+          </p>
+          <Input
+            type="file"
+            accept=".csv,text/csv"
+            aria-label="CSV file"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (file) setCsv(await file.text());
+            }}
+          />
+          <Textarea
+            aria-label="CSV"
+            rows={8}
+            className="font-mono text-xs"
+            value={csv}
+            onChange={(e) => setCsv(e.target.value)}
+          />
+          {importTerms.isError && <Alert>{problemMessage(importTerms.error)}</Alert>}
+        </div>
+        <DialogFooter>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            variant="primary"
+            disabled={!csv.trim() || importTerms.isPending}
+            onClick={() => importTerms.mutate()}
+          >
+            Import
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** The most used keywords, to promote into a managed term set (TAX-05). */
+function PopularKeywords({ sets }: { sets: TermSetResponse[] }) {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
     queryKey: ['termStore', 'keywords', 'popular'],
     queryFn: async () => (await api.v10.termStore.keywords.popular.get({ queryParameters: { top: 50 } }))?.value ?? [],
   });
-  const [termSetId, setTermSetId] = useState('');
+  const [target, setTarget] = useState(sets[0]?.id ?? '');
   const promote = useMutation({
     meta: { silent: true },
-    mutationFn: (id: string) => api.v10.termStore.keywords.byTermId(id).promote.post({ termSetId }),
+    mutationFn: (termId: string) => api.v10.termStore.keywords.byTermId(termId).promote.post({ termSetId: target }),
     onSuccess: async (result) => {
-      toast.success(result?.merged ? `Merged “${result.name}” into the term set.` : `Promoted “${result?.name}”.`);
-      await queryClient.invalidateQueries({ queryKey: ['termStore', 'keywords', 'popular'] });
-      await queryClient.invalidateQueries({ queryKey: ['termStore', 'sets'] });
+      toast.success(result?.merged ? `“${result.name}” merged into an existing term.` : `“${result?.name}” promoted.`);
+      await queryClient.invalidateQueries({ queryKey: ['termStore'] });
     },
   });
-  const targets = sets.filter((set) => !set.isKeywords);
-
   return (
     <SettingsSection
-      title="Popular keywords"
-      description="Promote a free tag into a term set. Items already tagged keep the same id, or merge when that name already exists."
+      title="Keywords"
+      description="Free tags people added. Promote the popular ones into a term set; items keep them."
+      className="px-0 pb-0"
+      actions={
+        <label className="flex items-center gap-2 text-[13px]">
+          Promote into
+          <Select aria-label="Promote into" className="w-56" value={target} onChange={(e) => setTarget(e.target.value)}>
+            {sets.map((s) => (
+              <option key={s.id} value={s.id!}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        </label>
+      }
     >
-      {promote.isError && <Alert>{problemMessage(promote.error)}</Alert>}
-      <div className="mb-3 flex max-w-sm flex-col gap-1.5">
-        <Label htmlFor="promote-set">Promote into</Label>
-        <Select id="promote-set" value={termSetId} onChange={(e) => setTermSetId(e.target.value)}>
-          <option value="">Choose a term set…</option>
-          {targets.map((set) => (
-            <option key={set.id} value={set.id!}>
-              {set.name}
-            </option>
-          ))}
-        </Select>
-      </div>
-      {popular.isPending ? (
-        <Skeleton className="h-16" />
-      ) : popular.data?.length ? (
-        <ul className="divide-y text-[13px]">
-          {popular.data.map((keyword) => (
-            <li key={keyword.id} className="flex items-center gap-2 py-2">
-              <span className="min-w-0 flex-1">
-                <span className="font-medium">{keyword.name}</span>
-                <span className="ml-2 text-muted">
-                  {keyword.usage ?? 0} {(keyword.usage ?? 0) === 1 ? 'item' : 'items'}
-                </span>
-              </span>
+      {data?.length ? (
+        <ul className="divide-y border-t">
+          {data.map((keyword) => (
+            <li key={keyword.id} className="flex items-center gap-3 px-5 py-2">
+              <Tag className="size-3.5 text-muted" />
+              <span className="flex-1 text-[13px]">{keyword.name}</span>
+              <span className="text-xs text-muted">{keyword.usage} items</span>
               <Button
                 size="sm"
+                variant="ghost"
                 aria-label={`Promote ${keyword.name}`}
-                disabled={!termSetId || promote.isPending}
+                disabled={!target || promote.isPending}
                 onClick={() => promote.mutate(keyword.id!)}
               >
-                Promote
+                <ArrowUpRight /> Promote
               </Button>
             </li>
           ))}
         </ul>
       ) : (
-        <EmptyState title="No keywords yet" />
+        <EmptyState icon={Tag} title="No keywords in use" className="border-t py-8" />
       )}
+      {promote.isError && <Alert className="m-5">{problemMessage(promote.error)}</Alert>}
     </SettingsSection>
-  );
-}
-
-function ImportCsv({
-  groups,
-  onImported,
-}: {
-  groups: { id?: string | null; name?: string | null; isSystem?: boolean | null }[];
-  onImported: () => Promise<void>;
-}) {
-  const [groupId, setGroupId] = useState('');
-  const upload = useMutation({
-    meta: { silent: true },
-    mutationFn: async (file: File) =>
-      api.v10.termStore.groups.byGroupId(groupId).importEscaped.post(await file.arrayBuffer()),
-    onSuccess: async (result) => {
-      toast.success(
-        result?.created
-          ? `Term set imported with ${result.termsCreated ?? 0} terms.`
-          : `Added ${result?.termsCreated ?? 0} terms to the existing term set.`,
-      );
-      await onImported();
-    },
-  });
-
-  return (
-    <SettingsSection
-      title="Import a term set"
-      description="SharePoint CSV: Term Set Name, Term Set Description, then Level 1 Term through Level 7 Term. Existing terms are kept."
-    >
-      {upload.isError && <Alert>{problemMessage(upload.error)}</Alert>}
-      <div className="flex max-w-sm flex-col gap-1.5">
-        <Label htmlFor="import-group">Import into</Label>
-        <Select id="import-group" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-          <option value="">Choose a group…</option>
-          {groups
-            .filter((group) => !group.isSystem)
-            .map((group) => (
-              <option key={group.id} value={group.id!}>
-                {group.name}
-              </option>
-            ))}
-        </Select>
-      </div>
-      <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-[13px]">
-        <input
-          type="file"
-          accept=".csv,text/csv"
-          aria-label="Term set CSV"
-          className="text-xs"
-          disabled={!groupId || upload.isPending}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) upload.mutate(file);
-            e.target.value = '';
-          }}
-        />
-        {upload.isPending ? 'Importing…' : 'Choose a CSV'}
-      </label>
-    </SettingsSection>
-  );
-}
-
-function Labeled({
-  id,
-  label,
-  value,
-  onChange,
-}: {
-  id?: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const fieldId = id ?? label.toLowerCase().replace(/\W+/g, '-');
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={fieldId}>{label}</Label>
-      <Input id={fieldId} required value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
   );
 }

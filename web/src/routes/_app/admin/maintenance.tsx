@@ -1,336 +1,313 @@
-import { downloadFile, type TemplateResult } from '@paperdotnet/client';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { TemplateResult } from '@paperdotnet/client';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { Download, FileUp, RefreshCw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { api, client } from '@/api/client';
+import { api } from '@/api/client';
 import { workspacesQuery } from '@/api/queries';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Alert, Skeleton } from '@/components/ui/feedback';
-import { Label } from '@/components/ui/input';
+import { Alert } from '@/components/ui/feedback';
+import { Input } from '@/components/ui/input';
 import { Checkbox, Select } from '@/components/ui/select';
-import { useAdminAccess } from '@/features/admin/access';
-import { userName, useUsers } from '@/features/fields/directory';
-import { SettingsSection } from '@/features/settings/section';
+import { useHasScope } from '@/extensibility/admin';
+import { OperationProgress } from '@/features/admin/operation-progress';
+import { SettingRow, SettingsSection } from '@/features/settings/section';
+import { saveBytes } from '@/lib/download';
 import { problemMessage } from '@/lib/errors';
 import { useFormat } from '@/lib/preferences';
 
 export const Route = createFileRoute('/_app/admin/maintenance')({ component: Maintenance });
 
 function Maintenance() {
-  const admin = useAdminAccess();
+  const canSearch = useHasScope('search.manage');
+  const canRead = useHasScope('template.read');
+  const canApply = useHasScope('template.manage');
   return (
     <>
-      {admin.has('search.manage') && <Reindex />}
-      {admin.has('extension.manage') && <Extensions />}
-      {admin.has('template.read') && (
-        <>
-          <Provisioning canApply={admin.has('template.manage')} />
-          <Portability canImport={admin.has('template.manage')} />
-        </>
-      )}
-      {admin.has('audit.read') && <Audit />}
+      {canSearch && <Reindex />}
+      {canRead && <Templates canApply={canApply} />}
+      {canRead && <ExportImport canImport={canApply} />}
     </>
   );
 }
 
+/** Rebuilds the search index from the data (SRC-10), e.g. after restoring a backup. */
 function Reindex() {
-  const run = useMutation({
-    meta: { silent: true },
-    mutationFn: () => api.v10.search.reindex.post(),
-    onSuccess: () => toast.success('Reindex started. It runs in the background.'),
+  const [operation, setOperation] = useState<string>();
+  const start = useMutation({
+    mutationFn: async () => (await api.v10.search.reindex.post())!,
+    onSuccess: (result) => setOperation(result.id ?? undefined),
   });
   return (
     <SettingsSection
       title="Search index"
-      description="Rebuild the index after a large import or a model change."
+      description="Rebuild it when search misses things, for example after restoring a backup. Search keeps working meanwhile."
       actions={
-        <Button variant="primary" disabled={run.isPending} onClick={() => run.mutate()}>
-          Rebuild index
+        <Button disabled={start.isPending} onClick={() => start.mutate()}>
+          <RefreshCw /> Rebuild the index
         </Button>
       }
     >
-      {run.isError && <Alert>{problemMessage(run.error)}</Alert>}
+      {operation && <OperationProgress id={operation} label="Rebuilding the search index" />}
     </SettingsSection>
   );
 }
 
-function Extensions() {
-  const queryClient = useQueryClient();
-  const { data, isPending } = useQuery({
-    queryKey: ['extensions'],
-    queryFn: async () => (await api.v10.extensions.get()) ?? [],
-  });
-  const toggle = useMutation({
-    mutationFn: (extension: { id?: string | null; enabled?: boolean | null }) =>
-      extension.enabled
-        ? api.v10.extensions.byId(extension.id!).disable.post()
-        : api.v10.extensions.byId(extension.id!).enable.post(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['extensions'] }),
-  });
-  return (
-    <SettingsSection title="Extensions" description="Turn an installed extension on or off for this organization.">
-      {isPending ? (
-        <Skeleton className="h-16" />
-      ) : (
-        <ul className="divide-y text-[13px]">
-          {(data ?? []).map((extension) => (
-            <li key={extension.id} className="flex items-center gap-2 py-2">
-              <span className="min-w-0 flex-1">
-                <span className="font-medium">{extension.name}</span>
-                <span className="ml-2 text-muted">{extension.id}</span>
-              </span>
-              <Button size="sm" disabled={toggle.isPending} onClick={() => toggle.mutate(extension)}>
-                {extension.enabled ? 'Disable' : 'Enable'}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {toggle.isError && <Alert className="mt-3">{problemMessage(toggle.error)}</Alert>}
-    </SettingsSection>
-  );
-}
-
-function Provisioning({ canApply }: { canApply: boolean }) {
+function WorkspaceSelect({
+  id,
+  value,
+  onChange,
+  all,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  all: string;
+}) {
   const { data: workspaces } = useQuery(workspacesQuery);
+  return (
+    <Select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{all}</option>
+      {(workspaces ?? [])
+        .filter((w) => !w.isPersonal)
+        .map((w) => (
+          <option key={w.id} value={w.id!}>
+            {w.name}
+          </option>
+        ))}
+    </Select>
+  );
+}
+
+/** Templates (PRV-01…04): the configuration as portable XML, applied here or to another installation. */
+function Templates({ canApply }: { canApply: boolean }) {
   const [workspaceId, setWorkspaceId] = useState('');
-  const [includeContent, setIncludeContent] = useState(false);
+  const [withContent, setWithContent] = useState(false);
   const [file, setFile] = useState<File>();
-  const [plan, setPlan] = useState<TemplateResult>();
-  const download = useMutation({
-    meta: { silent: true },
-    mutationFn: async () => {
-      const bytes = await api.v10.provisioning.exportEscaped.get({
-        queryParameters: {
-          workspaceId: workspaceId || undefined,
-          includeContent: includeContent || undefined,
-        },
-      });
-      if (!bytes) throw new Error('The export was empty.');
-      const zip = includeContent;
-      const blob = new Blob([bytes], { type: zip ? 'application/zip' : 'application/xml' });
-      const url = URL.createObjectURL(blob);
-      const name = workspaceId
-        ? zip
-          ? 'workspace-package.zip'
-          : 'workspace-template.xml'
-        : zip
-          ? 'tenant-package.zip'
-          : 'tenant-template.xml';
-      Object.assign(document.createElement('a'), { href: url, download: name }).click();
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    },
-    onSuccess: () => toast.success('Template downloaded.'),
+  const [targetWorkspace, setTargetWorkspace] = useState('');
+  const [result, setResult] = useState<TemplateResult>();
+  const exportTemplate = useMutation({
+    mutationFn: async () =>
+      (await api.v10.provisioning.exportEscaped.get({
+        queryParameters: { workspaceId: workspaceId || undefined, includeContent: withContent || undefined },
+      }))!,
+    onSuccess: (bytes) =>
+      withContent
+        ? saveBytes(bytes, 'paperdotnet-template.zip', 'application/zip')
+        : saveBytes(bytes, 'paperdotnet-template.xml', 'application/xml'),
   });
   const apply = useMutation({
     meta: { silent: true },
     mutationFn: async (dryRun: boolean) => {
-      if (!file) throw new Error('Choose a template first.');
-      const zip = file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip';
-      return api.v10.provisioning.apply.post(await file.arrayBuffer(), zip ? 'application/zip' : 'application/xml', {
-        queryParameters: { dryRun, workspaceId: workspaceId || undefined },
-      });
+      const zip = file!.name.toLowerCase().endsWith('.zip');
+      return (await api.v10.provisioning.apply.post(
+        await file!.arrayBuffer(),
+        zip ? 'application/zip' : 'application/xml',
+        {
+          queryParameters: { dryRun, workspaceId: targetWorkspace || undefined },
+        },
+      ))!;
     },
-    onSuccess: (result, dryRun) => {
-      setPlan(result);
-      toast.success(dryRun ? 'Dry run finished. Nothing was written.' : 'Template applied.');
+    onSuccess: (r) => {
+      setResult(r);
+      if (!r.dryRun) toast.success('Template applied.');
     },
   });
-
   return (
     <SettingsSection
-      title="Provisioning"
-      description="Download this organization, or one workspace, as a template. Apply a template again elsewhere; a dry run writes nothing."
-      actions={
-        <Button variant="primary" disabled={download.isPending} onClick={() => download.mutate()}>
-          Download template
-        </Button>
-      }
+      title="Templates"
+      description="Workspaces, lists, fields, views, automations and terms as a portable file."
     >
-      {download.isError && <Alert>{problemMessage(download.error)}</Alert>}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="template-workspace">Workspace</Label>
-          <Select id="template-workspace" value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)}>
-            <option value="">Whole organization</option>
-            {(workspaces ?? [])
-              .filter((workspace) => !workspace.isPersonal)
-              .map((workspace) => (
-                <option key={workspace.id} value={workspace.id!}>
-                  {workspace.name}
-                </option>
-              ))}
-          </Select>
-        </div>
-        <label className="flex items-center gap-2 self-end pb-2 text-[13px]">
-          <Checkbox checked={includeContent} onChange={(e) => setIncludeContent(e.target.checked)} />
-          Include items and files (a package)
-        </label>
-      </div>
-      {canApply && (
-        <div className="mt-3 flex flex-col gap-2">
-          <label className="inline-flex cursor-pointer items-center gap-2 text-[13px]">
-            <input
-              type="file"
-              accept=".xml,.zip,application/xml,application/zip,text/xml"
-              aria-label="Template file"
-              className="text-xs"
-              onChange={(e) => {
-                setFile(e.target.files?.[0]);
-                setPlan(undefined);
-              }}
-            />
-          </label>
-          <div className="flex gap-2">
-            <Button size="sm" disabled={!file || apply.isPending} onClick={() => apply.mutate(true)}>
-              Check only
-            </Button>
-            <Button size="sm" variant="primary" disabled={!file || apply.isPending} onClick={() => apply.mutate(false)}>
-              Apply template
+      <div className="divide-y">
+        <SettingRow id="tpl-workspace" label="Save as a template">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="w-56">
+              <WorkspaceSelect
+                id="tpl-workspace"
+                value={workspaceId}
+                onChange={setWorkspaceId}
+                all="The whole organization"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-[13px]">
+              <Checkbox checked={withContent} onChange={(e) => setWithContent(e.target.checked)} /> With items and files
+            </label>
+            <Button disabled={exportTemplate.isPending} onClick={() => exportTemplate.mutate()}>
+              <Download /> Download
             </Button>
           </div>
-          {apply.isError && <Alert>{problemMessage(apply.error)}</Alert>}
-          {!!plan?.changes?.length && (
-            <ul className="text-[13px] text-muted">
-              {plan.changes.slice(0, 12).map((change, index) => (
-                <li key={`${change.kind}-${change.name}-${index}`}>
-                  {change.action} {change.kind} {change.name}
-                  {change.detail ? ` — ${change.detail}` : ''}
-                </li>
-              ))}
-              {plan.changes.length > 12 && <li>And {plan.changes.length - 12} more.</li>}
-            </ul>
-          )}
-          {!!plan?.warnings?.length && (
-            <Alert>
-              {plan.warnings.map((warning) => (
-                <span key={warning} className="block">
-                  {warning}
-                </span>
-              ))}
+        </SettingRow>
+        {canApply && (
+          <SettingRow id="tpl-file" label="Apply a template" hint="Try it first: nothing changes until you apply it.">
+            <div className="flex flex-col gap-2">
+              <Input
+                id="tpl-file"
+                type="file"
+                accept=".xml,.zip,application/xml,application/zip"
+                onChange={(e) => {
+                  setFile(e.target.files?.[0]);
+                  setResult(undefined);
+                }}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-56">
+                  <WorkspaceSelect
+                    id="tpl-target"
+                    value={targetWorkspace}
+                    onChange={setTargetWorkspace}
+                    all="As the template says"
+                  />
+                </div>
+                <Button disabled={!file || apply.isPending} onClick={() => apply.mutate(true)}>
+                  Try it
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={!file || !result?.dryRun || apply.isPending}
+                  onClick={() => apply.mutate(false)}
+                >
+                  Apply
+                </Button>
+              </div>
+            </div>
+          </SettingRow>
+        )}
+      </div>
+      {apply.isError && <Alert className="mt-3">{problemMessage(apply.error)}</Alert>}
+      {result && (
+        <div className="mt-3 flex flex-col gap-2 rounded-md border p-3 text-[13px]" aria-label="Template changes">
+          <p className="font-medium">
+            {result.dryRun ? 'Applying it would make these changes:' : 'Applied:'}{' '}
+            {!result.changes?.length && <span className="font-normal text-muted">nothing to change.</span>}
+          </p>
+          <ul className="flex flex-col gap-0.5">
+            {result.changes?.map((c, i) => (
+              <li key={i}>
+                <Badge tone={c.action === 'create' ? 'success' : 'neutral'}>{c.action}</Badge> {c.kind}{' '}
+                <span className="font-medium">{c.name}</span>
+                {c.detail && <span className="text-xs text-muted"> · {c.detail}</span>}
+              </li>
+            ))}
+          </ul>
+          {result.warnings?.map((w, i) => (
+            <Alert key={i} tone="warning">
+              {w}
             </Alert>
-          )}
+          ))}
         </div>
       )}
     </SettingsSection>
   );
 }
 
-function Portability({ canImport }: { canImport: boolean }) {
+/** Export and import of everything, with content (PLT-13): moving to another installation or keeping a copy. */
+function ExportImport({ canImport }: { canImport: boolean }) {
+  const format = useFormat();
   const queryClient = useQueryClient();
+  const [workspaceId, setWorkspaceId] = useState('');
+  const [file, setFile] = useState<File>();
+  const [importOperation, setImportOperation] = useState<string>();
   const exports = useQuery({
     queryKey: ['portability', 'exports'],
     queryFn: async () => (await api.v10.portability.exports.get()) ?? [],
+    refetchInterval: (query) => (query.state.data?.some((e) => !e.ready) ? 2000 : false),
   });
-  const start = useMutation({
-    meta: { silent: true },
-    mutationFn: () => api.v10.portability.exports.post({}),
+  const create = useMutation({
+    mutationFn: () => api.v10.portability.exports.post({ workspaceId: workspaceId || null }),
     onSuccess: async () => {
-      toast.success('Export started. The package is ready to download when it finishes.');
+      toast.success('The export is being prepared.');
       await queryClient.invalidateQueries({ queryKey: ['portability', 'exports'] });
     },
   });
-  const upload = useMutation({
-    meta: { silent: true },
-    mutationFn: async (file: File) => api.v10.portability.imports.post(await file.arrayBuffer()),
-    onSuccess: () => toast.success('Import started.'),
+  const download = useMutation({
+    mutationFn: async (id: string) => (await api.v10.portability.exports.byId(id).packageEscaped.get())!,
+    onSuccess: (bytes) => saveBytes(bytes, 'paperdotnet-export.zip', 'application/zip'),
   });
-  const download = async (id: string) => {
-    const { blob, fileName } = await downloadFile(client, `/v1.0/portability/exports/${id}/package`);
-    const url = URL.createObjectURL(blob);
-    Object.assign(document.createElement('a'), { href: url, download: fileName ?? 'export.zip' }).click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  };
-
+  const remove = useMutation({
+    mutationFn: (id: string) => api.v10.portability.exports.byId(id).delete(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portability', 'exports'] }),
+  });
+  const importPackage = useMutation({
+    meta: { silent: true },
+    mutationFn: async (dryRun: boolean) =>
+      (await api.v10.portability.imports.post(await file!.arrayBuffer(), { queryParameters: { dryRun } }))!,
+    onSuccess: (r) => setImportOperation(r.operationId ?? undefined),
+  });
   return (
     <SettingsSection
       title="Export and import"
-      description="A package of this organization's configuration and content. Download it after the export finishes."
-      actions={
-        <Button variant="primary" disabled={start.isPending} onClick={() => start.mutate()}>
-          Start export
-        </Button>
-      }
+      description="Everything with its files, as one package, for another installation or safekeeping."
     >
-      {start.isError && <Alert>{problemMessage(start.error)}</Alert>}
-      <ul className="divide-y text-[13px]">
-        {(exports.data ?? []).map((item) => (
-          <li key={item.id} className="flex items-center gap-2 py-2">
-            <span className="flex-1">{item.ready ? 'Ready' : 'Working'}</span>
-            {item.ready && (
-              <Button size="sm" onClick={() => void download(item.id!)}>
-                Download
-              </Button>
-            )}
-          </li>
-        ))}
-      </ul>
-      {canImport && (
-        <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-[13px]">
-          <input
-            type="file"
-            accept=".zip,application/zip"
-            className="text-xs"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) upload.mutate(file);
-            }}
-          />
-          {upload.isPending ? 'Importing…' : 'Import a package'}
-        </label>
-      )}
-      {upload.isError && <Alert className="mt-3">{problemMessage(upload.error)}</Alert>}
-    </SettingsSection>
-  );
-}
-
-function Audit() {
-  const format = useFormat();
-  const users = useUsers();
-  const [expanded, setExpanded] = useState(false);
-  const log = useInfiniteQuery({
-    queryKey: ['auditLog'],
-    initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }) =>
-      (pageParam
-        ? await api.v10.auditLog.withUrl(pageParam).get()
-        : await api.v10.auditLog.get({ queryParameters: { top: expanded ? 50 : 20 } })) ?? { value: [] },
-    getNextPageParam: (last) => last.odataNextLink ?? undefined,
-  });
-  const rows = log.data?.pages.flatMap((page) => page.value ?? []) ?? [];
-  return (
-    <SettingsSection title="Audit log" description="Who changed what. Newest first.">
-      {log.isPending ? (
-        <Skeleton className="h-16" />
-      ) : (
-        <ul className="divide-y text-[13px]">
-          {rows.map((entry) => (
-            <li key={entry.id} className="flex flex-wrap gap-x-2 py-2">
-              <span className="text-muted">{format.dateTime(entry.at)}</span>
-              <span>{userName(users.get(entry.userId ?? ''), entry.userId ?? '')}</span>
-              <span className="font-medium">{entry.action}</span>
-              <span className="text-muted">
-                {entry.entityType}
-                {entry.entityId ? ` ${entry.entityId.slice(0, 8)}` : ''}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {log.hasNextPage && (
-        <Button
-          className="mt-3"
-          size="sm"
-          disabled={log.isFetchingNextPage}
-          onClick={() => {
-            setExpanded(true);
-            void log.fetchNextPage();
-          }}
-        >
-          Load more
-        </Button>
-      )}
+      <div className="divide-y">
+        <SettingRow id="exp-workspace" label="New export">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="w-56">
+              <WorkspaceSelect
+                id="exp-workspace"
+                value={workspaceId}
+                onChange={setWorkspaceId}
+                all="The whole organization"
+              />
+            </div>
+            <Button disabled={create.isPending} onClick={() => create.mutate()}>
+              Export
+            </Button>
+          </div>
+        </SettingRow>
+        {!!exports.data?.length && (
+          <ul className="flex flex-col py-2">
+            {exports.data.map((e) => (
+              <li key={e.id} className="flex items-center gap-3 py-1.5 text-[13px]">
+                <span className="flex-1">
+                  {format.dateTime(e.createdAt)}
+                  <span className="text-xs text-muted">
+                    {' '}
+                    · {e.ready ? format.fileSize(e.size) : 'preparing…'} · kept until {format.date(e.expiresAt)}
+                  </span>
+                </span>
+                <Button size="sm" disabled={!e.ready || download.isPending} onClick={() => download.mutate(e.id!)}>
+                  <Download /> Download
+                </Button>
+                <Button size="icon" variant="ghost" aria-label="Delete export" onClick={() => remove.mutate(e.id!)}>
+                  <Trash2 />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {canImport && (
+          <SettingRow
+            id="imp-file"
+            label="Import a package"
+            hint="Try it first: it checks the package and reports what it would create."
+          >
+            <div className="flex flex-col gap-2">
+              <Input
+                id="imp-file"
+                type="file"
+                accept=".zip,application/zip"
+                onChange={(e) => setFile(e.target.files?.[0])}
+              />
+              <div className="flex gap-2">
+                <Button disabled={!file || importPackage.isPending} onClick={() => importPackage.mutate(true)}>
+                  Try it
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={!file || importPackage.isPending}
+                  onClick={() => importPackage.mutate(false)}
+                >
+                  <FileUp /> Import
+                </Button>
+              </div>
+            </div>
+          </SettingRow>
+        )}
+      </div>
+      {importPackage.isError && <Alert className="mt-3">{problemMessage(importPackage.error)}</Alert>}
+      {importOperation && <OperationProgress key={importOperation} id={importOperation} label="Import" />}
     </SettingsSection>
   );
 }

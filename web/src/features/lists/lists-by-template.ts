@@ -4,11 +4,19 @@ import { listsQuery, workspacesQuery } from '@/api/queries';
 
 /** Every list made from a template (e.g. all task lists, all calendars), with its workspace's name. */
 export function useListsByTemplate(templateKey: string): (ListSummary & { workspaceName: string })[] {
+  return useAllLists().filter((l) => l.templateKey === templateKey);
+}
+
+/** Every document library the user can see, with its workspace's name. */
+export function useLibraries(): (ListSummary & { workspaceName: string })[] {
+  return useAllLists().filter((l) => l.kind === 'library');
+}
+
+function useAllLists(): (ListSummary & { workspaceName: string })[] {
   const { data: workspaces } = useQuery(workspacesQuery);
   const names = new Map((workspaces ?? []).map((w) => [w.id, w.isPersonal ? 'My files' : (w.name ?? '')]));
   return useQueries({ queries: (workspaces ?? []).map((w) => listsQuery(w.id!)) })
     .flatMap((q) => q.data ?? [])
-    .filter((l) => l.templateKey === templateKey)
     .map((l) => ({ ...l, workspaceName: names.get(l.workspaceId) ?? '' }));
 }
 

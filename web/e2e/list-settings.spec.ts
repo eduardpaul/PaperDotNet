@@ -115,7 +115,7 @@ test('library settings choose how duplicates and OCR are handled', async ({ page
   await createList(page, 'Documents', 'Scans');
   await page.getByRole('link', { name: 'List settings' }).click();
   await expect(page.getByRole('heading', { name: 'Library settings' })).toBeVisible();
-  await page.getByRole('link', { name: 'Documents' }).click();
+  await page.getByRole('navigation', { name: 'List settings' }).getByRole('link', { name: 'Documents' }).click();
   await page.getByLabel('Same file again').selectOption('block');
   await page.getByLabel('OCR languages').fill('deu+eng');
   await page.getByRole('button', { name: 'Save' }).click();

@@ -205,7 +205,9 @@ function CalendarPage() {
                   role="gridcell"
                   aria-label={format.date(day)}
                   className={cn(
-                    week ? 'group min-h-48 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0' : 'group min-h-28 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0',
+                    week
+                      ? 'group min-h-48 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0'
+                      : 'group min-h-28 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0',
                     !inMonth && 'bg-surface-muted/40',
                   )}
                 >

@@ -65,7 +65,11 @@ export function ItemsGallery({
   );
 }
 
-function dayOf(item: ItemResponse, field: FieldDefinition, dayKey: (value: Date | string) => string): string | undefined {
+function dayOf(
+  item: ItemResponse,
+  field: FieldDefinition,
+  dayKey: (value: Date | string) => string,
+): string | undefined {
   const value = fieldsOf(item)[field.name!];
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(value)) return undefined;
   return field.type === 'date' ? value.slice(0, 10) : dayKey(value);
@@ -109,11 +113,19 @@ export function ItemsCalendar({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <Button size="icon" aria-label="Previous month" onClick={() => setCursor(formatDate(addMonths(anchor, -1), 'yyyy-MM'))}>
+        <Button
+          size="icon"
+          aria-label="Previous month"
+          onClick={() => setCursor(formatDate(addMonths(anchor, -1), 'yyyy-MM'))}
+        >
           <ChevronLeft />
         </Button>
         <span className="min-w-36 text-sm font-semibold">{format.monthYear(anchor)}</span>
-        <Button size="icon" aria-label="Next month" onClick={() => setCursor(formatDate(addMonths(anchor, 1), 'yyyy-MM'))}>
+        <Button
+          size="icon"
+          aria-label="Next month"
+          onClick={() => setCursor(formatDate(addMonths(anchor, 1), 'yyyy-MM'))}
+        >
           <ChevronRight />
         </Button>
       </div>
@@ -132,7 +144,10 @@ export function ItemsCalendar({
             return (
               <div
                 key={day}
-                className={cn('min-h-24 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0', !inMonth && 'bg-surface-muted/40')}
+                className={cn(
+                  'min-h-24 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0',
+                  !inMonth && 'bg-surface-muted/40',
+                )}
               >
                 <span
                   className={cn(

@@ -23,9 +23,13 @@ import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppTasksRouteImport } from './routes/_app/tasks'
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
 import { Route as AppAdminApplicationsRouteImport } from './routes/_app/admin/applications'
+import { Route as AppAdminAuditRouteImport } from './routes/_app/admin/audit'
+import { Route as AppAdminExtensionsRouteImport } from './routes/_app/admin/extensions'
+import { Route as AppAdminGroupsRouteImport } from './routes/_app/admin/groups'
 import { Route as AppAdminMaintenanceRouteImport } from './routes/_app/admin/maintenance'
-import { Route as AppAdminOrganizationRouteImport } from './routes/_app/admin/organization'
+import { Route as AppAdminRolesRouteImport } from './routes/_app/admin/roles'
 import { Route as AppAdminTermsRouteImport } from './routes/_app/admin/terms'
+import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
 import { Route as AppFFolderIdRouteImport } from './routes/_app/f/$folderId'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsCalendarFeedsRouteImport } from './routes/_app/settings/calendar-feeds'
@@ -118,19 +122,39 @@ const AppAdminApplicationsRoute = AppAdminApplicationsRouteImport.update({
   path: '/applications',
   getParentRoute: () => AppAdminRoute,
 } as any)
+const AppAdminAuditRoute = AppAdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminExtensionsRoute = AppAdminExtensionsRouteImport.update({
+  id: '/extensions',
+  path: '/extensions',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminGroupsRoute = AppAdminGroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 const AppAdminMaintenanceRoute = AppAdminMaintenanceRouteImport.update({
   id: '/maintenance',
   path: '/maintenance',
   getParentRoute: () => AppAdminRoute,
 } as any)
-const AppAdminOrganizationRoute = AppAdminOrganizationRouteImport.update({
-  id: '/organization',
-  path: '/organization',
+const AppAdminRolesRoute = AppAdminRolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
   getParentRoute: () => AppAdminRoute,
 } as any)
 const AppAdminTermsRoute = AppAdminTermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => AppAdminRoute,
+} as any)
+const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => AppAdminRoute,
 } as any)
 const AppFFolderIdRoute = AppFFolderIdRouteImport.update({
@@ -271,9 +295,13 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRouteWithChildren
   '/tasks': typeof AppTasksRoute
   '/admin/applications': typeof AppAdminApplicationsRoute
+  '/admin/audit': typeof AppAdminAuditRoute
+  '/admin/extensions': typeof AppAdminExtensionsRoute
+  '/admin/groups': typeof AppAdminGroupsRoute
   '/admin/maintenance': typeof AppAdminMaintenanceRoute
-  '/admin/organization': typeof AppAdminOrganizationRoute
+  '/admin/roles': typeof AppAdminRolesRoute
   '/admin/terms': typeof AppAdminTermsRoute
+  '/admin/users': typeof AppAdminUsersRoute
   '/f/$folderId': typeof AppFFolderIdRoute
   '/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
@@ -309,9 +337,13 @@ export interface FileRoutesByTo {
   '/tasks': typeof AppTasksRoute
   '/': typeof AppIndexRoute
   '/admin/applications': typeof AppAdminApplicationsRoute
+  '/admin/audit': typeof AppAdminAuditRoute
+  '/admin/extensions': typeof AppAdminExtensionsRoute
+  '/admin/groups': typeof AppAdminGroupsRoute
   '/admin/maintenance': typeof AppAdminMaintenanceRoute
-  '/admin/organization': typeof AppAdminOrganizationRoute
+  '/admin/roles': typeof AppAdminRolesRoute
   '/admin/terms': typeof AppAdminTermsRoute
+  '/admin/users': typeof AppAdminUsersRoute
   '/f/$folderId': typeof AppFFolderIdRoute
   '/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
@@ -349,9 +381,13 @@ export interface FileRoutesById {
   '/_app/tasks': typeof AppTasksRoute
   '/_app/': typeof AppIndexRoute
   '/_app/admin/applications': typeof AppAdminApplicationsRoute
+  '/_app/admin/audit': typeof AppAdminAuditRoute
+  '/_app/admin/extensions': typeof AppAdminExtensionsRoute
+  '/_app/admin/groups': typeof AppAdminGroupsRoute
   '/_app/admin/maintenance': typeof AppAdminMaintenanceRoute
-  '/_app/admin/organization': typeof AppAdminOrganizationRoute
+  '/_app/admin/roles': typeof AppAdminRolesRoute
   '/_app/admin/terms': typeof AppAdminTermsRoute
+  '/_app/admin/users': typeof AppAdminUsersRoute
   '/_app/f/$folderId': typeof AppFFolderIdRoute
   '/_app/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
   '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
@@ -391,9 +427,13 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/admin/applications'
+    | '/admin/audit'
+    | '/admin/extensions'
+    | '/admin/groups'
     | '/admin/maintenance'
-    | '/admin/organization'
+    | '/admin/roles'
     | '/admin/terms'
+    | '/admin/users'
     | '/f/$folderId'
     | '/settings/calendar-feeds'
     | '/settings/notifications'
@@ -429,9 +469,13 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/'
     | '/admin/applications'
+    | '/admin/audit'
+    | '/admin/extensions'
+    | '/admin/groups'
     | '/admin/maintenance'
-    | '/admin/organization'
+    | '/admin/roles'
     | '/admin/terms'
+    | '/admin/users'
     | '/f/$folderId'
     | '/settings/calendar-feeds'
     | '/settings/notifications'
@@ -468,9 +512,13 @@ export interface FileRouteTypes {
     | '/_app/tasks'
     | '/_app/'
     | '/_app/admin/applications'
+    | '/_app/admin/audit'
+    | '/_app/admin/extensions'
+    | '/_app/admin/groups'
     | '/_app/admin/maintenance'
-    | '/_app/admin/organization'
+    | '/_app/admin/roles'
     | '/_app/admin/terms'
+    | '/_app/admin/users'
     | '/_app/f/$folderId'
     | '/_app/settings/calendar-feeds'
     | '/_app/settings/notifications'
@@ -602,6 +650,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminApplicationsRouteImport
       parentRoute: typeof AppAdminRoute
     }
+    '/_app/admin/audit': {
+      id: '/_app/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AppAdminAuditRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/extensions': {
+      id: '/_app/admin/extensions'
+      path: '/extensions'
+      fullPath: '/admin/extensions'
+      preLoaderRoute: typeof AppAdminExtensionsRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/groups': {
+      id: '/_app/admin/groups'
+      path: '/groups'
+      fullPath: '/admin/groups'
+      preLoaderRoute: typeof AppAdminGroupsRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
     '/_app/admin/maintenance': {
       id: '/_app/admin/maintenance'
       path: '/maintenance'
@@ -609,11 +678,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminMaintenanceRouteImport
       parentRoute: typeof AppAdminRoute
     }
-    '/_app/admin/organization': {
-      id: '/_app/admin/organization'
-      path: '/organization'
-      fullPath: '/admin/organization'
-      preLoaderRoute: typeof AppAdminOrganizationRouteImport
+    '/_app/admin/roles': {
+      id: '/_app/admin/roles'
+      path: '/roles'
+      fullPath: '/admin/roles'
+      preLoaderRoute: typeof AppAdminRolesRouteImport
       parentRoute: typeof AppAdminRoute
     }
     '/_app/admin/terms': {
@@ -621,6 +690,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/admin/terms'
       preLoaderRoute: typeof AppAdminTermsRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
+    '/_app/admin/users': {
+      id: '/_app/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AppAdminUsersRouteImport
       parentRoute: typeof AppAdminRoute
     }
     '/_app/f/$folderId': {
@@ -782,17 +858,25 @@ declare module '@tanstack/react-router' {
 
 interface AppAdminRouteChildren {
   AppAdminApplicationsRoute: typeof AppAdminApplicationsRoute
+  AppAdminAuditRoute: typeof AppAdminAuditRoute
+  AppAdminExtensionsRoute: typeof AppAdminExtensionsRoute
+  AppAdminGroupsRoute: typeof AppAdminGroupsRoute
   AppAdminMaintenanceRoute: typeof AppAdminMaintenanceRoute
-  AppAdminOrganizationRoute: typeof AppAdminOrganizationRoute
+  AppAdminRolesRoute: typeof AppAdminRolesRoute
   AppAdminTermsRoute: typeof AppAdminTermsRoute
+  AppAdminUsersRoute: typeof AppAdminUsersRoute
   AppAdminIndexRoute: typeof AppAdminIndexRoute
 }
 
 const AppAdminRouteChildren: AppAdminRouteChildren = {
   AppAdminApplicationsRoute: AppAdminApplicationsRoute,
+  AppAdminAuditRoute: AppAdminAuditRoute,
+  AppAdminExtensionsRoute: AppAdminExtensionsRoute,
+  AppAdminGroupsRoute: AppAdminGroupsRoute,
   AppAdminMaintenanceRoute: AppAdminMaintenanceRoute,
-  AppAdminOrganizationRoute: AppAdminOrganizationRoute,
+  AppAdminRolesRoute: AppAdminRolesRoute,
   AppAdminTermsRoute: AppAdminTermsRoute,
+  AppAdminUsersRoute: AppAdminUsersRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
 }
 

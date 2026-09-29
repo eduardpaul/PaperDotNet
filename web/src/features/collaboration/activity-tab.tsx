@@ -50,7 +50,12 @@ export function ActivityTab({ workspaceId, list, item }: ItemPanelContext) {
                   <ol className="ml-9 flex flex-col gap-3 border-l pl-3">
                     {replies(comment.id!).map((reply) => (
                       <li key={reply.id}>
-                        <CommentView context={{ workspaceId, list, item }} comment={reply} isReply canWrite={canContribute} />
+                        <CommentView
+                          context={{ workspaceId, list, item }}
+                          comment={reply}
+                          isReply
+                          canWrite={canContribute}
+                        />
                       </li>
                     ))}
                   </ol>
