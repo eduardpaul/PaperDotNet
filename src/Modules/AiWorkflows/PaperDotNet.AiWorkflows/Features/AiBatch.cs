@@ -187,7 +187,7 @@ internal sealed partial class AiBatchActivity(
             var group = groups[i].ToList();
             var data = group[0].Data ?? [];
             var hash = groups[i].Key ?? string.Empty;
-            var text = await gateway.CachedAsync(hash, time.GetUtcNow(), ct);
+            var text = await gateway.CachedAsync(hash, AiBatch.Question(data), time.GetUtcNow(), ct);
             string? error = null;
             if (text is null)
             {

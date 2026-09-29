@@ -44,7 +44,15 @@ public sealed record WorkflowResponse(
 /// has what it needs (<c>available</c>), and when it was turned on, the <c>workflowId</c> it runs as and its <c>values</c>.
 /// </summary>
 public sealed record BuiltInWorkflowResponse(
-    string Key, string Name, string Description, JsonObject? Parameters, string? Requires, bool Available, bool Enabled, Guid? WorkflowId, JsonObject? Values);
+    string Key, string Name, string Description, JsonObject? Parameters, string? Requires, bool Available, bool Enabled, Guid? WorkflowId, JsonObject? Values)
+{
+    /// <summary>
+    /// Once it was turned on in the workspace: the ETag for <c>If-Match</c> on changes (the workflow's; the same as the
+    /// <c>ETag</c> header).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    public string? ETag { get; init; }
+}
 
 /// <summary>Turns a built-in workflow on or off in the workspace; <c>parameters</c> (default: the ones it had) fill in its definition.</summary>
 public sealed record BuiltInSettingsRequest(bool Enabled, JsonObject? Parameters = null);
@@ -304,10 +312,13 @@ internal static class WorkflowEndpoints
         return TypedResults.Ok((await builtIns.ListAsync(ct)).Select(w => ToResponse(builtIns, w, rows.FirstOrDefault(r => r.BuiltInKey == w.Key))).ToList());
     }
 
-    /// <summary>Turns a built-in workflow on (checked like a saved workflow) or off in the workspace.</summary>
+    /// <summary>
+    /// Turns a built-in workflow on (checked like a saved workflow) or off in the workspace. Once it was turned on, changes
+    /// need <c>If-Match</c> with its ETag.
+    /// </summary>
     private static async Task<Results<Ok<BuiltInWorkflowResponse>, ValidationProblem, ProblemHttpResult>> SetBuiltInAsync(
         Guid workspaceId, string key, BuiltInSettingsRequest request, IWorkspaceAccess workspaces, BuiltInWorkflows builtIns, WorkflowsDbContext db,
-        CancellationToken ct)
+        HttpRequest http, HttpResponse response, CancellationToken ct)
     {
         if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Manage, ct) is { } denied)
         {
@@ -317,6 +328,11 @@ internal static class WorkflowEndpoints
         if (await builtIns.FindAsync(key, ct) is not { } workflow)
         {
             return ApiErrors.NotFound();
+        }
+
+        if (await builtIns.RowAsync(workspaceId, key, ct) is { } existing && CheckIfMatch(db, existing, http) is { } precondition)
+        {
+            return precondition;
         }
 
         var (row, errors, nameTaken) = await builtIns.SetAsync(workspaceId, workflow, request.Enabled, request.Parameters, ct);
@@ -333,6 +349,11 @@ internal static class WorkflowEndpoints
         if (await SaveAsync(db, ct) is { } conflict)
         {
             return conflict;
+        }
+
+        if (row is not null)
+        {
+            ETags.Set(response, row.Version);
         }
 
         return TypedResults.Ok(ToResponse(builtIns, workflow, row));
@@ -379,7 +400,8 @@ internal static class WorkflowEndpoints
 
     private static BuiltInWorkflowResponse ToResponse(BuiltInWorkflows builtIns, BuiltInWorkflow workflow, WorkflowDefinition? row) =>
         new(workflow.Key, workflow.Name, workflow.Description, workflow.Parameters?.DeepClone().AsObject(), workflow.Requires, builtIns.IsAvailable(workflow),
-            row?.Enabled == true, row?.Id, BuiltInWorkflows.Values(row));
+            row?.Enabled == true, row?.Id, BuiltInWorkflows.Values(row))
+        { ETag = row is null ? null : ETags.From(row.Version) };
 
     // ---- Runs ------------------------------------------------------------------------
 

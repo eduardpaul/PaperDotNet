@@ -9,7 +9,8 @@ namespace PaperDotNet.Samples.Invoices;
 
 /// <summary>
 /// Raises the trigger <c>samples.invoices.approvalNeeded</c> (EVT-09) when an invoice above the threshold is added,
-/// so that workflows can react, e.g. with an approval.
+/// so that workflows can react, e.g. with an approval. Raised for the item event (its id and depth), so a redelivered event
+/// starts nothing twice.
 /// </summary>
 public sealed class ApprovalNeededTrigger(IListItemStore items, IWorkflowTriggers triggers) : IEventSubscriber<ItemAdded>
 {
@@ -25,7 +26,7 @@ public sealed class ApprovalNeededTrigger(IListItemStore items, IWorkflowTrigger
         }
 
         await triggers.RaiseAsync(Key, integrationEvent.WorkspaceId, new WorkflowItem(item.WorkspaceId, item.ListId, item.Id),
-            new JsonObject { ["amount"] = item.Fields["amount"]?.DeepClone() }, cancellationToken);
+            new JsonObject { ["amount"] = item.Fields["amount"]?.DeepClone() }, integrationEvent, cancellationToken);
     }
 }
 

@@ -209,6 +209,23 @@ public sealed class WorkflowAiBatchTests(PaperDotNetApiFactory factory)
         }, TimeSpan.FromSeconds(30));
         Assert.Single(client.Submitted);
 
+        // Provider batches take hours: polls that find it still running are not attempts without progress.
+        client.State = AiBatchState.Running;
+        for (var poll = 0; poll < WorkflowInterpreter.MaxAttempts + 2; poll++)
+        {
+            await ElapseAsync(s, "ai.batch.poll");
+            await Eventually.WaitForAsync(async () =>
+            {
+                var polling = false;
+                // The poll wait is open again once the step ran and still found the batch running.
+                await InTenantAsync(s, async (_, db) => polling = await db.Bookmarks.AnyAsync(b => b.Kind == "ai.batch.poll" && b.CompletedAt == null, Ct));
+                return polling ? true : (bool?)null;
+            }, TimeSpan.FromSeconds(30));
+        }
+
+        Assert.Equal("waiting", (await RunAsync(s, batch, null, "waiting", "failed")).GetProperty("status").GetString());
+        client.State = AiBatchState.Completed;
+
         // The next poll finds the results: the step goes on with the answer.
         await ElapseAsync(s, "ai.batch.poll");
         Assert.Equal("completed", (await RunAsync(s, batch, null, "completed", "failed")).GetProperty("status").GetString());

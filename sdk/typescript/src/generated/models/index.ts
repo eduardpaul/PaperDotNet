@@ -457,6 +457,10 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      */
     name?: string | null;
     /**
+     * Once it was turned on in the workspace: the ETag for `If-Match` on changes (the workflow's; the same as the`ETag` header).
+     */
+    odataEtag?: string | null;
+    /**
      * The parameters property
      */
     parameters?: JsonObject | null;
@@ -3356,6 +3360,7 @@ export function deserializeIntoBuiltInWorkflowResponse(builtInWorkflowResponse: 
         "enabled": n => { builtInWorkflowResponse.enabled = n.getBooleanValue(); },
         "key": n => { builtInWorkflowResponse.key = n.getStringValue(); },
         "name": n => { builtInWorkflowResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { builtInWorkflowResponse.odataEtag = n.getStringValue(); },
         "parameters": n => { builtInWorkflowResponse.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "requires": n => { builtInWorkflowResponse.requires = n.getStringValue(); },
         "values": n => { builtInWorkflowResponse.values = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
@@ -8478,6 +8483,7 @@ export function serializeBuiltInWorkflowResponse(writer: SerializationWriter, bu
     writer.writeBooleanValue("enabled", builtInWorkflowResponse.enabled);
     writer.writeStringValue("key", builtInWorkflowResponse.key);
     writer.writeStringValue("name", builtInWorkflowResponse.name);
+    writer.writeStringValue("@odata.etag", builtInWorkflowResponse.odataEtag);
     writer.writeObjectValue<JsonObject>("parameters", builtInWorkflowResponse.parameters, serializeJsonObject);
     writer.writeStringValue("requires", builtInWorkflowResponse.requires);
     writer.writeObjectValue<JsonObject>("values", builtInWorkflowResponse.values, serializeJsonObject);

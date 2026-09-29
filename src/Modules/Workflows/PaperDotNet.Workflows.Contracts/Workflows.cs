@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Workflows.Contracts;
 
@@ -219,6 +220,13 @@ public interface IWorkflowTriggers
     /// (use the id of what caused it, e.g. the item event a subscriber handles, so a redelivery is harmless).
     /// </summary>
     Task RaiseAsync(string triggerKey, Guid workspaceId, WorkflowItem? item, JsonObject? data, Guid eventId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Raises the trigger for the event a subscriber handles (e.g. an item event): it is that event again, with its id (a
+    /// redelivery starts nothing new) and its causation depth (the loop protection keeps counting). The way to raise a
+    /// trigger from an <see cref="IEventSubscriber{TEvent}"/>.
+    /// </summary>
+    Task RaiseAsync(string triggerKey, Guid workspaceId, WorkflowItem? item, JsonObject? data, IntegrationEvent cause, CancellationToken cancellationToken);
 }
 
 /// <summary>

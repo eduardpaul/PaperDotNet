@@ -49,7 +49,16 @@ public sealed class WorkflowBuiltInTests(PaperDotNetApiFactory factory)
         Assert.True(BuiltIn(catalog, "documents.extract").GetProperty("available").GetBoolean());
 
         // Parameters are checked like a saved workflow.
-        async Task<HttpResponseMessage> SetAsync(string key, object body) => await admin.PutAsJsonAsync($"{builtIns}/{key}", body, Ct);
+        // Once it was turned on, changes need its ETag (from the catalog).
+        async Task<HttpResponseMessage> SetAsync(string key, object body)
+        {
+            var etag = (await GetAsync(admin, builtIns)).EnumerateArray().Where(b => b.GetProperty("key").GetString() == key)
+                .Select(b => b.TryGetProperty("@odata.etag", out var tag) ? tag.GetString() : null).FirstOrDefault();
+            return etag is null
+                ? await admin.PutAsJsonAsync($"{builtIns}/{key}", body, Ct)
+                : await admin.SendWithEtagAsync(HttpMethod.Put, $"{builtIns}/{key}", etag, body);
+        }
+
         Assert.Equal(HttpStatusCode.BadRequest, (await SetAsync("workflows.approveItems", new { enabled = true, parameters = new { list = "Requests" } })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await SetAsync("workflows.approveItems", new { enabled = true, parameters = new { list = "Nope", approvers = new[] { "creator" } } })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await SetAsync("nope.nothing", new { enabled = true })).StatusCode);
@@ -59,6 +68,10 @@ public sealed class WorkflowBuiltInTests(PaperDotNetApiFactory factory)
         Assert.True(state.GetProperty("enabled").GetBoolean());
         Assert.Equal("status", state.GetProperty("values").GetProperty("statusField").GetString()); // the default
         var workflowId = state.GetProperty("workflowId").GetGuid();
+        Assert.NotNull(enabled.Headers.ETag);
+        Assert.Equal(HttpStatusCode.PreconditionRequired, (await admin.PutAsJsonAsync($"{builtIns}/workflows.approveItems", new { enabled = false }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.PreconditionFailed,
+            (await admin.SendWithEtagAsync(HttpMethod.Put, $"{builtIns}/workflows.approveItems", "\"999999\"", new { enabled = false })).StatusCode);
 
         // It runs like any workflow: a new item waits for approval, and the decision sets its status.
         var item = (await admin.CreateItemAsync(ws, requests, new { fields = new { title = "New laptop" } })).GetProperty("id").GetGuid();
@@ -123,6 +136,13 @@ public sealed class WorkflowBuiltInTests(PaperDotNetApiFactory factory)
         Assert.Equal("workflows.approveItems", importedCopy.GetProperty("copiedFrom").GetString());
         var again = await foreign.PostAsync("/v1.0/provisioning/apply", new StringContent(xml, System.Text.Encoding.UTF8, "application/xml"), Ct);
         Assert.Empty((await again.ReadJsonAsync()).GetProperty("changes").EnumerateArray());
+
+        // A turned-off built-in workflow this server does not have is skipped with a warning; the rest still applies.
+        Assert.Contains("BuiltIn=\"workflows.approveItems\" Enabled=\"false\"", xml, StringComparison.Ordinal);
+        var unknown = xml.Replace("BuiltIn=\"workflows.approveItems\"", "BuiltIn=\"gone.workflow\"", StringComparison.Ordinal);
+        var skipped = await foreign.PostAsync("/v1.0/provisioning/apply", new StringContent(unknown, System.Text.Encoding.UTF8, "application/xml"), Ct);
+        Assert.True(skipped.IsSuccessStatusCode, await skipped.Content.ReadAsStringAsync(Ct));
+        Assert.Contains((await skipped.ReadJsonAsync()).GetProperty("warnings").EnumerateArray(), w => w.GetString()!.Contains("gone.workflow", StringComparison.Ordinal));
 
         await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier))
         {

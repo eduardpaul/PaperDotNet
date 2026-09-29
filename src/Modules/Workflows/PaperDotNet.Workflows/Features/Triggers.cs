@@ -31,13 +31,20 @@ internal sealed class WorkflowTriggerPublisher(WorkflowsDbContext db, IOutbox ou
         RaiseAsync(triggerKey, workspaceId, item, data, Ids.New(), cancellationToken);
 
     public Task RaiseAsync(string triggerKey, Guid workspaceId, WorkflowItem? item, JsonObject? data, Guid eventId, CancellationToken cancellationToken) =>
+        PublishAsync(triggerKey, workspaceId, item, data, eventId, causation.Depth, user.UserId, cancellationToken);
+
+    public Task RaiseAsync(string triggerKey, Guid workspaceId, WorkflowItem? item, JsonObject? data, IntegrationEvent cause, CancellationToken cancellationToken) =>
+        PublishAsync(triggerKey, workspaceId, item, data, cause.EventId, Math.Max(cause.Depth, causation.Depth), cause.UserId ?? user.UserId, cancellationToken);
+
+    private Task PublishAsync(
+        string triggerKey, Guid workspaceId, WorkflowItem? item, JsonObject? data, Guid eventId, int depth, Guid? userId, CancellationToken cancellationToken) =>
         outbox.SaveChangesAsync(db, [new WorkflowTriggerRaised
         {
             EventId = eventId,
             TenantId = tenant.TenantId!.Value,
             TenantIdentifier = tenant.TenantIdentifier!,
-            UserId = user.UserId,
-            Depth = causation.Depth,
+            UserId = userId,
+            Depth = depth,
             Trigger = triggerKey,
             WorkspaceId = workspaceId,
             ListId = item?.ListId,

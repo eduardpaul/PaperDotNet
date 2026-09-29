@@ -391,6 +391,13 @@ internal static class Definitions
         }
 
         Check(steps, "steps", 0);
+
+        // Steps without a name get ids from the steps around them (Name.then.1): those have a length limit too.
+        if (errors.Count == 0 && Compile(steps).Nodes.Keys.FirstOrDefault(k => k.Length > MaxNodeId) is { } tooLong)
+        {
+            errors.Add($"The step '{tooLong[..50]}…' is nested under names that are too long: step ids have at most {MaxNodeId} characters.");
+        }
+
         return errors;
     }
 

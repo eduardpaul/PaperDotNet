@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Workflows.Features;
 
@@ -12,6 +13,16 @@ namespace PaperDotNet.Workflows.Features;
 internal sealed record TokenScope(ListItemData? Item, string? ListName, JsonObject? Outputs, JsonObject? Variables, JsonObject? Data)
 {
     public static readonly TokenScope Empty = new(null, null, null, null, null);
+
+    /// <summary>The scope of a run's node: the item as it is now (and its list's name) with the run's state.</summary>
+    public static async Task<TokenScope> LoadAsync(
+        IListItemStore items, WorkflowItem? item, JsonObject? outputs, JsonObject? variables, JsonObject? data, CancellationToken ct)
+    {
+        var store = items.AsSystem();
+        var current = item is null ? null : await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
+        var list = item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
+        return new TokenScope(current, list?.Name, outputs, variables, data);
+    }
 
     /// <summary>
     /// A value in a node's output: <c>Node.path.to.value</c>. Node ids may contain dots, so the longest id that is an

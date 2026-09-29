@@ -6,8 +6,8 @@ using PaperDotNet.Workflows.Contracts;
 namespace PaperDotNet.Tasks.Features;
 
 /// <summary>
-/// Raises the workflow trigger <c>task.completed</c> (ADR-0036) when a task's status becomes completed. The item event's
-/// id is the trigger's event id, so a redelivered event starts nothing twice.
+/// Raises the workflow trigger <c>task.completed</c> (ADR-0036) when a task's status becomes completed. The trigger is the
+/// item event again (its id and causation depth), so a redelivered event starts nothing twice and loops end.
 /// </summary>
 internal sealed class TaskCompletedTrigger(IListItemStore items, IWorkflowTriggers triggers) : IEventSubscriber<ItemUpdated>
 {
@@ -33,6 +33,6 @@ internal sealed class TaskCompletedTrigger(IListItemStore items, IWorkflowTrigge
 
         await triggers.RaiseAsync(
             WorkflowTriggers.TaskCompleted, integrationEvent.WorkspaceId, new WorkflowItem(integrationEvent.WorkspaceId, integrationEvent.ListId, integrationEvent.ItemId),
-            new JsonObject { ["completedBy"] = integrationEvent.UserId?.ToString() }, integrationEvent.EventId, cancellationToken);
+            new JsonObject { ["completedBy"] = integrationEvent.UserId?.ToString() }, integrationEvent, cancellationToken);
     }
 }

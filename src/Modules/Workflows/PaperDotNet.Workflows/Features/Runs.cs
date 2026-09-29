@@ -192,7 +192,7 @@ internal static class WorkflowInputs
 
         foreach (var (name, property) in properties)
         {
-            if (property?["type"] is not JsonValue type || !Types.Contains(type.ToString()))
+            if ((property as JsonObject)?["type"] is not JsonValue type || !Types.Contains(type.ToString()))
             {
                 yield return $"inputs.{name} needs a type ({string.Join(", ", Types)}).";
             }
@@ -225,7 +225,7 @@ internal static class WorkflowInputs
 
         foreach (var (name, value) in values ?? [])
         {
-            if (properties[name]?["type"]?.ToString() is not { } type)
+            if ((properties[name] as JsonObject)?["type"] is not JsonValue declared || declared.ToString() is not { } type)
             {
                 return $"Unknown input '{name}'.";
             }
@@ -462,7 +462,7 @@ internal sealed partial class WorkflowInterpreter(
                 run.NodeAttempts++;
                 var delay = retry.DelayMinutes ?? 1;
                 Log($"{id}: {error} (trying again in {delay} minutes, {run.NodeAttempts} of {retry.Attempts})");
-                var bookmark = NewBookmark(run, id, BookmarkKinds.Retry, $"{run.Id:N}:{id}:{run.Executed}", time.GetUtcNow().AddMinutes(delay));
+                var bookmark = NewBookmark(run, id, BookmarkKinds.Retry, TimerKey(run), time.GetUtcNow().AddMinutes(delay));
                 await WaitAsync(bookmark);
                 return false;
             }
@@ -482,14 +482,7 @@ internal sealed partial class WorkflowInterpreter(
         TokenScope? scope = null;
         async Task<string> ExpandAsync(string template)
         {
-            if (scope is null)
-            {
-                var store = items.AsSystem();
-                var current = item is null ? null : await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
-                var list = item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
-                scope = new TokenScope(current, list?.Name, outputs, variables, data);
-            }
-
+            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct);
             return await tokens.ExpandAsync(template, scope, ct);
         }
 
@@ -530,9 +523,11 @@ internal sealed partial class WorkflowInterpreter(
                 return;
             }
 
+            // The wait ended: that is progress (a node that polls with run-again waits never advances in between).
             run.Status = RunStatus.Running;
             run.WaitingOn = null;
             run.NextCheckAt = null;
+            run.Attempts = 0;
             if (bookmark.RunAgain)
             {
                 // The node runs again (same execution id) and looks up what it waited for itself, e.g. a batch answer.
@@ -611,7 +606,7 @@ internal sealed partial class WorkflowInterpreter(
                 case FlowActivities.Delay:
                     var hours = ActivityInputs.Number(inputs, "hours") ?? 0;
                     Log($"{id}: waiting {hours} hours");
-                    await WaitAsync(NewBookmark(run, id, BookmarkKinds.Delay, $"{run.Id:N}:{id}:{run.Executed}", time.GetUtcNow().AddHours(hours)));
+                    await WaitAsync(NewBookmark(run, id, BookmarkKinds.Delay, TimerKey(run), time.GetUtcNow().AddHours(hours)));
                     return;
                 case FlowActivities.Approval:
                     if (item is null)
@@ -689,14 +684,15 @@ internal sealed partial class WorkflowInterpreter(
                         }
 
                         var waitOn = existing ?? NewBookmark(run, id, wait.Kind, wait.Key, wait.ResumeAt);
-                        if (wait.RunAgain && existing is { CompletedAt: not null } && existing.RunId == run.Id)
+                        if (existing is { CompletedAt: not null } && existing.RunId == run.Id && (wait.RunAgain || existing == resumed))
                         {
                             // The node ran again and waits for the same thing again (e.g. the next poll): wait anew.
                             existing.CompletedAt = null;
                             existing.Payload = null;
                             existing.ResumeAt = wait.ResumeAt;
                         }
-                        else
+
+                        if (existing != resumed)
                         {
                             Consumed();
                         }
@@ -738,6 +734,9 @@ internal sealed partial class WorkflowInterpreter(
     }
 
     public static string BookmarkKey(Guid approvalId) => approvalId.ToString("N");
+
+    /// <summary>The key of a delay or retry wait: new each time (a retried run counts its steps from 0 again), and short.</summary>
+    private static string TimerKey(WorkflowRun run) => $"{run.Id:N}:{Ids.New():N}";
 
     private static JsonObject? JsonObjectOf(string? json) => json is null ? null : JsonNode.Parse(json) as JsonObject;
 
@@ -977,6 +976,7 @@ internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantC
         run.CompletedAt = null;
         run.Attempts = 0;
         run.NodeAttempts = 0;
+        run.Executed = 0;
         run.LastActivityAt = now;
         var log = JsonNode.Parse(run.Log) as JsonArray ?? [];
         log.Add(new JsonObject { ["at"] = now.ToString("O"), ["message"] = $"Retried from {node}" + (userId is null ? string.Empty : " by a person") });

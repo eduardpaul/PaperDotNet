@@ -131,6 +131,13 @@ internal sealed class WorkflowScheduleJob(
     private async Task DatesAsync(WorkflowDefinition workflow, WorkflowSpec spec, WorkflowSchedule state, TimeZoneInfo zone, DateTimeOffset now, CancellationToken ct)
     {
         var trigger = spec.Trigger;
+        var offset = TimeSpan.FromHours(trigger.OffsetHours ?? 0);
+        var from = state.CheckedUntil ?? now;
+        if (from >= now)
+        {
+            return;
+        }
+
         var store = items.AsSystem();
         var list = (await store.GetListsAsync(workflow.WorkspaceId, null, ct)).FirstOrDefault(l => l.Name == trigger.List);
         var description = list is null ? null : await store.DescribeListAsync(workflow.WorkspaceId, list.Id, ct);
@@ -142,18 +149,18 @@ internal sealed class WorkflowScheduleJob(
             return;
         }
 
-        var offset = TimeSpan.FromHours(trigger.OffsetHours ?? 0);
-        var from = state.CheckedUntil ?? now;
-        if (from >= now)
-        {
-            return;
-        }
-
         // An item is due when date + offset is in (from, now]; so its date is in (from - offset, now - offset].
         var (lower, upper) = field.Type == "date"
             ? (Literal(DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(from - offset, zone).DateTime)),
                Literal(DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now - offset, zone).DateTime)))
             : (Literal(from - offset), Literal(now - offset));
+        if (lower == upper)
+        {
+            // A date field within the same day: no date is in the range until the day changes.
+            state.CheckedUntil = now;
+            return;
+        }
+
         var filter = $"fields/{field.Name} gt {lower} and fields/{field.Name} le {upper}" + (spec.Condition is { } condition ? $" and ({condition})" : string.Empty);
         string? cursor = null;
         do

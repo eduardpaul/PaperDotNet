@@ -1,5 +1,5 @@
 import type { BuiltInWorkflowResponse } from '@paperdotnet/client';
-import { fields as jsonObject, fieldsOf } from '@paperdotnet/client';
+import { fields as jsonObject, fieldsOf, ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, Settings2 } from 'lucide-react';
 import { useState } from 'react';
@@ -19,7 +19,13 @@ import { Input, Label } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/select';
 import { SettingsSection } from '@/features/settings/section';
 import { problemMessage } from '@/lib/errors';
-import { type ParameterInput, parameterFields, parameterInputs, parameterValues } from './built-ins';
+import {
+  type ParameterField,
+  type ParameterInput,
+  parameterFields,
+  parameterInputs,
+  parameterValues,
+} from './built-ins';
 import { builtInWorkflowsQuery, workflowsQuery } from './queries';
 import { workspaceBuilder } from '@/features/workspaces/queries';
 
@@ -41,8 +47,11 @@ export function BuiltInWorkflows({
 }) {
   const queryClient = useQueryClient();
   const { data: builtIns, isPending } = useQuery(builtInWorkflowsQuery(workspaceId));
-  const [setting, setSetting] = useState<BuiltInWorkflowResponse>();
-  const [copying, setCopying] = useState<BuiltInWorkflowResponse>();
+  // By key: the dialogs use the latest state (its ETag) after a refresh.
+  const [settingKey, setSettingKey] = useState<string>();
+  const [copyingKey, setCopyingKey] = useState<string>();
+  const setting = builtIns?.find((b) => b.key === settingKey);
+  const copying = builtIns?.find((b) => b.key === copyingKey);
   const invalidate = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: builtInWorkflowsQuery(workspaceId).queryKey }),
@@ -50,7 +59,7 @@ export function BuiltInWorkflows({
     ]);
   const turnOff = useMutation({
     mutationFn: (builtIn: BuiltInWorkflowResponse) =>
-      workspaceBuilder(workspaceId).workflows.builtIns.byKey(builtIn.key!).put({ enabled: false }),
+      workspaceBuilder(workspaceId).workflows.builtIns.byKey(builtIn.key!).put({ enabled: false }, ifMatch(builtIn)),
     onSuccess: () => toast.success('Turned off.'),
     onSettled: invalidate,
   });
@@ -78,21 +87,22 @@ export function BuiltInWorkflows({
                   </span>
                   <span className="block truncate text-xs text-muted">{builtIn.description}</span>
                 </div>
+                {/* Turning off always works, also when the server no longer has what it needs. */}
+                {canManage && builtIn.enabled && (
+                  <Button size="sm" disabled={turnOff.isPending} onClick={() => turnOff.mutate(builtIn)}>
+                    Turn off
+                  </Button>
+                )}
                 {canManage && builtIn.available && (
                   <>
-                    {builtIn.enabled ? (
-                      <Button size="sm" disabled={turnOff.isPending} onClick={() => turnOff.mutate(builtIn)}>
-                        Turn off
-                      </Button>
-                    ) : null}
-                    <Button size="sm" onClick={() => setSetting(builtIn)} aria-label={`Set up ${builtIn.name}`}>
+                    <Button size="sm" onClick={() => setSettingKey(builtIn.key!)} aria-label={`Set up ${builtIn.name}`}>
                       <Settings2 /> {builtIn.enabled ? 'Settings' : 'Turn on'}
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       aria-label={`Copy ${builtIn.name}`}
-                      onClick={() => setCopying(builtIn)}
+                      onClick={() => setCopyingKey(builtIn.key!)}
                     >
                       <Copy />
                     </Button>
@@ -108,7 +118,7 @@ export function BuiltInWorkflows({
           key={setting.key}
           workspaceId={workspaceId}
           builtIn={setting}
-          onClose={() => setSetting(undefined)}
+          onClose={() => setSettingKey(undefined)}
           onSaved={invalidate}
         />
       )}
@@ -117,7 +127,7 @@ export function BuiltInWorkflows({
           key={copying.key}
           workspaceId={workspaceId}
           builtIn={copying}
-          onClose={() => setCopying(undefined)}
+          onClose={() => setCopyingKey(undefined)}
           onCopied={async (id) => {
             await invalidate();
             onCopied(id);
@@ -149,12 +159,14 @@ function ParametersDialog({
     mutationFn: () =>
       workspaceBuilder(workspaceId)
         .workflows.builtIns.byKey(builtIn.key!)
-        .put({ enabled: true, parameters: jsonObject(parameterValues(fields, inputs)) }),
+        .put({ enabled: true, parameters: jsonObject(parameterValues(fields, inputs)) }, ifMatch(builtIn)),
     onSuccess: async () => {
       toast.success(`${builtIn.name} is on.`);
       await onSaved();
       onClose();
     },
+    // E.g. changed by someone else meanwhile (412): the next try uses the current state.
+    onError: onSaved,
   });
 
   return (
@@ -172,38 +184,7 @@ function ParametersDialog({
             <DialogDescription>{builtIn.description}</DialogDescription>
           </DialogHeader>
           <div className="min-h-0 space-y-3 overflow-y-auto px-5 pb-4">
-            {fields.map((field) => {
-              const id = `builtin-${field.name}`;
-              return field.type === 'boolean' ? (
-                <label key={field.name} className="flex items-center gap-2 text-[13px]">
-                  <Checkbox
-                    checked={inputs[field.name] === true}
-                    onChange={(e) => setInputs({ ...inputs, [field.name]: e.target.checked })}
-                  />
-                  {field.name}
-                </label>
-              ) : (
-                <div key={field.name} className="space-y-1">
-                  <Label htmlFor={id}>
-                    {field.name}
-                    {field.required && ' *'}
-                  </Label>
-                  <Input
-                    id={id}
-                    inputMode={field.type === 'number' || field.type === 'integer' ? 'decimal' : undefined}
-                    value={String(inputs[field.name] ?? '')}
-                    required={field.required}
-                    onChange={(e) => setInputs({ ...inputs, [field.name]: e.target.value })}
-                  />
-                  {(field.description || field.type === 'array') && (
-                    <p className="text-xs text-muted">
-                      {field.description}
-                      {field.type === 'array' && ' Separate several with commas.'}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+            <ParameterFields fields={fields} inputs={inputs} onChange={setInputs} />
           </div>
           {save.isError && <Alert className="mx-5 mb-3">{problemMessage(save.error)}</Alert>}
           <DialogFooter>
@@ -232,10 +213,16 @@ function CopyDialog({
   onCopied: (workflowId: string) => Promise<unknown>;
 }) {
   const [name, setName] = useState(`${builtIn.name} (copy)`);
+  const fields = parameterFields(plain(builtIn.parameters));
+  const [inputs, setInputs] = useState<Record<string, ParameterInput>>(() =>
+    parameterInputs(fields, plain(builtIn.values)),
+  );
   const copy = useMutation({
     meta: { silent: true },
     mutationFn: () =>
-      workspaceBuilder(workspaceId).workflows.builtIns.byKey(builtIn.key!).copy.post({ name: name.trim() }),
+      workspaceBuilder(workspaceId)
+        .workflows.builtIns.byKey(builtIn.key!)
+        .copy.post({ name: name.trim(), parameters: jsonObject(parameterValues(fields, inputs)) }),
     onSuccess: async (created) => {
       toast.success('Copied. The built-in workflow is off here now.');
       onClose();
@@ -247,6 +234,7 @@ function CopyDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <form
+          className="flex max-h-[76vh] flex-col"
           onSubmit={(e) => {
             e.preventDefault();
             copy.mutate();
@@ -255,13 +243,15 @@ function CopyDialog({
           <DialogHeader>
             <DialogTitle>Copy “{builtIn.name}”</DialogTitle>
             <DialogDescription>
-              The copy is a workflow of this workspace that you can change. It uses the settings the built-in workflow
-              has here.
+              The copy is a workflow of this workspace that you can change, made with these settings.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-1 px-5 pb-4">
-            <Label htmlFor="copy-name">Name</Label>
-            <Input id="copy-name" value={name} required maxLength={200} onChange={(e) => setName(e.target.value)} />
+          <div className="min-h-0 space-y-3 overflow-y-auto px-5 pb-4">
+            <div className="space-y-1">
+              <Label htmlFor="copy-name">Name</Label>
+              <Input id="copy-name" value={name} required maxLength={200} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <ParameterFields fields={fields} inputs={inputs} onChange={setInputs} idPrefix="copy" />
           </div>
           {copy.isError && <Alert className="mx-5 mb-3">{problemMessage(copy.error)}</Alert>}
           <DialogFooter>
@@ -275,4 +265,50 @@ function CopyDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/** The form fields of a built-in workflow's parameters. */
+function ParameterFields({
+  fields,
+  inputs,
+  onChange,
+  idPrefix = 'builtin',
+}: {
+  fields: ParameterField[];
+  inputs: Record<string, ParameterInput>;
+  onChange: (inputs: Record<string, ParameterInput>) => void;
+  idPrefix?: string;
+}) {
+  return fields.map((field) => {
+    const id = `${idPrefix}-${field.name}`;
+    return field.type === 'boolean' ? (
+      <label key={field.name} className="flex items-center gap-2 text-[13px]">
+        <Checkbox
+          checked={inputs[field.name] === true}
+          onChange={(e) => onChange({ ...inputs, [field.name]: e.target.checked })}
+        />
+        {field.name}
+      </label>
+    ) : (
+      <div key={field.name} className="space-y-1">
+        <Label htmlFor={id}>
+          {field.name}
+          {field.required && ' *'}
+        </Label>
+        <Input
+          id={id}
+          inputMode={field.type === 'number' || field.type === 'integer' ? 'decimal' : undefined}
+          value={String(inputs[field.name] ?? '')}
+          required={field.required}
+          onChange={(e) => onChange({ ...inputs, [field.name]: e.target.value })}
+        />
+        {(field.description || field.type === 'array') && (
+          <p className="text-xs text-muted">
+            {field.description}
+            {field.type === 'array' && ' Separate several with commas.'}
+          </p>
+        )}
+      </div>
+    );
+  });
 }

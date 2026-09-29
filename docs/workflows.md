@@ -347,12 +347,15 @@ The product ships ready-made workflows (EVT-12,
 - **Turn on or off** per workspace with its parameters:
   `PUT …/workflows/builtIns/{key}` `{ "enabled": true, "parameters": { … } }`.
   The values are checked like a saved workflow (the list must exist, and so
-  on). Turning it off keeps them.
+  on). Turning it off keeps them, and works even when the server no longer has
+  what it needs. Once it was turned on, changes need `If-Match` with its ETag
+  (`@odata.etag` in the list).
 - Once on, it is listed with the workspace's workflows (`builtIn` holds its
   key), runs like any workflow, and cannot be edited.
-- **Copy to change:** `POST …/workflows/builtIns/{key}/copy` `{ "name": … }`
-  creates a workflow of the workspace from it (`copiedFrom` holds the key),
-  with its current settings, and turns the built-in one off there.
+- **Copy to change:** `POST …/workflows/builtIns/{key}/copy`
+  `{ "name": …, "parameters": { … } }` creates a workflow of the workspace
+  from it (`copiedFrom` holds the key), with the given settings (default: its
+  current ones), and turns the built-in one off there.
 - **Updates:** when a new release changes a built-in definition, an hourly job
   saves it as a new version of each workspace's copy (running runs keep
   theirs). A built-in workflow that the release no longer has is turned off.
@@ -383,7 +386,9 @@ Workflows travel in the same templates and packages as lists and libraries
   in the target) fails it with the workflow's name.
 - A built-in workflow is exported as its key (`BuiltIn`) with its parameter
   values, so the target uses its own release's definition. A copy keeps
-  `CopiedFrom`. A key the target does not have fails the dry run.
+  `CopiedFrom`. A key the target does not have fails the dry run, unless the
+  workflow was turned off (it is skipped with a warning). One that needs what
+  the target server lacks (such as AI) is set up turned off, with a warning.
 - Runs, approvals and waits are never exported.
 - Templates made before the rename (section `Automations` in
   `urn:paperdotnet:automation:2`) are still read.

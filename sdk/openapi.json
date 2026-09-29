@@ -15925,6 +15925,13 @@
                 "$ref": "#/components/schemas/JsonObject"
               }
             ]
+          },
+          "@odata.etag": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Once it was turned on in the workspace: the ETag for \u0060If-Match\u0060 on changes (the workflow\u0027s; the same as the\n\u0060ETag\u0060 header)."
           }
         },
         "description": "A built-in workflow (EVT-12) and its state in the workspace: its \u0060parameters\u0060 (JSON Schema), whether the server\nhas what it needs (\u0060available\u0060), and when it was turned on, the \u0060workflowId\u0060 it runs as and its \u0060values\u0060."

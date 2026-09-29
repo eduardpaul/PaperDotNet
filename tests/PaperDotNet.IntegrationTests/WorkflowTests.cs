@@ -484,6 +484,14 @@ public sealed class WorkflowTests(PaperDotNetApiFactory factory)
         Assert.Equal("failed", Status(incident));
         Assert.Equal("make", incident.GetProperty("failedNode").GetString());
         var later = await PostIdAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Later", templateKey = "tasks" });
+
+        // Another organization can neither see nor retry the run.
+        await factory.CreateTenantAsync("auto-flows-b");
+        var foreign = await ApiClient.CreateAsync(factory, "auto-flows-b");
+        Assert.Equal(HttpStatusCode.NotFound, (await foreign.GetAsync($"{s.Workflows}/runs/{incident.GetProperty("id").GetGuid()}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await foreign.PostAsync($"{s.Workflows}/runs/{incident.GetProperty("id").GetGuid()}/retry", null, Ct)).StatusCode);
+        Assert.Equal("failed", Status(await GetAsync(s.Admin, $"{s.Workflows}/runs/{incident.GetProperty("id").GetGuid()}")));
+
         var retry = await s.Admin.PostAsync($"{s.Workflows}/runs/{incident.GetProperty("id").GetGuid()}/retry", null, Ct);
         Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
         var stopped = await WaitAsync(s.Admin, $"{s.Workflows}/runs/{incident.GetProperty("id").GetGuid()}", r => Status(r) is "failed" && !r.TryGetProperty("failedNode", out _));

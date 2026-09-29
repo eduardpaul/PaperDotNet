@@ -212,6 +212,14 @@ test('a built-in workflow is turned on with settings and copied to change it', a
   await expect(page.getByText('Approve new items is on.')).toBeVisible();
   await expect(approve).toContainText('On');
 
+  // Changing its settings later sends the ETag it was loaded with.
+  await approve.getByRole('button', { name: 'Set up Approve new items' }).click();
+  await expect(dialog.getByLabel('list *')).toHaveValue(list);
+  await dialog.getByLabel('dueInHours').fill('48');
+  await dialog.getByRole('button', { name: 'Turn on' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(approve).toContainText('On');
+
   // Listed with the workspace's workflows, marked built-in, and read-only in the editor.
   const row = page.getByRole('button', { name: /^Approve new items/ });
   await expect(row).toContainText('Built-in');
@@ -221,6 +229,7 @@ test('a built-in workflow is turned on with settings and copied to change it', a
 
   // A copy is a workflow of the workspace to change; the built-in one is turned off.
   await approve.getByRole('button', { name: 'Copy Approve new items' }).click();
+  await expect(page.getByRole('dialog').getByLabel('list *')).toHaveValue(list);
   const copyName = unique('Approve requests');
   await page.getByRole('dialog').getByLabel('Name').fill(copyName);
   await page.getByRole('dialog').getByRole('button', { name: 'Copy' }).click();

@@ -159,14 +159,7 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
         TokenScope? scope = null;
         async Task<string> ExpandAsync(string template, CancellationToken token)
         {
-            if (scope is null)
-            {
-                var store = items.AsSystem();
-                var current = item is null ? null : await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, token);
-                var list = item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, token);
-                scope = new TokenScope(current, list?.Name, outputs, variables, data);
-            }
-
+            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, token);
             return await tokens.ExpandAsync(template, scope, token);
         }
 

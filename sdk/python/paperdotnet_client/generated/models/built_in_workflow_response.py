@@ -26,6 +26,8 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
     key: Optional[str] = None
     # The name property
     name: Optional[str] = None
+    # Once it was turned on in the workspace: the ETag for `If-Match` on changes (the workflow's; the same as the`ETag` header).
+    odata_etag: Optional[str] = None
     # The parameters property
     parameters: Optional[JsonObject] = None
     # The requires property
@@ -61,6 +63,7 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
             "enabled": lambda n : setattr(self, 'enabled', n.get_bool_value()),
             "key": lambda n : setattr(self, 'key', n.get_str_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
+            "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "parameters": lambda n : setattr(self, 'parameters', n.get_object_value(JsonObject)),
             "requires": lambda n : setattr(self, 'requires', n.get_str_value()),
             "values": lambda n : setattr(self, 'values', n.get_object_value(JsonObject)),
@@ -81,6 +84,7 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
         writer.write_bool_value("enabled", self.enabled)
         writer.write_str_value("key", self.key)
         writer.write_str_value("name", self.name)
+        writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_object_value("parameters", self.parameters)
         writer.write_str_value("requires", self.requires)
         writer.write_object_value("values", self.values)

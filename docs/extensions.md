@@ -214,6 +214,10 @@ organization with the extension:
 - **Triggers:** `builder.AddWorkflowTrigger(new(key, description))`. Raise
   them from your code with `IWorkflowTriggers.RaiseAsync(key, workspaceId,
   item, data)`; workflows with that trigger then start in the background.
+  From an event subscriber, pass the event it handles
+  (`RaiseAsync(key, workspaceId, item, data, integrationEvent)`): the trigger
+  takes over its id, so a redelivered event starts nothing twice, and its
+  causation depth, so workflows that trigger each other stop.
 - **Workflows:** `builder.AddWorkflow(new BuiltInWorkflow(key, name,
   description, definition) { Parameters = … })`.
   - The definition is the same JSON as in the API, with `{param:name}` for

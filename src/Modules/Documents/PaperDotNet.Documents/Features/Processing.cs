@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -89,15 +90,11 @@ internal sealed partial class DocumentProcessor(
         }
 
         await SetStatusAsync(version, ProcessingStatus.Running, null, ct);
+        ProcessingResult result;
         try
         {
-            var result = await ProcessAsync(version, payload, progress, ct);
+            result = await ProcessAsync(version, payload, progress, ct);
             await SetStatusAsync(version, ProcessingStatus.Succeeded, null, ct);
-
-            // Workflows on the document's text (ADR-0036): item events come before the text exists.
-            await triggers.RaiseAsync(WorkflowTriggers.DocumentProcessed, version.WorkspaceId, new WorkflowItem(version.WorkspaceId, version.ListId, version.ItemId),
-                new JsonObject { ["version"] = result.Number, ["pageCount"] = result.PageCount, ["ocr"] = result.Ocr }, ct);
-            return result;
         }
 #pragma warning disable CA1031 // Any failure is recorded on the version; the operation fails too.
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -109,6 +106,25 @@ internal sealed partial class DocumentProcessor(
             await SetStatusAsync(failed, ProcessingStatus.Failed, ex.Message, ct);
             throw;
         }
+
+        // Workflows on the document's text (ADR-0036): item events come before the text exists. Outside the try: the
+        // document was processed even when raising fails. Its id comes from the version, so processing it again (e.g.
+        // a redelivered operation) starts nothing twice.
+        await triggers.RaiseAsync(WorkflowTriggers.DocumentProcessed, version.WorkspaceId, new WorkflowItem(version.WorkspaceId, version.ListId, version.ItemId),
+            new JsonObject { ["version"] = result.Number, ["pageCount"] = result.PageCount, ["ocr"] = result.Ocr }, ProcessedEventId(version.Id, result.Number), ct);
+        return result;
+    }
+
+    /// <summary>The event id of <c>document.processed</c> for a processed version and the version it produced.</summary>
+    internal static Guid ProcessedEventId(Guid versionId, int number)
+    {
+        Span<byte> input = stackalloc byte[20];
+        versionId.TryWriteBytes(input);
+        BitConverter.TryWriteBytes(input[16..], number);
+        var bytes = SHA256.HashData(input)[..16];
+        bytes[7] = (byte)((bytes[7] & 0x0F) | 0x80); // Version 8 (name-based, custom).
+        bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80); // RFC 4122 variant.
+        return new Guid(bytes);
     }
 
     /// <summary>The operation's result: the current version, its pages and whether OCR ran.</summary>

@@ -136,6 +136,11 @@ public sealed class WorkflowDefinitionTests
         Assert.Equal("The input 'copies' must be of type integer.", WorkflowInputs.Check(inputs, new JsonObject { ["label"] = "x", ["copies"] = 2.5 }));
         Assert.Equal("Unknown input 'other'.", WorkflowInputs.Check(inputs, new JsonObject { ["label"] = "x", ["other"] = 1 }));
         Assert.Null(WorkflowInputs.Check(null, new JsonObject { ["anything"] = 1 }));
+
+        // A property that is not a schema object is an error, not a crash.
+        var shorthand = new JsonObject { ["properties"] = new JsonObject { ["amount"] = "number" } };
+        Assert.Contains("inputs.amount needs a type (string, number, integer, boolean, array, object).", Check(new WorkflowTrigger("manual", Inputs: shorthand)));
+        Assert.Equal("Unknown input 'amount'.", WorkflowInputs.Check(shorthand, new JsonObject { ["amount"] = 1 }));
     }
 
     [Fact]
@@ -178,6 +183,15 @@ public sealed class WorkflowDefinitionTests
             "steps[4]: hours must be positive.",
             "steps[5]: unknown step type 'loop' (use action, approval, delay, condition).",
         ], errors);
+    }
+
+    [Fact]
+    public void Ids_of_nested_steps_stay_within_the_limit()
+    {
+        var name = new string('n', Definitions.MaxNodeId);
+        var nested = new WorkflowStep(StepTypes.Condition, name, Filter: "x eq 1", Then: [new(StepTypes.Action, Action: "item.update")]);
+        Assert.Contains(Definitions.ValidateSteps([nested], Actions), e => e.Contains("step ids have at most", StringComparison.Ordinal));
+        Assert.Empty(Definitions.ValidateSteps([nested with { Name = "short" }], Actions));
     }
 
     [Fact]

@@ -43,6 +43,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string Name { get; set; }
 #endif
+        /// <summary>Once it was turned on in the workspace: the ETag for `If-Match` on changes (the workflow&apos;s; the same as the`ETag` header).</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? OdataEtag { get; set; }
+#nullable restore
+#else
+        public string OdataEtag { get; set; }
+#endif
         /// <summary>The parameters property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -99,6 +107,7 @@ namespace PaperDotNet.Client.Models
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
                 { "key", n => { Key = n.GetStringValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
+                { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "parameters", n => { Parameters = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "requires", n => { Requires = n.GetStringValue(); } },
                 { "values", n => { Values = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
@@ -117,6 +126,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteBoolValue("enabled", Enabled);
             writer.WriteStringValue("key", Key);
             writer.WriteStringValue("name", Name);
+            writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("parameters", Parameters);
             writer.WriteStringValue("requires", Requires);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("values", Values);

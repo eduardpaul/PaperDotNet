@@ -104,25 +104,33 @@ internal class WorkflowTemplateHandler(WorkflowsDbContext db, TriggerCatalog tri
     private async Task ApplyBuiltInAsync(XElement element, string key, string name, TemplateContext context, CancellationToken ct)
     {
         var workspaceId = context.WorkspaceId!.Value;
+        var enabled = element.BoolAttr("Enabled", true);
         if (await builtIns.FindAsync(key, ct) is not { } builtIn)
         {
+            if (!enabled)
+            {
+                // Turned off where it was exported: nothing to set up here (e.g. its extension is not enabled).
+                context.Warn($"Workflow '{name}': the built-in workflow '{key}' does not exist on this server; skipped (it was turned off).", element);
+                return;
+            }
+
             throw new TemplateException($"Workflow '{name}': the built-in workflow '{key}' does not exist on this server.", element);
         }
 
         var values = JsonNode.Parse(string.IsNullOrWhiteSpace(element.Value) ? "{}" : element.Value) as JsonObject;
         var (spec, _, error) = BuiltInWorkflows.Resolve(builtIn, values);
         var errors = error is not null ? [error] : Definitions.Validate(spec, triggers.Keys, actions);
-        if (!builtIns.IsAvailable(builtIn))
-        {
-            errors.Add($"It needs {builtIn.Requires} to be configured on the server.");
-        }
-
         if (errors.Count > 0)
         {
             throw new TemplateException($"Workflow '{name}': {string.Join(" ", errors)}", element);
         }
 
-        var enabled = element.BoolAttr("Enabled", true);
+        if (enabled && !builtIns.IsAvailable(builtIn))
+        {
+            // The rest of the template still applies; the workflow is set up turned off until the server has what it needs.
+            context.Warn($"Workflow '{name}': it needs {builtIn.Requires} to be configured on the server, so it is turned off.", element);
+            enabled = false;
+        }
         var row = context.IsPlanned ? null : await builtIns.RowAsync(workspaceId, key, ct);
         if (row is null)
         {

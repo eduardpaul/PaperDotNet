@@ -121,20 +121,23 @@ internal sealed class AiGateway(
                 if (resumed.Payload?["text"] is JsonValue answer && answer.TryGetValue<string>(out var answered))
                 {
                     await RecordAsync(answered, cached: true);
-                    return (new AiAnswer(answered, false, 0), null, null);
-                }
+                    if (Fits(question, answered))
+                    {
+                        return (new AiAnswer(answered, false, 0), null, null);
+                    }
 
-                if (resumed.Payload?["error"] is JsonValue failure && failure.TryGetValue<string>(out var failed) && !resumed.TimedOut)
+                    // An answer the step cannot use (a retry would get it again): the question is asked again now.
+                }
+                else if (resumed.Payload?["error"] is JsonValue failure && failure.TryGetValue<string>(out var failed) && !resumed.TimedOut)
                 {
                     return (null, $"The AI model failed: {failed}", null);
                 }
-
-                if (!immediately)
+                else if (!immediately)
                 {
                     return (null, AiBatch.MissedDeadline, null);
                 }
             }
-            else if (await CachedAsync(hash, now, ct) is { } cachedAnswer)
+            else if (await CachedAsync(hash, question, now, ct) is { } cachedAnswer)
             {
                 await RecordAsync(cachedAnswer, cached: true);
                 return (new AiAnswer(cachedAnswer, true, 0), null, null);
@@ -149,7 +152,7 @@ internal sealed class AiGateway(
 
             // No batch workflow is on in the workspace: nothing would answer, so the question is asked now.
         }
-        else if (await CachedAsync(hash, now, ct) is { } cachedAnswer)
+        else if (await CachedAsync(hash, question, now, ct) is { } cachedAnswer)
         {
             await RecordAsync(cachedAnswer, cached: true);
             return (new AiAnswer(cachedAnswer, true, 0), null, null);
@@ -241,8 +244,11 @@ internal sealed class AiGateway(
 
     public static string Truncate(string text, int length) => text.Length > length ? text[..length] : text;
 
-    /// <summary>An earlier answer to the same model and input within <see cref="WorkflowAiOptions.CacheDays"/>, or null.</summary>
-    public async Task<string?> CachedAsync(string hash, DateTimeOffset now, CancellationToken ct)
+    /// <summary>
+    /// An earlier answer to the same model and input within <see cref="WorkflowAiOptions.CacheDays"/>, or null. Only answers
+    /// that fit the question are reused (JSON when it has a schema): a bad answer is asked again, not repeated for days.
+    /// </summary>
+    public async Task<string?> CachedAsync(string hash, AiQuestion question, DateTimeOffset now, CancellationToken ct)
     {
         if (options.Value.CacheDays <= 0)
         {
@@ -250,12 +256,17 @@ internal sealed class AiGateway(
         }
 
         var since = now.AddDays(-options.Value.CacheDays);
-        return await db.AiCalls.AsNoTracking()
+        var answers = await db.AiCalls.AsNoTracking()
             .Where(c => c.InputHash == hash && c.Response != null && c.CreatedAt >= since)
             .OrderByDescending(c => c.CreatedAt)
-            .Select(c => c.Response)
-            .FirstOrDefaultAsync(ct);
+            .Select(c => c.Response!)
+            .Take(5)
+            .ToListAsync(ct);
+        return answers.FirstOrDefault(a => Fits(question, a));
     }
+
+    /// <summary>Whether an answer can be used for the question: JSON when the question has a schema, else any text.</summary>
+    public static bool Fits(AiQuestion question, string answer) => question.Schema is null || new AiAnswer(answer, false, 0).Json is not null;
 
     /// <summary>
     /// What the model reads about an item: its title and values (<c>name: value</c> lines), then the text others contribute

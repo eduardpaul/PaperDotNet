@@ -296,7 +296,8 @@ These defaults were chosen when implementation started; each can still be change
 
 - **Module triggers** are ordinary raised triggers: Documents, Tasks and Collaboration register a
   `WorkflowTriggerDefinition` and call `IWorkflowTriggers.RaiseAsync`, with the id of what caused it as the
-  event id where there is one (the item event, the comment), so a redelivery starts nothing twice.
+  event id where there is one (the comment, the processed version), so a redelivery starts nothing twice.
+  Subscribers pass the event they handle, which also keeps its causation depth (loop protection).
   `approval.decided` is saved with the decision. There is no separate trigger-provider contract.
 - **Timed triggers** run from one tenant job every minute (`workflows.schedules`). Its state lives in a
   separate, non-audited table (`schedules`), so the job does not write audit entries. Event ids are derived
