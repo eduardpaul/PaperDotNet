@@ -61,6 +61,15 @@ export interface AddListContentTypeRequest extends AdditionalDataHolder, Parsabl
      */
     contentTypeId?: Guid | null;
 }
+/**
+ * A group to put inside another group: its members become members of that group too.
+ */
+export interface AddNestedGroupRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The groupId property
+     */
+    groupId?: Guid | null;
+}
 export interface AddWorkspaceMemberRequest extends AdditionalDataHolder, Parsable {
     /**
      * The role property
@@ -921,6 +930,15 @@ export function createAddLinkRequestFromDiscriminatorValue(parseNode: ParseNode 
 // @ts-ignore
 export function createAddListContentTypeRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoAddListContentTypeRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AddNestedGroupRequest}
+ */
+// @ts-ignore
+export function createAddNestedGroupRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAddNestedGroupRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -3020,6 +3038,17 @@ export function deserializeIntoAddLinkRequest(addLinkRequest: Partial<AddLinkReq
 export function deserializeIntoAddListContentTypeRequest(addListContentTypeRequest: Partial<AddListContentTypeRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "contentTypeId": n => { addListContentTypeRequest.contentTypeId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AddNestedGroupRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAddNestedGroupRequest(addNestedGroupRequest: Partial<AddNestedGroupRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "groupId": n => { addNestedGroupRequest.groupId = n.getGuidValue(); },
     }
 }
 /**
@@ -7932,6 +7961,18 @@ export function serializeAddListContentTypeRequest(writer: SerializationWriter, 
     if (!addListContentTypeRequest || isSerializingDerivedType) { return; }
     writer.writeGuidValue("contentTypeId", addListContentTypeRequest.contentTypeId);
     writer.writeAdditionalData(addListContentTypeRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param AddNestedGroupRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAddNestedGroupRequest(writer: SerializationWriter, addNestedGroupRequest: Partial<AddNestedGroupRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!addNestedGroupRequest || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("groupId", addNestedGroupRequest.groupId);
+    writer.writeAdditionalData(addNestedGroupRequest.additionalData);
 }
 /**
  * Serializes information the current object

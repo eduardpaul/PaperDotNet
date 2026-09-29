@@ -18,6 +18,10 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
 
+    public DbSet<GroupNesting> GroupNestings => Set<GroupNesting>();
+
+    public DbSet<GroupClosure> GroupClosures => Set<GroupClosure>();
+
     public DbSet<Role> Roles => Set<Role>();
 
     public DbSet<RoleAssignment> RoleAssignments => Set<RoleAssignment>();
@@ -33,6 +37,68 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<OAuthApplication> Applications => Set<OAuthApplication>();
 
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        await UpdateGroupClosureAsync(cancellationToken);
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        UpdateGroupClosureAsync(CancellationToken.None).GetAwaiter().GetResult();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    /// <summary>
+    /// When groups or nestings are added or removed, rebuilds the tenant's <see cref="GroupClosure"/> rows in the
+    /// same save (groups are few), whichever path made the change.
+    /// </summary>
+    private async Task UpdateGroupClosureAsync(CancellationToken ct)
+    {
+        var changes = ChangeTracker.Entries()
+            .Where(e => e.Entity is Group or GroupNesting && e.State is EntityState.Added or EntityState.Deleted)
+            .ToList();
+        if (changes.Count == 0)
+        {
+            return;
+        }
+
+        var groups = (await Groups.AsNoTracking().Select(g => g.Id).ToListAsync(ct)).ToHashSet();
+        var nestings = (await GroupNestings.AsNoTracking().Select(n => new { n.GroupId, n.MemberGroupId }).ToListAsync(ct))
+            .Select(n => (n.GroupId, n.MemberGroupId))
+            .ToHashSet();
+        foreach (var change in changes)
+        {
+            var added = change.State == EntityState.Added;
+            switch (change.Entity)
+            {
+                case Group group when added:
+                    groups.Add(group.Id);
+                    break;
+                case Group group:
+                    groups.Remove(group.Id);
+                    break;
+                case GroupNesting nesting when added:
+                    nestings.Add((nesting.GroupId, nesting.MemberGroupId));
+                    break;
+                case GroupNesting nesting:
+                    nestings.Remove((nesting.GroupId, nesting.MemberGroupId));
+                    break;
+            }
+        }
+
+        nestings.RemoveWhere(n => !groups.Contains(n.GroupId) || !groups.Contains(n.MemberGroupId));
+        var wanted = GroupGraph.Closure(groups, nestings);
+        foreach (var row in await GroupClosures.ToListAsync(ct))
+        {
+            if (!wanted.Remove((row.GroupId, row.AncestorId)))
+            {
+                GroupClosures.Remove(row);
+            }
+        }
+
+        GroupClosures.AddRange(wanted.Select(w => new GroupClosure { GroupId = w.Group, AncestorId = w.Ancestor }));
+    }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -83,6 +149,17 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             b.HasIndex(g => new { g.TenantId, g.Name }).IsUnique();
         });
         builder.Entity<GroupMember>(b => b.HasKey(m => new { m.GroupId, m.UserId }));
+        builder.Entity<GroupNesting>(b =>
+        {
+            b.HasKey(n => new { n.GroupId, n.MemberGroupId });
+            b.HasIndex(n => n.MemberGroupId);
+        });
+        builder.Entity<GroupClosure>(b =>
+        {
+            b.ToTable("group_closure");
+            b.HasKey(c => new { c.GroupId, c.AncestorId });
+            b.HasIndex(c => new { c.AncestorId, c.GroupId });
+        });
 
         builder.Entity<Role>(b =>
         {

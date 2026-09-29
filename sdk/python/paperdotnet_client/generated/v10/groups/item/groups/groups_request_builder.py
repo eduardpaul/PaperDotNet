@@ -11,38 +11,73 @@ from kiota_abstractions.request_information import RequestInformation
 from kiota_abstractions.request_option import RequestOption
 from kiota_abstractions.serialization import Parsable, ParsableFactory
 from typing import Any, Optional, TYPE_CHECKING, Union
+from uuid import UUID
 from warnings import warn
 
 if TYPE_CHECKING:
-    from ....models.api_problem import ApiProblem
-    from ....models.group_response import GroupResponse
-    from ....models.update_group_request import UpdateGroupRequest
-    from .groups.groups_request_builder import GroupsRequestBuilder
-    from .inbox.inbox_request_builder import InboxRequestBuilder
-    from .members.members_request_builder import MembersRequestBuilder
+    from .....models.add_nested_group_request import AddNestedGroupRequest
+    from .....models.api_problem import ApiProblem
+    from .....models.group_response import GroupResponse
+    from .item.with_member_group_item_request_builder import WithMemberGroupItemRequestBuilder
 
-class GroupsItemRequestBuilder(BaseRequestBuilder):
+class GroupsRequestBuilder(BaseRequestBuilder):
     """
-    Builds and executes requests for operations under /v1.0/groups/{id}
+    Builds and executes requests for operations under /v1.0/groups/{id}/groups
     """
     def __init__(self,request_adapter: RequestAdapter, path_parameters: Union[str, dict[str, Any]]) -> None:
         """
-        Instantiates a new GroupsItemRequestBuilder and sets the default values.
+        Instantiates a new GroupsRequestBuilder and sets the default values.
         param path_parameters: The raw url or the url-template parameters for the request.
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/groups/{id}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/groups/{id}/groups", path_parameters)
     
-    async def delete(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> None:
+    def by_member_group_id(self,member_group_id: UUID) -> WithMemberGroupItemRequestBuilder:
         """
+        Gets an item from the paperdotnet_client.generated.v10.groups.item.groups.item collection
+        param member_group_id: Unique identifier of the item
+        Returns: WithMemberGroupItemRequestBuilder
+        """
+        if member_group_id is None:
+            raise TypeError("member_group_id cannot be null.")
+        from .item.with_member_group_item_request_builder import WithMemberGroupItemRequestBuilder
+
+        url_tpl_params = get_path_parameters(self.path_parameters)
+        url_tpl_params["memberGroupId"] = member_group_id
+        return WithMemberGroupItemRequestBuilder(self.request_adapter, url_tpl_params)
+    
+    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[list[GroupResponse]]:
+        """
+        param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
+        Returns: Optional[list[GroupResponse]]
+        """
+        request_info = self.to_get_request_information(
+            request_configuration
+        )
+        from .....models.api_problem import ApiProblem
+
+        error_mapping: dict[str, type[ParsableFactory]] = {
+            "XXX": ApiProblem,
+        }
+        if not self.request_adapter:
+            raise Exception("Http core is null") 
+        from .....models.group_response import GroupResponse
+
+        return await self.request_adapter.send_collection_async(request_info, GroupResponse, error_mapping)
+    
+    async def post(self,body: AddNestedGroupRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> None:
+        """
+        param body: A group to put inside another group: its members become members of that group too.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: None
         """
-        request_info = self.to_delete_request_information(
-            request_configuration
+        if body is None:
+            raise TypeError("body cannot be null.")
+        request_info = self.to_post_request_information(
+            body, request_configuration
         )
-        from ....models.api_problem import ApiProblem
+        from .....models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
             "XXX": ApiProblem,
@@ -51,99 +86,49 @@ class GroupsItemRequestBuilder(BaseRequestBuilder):
             raise Exception("Http core is null") 
         return await self.request_adapter.send_no_response_content_async(request_info, error_mapping)
     
-    async def patch(self,body: UpdateGroupRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[GroupResponse]:
-        """
-        param body: The request body
-        param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
-        Returns: Optional[GroupResponse]
-        """
-        if body is None:
-            raise TypeError("body cannot be null.")
-        request_info = self.to_patch_request_information(
-            body, request_configuration
-        )
-        from ....models.api_problem import ApiProblem
-
-        error_mapping: dict[str, type[ParsableFactory]] = {
-            "400": ApiProblem,
-            "XXX": ApiProblem,
-        }
-        if not self.request_adapter:
-            raise Exception("Http core is null") 
-        from ....models.group_response import GroupResponse
-
-        return await self.request_adapter.send_async(request_info, GroupResponse, error_mapping)
-    
-    def to_delete_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
-        request_info = RequestInformation(Method.DELETE, self.url_template, self.path_parameters)
-        request_info.configure(request_configuration)
-        request_info.headers.try_add("Accept", "application/problem+json")
-        return request_info
-    
-    def to_patch_request_information(self,body: UpdateGroupRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
-        """
-        param body: The request body
-        param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
-        Returns: RequestInformation
-        """
-        if body is None:
-            raise TypeError("body cannot be null.")
-        request_info = RequestInformation(Method.PATCH, self.url_template, self.path_parameters)
+        request_info = RequestInformation(Method.GET, self.url_template, self.path_parameters)
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/json")
+        return request_info
+    
+    def to_post_request_information(self,body: AddNestedGroupRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+        """
+        param body: A group to put inside another group: its members become members of that group too.
+        param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
+        Returns: RequestInformation
+        """
+        if body is None:
+            raise TypeError("body cannot be null.")
+        request_info = RequestInformation(Method.POST, self.url_template, self.path_parameters)
+        request_info.configure(request_configuration)
+        request_info.headers.try_add("Accept", "application/problem+json")
         request_info.set_content_from_parsable(self.request_adapter, "application/json", body)
         return request_info
     
-    def with_url(self,raw_url: str) -> GroupsItemRequestBuilder:
+    def with_url(self,raw_url: str) -> GroupsRequestBuilder:
         """
         Returns a request builder with the provided arbitrary URL. Using this method means any other path or query parameters are ignored.
         param raw_url: The raw URL to use for the request builder.
-        Returns: GroupsItemRequestBuilder
+        Returns: GroupsRequestBuilder
         """
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
-        return GroupsItemRequestBuilder(self.request_adapter, raw_url)
-    
-    @property
-    def groups(self) -> GroupsRequestBuilder:
-        """
-        The groups property
-        """
-        from .groups.groups_request_builder import GroupsRequestBuilder
-
-        return GroupsRequestBuilder(self.request_adapter, self.path_parameters)
-    
-    @property
-    def inbox(self) -> InboxRequestBuilder:
-        """
-        The inbox property
-        """
-        from .inbox.inbox_request_builder import InboxRequestBuilder
-
-        return InboxRequestBuilder(self.request_adapter, self.path_parameters)
-    
-    @property
-    def members(self) -> MembersRequestBuilder:
-        """
-        The members property
-        """
-        from .members.members_request_builder import MembersRequestBuilder
-
-        return MembersRequestBuilder(self.request_adapter, self.path_parameters)
+        return GroupsRequestBuilder(self.request_adapter, raw_url)
     
     @dataclass
-    class GroupsItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):
+    class GroupsRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """
         warn("This class is deprecated. Please use the generic RequestConfiguration class generated by the generator.", DeprecationWarning)
     
     @dataclass
-    class GroupsItemRequestBuilderPatchRequestConfiguration(RequestConfiguration[QueryParameters]):
+    class GroupsRequestBuilderPostRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """

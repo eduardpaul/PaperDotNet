@@ -85,7 +85,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | IAM-02 | Built-in OAuth2/OIDC server | As an **Integrator**, I want standard OAuth2 flows (auth code + PKCE, client credentials), so that apps, SDKs and MCP clients can authenticate securely | MVP | P1 | #0003, #0004, ADR-0002 |
 | IAM-03 | Personal API tokens / app passwords | As a **Member**, I want to create, list and revoke tokens with scopes and expiry, so that scripts, WebDAV and CalDAV clients can access my data | MVP | P0 | PM §9 |
 | IAM-04 | External OIDC login | As an **Admin**, I want to connect my own identity provider (e.g. Keycloak, Entra ID, Google) per tenant, so that users use company SSO | Core | P5 | PM §9, #0005 |
-| IAM-05 | Groups | As an **Admin**, I want groups with members, so that I can grant access to many users at once | MVP | P0 | PM §8 |
+| IAM-05 | Groups | As an **Admin**, I want groups with members (people or other groups), so that I can grant access to many users at once | MVP | P0 | PM §8 |
 | IAM-06 | Roles with fine-grained scopes | As an **Admin**, I want roles built from scopes (e.g. `item.read`, `document.download`, `page.rotate`), so that I control exactly what people can do | MVP | P0 | PM §8 |
 | IAM-07 | Permission inheritance | As an **Owner**, I want permissions to flow workspace → list → folder → item, with the option to break inheritance, so that I set access once and still handle exceptions | MVP | P1 | AV §4 |
 | IAM-08 | Internal sharing | As a **Member**, I want to share an item, folder or list with users or groups at a chosen role, and see what is "shared with me", so that we can collaborate | Core | P6 | PM §8 |
@@ -313,7 +313,7 @@ Implemented in the solution skeleton (see [ADR-0006](adr/0006-phase-0-simplifica
 | PLT-11 Admin CLI | ✅ `migrate`, `bootstrap`, `tenant`, `user`, `healthcheck`; `backup`, `restore`, `reindex` (3d) |
 | IAM-01 Local accounts | ✅ passwords + lockout, passkeys (1f); MFA/TOTP later |
 | IAM-03 API tokens | ✅ scoped, expiring, revocable, hashed |
-| IAM-05, IAM-06 Groups, roles & scopes | ✅ built-in Administrator/Member roles, custom roles, group assignment |
+| IAM-05, IAM-06 Groups, roles & scopes | ✅ built-in Administrator/Member roles, custom roles, group assignment; groups inside groups (up to 10 levels, ADR-0035) |
 | API-01 Graph-style conventions | ✅ `/v1.0`, keyset paging + `@odata.nextLink`, ProblemDetails with `code`, ETag/If-Match |
 | API-02 OpenAPI | ✅ `/openapi/v1.json` with bearer security scheme |
 

@@ -1,6 +1,6 @@
 # ADR-0035: Item storage and permissions at scale
 
-- **Status:** Accepted; step 1 (ACL by principal) implemented
+- **Status:** Accepted; steps 1 (ACL by principal) and 2 (nested groups) implemented
 - **Date:** 2026-09-28
 - **Replaces:** how ADR-0011 evaluates permissions (its scope model stays) and
   how ADR-0012 trims search.
@@ -253,3 +253,31 @@ Done as decided, with these details:
   them until their permissions are set again.
 - **Measured:** `PaperDotNet.Performance` has a `shared` scenario: a member
   without full control pages a list whose folders have unique permissions.
+
+### Step 2: nested groups (2026-09-29)
+
+- **Data:** `identity.group_nestings(GroupId, MemberGroupId)` holds the groups
+  inside a group; `identity.group_closure(GroupId, AncestorId)` holds every group
+  with each group it is inside of, itself included. `IdentityDbContext` rebuilds
+  the tenant's closure in the same save whenever a group or a nesting is added or
+  removed, whichever path made the change. The migration adds the self rows of
+  existing groups.
+- **Rules** (`GroupGraph`): a group cannot contain itself, a nesting that would
+  make a cycle is refused, and a chain of groups is at most 10 long. The API
+  answers 409 `invalidNesting`.
+- **API:** `GET/POST /groups/{id}/groups` and
+  `DELETE /groups/{id}/groups/{memberGroupId}`. `/groups/{id}/members` still
+  lists the users added to the group directly. Removing the last path to an
+  administrator role is refused like removing a membership.
+- **Consumers:** `GetGroupIdsAsync` (item access, search, group inboxes) and
+  `GetGroupMembersAsync` (notifications, automation) include nested groups;
+  so do roles assigned to groups (`EffectiveScopeProvider`) and the last-
+  administrator check. ACL entries keep naming the granted group, so nesting
+  changes write no ACL rows; they evict the tenant's cached principals and
+  scopes.
+- **Templates:** `<Member Group="…"/>` puts a group inside a group; exporting a
+  group also exports the groups inside it. The schema now also allows
+  `<Grant Role="Visitors|Members|Owners"/>` (missing from step 1).
+- **Web:** the group panel in administration lists the groups inside and adds or
+  removes them.
+- Reverse-proxy sign-in keeps managing direct memberships only.

@@ -44,7 +44,10 @@ internal sealed class EffectiveScopeProvider(IdentityDbContext db, ITenantContex
             return null;
         }
 
-        var groupIds = db.GroupMembers.Where(m => m.UserId == userId).Select(m => m.GroupId);
+        // Roles assigned to a group reach the members of groups inside it too.
+        var groupIds = db.GroupClosures
+            .Where(c => db.GroupMembers.Any(m => m.UserId == userId && m.GroupId == c.GroupId))
+            .Select(c => c.AncestorId);
         var roles = await db.RoleAssignments
             .Where(a => (a.PrincipalType == PrincipalType.User && a.PrincipalId == userId)
                         || (a.PrincipalType == PrincipalType.Group && groupIds.Contains(a.PrincipalId)))

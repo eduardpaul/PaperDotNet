@@ -4,6 +4,8 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createGroupResponseFromDiscriminatorValue, serializeGroupResponse, serializeUpdateGroupRequest, type ApiProblem, type GroupResponse, type UpdateGroupRequest } from '../../../models/index.js';
 // @ts-ignore
+import { GroupsRequestBuilderNavigationMetadata, GroupsRequestBuilderRequestsMetadata, type GroupsRequestBuilder } from './groups/index.js';
+// @ts-ignore
 import { InboxRequestBuilderNavigationMetadata, InboxRequestBuilderRequestsMetadata, type InboxRequestBuilder } from './inbox/index.js';
 // @ts-ignore
 import { MembersRequestBuilderNavigationMetadata, MembersRequestBuilderRequestsMetadata, type MembersRequestBuilder } from './members/index.js';
@@ -14,6 +16,10 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  * Builds and executes requests for operations under /v1.0/groups/{id}
  */
 export interface GroupsItemRequestBuilder extends BaseRequestBuilder<GroupsItemRequestBuilder> {
+    /**
+     * The groups property
+     */
+    get groups(): GroupsRequestBuilder;
     /**
      * The inbox property
      */
@@ -55,6 +61,10 @@ export const GroupsItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups/{id}"
  * Metadata for all the navigation properties in the request builder.
  */
 export const GroupsItemRequestBuilderNavigationMetadata: Record<Exclude<keyof GroupsItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+    groups: {
+        requestsMetadata: GroupsRequestBuilderRequestsMetadata,
+        navigationMetadata: GroupsRequestBuilderNavigationMetadata,
+    },
     inbox: {
         requestsMetadata: InboxRequestBuilderRequestsMetadata,
         navigationMetadata: InboxRequestBuilderNavigationMetadata,

@@ -19,7 +19,11 @@ internal sealed class UserDirectory(
     public Task<bool> AnyUsersAsync(CancellationToken cancellationToken) => db.Users.AnyAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Guid>> GetGroupIdsAsync(Guid userId, CancellationToken cancellationToken) =>
-        await db.GroupMembers.Where(m => m.UserId == userId).Select(m => m.GroupId).ToListAsync(cancellationToken);
+        await db.GroupClosures
+            .Where(c => db.GroupMembers.Any(m => m.UserId == userId && m.GroupId == c.GroupId))
+            .Select(c => c.AncestorId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
 
     public Task<bool> GroupExistsAsync(Guid groupId, CancellationToken cancellationToken) =>
         db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken);
@@ -32,8 +36,11 @@ internal sealed class UserDirectory(
         await db.Groups.Where(g => groupIds.Contains(g.Id)).ToDictionaryAsync(g => g.Id, g => g.Name, cancellationToken);
 
     public async Task<IReadOnlyList<Guid>> GetGroupMembersAsync(Guid groupId, CancellationToken cancellationToken) =>
-        await db.GroupMembers.Where(m => m.GroupId == groupId)
-            .Join(db.Users.Where(u => !u.IsDisabled), m => m.UserId, u => u.Id, (m, u) => u.Id)
+        await db.Users
+            .Where(u => !u.IsDisabled
+                        && db.GroupMembers.Any(m => m.UserId == u.Id
+                                                    && db.GroupClosures.Any(c => c.AncestorId == groupId && c.GroupId == m.GroupId)))
+            .Select(u => u.Id)
             .ToListAsync(cancellationToken);
 
     public async Task<Guid?> FindUserAsync(string userName, CancellationToken cancellationToken)

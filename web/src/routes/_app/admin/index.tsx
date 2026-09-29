@@ -253,6 +253,21 @@ function Groups() {
     mutationFn: (userId: string) => api.v10.groups.byId(open!).members.byUserId(userId).delete(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['groups', open, 'members'] }),
   });
+  // Groups inside the open group: their members are members too (ADR-0035).
+  const nested = useQuery({
+    queryKey: ['groups', open, 'groups'],
+    enabled: !!open,
+    queryFn: async () => (await api.v10.groups.byId(open!).groups.get()) ?? [],
+  });
+  const nest = useMutation({
+    meta: { silent: true },
+    mutationFn: (groupId: string) => api.v10.groups.byId(open!).groups.post({ groupId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['groups', open, 'groups'] }),
+  });
+  const unnest = useMutation({
+    mutationFn: (groupId: string) => api.v10.groups.byId(open!).groups.byMemberGroupId(groupId).delete(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['groups', open, 'groups'] }),
+  });
   const [rename, setRename] = useState('');
   const saveName = useMutation({
     meta: { silent: true },
@@ -334,6 +349,40 @@ function Groups() {
                         </option>
                       ))}
                     </Select>
+                    <p className="mt-2 text-xs text-muted">
+                      Groups inside this group. Their members get what this group gets.
+                    </p>
+                    <ul aria-label="Groups inside">
+                      {(nested.data ?? []).map((inner) => (
+                        <li key={inner.id} className="flex items-center gap-2 py-1">
+                          <span className="flex-1">{inner.name}</span>
+                          <Button
+                            size="sm"
+                            aria-label={`Take ${inner.name} out`}
+                            onClick={() => unnest.mutate(inner.id!)}
+                          >
+                            Remove
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                    <Select
+                      aria-label="Add a group"
+                      value=""
+                      onChange={(e) => e.target.value && nest.mutate(e.target.value)}
+                    >
+                      <option value="">Add a group…</option>
+                      {(data ?? [])
+                        .filter(
+                          (other) => other.id !== group.id && !nested.data?.some((inner) => inner.id === other.id),
+                        )
+                        .map((other) => (
+                          <option key={other.id} value={other.id!}>
+                            {other.name}
+                          </option>
+                        ))}
+                    </Select>
+                    {nest.isError && <Alert>{problemMessage(nest.error)}</Alert>}
                   </div>
                 )}
               </li>

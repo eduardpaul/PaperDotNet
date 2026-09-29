@@ -23,14 +23,21 @@ test('an administrator manages people, groups and roles', async ({ page }) => {
   await expect(userRow).not.toContainText('Disabled');
 
   await page.getByRole('tab', { name: 'Groups' }).click();
+  const inner = unique('Interns');
+  await page.getByLabel('Name', { exact: true }).fill(inner);
+  await page.getByRole('button', { name: 'Create group' }).click();
+  await expect(page.getByRole('button', { name: inner })).toBeVisible();
   const group = unique('Clerks');
   await page.getByLabel('Name', { exact: true }).fill(group);
   await page.getByRole('button', { name: 'Create group' }).click();
-  await expect(page.getByText('Group created.')).toBeVisible();
+  await expect(page.getByText('Group created.').first()).toBeVisible();
   const groupItem = page.getByRole('listitem').filter({ hasText: group });
   await groupItem.getByRole('button', { name: group }).click();
   await groupItem.getByLabel('Add a member').selectOption({ label: displayName });
   await expect(groupItem.getByRole('listitem').filter({ hasText: displayName })).toBeVisible();
+  // A group inside the group: its members count as members.
+  await groupItem.getByLabel('Add a group').selectOption({ label: inner });
+  await expect(groupItem.getByRole('list', { name: 'Groups inside' }).getByText(inner)).toBeVisible();
   const renamed = `${group} renamed`;
   await groupItem.getByLabel('Name').fill(renamed);
   await groupItem.getByRole('button', { name: 'Rename' }).click();
