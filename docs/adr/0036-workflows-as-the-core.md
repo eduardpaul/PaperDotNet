@@ -268,3 +268,23 @@ These defaults were chosen when implementation started; each can still be change
 3. Organization workflows come in 9g.
 4. "Run as the triggering user" applies to manual starts only.
 5. Batched AI: `immediate` stays the default; the organization can choose `batch` (decided in 9c2).
+
+## Implementation notes
+
+**9a (done):**
+
+- **Storage name.** The database schema keeps its name `automation`: EF Core keeps migration history per
+  schema, so a new schema would run the old migrations again. Only renamed columns were migrated. The stored
+  scope grants (roles, API tokens, OAuth applications and authorizations) were renamed by a data migration.
+- **Runs in progress.** The upgrade cancels runs in progress (and their pending approvals), because an
+  instruction position cannot be mapped to a node. Finished runs keep their logs but start with empty
+  outputs.
+- **One token per run.** A run is at one node. Parallel branches (9e) will add tokens to the run state.
+- **Early completions.** `IWorkflowBookmarks.CompleteAsync` runs in the Workflows context, not in the
+  caller's transaction: modules have their own contexts. It is safe to repeat instead. A completion that
+  arrives before the run waits is stored without a run and taken over by the run.
+- **Deferred.** Outputs and variables are limited to 256 KB per run; moving large outputs to the blob
+  store comes with the AI activities (9c), which produce them. Timers still run through the minute job;
+  Wolverine scheduled messages for more precise timers are left for later.
+- **Templates.** Workflow definitions export with lists and libraries in `urn:paperdotnet:workflow:1`
+  (flows included). Organization workflows and built-in workflow states join the tenant level in 9d and 9g.

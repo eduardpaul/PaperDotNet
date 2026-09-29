@@ -117,10 +117,12 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `IItemSearchContributor`; client notifications through `ILiveEvents`
   (`/v1.0/me/events`, SSE; across servers via LISTEN/NOTIFY on PostgreSQL, ADR-0026); user notifications (inbox, webhook) through
   `INotificationSender` (Notifications.Contracts) with a deduplication key.
-- Workflows (ADR-0036, before: automation, ADR-0019/0024): one model, workflows (trigger + condition + steps); activities
-  implement `IWorkflowActivity` (safe to repeat with `ExecutionKey`) and triggers are raised with
-  `IWorkflowTriggers` (Workflows.Contracts); runs are started and resumed with `ResumeRun`
-  messages through the outbox (no workflow engine). Code that reacts to an event
+- Workflows (ADR-0036, before: automation, ADR-0019/0024): one model, workflows (trigger + condition + steps or a
+  flow of nodes connected by outcome ports); activities implement `IWorkflowActivity` (safe to repeat with
+  `ExecutionKey`, described by `InputSchema`/`OutputSchema`/`Outcomes`) and triggers are raised with
+  `IWorkflowTriggers` (Workflows.Contracts); long waits are bookmarks: return `WorkflowActivityResult.Wait(kind, key)`
+  and complete with `IWorkflowBookmarks.CompleteAsync`; runs are started and resumed with `ResumeRun`
+  messages through the outbox (no workflow engine or durable execution framework). Code that reacts to an event
   and changes data should set `EventCausation.Depth` to the event's depth + 1 (loop protection).
 - Group membership → `IUserDirectory` (`GetGroupIdsAsync`, `GetGroupMembersAsync`), which includes
   groups inside groups (ADR-0035); inside Identity, go through `GroupClosures`, never `GroupMembers` alone.

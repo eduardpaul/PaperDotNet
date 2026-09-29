@@ -150,6 +150,12 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | EVT-07 | Automations: triggers and actions ("if this then that") | As an **Owner**, I want simple automations like "when a document tagged *Invoice* arrives, move it to Finance and create a task", so that routine work is automatic | Core | P5 | #0009 |
 | EVT-08 | Long-running automations | As an **Admin**, I want automations with steps that wait (approvals, escalations, delays, branches), so that business processes run inside the system | Ext | P5 | #0009 |
 | EVT-09 | Automation activities from extensions | As a **Developer**, I want to contribute triggers and actions to automations, so that my extension can be automated | Ext | P5 | #0009 |
+| EVT-10 | Scheduled workflows | As an **Owner**, I want workflows that start on a schedule (cron in the workspace time zone), so that recurring work (reports, clean-ups, reminders) runs by itself | Core | P9 | ADR-0036 |
+| EVT-11 | Workflows on dates and more events | As an **Owner**, I want workflows that start a set time before or after a date field ("3 days before the due date"), when a document has been processed, when terms change, and on approvals, completed tasks and comments, so that processes follow what happens | Core | P9 | ADR-0036 |
+| EVT-12 | Built-in workflows | As an **Admin**, I want the product's own processes (e.g. classifying new documents) to be workflows I can see, turn on or off per workspace or list, and copy to change, so that built-in behavior is visible and adjustable | Core | P9 | ADR-0036 |
+| EVT-13 | Flow control and integration | As an **Owner**, I want flows with loops over items, parallel branches, waits for events, sub-workflows, input requests to people, HTTP calls and inbound webhooks, so that real processes fit | Ext | P9 | ADR-0036 |
+| EVT-14 | Flow designer and test runs | As an **Owner**, I want to draw flows, test them on an item without side effects and see each run's path, inputs and outputs, so that I can build and fix workflows without JSON | Core | P9 | ADR-0036 |
+| EVT-15 | Organization workflows and run identity | As an **Admin**, I want workflows for the whole organization, workflows confined to their workspace, and manual runs as the starting user, so that automation stays within its rights | Core | P9 | ADR-0036 |
 
 ## 6. Extensibility (EXT)
 
@@ -265,6 +271,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | AI-05 | Ask your documents | As a **Member**, I want to ask questions and get answers with citations to documents and pages, so that I find information instead of files | Ext | P6 | #0013 |
 | AI-06 | AI usage limits & audit | As an **Admin**, I want quotas, caching and an audit of what was sent to which model, so that AI use is controlled | Core | P6 | #0017 |
 | AI-07 | AI extraction as an automation step | As an **Owner**, I want an automation action, scoped to a content type or tag, that fills chosen fields with an LLM structured-output extraction (e.g. supermarket receipts: store, total, products), so that filing a document type also structures its data | Ext | P6 | #0022, #0017, #0009 |
+| AI-08 | Batched AI calls | As an **Admin**, I want AI steps of all workflows to be queued and sent together once or twice a day (e.g. through a provider's batch API), with a deadline per step, so that AI use is cheaper and easier on quotas | Ext | P9 | ADR-0036 |
 
 ## 14. Provisioning templates (PRV)
 
@@ -295,6 +302,7 @@ Configuration only by default; data portability is PLT-13.
 | **P6 AI & semantic search** | Understand documents | AI-01…06, SRC-07…09, DOC-12, IAM-08…12 (sharing, moved from P5) |
 | **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PLT-15, PLT-17, PLT-18, IAM-14, IAM-15, LST-19, DOC-16, DOC-17, API-13, PRV-04, API-10 (WebDAV), CAL-05 (CalDAV), CAL-06 (CardDAV) |
 | **P8 Web UI** | The first-party web app on the SDK | Screens for the features above, in slices 8a–8h ([frontend.md](frontend.md)) |
+| **P9 Workflows as the core** | One engine for built-in and user-defined processes ([ADR-0036](adr/0036-workflows-as-the-core.md)) | EVT-07…15, AI-01…04, AI-06…08, PLT-06 (limits), in slices 9a–9g |
 
 ## Phase 0 status
 
@@ -428,6 +436,22 @@ The web UI, built on the TypeScript SDK with React, TanStack and Tailwind
 | **8h Workspace settings** | PLT-07 workspace name, description and members (new `DELETE …/members/{userId}`, caller's `access` on workspaces); EVT-07…09 automation editor and runs | ✅ |
 | **8i List settings** | LST-01/11 list settings and versioning; LST-02/03 content types and field definitions; LST-09 views (table, board, calendar, gallery); DOC-07/10/17 library settings; IAM-07 list and item permissions. SDK: null enums sent as null | ✅ |
 | **8j Organization administration** | IAM-05/06/14 users, groups and roles; TAX-01…03/05/11 term store, keyword promotion and CSV import; PLT-18 organization defaults; IAM-02 applications; EXT-03 extensions; LST-14 audit log; SRC-10 reindex; PRV-01/02 provisioning templates; PLT-13 export and import. Papermerge import (PLT-15) stays on the CLI | ✅ |
+
+## Phase 9 status
+
+Workflows become the core of automation ([ADR-0036](adr/0036-workflows-as-the-core.md)): our own
+engine, shaped after Elsa, on the existing tables and outbox (no workflow or durable execution
+framework). Guide: [workflows.md](workflows.md).
+
+| Slice | Features | Status |
+|---|---|---|
+| **9a Engine** | Automations renamed to workflows (module `PaperDotNet.Workflows`, `/workspaces/{ws}/workflows`, `/v1.0/workflows/{triggers,activities}`, scopes `workflow.read`/`workflow.write` with stored grants migrated, `AddWorkflowActivity`/`AddWorkflowTrigger`, template section `urn:paperdotnet:workflow:1` with the old section still read; the database keeps the storage name `automation`). EVT-07/08 flows: nodes connected by outcome ports (`done`, `error`, `approved`, `rejected`, `true`, `false`, activity outcomes); steps compile into flows; flow activities `if` (filter, approval outcome or comparison), `setVariable`, `end`, `fail`; variables and node outputs with tokens `{var:x}`, `{step:Node.path}`, `{trigger:x}`; retry policies, error ports, runs failed at a node retried from there (`…/runs/{id}/retry`, runs page). Waits are bookmarks; activities wait with `WorkflowActivityResult.Wait(kind, key, resumeAt)` and other modules complete them with `IWorkflowBookmarks` (kept when early, `timeout` when late). EVT-09 activity descriptors (`InputSchema`, `OutputSchema`, `Outcomes`) in the catalog; sample `samples.invoices.awaitPayment`. PRV-01…04 workflows export with lists and libraries | ✅ |
+| 9b Triggers | EVT-10 schedules, EVT-11 date fields, `document.processed`, term changes, approvals, tasks, comments; manual start with an input form and selection | planned |
+| 9c AI activities | AI-01…04, AI-06, AI-07 (`ai.classify`, `ai.extract`, `ai.summarize`, `ai.prompt`); AI-08 batched calls | planned |
+| 9d Built-in workflows | EVT-12 | planned |
+| 9e Flow control and integration | EVT-13 | planned |
+| 9f Designer | EVT-14 | planned |
+| 9g Scopes | EVT-15, PLT-06 limits | planned |
 
 ## Idea → feature mapping
 
