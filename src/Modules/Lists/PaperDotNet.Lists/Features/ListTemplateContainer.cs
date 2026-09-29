@@ -28,13 +28,8 @@ internal sealed class ListTemplateContainer(
     ContentTypeProvisioner provisioner,
     IExtensionAvailability extensions,
     ItemQueryRunner runner,
-    IUserDirectory users,
-    IOutbox outbox,
-    ITenantContext tenant,
-    ICurrentUser user) : ITemplateContainer
+    IUserDirectory users) : ITemplateContainer
 {
-    private static readonly ListAccess FullAccess = new(WorkspaceAccessLevel.Manage, fullControl: true, new Dictionary<Guid, WorkspaceAccessLevel>());
-
     public TemplateLevel Level => TemplateLevel.List;
 
     public async Task<IReadOnlyList<Guid>> ListAsync(TemplateContext context, CancellationToken cancellationToken) =>
@@ -81,25 +76,29 @@ internal sealed class ListTemplateContainer(
             return element;
         }
 
-        var grants = await db.Grants.AsNoTracking().Where(g => g.ObjectId == list.Id).ToListAsync(ct);
-        var userNames = await users.GetUserNamesAsync([.. grants.Where(g => g.PrincipalType == PrincipalType.User).Select(g => g.PrincipalId)], ct);
-        var groupNames = await users.GetGroupNamesAsync([.. grants.Where(g => g.PrincipalType == PrincipalType.Group).Select(g => g.PrincipalId)], ct);
-        foreach (var grant in grants)
+        // Workspace roles are exported by name (they apply to whichever workspace imports the list); owners are implied.
+        var entries = await db.AclEntries.AsNoTracking().Where(e => e.ScopeId == list.Id && e.PrincipalType != AclPrincipalType.WorkspaceOwners).ToListAsync(ct);
+        var userNames = await users.GetUserNamesAsync([.. entries.Where(e => e.PrincipalType == AclPrincipalType.User).Select(e => e.PrincipalId)], ct);
+        var groupNames = await users.GetGroupNamesAsync([.. entries.Where(e => e.PrincipalType == AclPrincipalType.Group).Select(e => e.PrincipalId)], ct);
+        foreach (var entry in entries)
         {
-            var (attribute, name) = grant.PrincipalType == PrincipalType.User
-                ? ("User", userNames.GetValueOrDefault(grant.PrincipalId))
-                : ("Group", groupNames.GetValueOrDefault(grant.PrincipalId));
+            var (attribute, name) = entry.PrincipalType switch
+            {
+                AclPrincipalType.User => ("User", userNames.GetValueOrDefault(entry.PrincipalId)),
+                AclPrincipalType.Group => ("Group", groupNames.GetValueOrDefault(entry.PrincipalId)),
+                _ => ("Role", Acl.RoleName(entry.PrincipalType)),
+            };
             if (name is null)
             {
                 continue;
             }
 
-            if (grant.PrincipalType == PrincipalType.Group)
+            if (entry.PrincipalType == AclPrincipalType.Group)
             {
                 context.Require(TemplateKinds.Group, name);
             }
 
-            element.Add(new XElement(TemplateXml.Name("Grant"), new XAttribute(attribute, name), new XAttribute("Level", grant.Level.ToString())));
+            element.Add(new XElement(TemplateXml.Name("Grant"), new XAttribute(attribute, name), new XAttribute("Level", entry.Level.ToString())));
         }
 
         element.ReplaceNodes(element.Elements().OrderBy(e => e.ToString(), StringComparer.Ordinal).ToList());
@@ -214,7 +213,7 @@ internal sealed class ListTemplateContainer(
         context.IsPlanned = planned;
         context.Register(TemplateKinds.List, key, list.Id);
 
-        var schema = new ListSchema(list, contentTypes, FullAccess);
+        var schema = new ListSchema(list, contentTypes, ListAccess.Full(list.Id));
         await ApplyViewsAsync(element.Element(TemplateXml.Name("Views")), schema, key, planned, context, cancellationToken);
         if (element.Element(TemplateXml.Name("Permissions")) is { } permissions)
         {
@@ -385,7 +384,7 @@ internal sealed class ListTemplateContainer(
     private async Task ApplyPermissionsAsync(XElement element, ListDefinition list, string key, bool planned, TemplateContext context, CancellationToken ct)
     {
         var unique = element.BoolAttr("Unique", false);
-        var wanted = new List<PermissionGrant>();
+        var grants = new List<PermissionGrantDto>();
         if (unique)
         {
             foreach (var grant in element.Elements(TemplateXml.Name("Grant")))
@@ -396,40 +395,46 @@ internal sealed class ListTemplateContainer(
                     throw new TemplateException("Grant: Level must be Read, Contribute or Manage.", grant);
                 }
 
+                if (grant.Attr("Role") is { } role)
+                {
+                    grants.Add(Acl.RoleNames.TryGetValue(role, out var roleType)
+                        ? new PermissionGrantDto(roleType, list.WorkspaceId, level)
+                        : throw new TemplateException("Grant: Role must be Visitors, Members or Owners.", grant));
+                    continue;
+                }
+
                 var (type, id, label) = grant.Attr("Group") is { } group
-                    ? (PrincipalType.Group, context.Resolve(TemplateKinds.Group, group) ?? await users.FindGroupAsync(group, ct), $"Group '{group}'")
+                    ? (AclPrincipalType.Group, context.Resolve(TemplateKinds.Group, group) ?? await users.FindGroupAsync(group, ct), $"Group '{group}'")
                     : grant.Attr("User") is { } userName
-                        ? (PrincipalType.User, await users.FindUserAsync(userName, ct), $"User '{userName}'")
-                        : throw new TemplateException("Grant: a User or Group attribute is required.", grant);
+                        ? (AclPrincipalType.User, await users.FindUserAsync(userName, ct), $"User '{userName}'")
+                        : throw new TemplateException("Grant: a User, Group or Role attribute is required.", grant);
                 if (id is null)
                 {
                     context.Warn($"{label} does not exist; not granted access to list '{key}'.", grant);
                     continue;
                 }
 
-                wanted.Add(new PermissionGrant { Id = Ids.New(), ListId = list.Id, ObjectId = list.Id, PrincipalType = type, PrincipalId = id.Value, Level = level });
+                grants.Add(new PermissionGrantDto(type, id.Value, level));
             }
-
-            wanted = [.. wanted.DistinctBy(g => (g.PrincipalType, g.PrincipalId))];
         }
 
-        var existing = planned ? [] : await db.Grants.Where(g => g.ObjectId == list.Id).ToListAsync(ct);
-        static string Describe(IEnumerable<PermissionGrant> grants) =>
-            string.Join(";", grants.Select(g => $"{g.PrincipalType}:{g.PrincipalId}:{g.Level}").Order(StringComparer.Ordinal));
+        var wanted = unique ? Acl.FromGrants(list, list.Id, grants) : [.. Acl.RoleEntries(list)];
+        var existing = planned ? [.. Acl.RoleEntries(list)] : await db.AclEntries.Where(e => e.ScopeId == list.Id).ToListAsync(ct);
+        static string Describe(IEnumerable<AclEntry> entries) =>
+            string.Join(";", entries.Select(e => $"{e.PrincipalId}:{e.Level}").Order(StringComparer.Ordinal));
         if (list.HasUniquePermissions == unique && Describe(existing) == Describe(wanted))
         {
             return;
         }
 
-        context.Updated(TemplateKinds.Permissions, key, unique ? $"unique, {wanted.Count} grants" : "inherited from the workspace");
+        context.Updated(TemplateKinds.Permissions, key, unique ? $"unique, {wanted.Count} entries" : "inherited from the workspace");
         if (context.DryRun)
         {
             return;
         }
 
-        db.Grants.RemoveRange(existing);
-        db.Grants.AddRange(wanted);
+        Acl.Replace(db, existing, wanted);
         list.HasUniquePermissions = unique;
-        await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, list.Id)], cancellationToken: ct);
+        await db.SaveChangesAsync(ct); // Entries only: search trims by scope (ADR-0035).
     }
 }

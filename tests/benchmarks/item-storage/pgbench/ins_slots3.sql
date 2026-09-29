@@ -1,0 +1,1 @@
+INSERT INTO multi.w_slots30 VALUES (gen_random_uuid(), md5('tenant')::uuid, md5('list-w0')::uuid, NULL, md5('list-w0')::uuid, 'New', '{"a":1}', now(), 1, 'v', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2025-01-01', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);

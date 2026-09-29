@@ -101,12 +101,19 @@ public sealed class PermissionTests(PaperDotNetApiFactory factory)
         var etag = (await vic.GetAsync(url, Ct)).Headers.ETag!.Tag;
         Assert.Equal(HttpStatusCode.Forbidden, (await vic.SendWithEtagAsync(HttpMethod.Patch, url, etag, new { fields = new { note = "x" } })).StatusCode);
 
+        // The copy names the workspace roles, not their members (ADR-0035).
         var broken = await (await setup.Admin.PostAsJsonAsync($"{url}/permissions/breakInheritance", new { }, Ct)).ReadJsonAsync();
-        var copied = broken.GetProperty("grants").EnumerateArray().ToDictionary(g => g.GetProperty("principalId").GetGuid(), g => g.GetProperty("level").GetString());
-        Assert.Equal("read", copied[setup.Users["vic"]]);
-        Assert.Equal("contribute", copied[setup.Users["alice"]]);
+        var copied = broken.GetProperty("grants").EnumerateArray()
+            .ToDictionary(g => g.GetProperty("principalType").GetString()!, g => (Id: g.GetProperty("principalId").GetGuid(), Level: g.GetProperty("level").GetString()));
+        Assert.Equal(["workspaceMembers", "workspaceOwners", "workspaceVisitors"], copied.Keys.Order(StringComparer.Ordinal));
+        Assert.All(copied.Values, g => Assert.Equal(setup.Workspace, g.Id));
+        Assert.Equal("read", copied["workspaceVisitors"].Level);
+        Assert.Equal("contribute", copied["workspaceMembers"].Level);
+        Assert.Equal("manage", copied["workspaceOwners"].Level);
 
-        var grants = copied.Select(g => new { principalType = "user", principalId = g.Key, level = g.Key == setup.Users["vic"] ? "contribute" : g.Value }).ToArray();
+        var grants = copied.Select(g => new { principalType = g.Key, principalId = g.Value.Id, level = g.Value.Level })
+            .Append(new { principalType = "user", principalId = setup.Users["vic"], level = (string?)"contribute" })
+            .ToArray();
         Assert.Equal(HttpStatusCode.OK, (await setup.Admin.PutAsJsonAsync($"{url}/permissions/grants", new { grants }, Ct)).StatusCode);
         etag = (await vic.GetAsync(url, Ct)).Headers.ETag!.Tag; // breaking inheritance changed the item
         Assert.Equal(HttpStatusCode.OK, (await vic.SendWithEtagAsync(HttpMethod.Patch, url, etag, new { fields = new { note = "edited by vic" } })).StatusCode);
@@ -117,6 +124,66 @@ public sealed class PermissionTests(PaperDotNetApiFactory factory)
         var invalid = await setup.Admin.PutAsJsonAsync($"{url}/permissions/grants",
             new { grants = new[] { new { principalType = "user", principalId = Guid.NewGuid(), level = "read" } } }, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [Fact]
+    public async Task Workspace_roles_are_principals_and_owners_keep_full_control()
+    {
+        var setup = await SetupAsync("perm-roles");
+        await CreateAsync(setup.Admin, setup, "Budget");
+
+        var inherited = await (await setup.Admin.GetAsync($"{setup.ListUrl}/permissions", Ct)).ReadJsonAsync();
+        Assert.Equal("workspace", inherited.GetProperty("inheritsFrom").GetString());
+        Assert.Equal(3, inherited.GetProperty("grants").GetArrayLength());
+
+        // Only members (and owners) keep access: visitors lose it, members who join later get it.
+        await setup.Admin.PostAsJsonAsync($"{setup.ListUrl}/permissions/breakInheritance", new { }, Ct);
+        var replaced = await setup.Admin.PutAsJsonAsync($"{setup.ListUrl}/permissions/grants",
+            new { grants = new[] { new { principalType = "workspaceMembers", principalId = setup.Workspace, level = "contribute" } } }, Ct);
+        var response = await replaced.ReadJsonAsync();
+        Assert.Equal(["workspaceMembers:contribute", "workspaceOwners:manage"], response.GetProperty("grants").EnumerateArray()
+            .Select(g => $"{g.GetProperty("principalType").GetString()}:{g.GetProperty("level").GetString()}").Order(StringComparer.Ordinal));
+
+        var vic = await AsAsync(setup, "vic");
+        Assert.Equal(HttpStatusCode.NotFound, (await vic.GetAsync(setup.ListUrl, Ct)).StatusCode);
+        var created = await setup.Admin.PostAsJsonAsync("/v1.0/users", new { userName = "late", password = "late-password-1" }, Ct);
+        var late = (await created.ReadJsonAsync()).GetProperty("id").GetGuid();
+        await setup.Admin.PostAsJsonAsync($"/v1.0/workspaces/{setup.Workspace}/members", new { userId = late, role = "member" }, Ct);
+        Assert.Equal(["Budget"], await TitlesAsync(await AsAsync(setup, "late"), setup));
+
+        // Owners cannot be removed or lowered; roles need the list's workspace.
+        var lowered = await setup.Admin.PutAsJsonAsync($"{setup.ListUrl}/permissions/grants",
+            new { grants = new[] { new { principalType = "workspaceOwners", principalId = setup.Workspace, level = "read" } } }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, lowered.StatusCode);
+        var otherWorkspace = await setup.Admin.PutAsJsonAsync($"{setup.ListUrl}/permissions/grants",
+            new { grants = new[] { new { principalType = "workspaceVisitors", principalId = Guid.NewGuid(), level = "read" } } }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, otherWorkspace.StatusCode);
+
+        // Resetting brings the three role entries back.
+        Assert.Equal(HttpStatusCode.NoContent, (await setup.Admin.PostAsync($"{setup.ListUrl}/permissions/resetInheritance", null, Ct)).StatusCode);
+        Assert.Equal(["Budget"], await TitlesAsync(vic, setup));
+    }
+
+    [Fact]
+    public async Task Membership_and_group_changes_apply_at_once()
+    {
+        var setup = await SetupAsync("perm-cache");
+        var folder = await CreateAsync(setup.Admin, setup, "Audit", isFolder: true);
+        await CreateAsync(setup.Admin, setup, "Findings", folder);
+        await setup.Admin.PostAsJsonAsync($"{setup.ListUrl}/items/{folder}/permissions/breakInheritance", new { copyGrants = false }, Ct);
+        await setup.Admin.PutAsJsonAsync($"{setup.ListUrl}/items/{folder}/permissions/grants",
+            new { grants = new object[] { new { principalType = "group", principalId = setup.Users["auditors"], level = "read" } } }, Ct);
+
+        // The principal set is cached per user: both changes below must evict it.
+        var alice = await AsAsync(setup, "alice");
+        Assert.Empty(await TitlesAsync(alice, setup));
+        await setup.Admin.PostAsJsonAsync($"/v1.0/groups/{setup.Users["auditors"]}/members", new { userId = setup.Users["alice"] }, Ct);
+        Assert.Equal(["Audit", "Findings"], await TitlesAsync(alice, setup));
+
+        var vic = await AsAsync(setup, "vic");
+        Assert.Equal(HttpStatusCode.Forbidden, (await vic.PostItemAsync(setup.Workspace, setup.List, new { fields = new { title = "By vic" } })).StatusCode);
+        await setup.Admin.PostAsJsonAsync($"/v1.0/workspaces/{setup.Workspace}/members", new { userId = setup.Users["vic"], role = "member" }, Ct);
+        Assert.Equal(HttpStatusCode.Created, (await vic.PostItemAsync(setup.Workspace, setup.List, new { fields = new { title = "By vic" } })).StatusCode);
     }
 
     [Fact]
@@ -219,8 +286,8 @@ public sealed class PermissionTests(PaperDotNetApiFactory factory)
         Assert.Equal(privateFolder, (await db.Items.AsNoTracking().SingleAsync(i => i.Id == child, Ct)).ScopeId);
 
         // As if the request had stopped right after saving the folder: the child still has the old scope.
-        await db.Items.Where(i => i.Id == child).ExecuteUpdateAsync(u => u.SetProperty(i => i.ScopeId, (Guid?)null), Ct);
-        var message = new PaperDotNet.Lists.Features.CompleteFolderScopeChange(setup.List, moved, null, privateFolder, info.Id, info.Identifier, null);
+        await db.Items.Where(i => i.Id == child).ExecuteUpdateAsync(u => u.SetProperty(i => i.ScopeId, setup.List), Ct);
+        var message = new PaperDotNet.Lists.Features.CompleteFolderScopeChange(setup.List, moved, setup.List, privateFolder, info.Id, info.Identifier, null);
         var scopes = factory.Services.GetRequiredService<PaperDotNet.Abstractions.ITenantScopeFactory>();
         await PaperDotNet.Lists.Features.CompleteFolderScopeChangeHandler.Handle(message, scopes, Ct);
         Assert.Equal(privateFolder, (await db.Items.AsNoTracking().SingleAsync(i => i.Id == child, Ct)).ScopeId);

@@ -68,6 +68,7 @@ internal sealed class PerfHost : WebApplicationFactory<global::Program>
         builder.UseSetting("Storage:DataPath", _dataPath);
         builder.UseSetting("Jobs:SchedulerInterval", "01:00:00");
         builder.UseSetting("Search:DefaultMode", "Keyword");
+        builder.UseSetting("RateLimit:PermitPerMinute", "1000000"); // Measures the server, not the per-user limit.
         builder.UseSetting("Logging:LogLevel:Default", "Warning");
         builder.UseSetting("Logging:LogLevel:Microsoft.AspNetCore", "Warning");
         builder.UseSetting("Logging:LogLevel:Microsoft.EntityFrameworkCore", "Warning");

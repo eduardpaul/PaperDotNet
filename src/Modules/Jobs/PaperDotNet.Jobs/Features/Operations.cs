@@ -180,24 +180,53 @@ internal static class OperationEndpoints
     /// Server-sent events for the caller (API-07): <c>operation</c> status and progress, document
     /// processing, and other live notifications. Clients reconnect when the stream ends.
     /// </summary>
-    private static Results<ServerSentEventsResult<object>, ProblemHttpResult> Events(ILiveEvents live, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
+    private static Results<ServerSentEventsResult<object>, ProblemHttpResult> Events(
+        ILiveEvents live, ITenantScopeFactory scopes, TimeProvider time, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
     {
-        if (tenant.TenantId is not { } tenantId || user.UserId is not { } userId)
+        if (tenant.TenantId is not { } tenantId || tenant.TenantIdentifier is not { } identifier || user.UserId is not { } userId)
         {
             return ApiErrors.Problem(StatusCodes.Status403Forbidden, "userRequired", "Live events need a signed-in user.");
         }
 
-        return TypedResults.ServerSentEvents(Stream(live, tenantId, userId, ct));
+        return TypedResults.ServerSentEvents(Stream(live, scopes, time, tenantId, identifier, userId, ct));
     }
 
-    private static async IAsyncEnumerable<SseItem<object>> Stream(ILiveEvents live, Guid tenantId, Guid userId, [EnumeratorCancellation] CancellationToken ct)
+    /// <summary>How long the caller's principals are reused before an event with an audience loads them again.</summary>
+    private static readonly TimeSpan PrincipalsRefresh = TimeSpan.FromMinutes(1);
+
+    private static async IAsyncEnumerable<SseItem<object>> Stream(
+        ILiveEvents live, ITenantScopeFactory scopes, TimeProvider time, Guid tenantId, string identifier, Guid userId,
+        [EnumeratorCancellation] CancellationToken ct)
     {
         // A first event tells the client the stream is live.
         yield return new SseItem<object>(new { tenantId, userId }, "connected");
+        HashSet<Guid>? principals = null;
+        var loadedAt = DateTimeOffset.MinValue;
         await foreach (var liveEvent in live.SubscribeAsync(tenantId, userId, ct))
         {
+            // Events with an audience (e.g. item changes, ADR-0035) only reach users with one of its principals.
+            if (liveEvent.Audience is { } audience)
+            {
+                if (principals is null || time.GetUtcNow() - loadedAt > PrincipalsRefresh)
+                {
+                    principals = await PrincipalsAsync(scopes, tenantId, identifier, userId, ct);
+                    loadedAt = time.GetUtcNow();
+                }
+
+                if (!audience.Any(principals.Contains))
+                {
+                    continue;
+                }
+            }
+
             yield return new SseItem<object>(liveEvent.Data, liveEvent.Type);
         }
+    }
+
+    private static async Task<HashSet<Guid>> PrincipalsAsync(ITenantScopeFactory scopes, Guid tenantId, string identifier, Guid userId, CancellationToken ct)
+    {
+        await using var scope = scopes.CreateScope(tenantId, identifier, userId);
+        return scope.ServiceProvider.GetService<IPrincipalSet>() is { } set ? [.. await set.GetPrincipalsAsync(ct)] : [userId];
     }
 
     /// <summary>Status of an operation started by the caller.</summary>

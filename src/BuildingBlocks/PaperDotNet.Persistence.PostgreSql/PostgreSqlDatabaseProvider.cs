@@ -23,7 +23,7 @@ internal sealed class PostgreSqlDatabaseProvider(NpgsqlDataSource dataSource, Po
         Configure(options, dataSource, schema, migrationsAssembly);
         if (settings.RowLevelSecurity)
         {
-            options.AddInterceptors(TenantSessionInterceptor.Instance);
+            options.AddInterceptors(TenantCommandInterceptor.Instance, TenantTransactionInterceptor.Instance, TenantSaveChangesInterceptor.Instance);
         }
     }
 

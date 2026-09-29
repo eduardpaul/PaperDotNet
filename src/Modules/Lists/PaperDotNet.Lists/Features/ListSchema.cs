@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Hybrid;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
@@ -54,39 +55,45 @@ internal sealed class ListSchema
 }
 
 /// <summary>
-/// The current user's effective permissions in one list (IAM-07): the list level
-/// (workspace role, or the list's own grants) and the level of every item scope
-/// with unique permissions. Workspace owners and administrators have full control.
+/// The current user's effective permissions in one list (IAM-07, ADR-0035): the level of every permission scope of
+/// the list they reach (the list itself, and items with unique permissions). Workspace owners and administrators have
+/// full control.
 /// </summary>
-internal sealed class ListAccess(WorkspaceAccessLevel listLevel, bool fullControl, IReadOnlyDictionary<Guid, WorkspaceAccessLevel> scopes)
+internal sealed class ListAccess(Guid listId, bool fullControl, IReadOnlyDictionary<Guid, WorkspaceAccessLevel> scopes)
 {
-    public WorkspaceAccessLevel ListLevel { get; } = fullControl ? WorkspaceAccessLevel.Manage : listLevel;
+    public static ListAccess Full(Guid listId) => new(listId, fullControl: true, new Dictionary<Guid, WorkspaceAccessLevel>());
 
     public bool FullControl { get; } = fullControl;
 
-    /// <summary>Access to items of <paramref name="scopeId"/> (null = list scope).</summary>
-    public WorkspaceAccessLevel Level(Guid? scopeId) =>
-        FullControl ? WorkspaceAccessLevel.Manage
-        : scopeId is { } id ? scopes.GetValueOrDefault(id, WorkspaceAccessLevel.None)
-        : ListLevel;
+    /// <summary>Access to the list itself (and to the items that inherit from it).</summary>
+    public WorkspaceAccessLevel ListLevel => Level(listId);
 
-    /// <summary>Items the user has at least <paramref name="minimum"/> on, as a query filter (null = all).</summary>
+    /// <summary>Access to the items of <paramref name="scopeId"/>.</summary>
+    public WorkspaceAccessLevel Level(Guid scopeId) =>
+        FullControl ? WorkspaceAccessLevel.Manage : scopes.GetValueOrDefault(scopeId, WorkspaceAccessLevel.None);
+
+    /// <summary>The scopes (of any list) the user has at least <paramref name="minimum"/> on; empty with full control.</summary>
+    public IEnumerable<Guid> Scopes(WorkspaceAccessLevel minimum) =>
+        FullControl ? [] : scopes.Where(s => s.Value >= minimum).Select(s => s.Key);
+
+    /// <summary>
+    /// Items the user has at least <paramref name="minimum"/> on, as a query filter (null = all). One parameter on
+    /// both databases: an array on PostgreSQL, JSON on SQLite (plain <c>Contains</c> would send one per scope).
+    /// </summary>
     public Expression<Func<ListItem, bool>>? Filter(WorkspaceAccessLevel minimum)
     {
-        if (FullControl || (ListLevel >= minimum && scopes.Count == 0))
+        if (FullControl)
         {
             return null;
         }
 
-        var allowed = scopes.Where(s => s.Value >= minimum).Select(s => s.Key).ToList();
-        return ListLevel >= minimum
-            ? i => i.ScopeId == null || allowed.Contains(i.ScopeId.Value)
-            : i => i.ScopeId != null && allowed.Contains(i.ScopeId.Value);
+        var allowed = scopes.Where(s => s.Value >= minimum).Select(s => s.Key).ToArray();
+        return i => EF.Parameter(allowed).Contains(i.ScopeId);
     }
 }
 
 /// <summary>Loads a list schema with the user's access; null (404) when the list is not visible.</summary>
-internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess workspaces, IUserDirectory users, ICurrentUser user)
+internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess workspaces, ItemAccess access)
 {
     public async Task<ListSchema?> LoadAsync(Guid workspaceId, Guid listId, CancellationToken ct, bool tracking = false)
     {
@@ -103,14 +110,53 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
             return null;
         }
 
-        var access = await GetAccessAsync(list, workspaceLevel, ct);
-        if (access.ListLevel == WorkspaceAccessLevel.None)
+        var listAccess = workspaceLevel == WorkspaceAccessLevel.Manage
+            ? ListAccess.Full(list.Id)
+            : new ListAccess(list.Id, fullControl: false, await access.GetScopesAsync([list.Id], ct));
+        if (listAccess.ListLevel == WorkspaceAccessLevel.None)
         {
             return null;
         }
 
         var contentTypes = await db.ContentTypes.AsNoTracking().Where(c => list.ContentTypeIds.Contains(c.Id)).ToListAsync(ct);
-        return new ListSchema(list, contentTypes, access);
+        return new ListSchema(list, contentTypes, listAccess);
+    }
+
+    /// <summary>
+    /// Loads the schemas of many lists at once (ADR-0035): one query each for the lists, their content types, the
+    /// user's workspaces and their permission scopes, instead of all of that per list. Lists the user cannot read are
+    /// left out; <paramref name="system"/> loads them all with full control.
+    /// </summary>
+    public async Task<List<ListSchema>> LoadManyAsync(IReadOnlyCollection<Guid> listIds, bool system, CancellationToken ct)
+    {
+        var ids = listIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return [];
+        }
+
+        var lists = await db.Lists.AsNoTracking().Where(l => EF.Parameter(ids).Contains(l.Id)).ToListAsync(ct);
+        var typeIds = lists.SelectMany(l => l.ContentTypeIds).Distinct().ToArray();
+        var contentTypes = await db.ContentTypes.AsNoTracking().Where(c => EF.Parameter(typeIds).Contains(c.Id)).ToListAsync(ct);
+        if (system)
+        {
+            return [.. lists.Select(l => new ListSchema(l, contentTypes, ListAccess.Full(l.Id)))];
+        }
+
+        var levels = (await workspaces.GetMyWorkspacesAsync(ct)).ToDictionary(m => m.WorkspaceId, m => m.Level);
+        var scopes = await access.GetScopesAsync(ids, ct);
+        var result = new List<ListSchema>();
+        foreach (var list in lists)
+        {
+            var level = levels.GetValueOrDefault(list.WorkspaceId, WorkspaceAccessLevel.None);
+            var listAccess = level == WorkspaceAccessLevel.Manage ? ListAccess.Full(list.Id) : new ListAccess(list.Id, fullControl: false, scopes);
+            if (level != WorkspaceAccessLevel.None && listAccess.ListLevel != WorkspaceAccessLevel.None)
+            {
+                result.Add(new ListSchema(list, contentTypes, listAccess));
+            }
+        }
+
+        return result;
     }
 
     /// <summary>Loads a list of the current tenant with full control, without checking the user (system work).</summary>
@@ -124,7 +170,7 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
         }
 
         var contentTypes = await db.ContentTypes.AsNoTracking().Where(c => list.ContentTypeIds.Contains(c.Id)).ToListAsync(ct);
-        return new ListSchema(list, contentTypes, new ListAccess(WorkspaceAccessLevel.Manage, fullControl: true, new Dictionary<Guid, WorkspaceAccessLevel>()));
+        return new ListSchema(list, contentTypes, ListAccess.Full(list.Id));
     }
 
     /// <summary>Names and keys of content types, so a caller can skip lists before loading a full schema.</summary>
@@ -136,58 +182,100 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
             : await db.ContentTypes.AsNoTracking().Where(c => idList.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => (c.Name, c.Key), ct);
     }
 
-    /// <summary>Lists of the workspace the user can see (lists with unique permissions need a grant).</summary>
-    public async Task<List<ListDefinition>> VisibleListsAsync(Guid workspaceId, WorkspaceAccessLevel workspaceLevel, CancellationToken ct)
+    /// <summary>Lists of the workspace the user can see: those whose own scope gives them access.</summary>
+    public Task<List<ListDefinition>> VisibleListsAsync(Guid workspaceId, WorkspaceAccessLevel workspaceLevel, CancellationToken ct) =>
+        VisibleListsAsync([new WorkspaceMembership(workspaceId, workspaceLevel)], ct);
+
+    /// <summary>Lists of several workspaces the user can see, in two queries whatever the number of workspaces.</summary>
+    public async Task<List<ListDefinition>> VisibleListsAsync(IReadOnlyCollection<WorkspaceMembership> memberships, CancellationToken ct)
     {
-        var lists = await db.Lists.AsNoTracking().Where(l => l.WorkspaceId == workspaceId).OrderBy(l => l.Name).ToListAsync(ct);
-        if (workspaceLevel == WorkspaceAccessLevel.Manage || lists.All(l => !l.HasUniquePermissions))
+        var workspaceIds = memberships.Where(m => m.Level > WorkspaceAccessLevel.None).Select(m => m.WorkspaceId).ToArray();
+        var lists = workspaceIds.Length == 0
+            ? []
+            : await db.Lists.AsNoTracking().Where(l => EF.Parameter(workspaceIds).Contains(l.WorkspaceId)).OrderBy(l => l.Name).ToListAsync(ct);
+        var managed = memberships.Where(m => m.Level == WorkspaceAccessLevel.Manage).Select(m => m.WorkspaceId).ToHashSet();
+        if (lists.All(l => managed.Contains(l.WorkspaceId)))
         {
             return lists;
         }
 
-        var unique = lists.Where(l => l.HasUniquePermissions).Select(l => l.Id).ToList();
-        var granted = (await GrantsForUserAsync(db.Grants.Where(g => unique.Contains(g.ObjectId)), ct)).Select(g => g.ObjectId).ToHashSet();
-        return lists.Where(l => !l.HasUniquePermissions || granted.Contains(l.Id)).ToList();
+        var principals = await access.GetPrincipalIdsAsync(ct);
+        var listIds = lists.Where(l => !managed.Contains(l.WorkspaceId)).Select(l => l.Id).ToArray();
+        var visible = (await db.AclEntries.AsNoTracking()
+                .Where(e => EF.Parameter(principals).Contains(e.PrincipalId) && EF.Parameter(listIds).Contains(e.ListId) && e.ScopeId == e.ListId)
+                .Select(e => e.ListId)
+                .Distinct()
+                .ToListAsync(ct))
+            .ToHashSet();
+        return lists.Where(l => managed.Contains(l.WorkspaceId) || visible.Contains(l.Id)).ToList();
+    }
+}
+
+/// <summary>
+/// <see cref="IItemAccess"/>: the principal set is cached per tenant and user, and evicted with
+/// <see cref="AccessCacheTags.Principals"/> when groups, roles or workspace memberships change.
+/// </summary>
+internal sealed class ItemAccess(
+    ListsDbContext db, IUserDirectory users, IWorkspaceAccess workspaces, ICurrentUser user, ITenantContext tenant, HybridCache cache) : IItemAccess
+{
+    private static readonly HybridCacheEntryOptions CacheOptions = new() { Expiration = TimeSpan.FromMinutes(1) };
+    private Guid[]? principals;
+
+    public async Task<IReadOnlyList<Guid>> GetPrincipalsAsync(CancellationToken cancellationToken) => await GetPrincipalIdsAsync(cancellationToken);
+
+    public async Task<Guid[]> GetPrincipalIdsAsync(CancellationToken cancellationToken)
+    {
+        if (principals is not null)
+        {
+            return principals;
+        }
+
+        if (user.UserId is not { } userId || tenant.TenantId is not { } tenantId)
+        {
+            return principals = [];
+        }
+
+        // Without a cancellable token HybridCache runs the factory in this call. With one, it queues the factory on the
+        // thread pool, where the request's tenant and user (ambient) are missing and every query would find nothing.
+        principals = await cache.GetOrCreateAsync(
+            $"lists:principals:{tenantId}:{userId}",
+            async ct => await LoadAsync(userId, ct),
+            CacheOptions,
+            [AccessCacheTags.Principals(tenantId)],
+            CancellationToken.None);
+        return principals;
     }
 
-    private async Task<ListAccess> GetAccessAsync(ListDefinition list, WorkspaceAccessLevel workspaceLevel, CancellationToken ct)
+    public async Task<IReadOnlyDictionary<Guid, WorkspaceAccessLevel>> GetScopesAsync(IReadOnlyCollection<Guid>? listIds, CancellationToken cancellationToken)
     {
-        if (workspaceLevel == WorkspaceAccessLevel.Manage)
+        var ids = await GetPrincipalIdsAsync(cancellationToken);
+        if (ids.Length == 0 || listIds is { Count: 0 })
         {
-            return new ListAccess(WorkspaceAccessLevel.Manage, fullControl: true, new Dictionary<Guid, WorkspaceAccessLevel>());
+            return new Dictionary<Guid, WorkspaceAccessLevel>();
         }
 
-        var hasItemScopes = await db.Items.IgnoreQueryFilters([Persistence.QueryFilters.SoftDelete])
-            .AnyAsync(i => i.ListId == list.Id && i.HasUniquePermissions, ct);
-        if (!list.HasUniquePermissions && !hasItemScopes)
+        var entries = db.AclEntries.AsNoTracking().Where(e => EF.Parameter(ids).Contains(e.PrincipalId));
+        if (listIds is { Count: 1 })
         {
-            return new ListAccess(workspaceLevel, fullControl: false, new Dictionary<Guid, WorkspaceAccessLevel>());
+            var listId = listIds.First();
+            entries = entries.Where(e => e.ListId == listId);
+        }
+        else if (listIds is not null)
+        {
+            var lists = listIds.ToArray();
+            entries = entries.Where(e => EF.Parameter(lists).Contains(e.ListId));
         }
 
-        var grants = await GrantsForUserAsync(db.Grants.Where(g => g.ListId == list.Id), ct);
-        var levels = grants.GroupBy(g => g.ObjectId).ToDictionary(g => g.Key, g => g.Max(x => x.Level));
-        var listLevel = list.HasUniquePermissions ? levels.GetValueOrDefault(list.Id, WorkspaceAccessLevel.None) : workspaceLevel;
-
-        // Every unique item scope is listed, so scopes without a grant resolve to None.
-        var scopes = await db.Items.IgnoreQueryFilters([Persistence.QueryFilters.SoftDelete])
-            .Where(i => i.ListId == list.Id && i.HasUniquePermissions)
-            .Select(i => i.Id)
-            .ToListAsync(ct);
-        return new ListAccess(listLevel, fullControl: false, scopes.ToDictionary(id => id, id => levels.GetValueOrDefault(id, WorkspaceAccessLevel.None)));
+        return await entries
+            .GroupBy(e => e.ScopeId)
+            .Select(g => new { g.Key, Level = g.Max(e => e.Level) })
+            .ToDictionaryAsync(g => g.Key, g => g.Level, cancellationToken);
     }
 
-    /// <summary>Grants that apply to the current user directly or through a group.</summary>
-    private async Task<List<PermissionGrant>> GrantsForUserAsync(IQueryable<PermissionGrant> grants, CancellationToken ct)
+    private async Task<Guid[]> LoadAsync(Guid userId, CancellationToken ct)
     {
-        if (user.UserId is not { } userId)
-        {
-            return [];
-        }
-
         var groups = await users.GetGroupIdsAsync(userId, ct);
-        return await grants.AsNoTracking()
-            .Where(g => (g.PrincipalType == PrincipalType.User && g.PrincipalId == userId)
-                        || (g.PrincipalType == PrincipalType.Group && groups.Contains(g.PrincipalId)))
-            .ToListAsync(ct);
+        var memberships = await workspaces.GetMembershipsAsync(userId, ct);
+        return [userId, .. groups, .. memberships.Select(m => WorkspaceRolePrincipals.Id(m.WorkspaceId, m.Level))];
     }
 }

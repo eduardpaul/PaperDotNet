@@ -47,6 +47,13 @@ public sealed class FieldDefinition
 
     /// <summary>How the field counts in full-text search (SRC-06); null means <see cref="FieldSearchWeight.Normal"/>.</summary>
     public FieldSearchWeight? Search { get; set; }
+
+    /// <summary>
+    /// Indexed for filters, sorting, grouping and counts (ADR-0035): single values are copied to a typed column of
+    /// the item, multiple values and references (people, lookups, terms) to a value table. Each list has a limited
+    /// number of columns per kind (<c>Lists:IndexedFields</c>). Long text (<c>note</c>) cannot be indexed.
+    /// </summary>
+    public bool Indexed { get; set; }
 }
 
 /// <summary>Weight of a field in full-text search (SRC-06).</summary>

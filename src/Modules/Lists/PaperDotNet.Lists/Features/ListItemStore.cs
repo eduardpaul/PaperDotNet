@@ -41,11 +41,7 @@ internal sealed class ListItemStore(
             var memberships = workspaceId is { } id
                 ? [new WorkspaceMembership(id, await workspaces.GetPermissionAsync(id, cancellationToken))]
                 : await workspaces.GetMyWorkspacesAsync(cancellationToken);
-            lists = [];
-            foreach (var membership in memberships.Where(m => m.Level > WorkspaceAccessLevel.None))
-            {
-                lists.AddRange(await loader.VisibleListsAsync(membership.WorkspaceId, membership.Level, cancellationToken));
-            }
+            lists = await loader.VisibleListsAsync(memberships, cancellationToken);
         }
 
         lists = lists.Where(l => templateKey is null || l.TemplateKey == templateKey).ToList();
@@ -142,19 +138,28 @@ internal sealed class ListItemStore(
     public async Task<(IReadOnlyList<ListQueryResult> Results, string? Error)> QueryAsync(
         IReadOnlyList<ListData> lists, ListItemQuery query, CancellationToken cancellationToken)
     {
-        var results = new List<ListQueryResult>(lists.Count);
-        foreach (var list in lists)
+        // One pass for every list's schema and access, then one query per group of lists that translate the same way
+        // (lists from one template are one group), instead of all of it per list (ADR-0035, issue 0009).
+        var schemas = await loader.LoadManyAsync([.. lists.Select(l => l.Id)], system, cancellationToken);
+        var byId = schemas.ToDictionary(s => s.List.Id);
+        var found = lists.ToDictionary(l => l.Id, _ => new List<ListItemData>());
+        var top = Math.Clamp(query.Top, 1, ListItemQuery.MaxTop);
+        foreach (var group in schemas.GroupBy(ItemQueryRunner.QueryShape))
         {
-            var (items, error) = await QueryAsync(list.WorkspaceId, list.Id, query, cancellationToken);
+            var (items, translator, order, error) = await runner.MatchingManyAsync([.. group], query.Filter, query.OrderBy, i => !i.IsFolder, cancellationToken);
             if (error is not null)
             {
                 return ([], error);
             }
 
-            results.Add(new ListQueryResult(list, items));
+            var ordered = order is null ? items!.OrderBy(i => i.Id) : translator!.OrderBy(items!, order);
+            foreach (var item in await ordered.Take(top).ToListAsync(cancellationToken))
+            {
+                found[item.ListId].Add(ToData(byId[item.ListId], item));
+            }
         }
 
-        return (results, null);
+        return ([.. lists.Where(l => byId.ContainsKey(l.Id)).Select(l => new ListQueryResult(l, found[l.Id]))], null);
     }
 
     public Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken) =>

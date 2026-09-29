@@ -158,8 +158,10 @@ public interface IListItemStore
     Task<(ListItemPage? Page, string? Error)> ListChildrenAsync(Guid workspaceId, Guid listId, Guid? folderId, ListItemQuery query, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Runs <paramref name="query"/> against each list. The first error stops the rest.
-    /// Each list contributes at most <see cref="ListItemQuery.Top"/> items, in that list's order; the caller merges them.
+    /// Runs <paramref name="query"/> over the lists: lists with the same fields run as one query (ADR-0035), so the
+    /// cost does not grow with the number of lists. Each such group returns at most <see cref="ListItemQuery.Top"/>
+    /// items in the query's order; the caller merges the results. Lists the caller cannot read are left out; an error
+    /// stops the rest.
     /// </summary>
     Task<(IReadOnlyList<ListQueryResult> Results, string? Error)> QueryAsync(IReadOnlyList<ListData> lists, ListItemQuery query, CancellationToken cancellationToken);
 

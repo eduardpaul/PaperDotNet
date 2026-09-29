@@ -86,14 +86,20 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `IEventSubscriber<T>` (idempotent, registered with `services.AddEventSubscriber<TEvent, TSubscriber>()`,
   one message per subscriber), published with `IOutbox.SaveChangesAsync(db, events)`. Only `PaperDotNet.Messaging`
   references Wolverine.
-- Item access: check `schema.Access.Level(item.ScopeId)` (404 below Read) and
-  filter queries with `schema.Access.Filter(level)` (ADR-0011).
+- Item access (ADR-0035): check `schema.Access.Level(item.ScopeId)` (404 below Read) and
+  filter queries with `schema.Access.Filter(level)`; other modules use `IItemAccess`
+  (Lists.Contracts). Permissions are `acl_entries` per scope (the list, or an item with unique
+  permissions); workspace roles are principals (`WorkspaceRolePrincipals`). Caches of what a user
+  may access carry `AccessCacheTags.Principals`; a `HybridCache` factory that queries tenant data
+  must be called with `CancellationToken.None` (with a cancellable token it runs without the tenant).
 - Searchable content → push `SearchDocumentData` through `ISearchIndex`
-  (Search.Contracts) from an event subscriber, with reader principals
-  (ADR-0012); implement `ISearchSource` for reindexing. Text with pages goes in
+  (Search.Contracts) from an event subscriber, with the content's permission scope
+  (`ScopeId`, ADR-0035: search trims by the caller's readable scopes); implement `ISearchSource` for reindexing. Text with pages goes in
   `Pages` (page hits, SRC-09); semantic search embeds passages automatically when
   `AI:Embeddings` is configured (ADR-0027). AI providers come from `PaperDotNet.AI`
   (`IEmbeddingGenerator`, Microsoft.Extensions.AI), off by default.
+- Fields that lists filter, sort or group on at scale → `indexed: true` on the field (ADR-0035): item columns or the
+  value table, kept current by `ListsDbContext`; never add ad hoc columns or JSON indexes for one field.
 - Tags/classification → term ids from `ITermStore` (Taxonomy.Contracts) in
   `managedMetadata`/`keywords` fields; never store tag names as values.
 - Long work → `IOperations.StartAsync` + `OperationHandler<T>` (202 + `/operations/{id}`);
@@ -116,6 +122,8 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `IAutomationTriggers` (Automation.Contracts); runs are started and resumed with `ResumeRun`
   messages through the outbox (no workflow engine). Code that reacts to an event
   and changes data should set `EventCausation.Depth` to the event's depth + 1 (loop protection).
+- Group membership → `IUserDirectory` (`GetGroupIdsAsync`, `GetGroupMembersAsync`), which includes
+  groups inside groups (ADR-0035); inside Identity, go through `GroupClosures`, never `GroupMembers` alone.
 - User settings (time zone, languages, formats) → `IUserPreferences` (Identity.Contracts); never add
   per-module copies. Deleting a user or group publishes `PrincipalDeleted`: clean up references to it.
 - Configuration must be portable (PRV, ADR-0017): a module with its own configuration

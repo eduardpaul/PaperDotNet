@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Lists.Features;
 
 namespace PaperDotNet.Lists.Fields;
 
@@ -371,6 +372,12 @@ public sealed partial class FieldTypeRegistry(IEnumerable<IFieldType> types)
         foreach (var error in type.ValidateDefinition(field))
         {
             yield return $"Field '{field.Name}': {error}";
+        }
+
+        if (field.Indexed && FieldIndex.KindOf(field, type) is null)
+        {
+            yield return $"Field '{field.Name}': a {field.Type} field cannot be indexed"
+                         + (type.ValueKind == FieldValueKind.Text ? $" (text longer than {FieldIndex.MaxTextLength} characters)." : ".");
         }
     }
 

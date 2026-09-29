@@ -49,6 +49,8 @@ test('list settings rename the list, keep versions, add columns through a conten
   field = editor.getByRole('region', { name: 'Field Build phase' });
   await field.getByLabel('Type').selectOption('choice');
   await field.getByLabel('Choices').fill('Plan\nBuild\nDone');
+  // Indexed for fast filters, sorting and counts in large lists (ADR-0035).
+  await field.getByLabel('Indexed').check();
   await editor.getByRole('button', { name: 'Create content type' }).click();
   await expect(page.getByText('Content type created.')).toBeVisible();
   await expect(page.getByRole('row', { name: /Budget budget Money/ })).toBeVisible();
@@ -83,6 +85,9 @@ test('a list gets its own permissions, and an item too', async ({ page, request 
   await expect(page.getByText(/inherits its permissions/)).toBeVisible();
   await page.getByRole('button', { name: 'Give it its own permissions' }).click();
   await expect(page.getByText('This list has its own permissions.')).toBeVisible();
+  // The copy names the workspace roles; owners always manage.
+  await expect(page.getByLabel('Access of Workspace members', { exact: true })).toHaveValue('contribute');
+  await expect(page.getByLabel('Access of Workspace owners', { exact: true })).toBeDisabled();
   await page.getByRole('combobox', { name: 'People or groups' }).click();
   await page.getByRole('option', { name: new RegExp(`Reader ${reader}`) }).click();
   await page.keyboard.press('Escape');

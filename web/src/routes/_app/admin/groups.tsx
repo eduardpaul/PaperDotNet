@@ -2,7 +2,7 @@ import type { GroupResponse } from '@paperdotnet/client';
 import { isStatus } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { ChevronRight, Pencil, Plus, Trash2, UserMinus, UserPlus, Users } from 'lucide-react';
+import { ChevronRight, Pencil, Plus, Trash2, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { api } from '@/api/client';
@@ -133,7 +133,13 @@ function GroupDetails({ group }: { group: GroupResponse }) {
       }
     },
   });
+  // Groups inside this group: their members are members too (ADR-0035).
+  const { data: nested } = useQuery({
+    queryKey: ['groups', group.id, 'groups'],
+    queryFn: async () => (await api.v10.groups.byId(group.id!).groups.get()) ?? [],
+  });
   const { data: users } = useQuery(usersQuery);
+  const { data: groups } = useQuery(groupsQuery);
   const libraries = useLibraries();
   const [adding, setAdding] = useState<ComboboxOption[]>([]);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['groups', group.id] });
@@ -148,6 +154,15 @@ function GroupDetails({ group }: { group: GroupResponse }) {
   });
   const remove = useMutation({
     mutationFn: (userId: string) => api.v10.groups.byId(group.id!).members.byUserId(userId).delete(),
+    onSuccess: refresh,
+  });
+  const nest = useMutation({
+    meta: { silent: true },
+    mutationFn: (groupId: string) => api.v10.groups.byId(group.id!).groups.post({ groupId }),
+    onSuccess: refresh,
+  });
+  const unnest = useMutation({
+    mutationFn: (groupId: string) => api.v10.groups.byId(group.id!).groups.byMemberGroupId(groupId).delete(),
     onSuccess: refresh,
   });
   const setInbox = useMutation({
@@ -202,6 +217,40 @@ function GroupDetails({ group }: { group: GroupResponse }) {
           <UserPlus /> Add
         </Button>
       </div>
+      <Field id={`nested-${group.id}`} label="Groups inside" hint="Members of these groups get what this group gets.">
+        <ul aria-label="Groups inside" className="flex flex-col gap-1">
+          {(nested ?? []).map((inner) => (
+            <li key={inner.id} className="flex items-center gap-2 text-[13px]">
+              <Users className="size-4 text-muted" />
+              <span className="flex-1">{inner.name}</span>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={`Take ${inner.name} out of ${group.name}`}
+                onClick={() => unnest.mutate(inner.id!)}
+              >
+                <X />
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <Select
+          id={`nested-${group.id}`}
+          className="max-w-sm"
+          value=""
+          disabled={nest.isPending}
+          onChange={(e) => e.target.value && nest.mutate(e.target.value)}
+        >
+          <option value="">Add a group…</option>
+          {(groups ?? [])
+            .filter((other) => other.id !== group.id && !nested?.some((inner) => inner.id === other.id))
+            .map((other) => (
+              <option key={other.id} value={other.id!}>
+                {other.name}
+              </option>
+            ))}
+        </Select>
+      </Field>
       <Field
         id={`inbox-${group.id}`}
         label="Inbox"
@@ -222,7 +271,9 @@ function GroupDetails({ group }: { group: GroupResponse }) {
           ))}
         </Select>
       </Field>
-      {(add.isError || setInbox.isError) && <Alert>{problemMessage(add.error ?? setInbox.error)}</Alert>}
+      {(add.isError || nest.isError || setInbox.isError) && (
+        <Alert>{problemMessage(add.error ?? nest.error ?? setInbox.error)}</Alert>
+      )}
     </div>
   );
 }

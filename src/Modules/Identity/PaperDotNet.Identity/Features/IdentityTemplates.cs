@@ -7,7 +7,10 @@ using PaperDotNet.Provisioning.Contracts;
 
 namespace PaperDotNet.Identity.Features;
 
-/// <summary>Template section <c>Groups</c> (PRV-01/02): groups and their members by user name; additive.</summary>
+/// <summary>
+/// Template section <c>Groups</c> (PRV-01/02): groups and their members by user name, and the groups inside them by
+/// name (<c>&lt;Member Group="…"/&gt;</c>, ADR-0035); additive.
+/// </summary>
 internal sealed class GroupTemplateHandler(IdentityDbContext db, ITenantContext tenant, HybridCache cache) : ITemplateHandler
 {
     public XName Element => TemplateXml.Name("Groups");
@@ -18,8 +21,23 @@ internal sealed class GroupTemplateHandler(IdentityDbContext db, ITenantContext 
 
     public async Task<XElement?> ExportAsync(TemplateContext context, CancellationToken cancellationToken)
     {
-        var groups = (await db.Groups.AsNoTracking().OrderBy(g => g.Name).ToListAsync(cancellationToken))
-            .Where(g => context.Includes(TemplateKinds.Group, g.Name)).ToList();
+        // Groups the template needs, and the groups inside them (their members count as members too).
+        var all = await db.Groups.AsNoTracking().OrderBy(g => g.Name).ToListAsync(cancellationToken);
+        var inside = (await db.GroupNestings.AsNoTracking().ToListAsync(cancellationToken)).ToLookup(n => n.GroupId, n => n.MemberGroupId);
+        var included = new HashSet<Guid>();
+        var pending = new Stack<Guid>(all.Where(g => context.Includes(TemplateKinds.Group, g.Name)).Select(g => g.Id));
+        while (pending.TryPop(out var id))
+        {
+            if (included.Add(id))
+            {
+                foreach (var member in inside[id])
+                {
+                    pending.Push(member);
+                }
+            }
+        }
+
+        var groups = all.Where(g => included.Contains(g.Id)).ToList();
         if (groups.Count == 0)
         {
             return null;
@@ -29,9 +47,14 @@ internal sealed class GroupTemplateHandler(IdentityDbContext db, ITenantContext 
         var members = await db.GroupMembers.Where(m => groupIds.Contains(m.GroupId))
             .Join(db.Users, m => m.UserId, u => u.Id, (m, u) => new { m.GroupId, u.UserName })
             .ToListAsync(cancellationToken);
+        var nested = await db.GroupNestings.Where(n => groupIds.Contains(n.GroupId))
+            .Join(db.Groups, n => n.MemberGroupId, g => g.Id, (n, g) => new { n.GroupId, g.Name })
+            .ToListAsync(cancellationToken);
         return new XElement(Element, groups.Select(g => new XElement(TemplateXml.Name("Group"),
             members.Where(m => m.GroupId == g.Id && m.UserName != null).OrderBy(m => m.UserName, StringComparer.Ordinal)
-                .Select(m => new XElement(TemplateXml.Name("Member"), new XAttribute("User", m.UserName!))))
+                .Select(m => new XElement(TemplateXml.Name("Member"), new XAttribute("User", m.UserName!))),
+            nested.Where(n => n.GroupId == g.Id).OrderBy(n => n.Name, StringComparer.Ordinal)
+                .Select(n => new XElement(TemplateXml.Name("Member"), new XAttribute("Group", n.Name))))
             .With("Name", g.Name).With("Description", g.Description)));
     }
 
@@ -63,7 +86,7 @@ internal sealed class GroupTemplateHandler(IdentityDbContext db, ITenantContext 
             context.Register(TemplateKinds.Group, name, group.Id);
             var existing = (await db.GroupMembers.Where(m => m.GroupId == group.Id).Select(m => m.UserId).ToListAsync(cancellationToken)).ToHashSet();
             var added = new List<string>();
-            foreach (var member in element.Elements(TemplateXml.Name("Member")))
+            foreach (var member in element.Elements(TemplateXml.Name("Member")).Where(m => m.Attr("Group") is null))
             {
                 var userName = member.RequiredAttr("User");
                 var userId = await IdentityTemplateLookups.FindUserAsync(db, userName, cancellationToken);
@@ -91,8 +114,71 @@ internal sealed class GroupTemplateHandler(IdentityDbContext db, ITenantContext 
         if (changed && !context.DryRun)
         {
             await db.SaveChangesAsync(cancellationToken);
+        }
+
+        // Groups inside groups, once every group of the section exists.
+        if (await ApplyNestingsAsync(section, context, cancellationToken))
+        {
+            changed = true;
+        }
+
+        if (changed && !context.DryRun)
+        {
             await cache.RemoveByTagAsync(EffectiveScopeProvider.TenantTag(tenant.TenantId!.Value), cancellationToken);
         }
+    }
+
+    private async Task<bool> ApplyNestingsAsync(XElement section, TemplateContext context, CancellationToken ct)
+    {
+        var changed = false;
+        var nestings = (await db.GroupNestings.AsNoTracking().Select(n => new { n.GroupId, n.MemberGroupId }).ToListAsync(ct))
+            .Select(n => (n.GroupId, n.MemberGroupId))
+            .ToList();
+        foreach (var element in section.Elements(TemplateXml.Name("Group")))
+        {
+            var name = element.RequiredAttr("Name").Trim();
+            foreach (var member in element.Elements(TemplateXml.Name("Member")))
+            {
+                if (member.Attr("Group") is not { } memberName)
+                {
+                    continue;
+                }
+
+                var groupId = context.Resolve(TemplateKinds.Group, name);
+                var memberId = context.Resolve(TemplateKinds.Group, memberName)
+                               ?? await db.Groups.Where(g => g.Name == memberName).Select(g => (Guid?)g.Id).FirstOrDefaultAsync(ct);
+                if (memberId is null)
+                {
+                    context.Warn($"Group '{memberName}' does not exist; not added to group '{name}'.", member);
+                    continue;
+                }
+
+                if (groupId is null || nestings.Contains((groupId.Value, memberId.Value)))
+                {
+                    continue;
+                }
+
+                if (GroupGraph.CheckNesting(groupId.Value, memberId.Value, nestings) is { } problem)
+                {
+                    throw new TemplateException($"Group '{memberName}' cannot go into group '{name}': {problem}", member);
+                }
+
+                context.Updated(TemplateKinds.Group, name, $"group added: {memberName}");
+                nestings.Add((groupId.Value, memberId.Value));
+                if (!context.DryRun)
+                {
+                    db.GroupNestings.Add(new GroupNesting { GroupId = groupId.Value, MemberGroupId = memberId.Value });
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            await db.SaveChangesAsync(ct);
+        }
+
+        return changed;
     }
 }
 
@@ -202,8 +288,71 @@ internal sealed class RoleTemplateHandler(IdentityDbContext db, IScopeCatalog ca
         if (changed && !context.DryRun)
         {
             await db.SaveChangesAsync(cancellationToken);
+        }
+
+        // Groups inside groups, once every group of the section exists.
+        if (await ApplyNestingsAsync(section, context, cancellationToken))
+        {
+            changed = true;
+        }
+
+        if (changed && !context.DryRun)
+        {
             await cache.RemoveByTagAsync(EffectiveScopeProvider.TenantTag(tenant.TenantId!.Value), cancellationToken);
         }
+    }
+
+    private async Task<bool> ApplyNestingsAsync(XElement section, TemplateContext context, CancellationToken ct)
+    {
+        var changed = false;
+        var nestings = (await db.GroupNestings.AsNoTracking().Select(n => new { n.GroupId, n.MemberGroupId }).ToListAsync(ct))
+            .Select(n => (n.GroupId, n.MemberGroupId))
+            .ToList();
+        foreach (var element in section.Elements(TemplateXml.Name("Group")))
+        {
+            var name = element.RequiredAttr("Name").Trim();
+            foreach (var member in element.Elements(TemplateXml.Name("Member")))
+            {
+                if (member.Attr("Group") is not { } memberName)
+                {
+                    continue;
+                }
+
+                var groupId = context.Resolve(TemplateKinds.Group, name);
+                var memberId = context.Resolve(TemplateKinds.Group, memberName)
+                               ?? await db.Groups.Where(g => g.Name == memberName).Select(g => (Guid?)g.Id).FirstOrDefaultAsync(ct);
+                if (memberId is null)
+                {
+                    context.Warn($"Group '{memberName}' does not exist; not added to group '{name}'.", member);
+                    continue;
+                }
+
+                if (groupId is null || nestings.Contains((groupId.Value, memberId.Value)))
+                {
+                    continue;
+                }
+
+                if (GroupGraph.CheckNesting(groupId.Value, memberId.Value, nestings) is { } problem)
+                {
+                    throw new TemplateException($"Group '{memberName}' cannot go into group '{name}': {problem}", member);
+                }
+
+                context.Updated(TemplateKinds.Group, name, $"group added: {memberName}");
+                nestings.Add((groupId.Value, memberId.Value));
+                if (!context.DryRun)
+                {
+                    db.GroupNestings.Add(new GroupNesting { GroupId = groupId.Value, MemberGroupId = memberId.Value });
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            await db.SaveChangesAsync(ct);
+        }
+
+        return changed;
     }
 }
 

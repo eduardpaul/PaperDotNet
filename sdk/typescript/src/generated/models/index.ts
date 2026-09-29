@@ -4,6 +4,7 @@
 // @ts-ignore
 import { createUntypedNodeFromDiscriminatorValue, type AdditionalDataHolder, type ApiError, type DateOnly, type Guid, type Parsable, type ParseNode, type SerializationWriter, type TimeOnly, type UntypedNode } from '@microsoft/kiota-abstractions';
 
+export type AclPrincipalType = (typeof AclPrincipalTypeObject)[keyof typeof AclPrincipalTypeObject];
 export interface ActivityResponse extends AdditionalDataHolder, Parsable {
     /**
      * The actorId property
@@ -59,6 +60,15 @@ export interface AddListContentTypeRequest extends AdditionalDataHolder, Parsabl
      * The contentTypeId property
      */
     contentTypeId?: Guid | null;
+}
+/**
+ * A group to put inside another group: its members become members of that group too.
+ */
+export interface AddNestedGroupRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The groupId property
+     */
+    groupId?: Guid | null;
 }
 export interface AddWorkspaceMemberRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -920,6 +930,15 @@ export function createAddLinkRequestFromDiscriminatorValue(parseNode: ParseNode 
 // @ts-ignore
 export function createAddListContentTypeRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoAddListContentTypeRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AddNestedGroupRequest}
+ */
+// @ts-ignore
+export function createAddNestedGroupRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAddNestedGroupRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2844,6 +2863,24 @@ export function createUserResponseFromDiscriminatorValue(parseNode: ParseNode | 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ValueCount}
+ */
+// @ts-ignore
+export function createValueCountFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoValueCount;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ValueCountsResponse}
+ */
+// @ts-ignore
+export function createValueCountsResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoValueCountsResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ViewRequest}
  */
 // @ts-ignore
@@ -3019,6 +3056,17 @@ export function deserializeIntoAddLinkRequest(addLinkRequest: Partial<AddLinkReq
 export function deserializeIntoAddListContentTypeRequest(addListContentTypeRequest: Partial<AddListContentTypeRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "contentTypeId": n => { addListContentTypeRequest.contentTypeId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AddNestedGroupRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAddNestedGroupRequest(addNestedGroupRequest: Partial<AddNestedGroupRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "groupId": n => { addNestedGroupRequest.groupId = n.getGuidValue(); },
     }
 }
 /**
@@ -4029,6 +4077,7 @@ export function deserializeIntoFieldDefinitionDto(fieldDefinitionDto: Partial<Fi
         "defaultValue": n => { fieldDefinitionDto.defaultValue = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
         "description": n => { fieldDefinitionDto.description = n.getStringValue(); },
         "displayName": n => { fieldDefinitionDto.displayName = n.getStringValue(); },
+        "indexed": n => { fieldDefinitionDto.indexed = n.getBooleanValue() ?? false; },
         "lookupListId": n => { fieldDefinitionDto.lookupListId = n.getGuidValue(); },
         "maximum": n => { fieldDefinitionDto.maximum = n.getNumberValue(); },
         "maxLength": n => { fieldDefinitionDto.maxLength = n.getNumberValue(); },
@@ -4897,7 +4946,7 @@ export function deserializeIntoPermissionGrantDto(permissionGrantDto: Partial<Pe
     return {
         "level": n => { permissionGrantDto.level = n.getEnumValue<WorkspaceAccessLevel>(WorkspaceAccessLevelObject); },
         "principalId": n => { permissionGrantDto.principalId = n.getGuidValue(); },
-        "principalType": n => { permissionGrantDto.principalType = n.getEnumValue<PrincipalType>(PrincipalTypeObject); },
+        "principalType": n => { permissionGrantDto.principalType = n.getEnumValue<AclPrincipalType>(AclPrincipalTypeObject); },
     }
 }
 /**
@@ -5752,6 +5801,29 @@ export function deserializeIntoUserResponse(userResponse: Partial<UserResponse> 
 }
 /**
  * The deserialization information for the current model
+ * @param ValueCount The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoValueCount(valueCount: Partial<ValueCount> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "count": n => { valueCount.count = n.getNumberValue(); },
+        "value": n => { valueCount.value = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ValueCountsResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoValueCountsResponse(valueCountsResponse: Partial<ValueCountsResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "value": n => { valueCountsResponse.value = n.getCollectionOfObjectValues<ValueCount>(createValueCountFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ViewRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -6198,6 +6270,10 @@ export interface FieldDefinitionDto extends AdditionalDataHolder, Parsable {
      * The displayName property
      */
     displayName?: string | null;
+    /**
+     * The indexed property
+     */
+    indexed?: boolean | null;
     /**
      * The lookupListId property
      */
@@ -7409,6 +7485,9 @@ export interface PasskeyResponse extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
 }
+/**
+ * A permission entry. For workspace roles (`workspaceVisitors`, `workspaceMembers`, `workspaceOwners`)the principal id is the workspace id.
+ */
 export interface PermissionGrantDto extends AdditionalDataHolder, Parsable {
     /**
      * What the current user may do in a workspace. Ordered: higher includes lower.
@@ -7419,9 +7498,9 @@ export interface PermissionGrantDto extends AdditionalDataHolder, Parsable {
      */
     principalId?: Guid | null;
     /**
-     * The principalType property
+     * Who a permission entry gives access to: a user, a group, or a role of the list's workspace.
      */
-    principalType?: PrincipalType | null;
+    principalType?: AclPrincipalType | null;
 }
 /**
  * Permissions of a list or item. `inheritsFrom` names where they come from:`workspace`, `list` or `item` (with `inheritsFromId`), or null when unique.Grants are shown to managers only.
@@ -7928,6 +8007,18 @@ export function serializeAddListContentTypeRequest(writer: SerializationWriter, 
     if (!addListContentTypeRequest || isSerializingDerivedType) { return; }
     writer.writeGuidValue("contentTypeId", addListContentTypeRequest.contentTypeId);
     writer.writeAdditionalData(addListContentTypeRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param AddNestedGroupRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAddNestedGroupRequest(writer: SerializationWriter, addNestedGroupRequest: Partial<AddNestedGroupRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!addNestedGroupRequest || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("groupId", addNestedGroupRequest.groupId);
+    writer.writeAdditionalData(addNestedGroupRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -9006,6 +9097,7 @@ export function serializeFieldDefinitionDto(writer: SerializationWriter, fieldDe
     writer.writeObjectValue("defaultValue", fieldDefinitionDto.defaultValue);
     writer.writeStringValue("description", fieldDefinitionDto.description);
     writer.writeStringValue("displayName", fieldDefinitionDto.displayName);
+    writer.writeBooleanValue("indexed", fieldDefinitionDto.indexed ?? false);
     writer.writeGuidValue("lookupListId", fieldDefinitionDto.lookupListId);
     writer.writeNumberValue("maximum", fieldDefinitionDto.maximum);
     writer.writeNumberValue("maxLength", fieldDefinitionDto.maxLength);
@@ -9936,7 +10028,7 @@ export function serializePermissionGrantDto(writer: SerializationWriter, permiss
     if (!permissionGrantDto || isSerializingDerivedType) { return; }
     writer.writeEnumValue<WorkspaceAccessLevel>("level", permissionGrantDto.level);
     writer.writeGuidValue("principalId", permissionGrantDto.principalId);
-    writer.writeEnumValue<PrincipalType>("principalType", permissionGrantDto.principalType);
+    writer.writeEnumValue<AclPrincipalType>("principalType", permissionGrantDto.principalType);
     writer.writeAdditionalData(permissionGrantDto.additionalData);
 }
 /**
@@ -10852,6 +10944,31 @@ export function serializeUserResponse(writer: SerializationWriter, userResponse:
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ValueCount The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeValueCount(writer: SerializationWriter, valueCount: Partial<ValueCount> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!valueCount || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("count", valueCount.count);
+    writer.writeStringValue("value", valueCount.value);
+    writer.writeAdditionalData(valueCount.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ValueCountsResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeValueCountsResponse(writer: SerializationWriter, valueCountsResponse: Partial<ValueCountsResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!valueCountsResponse || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<ValueCount>("value", valueCountsResponse.value, serializeValueCount);
+    writer.writeAdditionalData(valueCountsResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param ViewRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -11661,6 +11778,25 @@ export interface UserResponse extends AdditionalDataHolder, Parsable {
      */
     userName?: string | null;
 }
+/**
+ * How many readable items have a value: the stored value as text (a choice, a number, a date, or a person, lookupor term id), or null for items without one.
+ */
+export interface ValueCount extends AdditionalDataHolder, Parsable {
+    /**
+     * The count property
+     */
+    count?: number | null;
+    /**
+     * The value property
+     */
+    value?: string | null;
+}
+export interface ValueCountsResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The value property
+     */
+    value?: ValueCount[] | null;
+}
 export type ViewLayout = (typeof ViewLayoutObject)[keyof typeof ViewLayoutObject];
 export interface ViewRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -11776,6 +11912,16 @@ export interface WorkspaceResponse extends AdditionalDataHolder, Parsable {
     updatedAt?: Date | null;
 }
 export type WorkspaceRole = (typeof WorkspaceRoleObject)[keyof typeof WorkspaceRoleObject];
+/**
+ * Who a permission entry gives access to: a user, a group, or a role of the list's workspace.
+ */
+export const AclPrincipalTypeObject = {
+    User: "user",
+    Group: "group",
+    WorkspaceVisitors: "workspaceVisitors",
+    WorkspaceMembers: "workspaceMembers",
+    WorkspaceOwners: "workspaceOwners",
+} as const;
 export const AlertFrequencyObject = {
     Immediate: "immediate",
     Daily: "daily",

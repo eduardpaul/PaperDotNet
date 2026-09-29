@@ -54,6 +54,8 @@ filter in the app is still caught by RLS.
   stored in the database (protect database backups accordingly).
 - Tenant resolution happens before authentication, so OAuth clients select
   the tenant by host or header; the claim strategy only uses API tokens.
-- One extra round trip per PostgreSQL connection open (`set_config`).
+- The tenant setting travels with each command (same batch) or runs once per
+  transaction ([0035](0035-item-storage-and-permissions-at-scale.md), step 6);
+  it was first one extra round trip per connection open.
 - Not yet: MFA/TOTP, external identity providers, device code flow, consent
   for third-party apps, sharing with users outside a workspace.

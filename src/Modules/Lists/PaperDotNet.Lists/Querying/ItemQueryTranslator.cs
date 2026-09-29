@@ -7,6 +7,7 @@ using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
+using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Persistence;
 
@@ -14,14 +15,29 @@ namespace PaperDotNet.Lists.Querying;
 
 /// <summary>
 /// Translates parsed OData <c>$filter</c>/<c>$orderby</c> trees into LINQ over
-/// <see cref="ListItem"/>. Field values are read from the JSON document through the
-/// provider-neutral <see cref="JsonFunctions"/>; equality uses JSON containment so
-/// PostgreSQL can use its GIN index. Equality on a managed metadata field also
-/// matches the term's descendants (<paramref name="termDescendants"/>).
+/// <see cref="ListItem"/>. Indexed fields (ADR-0035) use their item column or the value table; other field values
+/// are read from the JSON document through the provider-neutral <see cref="JsonFunctions"/>, where equality uses JSON
+/// containment so PostgreSQL can use its GIN index. Equality on a managed metadata field also matches the term's
+/// descendants (<paramref name="termDescendants"/>).
 /// </summary>
 internal sealed class ItemQueryTranslator(
-    ItemEdmModel model, IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>? termDescendants = null, IDictionary<string, SingleValueNode>? aliases = null)
+    ItemEdmModel model,
+    IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>? termDescendants = null,
+    IDictionary<string, SingleValueNode>? aliases = null,
+    ListDefinition? list = null,
+    IQueryable<ItemValue>? values = null)
 {
+    /// <summary>
+    /// Value-table filters known to match few items (field number and values, see <see cref="ValueFilters"/>): those
+    /// read the matching item ids first (<c>IN</c>); the others test each item (<c>EXISTS</c>). SQLite needs the choice.
+    /// </summary>
+    public HashSet<string> Selective { get; } = new(StringComparer.Ordinal);
+
+    internal static string SelectivityKey(short field, IEnumerable<Guid> ids) => $"{field}:{string.Join(',', ids.Order())}";
+
+    /// <summary>The lists the query covers (one query over lists of the same shape, ADR-0035); the list itself by default.</summary>
+    public Guid[]? ListIds { get; set; }
+
     private static readonly ParameterExpression Item = Expression.Parameter(typeof(ListItem), "i");
     internal static readonly MethodInfo JsonText = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Text))!;
     private static readonly MethodInfo JsonNumber = typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.Number))!;
@@ -104,6 +120,73 @@ internal sealed class ItemQueryTranslator(
         return ordered is null ? query.OrderBy(i => i.Id) : ordered.ThenBy(i => i.Id);
     }
 
+    /// <summary>
+    /// The order's keys when every one is <c>isFolder</c> or <c>fields/title</c> (the list screen's order), so pages can
+    /// continue after the last row; null for other orders.
+    /// </summary>
+    public static IReadOnlyList<(string Property, bool Descending)>? SortKeys(OrderByClause clause)
+    {
+        var keys = new List<(string, bool)>();
+        for (var current = clause; current is not null; current = current.ThenBy)
+        {
+            var node = current.Expression is ConvertNode convert ? convert.Source : current.Expression;
+            if (node is not SingleValuePropertyAccessNode property)
+            {
+                return null;
+            }
+
+            var name = property.Source is SingleComplexNode
+                ? property.Property.Name == "title" ? nameof(ListItem.Title) : null
+                : property.Property.Name == "isFolder" ? nameof(ListItem.IsFolder) : null;
+            if (name is null)
+            {
+                return null;
+            }
+
+            keys.Add((name, current.Direction == OrderByDirection.Descending));
+        }
+
+        return keys;
+    }
+
+    /// <summary>The sort key values of a row, for the next page's cursor.</summary>
+    public static List<string> KeyValues(IReadOnlyList<(string Property, bool Descending)> keys, ListItem item) =>
+        [.. keys.Select(k => k.Property == nameof(ListItem.IsFolder) ? (item.IsFolder ? "true" : "false") : item.Title)];
+
+    /// <summary>Rows after the position (<paramref name="values"/>, <paramref name="after"/>) in the order of <paramref name="keys"/> then id.</summary>
+    public static Expression<Func<ListItem, bool>> After(IReadOnlyList<(string Property, bool Descending)> keys, IReadOnlyList<string> values, Guid after)
+    {
+        Expression result = Expression.GreaterThan(
+            Expression.Call(Expression.Property(Item, nameof(ListItem.Id)), typeof(Guid).GetMethod(nameof(Guid.CompareTo), [typeof(Guid)])!, Expression.Constant(after)),
+            Expression.Constant(0));
+        for (var n = keys.Count - 1; n >= 0; n--)
+        {
+            var (property, descending) = keys[n];
+            var member = Expression.Property(Item, property);
+            Expression equal;
+            Expression beyond;
+            if (property == nameof(ListItem.IsFolder))
+            {
+                var value = values[n] == "true";
+                equal = Expression.Equal(member, Expression.Constant(value));
+
+                // false sorts before true: ascending, only true follows false; descending, only false follows true.
+                beyond = descending == value ? Expression.Equal(member, Expression.Constant(!value)) : Expression.Constant(false);
+            }
+            else
+            {
+                var value = Expression.Constant(values[n]);
+                equal = Expression.Equal(member, value);
+                var compare = Expression.Call(StringCompare, member, value);
+                beyond = descending ? Expression.LessThan(compare, Expression.Constant(0)) : Expression.GreaterThan(compare, Expression.Constant(0));
+            }
+
+            result = Expression.OrElse(beyond, Expression.AndAlso(equal, result));
+        }
+
+        return Expression.Lambda<Func<ListItem, bool>>(result, Item);
+    }
+
     private Expression Predicate(QueryNode node) => node switch
     {
         ConvertNode convert => Predicate(convert.Source),
@@ -115,7 +198,7 @@ internal sealed class ItemQueryTranslator(
         InNode inNode => In(inNode),
         AnyNode any => Any(any),
         SingleValuePropertyAccessNode => Operand(node) is { Kind: FieldValueKind.Boolean } boolean
-            ? Expression.Equal(boolean.Expression, Expression.Constant(true, boolean.Expression.Type))
+            ? Expression.Equal(boolean.Expression, Literal(boolean, true))
             : throw Unsupported("Only boolean properties can be used as conditions."),
         _ => throw Unsupported($"'{node.Kind}' is not supported in $filter."),
     };
@@ -131,6 +214,20 @@ internal sealed class ItemQueryTranslator(
         }
 
         var kind = flipped ? Flip(node.OperatorKind) : node.OperatorKind;
+        if (ValueField(propertyNode) is { } indexed)
+        {
+            // A single person, lookup or term in the value table.
+            Expression test = constantNode.Value is null
+                ? Expression.Not(HasValues(indexed.Entry, null))
+                : HasValues(indexed.Entry, Ids(indexed.Entry.Field, indexed.Kind, [constantNode.Value]));
+            return kind switch
+            {
+                BinaryOperatorKind.Equal => test,
+                BinaryOperatorKind.NotEqual => Expression.Not(test),
+                _ => throw Unsupported($"Field '{indexed.Entry.Field}' can only be compared with eq or ne."),
+            };
+        }
+
         var operand = Operand(propertyNode);
 
         if (constantNode.Value is null)
@@ -211,6 +308,11 @@ internal sealed class ItemQueryTranslator(
 
     private Expression In(InNode node)
     {
+        if (ValueField(node.Left) is { } indexed && node.Right is CollectionConstantNode listed)
+        {
+            return HasValues(indexed.Entry, Ids(indexed.Entry.Field, indexed.Kind, listed.Collection.Select(v => v.Value)));
+        }
+
         var operand = Operand(node.Left);
         if (node.Right is not CollectionConstantNode values)
         {
@@ -232,7 +334,131 @@ internal sealed class ItemQueryTranslator(
             throw Unsupported("'any' is only supported on multi-value fields.");
         }
 
+        if (list is not null && values is not null && FieldIndex.Ready(list, field.Field.Name) is { Kind: IndexKind.Values } indexed)
+        {
+            var literals = new List<object?>();
+            CollectAny(node.Body, literals);
+            return HasValues(indexed, Ids(field.Field.Name, field.Type.ValueKind, literals));
+        }
+
         return AnyBody(node.Body, field.Field.Name, field.Type.ValueKind);
+    }
+
+    /// <summary>The literals of an <c>any</c> body made of <c>eq</c> comparisons joined with <c>or</c>.</summary>
+    private void CollectAny(QueryNode body, List<object?> literals)
+    {
+        body = Unwrap(body);
+        switch (body)
+        {
+            case BinaryOperatorNode { OperatorKind: BinaryOperatorKind.Or } or:
+                CollectAny(or.Left, literals);
+                CollectAny(or.Right, literals);
+                break;
+            case BinaryOperatorNode { OperatorKind: BinaryOperatorKind.Equal } eq
+                when Unwrap(eq.Left) is NonResourceRangeVariableReferenceNode && Unwrap(eq.Right) is ConstantNode value:
+                literals.Add(value.Value);
+                break;
+            default:
+                throw Unsupported("Inside 'any' only 'eq' comparisons combined with 'or' are supported.");
+        }
+    }
+
+    /// <summary>A single-value field stored in the value table (indexed and ready), or null.</summary>
+    private (IndexedField Entry, FieldValueKind Kind)? ValueField(QueryNode node) =>
+        list is not null && values is not null
+        && Unwrap(node) is SingleValuePropertyAccessNode { Source: SingleComplexNode } property
+        && model.Fields.TryGetValue(property.Property.Name, out var field)
+        && FieldIndex.Ready(list, field.Field.Name) is { Kind: IndexKind.Values } entry
+            ? (entry, field.Type.ValueKind)
+            : null;
+
+    /// <summary>Value-table ids of literals; a managed metadata term also matches its descendants.</summary>
+    private Guid[] Ids(string field, FieldValueKind kind, IEnumerable<object?> literals)
+    {
+        var ids = new HashSet<Guid>();
+        var terms = model.Fields.TryGetValue(field, out var definition) && definition.Type.Name == ManagedMetadataFieldType.TypeName;
+        foreach (var literal in literals)
+        {
+            var text = JsonLiteral(kind, literal)?.GetValue<string>() ?? throw Unsupported("A value is expected.");
+            var id = FieldIndex.ValueId(field, text);
+            ids.Add(id);
+            if (terms && termDescendants is not null && termDescendants.TryGetValue(id, out var subtree))
+            {
+                ids.UnionWith(subtree);
+            }
+        }
+
+        return [.. ids];
+    }
+
+    /// <summary>
+    /// The item has one of <paramref name="ids"/> (any value when null) in the value table, as <c>IN</c> for
+    /// selective values and <c>EXISTS</c> otherwise (see <see cref="Selective"/>).
+    /// </summary>
+    private Expression HasValues(IndexedField entry, Guid[]? ids)
+    {
+        var source = values!;
+        var listIds = ListIds ?? [list!.Id];
+        var field = entry.ValueField!.Value;
+        Expression<Func<ListItem, bool>> test;
+        if (ids is null)
+        {
+            test = i => source.Any(v => v.ItemId == i.Id && v.Field == field);
+        }
+        else if (Selective.Contains(SelectivityKey(field, ids)))
+        {
+            test = i => source.Where(v => listIds.Contains(v.ListId) && v.Field == field && ids.Contains(v.Value)).Select(v => v.ItemId).Contains(i.Id);
+        }
+        else
+        {
+            test = i => source.Any(v => v.ItemId == i.Id && v.Field == field && ids.Contains(v.Value));
+        }
+
+        return new ItemFields.ReplaceParameter(test.Parameters[0], Item).Visit(test.Body)!;
+    }
+
+    /// <summary>
+    /// The value-table filters of a clause (field number and ids), so the caller can count how many items match
+    /// each and mark the selective ones before the query runs.
+    /// </summary>
+    public IEnumerable<(short Field, Guid[] Ids)> ValueFilters(FilterClause clause)
+    {
+        var found = new List<(short, Guid[])>();
+        void Walk(QueryNode node)
+        {
+            node = Unwrap(node);
+            switch (node)
+            {
+                case BinaryOperatorNode { OperatorKind: BinaryOperatorKind.And or BinaryOperatorKind.Or } logical:
+                    Walk(logical.Left);
+                    Walk(logical.Right);
+                    break;
+                case UnaryOperatorNode unary:
+                    Walk(unary.Operand);
+                    break;
+                case BinaryOperatorNode comparison:
+                    var (property, constant) = Unwrap(comparison.Left) is ConstantNode left ? (comparison.Right, left) : (comparison.Left, Unwrap(comparison.Right) as ConstantNode);
+                    if (constant?.Value is not null && ValueField(property) is { } single)
+                    {
+                        found.Add((single.Entry.ValueField!.Value, Ids(single.Entry.Field, single.Kind, [constant.Value])));
+                    }
+
+                    break;
+                case InNode inNode when inNode.Right is CollectionConstantNode listed && ValueField(inNode.Left) is { } inField:
+                    found.Add((inField.Entry.ValueField!.Value, Ids(inField.Entry.Field, inField.Kind, listed.Collection.Select(v => v.Value))));
+                    break;
+                case AnyNode { Source: CollectionPropertyAccessNode { Source: SingleComplexNode } collection } any
+                    when list is not null && model.Fields.TryGetValue(collection.Property.Name, out var field)
+                         && FieldIndex.Ready(list, field.Field.Name) is { Kind: IndexKind.Values } entry:
+                    var literals = new List<object?>();
+                    CollectAny(any.Body, literals);
+                    found.Add((entry.ValueField!.Value, Ids(field.Field.Name, field.Type.ValueKind, literals)));
+                    break;
+            }
+        }
+
+        Walk(clause.Expression);
+        return found;
     }
 
     private Expression AnyBody(QueryNode body, string field, FieldValueKind kind)
@@ -293,6 +519,16 @@ internal sealed class ItemQueryTranslator(
                 throw Unsupported($"Field '{name}' cannot be used here (multi-value fields need 'any').");
             }
 
+            if (list is not null && FieldIndex.Ready(list, name) is { Column: { } column })
+            {
+                return (Expression.Property(Item, column), field.Type.ValueKind, null);
+            }
+
+            if (list is not null && FieldIndex.Ready(list, name) is { Kind: IndexKind.Values })
+            {
+                throw Unsupported($"Field '{name}' can be filtered with eq, ne and in, but not sorted.");
+            }
+
             var fieldName = Expression.Constant(name);
             return field.Type.ValueKind switch
             {
@@ -322,6 +558,12 @@ internal sealed class ItemQueryTranslator(
         if (operand.Expression.Type == typeof(DateTimeOffset))
         {
             return Expression.Constant(ToDateTimeOffset(value));
+        }
+
+        if (operand.Kind == FieldValueKind.Boolean && operand.Expression.Type == typeof(string))
+        {
+            // Booleans in a text column are stored as "true" / "false".
+            return Expression.Constant(value is bool text ? text ? "true" : "false" : throw Unsupported("true or false is expected."), typeof(string));
         }
 
         if (operand.Expression.Type == typeof(bool))
@@ -425,7 +667,7 @@ internal static class ItemFields
         return Expression.Lambda<Func<ListItem, bool>>(Expression.AndAlso(left.Body, body), left.Parameters);
     }
 
-    private sealed class ReplaceParameter(ParameterExpression from, ParameterExpression to) : ExpressionVisitor
+    internal sealed class ReplaceParameter(ParameterExpression from, ParameterExpression to) : ExpressionVisitor
     {
         protected override Expression VisitParameter(ParameterExpression node) => node == from ? to : base.VisitParameter(node);
     }

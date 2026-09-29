@@ -38,7 +38,8 @@ internal sealed class ItemWriter(
     ICurrentUser currentUser,
     EventCausation causation,
     TimeProvider time,
-    ILiveEvents live) : IFieldValidationContext
+    ILiveEvents live,
+    ScopeMover mover) : IFieldValidationContext
 {
     public const int TitleMaxLength = 1024;
     private const int MaxFolderDepth = 64;
@@ -101,6 +102,7 @@ internal sealed class ItemWriter(
         }
 
         values = await FinalizeAsync(definitions, snapshot, context.After!, !isFolder, errors, ct);
+        CheckIndexedValues(schema, values, errors);
         if (errors.Count > 0)
         {
             return new ItemWriteResult(null, errors);
@@ -111,22 +113,14 @@ internal sealed class ItemWriter(
         {
             item.HasUniquePermissions = true;
             item.ScopeId = item.Id;
-            db.Grants.AddRange(uniqueGrants.DistinctBy(g => (g.PrincipalType, g.PrincipalId)).Select(g => new PermissionGrant
-            {
-                Id = Ids.New(),
-                ListId = schema.List.Id,
-                ObjectId = item.Id,
-                PrincipalType = g.PrincipalType,
-                PrincipalId = g.PrincipalId,
-                Level = g.Level,
-            }));
+            db.AclEntries.AddRange(Acl.FromGrants(schema.List, item.Id, uniqueGrants));
         }
 
         db.Items.Add(item);
         var changed = Values(item).Select(p => p.Key).Order(StringComparer.Ordinal).ToList();
         await AddVersionAsync(schema, item, changed, ct);
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Adding, item, schema, changed)], cancellationToken: ct);
-        PublishChanged("added", schema, item);
+        await PublishChangedAsync("added", schema, item, ct);
         return new ItemWriteResult(item);
     }
 
@@ -140,7 +134,7 @@ internal sealed class ItemWriter(
             return ItemWriteResult.Invalid("contentTypeId", "The content type is not used by this list.");
         }
 
-        Guid? newScopeId = item.ScopeId;
+        var newScopeId = item.ScopeId;
         if (parentId.HasValue)
         {
             (var parentError, var parentScope) = await ValidateParentAsync(schema, parentId.Value, item, ct);
@@ -189,6 +183,7 @@ internal sealed class ItemWriter(
         }
 
         values = await FinalizeAsync(definitions, snapshot, context.After!, !item.IsFolder, errors, ct);
+        CheckIndexedValues(schema, values, errors);
         if (errors.Count > 0)
         {
             return new ItemWriteResult(null, errors);
@@ -213,11 +208,10 @@ internal sealed class ItemWriter(
         var scopeMoved = item.IsFolder && oldScopeId != item.ScopeId;
         await outbox.SaveChangesAsync(
             db, [Event(ItemEventKind.Updating, item, schema, changed)], scopeMoved ? [ScopeChange(schema, item, oldScopeId)] : null, ct);
-        PublishChanged("updated", schema, item);
+        await PublishChangedAsync("updated", schema, item, ct);
         if (scopeMoved)
         {
-            await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
-            await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, currentUser, schema.List.Id)], cancellationToken: ct);
+            await mover.MoveAsync(schema.List.Id, item.Id, oldScopeId, item.ScopeId, inline: true, ct);
         }
 
         return new ItemWriteResult(item);
@@ -240,7 +234,7 @@ internal sealed class ItemWriter(
 
         db.Items.Remove(item);
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Deleting, item, schema, [])], cancellationToken: ct);
-        PublishChanged("deleted", schema, item);
+        await PublishChangedAsync("deleted", schema, item, ct);
         return new ItemWriteResult(item);
     }
 
@@ -256,7 +250,7 @@ internal sealed class ItemWriter(
             item.ParentId = null;
             if (!item.HasUniquePermissions)
             {
-                item.ScopeId = null;
+                item.ScopeId = schema.List.Id;
             }
         }
 
@@ -276,11 +270,10 @@ internal sealed class ItemWriter(
         };
         var scopeMoved = item.IsFolder && oldScopeId != item.ScopeId;
         await outbox.SaveChangesAsync(db, [restored], scopeMoved ? [ScopeChange(schema, item, oldScopeId)] : null, ct);
-        PublishChanged("restored", schema, item);
+        await PublishChangedAsync("restored", schema, item, ct);
         if (scopeMoved)
         {
-            await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
-            await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, currentUser, schema.List.Id)], cancellationToken: ct);
+            await mover.MoveAsync(schema.List.Id, item.Id, oldScopeId, item.ScopeId, inline: true, ct);
         }
     }
 
@@ -324,7 +317,7 @@ internal sealed class ItemWriter(
     /// Saved with a folder whose permission scope changed: if the request stops before the items inside are reassigned
     /// (below, right after the save), the message completes it.
     /// </summary>
-    private CompleteFolderScopeChange ScopeChange(ListSchema schema, ListItem folder, Guid? oldScopeId) =>
+    private CompleteFolderScopeChange ScopeChange(ListSchema schema, ListItem folder, Guid oldScopeId) =>
         new(schema.List.Id, folder.Id, oldScopeId, folder.ScopeId, tenant.TenantId!.Value, tenant.TenantIdentifier!, currentUser.UserId);
 
     internal static JsonObject Values(ListItem item)
@@ -516,20 +509,38 @@ internal sealed class ItemWriter(
     /// <summary>
     /// Tells connected clients to reload this item. Ids only, to every user of the tenant: the API still decides who may read it.
     /// </summary>
-    private void PublishChanged(string kind, ListSchema schema, ListItem item)
+    /// <summary>Indexed multi-value fields take at most <see cref="FieldIndex.MaxValuesPerItem"/> values (ADR-0035).</summary>
+    private static void CheckIndexedValues(ListSchema schema, JsonObject values, Dictionary<string, string[]> errors)
+    {
+        foreach (var field in schema.List.IndexedFields.Where(f => f.Kind == IndexKind.Values))
+        {
+            if (values[field.Field] is JsonArray array && array.Count > FieldIndex.MaxValuesPerItem)
+            {
+                errors[field.Field] = [$"An indexed field takes at most {FieldIndex.MaxValuesPerItem} values."];
+            }
+        }
+    }
+
+    /// <summary>Tells connected clients who can read the item (the principals of its scope, ADR-0035) that it changed.</summary>
+    private async Task PublishChangedAsync(string kind, ListSchema schema, ListItem item, CancellationToken ct)
     {
         if (tenant.TenantId is not { } tenantId)
         {
             return;
         }
 
+        var scopeId = item.ScopeId;
+        var audience = await db.AclEntries.AsNoTracking().Where(e => e.ScopeId == scopeId).Select(e => e.PrincipalId).ToArrayAsync(ct);
         live.Publish(new LiveEvent("item.changed", tenantId, null, new
         {
             Kind = kind,
             WorkspaceId = schema.List.WorkspaceId,
             ListId = schema.List.Id,
             ItemId = item.Id,
-        }));
+        })
+        {
+            Audience = audience,
+        });
     }
 
     private ItemEvent Event(ItemEventKind kind, ListItem item, ListSchema schema, IReadOnlyList<string> changed)
@@ -584,11 +595,12 @@ internal sealed class ItemWriter(
     /// Checks the target folder (null = list root) and that the user may contribute
     /// there; returns the security scope items placed there inherit.
     /// </summary>
-    private async Task<(ItemWriteResult? Error, Guid? ScopeId)> ValidateParentAsync(ListSchema schema, Guid? parentId, ListItem? moving, CancellationToken ct)
+    private async Task<(ItemWriteResult? Error, Guid ScopeId)> ValidateParentAsync(ListSchema schema, Guid? parentId, ListItem? moving, CancellationToken ct)
     {
+        var listScope = schema.List.Id;
         if (parentId is not { } id)
         {
-            return (schema.Access.Level(null) < WorkspaceAccessLevel.Contribute ? ItemWriteResult.Denied : null, null);
+            return (schema.Access.ListLevel < WorkspaceAccessLevel.Contribute ? ItemWriteResult.Denied : null, listScope);
         }
 
         var parent = await db.Items.AsNoTracking()
@@ -597,12 +609,12 @@ internal sealed class ItemWriter(
             .FirstOrDefaultAsync(ct);
         if (parent is null || schema.Access.Level(parent.ScopeId) < WorkspaceAccessLevel.Read)
         {
-            return (ItemWriteResult.Invalid("parentId", "The parent must be a folder in the same list."), null);
+            return (ItemWriteResult.Invalid("parentId", "The parent must be a folder in the same list."), listScope);
         }
 
         if (schema.Access.Level(parent.ScopeId) < WorkspaceAccessLevel.Contribute)
         {
-            return (ItemWriteResult.Denied, null);
+            return (ItemWriteResult.Denied, listScope);
         }
 
         if (moving is { IsFolder: true })
@@ -613,7 +625,7 @@ internal sealed class ItemWriter(
             {
                 if (current == moving.Id)
                 {
-                    return (ItemWriteResult.Invalid("parentId", "A folder cannot be moved into itself."), null);
+                    return (ItemWriteResult.Invalid("parentId", "A folder cannot be moved into itself."), listScope);
                 }
 
                 var next = current;

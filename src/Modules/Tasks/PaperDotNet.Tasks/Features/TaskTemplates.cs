@@ -18,11 +18,11 @@ public static class TaskTemplates
 
     public static readonly ContentTypeTemplate ContentType = new(ContentTypeKey, "Task", "Something to do, with status, priority, dates and assignees.",
     [
-        Field("status", "Status", "choice", f => { f.Choices = ["notStarted", "inProgress", Completed]; f.DefaultValue = "\"notStarted\""; }),
-        Field("priority", "Priority", "choice", f => { f.Choices = ["low", "normal", "high"]; f.DefaultValue = "\"normal\""; }),
+        Field("status", "Status", "choice", f => { f.Choices = ["notStarted", "inProgress", Completed]; f.DefaultValue = "\"notStarted\""; f.Indexed = true; }),
+        Field("priority", "Priority", "choice", f => { f.Choices = ["low", "normal", "high"]; f.DefaultValue = "\"normal\""; f.Indexed = true; }),
         Field("startDate", "Start date", "date"),
-        Field("dueDate", "Due date", "date"),
-        Field("assignedTo", "Assigned to", "person", f => f.AllowMultiple = true),
+        Field("dueDate", "Due date", "date", f => f.Indexed = true),
+        Field("assignedTo", "Assigned to", "person", f => { f.AllowMultiple = true; f.Indexed = true; }),
         Field("percentComplete", "% complete", "number", f => { f.Minimum = 0; f.Maximum = 100; }),
         Field("description", "Description", "note"),
     ]);

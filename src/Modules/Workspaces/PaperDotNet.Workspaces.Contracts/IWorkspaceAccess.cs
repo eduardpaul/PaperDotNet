@@ -37,6 +37,12 @@ public interface IWorkspaceAccess
     /// </summary>
     Task<IReadOnlyList<WorkspaceMembership>> GetMyWorkspacesAsync(CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The workspaces of <paramref name="userId"/> and the level (all with Manage for administrators). Takes the user
+    /// explicitly, so it also works where there is no current user (e.g. inside a cache factory).
+    /// </summary>
+    Task<IReadOnlyList<WorkspaceMembership>> GetMembershipsAsync(Guid userId, CancellationToken cancellationToken);
+
     /// <summary>Names of workspaces by id (unknown ids are left out), e.g. to reference lists by name in templates.</summary>
     Task<IReadOnlyDictionary<Guid, string>> GetNamesAsync(IReadOnlyCollection<Guid> workspaceIds, CancellationToken cancellationToken);
 

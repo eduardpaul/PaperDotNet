@@ -132,9 +132,10 @@ public sealed class ListsTests(PaperDotNetApiFactory factory)
     [Theory]
     [InlineData("")]
     [InlineData("$orderby=fields/amount")]
+    [InlineData("$orderby=isFolder desc,fields/title")]
     public async Task Item_queries_page_with_next_links(string order)
     {
-        var (client, ws, list, _) = await SetupAsync($"items-paging-{(order.Length == 0 ? "keyset" : "offset")}");
+        var (client, ws, list, _) = await SetupAsync($"items-paging-{(order.Length == 0 ? "keyset" : order.Contains("title", StringComparison.Ordinal) ? "sorted" : "offset")}");
         for (var i = 1; i <= 5; i++)
         {
             await client.CreateItemAsync(ws, list, new { fields = new { title = $"INV-{i}", amount = i } });
@@ -146,7 +147,9 @@ public sealed class ListsTests(PaperDotNetApiFactory factory)
         while (url is not null)
         {
             var body = await (await client.GetAsync(url, Ct)).ReadJsonAsync();
-            Assert.Equal(5, body.GetProperty("@odata.count").GetInt32());
+
+            // The total comes with the first page only (issue 0001).
+            Assert.Equal(pages == 0 ? 5 : (int?)null, body.TryGetProperty("@odata.count", out var count) ? count.GetInt32() : null);
             titles.AddRange(body.GetProperty("value").EnumerateArray().Select(i => i.GetProperty("fields").GetProperty("title").GetString()!));
             url = body.TryGetProperty("@odata.nextLink", out var next) ? new Uri(next.GetString()!).PathAndQuery : null;
             pages++;

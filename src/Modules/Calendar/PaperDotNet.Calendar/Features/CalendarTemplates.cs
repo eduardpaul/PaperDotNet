@@ -17,11 +17,11 @@ public static class CalendarTemplates
 
     public static readonly ContentTypeTemplate ContentType = new(CalendarService.EventKey, "Event", "A calendar event with attendees and a reminder.",
     [
-        Field("start", "Start", "dateTime", f => f.Required = true),
-        Field("end", "End", "dateTime"),
+        Field("start", "Start", "dateTime", f => { f.Required = true; f.Indexed = true; }),
+        Field("end", "End", "dateTime", f => f.Indexed = true),
         Field("allDay", "All day", "boolean"),
         Field("location", "Location", "text"),
-        Field("attendees", "Attendees", "person", f => f.AllowMultiple = true),
+        Field("attendees", "Attendees", "person", f => { f.AllowMultiple = true; f.Indexed = true; }),
         Field("reminderMinutes", "Reminder (minutes before)", "number", f => { f.Minimum = 0; f.Maximum = 40320; }),
         Field("description", "Description", "note"),
     ]);

@@ -12,10 +12,7 @@ using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
-/// <summary>
-/// The search index of a list must be rebuilt: the list was deleted or its
-/// permissions (or the scopes of many items) changed.
-/// </summary>
+/// <summary>The search index of a list must be rebuilt (e.g. the list was deleted). Permission changes do not need it.</summary>
 public sealed record ListIndexInvalidated : IntegrationEvent
 {
     public required Guid ListId { get; init; }
@@ -29,7 +26,7 @@ public sealed record ListIndexInvalidated : IntegrationEvent
     };
 }
 
-/// <summary>Builds search documents for list items: text of the fields, term labels, and who may read them.</summary>
+/// <summary>Builds search documents for list items: text of the fields, term labels, and the item's permission scope.</summary>
 internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore terms, ISearchIndex index, IEnumerable<IItemSearchContributor> contributors) : ISearchSource
 {
     public const string ItemSourceType = "listItem";
@@ -62,6 +59,16 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
         }
 
         await index.UpsertAsync(await BuildAsync(list, [item], ct), ct);
+    }
+
+    /// <summary>Gives the documents of these items their items' current permission scope; text and embeddings stay.</summary>
+    public async Task UpdateScopesAsync(IReadOnlyList<Guid> itemIds, CancellationToken ct)
+    {
+        var ids = itemIds.ToArray();
+        var scopes = await db.Items.AsNoTracking()
+            .Where(i => EF.Parameter(ids).Contains(i.Id) && !i.IsFolder)
+            .ToDictionaryAsync(i => i.Id, i => i.ScopeId, ct);
+        await index.SetScopesAsync(scopes, ct);
     }
 
     /// <summary>Replaces the documents of a list (none when the list is deleted).</summary>
@@ -99,10 +106,6 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
         var contentTypeIds = items.Select(i => i.ContentTypeId).Distinct().ToList();
         var fields = (await db.ContentTypes.AsNoTracking().Where(c => contentTypeIds.Contains(c.Id)).ToListAsync(ct))
             .ToDictionary(c => c.Id, c => c.Fields);
-        var scopes = items.Select(i => i.ScopeId ?? list.Id).Distinct().ToList();
-        var grants = (list.HasUniquePermissions || items.Any(i => i.ScopeId is not null))
-            ? (await db.Grants.AsNoTracking().Where(g => scopes.Contains(g.ObjectId)).ToListAsync(ct)).ToLookup(g => g.ObjectId)
-            : Enumerable.Empty<PermissionGrant>().ToLookup(g => g.ObjectId);
 
         var values = items.ToDictionary(i => i.Id, i => JsonNode.Parse(i.Fields)!.AsObject());
         var termIds = new HashSet<Guid>();
@@ -180,28 +183,13 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
 
             return new SearchDocumentData(
                 item.Id, ItemSourceType, list.WorkspaceId, list.Id, item.ContentTypeId, item.Title, body.ToString(),
-                Principals(list, item, grants), itemTerms, item.CreatedBy, item.UpdatedAt)
+                item.ScopeId, itemTerms, item.CreatedBy, item.UpdatedAt)
             {
                 Keywords = keywords.ToString(),
                 Language = language,
                 Pages = pages,
             };
         }).ToList();
-    }
-
-    /// <summary>Who may read the item (same rules as <see cref="ListAccess"/>, ADR-0011).</summary>
-    private static List<string> Principals(ListDefinition list, ListItem item, ILookup<Guid, PermissionGrant> grants)
-    {
-        var principals = new List<string> { SearchPrincipals.WorkspaceOwner(list.WorkspaceId) };
-        if (item.ScopeId is null && !list.HasUniquePermissions)
-        {
-            principals.Add(SearchPrincipals.WorkspaceMember(list.WorkspaceId));
-            return principals;
-        }
-
-        principals.AddRange(grants[item.ScopeId ?? list.Id].Select(g =>
-            g.PrincipalType == PrincipalType.User ? SearchPrincipals.User(g.PrincipalId) : SearchPrincipals.Group(g.PrincipalId)));
-        return principals;
     }
 
     private static IEnumerable<Guid> Ids(JsonNode? value) => value switch
@@ -222,7 +210,7 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
 /// <summary>Keeps the search index in sync with item and list changes (asynchronous, idempotent).</summary>
 internal sealed class ItemSearchIndexer(ListItemSearchDocuments documents)
     : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemRestored>, IEventSubscriber<ItemDeleted>,
-      IEventSubscriber<ListIndexInvalidated>
+      IEventSubscriber<ListIndexInvalidated>, IEventSubscriber<ItemScopesChanged>
 {
     public Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken) =>
         documents.IndexItemAsync(integrationEvent.ItemId, cancellationToken);
@@ -238,4 +226,7 @@ internal sealed class ItemSearchIndexer(ListItemSearchDocuments documents)
 
     public Task HandleAsync(ListIndexInvalidated integrationEvent, CancellationToken cancellationToken) =>
         documents.IndexListAsync(integrationEvent.ListId, cancellationToken);
+
+    public Task HandleAsync(ItemScopesChanged integrationEvent, CancellationToken cancellationToken) =>
+        documents.UpdateScopesAsync(integrationEvent.ItemIds, cancellationToken);
 }

@@ -22,6 +22,9 @@ public sealed class SearchDocument : ITenantOwned
 
     public Guid? ContentTypeId { get; set; }
 
+    /// <summary>Permission scope (ADR-0035): the document is found by callers who can read this scope.</summary>
+    public Guid ScopeId { get; set; }
+
     public required string Title { get; set; }
 
     /// <summary>High-weight text (SRC-06).</summary>
@@ -35,17 +38,6 @@ public sealed class SearchDocument : ITenantOwned
     public Guid? CreatedBy { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
-}
-
-/// <summary>A principal allowed to read a document (security trimming, SRC-04).</summary>
-[NotAudited]
-public sealed class SearchPrincipal : ITenantOwned
-{
-    public Guid DocumentId { get; set; }
-
-    public required string Principal { get; set; }
-
-    public Guid TenantId { get; set; }
 }
 
 /// <summary>A term (tag) of a document, for facets and hierarchical tag filters (SRC-03).</summary>
@@ -105,8 +97,6 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
 
     public DbSet<SearchDocument> Documents => Set<SearchDocument>();
 
-    public DbSet<SearchPrincipal> Principals => Set<SearchPrincipal>();
-
     public DbSet<SearchTag> Tags => Set<SearchTag>();
 
     public DbSet<SearchPassage> Passages => Set<SearchPassage>();
@@ -120,16 +110,10 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
             b.Property(d => d.SourceType).HasMaxLength(50);
             b.Property(d => d.Title).HasMaxLength(1024);
             b.HasIndex(d => new { d.TenantId, d.ContainerId });
+            b.HasIndex(d => new { d.ScopeId, d.Id });
             b.Property(d => d.Language).HasMaxLength(20);
             b.HasFullTextIndex(nameof(SearchDocument.Title), nameof(SearchDocument.Keywords), nameof(SearchDocument.Body));
             b.HasFullTextLanguage(nameof(SearchDocument.Language));
-        });
-        modelBuilder.Entity<SearchPrincipal>(b =>
-        {
-            b.ToTable("document_principals");
-            b.HasKey(p => new { p.DocumentId, p.Principal });
-            b.Property(p => p.Principal).HasMaxLength(40);
-            b.HasIndex(p => new { p.Principal, p.DocumentId });
         });
         modelBuilder.Entity<SearchTag>(b =>
         {

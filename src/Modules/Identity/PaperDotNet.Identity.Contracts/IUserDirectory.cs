@@ -16,7 +16,7 @@ public interface IUserDirectory
 
     Task<bool> AnyUsersAsync(CancellationToken cancellationToken);
 
-    /// <summary>Groups the user belongs to (for permission checks).</summary>
+    /// <summary>Groups the user belongs to, directly or through groups inside groups (for permission checks).</summary>
     Task<IReadOnlyList<Guid>> GetGroupIdsAsync(Guid userId, CancellationToken cancellationToken);
 
     Task<bool> GroupExistsAsync(Guid groupId, CancellationToken cancellationToken);
@@ -27,7 +27,7 @@ public interface IUserDirectory
     /// <summary>Group names by id (unknown ids are left out).</summary>
     Task<IReadOnlyDictionary<Guid, string>> GetGroupNamesAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken cancellationToken);
 
-    /// <summary>Enabled members of a group.</summary>
+    /// <summary>Enabled members of a group, including the members of groups inside it.</summary>
     Task<IReadOnlyList<Guid>> GetGroupMembersAsync(Guid groupId, CancellationToken cancellationToken);
 
     /// <summary>The user with this user name in the current tenant, if any.</summary>

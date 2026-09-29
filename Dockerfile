@@ -18,7 +18,7 @@ COPY global.json Directory.Build.props Directory.Packages.props PaperDotNet.slnx
 COPY src/ src/
 # Framework-dependent ReadyToRun for linux-x64 (the aspnet runtime image). Not Native AOT:
 # the host still loads handlers by reflection.
-RUN dotnet restore src/PaperDotNet.Host/PaperDotNet.Host.csproj -r linux-x64
+RUN dotnet restore src/PaperDotNet.Host/PaperDotNet.Host.csproj -r linux-x64 -p:PublishReadyToRun=true
 RUN dotnet publish src/PaperDotNet.Host/PaperDotNet.Host.csproj -c Release -r linux-x64 --self-contained false -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime

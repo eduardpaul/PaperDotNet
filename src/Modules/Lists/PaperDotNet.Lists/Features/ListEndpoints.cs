@@ -175,10 +175,10 @@ internal static class ListEndpoints
         await db.SaveChangesAsync(ct);
         if (template is not null)
         {
-            await CreateViewsAsync(db, runner, new ListSchema(list, contentTypes, FullAccess), template, ct);
+            await CreateViewsAsync(db, runner, new ListSchema(list, contentTypes, ListAccess.Full(list.Id)), template, ct);
         }
         ETags.Set(response, list.Version);
-        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/lists/{list.Id}", ToResponse(new ListSchema(list, contentTypes, FullAccess)));
+        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/lists/{list.Id}", ToResponse(new ListSchema(list, contentTypes, ListAccess.Full(list.Id))));
     }
 
     private static async Task<Results<Ok<ListResponse>, ProblemHttpResult>> GetAsync(
@@ -373,8 +373,6 @@ internal static class ListEndpoints
         await db.SaveChangesAsync(ct);
         return item.Id;
     }
-
-    private static readonly ListAccess FullAccess = new(WorkspaceAccessLevel.Manage, fullControl: true, new Dictionary<Guid, WorkspaceAccessLevel>());
 
     private static async Task CreateViewsAsync(ListsDbContext db, ItemQueryRunner runner, ListSchema schema, ListTemplateDefinition template, CancellationToken ct)
     {

@@ -1536,6 +1536,165 @@
         }
       }
     },
+    "/v1.0/groups/{id}/groups": {
+      "get": {
+        "tags": [
+          "Groups"
+        ],
+        "operationId": "ListNestedGroups",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroupResponse"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "operationId": "AddNestedGroup",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddNestedGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/groups/{id}/groups/{memberGroupId}": {
+      "delete": {
+        "tags": [
+          "Groups"
+        ],
+        "operationId": "RemoveNestedGroup",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "memberGroupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/roles": {
       "get": {
         "tags": [
@@ -5458,6 +5617,84 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeltaPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/counts": {
+      "get": {
+        "tags": [
+          "Items"
+        ],
+        "operationId": "CountItemValues",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "field",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValueCountsResponse"
                 }
               }
             }
@@ -14538,6 +14775,16 @@
   },
   "components": {
     "schemas": {
+      "AclPrincipalType": {
+        "enum": [
+          "user",
+          "group",
+          "workspaceVisitors",
+          "workspaceMembers",
+          "workspaceOwners"
+        ],
+        "description": "Who a permission entry gives access to: a user, a group, or a role of the list\u0027s workspace."
+      },
       "ActivityResponse": {
         "required": [
           "id",
@@ -14630,6 +14877,19 @@
             "format": "uuid"
           }
         }
+      },
+      "AddNestedGroupRequest": {
+        "required": [
+          "groupId"
+        ],
+        "type": "object",
+        "properties": {
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "description": "A group to put inside another group: its members become members of that group too."
       },
       "AddWorkspaceMemberRequest": {
         "required": [
@@ -17277,6 +17537,10 @@
                 "$ref": "#/components/schemas/FieldSearchWeight"
               }
             ]
+          },
+          "indexed": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -19171,7 +19435,7 @@
         "type": "object",
         "properties": {
           "principalType": {
-            "$ref": "#/components/schemas/PrincipalType"
+            "$ref": "#/components/schemas/AclPrincipalType"
           },
           "principalId": {
             "type": "string",
@@ -19180,7 +19444,8 @@
           "level": {
             "$ref": "#/components/schemas/WorkspaceAccessLevel"
           }
-        }
+        },
+        "description": "A permission entry. For workspace roles (\u0060workspaceVisitors\u0060, \u0060workspaceMembers\u0060, \u0060workspaceOwners\u0060)\nthe principal id is the workspace id."
       },
       "PermissionsResponse": {
         "required": [
@@ -21213,6 +21478,40 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "ValueCount": {
+        "required": [
+          "value",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "description": "How many readable items have a value: the stored value as text (a choice, a number, a date, or a person, lookup\nor term id), or null for items without one."
+      },
+      "ValueCountsResponse": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValueCount"
+            }
           }
         }
       },

@@ -287,6 +287,7 @@ internal static class AccountEndpoints
 
         db.Groups.Remove(group);
         db.GroupMembers.RemoveRange(await db.GroupMembers.Where(m => m.GroupId == id).ToListAsync(ct));
+        db.GroupNestings.RemoveRange(await db.GroupNestings.Where(n => n.GroupId == id || n.MemberGroupId == id).ToListAsync(ct));
         db.RoleAssignments.RemoveRange(await db.RoleAssignments.Where(a => a.PrincipalType == PrincipalType.Group && a.PrincipalId == id).ToListAsync(ct));
         await outbox.SaveChangesAsync(db, [Deleted(tenant, current, id, isGroup: true)], cancellationToken: ct);
         await sessions.InvalidateScopesAsync(ct);
@@ -415,7 +416,7 @@ internal static class AdministratorGuard
 {
     /// <summary>
     /// True when at least one enabled user still holds a role that grants every scope once the given user,
-    /// assignment, group or membership is gone.
+    /// assignment, group, membership or nesting is gone (roles of a group reach the groups inside it).
     /// </summary>
     public static async Task<bool> RemainsAsync(
         IdentityDbContext db,
@@ -423,6 +424,7 @@ internal static class AdministratorGuard
         Guid? withoutAssignment = null,
         Guid? withoutGroup = null,
         (Guid Group, Guid User)? withoutMembership = null,
+        (Guid Group, Guid MemberGroup)? withoutNesting = null,
         CancellationToken ct = default)
     {
         var assignments = await db.RoleAssignments.AsNoTracking()
@@ -430,8 +432,25 @@ internal static class AdministratorGuard
             .ToListAsync(ct);
         assignments.RemoveAll(a => a.PrincipalType == PrincipalType.Group && a.PrincipalId == withoutGroup);
 
+        // Administrator groups and every group inside them, without the removed group or nesting.
+        var nestings = (await db.GroupNestings.AsNoTracking().ToListAsync(ct))
+            .Where(n => n.GroupId != withoutGroup && n.MemberGroupId != withoutGroup
+                        && (withoutNesting is not { } cut || n.GroupId != cut.Group || n.MemberGroupId != cut.MemberGroup))
+            .ToLookup(n => n.GroupId, n => n.MemberGroupId);
+        var groupIds = new HashSet<Guid>();
+        var pending = new Stack<Guid>(assignments.Where(a => a.PrincipalType == PrincipalType.Group).Select(a => a.PrincipalId));
+        while (pending.TryPop(out var group))
+        {
+            if (groupIds.Add(group))
+            {
+                foreach (var member in nestings[group])
+                {
+                    pending.Push(member);
+                }
+            }
+        }
+
         var userIds = assignments.Where(a => a.PrincipalType == PrincipalType.User).Select(a => a.PrincipalId).ToHashSet();
-        var groupIds = assignments.Where(a => a.PrincipalType == PrincipalType.Group).Select(a => a.PrincipalId).ToList();
         var members = await db.GroupMembers.AsNoTracking().Where(m => groupIds.Contains(m.GroupId)).ToListAsync(ct);
         userIds.UnionWith(members
             .Where(m => withoutMembership is not { } gone || m.GroupId != gone.Group || m.UserId != gone.User)

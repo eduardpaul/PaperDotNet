@@ -56,6 +56,8 @@ namespace PaperDotNet.Client.Models
 #else
         public string DisplayName { get; set; }
 #endif
+        /// <summary>The indexed property</summary>
+        public bool? Indexed { get; set; }
         /// <summary>The lookupListId property</summary>
         public Guid? LookupListId { get; set; }
         /// <summary>The maximum property</summary>
@@ -93,6 +95,7 @@ namespace PaperDotNet.Client.Models
         {
             AdditionalData = new Dictionary<string, object>();
             AllowMultiple = false;
+            Indexed = false;
             Required = false;
         }
         /// <summary>
@@ -119,6 +122,7 @@ namespace PaperDotNet.Client.Models
                 { "defaultValue", n => { DefaultValue = n.GetObjectValue<UntypedNode>(UntypedNode.CreateFromDiscriminatorValue); } },
                 { "description", n => { Description = n.GetStringValue(); } },
                 { "displayName", n => { DisplayName = n.GetStringValue(); } },
+                { "indexed", n => { Indexed = n.GetBoolValue(); } },
                 { "lookupListId", n => { LookupListId = n.GetGuidValue(); } },
                 { "maxLength", n => { MaxLength = n.GetIntValue(); } },
                 { "maximum", n => { Maximum = n.GetDoubleValue(); } },
@@ -143,6 +147,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteObjectValue<UntypedNode>("defaultValue", DefaultValue);
             writer.WriteStringValue("description", Description);
             writer.WriteStringValue("displayName", DisplayName);
+            writer.WriteBoolValue("indexed", Indexed);
             writer.WriteGuidValue("lookupListId", LookupListId);
             writer.WriteDoubleValue("maximum", Maximum);
             writer.WriteIntValue("maxLength", MaxLength);

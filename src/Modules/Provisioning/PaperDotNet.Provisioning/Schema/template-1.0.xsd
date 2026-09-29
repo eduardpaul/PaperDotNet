@@ -106,11 +106,8 @@
 
   <xs:complexType name="Group">
     <xs:sequence>
-      <xs:element name="Member" minOccurs="0" maxOccurs="unbounded">
-        <xs:complexType>
-          <xs:attribute name="User" type="Name" use="required" />
-        </xs:complexType>
-      </xs:element>
+      <!-- A user, or a group inside this group (its members are members of this group too). -->
+      <xs:element name="Member" type="Principal" minOccurs="0" maxOccurs="unbounded" />
     </xs:sequence>
     <xs:attribute name="Name" type="Name" use="required" />
     <xs:attribute name="Description" type="xs:string" />
@@ -262,6 +259,8 @@
               <xs:complexType>
                 <xs:complexContent>
                   <xs:extension base="Principal">
+                    <!-- Or a role of the list's workspace: everyone who has it (owners always manage). -->
+                    <xs:attribute name="Role" type="WorkspaceRoleGroup" />
                     <xs:attribute name="Level" type="AccessLevel" use="required" />
                   </xs:extension>
                 </xs:complexContent>
@@ -366,6 +365,14 @@
       <xs:enumeration value="Read" />
       <xs:enumeration value="Contribute" />
       <xs:enumeration value="Manage" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="WorkspaceRoleGroup">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Visitors" />
+      <xs:enumeration value="Members" />
+      <xs:enumeration value="Owners" />
     </xs:restriction>
   </xs:simpleType>
 

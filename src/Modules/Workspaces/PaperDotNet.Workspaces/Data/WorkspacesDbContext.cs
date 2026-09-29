@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Hybrid;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Workspaces.Data;
 
-public sealed class WorkspacesDbContext(DbContextOptions<WorkspacesDbContext> options, ITenantContext tenant)
+public sealed class WorkspacesDbContext(DbContextOptions<WorkspacesDbContext> options, ITenantContext tenant, HybridCache? cache = null)
     : DbContext(options), ITenantScopedDbContext
 {
     public const string Schema = "workspaces";
@@ -14,6 +15,24 @@ public sealed class WorkspacesDbContext(DbContextOptions<WorkspacesDbContext> op
     public DbSet<Workspace> Workspaces => Set<Workspace>();
 
     public DbSet<WorkspaceMember> Members => Set<WorkspaceMember>();
+
+    /// <summary>
+    /// Saves, and evicts the cached principals of the tenant when memberships changed or a workspace was added
+    /// (administrators own every workspace), so access checks see the change at once (ADR-0035).
+    /// </summary>
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        var membershipsChanged = ChangeTracker.Entries().Any(e =>
+            (e.Entity is WorkspaceMember && e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            || (e.Entity is Workspace && e.State == EntityState.Added));
+        var saved = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        if (membershipsChanged && cache is not null && tenant.TenantId is { } tenantId)
+        {
+            await cache.RemoveByTagAsync(AccessCacheTags.Principals(tenantId), cancellationToken);
+        }
+
+        return saved;
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -4,6 +4,7 @@ using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
+using PaperDotNet.Client.V10.Groups.Item.Groups;
 using PaperDotNet.Client.V10.Groups.Item.Inbox;
 using PaperDotNet.Client.V10.Groups.Item.Members;
 using System.Collections.Generic;
@@ -19,6 +20,11 @@ namespace PaperDotNet.Client.V10.Groups.Item
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class GroupsItemRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The groups property</summary>
+        public global::PaperDotNet.Client.V10.Groups.Item.Groups.GroupsRequestBuilder Groups
+        {
+            get => new global::PaperDotNet.Client.V10.Groups.Item.Groups.GroupsRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The inbox property</summary>
         public global::PaperDotNet.Client.V10.Groups.Item.Inbox.InboxRequestBuilder Inbox
         {

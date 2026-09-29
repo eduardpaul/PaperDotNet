@@ -11,7 +11,7 @@ namespace PaperDotNet.UnitTests;
 public sealed class SemanticSearchTests
 {
     private static SearchDocumentData Document(string body, params string[] pages) =>
-        new(Guid.NewGuid(), "listItem", Guid.NewGuid(), null, null, "Title", body, [], [], null, DateTimeOffset.UnixEpoch) { Pages = pages };
+        new(Guid.NewGuid(), "listItem", Guid.NewGuid(), null, null, "Title", body, Guid.NewGuid(), [], null, DateTimeOffset.UnixEpoch) { Pages = pages };
 
     [Fact]
     public void Documents_split_into_overlapping_passages_with_pages()

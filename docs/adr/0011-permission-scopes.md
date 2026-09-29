@@ -1,6 +1,8 @@
 # ADR-0011: Permission inheritance with security scopes
 
-**Status:** Accepted (2026-09-24)
+**Status:** Accepted (2026-09-24). The evaluation (loading every unique scope of the list per
+request), the grants table and the inline fan-out are replaced by
+[ADR-0035](0035-item-storage-and-permissions-at-scale.md); the scope model stays.
 
 ## Context
 IAM-07 asks for permissions that flow workspace → list → folder → item, with

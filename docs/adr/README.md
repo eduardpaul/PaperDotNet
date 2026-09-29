@@ -15,8 +15,8 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0008](0008-wolverine-for-reliable-events.md) | Wolverine for reliable events (outbox) | Accepted |
 | [0009](0009-sqlite-default-postgresql-optional.md) | SQLite by default, PostgreSQL optional | Accepted |
 | [0010](0010-recurring-jobs-scheduler.md) | Recurring jobs with a small scheduler + Cronos (instead of Quartz.NET) | Accepted |
-| [0011](0011-permission-scopes.md) | Permission inheritance with security scopes | Accepted |
-| [0012](0012-full-text-search.md) | Full-text search in the database (FTS5 / tsvector) with principal trimming | Accepted |
+| [0011](0011-permission-scopes.md) | Permission inheritance with security scopes | Accepted (evaluation replaced by 0035) |
+| [0012](0012-full-text-search.md) | Full-text search in the database (FTS5 / tsvector) with principal trimming | Accepted (trimming replaced by 0035) |
 | [0013](0013-openiddict-passkeys-rls.md) | OpenIddict, passkeys, row-level security and Data Protection in the database | Accepted |
 | [0014](0014-build-time-extensions.md) | Build-time extensions (no runtime plugin loading) | Accepted |
 | [0015](0015-documents-on-the-sdk.md) | Documents built on the SDK, content-addressed file storage | Accepted |
@@ -39,3 +39,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0032](0032-sdk-for-first-party-clients.md) | Generated SDKs good enough for our own frontend: complete OpenAPI, ETags in bodies, thin runtime (auth, SSE, paging, files), end-to-end tests | Accepted |
 | [0033](0033-web-frontend.md) | Web frontend on the TypeScript SDK with React, TanStack Router/Query/Table and Tailwind, served by the host from the same origin | Accepted |
 | [0034](0034-optional-glm-ocr.md) | Optional GLM-OCR image; Tesseract stays the default OCR engine | Accepted |
+| [0035](0035-item-storage-and-permissions-at-scale.md) | Item storage and permissions at scale: scope ACL looked up by principal, nested groups, promoted field columns and a value table, scope-based search and fan-out | Accepted (implemented) |

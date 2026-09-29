@@ -1,0 +1,93 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/PaperDotNet.Host/PaperDotNet.Host.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile",
+            "group": { "kind": "build", "isDefault": true }
+        },
+        {
+            "label": "watch: api",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "watch",
+                "run",
+                "--project",
+                "${workspaceFolder}/src/PaperDotNet.Host/PaperDotNet.Host.csproj",
+                "--non-interactive"
+            ],
+            "isBackground": true,
+            "problemMatcher": {
+                "base": "$msCompile",
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.*watch.*Started",
+                    "endsPattern": "^.*(Now listening on|Hot reload enabled).*"
+                }
+            },
+            "options": {
+                "env": {
+                    "ASPNETCORE_ENVIRONMENT": "Development",
+                    "ASPNETCORE_URLS": "http://localhost:5080",
+                    "DOTNET_USE_POLLING_FILE_WATCHER": "1"
+                }
+            },
+            "presentation": { "reveal": "always", "panel": "dedicated", "group": "fullstack" }
+        },
+        {
+            "label": "wait: api",
+            "type": "process",
+            "command": "curl",
+            "args": [
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--retry",
+                "120",
+                "--retry-delay",
+                "1",
+                "--retry-connrefused",
+                "http://localhost:5080/health/ready"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "web: dev",
+            "type": "npm",
+            "script": "dev",
+            "path": "web",
+            "dependsOn": "wait: api",
+            "dependsOrder": "sequence",
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^(ERROR|error)(.*)$",
+                    "file": 1,
+                    "location": 2,
+                    "message": 0
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "VITE",
+                    "endsPattern": "ready in|Local:"
+                }
+            },
+            "presentation": { "reveal": "always", "panel": "dedicated", "group": "fullstack" }
+        },
+        {
+            "label": "npm: install (root)",
+            "type": "npm",
+            "script": "install",
+            "problemMatcher": []
+        }
+    ]
+}

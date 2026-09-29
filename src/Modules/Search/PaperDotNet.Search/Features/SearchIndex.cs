@@ -38,7 +38,6 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
     {
         var ids = documents.Select(d => d.Id).ToList();
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        await db.Principals.Where(p => ids.Contains(p.DocumentId)).ExecuteDeleteAsync(cancellationToken);
         await db.Tags.Where(t => ids.Contains(t.DocumentId)).ExecuteDeleteAsync(cancellationToken);
         var existing = await db.Documents.Where(d => ids.Contains(d.Id)).ToDictionaryAsync(d => d.Id, cancellationToken);
         var passages = (await db.Passages.Where(p => ids.Contains(p.DocumentId)).ToListAsync(cancellationToken)).ToLookup(p => p.DocumentId);
@@ -54,6 +53,7 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
             document.WorkspaceId = data.WorkspaceId;
             document.ContainerId = data.ContainerId;
             document.ContentTypeId = data.ContentTypeId;
+            document.ScopeId = data.ScopeId;
             document.Title = data.Title.Length > 1024 ? data.Title[..1024] : data.Title;
             var body = data.Pages.Count == 0 ? data.Body : $"{data.Body}\n{string.Join('\n', data.Pages)}";
             document.Body = body.Length > MaxBodyLength ? body[..MaxBodyLength] : body;
@@ -61,7 +61,6 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
             document.Language = FullTextLanguages.All.Contains(data.Language ?? string.Empty) ? data.Language : null;
             document.CreatedBy = data.CreatedBy;
             document.UpdatedAt = data.UpdatedAt;
-            db.Principals.AddRange(data.Principals.Distinct(StringComparer.Ordinal).Select(p => new SearchPrincipal { DocumentId = data.Id, Principal = p }));
             db.Tags.AddRange(data.TermIds.Distinct().Select(t => new SearchTag { DocumentId = data.Id, TermId = t }));
             UpdatePassages(data, document.Title, document.Language, passages[data.Id]);
         }
@@ -107,9 +106,21 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
     public async Task DeleteAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
     {
         await db.Passages.Where(p => ids.Contains(p.DocumentId)).ExecuteDeleteAsync(cancellationToken);
-        await db.Principals.Where(p => ids.Contains(p.DocumentId)).ExecuteDeleteAsync(cancellationToken);
         await db.Tags.Where(t => ids.Contains(t.DocumentId)).ExecuteDeleteAsync(cancellationToken);
         await db.Documents.Where(d => ids.Contains(d.Id)).ExecuteDeleteAsync(cancellationToken);
+    }
+
+    public async Task SetScopesAsync(IReadOnlyDictionary<Guid, Guid> scopes, CancellationToken cancellationToken)
+    {
+        foreach (var group in scopes.GroupBy(s => s.Value, s => s.Key))
+        {
+            var scopeId = group.Key;
+            foreach (var chunk in group.Chunk(1000))
+            {
+                await db.Documents.Where(d => chunk.Contains(d.Id) && d.ScopeId != scopeId)
+                    .ExecuteUpdateAsync(u => u.SetProperty(d => d.ScopeId, scopeId), cancellationToken);
+            }
+        }
     }
 
     public async Task DeleteContainerAsync(Guid containerId, CancellationToken cancellationToken) =>
@@ -121,7 +132,6 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
     private async Task DeleteWhereAsync(IQueryable<SearchDocument> documents, CancellationToken ct)
     {
         await db.Passages.Where(p => documents.Any(d => d.Id == p.DocumentId)).ExecuteDeleteAsync(ct);
-        await db.Principals.Where(p => documents.Any(d => d.Id == p.DocumentId)).ExecuteDeleteAsync(ct);
         await db.Tags.Where(t => documents.Any(d => d.Id == t.DocumentId)).ExecuteDeleteAsync(ct);
         await documents.ExecuteDeleteAsync(ct);
     }

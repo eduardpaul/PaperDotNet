@@ -150,13 +150,15 @@ public static class PaperDotNetHost
             o.AddSchemaTransformer<SdkSchemaTransformer>();
             o.AddDocumentTransformer<SdkDocumentTransformer>();
         });
+        // Requests per minute per user (or address); RateLimit:PermitPerMinute raises it, e.g. for load tests.
+        var permitPerMinute = builder.Configuration.GetValue("RateLimit:PermitPerMinute", 1200);
         services.AddRateLimiter(o =>
         {
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     $"{ctx.Request.Host.Host}|{ctx.User.FindFirst(PaperDotNetClaims.UserId)?.Value ?? ctx.Connection.RemoteIpAddress?.ToString()}",
-                    _ => new FixedWindowRateLimiterOptions { PermitLimit = 1200, Window = TimeSpan.FromMinutes(1) }));
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = permitPerMinute, Window = TimeSpan.FromMinutes(1) }));
         });
         // Behind a reverse proxy, set ForwardedHeaders:Enabled=true. Off by default: forwarded
         // headers influence scheme and host (and therefore host-based tenant resolution).

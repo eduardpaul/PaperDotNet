@@ -37,16 +37,18 @@ internal sealed class WorkspaceAccess(ICurrentUser user, IEffectiveScopeProvider
             .Select(m => new WorkspaceMemberAccess(m.UserId, LevelOf(m.Role)))
             .ToList();
 
-    public async Task<IReadOnlyList<WorkspaceMembership>> GetMyWorkspacesAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<WorkspaceMembership>> GetMyWorkspacesAsync(CancellationToken cancellationToken) =>
+        user.UserId is { } userId ? await GetMembershipsAsync(userId, cancellationToken) : [];
+
+    public async Task<IReadOnlyList<WorkspaceMembership>> GetMembershipsAsync(Guid userId, CancellationToken cancellationToken)
     {
-        if (await IsAdministratorAsync(cancellationToken))
+        if ((await scopes.GetScopesAsync(userId, cancellationToken))?.Contains(WorkspaceScopes.Manage) == true)
         {
             return (await db.Workspaces.AsNoTracking().Select(w => w.Id).ToListAsync(cancellationToken))
                 .Select(id => new WorkspaceMembership(id, WorkspaceAccessLevel.Manage))
                 .ToList();
         }
 
-        var userId = user.UserId;
         return (await db.Members.AsNoTracking()
                 .Where(m => m.UserId == userId && db.Workspaces.Any(w => w.Id == m.WorkspaceId))
                 .ToListAsync(cancellationToken))

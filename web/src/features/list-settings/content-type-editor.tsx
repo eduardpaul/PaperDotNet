@@ -44,6 +44,7 @@ interface FieldDraft {
   description: string;
   required: boolean;
   allowMultiple: boolean;
+  indexed: boolean;
   maxLength: string;
   minimum: string;
   maximum: string;
@@ -70,6 +71,7 @@ function draftOf(field: FieldDefinitionDto): FieldDraft {
     description: field.description ?? '',
     required: !!field.required,
     allowMultiple: !!field.allowMultiple,
+    indexed: !!field.indexed,
     maxLength: text(field.maxLength),
     minimum: text(field.minimum),
     maximum: text(field.maximum),
@@ -117,6 +119,7 @@ function dtoOf(field: FieldDraft): FieldDefinitionDto {
     description: field.description.trim() || null,
     required: field.required,
     allowMultiple: field.allowMultiple,
+    indexed: field.type !== 'note' && field.indexed,
     maxLength: num(field.maxLength),
     minimum: num(field.minimum),
     maximum: num(field.maximum),
@@ -409,6 +412,14 @@ function FieldCard({
                   onChange={(e) => onChange({ allowMultiple: e.target.checked })}
                 />
                 Several values
+              </label>
+            )}
+            {field.type !== 'note' && (
+              <label
+                className="flex items-center gap-2 text-[13px]"
+                title="Fast filters, sorting and counts in large lists"
+              >
+                <Checkbox checked={field.indexed} onChange={(e) => onChange({ indexed: e.target.checked })} /> Indexed
               </label>
             )}
           </div>

@@ -134,6 +134,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                         .HasColumnType("character varying(20)")
                         .HasColumnName("language");
 
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("scope_id");
+
                     b.Property<NpgsqlTsVector>("SearchVector")
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("tsvector")
@@ -174,6 +178,9 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_documents_tenant_id");
+
+                    b.HasIndex("ScopeId", "Id")
+                        .HasDatabaseName("ix_documents_scope_id_id");
 
                     b.HasIndex("TenantId", "ContainerId")
                         .HasDatabaseName("ix_documents_tenant_id_container_id");
@@ -265,33 +272,6 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                     b
                         .HasAnnotation("PaperDotNet:FullText", "Text")
                         .HasAnnotation("PaperDotNet:FullTextLanguage", "Language");
-                });
-
-            modelBuilder.Entity("PaperDotNet.Search.Data.SearchPrincipal", b =>
-                {
-                    b.Property<Guid>("DocumentId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("document_id");
-
-                    b.Property<string>("Principal")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("principal");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("DocumentId", "Principal")
-                        .HasName("pk_document_principals");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_document_principals_tenant_id");
-
-                    b.HasIndex("Principal", "DocumentId")
-                        .HasDatabaseName("ix_document_principals_principal_document_id");
-
-                    b.ToTable("document_principals", "search");
                 });
 
             modelBuilder.Entity("PaperDotNet.Search.Data.SearchTag", b =>

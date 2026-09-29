@@ -37,19 +37,27 @@ test('an administrator manages users, groups and roles', async ({ page }) => {
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   await expect(userRow).not.toContainText('Disabled');
 
-  // Groups: create one, add the user, rename it.
+  // Groups: create one, add the user and a group inside it, rename it.
   await page.getByRole('link', { name: 'Groups' }).click();
+  const inner = unique('Interns');
+  await page.getByRole('button', { name: 'New group' }).click();
+  await page.getByRole('dialog').getByLabel('Name').fill(inner);
+  await page.getByRole('button', { name: 'Create group' }).click();
+  await expect(page.getByRole('button', { name: inner, exact: true })).toBeVisible();
   const group = unique('Clerks');
   await page.getByRole('button', { name: 'New group' }).click();
   await page.getByRole('dialog').getByLabel('Name').fill(group);
   await page.getByRole('button', { name: 'Create group' }).click();
-  await expect(page.getByText('Group created.')).toBeVisible();
+  await expect(page.getByRole('button', { name: group, exact: true })).toBeVisible();
   await page.getByRole('button', { name: group, exact: true }).click();
   await page.getByRole('combobox', { name: `Add members to ${group}` }).click();
   await page.getByRole('option', { name: new RegExp(displayName) }).click();
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.getByRole('button', { name: `Remove ${displayName} from ${group}` })).toBeVisible();
+  // A group inside the group: its members count as members.
+  await page.getByRole('combobox', { name: 'Groups inside' }).selectOption({ label: inner });
+  await expect(page.getByRole('list', { name: 'Groups inside' }).getByText(inner)).toBeVisible();
   const renamed = `${group} renamed`;
   await page.getByRole('button', { name: `Edit ${group}` }).click();
   await page.getByRole('dialog').getByLabel('Name').fill(renamed);

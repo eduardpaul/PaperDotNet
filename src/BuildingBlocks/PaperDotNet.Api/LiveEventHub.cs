@@ -47,7 +47,8 @@ public sealed partial class LiveEventHub : ILiveEvents
         }
 
         var message = JsonSerializer.Serialize(
-            new Envelope(_server, liveEvent.Type, liveEvent.TenantId, liveEvent.UserId, JsonSerializer.SerializeToElement(liveEvent.Data, _json)), _json);
+            new Envelope(_server, liveEvent.Type, liveEvent.TenantId, liveEvent.UserId, JsonSerializer.SerializeToElement(liveEvent.Data, _json), liveEvent.Audience),
+            _json);
         if (Encoding.UTF8.GetByteCount(message) > _backplane.MaxMessageBytes)
         {
             LogTooLarge(liveEvent.Type);
@@ -105,7 +106,7 @@ public sealed partial class LiveEventHub : ILiveEvents
             return;
         }
 
-        Deliver(new LiveEvent(envelope.Type, envelope.TenantId, envelope.UserId, envelope.Data));
+        Deliver(new LiveEvent(envelope.Type, envelope.TenantId, envelope.UserId, envelope.Data) { Audience = envelope.Audience });
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The live event {Type} is too large for other servers; only clients on this server get it.")]
@@ -116,5 +117,5 @@ public sealed partial class LiveEventHub : ILiveEvents
 
     private sealed record Subscriber(Guid TenantId, Guid UserId, Channel<LiveEvent> Channel);
 
-    private sealed record Envelope(Guid Server, string Type, Guid TenantId, Guid? UserId, JsonElement Data);
+    private sealed record Envelope(Guid Server, string Type, Guid TenantId, Guid? UserId, JsonElement Data, IReadOnlyCollection<Guid>? Audience);
 }

@@ -279,6 +279,32 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Identity
                     b.ToTable("groups", "identity");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Identity.Data.GroupClosure", b =>
+                {
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<Guid>("AncestorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ancestor_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("GroupId", "AncestorId")
+                        .HasName("pk_group_closure");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_group_closure_tenant_id");
+
+                    b.HasIndex("AncestorId", "GroupId")
+                        .HasDatabaseName("ix_group_closure_ancestor_id_group_id");
+
+                    b.ToTable("group_closure", "identity");
+                });
+
             modelBuilder.Entity("PaperDotNet.Identity.Data.GroupMember", b =>
                 {
                     b.Property<Guid>("GroupId")
@@ -300,6 +326,32 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Identity
                         .HasDatabaseName("ix_group_members_tenant_id");
 
                     b.ToTable("group_members", "identity");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Identity.Data.GroupNesting", b =>
+                {
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<Guid>("MemberGroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_group_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("GroupId", "MemberGroupId")
+                        .HasName("pk_group_nestings");
+
+                    b.HasIndex("MemberGroupId")
+                        .HasDatabaseName("ix_group_nestings_member_group_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_group_nestings_tenant_id");
+
+                    b.ToTable("group_nestings", "identity");
                 });
 
             modelBuilder.Entity("PaperDotNet.Identity.Data.OAuthApplication", b =>

@@ -57,8 +57,12 @@ public sealed class ListsModule : IModule
         services.AddSingleton<ListTemplateRegistry>();
         services.AddScoped<ContentTypeProvisioner>();
         services.AddScoped<IContentTypeProvisioning>(sp => sp.GetRequiredService<ContentTypeProvisioner>());
+        services.AddScoped<ItemAccess>();
+        services.AddScoped<IItemAccess>(sp => sp.GetRequiredService<ItemAccess>());
+        services.AddScoped<IPrincipalSet>(sp => sp.GetRequiredService<ItemAccess>());
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
+        services.AddScoped<ScopeMover>();
         services.AddScoped<ItemQueryRunner>();
         services.AddScoped<SmartFolderQuery>();
         services.AddScoped<IListItemStore>(sp => new ListItemStore(
@@ -79,10 +83,13 @@ public sealed class ListsModule : IModule
         services.AddIntegrationEvent<ItemPurged>();
         services.AddTenantRecurringJob<RecycleBinCleanupJob>(RecycleBinCleanupJob.Name, RecycleBinCleanupJob.Schedule);
         services.AddTenantRecurringJob<ItemChangeCleanupJob>(ItemChangeCleanupJob.Name, ItemChangeCleanupJob.Schedule);
+        services.AddTenantRecurringJob<IndexedFieldBackfillJob>(IndexedFieldBackfillJob.Name, IndexedFieldBackfillJob.Schedule);
         services.AddOperationHandler<BulkUpdateOperation>();
         services.AddEventSubscriber<TermMerged, TermMergedSubscriber>();
         services.AddEventSubscriber<PrincipalDeleted, PrincipalDeletedSubscriber>();
         services.AddIntegrationEvent<ListIndexInvalidated>();
+        services.AddIntegrationEvent<ItemScopesChanged>();
+        services.AddEventSubscriber<ItemScopesChanged, ItemSearchIndexer>();
         services.AddScoped<ListItemSearchDocuments>();
         services.AddScoped<ISearchSource>(sp => sp.GetRequiredService<ListItemSearchDocuments>());
         services.AddEventSubscriber<ItemAdded, ItemSearchIndexer>();
@@ -98,6 +105,7 @@ public sealed class ListsModule : IModule
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
         DeltaEndpoints.Map(endpoints);
+        ItemCountEndpoints.Map(endpoints);
         SmartFolders.Map(endpoints);
         BulkUpdateEndpoints.Map(endpoints);
         ViewEndpoints.Map(endpoints);

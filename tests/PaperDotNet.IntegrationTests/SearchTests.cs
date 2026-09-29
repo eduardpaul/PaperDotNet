@@ -116,7 +116,7 @@ public sealed class SearchTests(PaperDotNetApiFactory factory)
         await WaitForAsync(alice, "q=merger", "Public merger FAQ", "Secret merger plan");
         await WaitForAsync(mallory, "q=merger");
 
-        // Breaking inheritance on the folder re-indexes the list with the new principals.
+        // Breaking inheritance on the folder moves its documents to the folder's scope (ADR-0035).
         var listUrl = $"/v1.0/workspaces/{s.Workspace}/lists/{s.List}";
         await s.Admin.PostAsJsonAsync($"{listUrl}/items/{folder}/permissions/breakInheritance", new { copyGrants = false }, Ct);
         await WaitForAsync(alice, "q=merger", "Public merger FAQ");

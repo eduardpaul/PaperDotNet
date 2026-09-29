@@ -1,6 +1,6 @@
 # 0002: Permission and membership lookups are uncached on every list/item request
 
-- **Status:** possible
+- **Status:** done
 - **Area:** Lists
 - **Date:** 2026-09-27
 
@@ -44,3 +44,21 @@ may be frequent enough in some tenants to limit the benefit). A concurrency
 ramp in `PaperDotNet.Performance` against a list with several unique
 permission scopes would confirm whether this is worth doing before other,
 cheaper fixes (see [0001](0001-list-pages-slow-as-a-folder-grows.md)).
+
+## Measured (2026-09-28)
+
+With [the storage benchmark](../tests/benchmarks/item-storage/README.md) (a library of 1M documents with 7,500
+unique scopes), the four access queries took 96 ms on PostgreSQL and 271 ms
+on SQLite per request. Nearly all of that is the unique-scope load of
+[0003](0003-permission-scope-preload-grows-with-list-size.md). A list page
+request (access and page) reached 12, 16 and 18 requests/s with 1, 4 and 16
+clients on 4 cores. Looking the allowed scopes up by principal took 0.13 ms
+and 0.08 ms, and the same request reached 5,891 requests/s with 4 clients.
+Options: [item-and-permission-storage.md](../docs/item-and-permission-storage.md), decision 1.
+
+## Done (2026-09-29)
+
+[ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 1. The caller's principals (user, groups,
+workspace roles) are cached per tenant and user in `HybridCache` and evicted with the shared
+`AccessCacheTags.Principals` tag when groups, roles or memberships change. The access of a list is one index lookup in
+`acl_entries` by those principals. `IWorkspaceAccess.GetPermissionAsync` (two indexed lookups) still runs per request.

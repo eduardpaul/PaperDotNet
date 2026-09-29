@@ -56,6 +56,32 @@ public sealed class GroupMember : ITenantOwned
     public Guid TenantId { get; set; }
 }
 
+/// <summary>A group inside a group (ADR-0035): the members of <see cref="MemberGroupId"/> are members of <see cref="GroupId"/> too.</summary>
+public sealed class GroupNesting : ITenantOwned
+{
+    public Guid GroupId { get; set; }
+
+    public Guid MemberGroupId { get; set; }
+
+    public Guid TenantId { get; set; }
+}
+
+/// <summary>
+/// Every group and every group it is inside of, directly or through other groups, including itself (a closure
+/// table). Derived from <see cref="GroupNesting"/>: <see cref="IdentityDbContext"/> keeps it current on every save, so
+/// "the groups of a user" is one join.
+/// </summary>
+[NotAudited]
+public sealed class GroupClosure : ITenantOwned
+{
+    public Guid GroupId { get; set; }
+
+    /// <summary>A group that contains <see cref="GroupId"/> (or the group itself).</summary>
+    public Guid AncestorId { get; set; }
+
+    public Guid TenantId { get; set; }
+}
+
 public sealed class Role : ITenantOwned, IAuditable, IVersioned
 {
     public const string Administrator = "Administrator";

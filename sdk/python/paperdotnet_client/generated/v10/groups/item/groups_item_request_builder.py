@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from ....models.api_problem import ApiProblem
     from ....models.group_response import GroupResponse
     from ....models.update_group_request import UpdateGroupRequest
+    from .groups.groups_request_builder import GroupsRequestBuilder
     from .inbox.inbox_request_builder import InboxRequestBuilder
     from .members.members_request_builder import MembersRequestBuilder
 
@@ -106,6 +107,15 @@ class GroupsItemRequestBuilder(BaseRequestBuilder):
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
         return GroupsItemRequestBuilder(self.request_adapter, raw_url)
+    
+    @property
+    def groups(self) -> GroupsRequestBuilder:
+        """
+        The groups property
+        """
+        from .groups.groups_request_builder import GroupsRequestBuilder
+
+        return GroupsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def inbox(self) -> InboxRequestBuilder:

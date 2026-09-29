@@ -1,9 +1,9 @@
 namespace PaperDotNet.Search.Contracts;
 
 /// <summary>
-/// A searchable document, pushed by the module that owns the content. <see cref="Principals"/>
-/// are the principals that may read it (see <see cref="SearchPrincipals"/>); search only
-/// returns documents sharing a principal with the caller (SRC-04).
+/// A searchable document, pushed by the module that owns the content. <see cref="ScopeId"/> is its permission scope
+/// (ADR-0035): search only returns documents whose scope the caller can read (SRC-04), so permission changes do not
+/// touch the index.
 /// </summary>
 public sealed record SearchDocumentData(
     Guid Id,
@@ -13,7 +13,7 @@ public sealed record SearchDocumentData(
     Guid? ContentTypeId,
     string Title,
     string Body,
-    IReadOnlyCollection<string> Principals,
+    Guid ScopeId,
     IReadOnlyCollection<Guid> TermIds,
     Guid? CreatedBy,
     DateTimeOffset UpdatedAt)
@@ -41,6 +41,12 @@ public interface ISearchIndex
 
     Task DeleteAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Moves documents to other permission scopes (document id → scope id), keeping their text, passages and
+    /// embeddings. Unknown ids are skipped.
+    /// </summary>
+    Task SetScopesAsync(IReadOnlyDictionary<Guid, Guid> scopes, CancellationToken cancellationToken);
+
     /// <summary>Removes every document of a container (e.g. a list), before re-indexing it or when it is deleted.</summary>
     Task DeleteContainerAsync(Guid containerId, CancellationToken cancellationToken);
 
@@ -61,18 +67,4 @@ public interface ISearchSource
 
     /// <summary>Writes every document of this source to <paramref name="index"/>, reporting progress (0 to 1).</summary>
     Task ReindexAsync(ISearchIndex index, Func<double, Task> progress, CancellationToken cancellationToken);
-}
-
-/// <summary>Principal names stored with documents and derived for the caller.</summary>
-public static class SearchPrincipals
-{
-    public static string User(Guid id) => $"u:{id:N}";
-
-    public static string Group(Guid id) => $"g:{id:N}";
-
-    /// <summary>Any member (visitor or higher) of the workspace.</summary>
-    public static string WorkspaceMember(Guid workspaceId) => $"w:{workspaceId:N}";
-
-    /// <summary>Workspace owners and administrators (full control).</summary>
-    public static string WorkspaceOwner(Guid workspaceId) => $"o:{workspaceId:N}";
 }

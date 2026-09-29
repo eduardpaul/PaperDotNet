@@ -1,6 +1,6 @@
 # 0001: List pages get slow as a folder grows
 
-- **Status:** possible
+- **Status:** done
 - **Area:** Lists
 - **Date:** 2026-09-26
 
@@ -62,3 +62,19 @@ next to `ItemQueryRunner.RunAsync`).
 A stored child count is only useful if the total must stay exact and counting
 once is not enough. A filtered view (for example status not completed) still
 has to count its own rows.
+
+## Measured (2026-09-28)
+
+[The storage benchmark](../tests/benchmarks/item-storage/README.md) measured the JSON sort part only: one stage
+of 500,000 deals sorted by a JSON date took 160 ms on PostgreSQL and 475 ms on
+SQLite, and 1.9 ms and 1.6 ms from indexed columns. Paging and repeated counts
+were not measured. Options: [item-and-permission-storage.md](../docs/item-and-permission-storage.md),
+decision 2.
+
+## Done (2026-09-29)
+
+[ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 4. The total is counted on the first page only (`$count` is no longer copied to the next link). The index
+`(ListId, ParentId, IsFolder, Title, Id)` serves the screen's order, and an order made of `isFolder` and
+`fields/title` continues after the last row (`$skiptoken` carries the keys) instead of an offset. Due dates, statuses and
+other indexed fields sort on their own column. `contains(tolower(fields/title), …)` already reads the `Title` column;
+a `%…%` search cannot use a b-tree index on either database, so no extra index was added for it.

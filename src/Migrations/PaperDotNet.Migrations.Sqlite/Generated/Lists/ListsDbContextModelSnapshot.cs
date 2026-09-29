@@ -18,6 +18,53 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("PaperDotNet.Lists.Data.AclEntry", b =>
+                {
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("scope_id");
+
+                    b.Property<Guid>("PrincipalId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("principal_id");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("level");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("list_id");
+
+                    b.Property<string>("PrincipalType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("principal_type");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("ScopeId", "PrincipalId")
+                        .HasName("pk_lists_acl_entries");
+
+                    b.HasIndex("ListId")
+                        .HasDatabaseName("ix_lists_acl_entries_list_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_lists_acl_entries_tenant_id");
+
+                    b.HasIndex("PrincipalId", "ListId", "ScopeId", "Level", "TenantId")
+                        .HasDatabaseName("ix_lists_acl_entries_principal_id_list_id_scope_id_level_tenant_id");
+
+                    b.ToTable("lists_acl_entries", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Lists.Data.ContentType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -92,6 +139,8 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                             b1.Property<string>("DisplayName")
                                 .IsRequired();
 
+                            b1.Property<bool>("Indexed");
+
                             b1.Property<Guid?>("LookupListId");
 
                             b1.Property<int?>("MaxLength");
@@ -145,6 +194,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasColumnType("INTEGER")
                         .HasColumnName("at");
 
+                    b.Property<Guid?>("FromScopeId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("from_scope_id");
+
                     b.Property<Guid?>("ItemId")
                         .HasColumnType("TEXT")
                         .HasColumnName("item_id");
@@ -178,6 +231,40 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasDatabaseName("ix_lists_item_changes_tenant_id_at");
 
                     b.ToTable("lists_item_changes", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Lists.Data.ItemValue", b =>
+                {
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("item_id");
+
+                    b.Property<short>("Field")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("field");
+
+                    b.Property<Guid>("Value")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("value");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("list_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("ItemId", "Field", "Value")
+                        .HasName("pk_lists_item_values");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_lists_item_values_tenant_id");
+
+                    b.HasIndex("ListId", "Field", "Value", "ItemId")
+                        .HasDatabaseName("ix_lists_item_values_list_id_field_value_item_id");
+
+                    b.ToTable("lists_item_values", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.ItemVersion", b =>
@@ -284,6 +371,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasColumnType("INTEGER")
                         .HasColumnName("has_unique_permissions");
 
+                    b.Property<bool>("IndexPending")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("index_pending");
+
                     b.Property<int>("Kind")
                         .HasColumnType("INTEGER")
                         .HasColumnName("kind");
@@ -297,6 +388,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasMaxLength(200)
                         .HasColumnType("TEXT")
                         .HasColumnName("name");
+
+                    b.Property<short>("NextValueField")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("next_value_field");
 
                     b.Property<string>("SystemKey")
                         .HasMaxLength(50)
@@ -335,11 +430,34 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasColumnType("TEXT")
                         .HasColumnName("workspace_id");
 
+                    b.ComplexCollection(typeof(List<Dictionary<string, object>>), "IndexedFields", "PaperDotNet.Lists.Data.ListDefinition.IndexedFields#IndexedField", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Column");
+
+                            b1.Property<string>("Field")
+                                .IsRequired();
+
+                            b1.Property<int>("Kind");
+
+                            b1.Property<bool>("Ready");
+
+                            b1.Property<short?>("ValueField");
+
+                            b1
+                                .ToJson("indexed_fields")
+                                .HasColumnType("TEXT");
+                        });
+
                     b.HasKey("Id")
                         .HasName("pk_lists_lists");
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_lists_lists_tenant_id");
+
+                    b.HasIndex("TenantId", "IndexPending")
+                        .HasDatabaseName("ix_lists_lists_tenant_id_index_pending");
 
                     b.HasIndex("TenantId", "WorkspaceId")
                         .HasDatabaseName("ix_lists_lists_tenant_id_workspace_id");
@@ -370,6 +488,56 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
+                    b.Property<string>("Date1")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date1");
+
+                    b.Property<string>("Date10")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date10");
+
+                    b.Property<string>("Date2")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date2");
+
+                    b.Property<string>("Date3")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date3");
+
+                    b.Property<string>("Date4")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date4");
+
+                    b.Property<string>("Date5")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date5");
+
+                    b.Property<string>("Date6")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date6");
+
+                    b.Property<string>("Date7")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date7");
+
+                    b.Property<string>("Date8")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date8");
+
+                    b.Property<string>("Date9")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("date9");
+
                     b.Property<long?>("DeletedAt")
                         .HasColumnType("INTEGER")
                         .HasColumnName("deleted_at");
@@ -396,17 +564,107 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasColumnType("TEXT")
                         .HasColumnName("list_id");
 
+                    b.Property<double?>("Number1")
+                        .HasColumnType("REAL")
+                        .HasColumnName("number1");
+
+                    b.Property<double?>("Number10")
+                        .HasColumnType("REAL")
+                        .HasColumnName("number10");
+
+                    b.Property<double?>("Number2")
+                        .HasColumnType("REAL")
+                        .HasColumnName("number2");
+
+                    b.Property<double?>("Number3")
+                        .HasColumnType("REAL")
+                        .HasColumnName("number3");
+
+                    b.Property<double?>("Number4")
+                        .HasColumnType("REAL")
+                        .HasColumnName("number4");
+
+                    b.Property<double?>("Number5")
+                        .HasColumnType("REAL")
+                        .HasColumnName("number5");
+
+                    b.Property<double?>("Number6")
+                        .HasColumnType("REAL")
+                        .HasColumnName("number6");
+
+                    b.Property<double?>("Number7")
+                        .HasColumnType("REAL")
+                        .HasColumnName("number7");
+
+                    b.Property<double?>("Number8")
+                        .HasColumnType("REAL")
+                        .HasColumnName("number8");
+
+                    b.Property<double?>("Number9")
+                        .HasColumnType("REAL")
+                        .HasColumnName("number9");
+
                     b.Property<Guid?>("ParentId")
                         .HasColumnType("TEXT")
                         .HasColumnName("parent_id");
 
-                    b.Property<Guid?>("ScopeId")
+                    b.Property<Guid>("ScopeId")
                         .HasColumnType("TEXT")
                         .HasColumnName("scope_id");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
+
+                    b.Property<string>("Text1")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("text1");
+
+                    b.Property<string>("Text10")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("text10");
+
+                    b.Property<string>("Text2")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("text2");
+
+                    b.Property<string>("Text3")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("text3");
+
+                    b.Property<string>("Text4")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("text4");
+
+                    b.Property<string>("Text5")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("text5");
+
+                    b.Property<string>("Text6")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("text6");
+
+                    b.Property<string>("Text7")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("text7");
+
+                    b.Property<string>("Text8")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("text8");
+
+                    b.Property<string>("Text9")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("text9");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -438,6 +696,129 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
 
                     b.HasIndex("ListId", "ScopeId")
                         .HasDatabaseName("ix_lists_items_list_id_scope_id");
+
+                    b.HasIndex("ListId", "Date1", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_date1_id")
+                        .HasFilter("date1 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date10", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_date10_id")
+                        .HasFilter("date10 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date2", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_date2_id")
+                        .HasFilter("date2 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date3", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_date3_id")
+                        .HasFilter("date3 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date4", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_date4_id")
+                        .HasFilter("date4 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date5", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_date5_id")
+                        .HasFilter("date5 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date6", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_date6_id")
+                        .HasFilter("date6 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date7", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_date7_id")
+                        .HasFilter("date7 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date8", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_date8_id")
+                        .HasFilter("date8 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date9", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_date9_id")
+                        .HasFilter("date9 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number1", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_number1_id")
+                        .HasFilter("number1 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number10", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_number10_id")
+                        .HasFilter("number10 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number2", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_number2_id")
+                        .HasFilter("number2 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number3", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_number3_id")
+                        .HasFilter("number3 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number4", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_number4_id")
+                        .HasFilter("number4 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number5", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_number5_id")
+                        .HasFilter("number5 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number6", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_number6_id")
+                        .HasFilter("number6 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number7", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_number7_id")
+                        .HasFilter("number7 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number8", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_number8_id")
+                        .HasFilter("number8 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number9", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_number9_id")
+                        .HasFilter("number9 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text1", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_text1_id")
+                        .HasFilter("text1 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text10", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_text10_id")
+                        .HasFilter("text10 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text2", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_text2_id")
+                        .HasFilter("text2 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text3", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_text3_id")
+                        .HasFilter("text3 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text4", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_text4_id")
+                        .HasFilter("text4 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text5", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_text5_id")
+                        .HasFilter("text5 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text6", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_text6_id")
+                        .HasFilter("text6 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text7", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_text7_id")
+                        .HasFilter("text7 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text8", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_text8_id")
+                        .HasFilter("text8 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text9", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_text9_id")
+                        .HasFilter("text9 IS NOT NULL");
+
+                    b.HasIndex("ListId", "ParentId", "IsFolder", "Title", "Id")
+                        .HasDatabaseName("ix_lists_items_list_id_parent_id_is_folder_title_id");
 
                     b.ToTable("lists_items", (string)null);
                 });
@@ -519,57 +900,6 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasDatabaseName("ix_lists_views_tenant_id");
 
                     b.ToTable("lists_views", (string)null);
-                });
-
-            modelBuilder.Entity("PaperDotNet.Lists.Data.PermissionGrant", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Level")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("level");
-
-                    b.Property<Guid>("ListId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("list_id");
-
-                    b.Property<Guid>("ObjectId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("object_id");
-
-                    b.Property<Guid>("PrincipalId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("principal_id");
-
-                    b.Property<string>("PrincipalType")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("principal_type");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_lists_permission_grants");
-
-                    b.HasIndex("ListId")
-                        .HasDatabaseName("ix_lists_permission_grants_list_id");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_lists_permission_grants_tenant_id");
-
-                    b.HasIndex("ObjectId", "PrincipalType", "PrincipalId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_lists_permission_grants_object_id_principal_type_principal_id");
-
-                    b.ToTable("lists_permission_grants", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.SmartFolder", b =>

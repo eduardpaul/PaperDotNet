@@ -1,5 +1,7 @@
 using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Lists.Features;
+using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Data;
 
@@ -81,7 +83,10 @@ public sealed class ListDefinition : ITenantOwned, IAuditable, ISoftDeletable, I
     /// <summary>Key of the list template the list was created from, if any (LST-16).</summary>
     public string? TemplateKey { get; set; }
 
-    /// <summary>The list has its own permission grants instead of the workspace's (IAM-07).</summary>
+    /// <summary>
+    /// The list has its own permissions instead of the workspace roles' (IAM-07). Either way the list is a
+    /// permission scope with <see cref="AclEntry"/> rows.
+    /// </summary>
     public bool HasUniquePermissions { get; set; }
 
     /// <summary>Marks lists created by the system, e.g. <see cref="HomeInboxKey"/>; they cannot be deleted.</summary>
@@ -89,6 +94,15 @@ public sealed class ListDefinition : ITenantOwned, IAuditable, ISoftDeletable, I
 
     public const string HomeInboxKey = "home.inbox";
     public const string HomeDocumentsKey = "home.documents";
+
+    /// <summary>Where the list's indexed fields are stored (ADR-0035): a column of the item or a field number of the value table.</summary>
+    public List<IndexedField> IndexedFields { get; set; } = [];
+
+    /// <summary>Next field number for the value table (numbers are never reused; 1–15 are for well-known fields).</summary>
+    public short NextValueField { get; set; } = FieldIndex.FirstCustomValueField;
+
+    /// <summary>Some indexed fields are not filled for existing items yet (the backfill job does it).</summary>
+    public bool IndexPending { get; set; }
 
     /// <summary>Versions kept per item; older ones are removed.</summary>
     public int MaxVersions { get; set; } = DefaultMaxVersions;
@@ -127,21 +141,85 @@ public sealed class ListItem : ITenantOwned, IAuditable, ISoftDeletable, IVersio
 
     public bool IsFolder { get; set; }
 
-    /// <summary>The item has its own permission grants (it is then its own <see cref="ScopeId"/>).</summary>
+    /// <summary>The item has its own permissions (it is then its own <see cref="ScopeId"/>).</summary>
     public bool HasUniquePermissions { get; set; }
 
     /// <summary>
-    /// Security scope: the nearest item (this one or a folder above it) with unique
-    /// permissions, or null when permissions come from the list. Lets queries trim
-    /// items the user may not see with a simple <c>IN</c> filter.
+    /// Permission scope (ADR-0035): the nearest item (this one or a folder above it) with unique permissions, or the
+    /// list id when permissions come from the list. Never empty: queries trim items with one <c>IN</c> filter on it.
     /// </summary>
-    public Guid? ScopeId { get; set; }
+    public Guid ScopeId { get; set; }
 
     /// <summary>The built-in <c>title</c> field, kept as a column for display, sorting and search.</summary>
     public required string Title { get; set; }
 
     /// <summary>All other field values as a JSON object (normalized by their field types).</summary>
     public string Fields { get; set; } = "{}";
+
+    /// <summary>
+    /// Indexed single-value fields (ADR-0035): copies of values from <see cref="Fields"/>, assigned per list in
+    /// <see cref="ListDefinition.IndexedFields"/>. Text slots hold text, choice and boolean values, number slots
+    /// numbers and currencies, date slots dates and date-times in their canonical text form. Written on every save.
+    /// </summary>
+    public string? Text1 { get; set; }
+
+    public string? Text2 { get; set; }
+
+    public string? Text3 { get; set; }
+
+    public string? Text4 { get; set; }
+
+    public string? Text5 { get; set; }
+
+    public string? Text6 { get; set; }
+
+    public string? Text7 { get; set; }
+
+    public string? Text8 { get; set; }
+
+    public string? Text9 { get; set; }
+
+    public string? Text10 { get; set; }
+
+    public double? Number1 { get; set; }
+
+    public double? Number2 { get; set; }
+
+    public double? Number3 { get; set; }
+
+    public double? Number4 { get; set; }
+
+    public double? Number5 { get; set; }
+
+    public double? Number6 { get; set; }
+
+    public double? Number7 { get; set; }
+
+    public double? Number8 { get; set; }
+
+    public double? Number9 { get; set; }
+
+    public double? Number10 { get; set; }
+
+    public string? Date1 { get; set; }
+
+    public string? Date2 { get; set; }
+
+    public string? Date3 { get; set; }
+
+    public string? Date4 { get; set; }
+
+    public string? Date5 { get; set; }
+
+    public string? Date6 { get; set; }
+
+    public string? Date7 { get; set; }
+
+    public string? Date8 { get; set; }
+
+    public string? Date9 { get; set; }
+
+    public string? Date10 { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
@@ -156,6 +234,53 @@ public sealed class ListItem : ITenantOwned, IAuditable, ISoftDeletable, IVersio
     public Guid? DeletedBy { get; set; }
 
     public uint Version { get; set; }
+}
+
+/// <summary>How an indexed field is stored.</summary>
+public enum IndexKind
+{
+    Text = 0,
+    Number = 1,
+    Date = 2,
+
+    /// <summary>In <see cref="ItemValue"/> rows: people, lookups, terms, and multiple choices (as name-based ids).</summary>
+    Values = 3,
+}
+
+/// <summary>An indexed field of a list and where its values are (ADR-0035).</summary>
+public sealed class IndexedField
+{
+    public string Field { get; set; } = string.Empty;
+
+    public IndexKind Kind { get; set; }
+
+    /// <summary>The item column (<c>Text3</c>, <c>Number1</c>, <c>Date2</c>) for single values.</summary>
+    public string? Column { get; set; }
+
+    /// <summary>The field number in <see cref="ItemValue"/> for <see cref="IndexKind.Values"/>.</summary>
+    public short? ValueField { get; set; }
+
+    /// <summary>Every item has it filled; until then queries read the JSON.</summary>
+    public bool Ready { get; set; }
+}
+
+/// <summary>
+/// One value of an indexed multi-value or reference field (ADR-0035): a person, lookup item or term id, or a
+/// name-based id of a choice. Lets filters, counts per value and reverse lookups use an index.
+/// </summary>
+[NotAudited]
+public sealed class ItemValue : ITenantOwned
+{
+    public Guid ItemId { get; set; }
+
+    /// <summary>The field number (<see cref="IndexedField.ValueField"/>).</summary>
+    public short Field { get; set; }
+
+    public Guid Value { get; set; }
+
+    public Guid ListId { get; set; }
+
+    public Guid TenantId { get; set; }
 }
 
 /// <summary>
@@ -190,33 +315,45 @@ public sealed class ItemVersion : ITenantOwned
     public Guid? CreatedBy { get; set; }
 }
 
-public enum PrincipalType
+/// <summary>Who a permission entry gives access to: a user, a group, or a role of the list's workspace.</summary>
+public enum AclPrincipalType
 {
     User = 0,
     Group = 1,
+
+    /// <summary>Visitors of the list's workspace (a role principal, see <see cref="WorkspaceRolePrincipals"/>).</summary>
+    WorkspaceVisitors = 2,
+
+    /// <summary>Members of the list's workspace.</summary>
+    WorkspaceMembers = 3,
+
+    /// <summary>Owners of the list's workspace. Every scope has this entry with Manage (full control).</summary>
+    WorkspaceOwners = 4,
 }
 
 /// <summary>
-/// A permission grant on a list or an item with unique permissions (IAM-07).
-/// Levels reuse <see cref="Workspaces.Contracts.WorkspaceAccessLevel"/>: Read, Contribute, Manage.
+/// One entry of a permission scope's access list (IAM-07, ADR-0035): a principal and its level on the items of the
+/// scope. The scope is a list (<see cref="ListDefinition.Id"/>) or an item with unique permissions. Inheriting
+/// lists have entries for the three workspace roles, so workspace membership changes write nothing here.
 /// </summary>
 [NotAudited]
-public sealed class PermissionGrant : ITenantOwned
+public sealed class AclEntry : ITenantOwned
 {
-    public Guid Id { get; set; }
+    public Guid ScopeId { get; set; }
 
-    public Guid TenantId { get; set; }
+    /// <summary>A user, a group, or a role principal (<see cref="WorkspaceRolePrincipals.Id"/>).</summary>
+    public Guid PrincipalId { get; set; }
+
+    public AclPrincipalType PrincipalType { get; set; }
+
+    /// <summary>Read, Contribute or Manage; stored as a number, so queries compare levels.</summary>
+    public WorkspaceAccessLevel Level { get; set; }
 
     public Guid ListId { get; set; }
 
-    /// <summary>The list id (list grants) or the item id.</summary>
-    public Guid ObjectId { get; set; }
+    public Guid WorkspaceId { get; set; }
 
-    public PrincipalType PrincipalType { get; set; }
-
-    public Guid PrincipalId { get; set; }
-
-    public Workspaces.Contracts.WorkspaceAccessLevel Level { get; set; }
+    public Guid TenantId { get; set; }
 }
 
 public enum ViewLayout
@@ -272,8 +409,14 @@ public enum ItemChangeKind
     /// <summary>The item was moved to the recycle bin or purged.</summary>
     Deleted = 1,
 
-    /// <summary>Permissions of the list changed: delta clients must sync again.</summary>
+    /// <summary>Permissions of the list changed: delta clients must sync again (no longer written, ADR-0035).</summary>
     Reset = 2,
+
+    /// <summary>
+    /// The access list of <see cref="ItemChange.ScopeId"/> changed: delta returns the scope's items again, as changed
+    /// or removed for the caller (ADR-0035).
+    /// </summary>
+    ScopeChanged = 3,
 }
 
 /// <summary>
@@ -289,11 +432,17 @@ public sealed class ItemChange : ITenantOwned
 
     public Guid ListId { get; set; }
 
-    /// <summary>Null for <see cref="ItemChangeKind.Reset"/>.</summary>
+    /// <summary>Null for <see cref="ItemChangeKind.Reset"/> and <see cref="ItemChangeKind.ScopeChanged"/>.</summary>
     public Guid? ItemId { get; set; }
 
-    /// <summary>The item's security scope at the time of the change (checks access after a purge).</summary>
+    /// <summary>The item's permission scope after the change (checks access after a purge), or the changed scope.</summary>
     public Guid? ScopeId { get; set; }
+
+    /// <summary>
+    /// The item's scope before the change when it moved to another scope: callers who could read that scope get
+    /// the item as removed when they cannot read the new one.
+    /// </summary>
+    public Guid? FromScopeId { get; set; }
 
     public ItemChangeKind Kind { get; set; }
 

@@ -33,6 +33,9 @@ public sealed record CreateGroupRequest(
 
 public sealed record AddGroupMemberRequest([property: Required] Guid UserId);
 
+/// <summary>A group to put inside another group: its members become members of that group too.</summary>
+public sealed record AddNestedGroupRequest([property: Required] Guid GroupId);
+
 public sealed record RoleResponse(Guid Id, string Name, string? Description, bool IsBuiltIn, bool GrantsAllScopes, IReadOnlyList<string> Scopes)
 {
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
@@ -67,6 +70,10 @@ internal static class DirectoryEndpoints
         groups.MapGet("/{id:guid}/members", ListMembersAsync).RequireScope(IdentityScopes.GroupRead).WithName("ListGroupMembers");
         groups.MapPost("/{id:guid}/members", AddMemberAsync).RequireScope(IdentityScopes.GroupManage).WithName("AddGroupMember");
         groups.MapDelete("/{id:guid}/members/{userId:guid}", RemoveMemberAsync).RequireScope(IdentityScopes.GroupManage).WithName("RemoveGroupMember");
+        groups.MapGet("/{id:guid}/groups", ListNestedGroupsAsync).RequireScope(IdentityScopes.GroupRead).WithName("ListNestedGroups");
+        groups.MapPost("/{id:guid}/groups", AddNestedGroupAsync).RequireScope(IdentityScopes.GroupManage).WithName("AddNestedGroup");
+        groups.MapDelete("/{id:guid}/groups/{memberGroupId:guid}", RemoveNestedGroupAsync)
+            .RequireScope(IdentityScopes.GroupManage).WithName("RemoveNestedGroup");
 
         var roles = endpoints.MapV1Group("roles", "Roles");
         roles.MapGet("", ListRolesAsync).RequireScope(IdentityScopes.RoleRead).WithName("ListRoles");
@@ -204,6 +211,70 @@ internal static class DirectoryEndpoints
         }
 
         db.GroupMembers.Remove(member);
+        await db.SaveChangesAsync(ct);
+        await cache.RemoveByTagAsync(EffectiveScopeProvider.TenantTag(tenant.TenantId!.Value), ct);
+        return TypedResults.NoContent();
+    }
+
+    /// <summary>The groups directly inside a group (ADR-0035).</summary>
+    private static async Task<Results<Ok<List<GroupResponse>>, ProblemHttpResult>> ListNestedGroupsAsync(Guid id, IdentityDbContext db, CancellationToken ct)
+    {
+        if (!await db.Groups.AnyAsync(g => g.Id == id, ct))
+        {
+            return ApiErrors.NotFound();
+        }
+
+        var groups = await db.Groups.AsNoTracking()
+            .Where(g => db.GroupNestings.Any(n => n.GroupId == id && n.MemberGroupId == g.Id))
+            .OrderBy(g => g.Name)
+            .Select(g => new GroupResponse(g.Id, g.Name, g.Description, g.CreatedAt) { ETag = ETags.From(g.Version) })
+            .ToListAsync(ct);
+        return TypedResults.Ok(groups);
+    }
+
+    /// <summary>Puts a group inside another; a cycle or more than <see cref="GroupGraph.MaxDepth"/> levels is a conflict.</summary>
+    private static async Task<Results<NoContent, ProblemHttpResult>> AddNestedGroupAsync(
+        Guid id, AddNestedGroupRequest request, IdentityDbContext db, ITenantContext tenant, HybridCache cache, CancellationToken ct)
+    {
+        if (!await db.Groups.AnyAsync(g => g.Id == id, ct) || !await db.Groups.AnyAsync(g => g.Id == request.GroupId, ct))
+        {
+            return ApiErrors.NotFound();
+        }
+
+        var nestings = (await db.GroupNestings.AsNoTracking().Select(n => new { n.GroupId, n.MemberGroupId }).ToListAsync(ct))
+            .Select(n => (n.GroupId, n.MemberGroupId))
+            .ToList();
+        if (nestings.Contains((id, request.GroupId)))
+        {
+            return TypedResults.NoContent();
+        }
+
+        if (GroupGraph.CheckNesting(id, request.GroupId, nestings) is { } problem)
+        {
+            return ApiErrors.Conflict("invalidNesting", problem);
+        }
+
+        db.GroupNestings.Add(new GroupNesting { GroupId = id, MemberGroupId = request.GroupId });
+        await db.SaveChangesAsync(ct);
+        await cache.RemoveByTagAsync(EffectiveScopeProvider.TenantTag(tenant.TenantId!.Value), ct);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<Results<NoContent, ProblemHttpResult>> RemoveNestedGroupAsync(
+        Guid id, Guid memberGroupId, IdentityDbContext db, ITenantContext tenant, HybridCache cache, CancellationToken ct)
+    {
+        var nesting = await db.GroupNestings.FirstOrDefaultAsync(n => n.GroupId == id && n.MemberGroupId == memberGroupId, ct);
+        if (nesting is null)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        if (!await AdministratorGuard.RemainsAsync(db, withoutNesting: (id, memberGroupId), ct: ct))
+        {
+            return AccountEndpoints.LastAdministrator();
+        }
+
+        db.GroupNestings.Remove(nesting);
         await db.SaveChangesAsync(ct);
         await cache.RemoveByTagAsync(EffectiveScopeProvider.TenantTag(tenant.TenantId!.Value), ct);
         return TypedResults.NoContent();

@@ -2,6 +2,7 @@ using System.Buffers.Text;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
@@ -84,7 +85,7 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         {
             var hierarchy = await TermHierarchyAsync(schema, [filter], ct);
             var (translator, clause, _) = Parse(schema, filter, null, hierarchy);
-            return (clause is null ? query : query.Where(translator.Filter(clause)), null);
+            return (clause is null ? query : query.Where(await PreparedAsync(translator, clause, schema.List.Id, ct)), null);
         }
         catch (ODataException ex)
         {
@@ -133,7 +134,7 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
             var (translator, filterClause, orderByClause) = Parse(schema, filter, orderBy, hierarchy);
             if (filterClause is not null)
             {
-                query = query.Where(translator.Filter(filterClause));
+                query = query.Where(await PreparedAsync(translator, filterClause, schema.List.Id, ct));
             }
 
             var customOrder = orderByClause is not null;
@@ -178,6 +179,56 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         ListSchema schema, string? filter, Expression<Func<ListItem, bool>>? extra, CancellationToken ct) =>
         ReadableAsync(schema, filter, extra, ct);
 
+    /// <summary>
+    /// A key that is the same for lists whose queries translate the same way (the same fields, the same ready indexed
+    /// places), so they can run as one query (ADR-0035). Lists made from one template share it.
+    /// </summary>
+    internal static string QueryShape(ListSchema schema) =>
+        string.Join(";", schema.Fields.Values.OrderBy(f => f.Name, StringComparer.Ordinal).Select(f => $"{f.Name}:{f.Type}:{f.AllowMultiple}"))
+        + "|" + string.Join(";", schema.List.IndexedFields.Where(e => e.Ready).OrderBy(e => e.Field, StringComparer.Ordinal)
+            .Select(e => $"{e.Field}:{e.Column}:{e.ValueField}"));
+
+    /// <summary>
+    /// Readable items of several lists of the same <see cref="QueryShape"/> matching <paramref name="filter"/> and
+    /// <paramref name="extra"/>, as one query: the lists' permission scopes are one parameter, and the filter is
+    /// translated once. Also returns the translator and order for sorting.
+    /// </summary>
+    internal async Task<(IQueryable<ListItem>? Query, ItemQueryTranslator? Translator, OrderByClause? OrderBy, string? Error)> MatchingManyAsync(
+        IReadOnlyList<ListSchema> schemas, string? filter, string? orderBy, Expression<Func<ListItem, bool>>? extra, CancellationToken ct)
+    {
+        var ids = schemas.Select(s => s.List.Id).ToArray();
+        IQueryable<ListItem> query = db.Items.AsNoTracking().Where(i => EF.Parameter(ids).Contains(i.ListId));
+        if (schemas.Any(s => !s.Access.FullControl))
+        {
+            var full = schemas.Where(s => s.Access.FullControl).Select(s => s.List.Id).ToArray();
+            var allowed = schemas.SelectMany(s => s.Access.Scopes(WorkspaceAccessLevel.Read)).Distinct().ToArray();
+            query = query.Where(i => EF.Parameter(full).Contains(i.ListId) || EF.Parameter(allowed).Contains(i.ScopeId));
+        }
+
+        if (extra is not null)
+        {
+            query = query.Where(extra);
+        }
+
+        try
+        {
+            var first = schemas[0];
+            var hierarchy = await TermHierarchyAsync(first, [filter], ct);
+            var (translator, clause, order) = Parse(first, filter, orderBy, hierarchy);
+            translator.ListIds = ids;
+            if (clause is not null)
+            {
+                query = query.Where(await PreparedAsync(translator, clause, ids, ct));
+            }
+
+            return (query, translator, order, null);
+        }
+        catch (ODataException ex)
+        {
+            return (null, null, null, ex.Message);
+        }
+    }
+
     /// <summary>Parses a filter for callers that need the translator (smart-folder classification). No term expansion.</summary>
     internal (ItemQueryTranslator? Translator, FilterClause? Clause, string? Error) TryFilter(ListSchema schema, string? filter)
     {
@@ -210,7 +261,7 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         {
             var hierarchy = await TermHierarchyAsync(schema, [filter], ct);
             var (translator, clause, _) = Parse(schema, filter, null, hierarchy);
-            return (clause is null ? query : query.Where(translator.Filter(clause)), null);
+            return (clause is null ? query : query.Where(await PreparedAsync(translator, clause, schema.List.Id, ct)), null);
         }
         catch (ODataException ex)
         {
@@ -247,13 +298,13 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
 
             if (viewFilter is not null)
             {
-                query = query.Where(viewTranslator.Filter(viewFilter));
+                query = query.Where(await PreparedAsync(viewTranslator, viewFilter, schema.List.Id, ct));
             }
 
             if (filter is not null)
             {
                 var own = Parse(schema, options.Filter, null, hierarchy);
-                query = query.Where(own.Translator.Filter(own.Filter!));
+                query = query.Where(await PreparedAsync(own.Translator, own.Filter!, schema.List.Id, ct));
             }
         }
         catch (ODataException ex)
@@ -261,9 +312,11 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
             return (null, ex.Message);
         }
 
-        long? count = options.Count ? await query.LongCountAsync(ct) : null;
+        // The total is counted on the first page only (issue 0001).
+        long? count = options.Count && options.SkipToken is null ? await query.LongCountAsync(ct) : null;
 
         var cursor = ItemCursor.Decode(options.SkipToken);
+        var sortKeys = orderBy is null ? null : ItemQueryTranslator.SortKeys(orderBy);
         IQueryable<ListItem> page;
         if (orderBy is null)
         {
@@ -274,6 +327,16 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
             }
 
             page = query.OrderBy(i => i.Id);
+        }
+        else if (sortKeys is not null)
+        {
+            // Folders first and titles: continue after the last row (index (ListId, ParentId, IsFolder, Title, Id)).
+            if (cursor is { After: { } after, Keys: { } keys } && keys.Count == sortKeys.Count)
+            {
+                query = query.Where(ItemQueryTranslator.After(sortKeys, keys, after));
+            }
+
+            page = translator.OrderBy(query, orderBy);
         }
         else
         {
@@ -287,7 +350,10 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         string? nextLink = null;
         if (hasMore)
         {
-            var next = orderBy is null ? ItemCursor.Keyset(items[^1].Id) : ItemCursor.ForOffset(cursor.Offset + options.Top);
+            var last = items[^1];
+            var next = orderBy is null ? ItemCursor.Keyset(last.Id)
+                : sortKeys is not null ? ItemCursor.SortKeyset(ItemQueryTranslator.KeyValues(sortKeys, last), last.Id)
+                : ItemCursor.ForOffset(cursor.Offset + options.Top);
             nextLink = NextLink(request, next);
         }
 
@@ -367,7 +433,7 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         var parser = new ODataQueryOptionParser(model.Model, model.ItemType, model.Items, options);
         var filterClause = parser.ParseFilter();
         var orderByClause = parser.ParseOrderBy();
-        var translator = new ItemQueryTranslator(model, hierarchy, parser.ParameterAliasNodes);
+        var translator = new ItemQueryTranslator(model, hierarchy, parser.ParameterAliasNodes, schema.List, db.ItemValues.AsNoTracking());
 
         // Translate once to surface unsupported constructs as validation errors.
         if (filterClause is not null)
@@ -383,10 +449,43 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
         return (translator, filterClause, orderByClause);
     }
 
+    /// <summary>Above this many matching values a value-table filter tests each item (EXISTS) instead of reading ids (IN).</summary>
+    private const int SelectiveLimit = 2000;
+
+    /// <summary>
+    /// Counts (up to <see cref="SelectiveLimit"/>) the items of each value-table filter, so rare values are read by id
+    /// and common ones tested per item (ADR-0035). Cheap: one index range per filter.
+    /// </summary>
+    private Task<Expression<Func<ListItem, bool>>> PreparedAsync(ItemQueryTranslator translator, FilterClause clause, Guid listId, CancellationToken ct) =>
+        PreparedAsync(translator, clause, [listId], ct);
+
+    private async Task<Expression<Func<ListItem, bool>>> PreparedAsync(ItemQueryTranslator translator, FilterClause clause, Guid[] listIds, CancellationToken ct)
+    {
+        foreach (var (field, ids) in translator.ValueFilters(clause))
+        {
+            var key = ItemQueryTranslator.SelectivityKey(field, ids);
+            if (translator.Selective.Contains(key))
+            {
+                continue;
+            }
+
+            var count = await db.ItemValues.AsNoTracking()
+                .Where(v => EF.Parameter(listIds).Contains(v.ListId) && v.Field == field && EF.Parameter(ids).Contains(v.Value))
+                .Take(SelectiveLimit + 1)
+                .CountAsync(ct);
+            if (count <= SelectiveLimit)
+            {
+                translator.Selective.Add(key);
+            }
+        }
+
+        return translator.Filter(clause);
+    }
+
     private static string NextLink(HttpRequest request, string cursor)
     {
         var query = request.Query
-            .Where(q => q.Key is not "$skiptoken")
+            .Where(q => q.Key is not ("$skiptoken" or "$count"))
             .Select(q => $"{Uri.EscapeDataString(q.Key)}={Uri.EscapeDataString(q.Value.ToString())}")
             .Append($"$skiptoken={cursor}");
         return $"{request.Scheme}://{request.Host}{request.PathBase}{request.Path}?{string.Join('&', query)}";
@@ -394,9 +493,16 @@ internal sealed class ItemQueryRunner(ListsDbContext db, FieldTypeRegistry field
 }
 
 /// <summary>Opaque <c>$skiptoken</c>: keyset position (default order) or offset (custom <c>$orderby</c>).</summary>
-internal readonly record struct ItemCursor(Guid? After, int Offset)
+/// <summary>
+/// Opaque <c>$skiptoken</c>: keyset position (default order: the last id; folder-first and title orders: the last row's
+/// sort keys and id, issue 0001) or offset (other custom <c>$orderby</c>).
+/// </summary>
+internal readonly record struct ItemCursor(Guid? After, int Offset, IReadOnlyList<string>? Keys = null)
 {
     public static string Keyset(Guid after) => Encode("k:" + after.ToString("N"));
+
+    public static string SortKeyset(IReadOnlyList<string> keys, Guid after) =>
+        Encode("s:" + JsonSerializer.Serialize(new SortPosition([.. keys], after.ToString("N"))));
 
     public static string ForOffset(int offset) => Encode("o:" + offset.ToString(CultureInfo.InvariantCulture));
 
@@ -433,10 +539,28 @@ internal readonly record struct ItemCursor(Guid? After, int Offset)
             return true;
         }
 
+        if (text.StartsWith("s:", StringComparison.Ordinal))
+        {
+            try
+            {
+                if (JsonSerializer.Deserialize<SortPosition>(text[2..]) is { Keys: { } keys, Id: { } last } && Guid.TryParseExact(last, "N", out var after))
+                {
+                    cursor = new ItemCursor(after, 0, keys);
+                    return true;
+                }
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
+
         return false;
     }
 
     private static string Encode(string value) => Base64Url.EncodeToString(Encoding.UTF8.GetBytes(value));
+
+    private sealed record SortPosition(string[] Keys, string Id);
 }
 
 /// <summary>A list item as returned by the API. <c>fields</c> contains <c>title</c> and all field values.</summary>
