@@ -73,7 +73,7 @@ Tailwind ([ADR-0033](adr/0033-web-frontend.md)). This page describes:
 | Notifications | `/notifications` | NTF-01, NTF-02 |
 | Settings: profile, password, passkeys, preferences | `/settings` | IAM-01, IAM-14, PLT-17 |
 | Settings: API tokens, calendar feeds, notification channels, subscriptions | `/settings/*` | IAM-03, CAL-04, NTF-03…05, API-06 |
-| Workspace settings: lists, members, permissions, automations, runs | `/w/$workspaceId/settings/*` | PLT-07, LST-16, IAM-07, EVT-07, EVT-08 |
+| Workspace settings: lists, members, permissions, workflows, runs | `/w/$workspaceId/settings/*` | PLT-07, LST-16, IAM-07, EVT-07, EVT-08 |
 | List settings: fields, content types, views, versioning, documents, permissions | `/w/$workspaceId/l/$listId/settings/*` | LST-02, LST-03, LST-09, LST-11, DOC-07, DOC-10, DOC-14, IAM-07 |
 | Admin: organization and its defaults | `/admin` | PLT-18 |
 | Admin: users, groups (members, inbox), roles (scopes, assignments) | `/admin/users`, `/admin/groups`, `/admin/roles` | IAM-05, IAM-06, IAM-14 |

@@ -66,7 +66,7 @@ Library files are not item fields. `upload_document` takes base64 because tool a
 - **Errors:** errors such as "not found" or invalid arguments come back as tool
   errors that the assistant can read.
 - **Data changes:** all writes go through the same pipeline as the API:
-  validation, permissions, versions, events, search and automation.
+  validation, permissions, versions, events, search and workflows.
 
 ## Tools from modules and extensions (API-09)
 

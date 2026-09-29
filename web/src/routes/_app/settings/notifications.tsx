@@ -25,7 +25,7 @@ const types: { key: string; label: string; description: string }[] = [
   { key: 'itemChanged', label: 'Followed items', description: 'Something you follow changes.' },
   { key: 'digest', label: 'Digests', description: 'Daily summaries of what you follow.' },
   { key: 'reminder', label: 'Reminders', description: 'Tasks that are due and events that start soon.' },
-  { key: 'automation', label: 'Automations and approvals', description: 'Approvals waiting for you, run results.' },
+  { key: 'workflow', label: 'Workflows and approvals', description: 'Approvals waiting for you, run results.' },
   { key: 'system', label: 'System', description: 'Test notifications and messages from the system.' },
 ];
 

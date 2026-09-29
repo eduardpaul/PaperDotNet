@@ -117,9 +117,9 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `IItemSearchContributor`; client notifications through `ILiveEvents`
   (`/v1.0/me/events`, SSE; across servers via LISTEN/NOTIFY on PostgreSQL, ADR-0026); user notifications (inbox, webhook) through
   `INotificationSender` (Notifications.Contracts) with a deduplication key.
-- Automation (ADR-0019, ADR-0024): one model, automations (trigger + condition + steps); actions
-  implement `IAutomationAction` (safe to repeat with `ExecutionKey`) and triggers are raised with
-  `IAutomationTriggers` (Automation.Contracts); runs are started and resumed with `ResumeRun`
+- Workflows (ADR-0036, before: automation, ADR-0019/0024): one model, workflows (trigger + condition + steps); activities
+  implement `IWorkflowActivity` (safe to repeat with `ExecutionKey`) and triggers are raised with
+  `IWorkflowTriggers` (Workflows.Contracts); runs are started and resumed with `ResumeRun`
   messages through the outbox (no workflow engine). Code that reacts to an event
   and changes data should set `EventCausation.Depth` to the event's depth + 1 (loop protection).
 - Group membership → `IUserDirectory` (`GetGroupIdsAsync`, `GetGroupMembersAsync`), which includes

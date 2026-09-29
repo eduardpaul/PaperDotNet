@@ -44,12 +44,12 @@ test('owners rename the workspace and manage its members', async ({ page, reques
   await expect(role).toBeHidden();
 });
 
-test('an automation notifies on new items, shows its runs and can be turned off', async ({ page }) => {
+test('a workflow notifies on new items, shows its runs and can be turned off', async ({ page }) => {
   test.setTimeout(45_000);
   const listUrl = await createList(page, 'Tasks', 'Inbox tasks');
   const workspaceUrl = listUrl.replace(/\/l\/.*$/, '');
-  await page.goto(`${workspaceUrl}/settings/automations`);
-  await page.getByRole('button', { name: 'New automation' }).click();
+  await page.goto(`${workspaceUrl}/settings/workflows`);
+  await page.getByRole('button', { name: 'New workflow' }).click();
 
   const editor = page.getByRole('dialog');
   const name = unique('Tell me');
@@ -71,10 +71,10 @@ test('an automation notifies on new items, shows its runs and can be turned off'
     .getByLabel('Hours')
     .fill('1');
   await editor.getByRole('button', { name: 'JSON' }).click();
-  await expect(editor.getByLabel('Automation JSON')).toHaveValue(/"type": "delay"/);
+  await expect(editor.getByLabel('Workflow JSON')).toHaveValue(/"type": "delay"/);
   await editor.getByRole('button', { name: 'JSON' }).click();
-  await editor.getByRole('button', { name: 'Create automation' }).click();
-  await expect(page.getByText('Automation created.')).toBeVisible();
+  await editor.getByRole('button', { name: 'Create workflow' }).click();
+  await expect(page.getByText('Workflow created.')).toBeVisible();
   await expect(page.getByRole('button', { name: new RegExp(`^${name}`) })).toContainText(
     'When an item is added in Inbox tasks',
   );
@@ -101,7 +101,7 @@ test('an automation notifies on new items, shows its runs and can be turned off'
   await expect(page.getByText('Run cancelled.')).toBeVisible();
   await expect(run).toContainText('cancelled');
 
-  await page.getByRole('link', { name: 'Automations' }).click();
+  await page.getByRole('link', { name: 'Workflows' }).click();
   await page.getByRole('checkbox', { name: `${name} enabled` }).uncheck();
   await expect(page.getByRole('button', { name: new RegExp(`^${name}`) })).toContainText('Off');
 });

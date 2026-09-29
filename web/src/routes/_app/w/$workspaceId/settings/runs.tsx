@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState, Skeleton } from '@/components/ui/feedback';
 import { Select } from '@/components/ui/select';
-import { automationsQuery } from '@/features/automations/queries';
+import { workflowsQuery } from '@/features/workflows/queries';
 import { userName, useUsers } from '@/features/fields/directory';
 import { itemLink } from '@/features/lists/item-link';
 import { SettingsSection } from '@/features/settings/section';
@@ -28,34 +28,34 @@ const tones: Record<RunStatus, 'neutral' | 'warning' | 'success' | 'danger'> = {
 };
 
 interface RunsSearch {
-  automation?: string;
+  workflow?: string;
   status?: RunStatus;
 }
 
 export const Route = createFileRoute('/_app/w/$workspaceId/settings/runs')({
   validateSearch: (search: Record<string, unknown>): RunsSearch => ({
-    automation: typeof search.automation === 'string' ? search.automation : undefined,
+    workflow: typeof search.workflow === 'string' ? search.workflow : undefined,
     status: statuses.includes(search.status as RunStatus) ? (search.status as RunStatus) : undefined,
   }),
   component: Runs,
 });
 
-/** What the automations did (EVT-07…09): status, approval outcomes, the log and errors; cancel what still runs. */
+/** What the workflows did (EVT-07…09): status, approval outcomes, the log and errors; cancel what still runs. */
 function Runs() {
   const { workspaceId } = Route.useParams();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const { data: automations } = useQuery(automationsQuery(workspaceId));
+  const { data: workflows } = useQuery(workflowsQuery(workspaceId));
   const runs = useInfiniteQuery({
     queryKey: [...keys.workspace(workspaceId), 'runs', search],
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) => {
-      const builder = workspaceBuilder(workspaceId).automations.runs;
+      const builder = workspaceBuilder(workspaceId).workflows.runs;
       return (
         (pageParam
           ? await builder.withUrl(pageParam).get()
           : await builder.get({
-              queryParameters: { automationId: search.automation, status: search.status, top: 50 },
+              queryParameters: { workflowId: search.workflow, status: search.status, top: 50 },
             })) ?? { value: [] }
       );
     },
@@ -66,18 +66,18 @@ function Runs() {
   return (
     <SettingsSection
       title="Runs"
-      description="Every time an automation started, newest first. Finished runs are kept for 30 days."
+      description="Every time a workflow started, newest first. Finished runs are kept for 30 days."
       className="px-0 pb-0"
     >
       <div className="flex flex-wrap gap-2 px-5 pb-3">
         <Select
-          aria-label="Automation"
+          aria-label="Workflow"
           className="w-56"
-          value={search.automation ?? ''}
-          onChange={(e) => void navigate({ search: { ...search, automation: e.target.value || undefined } })}
+          value={search.workflow ?? ''}
+          onChange={(e) => void navigate({ search: { ...search, workflow: e.target.value || undefined } })}
         >
-          <option value="">All automations</option>
-          {automations?.map((a) => (
+          <option value="">All workflows</option>
+          {workflows?.map((a) => (
             <option key={a.id} value={a.id!}>
               {a.name}
             </option>
@@ -128,7 +128,7 @@ function RunRow({ run, workspaceId }: { run: RunResponse; workspaceId: string })
   const { data: workspace } = useQuery(workspaceQuery(workspaceId));
   const [open, setOpen] = useState(false);
   const cancel = useMutation({
-    mutationFn: () => workspaceBuilder(workspaceId).automations.runs.byId(run.id!).cancel.post(),
+    mutationFn: () => workspaceBuilder(workspaceId).workflows.runs.byId(run.id!).cancel.post(),
     onSuccess: async () => {
       toast.success('Run cancelled.');
       await queryClient.invalidateQueries({ queryKey: [...keys.workspace(workspaceId), 'runs'] });
@@ -150,9 +150,7 @@ function RunRow({ run, workspaceId }: { run: RunResponse; workspaceId: string })
       >
         <ChevronRight className={cn('size-4 text-muted transition-transform', open && 'rotate-90')} />
         <Badge tone={tones[status]}>{status}</Badge>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
-          {run.automation ?? 'Deleted automation'}
-        </span>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{run.workflow ?? 'Deleted workflow'}</span>
         <span className="text-xs text-muted" title={format.dateTime(run.startedAt)}>
           {format.relative(run.startedAt)}
         </span>
@@ -172,7 +170,7 @@ function RunRow({ run, workspaceId }: { run: RunResponse; workspaceId: string })
               </>
             )}
             <dt className="text-muted">Version</dt>
-            <dd>{run.automationVersion}</dd>
+            <dd>{run.workflowVersion}</dd>
             {link && (
               <>
                 <dt className="text-muted">Item</dt>

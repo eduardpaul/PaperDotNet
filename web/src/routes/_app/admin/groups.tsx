@@ -104,7 +104,7 @@ function Groups() {
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(undefined)}
         title={`Delete the group “${deleting?.name ?? ''}”?`}
-        description="Its members lose what was granted to the group; approvals and automations naming it no longer reach anyone."
+        description="Its members lose what was granted to the group; approvals and workflows naming it no longer reach anyone."
         confirm="Delete group"
         busy={remove.isPending}
         error={remove.error}

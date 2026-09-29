@@ -8,13 +8,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
-using PaperDotNet.Automation.Contracts;
 using PaperDotNet.Extensions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
 using PaperDotNet.Provisioning.Contracts;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.ExtensionHost.Runtime;
 
@@ -35,9 +35,9 @@ public sealed class ExtensionContributions
 
     public List<string> TemplateHandlers { get; } = [];
 
-    public List<string> AutomationActions { get; } = [];
+    public List<string> WorkflowActivities { get; } = [];
 
-    public List<string> AutomationTriggers { get; } = [];
+    public List<string> WorkflowTriggers { get; } = [];
 
     public List<string> McpTools { get; } = [];
 
@@ -248,13 +248,13 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
-    public IExtensionBuilder AddAutomationAction<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
-        where TAction : class, IAutomationAction
+    public IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
+        where TAction : class, IWorkflowActivity
     {
         var id = extension.Id;
         services.TryAddScoped<TAction>();
-        services.AddScoped<IAutomationAction>(sp => new GatedAutomationAction(id, sp.GetRequiredService<TAction>(), sp.GetRequiredService<IExtensionState>()));
-        extension.Contributions.AutomationActions.Add(typeof(TAction).Name);
+        services.AddScoped<IWorkflowActivity>(sp => new GatedWorkflowActivity(id, sp.GetRequiredService<TAction>(), sp.GetRequiredService<IExtensionState>()));
+        extension.Contributions.WorkflowActivities.Add(typeof(TAction).Name);
         return this;
     }
 
@@ -268,11 +268,11 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
-    public IExtensionBuilder AddAutomationTrigger(AutomationTriggerDefinition trigger)
+    public IExtensionBuilder AddWorkflowTrigger(WorkflowTriggerDefinition trigger)
     {
-        RequirePrefix(trigger.Key, "Automation trigger key");
+        RequirePrefix(trigger.Key, "Workflow trigger key");
         services.AddSingleton(trigger);
-        extension.Contributions.AutomationTriggers.Add(trigger.Key);
+        extension.Contributions.WorkflowTriggers.Add(trigger.Key);
         return this;
     }
 
@@ -383,23 +383,23 @@ internal sealed class GatedTemplateHandler(string extensionId, ITemplateHandler 
 }
 
 /// <summary>
-/// An extension's automation action: its key must start with the extension id (checked when first used,
+/// An extension's workflow action: its key must start with the extension id (checked when first used,
 /// since the key is an instance property), and it fails where the extension is not enabled.
 /// </summary>
-internal sealed class GatedAutomationAction(string extensionId, IAutomationAction inner, IExtensionState state) : IAutomationAction
+internal sealed class GatedWorkflowActivity(string extensionId, IWorkflowActivity inner, IExtensionState state) : IWorkflowActivity
 {
     public string Key => inner.Key.StartsWith(extensionId + ".", StringComparison.Ordinal)
         ? inner.Key
-        : throw new InvalidOperationException($"Automation action '{inner.Key}' of extension {extensionId} must start with '{extensionId}.'.");
+        : throw new InvalidOperationException($"Workflow action '{inner.Key}' of extension {extensionId} must start with '{extensionId}.'.");
 
     public string Description => inner.Description;
 
     public IEnumerable<string> Validate(System.Text.Json.Nodes.JsonObject inputs) => inner.Validate(inputs);
 
-    public async Task<AutomationActionResult> ExecuteAsync(AutomationActionContext context, CancellationToken cancellationToken) =>
+    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken) =>
         await state.IsEnabledAsync(extensionId, cancellationToken)
             ? await inner.ExecuteAsync(context, cancellationToken)
-            : AutomationActionResult.Fail($"The extension '{extensionId}' is not enabled.");
+            : WorkflowActivityResult.Fail($"The extension '{extensionId}' is not enabled.");
 }
 
 /// <summary>An extension's MCP tool: offered only where the extension is enabled; the name carries the extension id.</summary>

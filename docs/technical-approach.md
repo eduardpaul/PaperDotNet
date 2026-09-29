@@ -43,7 +43,7 @@ technical decisions.
   - Files
   - Search
   - Events
-  - Automation
+  - Workflows
   - Notifications
   - Sharing
   - Dav
@@ -87,7 +87,7 @@ PaperDotNet.slnx
 │  │  ├─ Lists/
 │  │  │  ├─ PaperDotNet.Lists.Contracts/
 │  │  │  └─ PaperDotNet.Lists/               # slices: Features/Items/CreateItem/…, Data/ListsDbContext
-│  │  ├─ Tenancy/  Identity/  Taxonomy/  Files/  Search/  Events/  Automation/
+│  │  ├─ Tenancy/  Identity/  Taxonomy/  Files/  Search/  Events/  Workflows/
 │  │  └─ Notifications/  Sharing/  Dav/  Mcp/  Extensions/  Ai/
 │  ├─ Sdk/
 │  │  ├─ PaperDotNet.Extensions.Abstractions/   # public, SemVer-stable extension contracts
@@ -256,7 +256,7 @@ outbox dispatcher (BackgroundService)
         → woken by PostgreSQL LISTEN/NOTIFY, polling as fallback
         → claims rows with FOR UPDATE SKIP LOCKED   (multi-node safe)
         → Channel<T> per consumer group (bounded, back-pressure)
-        → one message per subscriber: search indexer · webhooks · notifications · automation · SSE
+        → one message per subscriber: search indexer · webhooks · notifications · workflows · SSE
 ```
 
 - **At-least-once delivery.** Consumers are idempotent, backed by an inbox

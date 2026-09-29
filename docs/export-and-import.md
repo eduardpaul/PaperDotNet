@@ -10,7 +10,7 @@ for its contents and [ADR-0028](adr/0028-template-packages.md) for the design.
 
 - **Configuration:** everything a template carries. That covers content types,
   term sets, groups, roles, workspaces with members, lists with views and
-  permissions, library settings, smart folders, automations and extension
+  permissions, library settings, smart folders, workflows and extension
   settings.
 - **Content:** list items and folders, with who created and changed them and
   their unique permissions. Documents come with every file version and its
@@ -61,6 +61,6 @@ Imports follow the rules of templates:
   deleted. Items created by an earlier import are found again, so importing
   twice creates nothing twice.
 - **Existing items:** existing items are left as they are.
-- **Normal write path:** items are validated, indexed and seen by automations.
+- **Normal write path:** items are validated, indexed and seen by workflows.
 - **Missing users and terms:** users or terms that don't exist on the target
   are left out, with a warning.

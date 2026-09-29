@@ -57,8 +57,8 @@ public sealed class InvoicesExtension : IExtension
             o.ContentTypes.Add("Invoice");
         });
         builder.AddEventSubscriber<ItemAdded, InvoiceCounter>();
-        builder.AddAutomationTrigger(new(ApprovalNeededTrigger.Key, "An invoice above the approval threshold was added (data: amount)."));
-        builder.AddAutomationAction<ApproveInvoiceAction>();
+        builder.AddWorkflowTrigger(new(ApprovalNeededTrigger.Key, "An invoice above the approval threshold was added (data: amount)."));
+        builder.AddWorkflowActivity<ApproveInvoiceAction>();
         builder.AddMcpTool<PendingInvoicesTool>();
         builder.AddEventSubscriber<ItemAdded, ApprovalNeededTrigger>();
         builder.AddRecurringJob<ReminderJob>($"{Id}.reminders", "* * * * * *");

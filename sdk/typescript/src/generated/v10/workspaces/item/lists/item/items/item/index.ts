@@ -6,8 +6,6 @@ import { createApiProblemFromDiscriminatorValue, createItemResponseFromDiscrimin
 // @ts-ignore
 import { ActivityRequestBuilderRequestsMetadata, type ActivityRequestBuilder } from './activity/index.js';
 // @ts-ignore
-import { AutomationsRequestBuilderRequestsMetadata, type AutomationsRequestBuilder } from './automations/index.js';
-// @ts-ignore
 import { BacklinksRequestBuilderRequestsMetadata, type BacklinksRequestBuilder } from './backlinks/index.js';
 // @ts-ignore
 import { ChecklistRequestBuilderRequestsMetadata, type ChecklistRequestBuilder } from './checklist/index.js';
@@ -32,6 +30,8 @@ import { TasksRequestBuilderRequestsMetadata, type TasksRequestBuilder } from '.
 // @ts-ignore
 import { type VersionsRequestBuilder, VersionsRequestBuilderNavigationMetadata, VersionsRequestBuilderRequestsMetadata } from './versions/index.js';
 // @ts-ignore
+import { type WorkflowsRequestBuilder, WorkflowsRequestBuilderRequestsMetadata } from './workflows/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -42,10 +42,6 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      * The activity property
      */
     get activity(): ActivityRequestBuilder;
-    /**
-     * The automations property
-     */
-    get automations(): AutomationsRequestBuilder;
     /**
      * The backlinks property
      */
@@ -95,6 +91,10 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      */
     get versions(): VersionsRequestBuilder;
     /**
+     * The workflows property
+     */
+    get workflows(): WorkflowsRequestBuilder;
+    /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @throws {ApiProblem} error when the service returns a 4XX or 5XX status code
      */
@@ -141,9 +141,6 @@ export const WithItemItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     activity: {
         requestsMetadata: ActivityRequestBuilderRequestsMetadata,
     },
-    automations: {
-        requestsMetadata: AutomationsRequestBuilderRequestsMetadata,
-    },
     backlinks: {
         requestsMetadata: BacklinksRequestBuilderRequestsMetadata,
     },
@@ -185,6 +182,9 @@ export const WithItemItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     versions: {
         requestsMetadata: VersionsRequestBuilderRequestsMetadata,
         navigationMetadata: VersionsRequestBuilderNavigationMetadata,
+    },
+    workflows: {
+        requestsMetadata: WorkflowsRequestBuilderRequestsMetadata,
     },
 };
 /**

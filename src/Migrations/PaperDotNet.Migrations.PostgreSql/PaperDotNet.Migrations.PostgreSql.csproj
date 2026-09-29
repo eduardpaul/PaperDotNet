@@ -21,7 +21,7 @@
     <ProjectReference Include="..\..\Modules\Collaboration\PaperDotNet.Collaboration\PaperDotNet.Collaboration.csproj" />
     <ProjectReference Include="..\..\Modules\Calendar\PaperDotNet.Calendar\PaperDotNet.Calendar.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\PaperDotNet.Notifications\PaperDotNet.Notifications.csproj" />
-    <ProjectReference Include="..\..\Modules\Automation\PaperDotNet.Automation\PaperDotNet.Automation.csproj" />
+    <ProjectReference Include="..\..\Modules\Workflows\PaperDotNet.Workflows\PaperDotNet.Workflows.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />

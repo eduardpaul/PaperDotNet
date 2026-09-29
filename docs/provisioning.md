@@ -59,7 +59,7 @@ exports of whole tenants, go through [export and import](export-and-import.md).
   again creates nothing twice.
 - **Additive:** existing items are never changed or deleted.
 - **Normal write path:** items are created with validation, mutators, events,
-  search and automations.
+  search and workflows.
 - **Order:** folders come before their contents. Lookups are set once every
   list of the package is filled.
 

@@ -4,10 +4,10 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Automation.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Provisioning.Contracts;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Extensions;
 
@@ -100,12 +100,12 @@ public interface IExtensionBuilder
     IExtensionBuilder AddTemplateHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
         where THandler : class, ITemplateHandler;
 
-    /// <summary>An action for automation steps (EVT-09; key starts with <c>{extension id}.</c>).</summary>
-    IExtensionBuilder AddAutomationAction<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
-        where TAction : class, IAutomationAction;
+    /// <summary>An action for workflow steps (EVT-09; key starts with <c>{extension id}.</c>).</summary>
+    IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
+        where TAction : class, IWorkflowActivity;
 
-    /// <summary>A trigger for automations (EVT-09; key starts with <c>{extension id}.</c>); raise it with <see cref="IAutomationTriggers"/>.</summary>
-    IExtensionBuilder AddAutomationTrigger(AutomationTriggerDefinition trigger);
+    /// <summary>A trigger for workflows (EVT-09; key starts with <c>{extension id}.</c>); raise it with <see cref="IWorkflowTriggers"/>.</summary>
+    IExtensionBuilder AddWorkflowTrigger(WorkflowTriggerDefinition trigger);
 
     /// <summary>
     /// A tool for AI assistants on the MCP endpoint (API-09). The name must start with the extension id

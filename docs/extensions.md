@@ -187,18 +187,18 @@ list level:
 The section runs only in tenants where your extension is enabled, including
 tenants where the same template enables it. See `docs/provisioning.md`.
 
-**Automation (EVT-09)** — offer actions to automations with
-`builder.AddAutomationAction<TAction>()` (`IAutomationAction`; key
+**Workflows (EVT-09)** — offer activities to workflows with
+`builder.AddWorkflowActivity<TActivity>()` (`IWorkflowActivity`; key
 `{extension id}.name`). Read inputs from `context.Inputs`, replace tokens with
 `context.ExpandAsync`, and act on `context.Item` on behalf of the organization
 (e.g. `IListItemStore.AsSystem()`). Offer triggers with
-`builder.AddAutomationTrigger(new(key, description))` and raise them from your
-code with `IAutomationTriggers.RaiseAsync(key, workspaceId, item, data)`.
-Automations with that trigger then start in the background. Make actions safe
+`builder.AddWorkflowTrigger(new(key, description))` and raise them from your
+code with `IWorkflowTriggers.RaiseAsync(key, workspaceId, item, data)`.
+Workflows with that trigger then start in the background. Make actions safe
 to repeat with `context.ExecutionId` (for example as the id of an item you
 create with `IListItemStore.CreateAsync(workspaceId, listId, itemId, …)`) or
 `context.ExecutionKey`; both stay the same when a step runs again. See
-`docs/automation.md`.
+`docs/workflows.md`.
 
 ## 5. Analyzers
 

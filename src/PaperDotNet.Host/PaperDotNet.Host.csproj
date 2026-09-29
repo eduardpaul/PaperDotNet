@@ -37,7 +37,7 @@
     <ProjectReference Include="..\Modules\Mcp\PaperDotNet.Mcp\PaperDotNet.Mcp.csproj" />
     <ProjectReference Include="..\Modules\Provisioning\PaperDotNet.Provisioning\PaperDotNet.Provisioning.csproj" />
     <ProjectReference Include="..\Tools\PaperDotNet.Import.Papermerge\PaperDotNet.Import.Papermerge.csproj" />
-    <ProjectReference Include="..\Modules\Automation\PaperDotNet.Automation\PaperDotNet.Automation.csproj" />
+    <ProjectReference Include="..\Modules\Workflows\PaperDotNet.Workflows\PaperDotNet.Workflows.csproj" />
     <ProjectReference Include="..\Modules\ExtensionHost\PaperDotNet.ExtensionHost\PaperDotNet.ExtensionHost.csproj" />
     <!-- Finds referenced extensions at compile time (ADR-0014). Add extensions as package/project references. -->
     <ProjectReference Include="..\Extensions\PaperDotNet.Extensions.Generator\PaperDotNet.Extensions.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />

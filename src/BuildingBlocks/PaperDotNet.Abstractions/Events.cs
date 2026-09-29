@@ -23,7 +23,7 @@ public abstract record IntegrationEvent
     /// <summary>
     /// How many automatic reactions led to this event: 0 for a change a user or API client made,
     /// n + 1 for a change made while handling an event of depth n (see <see cref="EventCausation"/>).
-    /// Automation uses it to stop chains that would never end.
+    /// Workflow uses it to stop chains that would never end.
     /// </summary>
     public int Depth { get; init; }
 }

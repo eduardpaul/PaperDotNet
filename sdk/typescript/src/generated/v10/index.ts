@@ -8,8 +8,6 @@ import { AuditLogRequestBuilderRequestsMetadata, type AuditLogRequestBuilder } f
 // @ts-ignore
 import { AuthRequestBuilderNavigationMetadata, type AuthRequestBuilder } from './auth/index.js';
 // @ts-ignore
-import { AutomationRequestBuilderNavigationMetadata, type AutomationRequestBuilder } from './automation/index.js';
-// @ts-ignore
 import { BatchRequestBuilderRequestsMetadata, type BatchRequestBuilder } from './batch/index.js';
 // @ts-ignore
 import { CalendarFeedsRequestBuilderNavigationMetadata, type CalendarFeedsRequestBuilder } from './calendarFeeds/index.js';
@@ -50,6 +48,8 @@ import { TermStoreRequestBuilderNavigationMetadata, type TermStoreRequestBuilder
 // @ts-ignore
 import { type UsersRequestBuilder, UsersRequestBuilderNavigationMetadata, UsersRequestBuilderRequestsMetadata } from './users/index.js';
 // @ts-ignore
+import { type WorkflowsRequestBuilder, WorkflowsRequestBuilderNavigationMetadata } from './workflows/index.js';
+// @ts-ignore
 import { type WorkspacesRequestBuilder, WorkspacesRequestBuilderNavigationMetadata, WorkspacesRequestBuilderRequestsMetadata } from './workspaces/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
@@ -70,10 +70,6 @@ export interface V10RequestBuilder extends BaseRequestBuilder<V10RequestBuilder>
      * The auth property
      */
     get auth(): AuthRequestBuilder;
-    /**
-     * The automation property
-     */
-    get automation(): AutomationRequestBuilder;
     /**
      * The Batch property
      */
@@ -155,6 +151,10 @@ export interface V10RequestBuilder extends BaseRequestBuilder<V10RequestBuilder>
      */
     get users(): UsersRequestBuilder;
     /**
+     * The workflows property
+     */
+    get workflows(): WorkflowsRequestBuilder;
+    /**
      * The workspaces property
      */
     get workspaces(): WorkspacesRequestBuilder;
@@ -176,9 +176,6 @@ export const V10RequestBuilderNavigationMetadata: Record<Exclude<keyof V10Reques
     },
     auth: {
         navigationMetadata: AuthRequestBuilderNavigationMetadata,
-    },
-    automation: {
-        navigationMetadata: AutomationRequestBuilderNavigationMetadata,
     },
     batch: {
         requestsMetadata: BatchRequestBuilderRequestsMetadata,
@@ -249,6 +246,9 @@ export const V10RequestBuilderNavigationMetadata: Record<Exclude<keyof V10Reques
     users: {
         requestsMetadata: UsersRequestBuilderRequestsMetadata,
         navigationMetadata: UsersRequestBuilderNavigationMetadata,
+    },
+    workflows: {
+        navigationMetadata: WorkflowsRequestBuilderNavigationMetadata,
     },
     workspaces: {
         requestsMetadata: WorkspacesRequestBuilderRequestsMetadata,

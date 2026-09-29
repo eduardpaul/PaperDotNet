@@ -15,22 +15,6 @@ namespace PaperDotNet.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The automationActions property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public List<string>? AutomationActions { get; set; }
-#nullable restore
-#else
-        public List<string> AutomationActions { get; set; }
-#endif
-        /// <summary>The automationTriggers property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public List<string>? AutomationTriggers { get; set; }
-#nullable restore
-#else
-        public List<string> AutomationTriggers { get; set; }
-#endif
         /// <summary>The contentTypes property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -113,6 +97,22 @@ namespace PaperDotNet.Client.Models
 #else
         public List<string> TermSets { get; set; }
 #endif
+        /// <summary>The workflowActivities property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<string>? WorkflowActivities { get; set; }
+#nullable restore
+#else
+        public List<string> WorkflowActivities { get; set; }
+#endif
+        /// <summary>The workflowTriggers property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<string>? WorkflowTriggers { get; set; }
+#nullable restore
+#else
+        public List<string> WorkflowTriggers { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.ExtensionContributions"/> and sets the default values.
         /// </summary>
@@ -138,8 +138,6 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
-                { "automationActions", n => { AutomationActions = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
-                { "automationTriggers", n => { AutomationTriggers = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "contentTypes", n => { ContentTypes = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "dbContext", n => { DbContext = n.GetStringValue(); } },
                 { "endpoints", n => { Endpoints = n.GetBoolValue(); } },
@@ -151,6 +149,8 @@ namespace PaperDotNet.Client.Models
                 { "mcpTools", n => { McpTools = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "templateHandlers", n => { TemplateHandlers = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "termSets", n => { TermSets = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
+                { "workflowActivities", n => { WorkflowActivities = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
+                { "workflowTriggers", n => { WorkflowTriggers = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
             };
         }
         /// <summary>
@@ -160,8 +160,6 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
-            writer.WriteCollectionOfPrimitiveValues<string>("automationActions", AutomationActions);
-            writer.WriteCollectionOfPrimitiveValues<string>("automationTriggers", AutomationTriggers);
             writer.WriteCollectionOfPrimitiveValues<string>("contentTypes", ContentTypes);
             writer.WriteStringValue("dbContext", DbContext);
             writer.WriteBoolValue("endpoints", Endpoints);
@@ -173,6 +171,8 @@ namespace PaperDotNet.Client.Models
             writer.WriteCollectionOfPrimitiveValues<string>("mcpTools", McpTools);
             writer.WriteCollectionOfPrimitiveValues<string>("templateHandlers", TemplateHandlers);
             writer.WriteCollectionOfPrimitiveValues<string>("termSets", TermSets);
+            writer.WriteCollectionOfPrimitiveValues<string>("workflowActivities", WorkflowActivities);
+            writer.WriteCollectionOfPrimitiveValues<string>("workflowTriggers", WorkflowTriggers);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

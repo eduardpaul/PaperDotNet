@@ -18,7 +18,7 @@ import { problemMessage } from '@/lib/errors';
 export const Route = createFileRoute('/_app/w/$workspaceId/settings/members')({ component: Members });
 
 const roles: { value: WorkspaceRole; label: string; description: string }[] = [
-  { value: 'owner', label: 'Owner', description: 'Changes settings, members and automations' },
+  { value: 'owner', label: 'Owner', description: 'Changes settings, members and workflows' },
   { value: 'member', label: 'Member', description: 'Adds and edits items and documents' },
   { value: 'visitor', label: 'Visitor', description: 'Reads everything, changes nothing' },
 ];

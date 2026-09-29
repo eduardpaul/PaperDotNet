@@ -104,7 +104,7 @@ Legend for the **Use** column:
 | **Own outbox + Channels** | ✅ | The simplest start. The outbox table is written in the same `SaveChanges`. A hosted dispatcher reads it and pushes the events into Channels, and consumers (async after-events, webhooks, indexing, automation) read from there |
 | **Wolverine** (MIT) | 🟡 | A durable EF Core/PostgreSQL outbox, local queues, retries, scheduled messages and a message bus. It could replace the hand-made outbox |
 | **Quartz.NET** (Apache-2.0) | ❌ superseded | Replaced by Wolverine scheduled messages + a small Cronos-based scheduler (ADR-0010): Quartz's job store needs provider-specific scripts outside EF migrations. (Hangfire excluded: LGPL-3.0 core) |
-| **Workflow engine** | — | None: automation workflows are resumed through Wolverine messages (ADR-0019). Elsa was rejected for licensing, WorkflowCore as unnecessary |
+| **Workflow engine** | — | None: workflow runs are resumed through Wolverine messages (ADR-0019, ADR-0036). Elsa was rejected for licensing, WorkflowCore as unnecessary; durable execution frameworks (Temporal, Dapr Workflow) were checked and not needed (ADR-0036) |
 
 ## 7. Extensibility runtime
 

@@ -4,11 +4,11 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createWorkspaceResponseFromDiscriminatorValue, serializeUpdateWorkspaceRequest, serializeWorkspaceResponse, type ApiProblem, type UpdateWorkspaceRequest, type WorkspaceResponse } from '../../../models/index.js';
 // @ts-ignore
-import { AutomationsRequestBuilderNavigationMetadata, AutomationsRequestBuilderRequestsMetadata, type AutomationsRequestBuilder } from './automations/index.js';
-// @ts-ignore
 import { ListsRequestBuilderNavigationMetadata, ListsRequestBuilderRequestsMetadata, type ListsRequestBuilder } from './lists/index.js';
 // @ts-ignore
 import { MembersRequestBuilderNavigationMetadata, MembersRequestBuilderRequestsMetadata, type MembersRequestBuilder } from './members/index.js';
+// @ts-ignore
+import { type WorkflowsRequestBuilder, WorkflowsRequestBuilderNavigationMetadata, WorkflowsRequestBuilderRequestsMetadata } from './workflows/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -17,10 +17,6 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  */
 export interface WithWorkspaceItemRequestBuilder extends BaseRequestBuilder<WithWorkspaceItemRequestBuilder> {
     /**
-     * The automations property
-     */
-    get automations(): AutomationsRequestBuilder;
-    /**
      * The lists property
      */
     get lists(): ListsRequestBuilder;
@@ -28,6 +24,10 @@ export interface WithWorkspaceItemRequestBuilder extends BaseRequestBuilder<With
      * The members property
      */
     get members(): MembersRequestBuilder;
+    /**
+     * The workflows property
+     */
+    get workflows(): WorkflowsRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @throws {ApiProblem} error when the service returns a 4XX or 5XX status code
@@ -72,10 +72,6 @@ export const WithWorkspaceItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/works
  * Metadata for all the navigation properties in the request builder.
  */
 export const WithWorkspaceItemRequestBuilderNavigationMetadata: Record<Exclude<keyof WithWorkspaceItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
-    automations: {
-        requestsMetadata: AutomationsRequestBuilderRequestsMetadata,
-        navigationMetadata: AutomationsRequestBuilderNavigationMetadata,
-    },
     lists: {
         requestsMetadata: ListsRequestBuilderRequestsMetadata,
         navigationMetadata: ListsRequestBuilderNavigationMetadata,
@@ -83,6 +79,10 @@ export const WithWorkspaceItemRequestBuilderNavigationMetadata: Record<Exclude<k
     members: {
         requestsMetadata: MembersRequestBuilderRequestsMetadata,
         navigationMetadata: MembersRequestBuilderNavigationMetadata,
+    },
+    workflows: {
+        requestsMetadata: WorkflowsRequestBuilderRequestsMetadata,
+        navigationMetadata: WorkflowsRequestBuilderNavigationMetadata,
     },
 };
 /**

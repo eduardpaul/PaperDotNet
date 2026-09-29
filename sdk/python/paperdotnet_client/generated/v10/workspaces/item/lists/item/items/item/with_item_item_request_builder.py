@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from ........models.item_response import ItemResponse
     from ........models.update_item_request import UpdateItemRequest
     from .activity.activity_request_builder import ActivityRequestBuilder
-    from .automations.automations_request_builder import AutomationsRequestBuilder
     from .backlinks.backlinks_request_builder import BacklinksRequestBuilder
     from .checklist.checklist_request_builder import ChecklistRequestBuilder
     from .children.children_request_builder import ChildrenRequestBuilder
@@ -31,6 +30,7 @@ if TYPE_CHECKING:
     from .series.series_request_builder import SeriesRequestBuilder
     from .tasks.tasks_request_builder import TasksRequestBuilder
     from .versions.versions_request_builder import VersionsRequestBuilder
+    from .workflows.workflows_request_builder import WorkflowsRequestBuilder
 
 class WithItemItemRequestBuilder(BaseRequestBuilder):
     """
@@ -158,15 +158,6 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         return ActivityRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
-    def automations(self) -> AutomationsRequestBuilder:
-        """
-        The automations property
-        """
-        from .automations.automations_request_builder import AutomationsRequestBuilder
-
-        return AutomationsRequestBuilder(self.request_adapter, self.path_parameters)
-    
-    @property
     def backlinks(self) -> BacklinksRequestBuilder:
         """
         The backlinks property
@@ -273,6 +264,15 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .versions.versions_request_builder import VersionsRequestBuilder
 
         return VersionsRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def workflows(self) -> WorkflowsRequestBuilder:
+        """
+        The workflows property
+        """
+        from .workflows.workflows_request_builder import WorkflowsRequestBuilder
+
+        return WorkflowsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @dataclass
     class WithItemItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):
