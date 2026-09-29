@@ -85,7 +85,8 @@ Found by reading the code (not in the benchmark):
   per query, not per physical connection. Confirmed in the
   [EF check](#checked-through-ef-core-10): five queries, five opens, five
   `set_config` in the PostgreSQL log
-  ([0007](../issues/0007-postgresql-rls-session-overhead-under-pooling.md)).
+  ([0007](../issues/0007-postgresql-rls-session-overhead-under-pooling.md);
+  fixed by ADR-0035 step 6: the setting now travels with each command).
 
 ## 2. What the design must handle
 

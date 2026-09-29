@@ -1,6 +1,6 @@
 # 0007: PostgreSQL RLS tenant-setting overhead under connection pooling is unmeasured
 
-- **Status:** confirmed
+- **Status:** done
 - **Area:** Other
 - **Date:** 2026-09-27
 
@@ -58,3 +58,14 @@ run with another request's tenant setting. RLS then hides rows that the EF
 filter expects. The setting has to travel with the query (in the same
 transaction or the same batch), or the connection has to stay open for the
 request.
+
+## Done (2026-09-29)
+
+[ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 6.
+The setting travels with the query: a command outside a transaction is sent
+as `SET app.tenant_id = '<id>'; <query>` in one batch (one round trip, one
+implicit transaction, so safe behind a transaction-mode pooler), a
+transaction runs `SET LOCAL app.tenant_id` at its start, and saves always run
+in a transaction. `PaperDotNet.Performance` on PostgreSQL, eight callers:
+reads 510 → 662 requests/s, shared-folder pages 450 → 625. Not yet tested
+behind PgBouncer.

@@ -1,6 +1,6 @@
 # ADR-0035: Item storage and permissions at scale
 
-- **Status:** Accepted; steps 1–5 implemented (ACL by principal, nested groups, fan-out, indexed fields, queries across lists)
+- **Status:** Accepted; implemented (ACL by principal, nested groups, fan-out, indexed fields, queries across lists, tenant setting per command)
 - **Date:** 2026-09-28
 - **Replaces:** how ADR-0011 evaluates permissions (its scope model stays) and
   how ADR-0012 trims search.
@@ -174,10 +174,13 @@ used 1.6M items and was checked through the real `ListsDbContext` with EF Core
 
 ### 5. Connections
 
-The tenant setting is sent once per request and context, not before every
-query: a module context opens its connection on first use and keeps it until
-the request ends. Pool pressure (several contexts per request) is measured
-before this applies to every module (issue 0007).
+The tenant setting travels with the commands instead of costing a round trip
+of its own: a query outside a transaction carries it in the same batch, and a
+transaction sets it once at its start. Connections are not held for the whole
+request, so there is no extra pool pressure, and the setting and the query
+always run in the same transaction, which a transaction-mode pooler needs
+(issue 0007). See the step 6 notes; the first plan (hold a connection per
+request and context) was dropped.
 
 ## Consequences
 
@@ -210,7 +213,7 @@ before this applies to every module (issue 0007).
    live-event audience.
 4. Promoted columns and the value table, with the translator and backfill.
 5. Queries across lists as one query (My tasks, calendar, smart folders).
-6. The per-request tenant setting on PostgreSQL.
+6. The tenant setting per command on PostgreSQL.
 
 ## Implementation notes
 
@@ -375,3 +378,28 @@ Done as decided, with these details:
   batch their item and group queries the same way (per group and filter).
 - Measured with `PaperDotNet.Performance` "mytasks" (20 task lists, SQLite):
   18 → 106 requests/s at one caller, 46 → 367 at eight.
+
+### Step 6: tenant setting per command (2026-09-29)
+
+- `TenantSessionInterceptor` (a `set_config` on every connection open) is
+  replaced by three interceptors in `Persistence.PostgreSql`:
+  - `TenantCommandInterceptor` puts `SET app.tenant_id = '<id>';` in front of
+    every command outside a transaction. Npgsql sends both statements in one
+    batch, so there is no extra round trip, and they run in one implicit
+    transaction, so a transaction-mode pooler keeps them on one server
+    connection.
+  - `TenantTransactionInterceptor` runs `SET LOCAL app.tenant_id` when a
+    transaction starts on an EF context (EF's own, the outbox's and explicit ones).
+  - `TenantSaveChangesInterceptor` sets `AutoTransactionBehavior.Always`, so
+    every save runs in a transaction. Saves are not prefixed: EF reads the
+    rows affected by each statement of the batch by position, and an extra
+    statement shifts them (a `DbUpdateConcurrencyException`).
+- The tenant id is a GUID formatted by the interceptor, never user text, so
+  the literal cannot inject SQL.
+- Instead of the first plan (hold one connection per request and context),
+  nothing holds connections longer than EF does; a request with several
+  module contexts uses no more connections than before.
+- Measured with `PaperDotNet.Performance` on PostgreSQL 16 without a pooler,
+  eight callers, before → after: read 510 → 662 requests/s, shared folders
+  450 → 625, create 239 → 266; query, mytasks and search unchanged (within
+  noise). Saves still pay one `SET LOCAL` round trip per transaction.

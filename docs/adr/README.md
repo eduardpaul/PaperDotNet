@@ -39,4 +39,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0032](0032-sdk-for-first-party-clients.md) | Generated SDKs good enough for our own frontend: complete OpenAPI, ETags in bodies, thin runtime (auth, SSE, paging, files), end-to-end tests | Accepted |
 | [0033](0033-web-frontend.md) | Web frontend on the TypeScript SDK with React, TanStack Router/Query/Table and Tailwind, served by the host from the same origin | Accepted |
 | [0034](0034-optional-glm-ocr.md) | Optional GLM-OCR image; Tesseract stays the default OCR engine | Accepted |
-| [0035](0035-item-storage-and-permissions-at-scale.md) | Item storage and permissions at scale: scope ACL looked up by principal, nested groups, promoted field columns and a value table, scope-based search and fan-out | Accepted (steps 1–5 implemented) |
+| [0035](0035-item-storage-and-permissions-at-scale.md) | Item storage and permissions at scale: scope ACL looked up by principal, nested groups, promoted field columns and a value table, scope-based search and fan-out | Accepted (implemented) |
