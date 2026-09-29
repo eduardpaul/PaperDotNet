@@ -164,6 +164,9 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 
 ## Decisions
 
+- **2026-09-29:** Elsa re-checked for [ADR-0036](adr/0036-workflows-as-the-core.md): 3.8.4 (latest) still
+  depends on JsonSchema.Net 9.4.0 (with JsonPointer.Net and Json.More.Net, OSMF EULA) from `Elsa.Workflows.Core`.
+  Still rejected; Elsa is used as a design reference only.
 - **2026-09-25:** no workflow engine dependency. Elsa was rejected because its current versions
   depend on a package whose binaries carry a revenue-dependent maintenance fee (ADR-0018).
   WorkflowCore was tried and then replaced by Wolverine messages we already use (ADR-0019).
