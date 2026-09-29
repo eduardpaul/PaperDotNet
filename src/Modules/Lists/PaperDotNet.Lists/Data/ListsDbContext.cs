@@ -43,9 +43,10 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
     }
 
     /// <summary>
-    /// Writes the change log for delta sync (API-05) from the tracked changes, so every write
-    /// path is covered. Permission changes reset the list's delta tokens. New lists get the
-    /// entries of the workspace roles (ADR-0035), whichever path created them.
+    /// Writes the change log for delta sync (API-05) from the tracked changes, so every write path is covered. An item
+    /// that moved to another permission scope records the scope it came from; a changed access list records a
+    /// <see cref="ItemChangeKind.ScopeChanged"/> marker (ADR-0035). New lists get the entries of the workspace roles,
+    /// whichever path created them.
     /// </summary>
     private void RecordChanges()
     {
@@ -58,17 +59,20 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
         }
 
         var items = new Dictionary<Guid, ItemChange>();
-        var resets = new HashSet<Guid>();
+
+        // Scopes created or removed in this save: their items are logged one by one as they move.
+        var movingScopes = new HashSet<Guid>(newLists.Select(l => l.Id));
+        var scopes = new Dictionary<Guid, Guid>();
         foreach (var entry in ChangeTracker.Entries().ToList())
         {
             switch (entry.Entity)
             {
                 case ListItem item when entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted:
                     var deleted = entry.State == EntityState.Deleted || item.DeletedAt is not null;
-                    if (entry.State == EntityState.Modified
-                        && (entry.Property(nameof(ListItem.ScopeId)).IsModified || entry.Property(nameof(ListItem.HasUniquePermissions)).IsModified))
+                    var scope = entry.Property(nameof(ListItem.ScopeId));
+                    if (entry.State == EntityState.Added || entry.Property(nameof(ListItem.HasUniquePermissions)).IsModified)
                     {
-                        resets.Add(item.ListId);
+                        movingScopes.Add(item.Id);
                     }
 
                     items[item.Id] = new ItemChange
@@ -76,22 +80,25 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
                         ListId = item.ListId,
                         ItemId = item.Id,
                         ScopeId = item.ScopeId,
+                        FromScopeId = entry.State == EntityState.Modified && scope.IsModified ? (Guid)scope.OriginalValue! : null,
                         Kind = deleted ? ItemChangeKind.Deleted : ItemChangeKind.Upserted,
                         At = now,
                     };
                     break;
-                case AclEntry acl when entry.State is EntityState.Modified or EntityState.Deleted
-                                        || (entry.State == EntityState.Added && !newLists.Any(l => l.Id == acl.ListId)):
-                    resets.Add(acl.ListId);
-                    break;
-                case ListDefinition list when entry.State == EntityState.Modified && entry.Property(nameof(ListDefinition.HasUniquePermissions)).IsModified:
-                    resets.Add(list.Id);
+                case AclEntry acl when entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted:
+                    scopes[acl.ScopeId] = acl.ListId;
                     break;
             }
         }
 
         ItemChanges.AddRange(items.Values);
-        ItemChanges.AddRange(resets.Select(listId => new ItemChange { ListId = listId, Kind = ItemChangeKind.Reset, At = now }));
+        ItemChanges.AddRange(scopes.Where(s => !movingScopes.Contains(s.Key)).Select(s => new ItemChange
+        {
+            ListId = s.Value,
+            ScopeId = s.Key,
+            Kind = ItemChangeKind.ScopeChanged,
+            At = now,
+        }));
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

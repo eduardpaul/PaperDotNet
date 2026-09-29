@@ -38,7 +38,8 @@ internal sealed class ItemWriter(
     ICurrentUser currentUser,
     EventCausation causation,
     TimeProvider time,
-    ILiveEvents live) : IFieldValidationContext
+    ILiveEvents live,
+    ScopeMover mover) : IFieldValidationContext
 {
     public const int TitleMaxLength = 1024;
     private const int MaxFolderDepth = 64;
@@ -118,7 +119,7 @@ internal sealed class ItemWriter(
         var changed = Values(item).Select(p => p.Key).Order(StringComparer.Ordinal).ToList();
         await AddVersionAsync(schema, item, changed, ct);
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Adding, item, schema, changed)], cancellationToken: ct);
-        PublishChanged("added", schema, item);
+        await PublishChangedAsync("added", schema, item, ct);
         return new ItemWriteResult(item);
     }
 
@@ -205,11 +206,10 @@ internal sealed class ItemWriter(
         var scopeMoved = item.IsFolder && oldScopeId != item.ScopeId;
         await outbox.SaveChangesAsync(
             db, [Event(ItemEventKind.Updating, item, schema, changed)], scopeMoved ? [ScopeChange(schema, item, oldScopeId)] : null, ct);
-        PublishChanged("updated", schema, item);
+        await PublishChangedAsync("updated", schema, item, ct);
         if (scopeMoved)
         {
-            await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
-            await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, currentUser, schema.List.Id)], cancellationToken: ct);
+            await mover.MoveAsync(schema.List.Id, item.Id, oldScopeId, item.ScopeId, inline: true, ct);
         }
 
         return new ItemWriteResult(item);
@@ -232,7 +232,7 @@ internal sealed class ItemWriter(
 
         db.Items.Remove(item);
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Deleting, item, schema, [])], cancellationToken: ct);
-        PublishChanged("deleted", schema, item);
+        await PublishChangedAsync("deleted", schema, item, ct);
         return new ItemWriteResult(item);
     }
 
@@ -268,11 +268,10 @@ internal sealed class ItemWriter(
         };
         var scopeMoved = item.IsFolder && oldScopeId != item.ScopeId;
         await outbox.SaveChangesAsync(db, [restored], scopeMoved ? [ScopeChange(schema, item, oldScopeId)] : null, ct);
-        PublishChanged("restored", schema, item);
+        await PublishChangedAsync("restored", schema, item, ct);
         if (scopeMoved)
         {
-            await ScopeTree.ReassignAsync(db, item.Id, oldScopeId, item.ScopeId, ct);
-            await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, currentUser, schema.List.Id)], cancellationToken: ct);
+            await mover.MoveAsync(schema.List.Id, item.Id, oldScopeId, item.ScopeId, inline: true, ct);
         }
     }
 
@@ -508,20 +507,26 @@ internal sealed class ItemWriter(
     /// <summary>
     /// Tells connected clients to reload this item. Ids only, to every user of the tenant: the API still decides who may read it.
     /// </summary>
-    private void PublishChanged(string kind, ListSchema schema, ListItem item)
+    /// <summary>Tells connected clients who can read the item (the principals of its scope, ADR-0035) that it changed.</summary>
+    private async Task PublishChangedAsync(string kind, ListSchema schema, ListItem item, CancellationToken ct)
     {
         if (tenant.TenantId is not { } tenantId)
         {
             return;
         }
 
+        var scopeId = item.ScopeId;
+        var audience = await db.AclEntries.AsNoTracking().Where(e => e.ScopeId == scopeId).Select(e => e.PrincipalId).ToArrayAsync(ct);
         live.Publish(new LiveEvent("item.changed", tenantId, null, new
         {
             Kind = kind,
             WorkspaceId = schema.List.WorkspaceId,
             ListId = schema.List.Id,
             ItemId = item.Id,
-        }));
+        })
+        {
+            Audience = audience,
+        });
     }
 
     private ItemEvent Event(ItemEventKind kind, ListItem item, ListSchema schema, IReadOnlyList<string> changed)

@@ -3,128 +3,125 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PaperDotNet.Lists.Data;
 
 #nullable disable
 
-namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
+namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
 {
     [DbContext(typeof(ListsDbContext))]
-    partial class ListsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260929063443_ScopeTrimming")]
+    partial class ScopeTrimming
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasDefaultSchema("lists")
-                .HasAnnotation("ProductVersion", "10.0.12")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
-
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.AclEntry", b =>
                 {
                     b.Property<Guid>("ScopeId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("scope_id");
 
                     b.Property<Guid>("PrincipalId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("principal_id");
 
                     b.Property<int>("Level")
-                        .HasColumnType("integer")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("level");
 
                     b.Property<Guid>("ListId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("list_id");
 
                     b.Property<string>("PrincipalType")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("principal_type");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
                     b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("workspace_id");
 
                     b.HasKey("ScopeId", "PrincipalId")
-                        .HasName("pk_acl_entries");
+                        .HasName("pk_lists_acl_entries");
 
                     b.HasIndex("ListId")
-                        .HasDatabaseName("ix_acl_entries_list_id");
+                        .HasDatabaseName("ix_lists_acl_entries_list_id");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_acl_entries_tenant_id");
+                        .HasDatabaseName("ix_lists_acl_entries_tenant_id");
 
                     b.HasIndex("PrincipalId", "ListId", "ScopeId", "Level", "TenantId")
-                        .HasDatabaseName("ix_acl_entries_principal_id_list_id_scope_id_level_tenant_id");
+                        .HasDatabaseName("ix_lists_acl_entries_principal_id_list_id_scope_id_level_tenant_id");
 
-                    b.ToTable("acl_entries", "lists");
+                    b.ToTable("lists_acl_entries", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.ContentType", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
                     b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("description");
 
                     b.Property<string>("ExtensionId")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("extension_id");
 
                     b.Property<bool>("IsBuiltIn")
-                        .HasColumnType("boolean")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("is_built_in");
 
                     b.Property<string>("Key")
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("key");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("updated_at");
 
                     b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("updated_by");
 
-                    b.Property<long>("Version")
+                    b.Property<uint>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("version");
 
                     b.ComplexCollection(typeof(List<Dictionary<string, object>>), "Fields", "PaperDotNet.Lists.Data.ContentType.Fields#FieldDefinition", b1 =>
@@ -167,555 +164,546 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
 
                             b1
                                 .ToJson("fields")
-                                .HasColumnType("jsonb");
+                                .HasColumnType("TEXT");
                         });
 
                     b.HasKey("Id")
-                        .HasName("pk_content_types");
+                        .HasName("pk_lists_content_types");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_content_types_tenant_id");
+                        .HasDatabaseName("ix_lists_content_types_tenant_id");
 
                     b.HasIndex("TenantId", "Key")
                         .IsUnique()
-                        .HasDatabaseName("ix_content_types_tenant_id_key");
+                        .HasDatabaseName("ix_lists_content_types_tenant_id_key");
 
                     b.HasIndex("TenantId", "Name")
                         .IsUnique()
-                        .HasDatabaseName("ix_content_types_tenant_id_name");
+                        .HasDatabaseName("ix_lists_content_types_tenant_id_name");
 
-                    b.ToTable("content_types", "lists");
+                    b.ToTable("lists_content_types", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.ItemChange", b =>
                 {
                     b.Property<long>("Sequence")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("sequence");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Sequence"));
-
-                    b.Property<DateTimeOffset>("At")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("At")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("at");
 
                     b.Property<Guid?>("FromScopeId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("from_scope_id");
 
                     b.Property<Guid?>("ItemId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("item_id");
 
                     b.Property<int>("Kind")
-                        .HasColumnType("integer")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("kind");
 
                     b.Property<Guid>("ListId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("list_id");
 
                     b.Property<Guid?>("ScopeId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("scope_id");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
                     b.HasKey("Sequence")
-                        .HasName("pk_item_changes");
+                        .HasName("pk_lists_item_changes");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_item_changes_tenant_id");
+                        .HasDatabaseName("ix_lists_item_changes_tenant_id");
 
                     b.HasIndex("ListId", "Sequence")
-                        .HasDatabaseName("ix_item_changes_list_id_sequence");
+                        .HasDatabaseName("ix_lists_item_changes_list_id_sequence");
 
                     b.HasIndex("TenantId", "At")
-                        .HasDatabaseName("ix_item_changes_tenant_id_at");
+                        .HasDatabaseName("ix_lists_item_changes_tenant_id_at");
 
-                    b.ToTable("item_changes", "lists");
+                    b.ToTable("lists_item_changes", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.ItemVersion", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
-                    b.PrimitiveCollection<List<string>>("ChangedFields")
+                    b.PrimitiveCollection<string>("ChangedFields")
                         .IsRequired()
-                        .HasColumnType("text[]")
+                        .HasColumnType("TEXT")
                         .HasColumnName("changed_fields");
 
                     b.Property<Guid>("ContentTypeId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("content_type_id");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
                     b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
                     b.Property<string>("Fields")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fields");
 
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("item_id");
 
                     b.Property<Guid>("ListId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("list_id");
 
                     b.Property<int>("Number")
-                        .HasColumnType("integer")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("number");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("title");
 
                     b.HasKey("Id")
-                        .HasName("pk_item_versions");
+                        .HasName("pk_lists_item_versions");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_item_versions_tenant_id");
+                        .HasDatabaseName("ix_lists_item_versions_tenant_id");
 
                     b.HasIndex("ItemId", "Number")
                         .IsUnique()
-                        .HasDatabaseName("ix_item_versions_item_id_number");
+                        .HasDatabaseName("ix_lists_item_versions_item_id_number");
 
-                    b.ToTable("item_versions", "lists");
+                    b.ToTable("lists_item_versions", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.ListDefinition", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
                     b.Property<bool>("AllowFolders")
-                        .HasColumnType("boolean")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("allow_folders");
 
-                    b.PrimitiveCollection<List<Guid>>("ContentTypeIds")
+                    b.PrimitiveCollection<string>("ContentTypeIds")
                         .IsRequired()
-                        .HasColumnType("uuid[]")
+                        .HasColumnType("TEXT")
                         .HasColumnName("content_type_ids");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
                     b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long?>("DeletedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("deleted_at");
 
                     b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("deleted_by");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("description");
 
                     b.Property<bool>("HasUniquePermissions")
-                        .HasColumnType("boolean")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("has_unique_permissions");
 
                     b.Property<int>("Kind")
-                        .HasColumnType("integer")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("kind");
 
                     b.Property<int>("MaxVersions")
-                        .HasColumnType("integer")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("max_versions");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<string>("SystemKey")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("system_key");
 
                     b.Property<string>("TemplateKey")
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("template_key");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("updated_at");
 
                     b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("updated_by");
 
-                    b.Property<long>("Version")
+                    b.Property<uint>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("version");
 
                     b.Property<string>("Versioning")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("versioning");
 
                     b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("workspace_id");
 
                     b.HasKey("Id")
-                        .HasName("pk_lists");
+                        .HasName("pk_lists_lists");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_lists_tenant_id");
+                        .HasDatabaseName("ix_lists_lists_tenant_id");
 
                     b.HasIndex("TenantId", "WorkspaceId")
-                        .HasDatabaseName("ix_lists_tenant_id_workspace_id");
+                        .HasDatabaseName("ix_lists_lists_tenant_id_workspace_id");
 
                     b.HasIndex("WorkspaceId", "SystemKey")
                         .IsUnique()
-                        .HasDatabaseName("ix_lists_workspace_id_system_key");
+                        .HasDatabaseName("ix_lists_lists_workspace_id_system_key");
 
-                    b.ToTable("lists", "lists");
+                    b.ToTable("lists_lists", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.ListItem", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
                     b.Property<Guid>("ContentTypeId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("content_type_id");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
                     b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long?>("DeletedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("deleted_at");
 
                     b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("deleted_by");
 
                     b.Property<string>("Fields")
                         .IsRequired()
-                        .HasColumnType("jsonb")
+                        .HasColumnType("TEXT")
                         .HasColumnName("fields")
                         .HasAnnotation("PaperDotNet:JsonDocument", true);
 
                     b.Property<bool>("HasUniquePermissions")
-                        .HasColumnType("boolean")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("has_unique_permissions");
 
                     b.Property<bool>("IsFolder")
-                        .HasColumnType("boolean")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("is_folder");
 
                     b.Property<Guid>("ListId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("list_id");
 
                     b.Property<Guid?>("ParentId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("parent_id");
 
                     b.Property<Guid>("ScopeId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("scope_id");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("title");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("updated_at");
 
                     b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("updated_by");
 
-                    b.Property<long>("Version")
+                    b.Property<uint>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("version");
 
                     b.HasKey("Id")
-                        .HasName("pk_items");
-
-                    b.HasIndex("Fields")
-                        .HasDatabaseName("ix_items_fields")
-                        .HasAnnotation("PaperDotNet:JsonContainmentIndex", true);
-
-                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Fields"), "gin");
-                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Fields"), new[] { "jsonb_path_ops" });
+                        .HasName("pk_lists_items");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_items_tenant_id");
+                        .HasDatabaseName("ix_lists_items_tenant_id");
 
                     b.HasIndex("ListId", "ParentId")
-                        .HasDatabaseName("ix_items_list_id_parent_id");
+                        .HasDatabaseName("ix_lists_items_list_id_parent_id");
 
                     b.HasIndex("ListId", "ScopeId")
-                        .HasDatabaseName("ix_items_list_id_scope_id");
+                        .HasDatabaseName("ix_lists_items_list_id_scope_id");
 
-                    b.ToTable("items", "lists");
+                    b.ToTable("lists_items", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.ListView", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
-                    b.PrimitiveCollection<List<string>>("Columns")
+                    b.PrimitiveCollection<string>("Columns")
                         .IsRequired()
-                        .HasColumnType("text[]")
+                        .HasColumnType("TEXT")
                         .HasColumnName("columns");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
                     b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
                     b.Property<string>("Filter")
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("filter");
 
                     b.Property<string>("GroupBy")
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("group_by");
 
                     b.Property<bool>("IsDefault")
-                        .HasColumnType("boolean")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("is_default");
 
                     b.Property<int>("Layout")
-                        .HasColumnType("integer")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("layout");
 
                     b.Property<Guid>("ListId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("list_id");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<string>("OrderBy")
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("order_by");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("updated_at");
 
                     b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("updated_by");
 
-                    b.Property<long>("Version")
+                    b.Property<uint>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("version");
 
                     b.HasKey("Id")
-                        .HasName("pk_views");
+                        .HasName("pk_lists_views");
 
                     b.HasIndex("ListId")
-                        .HasDatabaseName("ix_views_list_id");
+                        .HasDatabaseName("ix_lists_views_list_id");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_views_tenant_id");
+                        .HasDatabaseName("ix_lists_views_tenant_id");
 
-                    b.ToTable("views", "lists");
+                    b.ToTable("lists_views", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.SmartFolder", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
                     b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
                     b.Property<string>("Definition")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("definition");
 
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("description");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("name");
 
                     b.Property<Guid?>("OwnerId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("owner_id");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("updated_at");
 
                     b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("updated_by");
 
-                    b.Property<long>("Version")
+                    b.Property<uint>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("bigint")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("version");
 
                     b.Property<Guid?>("WorkspaceId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("workspace_id");
 
                     b.HasKey("Id")
-                        .HasName("pk_smart_folders");
+                        .HasName("pk_lists_smart_folders");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_smart_folders_tenant_id");
+                        .HasDatabaseName("ix_lists_smart_folders_tenant_id");
 
                     b.HasIndex("TenantId", "OwnerId")
-                        .HasDatabaseName("ix_smart_folders_tenant_id_owner_id");
+                        .HasDatabaseName("ix_lists_smart_folders_tenant_id_owner_id");
 
                     b.HasIndex("TenantId", "WorkspaceId")
-                        .HasDatabaseName("ix_smart_folders_tenant_id_workspace_id");
+                        .HasDatabaseName("ix_lists_smart_folders_tenant_id_workspace_id");
 
-                    b.ToTable("smart_folders", "lists");
+                    b.ToTable("lists_smart_folders", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Persistence.AuditEntry", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("id");
 
                     b.Property<string>("Action")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("action");
 
-                    b.Property<DateTimeOffset>("At")
-                        .HasColumnType("timestamp with time zone")
+                    b.Property<long>("At")
+                        .HasColumnType("INTEGER")
                         .HasColumnName("at");
 
                     b.Property<Guid?>("EntityId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("entity_id");
 
                     b.Property<string>("EntityType")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("entity_type");
 
-                    b.PrimitiveCollection<List<string>>("Properties")
+                    b.PrimitiveCollection<string>("Properties")
                         .IsRequired()
-                        .HasColumnType("text[]")
+                        .HasColumnType("TEXT")
                         .HasColumnName("properties");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
 
                     b.Property<string>("TraceId")
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
+                        .HasColumnType("TEXT")
                         .HasColumnName("trace_id");
 
                     b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid")
+                        .HasColumnType("TEXT")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id")
-                        .HasName("pk_audit_log");
+                        .HasName("pk_lists_audit_log");
 
                     b.HasIndex("EntityId")
-                        .HasDatabaseName("ix_audit_log_entity_id");
+                        .HasDatabaseName("ix_lists_audit_log_entity_id");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_audit_log_tenant_id");
+                        .HasDatabaseName("ix_lists_audit_log_tenant_id");
 
                     b.HasIndex("TenantId", "At")
-                        .HasDatabaseName("ix_audit_log_tenant_id_at");
+                        .HasDatabaseName("ix_lists_audit_log_tenant_id_at");
 
-                    b.ToTable("audit_log", "lists");
+                    b.ToTable("lists_audit_log", (string)null);
                 });
 #pragma warning restore 612, 618
         }

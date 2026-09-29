@@ -2,11 +2,10 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Identity.Contracts;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Search.Data;
 using PaperDotNet.Taxonomy.Contracts;
-using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Search.Features;
 
@@ -32,8 +31,8 @@ internal sealed record SearchResult(IReadOnlyList<SearchHit> Hits, int Count, Se
 /// trimmed to what the caller may read, with the passage (and page) that matched best.
 /// </summary>
 internal sealed class SearchService(
-    SearchDbContext db, IFullTextSearch fullText, SemanticSearch semantic, ITermStore terms, IWorkspaceAccess workspaces,
-    IUserDirectory users, ICurrentUser user, IOptions<SearchOptions> options)
+    SearchDbContext db, IFullTextSearch fullText, SemanticSearch semantic, ITermStore terms, IItemAccess access,
+    IOptions<SearchOptions> options)
 {
     public const int DefaultTop = 25;
     public const int MaxTop = 100;
@@ -95,8 +94,9 @@ internal sealed class SearchService(
     /// <summary>Documents the caller may read that match the filters.</summary>
     private async Task<IQueryable<SearchDocument>> FilteredAsync(SearchRequest request, CancellationToken ct)
     {
-        var principals = await PrincipalsAsync(workspaces, users, user, ct);
-        var documents = db.Documents.AsNoTracking().Where(d => db.Principals.Any(p => p.DocumentId == d.Id && principals.Contains(p.Principal)));
+        // Trimmed by the scopes the caller can read in the whole tenant (ADR-0035): one parameter on both databases.
+        var readable = (await access.GetScopesAsync(null, ct)).Keys.ToArray();
+        var documents = db.Documents.AsNoTracking().Where(d => EF.Parameter(readable).Contains(d.ScopeId));
         if (request.WorkspaceId is { } ws)
         {
             documents = documents.Where(d => d.WorkspaceId == ws);
@@ -280,24 +280,6 @@ internal sealed class SearchService(
             await FacetAsync(documents.Where(d => d.ContainerId != null), d => d.ContainerId!.Value, ct),
             await FacetAsync(documents.Where(d => d.ContentTypeId != null), d => d.ContentTypeId!.Value, ct),
             await FacetAsync(db.Tags.Where(t => ids.Contains(t.DocumentId)), t => t.TermId, ct));
-    }
-
-    /// <summary>The caller's principals: user, groups, and their role in each workspace (administrators own all).</summary>
-    internal static async Task<List<string>> PrincipalsAsync(IWorkspaceAccess workspaces, IUserDirectory users, ICurrentUser user, CancellationToken ct)
-    {
-        if (user.UserId is not { } userId)
-        {
-            return [];
-        }
-
-        var principals = new List<string> { Contracts.SearchPrincipals.User(userId) };
-        principals.AddRange((await users.GetGroupIdsAsync(userId, ct)).Select(Contracts.SearchPrincipals.Group));
-        foreach (var membership in await workspaces.GetMyWorkspacesAsync(ct))
-        {
-            principals.Add(Contracts.SearchPrincipals.Role(WorkspaceRolePrincipals.Id(membership.WorkspaceId, membership.Level)));
-        }
-
-        return principals;
     }
 
     /// <summary>The most frequent values of <paramref name="key"/> with their counts.</summary>

@@ -192,6 +192,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasColumnType("INTEGER")
                         .HasColumnName("at");
 
+                    b.Property<Guid?>("FromScopeId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("from_scope_id");
+
                     b.Property<Guid?>("ItemId")
                         .HasColumnType("TEXT")
                         .HasColumnName("item_id");

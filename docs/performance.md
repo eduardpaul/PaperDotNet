@@ -58,6 +58,23 @@ Not about permissions, seen in the same run:
 - The API allows 1,200 requests a minute per user by default. The runner sets `RateLimit:PermitPerMinute` higher so it
   measures the server, not the limit.
 
+### After step 3 (fan-out), PostgreSQL
+
+The same run on PostgreSQL after [ADR-0035](adr/0035-item-storage-and-permissions-at-scale.md) step 3 (grant changes
+no longer reindex the list; search trims by scope). The seed's 750 grant changes queued no reindexing, so the server
+log had no duplicate-key errors or deadlocks (2,526 and 18 before), and the ready time fell from 163 s to 98 s.
+
+| Scenario, 8 callers | Before step 3 req/s | p95 | After req/s | p95 |
+|---|---:|---:|---:|---:|
+| Create an item (admin) | held 1 caller | 168 ms at 1 | 339 | 38 ms |
+| Read one item (admin) | 362 | 68 ms | 614 | 21 ms |
+| Filtered list (admin) | 260 | 93 ms | 430 | 28 ms |
+| **Member's page of the shared list** | **210** | **102 ms** | **471** | **24 ms** |
+| Keyword search (admin) | 34 | 315 ms | 54 | 188 ms |
+
+Most of the gain is the missing reindex backlog competing for the database, not a faster query path; one run each,
+same machine.
+
 ## Build-time compilation
 
 Native AOT and trimming were not turned on. Wolverine, the EF JSON translators and the event dispatcher bind handlers with reflection (`MakeGenericMethod` and `GetMethod`), and one binary contains both SQLite and PostgreSQL. Trimming or AOT drops that code and the process fails at runtime. The Minimal API request-delegate generator was tried and turned back off: for several `Results<…>` endpoints it emits source that does not compile.

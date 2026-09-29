@@ -1,6 +1,6 @@
 # 0012: Any permission change makes every delta client of the list sync it again
 
-- **Status:** possible
+- **Status:** done
 - **Area:** API
 - **Date:** 2026-09-28
 
@@ -27,3 +27,11 @@ folder with one person costs a full download for everyone.
   or removed (they no longer can), and falls back to 410 only above a size
   limit ([item-and-permission-storage.md](../docs/item-and-permission-storage.md),
   decision 3).
+
+## Done (2026-09-29)
+
+[ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 3. Items that move to another scope are logged one by one with the scope they came from; a changed access list
+logs a `ScopeChanged` marker. Delta returns affected items as changed, or as removed (`"reason": "changed"`) when the
+caller could read them before and cannot now. A marker for a scope with more than `Lists:DeltaScopeLimit` items (1,000)
+answers 410. For a marker delta cannot tell whether the caller had the items, so it may report ids the caller never
+saw as removed.

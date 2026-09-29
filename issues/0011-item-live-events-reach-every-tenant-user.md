@@ -1,6 +1,6 @@
 # 0011: Item change events reach every user of the tenant
 
-- **Status:** possible
+- **Status:** done
 - **Area:** API
 - **Date:** 2026-09-28
 
@@ -26,3 +26,8 @@ tenant.
   entries against the principal sets of the connected users (kept in memory
   per connection) ([item-and-permission-storage.md](../docs/item-and-permission-storage.md),
   decision 3).
+
+## Done (2026-09-29)
+
+[ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 3. An `item.changed` event carries the principals of the item's scope (`LiveEvent.Audience`). The events stream
+passes it on only when the user has one of them; the user's principals are reloaded at most once a minute.

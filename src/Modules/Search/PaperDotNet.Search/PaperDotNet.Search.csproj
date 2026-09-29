@@ -6,6 +6,7 @@
     <PackageReference Include="System.Numerics.Tensors" />
     <ProjectReference Include="..\PaperDotNet.Search.Contracts\PaperDotNet.Search.Contracts.csproj" />
     <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
     <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
     <ProjectReference Include="..\..\Taxonomy\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
     <ProjectReference Include="..\..\Workspaces\PaperDotNet.Workspaces.Contracts\PaperDotNet.Workspaces.Contracts.csproj" />

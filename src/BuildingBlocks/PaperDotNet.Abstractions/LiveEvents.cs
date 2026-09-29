@@ -4,7 +4,23 @@ namespace PaperDotNet.Abstractions;
 /// A notification for connected clients (API-07), e.g. <c>operation</c> or <c>document.processing</c>.
 /// Delivered to <see cref="UserId"/> in <see cref="TenantId"/>, or to every user of the tenant when null.
 /// </summary>
-public sealed record LiveEvent(string Type, Guid TenantId, Guid? UserId, object Data);
+public sealed record LiveEvent(string Type, Guid TenantId, Guid? UserId, object Data)
+{
+    /// <summary>
+    /// When set, only users with one of these principals get the event (see <see cref="IPrincipalSet"/>), e.g. the
+    /// principals of an item's permission scope (ADR-0035).
+    /// </summary>
+    public IReadOnlyCollection<Guid>? Audience { get; init; }
+}
+
+/// <summary>
+/// Who the current user is for access checks (ADR-0035): their id, their groups (including groups that contain
+/// them) and their workspace roles. Implemented by the Lists module; cached per user.
+/// </summary>
+public interface IPrincipalSet
+{
+    Task<IReadOnlyList<Guid>> GetPrincipalsAsync(CancellationToken cancellationToken);
+}
 
 /// <summary>
 /// Live events for connected clients (<c>GET /v1.0/me/events</c>, server-sent events). Best effort: clients

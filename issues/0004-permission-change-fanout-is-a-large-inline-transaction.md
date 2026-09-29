@@ -1,6 +1,6 @@
 # 0004: Breaking or resetting inheritance on a large folder is one large inline transaction
 
-- **Status:** confirmed
+- **Status:** done
 - **Area:** Lists
 - **Date:** 2026-09-27
 
@@ -57,3 +57,11 @@ another list waited just as long. At roughly 300,000 rows the 5 s
 side is worse than assumed: the whole list is reindexed
 ([0008](0008-permission-change-rebuilds-list-search-index.md)). Options:
 [item-and-permission-storage.md](../docs/item-and-permission-storage.md), decision 3.
+
+## Done (2026-09-29)
+
+[ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 3. `ScopeMover` moves a subtree level by level in chunks of 2,000 items, each in its own transaction. A request
+moves up to `Lists:ScopeMoveInlineLimit` items (5,000); `CompleteFolderScopeChange`, saved with the folder change,
+moves the rest in the background. Until then the remaining items keep their old access. Breaking inheritance writes
+the new scope's entries (a copy of the parent's) before moving; resetting first copies the parent's entries onto the
+scope and deletes them once no item uses it.

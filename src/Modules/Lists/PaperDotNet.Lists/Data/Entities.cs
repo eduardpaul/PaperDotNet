@@ -287,8 +287,14 @@ public enum ItemChangeKind
     /// <summary>The item was moved to the recycle bin or purged.</summary>
     Deleted = 1,
 
-    /// <summary>Permissions of the list changed: delta clients must sync again.</summary>
+    /// <summary>Permissions of the list changed: delta clients must sync again (no longer written, ADR-0035).</summary>
     Reset = 2,
+
+    /// <summary>
+    /// The access list of <see cref="ItemChange.ScopeId"/> changed: delta returns the scope's items again, as changed
+    /// or removed for the caller (ADR-0035).
+    /// </summary>
+    ScopeChanged = 3,
 }
 
 /// <summary>
@@ -304,11 +310,17 @@ public sealed class ItemChange : ITenantOwned
 
     public Guid ListId { get; set; }
 
-    /// <summary>Null for <see cref="ItemChangeKind.Reset"/>.</summary>
+    /// <summary>Null for <see cref="ItemChangeKind.Reset"/> and <see cref="ItemChangeKind.ScopeChanged"/>.</summary>
     public Guid? ItemId { get; set; }
 
-    /// <summary>The item's security scope at the time of the change (checks access after a purge).</summary>
+    /// <summary>The item's permission scope after the change (checks access after a purge), or the changed scope.</summary>
     public Guid? ScopeId { get; set; }
+
+    /// <summary>
+    /// The item's scope before the change when it moved to another scope: callers who could read that scope get
+    /// the item as removed when they cannot read the new one.
+    /// </summary>
+    public Guid? FromScopeId { get; set; }
 
     public ItemChangeKind Kind { get; set; }
 

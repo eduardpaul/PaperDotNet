@@ -1,6 +1,6 @@
 # 0008: A permission change rebuilds the list's whole search index and drops its embeddings
 
-- **Status:** possible
+- **Status:** done
 - **Area:** Search
 - **Date:** 2026-09-28
 
@@ -43,3 +43,10 @@ the items under the changed scope.
 Seeding the `shared` performance scenario on PostgreSQL (500 folders, about 750 grant changes on one list) started as
 many full reindexes of that list. They raced: 2,526 `duplicate key … pk_document_principals` errors and 18 deadlocks
 in the server log, retried by the messaging layer. The API answered without errors.
+
+## Done (2026-09-29)
+
+[ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 3. Search documents store the item's scope and search trims with the caller's readable scopes
+(`IItemAccess.GetScopesAsync`); `document_principals` is gone. A grant change writes nothing to the index. Items that
+move to another scope get their scope column updated (`ItemScopesChanged`, `ISearchIndex.SetScopesAsync`); passages and
+embeddings stay. Existing indexes need one reindex after the upgrade (documents start with an empty scope).

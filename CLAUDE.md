@@ -93,8 +93,8 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   may access carry `AccessCacheTags.Principals`; a `HybridCache` factory that queries tenant data
   must be called with `CancellationToken.None` (with a cancellable token it runs without the tenant).
 - Searchable content → push `SearchDocumentData` through `ISearchIndex`
-  (Search.Contracts) from an event subscriber, with reader principals
-  (ADR-0012); implement `ISearchSource` for reindexing. Text with pages goes in
+  (Search.Contracts) from an event subscriber, with the content's permission scope
+  (`ScopeId`, ADR-0035: search trims by the caller's readable scopes); implement `ISearchSource` for reindexing. Text with pages goes in
   `Pages` (page hits, SRC-09); semantic search embeds passages automatically when
   `AI:Embeddings` is configured (ADR-0027). AI providers come from `PaperDotNet.AI`
   (`IEmbeddingGenerator`, Microsoft.Extensions.AI), off by default.

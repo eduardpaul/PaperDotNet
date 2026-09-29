@@ -59,8 +59,10 @@ public sealed class ListsModule : IModule
         services.AddScoped<IContentTypeProvisioning>(sp => sp.GetRequiredService<ContentTypeProvisioner>());
         services.AddScoped<ItemAccess>();
         services.AddScoped<IItemAccess>(sp => sp.GetRequiredService<ItemAccess>());
+        services.AddScoped<IPrincipalSet>(sp => sp.GetRequiredService<ItemAccess>());
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
+        services.AddScoped<ScopeMover>();
         services.AddScoped<ItemQueryRunner>();
         services.AddScoped<SmartFolderQuery>();
         services.AddScoped<IListItemStore>(sp => new ListItemStore(
@@ -85,6 +87,8 @@ public sealed class ListsModule : IModule
         services.AddEventSubscriber<TermMerged, TermMergedSubscriber>();
         services.AddEventSubscriber<PrincipalDeleted, PrincipalDeletedSubscriber>();
         services.AddIntegrationEvent<ListIndexInvalidated>();
+        services.AddIntegrationEvent<ItemScopesChanged>();
+        services.AddEventSubscriber<ItemScopesChanged, ItemSearchIndexer>();
         services.AddScoped<ListItemSearchDocuments>();
         services.AddScoped<ISearchSource>(sp => sp.GetRequiredService<ListItemSearchDocuments>());
         services.AddEventSubscriber<ItemAdded, ItemSearchIndexer>();

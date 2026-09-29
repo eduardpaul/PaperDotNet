@@ -90,7 +90,7 @@ public sealed class DeltaTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
-    public async Task Delta_respects_item_permissions_and_resets_when_they_change()
+    public async Task Delta_follows_item_permissions_without_a_resync()
     {
         var setup = await SetupAsync("delta-permissions");
         var alice = await setup.Admin.PostAsJsonAsync("/v1.0/users", new { userName = "alice", password = "alice-password-1" }, Ct);
@@ -98,26 +98,39 @@ public sealed class DeltaTests(PaperDotNetApiFactory factory)
             new { userId = (await alice.ReadJsonAsync()).GetProperty("id").GetGuid(), role = "member" }, Ct);
         var folder = await CreateAsync(setup.Admin, setup, "Private", isFolder: true);
         Assert.Equal(HttpStatusCode.OK, (await setup.Admin.PostAsJsonAsync($"{setup.ListUrl}/items/{folder}/permissions/breakInheritance", new { copyGrants = false }, Ct)).StatusCode);
+        var shared = await CreateAsync(setup.Admin, setup, "Shared", isFolder: true);
+        var plan = await CreateAsync(setup.Admin, setup, "Plan", shared);
         await CreateAsync(setup.Admin, setup, "Public");
         var client = await ApiClient.CreateAsync(factory, setup.Tenant, "alice", "alice-password-1");
 
         var (initial, deltaLink, _) = await SyncAsync(client, $"{setup.ListUrl}/items/delta");
-        Assert.Equal(["Public"], initial.Select(Title));
+        Assert.Equal(["Plan", "Public", "Shared"], initial.Select(Title).Order(StringComparer.Ordinal));
 
         // Changes to items alice cannot see are not reported, not even as removed.
         var secret = await CreateAsync(setup.Admin, setup, "Secret", folder);
         Assert.Equal(HttpStatusCode.NoContent, await DeleteAsync(setup.Admin, $"{setup.ListUrl}/items/{secret}"));
         var visible = await CreateAsync(setup.Admin, setup, "Visible");
         var (changes, next, _) = await SyncAsync(client, deltaLink);
-        Assert.Equal([visible], changes.Select(e => e.GetProperty("id").GetGuid()));
+        Assert.Equal([visible], changes.Where(e => !e.TryGetProperty("@removed", out _)).Select(e => e.GetProperty("id").GetGuid()));
+        Assert.DoesNotContain(secret, changes.Select(e => e.GetProperty("id").GetGuid()));
 
+        // Losing access removes the items (ADR-0035): the folder and the document inside it, no 410.
+        Assert.Equal(HttpStatusCode.OK, (await setup.Admin.PostAsJsonAsync($"{setup.ListUrl}/items/{shared}/permissions/breakInheritance", new { copyGrants = false }, Ct)).StatusCode);
+        (changes, next, _) = await SyncAsync(client, next);
+        Assert.Equal(
+            new[] { $"{plan}:changed", $"{shared}:changed" }.Order(StringComparer.Ordinal),
+            changes.Select(e => $"{e.GetProperty("id").GetGuid()}:{e.GetProperty("@removed").GetProperty("reason").GetString()}").Order(StringComparer.Ordinal));
+
+        // Resetting a folder brings its items back; a grant to alice on a scope returns the scope's items.
         Assert.Equal(HttpStatusCode.NoContent, (await setup.Admin.PostAsync($"{setup.ListUrl}/items/{folder}/permissions/resetInheritance", null, Ct)).StatusCode);
-        var gone = await client.GetAsync(next, Ct);
-        Assert.Equal(HttpStatusCode.Gone, gone.StatusCode);
-        Assert.Equal("resyncRequired", (await gone.ReadJsonAsync()).GetProperty("code").GetString());
-
-        var (again, _, _) = await SyncAsync(client, $"{setup.ListUrl}/items/delta");
-        Assert.Equal(["Private", "Public", "Visible"], again.Select(Title).Order(StringComparer.Ordinal));
+        (changes, next, _) = await SyncAsync(client, next);
+        Assert.Equal(["Private"], changes.Select(Title));
+        var aliceId = (await (await client.GetAsync("/v1.0/me", Ct)).ReadJsonAsync()).GetProperty("id").GetGuid();
+        var put = await setup.Admin.PutAsJsonAsync($"{setup.ListUrl}/items/{shared}/permissions/grants",
+            new { grants = new[] { new { principalType = "user", principalId = aliceId, level = "read" } } }, Ct);
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+        (changes, _, _) = await SyncAsync(client, next);
+        Assert.Equal(["Plan", "Shared"], changes.Select(Title).Order(StringComparer.Ordinal));
     }
 
     [Fact]

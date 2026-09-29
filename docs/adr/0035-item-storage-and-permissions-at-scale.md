@@ -1,6 +1,6 @@
 # ADR-0035: Item storage and permissions at scale
 
-- **Status:** Accepted; steps 1 (ACL by principal) and 2 (nested groups) implemented
+- **Status:** Accepted; steps 1 (ACL by principal), 2 (nested groups) and 3 (fan-out) implemented
 - **Date:** 2026-09-28
 - **Replaces:** how ADR-0011 evaluates permissions (its scope model stays) and
   how ADR-0012 trims search.
@@ -281,3 +281,38 @@ Done as decided, with these details:
 - **Web:** the group panel in administration lists the groups inside and adds or
   removes them.
 - Reverse-proxy sign-in keeps managing direct memberships only.
+
+### Step 3: fan-out (2026-09-29)
+
+- **Search:** documents carry `ScopeId`; search trims with
+  `IItemAccess.GetScopesAsync(null)` as one parameter. `document_principals`
+  and `SearchPrincipals` are gone. A grant change writes nothing to the index;
+  items that move get `ItemScopesChanged` and `ISearchIndex.SetScopesAsync`
+  updates the column. Existing indexes need one reindex after the upgrade.
+- **Moves** (`ScopeMover`): level by level, 2,000 items per transaction, each
+  with its delta rows and its search event. Items in the recycle bin move but
+  are not logged. The walk passes through items that already moved, so it can
+  resume. A request moves up to `Lists:ScopeMoveInlineLimit` (5,000);
+  `CompleteFolderScopeChange`, saved atomically with the folder change, moves
+  the rest. Different from the decision: no `IOperations` job and no 202. The
+  message is already written in the same transaction as the change (an
+  operation would be a separate write), and the endpoints keep their responses.
+  A chunk that moves nothing (the request and the message ran at once) logs
+  nothing.
+- **Reset** copies the parent's entries onto the scope, moves the items back
+  and deletes the scope's entries once no item uses it. **Break** writes the
+  new scope's entries with the item, then moves.
+- **Grant changes** write entries only. There is no `ScopeAccessChanged`
+  integration event: nothing subscribes to it yet (search needs nothing, delta
+  reads the change log, principals are not affected).
+- **Delta:** `ItemChange.FromScopeId` records where a moved item came from; a
+  changed access list logs `ScopeChanged` (not for scopes created or removed
+  in the same save, whose items are logged as they move). Delta answers with
+  the items as changed, or removed with reason `changed` when the caller could
+  read them before; a marker over `Lists:DeltaScopeLimit` items (1,000) is
+  410. For a marker, delta cannot tell whether the caller had the items and may
+  report ids the caller never saw as removed (ids only).
+- **Live events:** `LiveEvent.Audience` carries the principals of the item's
+  scope; `/me/events` compares it with the user's principals
+  (`IPrincipalSet`, reloaded at most once a minute) and the PostgreSQL
+  backplane forwards it.

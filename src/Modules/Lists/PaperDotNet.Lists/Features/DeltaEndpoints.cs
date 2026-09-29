@@ -35,7 +35,13 @@ public sealed record DeltaItem(
         item.Id, item.ListId, item.ContentTypeId, item.ParentId, item.IsFolder, item.CreatedAt, item.CreatedBy,
         item.UpdatedAt, item.UpdatedBy, item.Fields, null);
 
-    internal static DeltaItem Deleted(Guid id) => new(id, null, null, null, null, null, null, null, null, null, new("deleted"));
+    internal static DeltaItem Deleted(Guid id) => Gone(id, "deleted");
+
+    /// <summary>
+    /// The item left the caller's view: <c>deleted</c>, or <c>changed</c> when it still exists but the caller can no
+    /// longer read it.
+    /// </summary>
+    internal static DeltaItem Gone(Guid id, string reason) => new(id, null, null, null, null, null, null, null, null, null, new(reason));
 }
 
 public sealed record DeltaRemoved(string Reason);
@@ -48,7 +54,8 @@ public sealed record DeltaPage(
 /// <summary>
 /// Delta sync of a list (API-05). The first call returns all visible items (paged); the last
 /// page carries a <c>deltaLink</c>. Calling it returns only what changed since: changed items,
-/// and deleted ones as <c>{ id, @removed }</c>. 410 means: start over without a token.
+/// and items that were deleted or that the caller can no longer read as <c>{ id, @removed }</c>.
+/// Permission changes return the affected items (ADR-0035); 410 means: start over without a token.
 /// </summary>
 internal static class DeltaEndpoints
 {
@@ -105,7 +112,7 @@ internal static class DeltaEndpoints
 
         return token.Initial
             ? await InitialAsync(schema, db, token, top, http, ct)
-            : await ChangesAsync(schema, db, token, cutoff, top, http, ct);
+            : await ChangesAsync(schema, db, token, cutoff, top, options.Value.DeltaScopeLimit, http, ct);
     }
 
     private static async Task<Results<Ok<DeltaPage>, ValidationProblem, ProblemHttpResult>> InitialAsync(
@@ -131,7 +138,7 @@ internal static class DeltaEndpoints
     }
 
     private static async Task<Results<Ok<DeltaPage>, ValidationProblem, ProblemHttpResult>> ChangesAsync(
-        ListSchema schema, ListsDbContext db, DeltaToken token, DateTimeOffset cutoff, int top, HttpRequest http, CancellationToken ct)
+        ListSchema schema, ListsDbContext db, DeltaToken token, DateTimeOffset cutoff, int top, int scopeLimit, HttpRequest http, CancellationToken ct)
     {
         var listId = schema.List.Id;
         var changes = db.ItemChanges.AsNoTracking().Where(c => c.ListId == listId && c.Sequence > token.Sequence && c.At <= cutoff);
@@ -144,23 +151,67 @@ internal static class DeltaEndpoints
         var more = rows.Count > top;
         rows = rows.Take(top).ToList();
 
-        // The latest change of each item decides; the item's current row wins over the log.
-        var latest = rows.Where(c => c.ItemId is not null).GroupBy(c => c.ItemId!.Value).Select(g => g.Last()).OrderBy(c => c.Sequence).ToList();
-        var ids = latest.Select(c => c.ItemId!.Value).ToList();
-        var items = await db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete]).AsNoTracking()
-            .Where(i => ids.Contains(i.Id)).ToDictionaryAsync(i => i.Id, ct);
-        var page = new List<DeltaItem>();
-        foreach (var change in latest)
+        // Items in the order of their first change on the page. "Seen" means the caller may have had the item: it could
+        // read a scope the item was in, or the item's scope changed its access list (ADR-0035).
+        var order = new List<Guid>();
+        var seen = new Dictionary<Guid, bool>();
+        void Note(Guid id, bool couldRead)
         {
-            var item = items.GetValueOrDefault(change.ItemId!.Value);
-            if (schema.Access.Level(item?.ScopeId ?? change.ScopeId ?? schema.List.Id) < WorkspaceAccessLevel.Read)
+            if (seen.TryGetValue(id, out var before))
             {
-                continue;
+                seen[id] = before || couldRead;
             }
+            else
+            {
+                order.Add(id);
+                seen[id] = couldRead;
+            }
+        }
 
-            page.Add(item is null || item.DeletedAt is not null || item.ListId != listId
-                ? DeltaItem.Deleted(change.ItemId!.Value)
-                : DeltaItem.From(ItemResponse.From(item)));
+        bool Readable(Guid? scopeId) => scopeId is { } id && schema.Access.Level(id) >= WorkspaceAccessLevel.Read;
+        foreach (var change in rows)
+        {
+            if (change.Kind == ItemChangeKind.ScopeChanged)
+            {
+                var scopeId = change.ScopeId!.Value;
+                var inScope = await db.Items.AsNoTracking().Where(i => i.ListId == listId && i.ScopeId == scopeId)
+                    .OrderBy(i => i.Id).Select(i => i.Id).Take(scopeLimit + 1).ToListAsync(ct);
+                if (inScope.Count > scopeLimit)
+                {
+                    return ResyncRequired("Permissions of many items changed.");
+                }
+
+                inScope.ForEach(id => Note(id, couldRead: true));
+            }
+            else if (change.ItemId is { } itemId)
+            {
+                Note(itemId, Readable(change.ScopeId ?? listId) || Readable(change.FromScopeId));
+            }
+        }
+
+        // The item's current row decides: readable items are returned, others removed if the caller may have had them.
+        var ids = order.ToArray();
+        var items = await db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete]).AsNoTracking()
+            .Where(i => EF.Parameter(ids).Contains(i.Id)).ToDictionaryAsync(i => i.Id, ct);
+        var page = new List<DeltaItem>();
+        foreach (var id in order)
+        {
+            var item = items.GetValueOrDefault(id);
+            if (item is null || item.DeletedAt is not null || item.ListId != listId)
+            {
+                if (seen[id] || Readable(item?.ScopeId))
+                {
+                    page.Add(DeltaItem.Deleted(id));
+                }
+            }
+            else if (Readable(item.ScopeId))
+            {
+                page.Add(DeltaItem.From(ItemResponse.From(item)));
+            }
+            else if (seen[id])
+            {
+                page.Add(DeltaItem.Gone(id, "changed"));
+            }
         }
 
         // Everything up to the cutoff was read, unless there are more pages.

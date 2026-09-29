@@ -28,10 +28,7 @@ internal sealed class ListTemplateContainer(
     ContentTypeProvisioner provisioner,
     IExtensionAvailability extensions,
     ItemQueryRunner runner,
-    IUserDirectory users,
-    IOutbox outbox,
-    ITenantContext tenant,
-    ICurrentUser user) : ITemplateContainer
+    IUserDirectory users) : ITemplateContainer
 {
     public TemplateLevel Level => TemplateLevel.List;
 
@@ -438,6 +435,6 @@ internal sealed class ListTemplateContainer(
 
         Acl.Replace(db, existing, wanted);
         list.HasUniquePermissions = unique;
-        await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, list.Id)], cancellationToken: ct);
+        await db.SaveChangesAsync(ct); // Entries only: search trims by scope (ADR-0035).
     }
 }

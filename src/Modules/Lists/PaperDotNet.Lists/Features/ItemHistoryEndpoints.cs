@@ -271,4 +271,16 @@ public sealed class ListsOptions
     /// (with a lower sequence) are not skipped.
     /// </summary>
     public TimeSpan DeltaSafetyWindow { get; set; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// When the permissions of a scope change, delta returns the scope's items (as changed or removed); a scope with
+    /// more items than this answers 410 (resync) instead (ADR-0035).
+    /// </summary>
+    public int DeltaScopeLimit { get; set; } = 1000;
+
+    /// <summary>
+    /// Items a request moves to another permission scope itself (breaking or resetting inheritance, moving a
+    /// folder); the rest is moved in the background, and keeps its old access until then (ADR-0035).
+    /// </summary>
+    public int ScopeMoveInlineLimit { get; set; } = 5000;
 }

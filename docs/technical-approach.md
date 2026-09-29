@@ -329,11 +329,11 @@ outbox dispatcher (BackgroundService)
   - The **app** maintains it: owning modules push documents through
     `ISearchIndex` from their integration events. That keeps logic portable
     and lets extensions declare what is indexed (SRC-06).
-- **Security trimming** in SQL (*ADR-0035 replaces this with the item's
-  scope id on each document and the caller's allowed scopes*): documents
-  store reader principals (user,
-  group, workspace member, workspace owner), matched against the caller's
-  principals with an indexed `EXISTS`.
+- **Security trimming** in SQL (ADR-0035): each document stores its item's
+  permission scope, and search keeps the documents whose scope the caller can
+  read (one indexed lookup of the caller's scopes, passed as one parameter).
+  Permission changes do not touch the index; items that move to another scope
+  get their scope column updated.
 - **Vector search (P6, [ADR-0027](adr/0027-semantic-and-hybrid-search.md)):**
   documents are split into passages that keep page numbers (with their own
   full-text index for page hits). Embeddings come from `IEmbeddingGenerator`
