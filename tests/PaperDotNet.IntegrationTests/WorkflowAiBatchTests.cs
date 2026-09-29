@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
+using PaperDotNet.AiWorkflows.Data;
 using PaperDotNet.Tenancy.Contracts;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workflows.Data;
@@ -59,7 +60,7 @@ public sealed class WorkflowAiBatchTests(PaperDotNetApiFactory factory)
     /// <summary>Turns on the built-in "AI batch" workflow (on a schedule that does not come by itself during the test).</summary>
     private static async Task<Guid> EnableBatchAsync(Setup s)
     {
-        var response = await s.Admin.PutAsJsonAsync($"{s.Workflows}/builtIns/workflows.aiBatch",
+        var response = await s.Admin.PutAsJsonAsync($"{s.Workflows}/builtIns/ai.batchWindow",
             new { enabled = true, parameters = new { schedule = "0 0 1 1 *", timeZone = "UTC" } }, Ct);
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync(Ct));
         return (await response.ReadJsonAsync()).GetProperty("workflowId").GetGuid();
@@ -131,13 +132,13 @@ public sealed class WorkflowAiBatchTests(PaperDotNetApiFactory factory)
         await RunAsync(s, batched, s.Second, "waiting");
 
         // The questions are waits with the question as their data; the model was not asked yet.
-        await InTenantAsync(s, async (_, db) =>
+        await InTenantAsync(s, async (services, db) =>
         {
             var waits = await db.Bookmarks.AsNoTracking().Where(b => b.Kind == "ai.batch").ToListAsync(Ct);
             Assert.Equal(2, waits.Count);
             Assert.All(waits, w => Assert.Contains("Is the office open on Sunday?", w.Data, StringComparison.Ordinal));
             Assert.Single(waits.Select(w => JsonNode.Parse(w.Data!)!["hash"]!.GetValue<string>()).Distinct());
-            Assert.Equal(1, await db.AiCalls.CountAsync(c => !c.Cached, Ct)); // "Now" only
+            Assert.Equal(1, await services.GetRequiredService<AiWorkflowsDbContext>().AiCalls.CountAsync(c => !c.Cached, Ct)); // "Now" only
         });
 
         // The batch window: the batch workflow asks the chat model once and both steps go on.
@@ -150,11 +151,11 @@ public sealed class WorkflowAiBatchTests(PaperDotNetApiFactory factory)
         Assert.Equal("Echo: Is the office open on Sunday?", await AnswerAsync(s, s.First));
         Assert.Equal("Echo: Is the office open on Sunday?", await AnswerAsync(s, s.Second));
         var batchRunId = batchRun.GetProperty("id").GetGuid();
-        await InTenantAsync(s, async (_, db) =>
+        await InTenantAsync(s, async (services, db) =>
         {
-            var call = Assert.Single(await db.AiCalls.Where(c => !c.Cached && c.RunId == batchRunId).ToListAsync(Ct));
+            var call = Assert.Single(await services.GetRequiredService<AiWorkflowsDbContext>().AiCalls.Where(c => !c.Cached && c.RunId == batchRunId).ToListAsync(Ct));
             Assert.True(call.InputTokens > 0);
-            Assert.Equal(2, await db.AiCalls.CountAsync(c => c.Cached && c.Response == call.Response, Ct));
+            Assert.Equal(2, await services.GetRequiredService<AiWorkflowsDbContext>().AiCalls.CountAsync(c => c.Cached && c.Response == call.Response, Ct));
             Assert.Equal(0, await db.Bookmarks.CountAsync(b => b.Kind == "ai.batch" && b.CompletedAt == null, Ct));
         });
 
@@ -203,7 +204,7 @@ public sealed class WorkflowAiBatchTests(PaperDotNetApiFactory factory)
         await Eventually.WaitForAsync(async () =>
         {
             var found = false;
-            await InTenantAsync(s, async (_, db) => found = await db.Bookmarks.AnyAsync(b => b.Kind == "ai.batch.poll" && b.CompletedAt == null, Ct));
+            await InTenantAsync(s, async (services, db) => found = await db.Bookmarks.AnyAsync(b => b.Kind == "ai.batch.poll" && b.CompletedAt == null, Ct));
             return found ? true : (bool?)null;
         }, TimeSpan.FromSeconds(30));
         Assert.Single(client.Submitted);
@@ -213,9 +214,9 @@ public sealed class WorkflowAiBatchTests(PaperDotNetApiFactory factory)
         Assert.Equal("completed", (await RunAsync(s, batch, null, "completed", "failed")).GetProperty("status").GetString());
         Assert.Equal("completed", (await RunAsync(s, provider, s.First, "completed", "failed")).GetProperty("status").GetString());
         Assert.Equal("Batch: Summarize the week", await AnswerAsync(s, s.First));
-        await InTenantAsync(s, async (_, db) =>
+        await InTenantAsync(s, async (services, db) =>
         {
-            var call = await db.AiCalls.SingleAsync(c => !c.Cached, Ct);
+            var call = await services.GetRequiredService<AiWorkflowsDbContext>().AiCalls.SingleAsync(c => !c.Cached, Ct);
             Assert.Equal((10, 5), (call.InputTokens, call.OutputTokens));
         });
 
@@ -236,7 +237,7 @@ public sealed class WorkflowAiBatchTests(PaperDotNetApiFactory factory)
         var second = await RunAsync(s, batch, null, "completed", "failed");
         Assert.Equal(1, second.GetProperty("outputs").GetProperty("batch").GetProperty("released").GetInt32());
         Assert.Equal("waiting", (await RunAsync(s, expired, s.First, "waiting")).GetProperty("status").GetString());
-        await InTenantAsync(s, async (_, db) =>
+        await InTenantAsync(s, async (services, db) =>
         {
             var wait = await db.Bookmarks.AsNoTracking().SingleAsync(b => b.Kind == "ai.batch" && b.CompletedAt == null, Ct);
             Assert.DoesNotContain("batchRun", wait.Data, StringComparison.Ordinal);

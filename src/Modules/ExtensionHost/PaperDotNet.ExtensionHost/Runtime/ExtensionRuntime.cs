@@ -39,6 +39,8 @@ public sealed class ExtensionContributions
 
     public List<string> WorkflowTriggers { get; } = [];
 
+    public List<string> Workflows { get; } = [];
+
     public List<string> McpTools { get; } = [];
 
     public List<string> TermSets { get; } = [];
@@ -273,6 +275,19 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         RequirePrefix(trigger.Key, "Workflow trigger key");
         services.AddSingleton(trigger);
         extension.Contributions.WorkflowTriggers.Add(trigger.Key);
+        return this;
+    }
+
+    public IExtensionBuilder AddWorkflow(BuiltInWorkflow workflow)
+    {
+        RequirePrefix(workflow.Key, "Workflow key");
+        var id = extension.Id;
+        services.AddScoped<IWorkflowDefinitionProvider>(sp =>
+        {
+            var state = sp.GetRequiredService<IExtensionState>();
+            return new WorkflowDefinitions([workflow], ct => state.IsEnabledAsync(id, ct));
+        });
+        extension.Contributions.Workflows.Add(workflow.Key);
         return this;
     }
 

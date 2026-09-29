@@ -436,41 +436,41 @@ internal static class Definitions
             switch (node.Activity)
             {
                 case FlowActivities.Approval:
-                    errors.AddRange(ValidateApproval(Inputs.Texts(inputs, "assignees"), Inputs.Number(inputs, "dueInHours")).Select(e => $"{at}: {e}"));
+                    errors.AddRange(ValidateApproval(ActivityInputs.Texts(inputs, "assignees"), ActivityInputs.Number(inputs, "dueInHours")).Select(e => $"{at}: {e}"));
                     break;
                 case FlowActivities.Delay:
-                    if (Inputs.Number(inputs, "hours") is not > 0)
+                    if (ActivityInputs.Number(inputs, "hours") is not > 0)
                     {
                         errors.Add($"{at}: hours must be positive.");
                     }
 
                     break;
                 case FlowActivities.If:
-                    var kinds = new[] { Inputs.Text(inputs, "filter") is not null, Inputs.Text(inputs, "step") is not null, Inputs.Text(inputs, "op") is not null };
+                    var kinds = new[] { ActivityInputs.Text(inputs, "filter") is not null, ActivityInputs.Text(inputs, "step") is not null, ActivityInputs.Text(inputs, "op") is not null };
                     if (kinds.Count(k => k) != 1)
                     {
                         errors.Add($"{at}: use one of filter, step (with is) or left, op and right.");
                     }
-                    else if (Inputs.Text(inputs, "step") is { } step)
+                    else if (ActivityInputs.Text(inputs, "step") is { } step)
                     {
                         if (flow.Nodes.GetValueOrDefault(step)?.Activity != FlowActivities.Approval)
                         {
                             errors.Add($"{at}: '{step}' is not an approval node.");
                         }
 
-                        if (Inputs.Text(inputs, "is") is not (ApprovalOutcomes.Approved or ApprovalOutcomes.Rejected))
+                        if (ActivityInputs.Text(inputs, "is") is not (ApprovalOutcomes.Approved or ApprovalOutcomes.Rejected))
                         {
                             errors.Add($"{at}: is must be approved or rejected.");
                         }
                     }
-                    else if (Inputs.Text(inputs, "op") is { } op && !Comparison.Operators.Contains(op))
+                    else if (ActivityInputs.Text(inputs, "op") is { } op && !Comparison.Operators.Contains(op))
                     {
                         errors.Add($"{at}: op must be one of {string.Join(", ", Comparison.Operators)}.");
                     }
 
                     break;
                 case FlowActivities.SetVariable:
-                    if (Inputs.Text(inputs, "name") is null)
+                    if (ActivityInputs.Text(inputs, "name") is null)
                     {
                         errors.Add($"{at}: name is required.");
                     }

@@ -112,6 +112,15 @@ public enum ListItemStatus
 public sealed record ListItemResult(ListItemStatus Status, ListItemData? Item = null, IReadOnlyDictionary<string, string[]>? Errors = null, string? Message = null)
 {
     public bool Succeeded => Status == ListItemStatus.Ok;
+
+    /// <summary>What went wrong, as a sentence (e.g. for a failed workflow activity); the status when it succeeded.</summary>
+    public string Describe() => Status switch
+    {
+        ListItemStatus.Invalid => "Invalid values: " + string.Join(" ", Errors?.SelectMany(e => e.Value.Select(v => $"{e.Key}: {v}")) ?? []),
+        ListItemStatus.Rejected => Message ?? "The change was rejected.",
+        ListItemStatus.NotFound => "The item no longer exists.",
+        _ => Status.ToString(),
+    };
 }
 
 /// <summary>

@@ -123,7 +123,10 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `IWorkflowTriggers` (Workflows.Contracts); long waits are bookmarks: return `WorkflowActivityResult.Wait(kind, key)`
   and complete with `IWorkflowBookmarks.CompleteAsync`; runs are started and resumed with `ResumeRun`
   messages through the outbox (no workflow engine or durable execution framework). Product processes people should
-  see or vary ship as built-in workflows (`IWorkflowDefinitionProvider`, EVT-12), not hidden code. Build workflow features
+  see or vary ship as built-in workflows (EVT-12), not hidden code. Workflow content lives in the module that owns the
+  domain and uses only the SDK, the same extension points as extensions: `services.AddWorkflowActivity<T>()`,
+  `AddWorkflowTrigger(…)`, `AddWorkflow(…)` (extensions: the same on `IExtensionBuilder`); the engine only runs
+  workflows. Build workflow features
   from workflow parts (waits with JSON data, run-again activities, built-in workflows), not tables or jobs of their own
   (e.g. batched AI: `ai.batch` waits + the "AI batch" workflow). Code that reacts to an event
   and changes data should set `EventCausation.Depth` to the event's depth + 1 (loop protection).

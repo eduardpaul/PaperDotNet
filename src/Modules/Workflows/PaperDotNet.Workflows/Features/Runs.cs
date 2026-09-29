@@ -581,10 +581,10 @@ internal sealed partial class WorkflowInterpreter(
                     await CompleteAsync();
                     return;
                 case FlowActivities.Fail:
-                    await FailAsync(await ExpandAsync(Inputs.Text(inputs, "message") ?? "The workflow ended with a failure."), null);
+                    await FailAsync(await ExpandAsync(ActivityInputs.Text(inputs, "message") ?? "The workflow ended with a failure."), null);
                     return;
                 case FlowActivities.SetVariable:
-                    var name = Inputs.Text(inputs, "name")!;
+                    var name = ActivityInputs.Text(inputs, "name")!;
                     variables[name] = inputs["value"] is JsonValue template && template.TryGetValue<string>(out var text)
                         ? JsonValue.Create(await ExpandAsync(text))
                         : inputs["value"]?.DeepClone();
@@ -609,7 +609,7 @@ internal sealed partial class WorkflowInterpreter(
 
                     break;
                 case FlowActivities.Delay:
-                    var hours = Inputs.Number(inputs, "hours") ?? 0;
+                    var hours = ActivityInputs.Number(inputs, "hours") ?? 0;
                     Log($"{id}: waiting {hours} hours");
                     await WaitAsync(NewBookmark(run, id, BookmarkKinds.Delay, $"{run.Id:N}:{id}:{run.Executed}", time.GetUtcNow().AddHours(hours)));
                     return;
@@ -770,15 +770,15 @@ internal sealed partial class WorkflowInterpreter(
     private async Task<(bool Holds, string? Error)> EvaluateAsync(
         JsonObject inputs, WorkflowItem? item, JsonObject outputs, Func<string, Task<string>> expand, CancellationToken ct)
     {
-        if (Inputs.Text(inputs, "step") is { } step)
+        if (ActivityInputs.Text(inputs, "step") is { } step)
         {
-            return (outputs[step]?["outcome"] is JsonValue outcome && outcome.ToString() == Inputs.Text(inputs, "is"), null);
+            return (outputs[step]?["outcome"] is JsonValue outcome && outcome.ToString() == ActivityInputs.Text(inputs, "is"), null);
         }
 
-        if (Inputs.Text(inputs, "op") is { } op)
+        if (ActivityInputs.Text(inputs, "op") is { } op)
         {
-            var left = Inputs.Text(inputs, "left") is { } l ? await expand(l) : string.Empty;
-            var right = Inputs.Text(inputs, "right") is { } r ? await expand(r) : string.Empty;
+            var left = ActivityInputs.Text(inputs, "left") is { } l ? await expand(l) : string.Empty;
+            var right = ActivityInputs.Text(inputs, "right") is { } r ? await expand(r) : string.Empty;
             return (Comparison.Holds(left, op, right), null);
         }
 
@@ -787,7 +787,7 @@ internal sealed partial class WorkflowInterpreter(
             return (false, "a filter needs an item (the trigger has none).");
         }
 
-        var (matches, error) = await items.AsSystem().QueryAsync(item.WorkspaceId, item.ListId, new ListItemQuery($"id eq {item.ItemId} and ({Inputs.Text(inputs, "filter")})", Top: 1), ct);
+        var (matches, error) = await items.AsSystem().QueryAsync(item.WorkspaceId, item.ListId, new ListItemQuery($"id eq {item.ItemId} and ({ActivityInputs.Text(inputs, "filter")})", Top: 1), ct);
         return (matches.Count > 0, error);
     }
 
@@ -802,14 +802,14 @@ internal sealed partial class WorkflowInterpreter(
         }
 
         var current = await items.AsSystem().GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
-        var (assignees, _) = await recipients.ResolveAsync(Inputs.Texts(inputs, "assignees") ?? [], current, run.StartedBy, ct);
+        var (assignees, _) = await recipients.ResolveAsync(ActivityInputs.Texts(inputs, "assignees") ?? [], current, run.StartedBy, ct);
         if (assignees.Count == 0)
         {
             return null;
         }
 
-        var (escalateTo, _) = await recipients.ResolveAsync(Inputs.Texts(inputs, "escalateTo") ?? [], current, run.StartedBy, ct);
-        var title = await expand(Inputs.Text(inputs, "title") ?? $"Approve {{title}} ({node})");
+        var (escalateTo, _) = await recipients.ResolveAsync(ActivityInputs.Texts(inputs, "escalateTo") ?? [], current, run.StartedBy, ct);
+        var title = await expand(ActivityInputs.Text(inputs, "title") ?? $"Approve {{title}} ({node})");
         var approval = new ApprovalRequest
         {
             Id = Ids.New(),
@@ -821,7 +821,7 @@ internal sealed partial class WorkflowInterpreter(
             Title = title.Length > 1000 ? title[..1000] : title,
             Assignees = assignees,
             EscalateTo = [.. escalateTo.Except(assignees)],
-            DueAt = Inputs.Number(inputs, "dueInHours") is { } hours ? time.GetUtcNow().AddHours(hours) : null,
+            DueAt = ActivityInputs.Number(inputs, "dueInHours") is { } hours ? time.GetUtcNow().AddHours(hours) : null,
             Status = ApprovalStatus.Pending,
         };
         db.Approvals.Add(approval);
@@ -1074,8 +1074,8 @@ public sealed class WorkflowOptions
     public int RunRetentionDays { get; set; } = 30;
 }
 
-/// <summary>Daily: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals and bookmarks, old unclaimed completions, and old AI call records.</summary>
-internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<WorkflowOptions> options, IOptions<WorkflowAiOptions> ai, TimeProvider time) : ITenantRecurringJob
+/// <summary>Daily: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals and bookmarks, old unclaimed completions.</summary>
+internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<WorkflowOptions> options, TimeProvider time) : ITenantRecurringJob
 {
     public const string Name = "workflows.runCleanup";
     public const string Schedule = "17 3 * * *";
@@ -1088,9 +1088,6 @@ internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<Work
         // Completions no run ever waited for.
         await db.Bookmarks.Where(b => b.RunId == WorkflowBookmarks.Unclaimed && b.CompletedAt < cutoff).ExecuteDeleteAsync(cancellationToken);
 
-        // Records of AI calls, kept as long as runs and the AI cache need them.
-        var aiCutoff = time.GetUtcNow().AddDays(-Math.Max(Math.Max(1, options.Value.RunRetentionDays), ai.Value.CacheDays));
-        await db.AiCalls.Where(c => c.CreatedAt < aiCutoff).ExecuteDeleteAsync(cancellationToken);
         while (true)
         {
             var ids = await db.Runs

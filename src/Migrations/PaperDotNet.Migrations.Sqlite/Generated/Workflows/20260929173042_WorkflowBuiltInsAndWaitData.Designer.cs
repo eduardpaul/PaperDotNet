@@ -11,7 +11,7 @@ using PaperDotNet.Workflows.Data;
 namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
 {
     [DbContext(typeof(WorkflowsDbContext))]
-    [Migration("20260929170356_WorkflowBuiltInsAndWaitData")]
+    [Migration("20260929173042_WorkflowBuiltInsAndWaitData")]
     partial class WorkflowBuiltInsAndWaitData
     {
         /// <inheritdoc />
@@ -78,85 +78,6 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                         .HasDatabaseName("ix_automation_audit_log_tenant_id_at");
 
                     b.ToTable("automation_audit_log", (string)null);
-                });
-
-            modelBuilder.Entity("PaperDotNet.Workflows.Data.AiCall", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Activity")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("activity");
-
-                    b.Property<bool>("Cached")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("cached");
-
-                    b.Property<long>("CreatedAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Error")
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("error");
-
-                    b.Property<string>("InputHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("input_hash");
-
-                    b.Property<long>("InputTokens")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("input_tokens");
-
-                    b.Property<string>("Model")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("model");
-
-                    b.Property<long>("OutputTokens")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("output_tokens");
-
-                    b.Property<string>("Response")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("response");
-
-                    b.Property<Guid?>("RunId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("run_id");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("source");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_automation_ai_calls");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_automation_ai_calls_tenant_id");
-
-                    b.HasIndex("TenantId", "CreatedAt")
-                        .HasDatabaseName("ix_automation_ai_calls_tenant_id_created_at");
-
-                    b.HasIndex("TenantId", "InputHash", "CreatedAt")
-                        .HasDatabaseName("ix_automation_ai_calls_tenant_id_input_hash_created_at");
-
-                    b.ToTable("automation_ai_calls", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Workflows.Data.ApprovalRequest", b =>

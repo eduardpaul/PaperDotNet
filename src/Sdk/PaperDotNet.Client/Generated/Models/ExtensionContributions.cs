@@ -105,6 +105,14 @@ namespace PaperDotNet.Client.Models
 #else
         public List<string> WorkflowActivities { get; set; }
 #endif
+        /// <summary>The workflows property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<string>? Workflows { get; set; }
+#nullable restore
+#else
+        public List<string> Workflows { get; set; }
+#endif
         /// <summary>The workflowTriggers property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -151,6 +159,7 @@ namespace PaperDotNet.Client.Models
                 { "termSets", n => { TermSets = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "workflowActivities", n => { WorkflowActivities = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "workflowTriggers", n => { WorkflowTriggers = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
+                { "workflows", n => { Workflows = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
             };
         }
         /// <summary>
@@ -172,6 +181,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteCollectionOfPrimitiveValues<string>("templateHandlers", TemplateHandlers);
             writer.WriteCollectionOfPrimitiveValues<string>("termSets", TermSets);
             writer.WriteCollectionOfPrimitiveValues<string>("workflowActivities", WorkflowActivities);
+            writer.WriteCollectionOfPrimitiveValues<string>("workflows", Workflows);
             writer.WriteCollectionOfPrimitiveValues<string>("workflowTriggers", WorkflowTriggers);
             writer.WriteAdditionalData(AdditionalData);
         }

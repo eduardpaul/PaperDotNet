@@ -104,7 +104,7 @@ internal class WorkflowTemplateHandler(WorkflowsDbContext db, TriggerCatalog tri
     private async Task ApplyBuiltInAsync(XElement element, string key, string name, TemplateContext context, CancellationToken ct)
     {
         var workspaceId = context.WorkspaceId!.Value;
-        if (builtIns.Find(key) is not { } builtIn)
+        if (await builtIns.FindAsync(key, ct) is not { } builtIn)
         {
             throw new TemplateException($"Workflow '{name}': the built-in workflow '{key}' does not exist on this server.", element);
         }

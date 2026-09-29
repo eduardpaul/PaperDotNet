@@ -342,7 +342,7 @@ The product ships ready-made workflows (EVT-12,
 | `workflows.approveItems` | Approve new items | `list`, `approvers` (required); `statusField` (`status`), `approvedValue` (`Approved`), `rejectedValue` (`Rejected`), `dueInHours` | |
 | `documents.classify` | Classify new documents | `termSet` (`Group/Set`), `field` (required); `minConfidence` (0.7), `library`, `execution` | AI |
 | `documents.extract` | Extract fields | `fields`, `minConfidence` (0.7), `library`, `execution` | AI |
-| `workflows.aiBatch` | AI batch | `schedule` (`0 1 * * *`), `timeZone`, `pollMinutes` (5), `maxQuestions` | AI |
+| `ai.batchWindow` | AI batch | `schedule` (`0 1 * * *`), `timeZone`, `pollMinutes` (5), `maxQuestions` | AI |
 
 - **Turn on or off** per workspace with its parameters:
   `PUT …/workflows/builtIns/{key}` `{ "enabled": true, "parameters": { … } }`.
@@ -360,9 +360,10 @@ The product ships ready-made workflows (EVT-12,
   libraries of the workspace), and `execution: batch` sends their AI calls in
   the batch window.
 
-Modules ship built-in workflows with an `IWorkflowDefinitionProvider`
-(Workflows.Contracts): a key, a name, a definition as in the API, and
-parameters as a JSON Schema. In the definition, a string that is exactly
+Modules ship built-in workflows with `services.AddWorkflow(…)`, and extensions
+with `builder.AddWorkflow(…)`: a `BuiltInWorkflow` with a key, a name, a
+definition as in the API, and parameters as a JSON Schema. An extension's
+workflows are offered only where the extension is enabled. In the definition, a string that is exactly
 `{param:name}` is replaced by the value (any JSON). Inside a longer string or
 a property name, `{param:name}` is replaced by its text.
 
@@ -389,11 +390,23 @@ Workflows travel in the same templates and packages as lists and libraries
 
 ## Extensions
 
-Extensions add activities with `builder.AddWorkflowActivity<T>()` (implement
-`IWorkflowActivity`). They add triggers with
-`builder.AddWorkflowTrigger(new(key, description))` and raise them with
-`IWorkflowTriggers.RaiseAsync`. Keys start with the extension id. Both only
-work in tenants where the extension is enabled.
+The engine runs workflows. Most of what they do comes from modules built on
+the extension SDK, through the same extension points an extension uses:
+
+| Module | Adds |
+|---|---|
+| Workflows (engine) | flow activities (`approval`, `delay`, `if`, …), `item.update`, `item.file`, "Approve new items" |
+| Tasks | `task.create`, trigger `task.completed` |
+| Notifications | `notify` |
+| AiWorkflows | `ai.extract`, `ai.classify`, `ai.summarize`, `ai.prompt`, `ai.batch`, "AI batch" |
+| Documents | trigger `document.processed`, "Classify new documents", "Extract fields" |
+| Collaboration | trigger `comment.added` |
+
+Modules register with `services.AddWorkflowActivity<T>()`,
+`services.AddWorkflowTrigger(…)` and `services.AddWorkflow(…)`. Extensions use
+the same calls on the builder (`builder.AddWorkflowActivity<T>()`, and so on).
+Their keys start with the extension id, and they only work in organizations
+where the extension is enabled. See [extensions.md](extensions.md).
 
 Actions must be safe to run again: the same step can run again after a crash
 with the same `context.ExecutionKey` and `context.ExecutionId`. Use the id as

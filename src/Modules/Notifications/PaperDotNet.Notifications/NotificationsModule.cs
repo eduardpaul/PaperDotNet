@@ -9,6 +9,7 @@ using PaperDotNet.Notifications.Contracts;
 using PaperDotNet.Notifications.Data;
 using PaperDotNet.Notifications.Features;
 using PaperDotNet.Persistence;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Notifications;
 
@@ -57,6 +58,7 @@ public sealed class NotificationsModule : IModule
         services.AddEventSubscriber<ItemDeleted, ChangeNotifier>();
         services.AddTenantRecurringJob<ChangeDispatcher>(ChangeDispatcher.Name, ChangeDispatcher.Schedule);
         services.AddTenantRecurringJob<ChangeSubscriptionCleanupJob>(ChangeSubscriptionCleanupJob.Name, ChangeSubscriptionCleanupJob.Schedule);
+        services.AddWorkflowActivity<NotifyActivity>();
         services.AddScopes(NotificationScopes.All);
     }
 

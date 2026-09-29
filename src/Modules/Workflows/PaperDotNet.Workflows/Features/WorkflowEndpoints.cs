@@ -301,7 +301,7 @@ internal static class WorkflowEndpoints
         }
 
         var rows = await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == workspaceId && w.BuiltInKey != null).ToListAsync(ct);
-        return TypedResults.Ok(builtIns.All.Select(w => ToResponse(builtIns, w, rows.FirstOrDefault(r => r.BuiltInKey == w.Key))).ToList());
+        return TypedResults.Ok((await builtIns.ListAsync(ct)).Select(w => ToResponse(builtIns, w, rows.FirstOrDefault(r => r.BuiltInKey == w.Key))).ToList());
     }
 
     /// <summary>Turns a built-in workflow on (checked like a saved workflow) or off in the workspace.</summary>
@@ -314,7 +314,7 @@ internal static class WorkflowEndpoints
             return denied;
         }
 
-        if (builtIns.Find(key) is not { } workflow)
+        if (await builtIns.FindAsync(key, ct) is not { } workflow)
         {
             return ApiErrors.NotFound();
         }
@@ -352,7 +352,7 @@ internal static class WorkflowEndpoints
             return invalid;
         }
 
-        if (builtIns.Find(key) is not { } workflow)
+        if (await builtIns.FindAsync(key, ct) is not { } workflow)
         {
             return ApiErrors.NotFound();
         }

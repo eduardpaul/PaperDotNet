@@ -7,7 +7,7 @@ namespace PaperDotNet.Documents.Features;
 /// Built-in workflows of documents (EVT-12, ADR-0036): classifying and reading new documents with AI once their text is
 /// extracted (<c>document.processed</c>). Offered when a chat model is configured; turned on per workspace.
 /// </summary>
-internal sealed class DocumentWorkflows : IWorkflowDefinitionProvider
+internal static class DocumentWorkflows
 {
     public const string Classify = "documents.classify";
     public const string Extract = "documents.extract";
@@ -17,7 +17,7 @@ internal sealed class DocumentWorkflows : IWorkflowDefinitionProvider
         "execution": { "type": "string", "description": "immediate or batch (AI calls in the organization's batch window)." }
         """;
 
-    public IEnumerable<BuiltInWorkflow> GetWorkflows() =>
+    public static readonly BuiltInWorkflow[] All =
     [
         new(Classify, "Classify new documents", "Picks the term of a term set that fits each new document best and sets it in a field.",
             JsonNode.Parse("""

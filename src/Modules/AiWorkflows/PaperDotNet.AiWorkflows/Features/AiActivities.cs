@@ -8,12 +8,12 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
+using PaperDotNet.AiWorkflows.Data;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Workflows.Contracts;
-using PaperDotNet.Workflows.Data;
 
-namespace PaperDotNet.Workflows.Features;
+namespace PaperDotNet.AiWorkflows.Features;
 
 /// <summary>Limits of AI activities, from the same section as the chat model (<c>AI:Chat</c>).</summary>
 public sealed class WorkflowAiOptions
@@ -31,6 +31,22 @@ public sealed class WorkflowAiOptions
 
     /// <summary>How long an answer is reused for the same model and input (days; 0 turns the cache off).</summary>
     public int CacheDays { get; set; } = 30;
+
+    /// <summary>How long call records are kept (days; at least <see cref="CacheDays"/>).</summary>
+    public int RecordDays { get; set; } = 90;
+}
+
+/// <summary>Daily: deletes AI call records older than <see cref="WorkflowAiOptions.RecordDays"/> (and the cache).</summary>
+internal sealed class AiCallCleanupJob(AiWorkflowsDbContext db, IOptions<WorkflowAiOptions> options, TimeProvider time) : PaperDotNet.Jobs.Contracts.ITenantRecurringJob
+{
+    public const string Name = "ai.callCleanup";
+    public const string Schedule = "23 3 * * *";
+
+    public Task RunAsync(CancellationToken cancellationToken)
+    {
+        var cutoff = time.GetUtcNow().AddDays(-Math.Max(Math.Max(1, options.Value.RecordDays), options.Value.CacheDays));
+        return db.AiCalls.Where(c => c.CreatedAt < cutoff).ExecuteDeleteAsync(cancellationToken);
+    }
 }
 
 /// <summary>A question to the chat model: instructions, the input, and optionally a JSON Schema the answer must follow.</summary>
@@ -65,12 +81,12 @@ internal sealed record AiAnswer(string Text, bool Cached, long Tokens)
 /// <summary>
 /// All AI activities call the chat model through here (AI-06, ADR-0036): the same model and input reuse an earlier answer
 /// (the cache), an organization's daily token budget is enforced, and every call is recorded (<see cref="AiCall"/>: a hash
-/// of what was sent, the model, tokens and the answer). Records are saved with the run's next step, so they are atomic
-/// with its progress. With <c>execution: batch</c> (AI-08) the step waits on an <c>ai.batch</c> wait with its question as
+/// of what was sent, the model, tokens and the answer), in this module's own table. With <c>execution: batch</c> (AI-08) the step waits on an <c>ai.batch</c> wait with its question as
 /// data, which the workspace's batch workflow answers (<see cref="AiBatchActivity"/>); the step then runs again with it.
 /// </summary>
 internal sealed class AiGateway(
-    IServiceProvider services, WorkflowsDbContext db, IOptions<WorkflowAiOptions> options, IOptions<AiBatchOptions> batchOptions, TimeProvider time)
+    IServiceProvider services, AiWorkflowsDbContext db, IWorkflowDirectory workflows, IOptions<WorkflowAiOptions> options,
+    IOptions<AiBatchOptions> batchOptions, TimeProvider time)
 {
     private readonly IChatClient? _client = services.GetService<IChatClient>();
 
@@ -93,18 +109,18 @@ internal sealed class AiGateway(
         var model = Model;
         var hash = Hash(model, question);
         var now = time.GetUtcNow();
-        AiCall Record(string? response, bool cached) => db.AiCalls.Add(NewCall(question.Activity, context.Source, context.RunId, model, hash, response, cached, now)).Entity;
+        Task RecordAsync(string? response, bool cached) => AddAsync(NewCall(question.Activity, context.Source, context.RunId, model, hash, response, cached, now), ct);
 
-        var execution = Inputs.Text(context.Inputs, AiActivity.Execution) ?? batchOptions.Value.Execution;
+        var execution = ActivityInputs.Text(context.Inputs, AiActivity.Execution) ?? batchOptions.Value.Execution;
         if (execution == AiActivity.Batch && context.RunId is not null)
         {
-            var immediately = Inputs.Text(context.Inputs, AiActivity.OnDeadline) != AiActivity.Fail;
+            var immediately = ActivityInputs.Text(context.Inputs, AiActivity.OnDeadline) != AiActivity.Fail;
             if (context.Resumed is { Kind: AiBatch.WaitKind } resumed)
             {
                 // Back from the batch: its answer, the model's error, or the deadline passed without an answer.
                 if (resumed.Payload?["text"] is JsonValue answer && answer.TryGetValue<string>(out var answered))
                 {
-                    Record(answered, cached: true);
+                    await RecordAsync(answered, cached: true);
                     return (new AiAnswer(answered, false, 0), null, null);
                 }
 
@@ -120,13 +136,13 @@ internal sealed class AiGateway(
             }
             else if (await CachedAsync(hash, now, ct) is { } cachedAnswer)
             {
-                Record(cachedAnswer, cached: true);
+                await RecordAsync(cachedAnswer, cached: true);
                 return (new AiAnswer(cachedAnswer, true, 0), null, null);
             }
-            else if (await AiBatch.IsScheduledAsync(db, context.WorkspaceId, ct))
+            else if (await workflows.IsActivityUsedAsync(context.WorkspaceId, AiBatch.ActivityKey, ct))
             {
                 // Waits for the workspace's batch workflow (ai.batch) with the question as the wait's data.
-                var hours = Inputs.Number(context.Inputs, AiActivity.DeadlineHours) ?? batchOptions.Value.DeadlineHours;
+                var hours = ActivityInputs.Number(context.Inputs, AiActivity.DeadlineHours) ?? batchOptions.Value.DeadlineHours;
                 return (null, null, WorkflowActivityResult.WaitAndRunAgain(
                     AiBatch.WaitKind, context.ExecutionId.ToString("N"), now.AddHours(Math.Clamp(hours, 1, 24 * 14)), AiBatch.Data(hash, model, question)));
             }
@@ -135,7 +151,7 @@ internal sealed class AiGateway(
         }
         else if (await CachedAsync(hash, now, ct) is { } cachedAnswer)
         {
-            Record(cachedAnswer, cached: true);
+            await RecordAsync(cachedAnswer, cached: true);
             return (new AiAnswer(cachedAnswer, true, 0), null, null);
         }
 
@@ -144,7 +160,7 @@ internal sealed class AiGateway(
     }
 
     /// <summary>
-    /// Calls the model now (within the day's budget) and records the call (added to the context, not saved): the record,
+    /// Calls the model now (within the day's budget) and records the call: the record,
     /// or null and why when the budget is used up; a failed call is recorded with its error.
     /// </summary>
     public async Task<(AiCall? Call, string? Error)> CallAsync(AiQuestion question, string model, string hash, string source, Guid? runId, CancellationToken ct)
@@ -175,15 +191,22 @@ internal sealed class AiGateway(
         {
             var failed = NewCall(question.Activity, source, runId, model, hash, null, false, now);
             failed.Error = Truncate(ex.Message, 2000);
-            db.AiCalls.Add(failed);
+            await AddAsync(failed, ct);
             return (failed, $"The AI model failed: {ex.Message}");
         }
 
         var call = NewCall(question.Activity, source, runId, model, hash, response.Text, false, now);
         call.InputTokens = response.Usage?.InputTokenCount ?? 0;
         call.OutputTokens = response.Usage?.OutputTokenCount ?? 0;
-        db.AiCalls.Add(call);
+        await AddAsync(call, ct);
         return (call, null);
+    }
+
+    /// <summary>Saves the record of a call (right away: an answer paid for is kept even when the step fails later).</summary>
+    public async Task AddAsync(AiCall call, CancellationToken ct)
+    {
+        db.AiCalls.Add(call);
+        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>Why the organization cannot use more tokens today, or null.</summary>
@@ -284,29 +307,29 @@ internal static class AiActivity
     public const string Fail = "fail";
 
     /// <summary>The inputs of an AI activity with those every AI activity has (batch execution).</summary>
-    public static JsonObject Schema(string[] required, params (string Name, JsonObject Schema)[] properties) => Schemas.Object(required,
+    public static JsonObject Schema(string[] required, params (string Name, JsonObject Schema)[] properties) => ActivitySchemas.Of(required,
     [
         .. properties,
-        (Execution, Schemas.Text("immediate (call the model now) or batch (queue for the organization's next batch: cheaper, "
+        (Execution, ActivitySchemas.Text("immediate (call the model now) or batch (queue for the organization's next batch: cheaper, "
             + "the run waits); default from AI:Batch:Execution.")),
-        (DeadlineHours, Schemas.Number("With batch: the longest wait in hours (default from AI:Batch:DeadlineHours).")),
-        (OnDeadline, Schemas.Text("With batch, when the deadline passes without an answer: immediate (default: call the model now) or fail.")),
+        (DeadlineHours, ActivitySchemas.Number("With batch: the longest wait in hours (default from AI:Batch:DeadlineHours).")),
+        (OnDeadline, ActivitySchemas.Text("With batch, when the deadline passes without an answer: immediate (default: call the model now) or fail.")),
     ]);
 
     /// <summary>Checks the inputs every AI activity has.</summary>
     public static IEnumerable<string> ValidateExecution(JsonObject inputs)
     {
-        if (Inputs.Text(inputs, Execution) is { } execution && execution is not (Immediate or Batch))
+        if (ActivityInputs.Text(inputs, Execution) is { } execution && execution is not (Immediate or Batch))
         {
             yield return "execution must be immediate or batch.";
         }
 
-        if (inputs[DeadlineHours] is not null && Inputs.Number(inputs, DeadlineHours) is not (>= 1 and <= 336))
+        if (inputs[DeadlineHours] is not null && ActivityInputs.Number(inputs, DeadlineHours) is not (>= 1 and <= 336))
         {
             yield return "deadlineHours must be from 1 to 336.";
         }
 
-        if (Inputs.Text(inputs, OnDeadline) is { } onDeadline && onDeadline is not (Immediate or Fail))
+        if (ActivityInputs.Text(inputs, OnDeadline) is { } onDeadline && onDeadline is not (Immediate or Fail))
         {
             yield return "onDeadline must be immediate or fail.";
         }
@@ -351,20 +374,20 @@ internal static class AiActivity
             yield return problem;
         }
 
-        if (Inputs.Text(inputs, "mode") is { } mode && mode is not (Apply or Suggest))
+        if (ActivityInputs.Text(inputs, "mode") is { } mode && mode is not (Apply or Suggest))
         {
             yield return "mode must be apply or suggest.";
         }
 
-        if (inputs["minConfidence"] is not null && Inputs.Number(inputs, "minConfidence") is not (>= 0 and <= 1))
+        if (inputs["minConfidence"] is not null && ActivityInputs.Number(inputs, "minConfidence") is not (>= 0 and <= 1))
         {
             yield return "minConfidence must be a number from 0 to 1.";
         }
     }
 
-    public static bool Applies(JsonObject inputs) => Inputs.Text(inputs, "mode") != Suggest;
+    public static bool Applies(JsonObject inputs) => ActivityInputs.Text(inputs, "mode") != Suggest;
 
-    public static double MinConfidence(JsonObject inputs) => Inputs.Number(inputs, "minConfidence") ?? 0.7;
+    public static double MinConfidence(JsonObject inputs) => ActivityInputs.Number(inputs, "minConfidence") ?? 0.7;
 
     public static double Confidence(JsonNode? value) =>
         value is JsonValue number && number.GetValueKind() == JsonValueKind.Number ? number.GetValue<double>() : 0;
@@ -384,14 +407,14 @@ internal sealed class AiExtractActivity(AiGateway ai, IListItemStore items) : IW
     public IReadOnlyList<string> Outcomes => [AiActivity.LowConfidence];
 
     public JsonObject? InputSchema => AiActivity.Schema([],
-        ("fields", Schemas.Texts("Fields to fill (text, number, currency, date, choice, …); default: all that can be filled.")),
-        ("instructions", Schemas.Text("Extra instructions (template), e.g. what the document is.")),
-        ("mode", Schemas.Text("apply (default: set the values) or suggest (only return them).")),
-        ("minConfidence", Schemas.Number("Values with less confidence (0 to 1) are not applied; default 0.7.")));
+        ("fields", ActivitySchemas.Texts("Fields to fill (text, number, currency, date, choice, …); default: all that can be filled.")),
+        ("instructions", ActivitySchemas.Text("Extra instructions (template), e.g. what the document is.")),
+        ("mode", ActivitySchemas.Text("apply (default: set the values) or suggest (only return them).")),
+        ("minConfidence", ActivitySchemas.Number("Values with less confidence (0 to 1) are not applied; default 0.7.")));
 
-    public JsonObject? OutputSchema => Schemas.Object([],
-        ("values", Schemas.Values("The values found, by field.")), ("confidence", Schemas.Values("Confidence per field (0 to 1).")),
-        ("applied", Schemas.Texts("Fields that were set.")), ("uncertain", Schemas.Texts("Fields left empty or uncertain.")));
+    public JsonObject? OutputSchema => ActivitySchemas.Of([],
+        ("values", ActivitySchemas.Values("The values found, by field.")), ("confidence", ActivitySchemas.Values("Confidence per field (0 to 1).")),
+        ("applied", ActivitySchemas.Texts("Fields that were set.")), ("uncertain", ActivitySchemas.Texts("Fields left empty or uncertain.")));
 
     public IEnumerable<string> Validate(JsonObject inputs) => AiActivity.ValidateCommon(inputs);
 
@@ -406,7 +429,7 @@ internal sealed class AiExtractActivity(AiGateway ai, IListItemStore items) : IW
         var data = await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, cancellationToken);
         var list = await store.DescribeListAsync(item.WorkspaceId, item.ListId, cancellationToken);
         var fields = list?.ContentTypes.FirstOrDefault(c => c.Id == data?.ContentTypeId)?.Fields ?? [];
-        var wanted = Inputs.Texts(context.Inputs, "fields");
+        var wanted = ActivityInputs.Texts(context.Inputs, "fields");
         var chosen = new List<(ListFieldInfo Field, JsonObject Schema)>();
         foreach (var field in fields.Where(f => f.Name != "title" && (wanted is null || wanted.Contains(f.Name))))
         {
@@ -455,7 +478,7 @@ internal sealed class AiExtractActivity(AiGateway ai, IListItemStore items) : IW
             + (c.Field.Description is { Length: > 0 } description ? $": {description}" : string.Empty)));
         var instructions = "Extract these fields from the document. Answer with JSON: \"values\" by field (null when the document does not say) "
             + "and \"confidence\" by field from 0 to 1. Dates as yyyy-MM-dd, numbers without currency symbols.\n" + described
-            + (Inputs.Text(context.Inputs, "instructions") is { } extra ? "\n" + await context.ExpandAsync(extra, cancellationToken) : string.Empty);
+            + (ActivityInputs.Text(context.Inputs, "instructions") is { } extra ? "\n" + await context.ExpandAsync(extra, cancellationToken) : string.Empty);
         var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, instructions, await ai.ItemTextAsync(item, cancellationToken), format), context, cancellationToken);
 
         if (wait is not null)
@@ -490,7 +513,7 @@ internal sealed class AiExtractActivity(AiGateway ai, IListItemStore items) : IW
             var result = await store.UpdateAsync(item.WorkspaceId, item.ListId, item.ItemId, apply, null, cancellationToken);
             if (!result.Succeeded)
             {
-                return WorkflowActivityResult.Fail(ItemUpdateAction.Describe(result));
+                return WorkflowActivityResult.Fail(result.Describe());
             }
 
             foreach (var (name, _) in apply)
@@ -525,18 +548,18 @@ internal sealed class AiClassifyActivity(AiGateway ai, IListItemStore items, ITe
     public IReadOnlyList<string> Outcomes => [AiActivity.LowConfidence];
 
     public JsonObject? InputSchema => AiActivity.Schema(["termSet"],
-        ("termSet", Schemas.Text("The term set as Group/Set.")),
-        ("field", Schemas.Text("A managed metadata field of the item to set (optional).")),
-        ("instructions", Schemas.Text("Extra instructions (template).")),
-        ("mode", Schemas.Text("apply (default) or suggest.")),
-        ("minConfidence", Schemas.Number("Less confidence (0 to 1) is not applied; default 0.7.")));
+        ("termSet", ActivitySchemas.Text("The term set as Group/Set.")),
+        ("field", ActivitySchemas.Text("A managed metadata field of the item to set (optional).")),
+        ("instructions", ActivitySchemas.Text("Extra instructions (template).")),
+        ("mode", ActivitySchemas.Text("apply (default) or suggest.")),
+        ("minConfidence", ActivitySchemas.Number("Less confidence (0 to 1) is not applied; default 0.7.")));
 
-    public JsonObject? OutputSchema => Schemas.Object([],
-        ("term", Schemas.Text("The term's name, or null.")), ("termId", Schemas.Text("The term's id.")),
-        ("confidence", Schemas.Number("0 to 1.")), ("applied", Schemas.Any("Whether the field was set.")));
+    public JsonObject? OutputSchema => ActivitySchemas.Of([],
+        ("term", ActivitySchemas.Text("The term's name, or null.")), ("termId", ActivitySchemas.Text("The term's id.")),
+        ("confidence", ActivitySchemas.Number("0 to 1.")), ("applied", ActivitySchemas.Any("Whether the field was set.")));
 
     public IEnumerable<string> Validate(JsonObject inputs) =>
-        AiActivity.ValidateCommon(inputs).Concat(Inputs.Text(inputs, "termSet") is { } path && path.Split('/').Length == 2 ? [] : ["termSet must be Group/Set."]);
+        AiActivity.ValidateCommon(inputs).Concat(ActivityInputs.Text(inputs, "termSet") is { } path && path.Split('/').Length == 2 ? [] : ["termSet must be Group/Set."]);
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
@@ -545,7 +568,7 @@ internal sealed class AiClassifyActivity(AiGateway ai, IListItemStore items, ITe
             return WorkflowActivityResult.Fail("ai.classify needs an item.");
         }
 
-        var path = Inputs.Text(context.Inputs, "termSet")!.Split('/');
+        var path = ActivityInputs.Text(context.Inputs, "termSet")!.Split('/');
         if (await terms.FindTermSetAsync(path[0], path[1], cancellationToken) is not { } setId)
         {
             return WorkflowActivityResult.Fail($"The term set '{string.Join('/', path)}' does not exist.");
@@ -570,7 +593,7 @@ internal sealed class AiClassifyActivity(AiGateway ai, IListItemStore items, ITe
         };
         var instructions = "Classify the document with exactly one of these terms, or null when none fits. Answer with JSON: \"term\" and "
             + "\"confidence\" from 0 to 1.\nTerms: " + string.Join(", ", candidates.Select(t => t.Name).Distinct())
-            + (Inputs.Text(context.Inputs, "instructions") is { } extra ? "\n" + await context.ExpandAsync(extra, cancellationToken) : string.Empty);
+            + (ActivityInputs.Text(context.Inputs, "instructions") is { } extra ? "\n" + await context.ExpandAsync(extra, cancellationToken) : string.Empty);
         var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, instructions, await ai.ItemTextAsync(item, cancellationToken), format), context, cancellationToken);
 
         if (wait is not null)
@@ -587,7 +610,7 @@ internal sealed class AiClassifyActivity(AiGateway ai, IListItemStore items, ITe
         var confidence = AiActivity.Confidence(json["confidence"]);
         var sure = term is not null && confidence >= AiActivity.MinConfidence(context.Inputs);
         var applied = false;
-        if (sure && AiActivity.Applies(context.Inputs) && Inputs.Text(context.Inputs, "field") is { } fieldName)
+        if (sure && AiActivity.Applies(context.Inputs) && ActivityInputs.Text(context.Inputs, "field") is { } fieldName)
         {
             var store = items.AsSystem();
             var list = await store.DescribeListAsync(item.WorkspaceId, item.ListId, cancellationToken);
@@ -601,7 +624,7 @@ internal sealed class AiClassifyActivity(AiGateway ai, IListItemStore items, ITe
             var result = await store.UpdateAsync(item.WorkspaceId, item.ListId, item.ItemId, new JsonObject { [fieldName] = termValue }, null, cancellationToken);
             if (!result.Succeeded)
             {
-                return WorkflowActivityResult.Fail(ItemUpdateAction.Describe(result));
+                return WorkflowActivityResult.Fail(result.Describe());
             }
 
             applied = true;
@@ -627,14 +650,14 @@ internal sealed class AiSummarizeActivity(AiGateway ai, IListItemStore items) : 
     public string Description => "Summarizes the item's text with AI: { \"maxWords\": 60, \"field\": \"summary\" }.";
 
     public JsonObject? InputSchema => AiActivity.Schema([],
-        ("maxWords", Schemas.Number("Longest summary in words; default 80.")),
-        ("field", Schemas.Text("A text field of the item to write the summary to (optional).")),
-        ("instructions", Schemas.Text("Extra instructions (template), e.g. the language.")));
+        ("maxWords", ActivitySchemas.Number("Longest summary in words; default 80.")),
+        ("field", ActivitySchemas.Text("A text field of the item to write the summary to (optional).")),
+        ("instructions", ActivitySchemas.Text("Extra instructions (template), e.g. the language.")));
 
-    public JsonObject? OutputSchema => Schemas.Object([], ("summary", Schemas.Text("The summary.")));
+    public JsonObject? OutputSchema => ActivitySchemas.Of([], ("summary", ActivitySchemas.Text("The summary.")));
 
     public IEnumerable<string> Validate(JsonObject inputs) => AiActivity.ValidateExecution(inputs)
-        .Concat(inputs["maxWords"] is null || Inputs.Number(inputs, "maxWords") is > 0 and <= 2000 ? [] : ["maxWords must be from 1 to 2000."]);
+        .Concat(inputs["maxWords"] is null || ActivityInputs.Number(inputs, "maxWords") is > 0 and <= 2000 ? [] : ["maxWords must be from 1 to 2000."]);
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
@@ -643,9 +666,9 @@ internal sealed class AiSummarizeActivity(AiGateway ai, IListItemStore items) : 
             return WorkflowActivityResult.Fail("ai.summarize needs an item.");
         }
 
-        var words = (int)(Inputs.Number(context.Inputs, "maxWords") ?? 80);
+        var words = (int)(ActivityInputs.Number(context.Inputs, "maxWords") ?? 80);
         var instructions = $"Summarize the document in at most {words.ToString(CultureInfo.InvariantCulture)} words. Answer with the summary only."
-            + (Inputs.Text(context.Inputs, "instructions") is { } extra ? "\n" + await context.ExpandAsync(extra, cancellationToken) : string.Empty);
+            + (ActivityInputs.Text(context.Inputs, "instructions") is { } extra ? "\n" + await context.ExpandAsync(extra, cancellationToken) : string.Empty);
         var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, instructions, await ai.ItemTextAsync(item, cancellationToken)), context, cancellationToken);
 
         if (wait is not null)
@@ -658,12 +681,12 @@ internal sealed class AiSummarizeActivity(AiGateway ai, IListItemStore items) : 
         }
 
         var summary = answer.Text.Trim();
-        if (Inputs.Text(context.Inputs, "field") is { } field)
+        if (ActivityInputs.Text(context.Inputs, "field") is { } field)
         {
             var result = await items.AsSystem().UpdateAsync(item.WorkspaceId, item.ListId, item.ItemId, new JsonObject { [field] = summary }, null, cancellationToken);
             if (!result.Succeeded)
             {
-                return WorkflowActivityResult.Fail(ItemUpdateAction.Describe(result));
+                return WorkflowActivityResult.Fail(result.Describe());
             }
         }
 
@@ -683,25 +706,25 @@ internal sealed class AiPromptActivity(AiGateway ai) : IWorkflowActivity
     public string Description => "Asks the AI model: { \"prompt\": \"Is {title} urgent? Answer yes or no.\", \"includeContent\": true }.";
 
     public JsonObject? InputSchema => AiActivity.Schema(["prompt"],
-        ("prompt", Schemas.Text("The question (template).")),
-        ("system", Schemas.Text("Instructions for the model (template).")),
-        ("includeContent", Schemas.Any("true to add the item's text.")),
-        ("schema", Schemas.Values("A JSON Schema object the answer must follow (structured output).")));
+        ("prompt", ActivitySchemas.Text("The question (template).")),
+        ("system", ActivitySchemas.Text("Instructions for the model (template).")),
+        ("includeContent", ActivitySchemas.Any("true to add the item's text.")),
+        ("schema", ActivitySchemas.Values("A JSON Schema object the answer must follow (structured output).")));
 
-    public JsonObject? OutputSchema => Schemas.Object([], ("text", Schemas.Text("The answer.")), ("json", Schemas.Values("The answer as JSON (with a schema).")));
+    public JsonObject? OutputSchema => ActivitySchemas.Of([], ("text", ActivitySchemas.Text("The answer.")), ("json", ActivitySchemas.Values("The answer as JSON (with a schema).")));
 
     public IEnumerable<string> Validate(JsonObject inputs) => AiActivity.ValidateExecution(inputs)
-        .Concat(Inputs.Required(inputs, "prompt")).Concat(inputs["schema"] is null or JsonObject ? [] : ["schema must be a JSON Schema object."]);
+        .Concat(ActivityInputs.Required(inputs, "prompt")).Concat(inputs["schema"] is null or JsonObject ? [] : ["schema must be a JSON Schema object."]);
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
-        var prompt = await context.ExpandAsync(Inputs.Text(context.Inputs, "prompt")!, cancellationToken);
+        var prompt = await context.ExpandAsync(ActivityInputs.Text(context.Inputs, "prompt")!, cancellationToken);
         if (context.Inputs["includeContent"] is JsonValue include && include.GetValueKind() == JsonValueKind.True && context.Item is { } item)
         {
             prompt += "\n\n" + await ai.ItemTextAsync(item, cancellationToken);
         }
 
-        var system = Inputs.Text(context.Inputs, "system") is { } text ? await context.ExpandAsync(text, cancellationToken) : "You help automate work with documents and lists.";
+        var system = ActivityInputs.Text(context.Inputs, "system") is { } text ? await context.ExpandAsync(text, cancellationToken) : "You help automate work with documents and lists.";
         var schema = context.Inputs["schema"] as JsonObject;
         var (answer, error, wait) = await ai.AskAsync(new AiQuestion(Key, system, prompt, schema?.DeepClone().AsObject()), context, cancellationToken);
 

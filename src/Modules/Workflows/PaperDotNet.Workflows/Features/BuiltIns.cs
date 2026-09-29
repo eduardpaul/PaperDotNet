@@ -19,10 +19,22 @@ namespace PaperDotNet.Workflows.Features;
 internal sealed partial class BuiltInWorkflows(
     IEnumerable<IWorkflowDefinitionProvider> providers, IServiceProvider services, WorkflowsDbContext db, WorkflowValidator validator)
 {
-    public IReadOnlyList<BuiltInWorkflow> All =>
-        [.. providers.SelectMany(p => p.GetWorkflows()).DistinctBy(w => w.Key).OrderBy(w => w.Name, StringComparer.Ordinal)];
+    /// <summary>The built-in workflows offered in the organization (an extension's only where it is enabled).</summary>
+    public async Task<IReadOnlyList<BuiltInWorkflow>> ListAsync(CancellationToken ct)
+    {
+        var offered = new List<BuiltInWorkflow>();
+        foreach (var provider in providers)
+        {
+            if (await provider.IsAvailableAsync(ct))
+            {
+                offered.AddRange(provider.GetWorkflows());
+            }
+        }
 
-    public BuiltInWorkflow? Find(string key) => All.FirstOrDefault(w => w.Key == key);
+        return [.. offered.DistinctBy(w => w.Key).OrderBy(w => w.Name, StringComparer.Ordinal)];
+    }
+
+    public async Task<BuiltInWorkflow?> FindAsync(string key, CancellationToken ct) => (await ListAsync(ct)).FirstOrDefault(w => w.Key == key);
 
     /// <summary>Whether the server has what the workflow needs.</summary>
     public bool IsAvailable(BuiltInWorkflow workflow) => workflow.Requires switch
@@ -162,13 +174,15 @@ internal sealed partial class BuiltInWorkflows(
 
     /// <summary>
     /// Brings the organization's built-in workflows up to the release: a changed definition becomes a new version; one the
-    /// release no longer has is turned off; one that no longer fits its workspace (e.g. a list was renamed) keeps its version.
+    /// release no longer has (or whose extension was turned off) is turned off; one that no longer fits its workspace
+    /// (e.g. a list was renamed) keeps its version.
     /// </summary>
     public async Task SyncAsync(CancellationToken ct)
     {
+        var offered = (await ListAsync(ct)).ToDictionary(w => w.Key);
         foreach (var row in await db.Workflows.Where(w => w.BuiltInKey != null).ToListAsync(ct))
         {
-            if (Find(row.BuiltInKey!) is not { } workflow)
+            if (!offered.TryGetValue(row.BuiltInKey!, out var workflow))
             {
                 row.Enabled = false;
                 continue;
@@ -220,13 +234,11 @@ internal sealed class BuiltInSyncJob(BuiltInWorkflows builtIns) : ITenantRecurri
 }
 
 /// <summary>The workflow module's own built-in workflows: templates people enable for a list.</summary>
-internal sealed class WorkflowBuiltIns : IWorkflowDefinitionProvider
+internal static class WorkflowBuiltIns
 {
     public const string ApproveItems = "workflows.approveItems";
-    public const string AiBatch = "workflows.aiBatch";
 
-    public IEnumerable<BuiltInWorkflow> GetWorkflows() =>
-    [
+    public static readonly BuiltInWorkflow ApproveItemsWorkflow =
         new(ApproveItems, "Approve new items", "Asks approvers to approve each new item of a list and sets its status to the decision.",
             JsonNode.Parse("""
                 {
@@ -257,34 +269,5 @@ internal sealed class WorkflowBuiltIns : IWorkflowDefinitionProvider
                   "required": ["list", "approvers"]
                 }
                 """)!.AsObject(),
-        },
-        new(AiBatch, "AI batch",
-            "Answers the workspace's batched AI questions (steps with execution: batch) on a schedule, through the provider's batch API when the server has one.",
-            JsonNode.Parse("""
-                {
-                  "trigger": { "type": "schedule", "cron": "{param:schedule}", "timeZone": "{param:timeZone}" },
-                  "flow": {
-                    "start": "batch",
-                    "nodes": {
-                      "batch": { "activity": "ai.batch", "inputs": { "maxQuestions": "{param:maxQuestions}", "pollMinutes": "{param:pollMinutes}" },
-                                 "retry": { "attempts": 3, "delayMinutes": 10 } }
-                    }
-                  }
-                }
-                """)!.AsObject())
-        {
-            Parameters = JsonNode.Parse("""
-                {
-                  "type": "object",
-                  "properties": {
-                    "schedule": { "type": "string", "default": "0 1 * * *", "description": "When to send (cron), e.g. 0 1,13 * * * for twice a day." },
-                    "timeZone": { "type": "string", "description": "The schedule's time zone (default: the organization's)." },
-                    "maxQuestions": { "type": "number", "description": "Most questions per batch run (default 2000)." },
-                    "pollMinutes": { "type": "number", "default": 5, "description": "How often the provider's batches are checked." }
-                  }
-                }
-                """)!.AsObject(),
-            Requires = BuiltInRequirements.Ai,
-        },
-    ];
+        };
 }

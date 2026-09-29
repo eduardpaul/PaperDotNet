@@ -118,6 +118,15 @@ public interface IWorkflowBookmarks
 {
     /// <summary>Completes the wait (<paramref name="kind"/>, <paramref name="key"/>) with a payload; false when it was already completed.</summary>
     Task<bool> CompleteAsync(string kind, string key, JsonObject? payload, CancellationToken cancellationToken);
+
+    /// <summary>Open waits of a kind in runs of the workspace, oldest first (a page: <paramref name="skip"/>, <paramref name="take"/>).</summary>
+    Task<IReadOnlyList<WorkflowOpenWait>> ListOpenAsync(string kind, Guid workspaceId, int skip, int take, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Replaces the data of an open wait (e.g. to mark it as taken by a batch); false when it is no longer open or was
+    /// changed meanwhile (read it again).
+    /// </summary>
+    Task<bool> SetDataAsync(string kind, string key, JsonObject? data, CancellationToken cancellationToken);
 }
 
 /// <summary>What an action runs with.</summary>
@@ -240,10 +249,13 @@ public static class BuiltInRequirements
     public const string Ai = "ai";
 }
 
-/// <summary>Ships built-in workflows (register with <c>services.AddSingleton&lt;IWorkflowDefinitionProvider, …&gt;()</c>).</summary>
+/// <summary>Ships built-in workflows: modules register them with <c>services.AddWorkflow(…)</c>, extensions with <c>builder.AddWorkflow(…)</c>.</summary>
 public interface IWorkflowDefinitionProvider
 {
     IEnumerable<BuiltInWorkflow> GetWorkflows();
+
+    /// <summary>Whether the workflows are offered in the current organization (an extension's only where it is enabled).</summary>
+    ValueTask<bool> IsAvailableAsync(CancellationToken cancellationToken) => ValueTask.FromResult(true);
 }
 
 /// <summary>Built-in trigger types of workflows.</summary>

@@ -43,18 +43,8 @@ public sealed class WorkflowsModule : IModule
         services.AddScoped<TriggerCatalog>();
         services.AddScoped<ActionExecutor>();
         services.AddScoped<WorkflowValidator>();
-        services.AddScoped<IWorkflowActivity, ItemUpdateAction>();
-        services.AddScoped<IWorkflowActivity, ItemFileAction>();
-        services.AddScoped<IWorkflowActivity, TaskCreateAction>();
-        services.AddScoped<IWorkflowActivity, NotifyAction>();
-        services.Configure<WorkflowAiOptions>(configuration.GetSection(WorkflowAiOptions.Section));
-        services.Configure<AiBatchOptions>(configuration.GetSection(AiBatchOptions.Section));
-        services.AddScoped<AiGateway>();
-        services.AddScoped<IWorkflowActivity, AiExtractActivity>();
-        services.AddScoped<IWorkflowActivity, AiClassifyActivity>();
-        services.AddScoped<IWorkflowActivity, AiSummarizeActivity>();
-        services.AddScoped<IWorkflowActivity, AiPromptActivity>();
-        services.AddScoped<IWorkflowActivity, AiBatchActivity>();
+        services.AddWorkflowActivity<ItemUpdateAction>();
+        services.AddWorkflowActivity<ItemFileAction>();
 
         services.AddIntegrationEvent<WorkflowTriggerRaised>();
         services.AddScoped<IWorkflowTriggers, WorkflowTriggerPublisher>();
@@ -69,8 +59,10 @@ public sealed class WorkflowsModule : IModule
         services.AddScoped<WorkflowInterpreter>();
         services.AddScoped<RunService>();
         services.AddScoped<IWorkflowBookmarks, WorkflowBookmarks>();
+        services.AddScoped<IWorkflowDirectory, WorkflowDirectory>();
+        services.AddScoped<IWorkflowRecipients, WorkflowRecipientResolver>();
         services.AddScoped<BuiltInWorkflows>();
-        services.AddSingleton<IWorkflowDefinitionProvider, WorkflowBuiltIns>();
+        services.AddWorkflow(WorkflowBuiltIns.ApproveItemsWorkflow);
         services.AddTenantRecurringJob<BuiltInSyncJob>(BuiltInSyncJob.Name, BuiltInSyncJob.Schedule);
         services.AddTenantRecurringJob<WorkflowTimerJob>(WorkflowTimerJob.Name, WorkflowTimerJob.Schedule);
         services.AddTenantRecurringJob<WorkflowScheduleJob>(WorkflowScheduleJob.Name, WorkflowScheduleJob.Schedule);

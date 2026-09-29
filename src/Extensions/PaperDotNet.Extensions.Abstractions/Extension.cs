@@ -108,6 +108,13 @@ public interface IExtensionBuilder
     IExtensionBuilder AddWorkflowTrigger(WorkflowTriggerDefinition trigger);
 
     /// <summary>
+    /// A workflow the extension ships (EVT-12; key starts with <c>{extension id}.</c>), like the built-in ones: workspaces
+    /// turn it on with its parameters or copy it to change it. Offered only in organizations that enabled the extension;
+    /// turning the extension off turns it off.
+    /// </summary>
+    IExtensionBuilder AddWorkflow(BuiltInWorkflow workflow);
+
+    /// <summary>
     /// A tool for AI assistants on the MCP endpoint (API-09). The name must start with the extension id
     /// with <c>.</c> and <c>-</c> replaced by <c>_</c>, then <c>_</c> (e.g. <c>acme_invoices_approve</c>);
     /// the tool is offered only in tenants that enabled the extension.

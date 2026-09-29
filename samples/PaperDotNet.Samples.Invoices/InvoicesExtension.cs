@@ -60,6 +60,7 @@ public sealed class InvoicesExtension : IExtension
         builder.AddWorkflowTrigger(new(ApprovalNeededTrigger.Key, "An invoice above the approval threshold was added (data: amount)."));
         builder.AddWorkflowActivity<ApproveInvoiceAction>();
         builder.AddWorkflowActivity<AwaitPaymentActivity>();
+        builder.AddWorkflow(InvoiceWorkflows.ApproveAndCollect);
         builder.AddEventSubscriber<ItemUpdated, PaymentReceived>();
         builder.AddMcpTool<PendingInvoicesTool>();
         builder.AddEventSubscriber<ItemAdded, ApprovalNeededTrigger>();

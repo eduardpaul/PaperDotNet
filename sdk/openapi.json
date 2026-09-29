@@ -17398,6 +17398,15 @@
               "type": "string"
             }
           },
+          "workflows": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
           "mcpTools": {
             "type": [
               "null",

@@ -5,6 +5,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using PaperDotNet.Abstractions;
 using PaperDotNet.AI;
+using PaperDotNet.AiWorkflows;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
 using PaperDotNet.Calendar;
@@ -64,6 +65,7 @@ public static class PaperDotNetHost
         new McpModule(),
         new ProvisioningModule(),
         new WorkflowsModule(),
+        new AiWorkflowsModule(),
         new AuditModule(),
         new ExtensionHostModule(),
     ];

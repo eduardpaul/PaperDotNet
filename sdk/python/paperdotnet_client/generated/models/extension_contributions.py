@@ -38,6 +38,8 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
     workflow_activities: Optional[list[str]] = None
     # The workflowTriggers property
     workflow_triggers: Optional[list[str]] = None
+    # The workflows property
+    workflows: Optional[list[str]] = None
     
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> ExtensionContributions:
@@ -69,6 +71,7 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
             "termSets": lambda n : setattr(self, 'term_sets', n.get_collection_of_primitive_values(str)),
             "workflowActivities": lambda n : setattr(self, 'workflow_activities', n.get_collection_of_primitive_values(str)),
             "workflowTriggers": lambda n : setattr(self, 'workflow_triggers', n.get_collection_of_primitive_values(str)),
+            "workflows": lambda n : setattr(self, 'workflows', n.get_collection_of_primitive_values(str)),
         }
         return fields
     
@@ -93,6 +96,7 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
         writer.write_collection_of_primitive_values("termSets", self.term_sets)
         writer.write_collection_of_primitive_values("workflowActivities", self.workflow_activities)
         writer.write_collection_of_primitive_values("workflowTriggers", self.workflow_triggers)
+        writer.write_collection_of_primitive_values("workflows", self.workflows)
         writer.write_additional_data_value(self.additional_data)
     
 

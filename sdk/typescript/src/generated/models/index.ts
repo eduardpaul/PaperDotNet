@@ -3935,6 +3935,7 @@ export function deserializeIntoExtensionContributions(extensionContributions: Pa
         "templateHandlers": n => { extensionContributions.templateHandlers = n.getCollectionOfPrimitiveValues<string>("string"); },
         "termSets": n => { extensionContributions.termSets = n.getCollectionOfPrimitiveValues<string>("string"); },
         "workflowActivities": n => { extensionContributions.workflowActivities = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "workflows": n => { extensionContributions.workflows = n.getCollectionOfPrimitiveValues<string>("string"); },
         "workflowTriggers": n => { extensionContributions.workflowTriggers = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
@@ -6181,6 +6182,10 @@ export interface ExtensionContributions extends AdditionalDataHolder, Parsable {
      * The workflowActivities property
      */
     workflowActivities?: string[] | null;
+    /**
+     * The workflows property
+     */
+    workflows?: string[] | null;
     /**
      * The workflowTriggers property
      */
@@ -9092,6 +9097,7 @@ export function serializeExtensionContributions(writer: SerializationWriter, ext
     writer.writeCollectionOfPrimitiveValues<string>("templateHandlers", extensionContributions.templateHandlers);
     writer.writeCollectionOfPrimitiveValues<string>("termSets", extensionContributions.termSets);
     writer.writeCollectionOfPrimitiveValues<string>("workflowActivities", extensionContributions.workflowActivities);
+    writer.writeCollectionOfPrimitiveValues<string>("workflows", extensionContributions.workflows);
     writer.writeCollectionOfPrimitiveValues<string>("workflowTriggers", extensionContributions.workflowTriggers);
     writer.writeAdditionalData(extensionContributions.additionalData);
 }

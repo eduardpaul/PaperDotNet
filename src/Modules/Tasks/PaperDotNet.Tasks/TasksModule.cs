@@ -40,7 +40,8 @@ public sealed class TasksModule : IModule
         services.AddEventSubscriber<ItemUpdated, RecurringTaskSpawner>();
         services.AddEventSubscriber<ItemPurged, PurgedTaskData>();
         services.AddEventSubscriber<ItemUpdated, TaskCompletedTrigger>();
-        services.AddSingleton(new WorkflowTriggerDefinition(WorkflowTriggers.TaskCompleted, "A task was completed (data: completedBy)."));
+        services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggers.TaskCompleted, "A task was completed (data: completedBy)."));
+        services.AddWorkflowActivity<TaskCreateActivity>();
         services.AddTenantRecurringJob<DueTaskReminderJob>(DueTaskReminderJob.Name, DueTaskReminderJob.Schedule);
         services.AddScopes(TaskScopes.All);
     }

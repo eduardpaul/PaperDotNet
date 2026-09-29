@@ -134,6 +134,58 @@ public sealed class WorkflowBuiltInTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task Extensions_ship_workflows_the_same_way_offered_where_they_are_enabled()
+    {
+        var tenant = await factory.CreateTenantAsync("wf-builtin-ext");
+        var admin = await ApiClient.CreateAsync(factory, "wf-builtin-ext");
+        var ws = await admin.CreateWorkspaceAsync("Finance");
+        var builtIns = $"/v1.0/workspaces/{ws}/workflows/builtIns";
+        const string Key = "samples.invoices.approveAndCollect";
+
+        // Not offered while the extension is off.
+        Assert.DoesNotContain((await GetAsync(admin, builtIns)).EnumerateArray(), b => b.GetProperty("key").GetString() == Key);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsJsonAsync($"{builtIns}/{Key}", new { enabled = true }, Ct)).StatusCode);
+
+        Assert.True((await admin.PostAsync("/v1.0/extensions/samples.invoices/enable", null, Ct)).IsSuccessStatusCode);
+        var created = await admin.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name = "Invoices", templateKey = "samples.invoices.invoices" }, Ct);
+        var invoices = (await created.ReadJsonAsync()).GetProperty("id").GetGuid();
+        var offered = BuiltIn(await GetAsync(admin, builtIns), Key);
+        Assert.True(offered.GetProperty("available").GetBoolean());
+        var set = await admin.PutAsJsonAsync($"{builtIns}/{Key}", new { enabled = true, parameters = new { list = "Invoices", approvers = new[] { "creator" } } }, Ct);
+        Assert.True(set.IsSuccessStatusCode, await set.Content.ReadAsStringAsync(Ct));
+        var workflowId = (await set.ReadJsonAsync()).GetProperty("workflowId").GetGuid();
+
+        // It runs with the extension's trigger and activities and the core ones: approve, mark approved, wait for payment.
+        var invoice = (await admin.CreateItemAsync(ws, invoices, new { fields = new { title = "Big", amount = 5000 } })).GetProperty("id").GetGuid();
+        var approval = await Eventually.WaitForAsync(async () =>
+            (await GetAsync(admin, "/v1.0/me/approvals")).GetProperty("value").EnumerateArray().Select(a => (Guid?)a.GetProperty("id").GetGuid()).FirstOrDefault(),
+            TimeSpan.FromSeconds(30));
+        Assert.True((await admin.PostAsJsonAsync($"/v1.0/me/approvals/{approval}/decision", new { outcome = "approved" }, Ct)).IsSuccessStatusCode);
+        var item = $"/v1.0/workspaces/{ws}/lists/{invoices}/items/{invoice}";
+        await Eventually.WaitForAsync(async () =>
+            (await GetAsync(admin, item)).GetProperty("fields").GetProperty("status").GetString() == "approved" ? true : (bool?)null, TimeSpan.FromSeconds(30));
+        var runs = $"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflowId}";
+        await Eventually.WaitForAsync(async () =>
+            (await GetAsync(admin, runs)).GetProperty("value").EnumerateArray().Any(r => r.GetProperty("status").GetString() == "waiting"
+                && r.GetProperty("node").GetString() == "payment") ? true : (bool?)null, TimeSpan.FromSeconds(30));
+        var paid = await admin.SendWithEtagAsync(HttpMethod.Patch, item, (await admin.GetAsync(item, Ct)).Headers.ETag!.Tag, new { fields = new { status = "paid" } });
+        Assert.True(paid.IsSuccessStatusCode, await paid.Content.ReadAsStringAsync(Ct));
+        await Eventually.WaitForAsync(async () =>
+            (await GetAsync(admin, runs)).GetProperty("value").EnumerateArray().Any(r => r.GetProperty("status").GetString() == "completed") ? true : (bool?)null,
+            TimeSpan.FromSeconds(30));
+
+        // Turning the extension off withdraws the workflow, and the release sync turns it off where it was on.
+        Assert.True((await admin.PostAsync("/v1.0/extensions/samples.invoices/disable", null, Ct)).IsSuccessStatusCode);
+        Assert.DoesNotContain((await GetAsync(admin, builtIns)).EnumerateArray(), b => b.GetProperty("key").GetString() == Key);
+        await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier))
+        {
+            await scope.ServiceProvider.GetRequiredService<BuiltInSyncJob>().RunAsync(Ct);
+        }
+
+        Assert.False((await GetAsync(admin, $"/v1.0/workspaces/{ws}/workflows/{workflowId}")).GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
     public async Task Extract_fields_reads_new_documents_of_a_library()
     {
         await factory.CreateTenantAsync("wf-builtin-docs");

@@ -3,8 +3,8 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
+using PaperDotNet.AiWorkflows.Data;
 using PaperDotNet.Tenancy.Contracts;
-using PaperDotNet.Workflows.Data;
 
 namespace PaperDotNet.IntegrationTests;
 
@@ -142,7 +142,7 @@ public sealed class WorkflowAiTests(PaperDotNetApiFactory factory)
         await admin.PostAsJsonAsync($"{workflows}/runs/{asked.GetProperty("id").GetGuid()}/cancel", new { }, Ct);
         await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier))
         {
-            var db = scope.ServiceProvider.GetRequiredService<WorkflowsDbContext>();
+            var db = scope.ServiceProvider.GetRequiredService<AiWorkflowsDbContext>();
             var calls = await db.AiCalls.AsNoTracking().OrderBy(c => c.CreatedAt).ToListAsync(Ct);
             Assert.Contains(calls, c => c.Activity == "ai.extract" && c.Model == "reading-model" && c.InputTokens > 0 && !c.Cached && c.Source == "workflow:Read receipts");
             Assert.All(calls, c => Assert.NotNull(c.RunId));
@@ -171,7 +171,7 @@ public sealed class WorkflowAiTests(PaperDotNetApiFactory factory)
         var before = ReadingChatClient.Instance.Calls;
         await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier))
         {
-            var db = scope.ServiceProvider.GetRequiredService<WorkflowsDbContext>();
+            var db = scope.ServiceProvider.GetRequiredService<AiWorkflowsDbContext>();
             await db.AiCalls.Where(c => c.Source == "test").ExecuteDeleteAsync(Ct);
         }
 
@@ -182,7 +182,7 @@ public sealed class WorkflowAiTests(PaperDotNetApiFactory factory)
         Assert.Equal(before, ReadingChatClient.Instance.Calls);
         await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier))
         {
-            Assert.Equal(2, await scope.ServiceProvider.GetRequiredService<WorkflowsDbContext>().AiCalls.CountAsync(c => c.Cached, Ct));
+            Assert.Equal(2, await scope.ServiceProvider.GetRequiredService<AiWorkflowsDbContext>().AiCalls.CountAsync(c => c.Cached, Ct));
         }
 
         // The catalog describes the AI activities.

@@ -187,25 +187,53 @@ list level:
 The section runs only in tenants where your extension is enabled, including
 tenants where the same template enables it. See `docs/provisioning.md`.
 
-**Workflows (EVT-09)** — offer activities to workflows with
-`builder.AddWorkflowActivity<TActivity>()` (`IWorkflowActivity`; key
-`{extension id}.name`). Read inputs from `context.Inputs`, replace tokens with
-`context.ExpandAsync`, and act on `context.Item` on behalf of the organization
-(e.g. `IListItemStore.AsSystem()`). Offer triggers with
-`builder.AddWorkflowTrigger(new(key, description))` and raise them from your
-code with `IWorkflowTriggers.RaiseAsync(key, workspaceId, item, data)`.
-Workflows with that trigger then start in the background. Make actions safe
-to repeat with `context.ExecutionId` (for example as the id of an item you
-create with `IListItemStore.CreateAsync(workspaceId, listId, itemId, …)`) or
-`context.ExecutionKey`; both stay the same when a step runs again. Describe
-inputs and outputs with `InputSchema` and `OutputSchema`, and offer extra
-ports with `Outcomes`. To wait for something outside the run (a reply, a
-payment, a batch), return `WorkflowActivityResult.Wait("{extension id}.kind",
-key, resumeAt, data)` and complete it later with `IWorkflowBookmarks.CompleteAsync`.
-To finish the work yourself when the wait ends (or to poll, keeping state in the
-wait's data), return `WaitAndRunAgain(…)`: the step runs again with the wait in
-`context.Resumed`. Keep such state in waits and workflows, not in tables of your
-own. See `docs/workflows.md`.
+**Workflows (EVT-09, EVT-12)** use the same extension points as the product's
+own workflow content. Tasks (`task.create`), Notifications (`notify`),
+AiWorkflows (the `ai.*` activities and the "AI batch" workflow) and Documents
+(classify and extract new documents) are modules built on this SDK only. They
+register their parts with `services.AddWorkflowActivity<T>()`,
+`services.AddWorkflowTrigger(…)` and `services.AddWorkflow(…)`. An extension
+calls the same methods on the builder, and there they are also switched per
+organization with the extension:
+
+- **Activities:** `builder.AddWorkflowActivity<TActivity>()`, which
+  implements `IWorkflowActivity`; the key is `{extension id}.name`.
+  - Read inputs with `ActivityInputs` (from `context.Inputs`) and describe
+    them with `ActivitySchemas` (`InputSchema`, `OutputSchema`). Offer extra
+    ports with `Outcomes`.
+  - Replace tokens with `context.ExpandAsync`. Resolve people inputs
+    (`alice`, `group:Finance`, `field:owner`, `creator`) with
+    `IWorkflowRecipients`.
+  - Act on `context.Item` on behalf of the organization, for example with
+    `IListItemStore.AsSystem()`. `ListItemResult.Describe()` turns a failed
+    change into an error.
+  - Make actions safe to repeat with `context.ExecutionId` or
+    `context.ExecutionKey`, which stay the same when a step runs again. For
+    example, use the id as the id of an item you create with
+    `IListItemStore.CreateAsync(workspaceId, listId, itemId, …)`.
+- **Triggers:** `builder.AddWorkflowTrigger(new(key, description))`. Raise
+  them from your code with `IWorkflowTriggers.RaiseAsync(key, workspaceId,
+  item, data)`; workflows with that trigger then start in the background.
+- **Workflows:** `builder.AddWorkflow(new BuiltInWorkflow(key, name,
+  description, definition) { Parameters = … })`.
+  - The definition is the same JSON as in the API, with `{param:name}` for
+    the settings a workspace fills in.
+  - Workspaces turn it on or copy it, like the built-in ones.
+  - It is offered only where the extension is enabled. Turning the extension
+    off turns it off.
+  - See `InvoiceWorkflows` in the sample.
+- **Waiting:** to wait for something outside the run (a reply, a payment, a
+  batch), return `WorkflowActivityResult.Wait("{extension id}.kind", key,
+  resumeAt, data)` and complete it later with
+  `IWorkflowBookmarks.CompleteAsync`.
+  - To finish the work yourself when the wait ends, or to poll with state in
+    the wait's data, return `WaitAndRunAgain(…)`. The step runs again with
+    the wait in `context.Resumed`.
+  - Work across waits (like a batch) uses `IWorkflowBookmarks.ListOpenAsync`
+    and `SetDataAsync`, plus `IWorkflowDirectory`.
+  - Keep such state in waits and workflows, not in tables of your own.
+
+See `docs/workflows.md`.
 
 ## 5. Analyzers
 

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Abstractions;
+using PaperDotNet.AiWorkflows.Data;
 using PaperDotNet.Calendar.Data;
 using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Documents.Data;
@@ -149,4 +150,10 @@ internal sealed class CollaborationDesignTimeFactory : IDesignTimeDbContextFacto
 {
     public CollaborationDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<CollaborationDbContext>(CollaborationDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class AiWorkflowsDesignTimeFactory : IDesignTimeDbContextFactory<AiWorkflowsDbContext>
+{
+    public AiWorkflowsDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<AiWorkflowsDbContext>(AiWorkflowsDbContext.Schema), DesignTime.NoTenant);
 }

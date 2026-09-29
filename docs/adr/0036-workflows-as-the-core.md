@@ -367,3 +367,25 @@ These defaults were chosen when implementation started; each can still be change
 - **Extensions** do not ship built-in workflows yet. That needs an extension point gated per tenant
   (`IExtensionBuilder`) and comes when an extension needs it.
 
+**Workflow content on the SDK (after 9d):**
+
+- **The engine only runs workflows.** It keeps definitions, runs, waits, triggers, flow activities, the list actions
+  `item.update` and `item.file`, approvals and the built-in workflow catalog.
+- **Everything else is built like an extension**, in SDK-only modules (EXT-06, as ADR-0015 did for Documents):
+  - `task.create` lives in Tasks and `notify` in Notifications.
+  - The `ai.*` activities, `ai.batch`, the "AI batch" workflow and the AI call records (schema `ai`) live in the new
+    module AiWorkflows.
+  - Documents ships "Classify new documents" and "Extract fields".
+- **Same extension points.** Modules register with `services.AddWorkflowActivity`, `AddWorkflowTrigger` and
+  `AddWorkflow`. Extensions use the same methods on `IExtensionBuilder`, which there are gated per organization.
+  `IExtensionBuilder.AddWorkflow` is new: an extension's workflows are offered only where it is enabled, and the release
+  sync turns them off when it is disabled.
+- **What the moves needed became SDK:**
+  - `ActivityInputs` and `ActivitySchemas`, the input and schema helpers.
+  - `IWorkflowRecipients`, which resolves people inputs.
+  - `IWorkflowDirectory`: whether a workspace uses an activity, and whether a run is active.
+  - `IWorkflowBookmarks.ListOpenAsync` and `SetDataAsync`, to work across open waits.
+  - `ListItemResult.Describe()`, a failed item change as a sentence.
+  - `IWorkflowBookmarks` now works in its own scope, so activities can call it during a run without touching the
+    run's unsaved state.
+
