@@ -47,14 +47,21 @@ public static class Program
     {
         var started = Stopwatch.StartNew();
         await using var host = await PerfHost.StartAsync(provider, cancellationToken);
-        using var client = await SignInAsync(host, cancellationToken);
+        using var client = await SignInAsync(host, PerfHost.UserName, PerfHost.Password, cancellationToken);
         var world = await SeedAsync(client, options.Items, cancellationToken);
-        Console.WriteLine($"Ready in {started.Elapsed.TotalSeconds:0.0}s. {options.Items} items, search indexed in {world.IndexSeconds:0.0}s.");
+        var shared = await SeedSharedAsync(client, world.WorkspaceId, options.Items, cancellationToken);
+        using var member = await SignInAsync(host, SharedWorld.MemberName, SharedWorld.MemberPassword, cancellationToken);
+        Console.WriteLine(
+            $"Ready in {started.Elapsed.TotalSeconds:0.0}s. {options.Items} items, search indexed in {world.IndexSeconds:0.0}s; "
+            + $"{shared.Folders} folders with unique permissions, half shared with the member's group.");
 
         var reports = new List<ScenarioReport>();
         reports.Add(await MeasureAsync(provider, "create", options, client, (worker, http, ct) => CreateAsync(http, world, worker, ct), cancellationToken));
         reports.Add(await MeasureAsync(provider, "read", options, client, (_, http, ct) => ReadAsync(http, world, ct), cancellationToken));
         reports.Add(await MeasureAsync(provider, "query", options, client, (_, http, ct) => GetAsync(http, world.QueryUrl, ct), cancellationToken));
+
+        // A member without full control: every request resolves their principals and allowed scopes (ADR-0035).
+        reports.Add(await MeasureAsync(provider, "shared", options, member, (_, http, ct) => GetAsync(http, shared.PageUrl, ct), cancellationToken));
         if (world.SearchReady)
         {
             reports.Add(await MeasureAsync(provider, "search", options, client, (_, http, ct) => GetAsync(http, world.SearchUrl, ct), cancellationToken));
@@ -136,7 +143,7 @@ public static class Program
         return new StepReport(concurrency, latencies.Count, errors, latencies.Count / duration, Percentile(latencies, 0.50), Percentile(latencies, 0.95), Percentile(latencies, 0.99));
     }
 
-    private static async Task<HttpClient> SignInAsync(PerfHost host, CancellationToken cancellationToken)
+    private static async Task<HttpClient> SignInAsync(PerfHost host, string userName, string password, CancellationToken cancellationToken)
     {
         var client = host.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(30);
@@ -147,8 +154,8 @@ public static class Program
             {
                 ["grant_type"] = "password",
                 ["client_id"] = "paperdotnet",
-                ["username"] = PerfHost.UserName,
-                ["password"] = PerfHost.Password,
+                ["username"] = userName,
+                ["password"] = password,
                 ["scope"] = "api",
             }),
             cancellationToken);
@@ -199,6 +206,39 @@ public static class Program
             $"/v1.0/search?q=alpha&workspaceId={workspace}&$top=20",
             ready,
             index.Elapsed.TotalSeconds);
+    }
+
+    /// <summary>
+    /// A list like a document library with home folders: one folder per 4 items, each with unique permissions (owners
+    /// only), every second one shared with a group the member is in. The member reads half of the folders.
+    /// </summary>
+    private static async Task<SharedWorld> SeedSharedAsync(HttpClient admin, Guid workspace, int items, CancellationToken cancellationToken)
+    {
+        var member = await PostIdAsync(admin, "/v1.0/users", new { userName = SharedWorld.MemberName, password = SharedWorld.MemberPassword }, cancellationToken);
+        (await admin.PostAsJsonAsync($"/v1.0/workspaces/{workspace}/members", new { userId = member, role = "member" }, cancellationToken)).EnsureSuccessStatusCode();
+        var group = await PostIdAsync(admin, "/v1.0/groups", new { name = "Readers" }, cancellationToken);
+        (await admin.PostAsJsonAsync($"/v1.0/groups/{group}/members", new { userId = member }, cancellationToken)).EnsureSuccessStatusCode();
+
+        var list = await PostIdAsync(admin, $"/v1.0/workspaces/{workspace}/lists", new { name = "Shared" }, cancellationToken);
+        var itemsUrl = $"/v1.0/workspaces/{workspace}/lists/{list}/items";
+        var folders = Math.Max(1, items / 4);
+        for (var f = 0; f < folders; f++)
+        {
+            var folder = await PostIdAsync(admin, itemsUrl, new { isFolder = true, fields = new { title = $"folder {f}" } }, cancellationToken);
+            (await admin.PostAsJsonAsync($"{itemsUrl}/{folder}/permissions/breakInheritance", new { copyGrants = false }, cancellationToken)).EnsureSuccessStatusCode();
+            if (f % 2 == 0)
+            {
+                var grants = new[] { new { principalType = "group", principalId = group, level = "read" } };
+                (await admin.PutAsJsonAsync($"{itemsUrl}/{folder}/permissions/grants", new { grants }, cancellationToken)).EnsureSuccessStatusCode();
+            }
+
+            for (var i = 0; i < 4; i++)
+            {
+                await PostIdAsync(admin, itemsUrl, new { parentId = folder, fields = new { title = $"document {f}.{i}" } }, cancellationToken);
+            }
+        }
+
+        return new SharedWorld(folders, $"{itemsUrl}?$top=20");
     }
 
     private static async Task CreateAsync(HttpClient http, World world, int worker, CancellationToken cancellationToken)
@@ -299,6 +339,12 @@ internal sealed record Options(IReadOnlyList<string> Providers, int Items, doubl
 }
 
 internal sealed record World(Guid WorkspaceId, Guid ListId, Guid[] Ids, string QueryUrl, string SearchUrl, bool SearchReady, double IndexSeconds);
+
+internal sealed record SharedWorld(int Folders, string PageUrl)
+{
+    public const string MemberName = "member";
+    public const string MemberPassword = "perf-member-password-1";
+}
 
 internal sealed record StepReport(int Concurrency, int Requests, int Errors, double PerSecond, double P50Ms, double P95Ms, double P99Ms);
 

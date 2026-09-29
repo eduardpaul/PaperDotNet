@@ -34,3 +34,9 @@ indexed, took 0.8 ms and 0.4 ms.
 - Compute the caller's allowed scopes once for the tenant and run one query
   over all the lists, with the shared fields (assignee, due date, status)
   indexed ([item-and-permission-storage.md](../docs/item-and-permission-storage.md)).
+
+## Update (2026-09-29)
+
+With [ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 1 the access of each list is one index
+lookup, not a scan, but the lists are still queried one at a time. `IItemAccess.GetScopesAsync` can already return the
+allowed scopes of many lists (or the tenant) in one query; using it for one query across lists is step 5.

@@ -1,4 +1,9 @@
-import type { PermissionGrantDto, PermissionsResponse, PrincipalType, WorkspaceAccessLevel } from '@paperdotnet/client';
+import type {
+  AclPrincipalType,
+  PermissionGrantDto,
+  PermissionsResponse,
+  WorkspaceAccessLevel,
+} from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link2, Link2Off, Trash2, UserPlus, Users } from 'lucide-react';
 import { useState } from 'react';
@@ -26,7 +31,14 @@ const levels: { value: WorkspaceAccessLevel; label: string }[] = [
   { value: 'manage', label: 'Can manage' },
 ];
 
-type Grant = { principalType: PrincipalType; principalId: string; level: WorkspaceAccessLevel };
+/** Workspace roles are principals too (ADR-0035): their entries follow whoever has the role. */
+const roles: Partial<Record<AclPrincipalType, string>> = {
+  workspaceVisitors: 'Workspace visitors',
+  workspaceMembers: 'Workspace members',
+  workspaceOwners: 'Workspace owners',
+};
+
+type Grant = { principalType: AclPrincipalType; principalId: string; level: WorkspaceAccessLevel };
 const grantsOf = (response: PermissionsResponse | undefined): Grant[] =>
   (response?.grants ?? []).map((g) => ({
     principalType: g.principalType ?? 'user',
@@ -36,7 +48,8 @@ const grantsOf = (response: PermissionsResponse | undefined): Grant[] =>
 
 /**
  * Who may read, edit or manage a list or an item (IAM-07). Permissions are inherited (from the workspace, or the
- * list for items) until they are made unique; then grants for people and groups replace them.
+ * list for items) until they are made unique; then grants for workspace roles, people and groups replace them.
+ * Workspace owners always manage.
  */
 export function PermissionsEditor({
   queryKey,
@@ -91,12 +104,13 @@ export function PermissionsEditor({
   const canManage = permissions.effectiveLevel === 'manage';
   const unique = !!permissions.hasUniquePermissions;
   const nameOf = (grant: Grant) =>
-    grant.principalType === 'group'
+    roles[grant.principalType] ??
+    (grant.principalType === 'group'
       ? (groups?.find((g) => g.id === grant.principalId)?.name ?? 'Unknown group')
       : userName(
           users?.find((u) => u.id === grant.principalId),
           grant.principalId,
-        );
+        ));
   const taken = new Set(grants.map((g) => `${g.principalType}:${g.principalId}`));
   const options: ComboboxOption[] = [
     ...(groups ?? []).map((g) => ({
@@ -114,7 +128,7 @@ export function PermissionsEditor({
     setGrants([
       ...grants,
       ...adding.map((o) => {
-        const [principalType, principalId] = o.value.split(':') as [PrincipalType, string];
+        const [principalType, principalId] = o.value.split(':') as [AclPrincipalType, string];
         return { principalType, principalId, level: addLevel };
       }),
     ]);
@@ -163,9 +177,10 @@ export function PermissionsEditor({
           <ul className="divide-y border-t">
             {grants.map((grant, index) => {
               const name = nameOf(grant);
+              const owners = grant.principalType === 'workspaceOwners';
               return (
                 <li key={`${grant.principalType}:${grant.principalId}`} className="flex items-center gap-3 px-5 py-2.5">
-                  {grant.principalType === 'group' ? (
+                  {grant.principalType !== 'user' ? (
                     <span className="flex size-8 items-center justify-center rounded-full bg-surface-muted">
                       <Users className="size-4 text-muted" />
                     </span>
@@ -176,7 +191,7 @@ export function PermissionsEditor({
                   <Select
                     aria-label={`Access of ${name}`}
                     className="w-36"
-                    disabled={!unique}
+                    disabled={!unique || owners}
                     value={grant.level}
                     onChange={(e) =>
                       setGrants(
@@ -192,7 +207,7 @@ export function PermissionsEditor({
                       </option>
                     ))}
                   </Select>
-                  {unique && (
+                  {unique && !owners && (
                     <Button
                       size="icon"
                       variant="ghost"

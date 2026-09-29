@@ -25,8 +25,8 @@ feature idea. Ideas stay in [`ideas/`](../ideas/README.md).
 | # | Title | Area | Status |
 |---|---|---|---|
 | [0001](0001-list-pages-slow-as-a-folder-grows.md) | List pages get slow as a folder grows | Lists | possible |
-| [0002](0002-uncached-permission-lookups-on-every-request.md) | Permission and membership lookups are uncached on every list/item request | Lists | confirmed |
-| [0003](0003-permission-scope-preload-grows-with-list-size.md) | Loading a user's permission scopes preloads every unique scope in the list | Lists | confirmed |
+| [0002](0002-uncached-permission-lookups-on-every-request.md) | Permission and membership lookups are uncached on every list/item request | Lists | done |
+| [0003](0003-permission-scope-preload-grows-with-list-size.md) | Loading a user's permission scopes preloads every unique scope in the list | Lists | done |
 | [0004](0004-permission-change-fanout-is-a-large-inline-transaction.md) | Breaking or resetting inheritance on a large folder is one large inline transaction | Lists | confirmed |
 | [0005](0005-dynamic-json-fields-no-promotion-path-for-hot-columns.md) | No promotion path from a hot dynamic field to a real indexed column | Lists | confirmed |
 | [0006](0006-no-concurrency-or-large-dataset-performance-baseline.md) | No concurrency ramp or large-dataset/permission-heavy performance baseline | Other | possible |

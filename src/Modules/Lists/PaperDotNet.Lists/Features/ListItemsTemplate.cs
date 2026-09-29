@@ -57,11 +57,13 @@ internal sealed class ListItemsTemplateHandler(
         var fields = schema.ContentTypes.ToDictionary(c => c.Id, c => (IReadOnlyList<FieldDefinition>)c.Fields);
         var converter = await ExportConverter.CreateAsync(ordered, values, fields, terms, users, lookups, cancellationToken);
         var unique = ordered.Where(i => i.HasUniquePermissions).Select(i => i.Id).ToList();
-        var grants = unique.Count == 0 ? [] : await db.Grants.AsNoTracking().Where(g => unique.Contains(g.ObjectId)).ToListAsync(cancellationToken);
+        var grants = unique.Count == 0 ? [] : await db.AclEntries.AsNoTracking()
+            .Where(e => unique.Contains(e.ScopeId) && e.PrincipalType != AclPrincipalType.WorkspaceOwners)
+            .ToListAsync(cancellationToken);
         var people = await users.GetUserNamesAsync(
-            [.. ordered.SelectMany(i => new[] { i.CreatedBy, i.UpdatedBy }).OfType<Guid>().Concat(grants.Where(g => g.PrincipalType == PrincipalType.User).Select(g => g.PrincipalId)).Distinct()],
+            [.. ordered.SelectMany(i => new[] { i.CreatedBy, i.UpdatedBy }).OfType<Guid>().Concat(grants.Where(g => g.PrincipalType == AclPrincipalType.User).Select(g => g.PrincipalId)).Distinct()],
             cancellationToken);
-        var groups = await users.GetGroupNamesAsync([.. grants.Where(g => g.PrincipalType == PrincipalType.Group).Select(g => g.PrincipalId).Distinct()], cancellationToken);
+        var groups = await users.GetGroupNamesAsync([.. grants.Where(g => g.PrincipalType == AclPrincipalType.Group).Select(g => g.PrincipalId).Distinct()], cancellationToken);
         var exported = new JsonArray();
         foreach (var item in ordered)
         {
@@ -94,10 +96,13 @@ internal sealed class ListItemsTemplateHandler(
             entry["modifiedBy"] = item.UpdatedBy is { } editor ? people.GetValueOrDefault(editor) : null;
             if (item.HasUniquePermissions)
             {
-                entry["permissions"] = new JsonArray([.. grants.Where(g => g.ObjectId == item.Id)
-                    .Select(g => (g.PrincipalType == PrincipalType.User ? people : groups).GetValueOrDefault(g.PrincipalId) is { } principal
-                        ? new JsonObject { [g.PrincipalType == PrincipalType.User ? "user" : "group"] = principal, ["level"] = g.Level.ToString() }
-                        : null)
+                // Workspace roles by name (owners are implied), people and groups by name.
+                entry["permissions"] = new JsonArray([.. grants.Where(g => g.ScopeId == item.Id)
+                    .Select(g => Acl.RoleName(g.PrincipalType) is { } role
+                        ? new JsonObject { ["role"] = role.ToLowerInvariant(), ["level"] = g.Level.ToString() }
+                        : (g.PrincipalType == AclPrincipalType.User ? people : groups).GetValueOrDefault(g.PrincipalId) is { } principal
+                            ? new JsonObject { [g.PrincipalType == AclPrincipalType.User ? "user" : "group"] = principal, ["level"] = g.Level.ToString() }
+                            : null)
                     .OfType<JsonObject>()]);
             }
 
@@ -329,10 +334,25 @@ internal sealed class ListItemsTemplateHandler(
         {
             var isGroup = grant["group"] is not null;
             var principal = (grant["group"] ?? grant["user"])?.ToString();
-            if (principal is null || !Enum.TryParse<Workspaces.Contracts.WorkspaceAccessLevel>(grant["level"]?.ToString(), ignoreCase: true, out var level)
+            var role = grant["role"]?.ToString();
+            if ((principal is null && role is null) || !Enum.TryParse<Workspaces.Contracts.WorkspaceAccessLevel>(grant["level"]?.ToString(), ignoreCase: true, out var level)
                 || level is not (Workspaces.Contracts.WorkspaceAccessLevel.Read or Workspaces.Contracts.WorkspaceAccessLevel.Contribute or Workspaces.Contracts.WorkspaceAccessLevel.Manage))
             {
-                context.Warn($"{name}: item {key} has a permission without a user or group and a level (Read, Contribute, Manage).");
+                context.Warn($"{name}: item {key} has a permission without a user, group or role and a level (Read, Contribute, Manage).");
+                continue;
+            }
+
+            if (principal is null)
+            {
+                if (Acl.RoleNames.TryGetValue(role!, out var roleType))
+                {
+                    grants.Add(new PermissionGrantDto(roleType, Guid.Empty, level)); // The role of the target list's workspace.
+                }
+                else
+                {
+                    context.Warn($"{name}: item {key}: the role '{role}' is not visitors, members or owners.");
+                }
+
                 continue;
             }
 
@@ -343,7 +363,7 @@ internal sealed class ListItemsTemplateHandler(
                 continue;
             }
 
-            grants.Add(new PermissionGrantDto(isGroup ? PrincipalType.Group : PrincipalType.User, id.Value, level));
+            grants.Add(new PermissionGrantDto(isGroup ? AclPrincipalType.Group : AclPrincipalType.User, id.Value, level));
         }
 
         return grants;

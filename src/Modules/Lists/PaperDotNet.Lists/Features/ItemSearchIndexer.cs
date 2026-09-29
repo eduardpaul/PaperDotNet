@@ -99,10 +99,9 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
         var contentTypeIds = items.Select(i => i.ContentTypeId).Distinct().ToList();
         var fields = (await db.ContentTypes.AsNoTracking().Where(c => contentTypeIds.Contains(c.Id)).ToListAsync(ct))
             .ToDictionary(c => c.Id, c => c.Fields);
-        var scopes = items.Select(i => i.ScopeId ?? list.Id).Distinct().ToList();
-        var grants = (list.HasUniquePermissions || items.Any(i => i.ScopeId is not null))
-            ? (await db.Grants.AsNoTracking().Where(g => scopes.Contains(g.ObjectId)).ToListAsync(ct)).ToLookup(g => g.ObjectId)
-            : Enumerable.Empty<PermissionGrant>().ToLookup(g => g.ObjectId);
+        var scopes = items.Select(i => i.ScopeId).Distinct().ToArray();
+        var entries = (await db.AclEntries.AsNoTracking().Where(e => EF.Parameter(scopes).Contains(e.ScopeId)).ToListAsync(ct))
+            .ToLookup(e => e.ScopeId);
 
         var values = items.ToDictionary(i => i.Id, i => JsonNode.Parse(i.Fields)!.AsObject());
         var termIds = new HashSet<Guid>();
@@ -180,7 +179,7 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
 
             return new SearchDocumentData(
                 item.Id, ItemSourceType, list.WorkspaceId, list.Id, item.ContentTypeId, item.Title, body.ToString(),
-                Principals(list, item, grants), itemTerms, item.CreatedBy, item.UpdatedAt)
+                Principals(entries[item.ScopeId]), itemTerms, item.CreatedBy, item.UpdatedAt)
             {
                 Keywords = keywords.ToString(),
                 Language = language,
@@ -189,20 +188,14 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
         }).ToList();
     }
 
-    /// <summary>Who may read the item (same rules as <see cref="ListAccess"/>, ADR-0011).</summary>
-    private static List<string> Principals(ListDefinition list, ListItem item, ILookup<Guid, PermissionGrant> grants)
-    {
-        var principals = new List<string> { SearchPrincipals.WorkspaceOwner(list.WorkspaceId) };
-        if (item.ScopeId is null && !list.HasUniquePermissions)
+    /// <summary>Who may read the item: the principals of its scope's entries (ADR-0035).</summary>
+    private static List<string> Principals(IEnumerable<AclEntry> entries) =>
+        entries.Select(e => e.PrincipalType switch
         {
-            principals.Add(SearchPrincipals.WorkspaceMember(list.WorkspaceId));
-            return principals;
-        }
-
-        principals.AddRange(grants[item.ScopeId ?? list.Id].Select(g =>
-            g.PrincipalType == PrincipalType.User ? SearchPrincipals.User(g.PrincipalId) : SearchPrincipals.Group(g.PrincipalId)));
-        return principals;
-    }
+            AclPrincipalType.User => SearchPrincipals.User(e.PrincipalId),
+            AclPrincipalType.Group => SearchPrincipals.Group(e.PrincipalId),
+            _ => SearchPrincipals.Role(e.PrincipalId),
+        }).ToList();
 
     private static IEnumerable<Guid> Ids(JsonNode? value) => value switch
     {

@@ -6,11 +6,14 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from .principal_type import PrincipalType
+    from .acl_principal_type import AclPrincipalType
     from .workspace_access_level import WorkspaceAccessLevel
 
 @dataclass
 class PermissionGrantDto(AdditionalDataHolder, Parsable):
+    """
+    A permission entry. For workspace roles (`workspaceVisitors`, `workspaceMembers`, `workspaceOwners`)the principal id is the workspace id.
+    """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
@@ -18,8 +21,8 @@ class PermissionGrantDto(AdditionalDataHolder, Parsable):
     level: Optional[WorkspaceAccessLevel] = None
     # The principalId property
     principal_id: Optional[UUID] = None
-    # The principalType property
-    principal_type: Optional[PrincipalType] = None
+    # Who a permission entry gives access to: a user, a group, or a role of the list's workspace.
+    principal_type: Optional[AclPrincipalType] = None
     
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> PermissionGrantDto:
@@ -37,16 +40,16 @@ class PermissionGrantDto(AdditionalDataHolder, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
-        from .principal_type import PrincipalType
+        from .acl_principal_type import AclPrincipalType
         from .workspace_access_level import WorkspaceAccessLevel
 
-        from .principal_type import PrincipalType
+        from .acl_principal_type import AclPrincipalType
         from .workspace_access_level import WorkspaceAccessLevel
 
         fields: dict[str, Callable[[Any], None]] = {
             "level": lambda n : setattr(self, 'level', n.get_enum_value(WorkspaceAccessLevel)),
             "principalId": lambda n : setattr(self, 'principal_id', n.get_uuid_value()),
-            "principalType": lambda n : setattr(self, 'principal_type', n.get_enum_value(PrincipalType)),
+            "principalType": lambda n : setattr(self, 'principal_type', n.get_enum_value(AclPrincipalType)),
         }
         return fields
     

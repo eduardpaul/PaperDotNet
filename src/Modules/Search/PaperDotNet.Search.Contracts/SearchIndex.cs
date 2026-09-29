@@ -70,9 +70,6 @@ public static class SearchPrincipals
 
     public static string Group(Guid id) => $"g:{id:N}";
 
-    /// <summary>Any member (visitor or higher) of the workspace.</summary>
-    public static string WorkspaceMember(Guid workspaceId) => $"w:{workspaceId:N}";
-
-    /// <summary>Workspace owners and administrators (full control).</summary>
-    public static string WorkspaceOwner(Guid workspaceId) => $"o:{workspaceId:N}";
+    /// <summary>A workspace role (visitors, members or owners) by its principal id (<c>WorkspaceRolePrincipals</c>).</summary>
+    public static string Role(Guid rolePrincipalId) => $"r:{rolePrincipalId:N}";
 }

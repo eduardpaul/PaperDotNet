@@ -7,10 +7,11 @@ using System.IO;
 using System;
 namespace PaperDotNet.Client.Models
 {
+    /// <summary>
+    /// A permission entry. For workspace roles (`workspaceVisitors`, `workspaceMembers`, `workspaceOwners`)the principal id is the workspace id.
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
     public partial class PermissionGrantDto : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
@@ -18,8 +19,8 @@ namespace PaperDotNet.Client.Models
         public global::PaperDotNet.Client.Models.WorkspaceAccessLevel? Level { get; set; }
         /// <summary>The principalId property</summary>
         public Guid? PrincipalId { get; set; }
-        /// <summary>The principalType property</summary>
-        public global::PaperDotNet.Client.Models.PrincipalType? PrincipalType { get; set; }
+        /// <summary>Who a permission entry gives access to: a user, a group, or a role of the list&apos;s workspace.</summary>
+        public global::PaperDotNet.Client.Models.AclPrincipalType? PrincipalType { get; set; }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.PermissionGrantDto"/> and sets the default values.
         /// </summary>
@@ -47,7 +48,7 @@ namespace PaperDotNet.Client.Models
             {
                 { "level", n => { Level = n.GetEnumValue<global::PaperDotNet.Client.Models.WorkspaceAccessLevel>(); } },
                 { "principalId", n => { PrincipalId = n.GetGuidValue(); } },
-                { "principalType", n => { PrincipalType = n.GetEnumValue<global::PaperDotNet.Client.Models.PrincipalType>(); } },
+                { "principalType", n => { PrincipalType = n.GetEnumValue<global::PaperDotNet.Client.Models.AclPrincipalType>(); } },
             };
         }
         /// <summary>
@@ -59,7 +60,7 @@ namespace PaperDotNet.Client.Models
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.WorkspaceAccessLevel>("level", Level);
             writer.WriteGuidValue("principalId", PrincipalId);
-            writer.WriteEnumValue<global::PaperDotNet.Client.Models.PrincipalType>("principalType", PrincipalType);
+            writer.WriteEnumValue<global::PaperDotNet.Client.Models.AclPrincipalType>("principalType", PrincipalType);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

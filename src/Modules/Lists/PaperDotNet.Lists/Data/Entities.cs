@@ -1,5 +1,6 @@
 using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Data;
 
@@ -81,7 +82,10 @@ public sealed class ListDefinition : ITenantOwned, IAuditable, ISoftDeletable, I
     /// <summary>Key of the list template the list was created from, if any (LST-16).</summary>
     public string? TemplateKey { get; set; }
 
-    /// <summary>The list has its own permission grants instead of the workspace's (IAM-07).</summary>
+    /// <summary>
+    /// The list has its own permissions instead of the workspace roles' (IAM-07). Either way the list is a
+    /// permission scope with <see cref="AclEntry"/> rows.
+    /// </summary>
     public bool HasUniquePermissions { get; set; }
 
     /// <summary>Marks lists created by the system, e.g. <see cref="HomeInboxKey"/>; they cannot be deleted.</summary>
@@ -127,15 +131,14 @@ public sealed class ListItem : ITenantOwned, IAuditable, ISoftDeletable, IVersio
 
     public bool IsFolder { get; set; }
 
-    /// <summary>The item has its own permission grants (it is then its own <see cref="ScopeId"/>).</summary>
+    /// <summary>The item has its own permissions (it is then its own <see cref="ScopeId"/>).</summary>
     public bool HasUniquePermissions { get; set; }
 
     /// <summary>
-    /// Security scope: the nearest item (this one or a folder above it) with unique
-    /// permissions, or null when permissions come from the list. Lets queries trim
-    /// items the user may not see with a simple <c>IN</c> filter.
+    /// Permission scope (ADR-0035): the nearest item (this one or a folder above it) with unique permissions, or the
+    /// list id when permissions come from the list. Never empty: queries trim items with one <c>IN</c> filter on it.
     /// </summary>
-    public Guid? ScopeId { get; set; }
+    public Guid ScopeId { get; set; }
 
     /// <summary>The built-in <c>title</c> field, kept as a column for display, sorting and search.</summary>
     public required string Title { get; set; }
@@ -190,33 +193,45 @@ public sealed class ItemVersion : ITenantOwned
     public Guid? CreatedBy { get; set; }
 }
 
-public enum PrincipalType
+/// <summary>Who a permission entry gives access to: a user, a group, or a role of the list's workspace.</summary>
+public enum AclPrincipalType
 {
     User = 0,
     Group = 1,
+
+    /// <summary>Visitors of the list's workspace (a role principal, see <see cref="WorkspaceRolePrincipals"/>).</summary>
+    WorkspaceVisitors = 2,
+
+    /// <summary>Members of the list's workspace.</summary>
+    WorkspaceMembers = 3,
+
+    /// <summary>Owners of the list's workspace. Every scope has this entry with Manage (full control).</summary>
+    WorkspaceOwners = 4,
 }
 
 /// <summary>
-/// A permission grant on a list or an item with unique permissions (IAM-07).
-/// Levels reuse <see cref="Workspaces.Contracts.WorkspaceAccessLevel"/>: Read, Contribute, Manage.
+/// One entry of a permission scope's access list (IAM-07, ADR-0035): a principal and its level on the items of the
+/// scope. The scope is a list (<see cref="ListDefinition.Id"/>) or an item with unique permissions. Inheriting
+/// lists have entries for the three workspace roles, so workspace membership changes write nothing here.
 /// </summary>
 [NotAudited]
-public sealed class PermissionGrant : ITenantOwned
+public sealed class AclEntry : ITenantOwned
 {
-    public Guid Id { get; set; }
+    public Guid ScopeId { get; set; }
 
-    public Guid TenantId { get; set; }
+    /// <summary>A user, a group, or a role principal (<see cref="WorkspaceRolePrincipals.Id"/>).</summary>
+    public Guid PrincipalId { get; set; }
+
+    public AclPrincipalType PrincipalType { get; set; }
+
+    /// <summary>Read, Contribute or Manage; stored as a number, so queries compare levels.</summary>
+    public WorkspaceAccessLevel Level { get; set; }
 
     public Guid ListId { get; set; }
 
-    /// <summary>The list id (list grants) or the item id.</summary>
-    public Guid ObjectId { get; set; }
+    public Guid WorkspaceId { get; set; }
 
-    public PrincipalType PrincipalType { get; set; }
-
-    public Guid PrincipalId { get; set; }
-
-    public Workspaces.Contracts.WorkspaceAccessLevel Level { get; set; }
+    public Guid TenantId { get; set; }
 }
 
 public enum ViewLayout

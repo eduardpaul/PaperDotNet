@@ -4,6 +4,7 @@
 // @ts-ignore
 import { createUntypedNodeFromDiscriminatorValue, type AdditionalDataHolder, type ApiError, type DateOnly, type Guid, type Parsable, type ParseNode, type SerializationWriter, type TimeOnly, type UntypedNode } from '@microsoft/kiota-abstractions';
 
+export type AclPrincipalType = (typeof AclPrincipalTypeObject)[keyof typeof AclPrincipalTypeObject];
 export interface ActivityResponse extends AdditionalDataHolder, Parsable {
     /**
      * The actorId property
@@ -4897,7 +4898,7 @@ export function deserializeIntoPermissionGrantDto(permissionGrantDto: Partial<Pe
     return {
         "level": n => { permissionGrantDto.level = n.getEnumValue<WorkspaceAccessLevel>(WorkspaceAccessLevelObject); },
         "principalId": n => { permissionGrantDto.principalId = n.getGuidValue(); },
-        "principalType": n => { permissionGrantDto.principalType = n.getEnumValue<PrincipalType>(PrincipalTypeObject); },
+        "principalType": n => { permissionGrantDto.principalType = n.getEnumValue<AclPrincipalType>(AclPrincipalTypeObject); },
     }
 }
 /**
@@ -7409,6 +7410,9 @@ export interface PasskeyResponse extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
 }
+/**
+ * A permission entry. For workspace roles (`workspaceVisitors`, `workspaceMembers`, `workspaceOwners`)the principal id is the workspace id.
+ */
 export interface PermissionGrantDto extends AdditionalDataHolder, Parsable {
     /**
      * What the current user may do in a workspace. Ordered: higher includes lower.
@@ -7419,9 +7423,9 @@ export interface PermissionGrantDto extends AdditionalDataHolder, Parsable {
      */
     principalId?: Guid | null;
     /**
-     * The principalType property
+     * Who a permission entry gives access to: a user, a group, or a role of the list's workspace.
      */
-    principalType?: PrincipalType | null;
+    principalType?: AclPrincipalType | null;
 }
 /**
  * Permissions of a list or item. `inheritsFrom` names where they come from:`workspace`, `list` or `item` (with `inheritsFromId`), or null when unique.Grants are shown to managers only.
@@ -9936,7 +9940,7 @@ export function serializePermissionGrantDto(writer: SerializationWriter, permiss
     if (!permissionGrantDto || isSerializingDerivedType) { return; }
     writer.writeEnumValue<WorkspaceAccessLevel>("level", permissionGrantDto.level);
     writer.writeGuidValue("principalId", permissionGrantDto.principalId);
-    writer.writeEnumValue<PrincipalType>("principalType", permissionGrantDto.principalType);
+    writer.writeEnumValue<AclPrincipalType>("principalType", permissionGrantDto.principalType);
     writer.writeAdditionalData(permissionGrantDto.additionalData);
 }
 /**
@@ -11776,6 +11780,16 @@ export interface WorkspaceResponse extends AdditionalDataHolder, Parsable {
     updatedAt?: Date | null;
 }
 export type WorkspaceRole = (typeof WorkspaceRoleObject)[keyof typeof WorkspaceRoleObject];
+/**
+ * Who a permission entry gives access to: a user, a group, or a role of the list's workspace.
+ */
+export const AclPrincipalTypeObject = {
+    User: "user",
+    Group: "group",
+    WorkspaceVisitors: "workspaceVisitors",
+    WorkspaceMembers: "workspaceMembers",
+    WorkspaceOwners: "workspaceOwners",
+} as const;
 export const AlertFrequencyObject = {
     Immediate: "immediate",
     Daily: "daily",

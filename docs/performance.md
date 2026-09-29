@@ -27,6 +27,37 @@ During the create second, EF logged `An error occurred using a transaction` once
 
 `limitConcurrency: 1` in the JSON means the smoke cap was one caller. It does not mean a second caller fails.
 
+## Permission-heavy ramp (2026-09-29)
+
+After [ADR-0035](adr/0035-item-storage-and-permissions-at-scale.md) step 1 (the ACL looked up by principal), with the
+`shared` scenario: a workspace member without full control pages (`$top=20`) a list of 500 folders with unique
+permissions (owners only), half of them shared with a group the member is in, 2,000 documents in them. Every request
+resolves the member's principals (cached) and allowed scopes (one index lookup). The other scenarios run as the
+administrator (full control, no permission filter).
+
+- `PERF_ITEMS=2000 PERF_MAX_CONCURRENCY=8`, three seconds per step, Release, in-process.
+- Cloud container, 4 cores. PostgreSQL 16 on the same machine (`fsync=off`), one provider at a time.
+
+| Scenario, 8 callers | SQLite req/s | p95 | PostgreSQL req/s | p95 |
+|---|---:|---:|---:|---:|
+| Read one item (admin) | 1,257 | 14 ms | 362 | 68 ms |
+| Filtered list (admin) | 717 | 21 ms | 260 | 93 ms |
+| **Member's page of the shared list** | **451** | **31 ms** | **210** | **102 ms** |
+| Keyword search (admin) | 3.3 at 1 caller | 398 ms | 34 | 315 ms |
+
+The member's page holds 8 callers on both databases with no errors. Before step 1 each of these requests loaded all
+500 unique scopes of the list, and the storage benchmark measured that load at 84–94 ms (PostgreSQL) and 260 ms (SQLite)
+with 7,500 scopes ([issue 0003](../issues/0003-permission-scope-preload-grows-with-list-size.md)).
+
+Not about permissions, seen in the same run:
+
+- Creates were slow right after seeding (SQLite p95 about 1 s at one caller, PostgreSQL 1.4 s at two). About 750 grant
+  changes during the seed each queued a full reindex of the list, and those were still running; on PostgreSQL they
+  raced on `search.document_principals` ([issue 0008](../issues/0008-permission-change-rebuilds-list-search-index.md)).
+- SQLite search stayed at a few requests per second over 2,200 documents while that reindexing ran.
+- The API allows 1,200 requests a minute per user by default. The runner sets `RateLimit:PermitPerMinute` higher so it
+  measures the server, not the limit.
+
 ## Build-time compilation
 
 Native AOT and trimming were not turned on. Wolverine, the EF JSON translators and the event dispatcher bind handlers with reflection (`MakeGenericMethod` and `GetMethod`), and one binary contains both SQLite and PostgreSQL. Trimming or AOT drops that code and the process fails at runtime. The Minimal API request-delegate generator was tried and turned back off: for several `Results<…>` endpoints it emits source that does not compile.

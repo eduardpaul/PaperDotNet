@@ -15,7 +15,11 @@ using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
-public sealed record PermissionGrantDto(PrincipalType PrincipalType, [property: Required] Guid PrincipalId, WorkspaceAccessLevel Level);
+/// <summary>
+/// A permission entry. For workspace roles (<c>workspaceVisitors</c>, <c>workspaceMembers</c>, <c>workspaceOwners</c>)
+/// the principal id is the workspace id.
+/// </summary>
+public sealed record PermissionGrantDto(AclPrincipalType PrincipalType, [property: Required] Guid PrincipalId, WorkspaceAccessLevel Level);
 
 /// <summary>
 /// Permissions of a list or item. <c>inheritsFrom</c> names where they come from:
@@ -30,8 +34,9 @@ public sealed record BreakInheritanceRequest(bool CopyGrants = true);
 public sealed record ReplaceGrantsRequest([property: Required] IReadOnlyList<PermissionGrantDto> Grants);
 
 /// <summary>
-/// Permission inheritance (IAM-07): workspace → list → folder → item. Breaking
-/// inheritance copies the inherited grants (by default); resetting returns to the parent's.
+/// Permission inheritance (IAM-07, ADR-0035): workspace roles → list → folder → item. A list inherits through entries
+/// for the workspace roles; breaking inheritance copies the inherited entries (by default), resetting returns to the
+/// parent's. Workspace owners always keep Manage.
 /// </summary>
 internal static class PermissionEndpoints
 {
@@ -53,7 +58,7 @@ internal static class PermissionEndpoints
     // ---- Lists --------------------------------------------------------------
 
     private static async Task<Results<Ok<PermissionsResponse>, ProblemHttpResult>> GetListAsync(
-        Guid workspaceId, Guid listId, ListSchemaLoader loader, ListsDbContext db, IWorkspaceAccess workspaces, CancellationToken ct)
+        Guid workspaceId, Guid listId, ListSchemaLoader loader, ListsDbContext db, CancellationToken ct)
     {
         var schema = await loader.LoadAsync(workspaceId, listId, ct);
         if (schema is null)
@@ -62,14 +67,14 @@ internal static class PermissionEndpoints
         }
 
         var list = schema.List;
-        var grants = schema.Permission == WorkspaceAccessLevel.Manage ? await ScopeGrantsAsync(db, workspaces, list, null, ct) : null;
+        var grants = schema.Permission == WorkspaceAccessLevel.Manage ? await ScopeGrantsAsync(db, list.Id, ct) : null;
         return TypedResults.Ok(new PermissionsResponse(
             list.HasUniquePermissions, list.HasUniquePermissions ? null : "workspace", list.HasUniquePermissions ? null : list.WorkspaceId, schema.Permission, grants));
     }
 
     private static async Task<Results<Ok<PermissionsResponse>, ProblemHttpResult>> BreakListAsync(
         Guid workspaceId, Guid listId, BreakInheritanceRequest? request, ListSchemaLoader loader, ListsDbContext db,
-        IWorkspaceAccess workspaces, ICurrentUser user, IOutbox outbox, ITenantContext tenant, CancellationToken ct)
+        ICurrentUser user, IOutbox outbox, ITenantContext tenant, CancellationToken ct)
     {
         var schema = await loader.LoadAsync(workspaceId, listId, ct, tracking: true);
         if (schema is null)
@@ -87,11 +92,13 @@ internal static class PermissionEndpoints
             return ApiErrors.Conflict("alreadyUnique", "The list already has unique permissions.");
         }
 
-        var grants = request?.CopyGrants != false ? await ScopeGrantsAsync(db, workspaces, schema.List, null, ct) : [];
-        AddGrants(db, schema.List.Id, schema.List.Id, WithManager(grants, user, schema.Access));
+        // The list's entries stay as they are (a copy of the inherited ones) unless they should start empty.
+        var existing = await db.AclEntries.Where(e => e.ScopeId == listId).ToListAsync(ct);
+        var grants = request?.CopyGrants != false ? existing.Select(Acl.ToDto).ToList() : [];
+        Acl.Replace(db, existing, Acl.FromGrants(schema.List, listId, WithManager(grants, user, schema.Access)));
         schema.List.HasUniquePermissions = true;
         await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, listId)], cancellationToken: ct);
-        return TypedResults.Ok(new PermissionsResponse(true, null, null, WorkspaceAccessLevel.Manage, await ScopeGrantsAsync(db, workspaces, schema.List, null, ct)));
+        return TypedResults.Ok(new PermissionsResponse(true, null, null, WorkspaceAccessLevel.Manage, await ScopeGrantsAsync(db, listId, ct)));
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> ResetListAsync(
@@ -110,7 +117,7 @@ internal static class PermissionEndpoints
 
         if (schema.List.HasUniquePermissions)
         {
-            db.Grants.RemoveRange(await db.Grants.Where(g => g.ObjectId == listId).ToListAsync(ct));
+            Acl.Replace(db, await db.AclEntries.Where(e => e.ScopeId == listId).ToListAsync(ct), Acl.RoleEntries(schema.List));
             schema.List.HasUniquePermissions = false;
             await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, listId)], cancellationToken: ct);
         }
@@ -120,7 +127,7 @@ internal static class PermissionEndpoints
 
     private static async Task<Results<Ok<PermissionsResponse>, ValidationProblem, ProblemHttpResult>> ReplaceListGrantsAsync(
         Guid workspaceId, Guid listId, ReplaceGrantsRequest request, ListSchemaLoader loader, ListsDbContext db,
-        IWorkspaceAccess workspaces, IUserDirectory users, IOutbox outbox, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
+        IUserDirectory users, IOutbox outbox, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
     {
         var schema = await loader.LoadAsync(workspaceId, listId, ct);
         if (schema is null)
@@ -138,18 +145,18 @@ internal static class PermissionEndpoints
             return ApiErrors.Conflict("inheritsPermissions", "Break inheritance before changing grants.");
         }
 
-        if (await ReplaceAsync(db, users, listId, listId, request, ListIndexInvalidated.For(tenant, user, listId), outbox, ct) is { } invalid)
+        if (await ReplaceAsync(db, users, schema.List, listId, request, ListIndexInvalidated.For(tenant, user, listId), outbox, ct) is { } invalid)
         {
             return invalid;
         }
 
-        return TypedResults.Ok(new PermissionsResponse(true, null, null, schema.Permission, await ScopeGrantsAsync(db, workspaces, schema.List, null, ct)));
+        return TypedResults.Ok(new PermissionsResponse(true, null, null, schema.Permission, await ScopeGrantsAsync(db, listId, ct)));
     }
 
     // ---- Items --------------------------------------------------------------
 
     private static async Task<Results<Ok<PermissionsResponse>, ProblemHttpResult>> GetItemAsync(
-        Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, IWorkspaceAccess workspaces, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, CancellationToken ct)
     {
         var (schema, item) = await LoadItemAsync(workspaceId, listId, itemId, loader, db, tracking: false, ct);
         if (item is null)
@@ -158,9 +165,9 @@ internal static class PermissionEndpoints
         }
 
         var level = schema!.Access.Level(item.ScopeId);
-        var grants = level == WorkspaceAccessLevel.Manage ? await ScopeGrantsAsync(db, workspaces, schema.List, item.ScopeId, ct) : null;
+        var grants = level == WorkspaceAccessLevel.Manage ? await ScopeGrantsAsync(db, item.ScopeId, ct) : null;
         var (source, sourceId) = item.HasUniquePermissions ? ((string?)null, (Guid?)null)
-            : item.ScopeId is { } scope ? ("item", scope)
+            : item.ScopeId != schema.List.Id ? ("item", item.ScopeId)
             : schema.List.HasUniquePermissions ? ("list", schema.List.Id)
             : ("workspace", schema.List.WorkspaceId);
         return TypedResults.Ok(new PermissionsResponse(item.HasUniquePermissions, source, sourceId, level, grants));
@@ -168,7 +175,7 @@ internal static class PermissionEndpoints
 
     private static async Task<Results<Ok<PermissionsResponse>, ProblemHttpResult>> BreakItemAsync(
         Guid workspaceId, Guid listId, Guid itemId, BreakInheritanceRequest? request, ListSchemaLoader loader, ListsDbContext db,
-        IWorkspaceAccess workspaces, ICurrentUser user, IOutbox outbox, ITenantContext tenant, CancellationToken ct)
+        ICurrentUser user, IOutbox outbox, ITenantContext tenant, CancellationToken ct)
     {
         var (schema, item) = await LoadItemAsync(workspaceId, listId, itemId, loader, db, tracking: true, ct);
         if (item is null)
@@ -186,9 +193,10 @@ internal static class PermissionEndpoints
             return ApiErrors.Conflict("alreadyUnique", "The item already has unique permissions.");
         }
 
+        // The new scope's entries are written with the item, before its subtree moves to it.
         var oldScope = item.ScopeId;
-        var grants = request?.CopyGrants != false ? await ScopeGrantsAsync(db, workspaces, schema.List, oldScope, ct) : [];
-        AddGrants(db, listId, item.Id, WithManager(grants, user, schema.Access));
+        var grants = request?.CopyGrants != false ? await ScopeGrantsAsync(db, oldScope, ct) : [];
+        db.AclEntries.AddRange(Acl.FromGrants(schema.List, item.Id, WithManager(grants, user, schema.Access)));
         item.HasUniquePermissions = true;
         item.ScopeId = item.Id;
         await using (var transaction = await db.Database.BeginTransactionAsync(ct))
@@ -204,7 +212,7 @@ internal static class PermissionEndpoints
 
         await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, listId)], cancellationToken: ct);
 
-        return TypedResults.Ok(new PermissionsResponse(true, null, null, WorkspaceAccessLevel.Manage, await ScopeGrantsAsync(db, workspaces, schema.List, item.Id, ct)));
+        return TypedResults.Ok(new PermissionsResponse(true, null, null, WorkspaceAccessLevel.Manage, await ScopeGrantsAsync(db, item.Id, ct)));
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> ResetItemAsync(
@@ -228,9 +236,9 @@ internal static class PermissionEndpoints
         }
 
         var parentScope = item.ParentId is { } parentId
-            ? await db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete]).Where(i => i.Id == parentId).Select(i => i.ScopeId).FirstOrDefaultAsync(ct)
-            : null;
-        db.Grants.RemoveRange(await db.Grants.Where(g => g.ObjectId == itemId).ToListAsync(ct));
+            ? await db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete]).Where(i => i.Id == parentId).Select(i => (Guid?)i.ScopeId).FirstOrDefaultAsync(ct) ?? listId
+            : listId;
+        db.AclEntries.RemoveRange(await db.AclEntries.Where(e => e.ScopeId == itemId).ToListAsync(ct));
         item.HasUniquePermissions = false;
         item.ScopeId = parentScope;
         await using (var transaction = await db.Database.BeginTransactionAsync(ct))
@@ -251,7 +259,7 @@ internal static class PermissionEndpoints
 
     private static async Task<Results<Ok<PermissionsResponse>, ValidationProblem, ProblemHttpResult>> ReplaceItemGrantsAsync(
         Guid workspaceId, Guid listId, Guid itemId, ReplaceGrantsRequest request, ListSchemaLoader loader, ListsDbContext db,
-        IWorkspaceAccess workspaces, IUserDirectory users, IOutbox outbox, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
+        IUserDirectory users, IOutbox outbox, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
     {
         var (schema, item) = await LoadItemAsync(workspaceId, listId, itemId, loader, db, tracking: false, ct);
         if (item is null)
@@ -270,12 +278,12 @@ internal static class PermissionEndpoints
             return ApiErrors.Conflict("inheritsPermissions", "Break inheritance before changing grants.");
         }
 
-        if (await ReplaceAsync(db, users, listId, itemId, request, ListIndexInvalidated.For(tenant, user, listId), outbox, ct) is { } invalid)
+        if (await ReplaceAsync(db, users, schema.List, itemId, request, ListIndexInvalidated.For(tenant, user, listId), outbox, ct) is { } invalid)
         {
             return invalid;
         }
 
-        return TypedResults.Ok(new PermissionsResponse(true, null, null, level, await ScopeGrantsAsync(db, workspaces, schema.List, item.Id, ct)));
+        return TypedResults.Ok(new PermissionsResponse(true, null, null, level, await ScopeGrantsAsync(db, item.Id, ct)));
     }
 
     // ---- Helpers ------------------------------------------------------------
@@ -295,25 +303,12 @@ internal static class PermissionEndpoints
         return item is null || schema.Access.Level(item.ScopeId) < WorkspaceAccessLevel.Read ? (schema, null) : (schema, item);
     }
 
-    /// <summary>The grants in effect for a scope: an item's, the list's, or the workspace members'.</summary>
-    private static async Task<List<PermissionGrantDto>> ScopeGrantsAsync(
-        ListsDbContext db, IWorkspaceAccess workspaces, ListDefinition list, Guid? scopeId, CancellationToken ct)
-    {
-        Guid? objectId = scopeId ?? (list.HasUniquePermissions ? list.Id : null);
-        if (objectId is { } id)
-        {
-            return await db.Grants.AsNoTracking()
-                .Where(g => g.ObjectId == id)
-                .OrderBy(g => g.PrincipalType).ThenBy(g => g.PrincipalId)
-                .Select(g => new PermissionGrantDto(g.PrincipalType, g.PrincipalId, g.Level))
-                .ToListAsync(ct);
-        }
-
-        return (await workspaces.GetMembersAsync(list.WorkspaceId, ct))
-            .OrderBy(m => m.UserId)
-            .Select(m => new PermissionGrantDto(PrincipalType.User, m.UserId, m.Level))
+    /// <summary>The entries of a scope, as the API shows them.</summary>
+    private static async Task<List<PermissionGrantDto>> ScopeGrantsAsync(ListsDbContext db, Guid scopeId, CancellationToken ct) =>
+        (await db.AclEntries.AsNoTracking().Where(e => e.ScopeId == scopeId).ToListAsync(ct))
+            .OrderBy(e => e.PrincipalType).ThenBy(e => e.PrincipalId)
+            .Select(Acl.ToDto)
             .ToList();
-    }
 
     /// <summary>Makes sure the user breaking inheritance keeps managing the object (unless they have full control anyway).</summary>
     private static List<PermissionGrantDto> WithManager(List<PermissionGrantDto> grants, ICurrentUser user, ListAccess access)
@@ -323,55 +318,59 @@ internal static class PermissionEndpoints
             return grants;
         }
 
-        return [.. grants.Where(g => !(g.PrincipalType == PrincipalType.User && g.PrincipalId == userId)), new PermissionGrantDto(PrincipalType.User, userId, WorkspaceAccessLevel.Manage)];
+        return [.. grants.Where(g => !(g.PrincipalType == AclPrincipalType.User && g.PrincipalId == userId)), new PermissionGrantDto(AclPrincipalType.User, userId, WorkspaceAccessLevel.Manage)];
     }
 
-    private static void AddGrants(ListsDbContext db, Guid listId, Guid objectId, IEnumerable<PermissionGrantDto> grants)
-    {
-        foreach (var grant in grants.DistinctBy(g => (g.PrincipalType, g.PrincipalId)))
-        {
-            db.Grants.Add(new PermissionGrant
-            {
-                Id = Ids.New(),
-                ListId = listId,
-                ObjectId = objectId,
-                PrincipalType = grant.PrincipalType,
-                PrincipalId = grant.PrincipalId,
-                Level = grant.Level,
-            });
-        }
-    }
-
-    private static async Task<ValidationProblem?> ReplaceAsync(
-        ListsDbContext db, IUserDirectory users, Guid listId, Guid objectId, ReplaceGrantsRequest request,
-        ListIndexInvalidated invalidated, IOutbox outbox, CancellationToken ct)
+    /// <summary>
+    /// Checks the grants of a request: known users and groups, workspace roles of the list's workspace, one entry per
+    /// principal, and owners only with Manage (they are added when missing).
+    /// </summary>
+    internal static async Task<Dictionary<string, string[]>?> ValidateAsync(
+        IUserDirectory users, ListDefinition list, IReadOnlyList<PermissionGrantDto> grants, CancellationToken ct)
     {
         var errors = new List<string>();
-        foreach (var grant in request.Grants ?? [])
+        foreach (var grant in grants)
         {
             if (grant.Level is not (WorkspaceAccessLevel.Read or WorkspaceAccessLevel.Contribute or WorkspaceAccessLevel.Manage))
             {
                 errors.Add($"{grant.PrincipalId}: level must be read, contribute or manage.");
             }
-            else if (grant.PrincipalType == PrincipalType.User ? !await users.IsActiveAsync(grant.PrincipalId, ct) : !await users.GroupExistsAsync(grant.PrincipalId, ct))
+            else if (Acl.RoleOf(grant.PrincipalType) is not null)
             {
-                errors.Add($"{grant.PrincipalId}: unknown {(grant.PrincipalType == PrincipalType.User ? "user" : "group")}.");
+                if (grant.PrincipalId != list.WorkspaceId)
+                {
+                    errors.Add($"{grant.PrincipalId}: a workspace role needs the id of the list's workspace.");
+                }
+                else if (grant.PrincipalType == AclPrincipalType.WorkspaceOwners && grant.Level != WorkspaceAccessLevel.Manage)
+                {
+                    errors.Add("Workspace owners always have manage.");
+                }
+            }
+            else if (grant.PrincipalType == AclPrincipalType.User ? !await users.IsActiveAsync(grant.PrincipalId, ct) : !await users.GroupExistsAsync(grant.PrincipalId, ct))
+            {
+                errors.Add($"{grant.PrincipalId}: unknown {(grant.PrincipalType == AclPrincipalType.User ? "user" : "group")}.");
             }
         }
 
-        if ((request.Grants ?? []).GroupBy(g => (g.PrincipalType, g.PrincipalId)).Any(g => g.Count() > 1))
+        if (grants.GroupBy(g => (g.PrincipalType, g.PrincipalId)).Any(g => g.Count() > 1))
         {
             errors.Add("Each principal can appear once.");
         }
 
-        if (errors.Count > 0)
+        return errors.Count > 0 ? new Dictionary<string, string[]> { ["grants"] = [.. errors] } : null;
+    }
+
+    private static async Task<ValidationProblem?> ReplaceAsync(
+        ListsDbContext db, IUserDirectory users, ListDefinition list, Guid scopeId, ReplaceGrantsRequest request,
+        ListIndexInvalidated invalidated, IOutbox outbox, CancellationToken ct)
+    {
+        var grants = request.Grants ?? [];
+        if (await ValidateAsync(users, list, grants, ct) is { } errors)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["grants"] = [.. errors] });
+            return ApiErrors.Validation(errors);
         }
 
-        db.Grants.RemoveRange(await db.Grants.Where(g => g.ObjectId == objectId).ToListAsync(ct));
-        await db.SaveChangesAsync(ct);
-        AddGrants(db, listId, objectId, request.Grants ?? []);
+        Acl.Replace(db, await db.AclEntries.Where(e => e.ScopeId == scopeId).ToListAsync(ct), Acl.FromGrants(list, scopeId, grants));
         await outbox.SaveChangesAsync(db, [invalidated], cancellationToken: ct);
         return null;
     }
@@ -387,7 +386,7 @@ internal static class ScopeTree
     /// move to <paramref name="newScope"/>. Folders with unique permissions stop the walk.
     /// Includes items in the recycle bin. Returns the number of items changed (0 when it already happened).
     /// </summary>
-    public static async Task<int> ReassignAsync(ListsDbContext db, Guid folderId, Guid? oldScope, Guid? newScope, CancellationToken ct)
+    public static async Task<int> ReassignAsync(ListsDbContext db, Guid folderId, Guid oldScope, Guid newScope, CancellationToken ct)
     {
         var changed = 0;
         var all = db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete]);
@@ -418,7 +417,7 @@ internal static class ScopeTree
 /// has changed again since.
 /// </summary>
 public sealed record CompleteFolderScopeChange(
-    Guid ListId, Guid FolderId, Guid? OldScopeId, Guid? NewScopeId, Guid TenantId, string TenantIdentifier, Guid? UserId) : ITenantMessage;
+    Guid ListId, Guid FolderId, Guid OldScopeId, Guid NewScopeId, Guid TenantId, string TenantIdentifier, Guid? UserId) : ITenantMessage;
 
 /// <summary>Wolverine handler for <see cref="CompleteFolderScopeChange"/> (discovered by convention).</summary>
 public static class CompleteFolderScopeChangeHandler

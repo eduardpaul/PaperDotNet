@@ -83,6 +83,9 @@ test('a list gets its own permissions, and an item too', async ({ page, request 
   await expect(page.getByText(/inherits its permissions/)).toBeVisible();
   await page.getByRole('button', { name: 'Give it its own permissions' }).click();
   await expect(page.getByText('This list has its own permissions.')).toBeVisible();
+  // The copy names the workspace roles; owners always manage.
+  await expect(page.getByLabel('Access of Workspace members', { exact: true })).toHaveValue('contribute');
+  await expect(page.getByLabel('Access of Workspace owners', { exact: true })).toBeDisabled();
   await page.getByRole('combobox', { name: 'People or groups' }).click();
   await page.getByRole('option', { name: new RegExp(`Reader ${reader}`) }).click();
   await page.keyboard.press('Escape');

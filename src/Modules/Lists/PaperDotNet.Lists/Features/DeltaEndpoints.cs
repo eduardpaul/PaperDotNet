@@ -153,7 +153,7 @@ internal static class DeltaEndpoints
         foreach (var change in latest)
         {
             var item = items.GetValueOrDefault(change.ItemId!.Value);
-            if (schema.Access.Level(item is null ? change.ScopeId : item.ScopeId) < WorkspaceAccessLevel.Read)
+            if (schema.Access.Level(item?.ScopeId ?? change.ScopeId ?? schema.List.Id) < WorkspaceAccessLevel.Read)
             {
                 continue;
             }

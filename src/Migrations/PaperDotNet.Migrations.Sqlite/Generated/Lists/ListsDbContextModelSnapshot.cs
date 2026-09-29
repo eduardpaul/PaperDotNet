@@ -18,6 +18,53 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("PaperDotNet.Lists.Data.AclEntry", b =>
+                {
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("scope_id");
+
+                    b.Property<Guid>("PrincipalId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("principal_id");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("level");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("list_id");
+
+                    b.Property<string>("PrincipalType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("principal_type");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("ScopeId", "PrincipalId")
+                        .HasName("pk_lists_acl_entries");
+
+                    b.HasIndex("ListId")
+                        .HasDatabaseName("ix_lists_acl_entries_list_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_lists_acl_entries_tenant_id");
+
+                    b.HasIndex("PrincipalId", "ListId", "ScopeId", "Level", "TenantId")
+                        .HasDatabaseName("ix_lists_acl_entries_principal_id_list_id_scope_id_level_tenant_id");
+
+                    b.ToTable("lists_acl_entries", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Lists.Data.ContentType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -400,7 +447,7 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasColumnType("TEXT")
                         .HasColumnName("parent_id");
 
-                    b.Property<Guid?>("ScopeId")
+                    b.Property<Guid>("ScopeId")
                         .HasColumnType("TEXT")
                         .HasColumnName("scope_id");
 
@@ -519,57 +566,6 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasDatabaseName("ix_lists_views_tenant_id");
 
                     b.ToTable("lists_views", (string)null);
-                });
-
-            modelBuilder.Entity("PaperDotNet.Lists.Data.PermissionGrant", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Level")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("level");
-
-                    b.Property<Guid>("ListId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("list_id");
-
-                    b.Property<Guid>("ObjectId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("object_id");
-
-                    b.Property<Guid>("PrincipalId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("principal_id");
-
-                    b.Property<string>("PrincipalType")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("principal_type");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_lists_permission_grants");
-
-                    b.HasIndex("ListId")
-                        .HasDatabaseName("ix_lists_permission_grants_list_id");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_lists_permission_grants_tenant_id");
-
-                    b.HasIndex("ObjectId", "PrincipalType", "PrincipalId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_lists_permission_grants_object_id_principal_type_principal_id");
-
-                    b.ToTable("lists_permission_grants", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.SmartFolder", b =>

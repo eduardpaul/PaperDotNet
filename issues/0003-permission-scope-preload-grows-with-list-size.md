@@ -1,6 +1,6 @@
 # 0003: Loading a user's permission scopes preloads every unique scope in the list
 
-- **Status:** confirmed
+- **Status:** done
 - **Area:** Lists
 - **Date:** 2026-09-27
 
@@ -49,3 +49,10 @@ import: 1M documents, 7,500 unique scopes), loading every unique scope id took
 `HasUniquePermissions`, so PostgreSQL scans all of `items` in parallel. A
 partial index brings it to 5.1 ms, but it still grows with the number of
 unique scopes. Options: [item-and-permission-storage.md](../docs/item-and-permission-storage.md), decision 1.
+
+## Done (2026-09-29)
+
+[ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 1. Every item has a scope (the list id when
+it inherits) and the caller's allowed scopes come from `acl_entries` by principal, so the list's other scopes are never
+loaded. The filter is one parameter on both databases (`EF.Parameter`). `PaperDotNet.Performance` measures it with the
+`shared` scenario (see [performance.md](../docs/performance.md)).

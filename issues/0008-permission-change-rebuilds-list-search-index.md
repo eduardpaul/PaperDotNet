@@ -37,3 +37,9 @@ the items under the changed scope.
   decision 3).
 - Smaller step: rewrite `document_principals` for the affected items only,
   without deleting documents or passages.
+
+## Seen (2026-09-29)
+
+Seeding the `shared` performance scenario on PostgreSQL (500 folders, about 750 grant changes on one list) started as
+many full reindexes of that list. They raced: 2,526 `duplicate key … pk_document_principals` errors and 18 deadlocks
+in the server log, retried by the messaging layer. The API answered without errors.

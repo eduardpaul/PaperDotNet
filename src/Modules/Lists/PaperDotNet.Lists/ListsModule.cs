@@ -57,6 +57,8 @@ public sealed class ListsModule : IModule
         services.AddSingleton<ListTemplateRegistry>();
         services.AddScoped<ContentTypeProvisioner>();
         services.AddScoped<IContentTypeProvisioning>(sp => sp.GetRequiredService<ContentTypeProvisioner>());
+        services.AddScoped<ItemAccess>();
+        services.AddScoped<IItemAccess>(sp => sp.GetRequiredService<ItemAccess>());
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
         services.AddScoped<ItemQueryRunner>();

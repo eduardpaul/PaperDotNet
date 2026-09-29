@@ -15,7 +15,8 @@ internal sealed class EffectiveScopeProvider(IdentityDbContext db, ITenantContex
 {
     private static readonly HybridCacheEntryOptions CacheOptions = new() { Expiration = TimeSpan.FromMinutes(1) };
 
-    public static string TenantTag(Guid tenantId) => $"identity:scopes:{tenantId}";
+    /// <summary>Shared with the other caches of what a user may access, so one eviction covers them all.</summary>
+    public static string TenantTag(Guid tenantId) => AccessCacheTags.Principals(tenantId);
 
     public async Task<IReadOnlySet<string>?> GetScopesAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -24,12 +25,14 @@ internal sealed class EffectiveScopeProvider(IdentityDbContext db, ITenantContex
             return null;
         }
 
+        // Without a cancellable token HybridCache runs the factory in this call. With one, it queues the factory on the
+        // thread pool, where the tenant (ambient) is missing: the user would not be found and null would be cached.
         var scopes = await cache.GetOrCreateAsync(
             $"identity:scopes:{tenantId}:{userId}",
             ct => new ValueTask<string[]?>(LoadAsync(userId, ct)),
             CacheOptions,
             [TenantTag(tenantId)],
-            cancellationToken);
+            CancellationToken.None);
         return scopes?.ToHashSet(StringComparer.Ordinal);
     }
 

@@ -282,7 +282,7 @@ internal sealed class SearchService(
             await FacetAsync(db.Tags.Where(t => ids.Contains(t.DocumentId)), t => t.TermId, ct));
     }
 
-    /// <summary>The caller's principals: user, groups, and workspace memberships (owners also as owners).</summary>
+    /// <summary>The caller's principals: user, groups, and their role in each workspace (administrators own all).</summary>
     internal static async Task<List<string>> PrincipalsAsync(IWorkspaceAccess workspaces, IUserDirectory users, ICurrentUser user, CancellationToken ct)
     {
         if (user.UserId is not { } userId)
@@ -294,11 +294,7 @@ internal sealed class SearchService(
         principals.AddRange((await users.GetGroupIdsAsync(userId, ct)).Select(Contracts.SearchPrincipals.Group));
         foreach (var membership in await workspaces.GetMyWorkspacesAsync(ct))
         {
-            principals.Add(Contracts.SearchPrincipals.WorkspaceMember(membership.WorkspaceId));
-            if (membership.Level == WorkspaceAccessLevel.Manage)
-            {
-                principals.Add(Contracts.SearchPrincipals.WorkspaceOwner(membership.WorkspaceId));
-            }
+            principals.Add(Contracts.SearchPrincipals.Role(WorkspaceRolePrincipals.Id(membership.WorkspaceId, membership.Level)));
         }
 
         return principals;

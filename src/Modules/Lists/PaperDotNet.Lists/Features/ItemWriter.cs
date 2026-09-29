@@ -111,15 +111,7 @@ internal sealed class ItemWriter(
         {
             item.HasUniquePermissions = true;
             item.ScopeId = item.Id;
-            db.Grants.AddRange(uniqueGrants.DistinctBy(g => (g.PrincipalType, g.PrincipalId)).Select(g => new PermissionGrant
-            {
-                Id = Ids.New(),
-                ListId = schema.List.Id,
-                ObjectId = item.Id,
-                PrincipalType = g.PrincipalType,
-                PrincipalId = g.PrincipalId,
-                Level = g.Level,
-            }));
+            db.AclEntries.AddRange(Acl.FromGrants(schema.List, item.Id, uniqueGrants));
         }
 
         db.Items.Add(item);
@@ -140,7 +132,7 @@ internal sealed class ItemWriter(
             return ItemWriteResult.Invalid("contentTypeId", "The content type is not used by this list.");
         }
 
-        Guid? newScopeId = item.ScopeId;
+        var newScopeId = item.ScopeId;
         if (parentId.HasValue)
         {
             (var parentError, var parentScope) = await ValidateParentAsync(schema, parentId.Value, item, ct);
@@ -256,7 +248,7 @@ internal sealed class ItemWriter(
             item.ParentId = null;
             if (!item.HasUniquePermissions)
             {
-                item.ScopeId = null;
+                item.ScopeId = schema.List.Id;
             }
         }
 
@@ -324,7 +316,7 @@ internal sealed class ItemWriter(
     /// Saved with a folder whose permission scope changed: if the request stops before the items inside are reassigned
     /// (below, right after the save), the message completes it.
     /// </summary>
-    private CompleteFolderScopeChange ScopeChange(ListSchema schema, ListItem folder, Guid? oldScopeId) =>
+    private CompleteFolderScopeChange ScopeChange(ListSchema schema, ListItem folder, Guid oldScopeId) =>
         new(schema.List.Id, folder.Id, oldScopeId, folder.ScopeId, tenant.TenantId!.Value, tenant.TenantIdentifier!, currentUser.UserId);
 
     internal static JsonObject Values(ListItem item)
@@ -584,11 +576,12 @@ internal sealed class ItemWriter(
     /// Checks the target folder (null = list root) and that the user may contribute
     /// there; returns the security scope items placed there inherit.
     /// </summary>
-    private async Task<(ItemWriteResult? Error, Guid? ScopeId)> ValidateParentAsync(ListSchema schema, Guid? parentId, ListItem? moving, CancellationToken ct)
+    private async Task<(ItemWriteResult? Error, Guid ScopeId)> ValidateParentAsync(ListSchema schema, Guid? parentId, ListItem? moving, CancellationToken ct)
     {
+        var listScope = schema.List.Id;
         if (parentId is not { } id)
         {
-            return (schema.Access.Level(null) < WorkspaceAccessLevel.Contribute ? ItemWriteResult.Denied : null, null);
+            return (schema.Access.ListLevel < WorkspaceAccessLevel.Contribute ? ItemWriteResult.Denied : null, listScope);
         }
 
         var parent = await db.Items.AsNoTracking()
@@ -597,12 +590,12 @@ internal sealed class ItemWriter(
             .FirstOrDefaultAsync(ct);
         if (parent is null || schema.Access.Level(parent.ScopeId) < WorkspaceAccessLevel.Read)
         {
-            return (ItemWriteResult.Invalid("parentId", "The parent must be a folder in the same list."), null);
+            return (ItemWriteResult.Invalid("parentId", "The parent must be a folder in the same list."), listScope);
         }
 
         if (schema.Access.Level(parent.ScopeId) < WorkspaceAccessLevel.Contribute)
         {
-            return (ItemWriteResult.Denied, null);
+            return (ItemWriteResult.Denied, listScope);
         }
 
         if (moving is { IsFolder: true })
@@ -613,7 +606,7 @@ internal sealed class ItemWriter(
             {
                 if (current == moving.Id)
                 {
-                    return (ItemWriteResult.Invalid("parentId", "A folder cannot be moved into itself."), null);
+                    return (ItemWriteResult.Invalid("parentId", "A folder cannot be moved into itself."), listScope);
                 }
 
                 var next = current;

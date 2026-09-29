@@ -1,6 +1,6 @@
 # ADR-0035: Item storage and permissions at scale
 
-- **Status:** Accepted, not implemented yet
+- **Status:** Accepted; step 1 (ACL by principal) implemented
 - **Date:** 2026-09-28
 - **Replaces:** how ADR-0011 evaluates permissions (its scope model stays) and
   how ADR-0012 trims search.
@@ -211,3 +211,45 @@ before this applies to every module (issue 0007).
 4. Promoted columns and the value table, with the translator and backfill.
 5. Queries across lists as one query (My tasks, calendar, smart folders).
 6. The per-request tenant setting on PostgreSQL.
+
+## Implementation notes
+
+### Step 1: ACL by principal (2026-09-29)
+
+Done as decided, with these details:
+
+- **Role principal ids** are derived from the workspace id and the role
+  (`WorkspaceRolePrincipals.Id`: SHA-256, RFC 9562 version 8), so one
+  `PrincipalId IN (@principals)` lookup covers users, groups and roles. The key
+  is `(ScopeId, PrincipalId)`: principal ids never collide, so the kind is not
+  part of it. The lookup index is `(PrincipalId, ListId, ScopeId, Level,
+  TenantId)`; `TenantId` is there so the tenant filter does not leave the
+  index.
+- **New lists get the three role entries** in `ListsDbContext`, whichever path
+  creates them (endpoints, templates, home libraries). A permission change
+  updates the scope's entries in place (`Acl.Replace`), in one save.
+- **Workspace owners and administrators** still skip the filter in a list
+  (their workspace level is Manage); the fixed owners entry makes the same
+  true for `IItemAccess.GetScopesAsync` across lists.
+- **API:** permission entries show roles as `workspaceVisitors`,
+  `workspaceMembers` and `workspaceOwners` with the workspace id. The enum is
+  `AclPrincipalType`, because Identity's `PrincipalType` (user, group) keeps
+  its name. Owners cannot be removed or lowered. Templates name roles
+  (`<Grant Role="Members" …/>`, `{"role": "members"}`).
+- **Principal cache:** `ItemAccess` caches the set per tenant and user for a
+  minute under `AccessCacheTags.Principals(tenant)`. Identity evicts it with its
+  scope cache (they share the tag), and `WorkspacesDbContext` evicts it when
+  memberships change or a workspace is added. `IWorkspaceAccess` gained
+  `GetMembershipsAsync(userId)`, so the set does not depend on the current user.
+- **HybridCache runs a factory on the thread pool when the token can be
+  cancelled**, without the request's tenant and user. The principal cache,
+  and Identity's scope cache (where this was a latent bug: after an eviction
+  it could cache "no scopes" for a minute), now pass `CancellationToken.None`.
+- **Search** keeps principals on documents until step 3: a document lists the
+  principals of its scope's entries, roles as `SearchPrincipals.Role`.
+- **Existing databases:** the migration sets `ScopeId` to the list id for
+  inheriting items and drops `permission_grants`. Lists created before it get
+  no role entries (no data to migrate), so only owners and administrators see
+  them until their permissions are set again.
+- **Measured:** `PaperDotNet.Performance` has a `shared` scenario: a member
+  without full control pages a list whose folders have unique permissions.

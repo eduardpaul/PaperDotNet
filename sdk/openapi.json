@@ -14538,6 +14538,16 @@
   },
   "components": {
     "schemas": {
+      "AclPrincipalType": {
+        "enum": [
+          "user",
+          "group",
+          "workspaceVisitors",
+          "workspaceMembers",
+          "workspaceOwners"
+        ],
+        "description": "Who a permission entry gives access to: a user, a group, or a role of the list\u0027s workspace."
+      },
       "ActivityResponse": {
         "required": [
           "id",
@@ -19171,7 +19181,7 @@
         "type": "object",
         "properties": {
           "principalType": {
-            "$ref": "#/components/schemas/PrincipalType"
+            "$ref": "#/components/schemas/AclPrincipalType"
           },
           "principalId": {
             "type": "string",
@@ -19180,7 +19190,8 @@
           "level": {
             "$ref": "#/components/schemas/WorkspaceAccessLevel"
           }
-        }
+        },
+        "description": "A permission entry. For workspace roles (\u0060workspaceVisitors\u0060, \u0060workspaceMembers\u0060, \u0060workspaceOwners\u0060)\nthe principal id is the workspace id."
       },
       "PermissionsResponse": {
         "required": [

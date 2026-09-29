@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Lists.Features;
 using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Lists.Data;
@@ -23,7 +24,7 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
 
     public DbSet<ItemVersion> ItemVersions => Set<ItemVersion>();
 
-    public DbSet<PermissionGrant> Grants => Set<PermissionGrant>();
+    public DbSet<AclEntry> AclEntries => Set<AclEntry>();
 
     public DbSet<ItemChange> ItemChanges => Set<ItemChange>();
 
@@ -43,11 +44,19 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
 
     /// <summary>
     /// Writes the change log for delta sync (API-05) from the tracked changes, so every write
-    /// path is covered. Permission changes reset the list's delta tokens.
+    /// path is covered. Permission changes reset the list's delta tokens. New lists get the
+    /// entries of the workspace roles (ADR-0035), whichever path created them.
     /// </summary>
     private void RecordChanges()
     {
         var now = time.GetUtcNow();
+        var newLists = ChangeTracker.Entries<ListDefinition>().Where(e => e.State == EntityState.Added).Select(e => e.Entity).ToList();
+        if (newLists.Count > 0)
+        {
+            var withEntries = ChangeTracker.Entries<AclEntry>().Where(e => e.State == EntityState.Added).Select(e => e.Entity.ScopeId).ToHashSet();
+            AclEntries.AddRange(newLists.Where(l => !withEntries.Contains(l.Id)).SelectMany(Acl.RoleEntries));
+        }
+
         var items = new Dictionary<Guid, ItemChange>();
         var resets = new HashSet<Guid>();
         foreach (var entry in ChangeTracker.Entries().ToList())
@@ -71,8 +80,9 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
                         At = now,
                     };
                     break;
-                case PermissionGrant grant when entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted:
-                    resets.Add(grant.ListId);
+                case AclEntry acl when entry.State is EntityState.Modified or EntityState.Deleted
+                                        || (entry.State == EntityState.Added && !newLists.Any(l => l.Id == acl.ListId)):
+                    resets.Add(acl.ListId);
                     break;
                 case ListDefinition list when entry.State == EntityState.Modified && entry.Property(nameof(ListDefinition.HasUniquePermissions)).IsModified:
                     resets.Add(list.Id);
@@ -109,13 +119,16 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
             b.HasIndex(l => new { l.WorkspaceId, l.SystemKey }).IsUnique();
         });
 
-        modelBuilder.Entity<PermissionGrant>(b =>
+        modelBuilder.Entity<AclEntry>(b =>
         {
-            b.ToTable("permission_grants");
-            b.Property(g => g.PrincipalType).HasConversion<string>().HasMaxLength(10);
-            b.Property(g => g.Level).HasConversion<string>().HasMaxLength(20);
-            b.HasIndex(g => new { g.ObjectId, g.PrincipalType, g.PrincipalId }).IsUnique();
-            b.HasIndex(g => g.ListId);
+            b.ToTable("acl_entries");
+            b.HasKey(e => new { e.ScopeId, e.PrincipalId });
+            b.Property(e => e.PrincipalType).HasConversion<string>().HasMaxLength(20);
+            b.Property(e => e.Level).HasConversion<int>();
+
+            // The allowed scopes of a caller come from this index alone (index-only on PostgreSQL).
+            b.HasIndex(e => new { e.PrincipalId, e.ListId, e.ScopeId, e.Level, e.TenantId });
+            b.HasIndex(e => e.ListId);
         });
 
         modelBuilder.Entity<ItemVersion>(b =>
