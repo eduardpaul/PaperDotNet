@@ -5,6 +5,8 @@ from kiota_abstractions.serialization import AdditionalDataHolder, Parsable, Par
 from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
+    from .flow_definition import FlowDefinition
+    from .json_object import JsonObject
     from .workflow_step import WorkflowStep
     from .workflow_trigger import WorkflowTrigger
 
@@ -19,12 +21,16 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
     condition: Optional[str] = None
     # The description property
     description: Optional[str] = None
+    # The flow property
+    flow: Optional[FlowDefinition] = None
     # The name property
     name: Optional[str] = None
     # The steps property
     steps: Optional[list[WorkflowStep]] = None
     # The trigger property
     trigger: Optional[WorkflowTrigger] = None
+    # The variables property
+    variables: Optional[JsonObject] = None
     
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> WorkflowRequest:
@@ -42,9 +48,13 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .flow_definition import FlowDefinition
+        from .json_object import JsonObject
         from .workflow_step import WorkflowStep
         from .workflow_trigger import WorkflowTrigger
 
+        from .flow_definition import FlowDefinition
+        from .json_object import JsonObject
         from .workflow_step import WorkflowStep
         from .workflow_trigger import WorkflowTrigger
 
@@ -52,9 +62,11 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
             "condition": lambda n : setattr(self, 'condition', n.get_str_value()),
             "description": lambda n : setattr(self, 'description', n.get_str_value()),
             "enabled": lambda n : setattr(self, 'enabled', n.get_bool_value()),
+            "flow": lambda n : setattr(self, 'flow', n.get_object_value(FlowDefinition)),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "steps": lambda n : setattr(self, 'steps', n.get_collection_of_object_values(WorkflowStep)),
             "trigger": lambda n : setattr(self, 'trigger', n.get_object_value(WorkflowTrigger)),
+            "variables": lambda n : setattr(self, 'variables', n.get_object_value(JsonObject)),
         }
         return fields
     
@@ -69,9 +81,11 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
         writer.write_str_value("condition", self.condition)
         writer.write_str_value("description", self.description)
         writer.write_bool_value("enabled", self.enabled)
+        writer.write_object_value("flow", self.flow)
         writer.write_str_value("name", self.name)
         writer.write_collection_of_object_values("steps", self.steps)
         writer.write_object_value("trigger", self.trigger)
+        writer.write_object_value("variables", self.variables)
         writer.write_additional_data_value(self.additional_data)
     
 

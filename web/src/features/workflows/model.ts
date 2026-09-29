@@ -1,6 +1,7 @@
 // The workflow editor works on a plain draft (ids for React keys, strings for number inputs). Everything converts
 // through the API's JSON shape (docs/workflows.md), which the JSON view also shows: steps with `inputs` as a plain
-// object and `else` (the SDK names it elseEscaped because `else` is a reserved word). Unknown step types are kept.
+// object and `else` (the SDK names it elseEscaped because `else` is a reserved word). Unknown step types are kept, and so
+// are a `flow` and `variables` (ADR-0036), which the form does not edit: flows are edited in the JSON view.
 import type { WorkflowRequest, WorkflowResponse, WorkflowStep } from '@paperdotnet/client';
 import { fields as jsonObject, fieldsOf } from '@paperdotnet/client';
 
@@ -35,6 +36,15 @@ export interface WorkflowDraft {
   trigger: { type: string; list: string; contentType: string; changedFields: string[] };
   condition: string;
   steps: StepDraft[];
+  /** A flow (nodes connected by outcome ports) instead of steps; kept as the API's JSON. */
+  flow?: PlainFlow;
+  variables?: Record<string, unknown>;
+}
+
+/** A flow as the API's JSON has it (docs/workflows.md). */
+export interface PlainFlow {
+  start: string;
+  nodes: Record<string, unknown>;
 }
 
 /** A step as the API's JSON has it. */
@@ -62,6 +72,8 @@ export interface PlainWorkflow {
   trigger?: { type?: string; list?: string | null; contentType?: string | null; changedFields?: string[] | null };
   condition?: string | null;
   steps?: PlainStep[];
+  flow?: PlainFlow;
+  variables?: Record<string, unknown>;
 }
 
 let counter = 0;
@@ -138,6 +150,8 @@ export function fromPlain(plain: PlainWorkflow): WorkflowDraft {
     },
     condition: plain.condition ?? '',
     steps: (plain.steps ?? []).map(stepFromPlain),
+    ...(plain.flow ? { flow: plain.flow } : {}),
+    ...(plain.variables ? { variables: plain.variables } : {}),
   };
 }
 
@@ -184,7 +198,8 @@ export function toPlain(draft: WorkflowDraft): PlainWorkflow {
         draft.trigger.type === 'itemUpdated' && draft.trigger.changedFields.length ? draft.trigger.changedFields : null,
     },
     condition: orUndefined(draft.condition) ?? null,
-    steps: draft.steps.map(stepToPlain),
+    ...(draft.flow ? { flow: draft.flow } : { steps: draft.steps.map(stepToPlain) }),
+    ...(draft.variables ? { variables: draft.variables } : {}),
   };
 }
 
@@ -219,12 +234,23 @@ export function draftFrom(workflow: WorkflowResponse): WorkflowDraft {
     trigger: workflow.trigger ?? undefined,
     condition: workflow.condition,
     steps: (workflow.steps ?? []).map(stepFromSdk),
+    ...(workflow.flow
+      ? { flow: { start: workflow.flow.start ?? '', nodes: { ...(workflow.flow.nodes?.additionalData ?? {}) } } }
+      : {}),
+    ...(workflow.variables ? { variables: { ...fieldsOf({ fields: workflow.variables }) } } : {}),
   } as PlainWorkflow);
 }
 
 export function requestFrom(draft: WorkflowDraft): WorkflowRequest {
-  const plain = toPlain(draft);
-  return { ...plain, trigger: plain.trigger, steps: (plain.steps ?? []).map(stepToSdk) } as WorkflowRequest;
+  const { flow, variables, steps, ...plain } = toPlain(draft);
+  return {
+    ...plain,
+    trigger: plain.trigger,
+    ...(flow
+      ? { flow: { start: flow.start, nodes: { additionalData: flow.nodes } } }
+      : { steps: (steps ?? []).map(stepToSdk) }),
+    ...(variables ? { variables: jsonObject(variables) } : {}),
+  } as WorkflowRequest;
 }
 
 // ---- Helpers for the editor and lists ---------------------------------------------------------------------------

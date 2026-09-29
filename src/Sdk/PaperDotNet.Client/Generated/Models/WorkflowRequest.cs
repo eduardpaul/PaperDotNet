@@ -32,6 +32,14 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The enabled property</summary>
         public bool? Enabled { get; set; }
+        /// <summary>The flow property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.FlowDefinition? Flow { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.FlowDefinition Flow { get; set; }
+#endif
         /// <summary>The name property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -55,6 +63,14 @@ namespace PaperDotNet.Client.Models
 #nullable restore
 #else
         public global::PaperDotNet.Client.Models.WorkflowTrigger Trigger { get; set; }
+#endif
+        /// <summary>The variables property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? Variables { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject Variables { get; set; }
 #endif
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.WorkflowRequest"/> and sets the default values.
@@ -85,9 +101,11 @@ namespace PaperDotNet.Client.Models
                 { "condition", n => { Condition = n.GetStringValue(); } },
                 { "description", n => { Description = n.GetStringValue(); } },
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
+                { "flow", n => { Flow = n.GetObjectValue<global::PaperDotNet.Client.Models.FlowDefinition>(global::PaperDotNet.Client.Models.FlowDefinition.CreateFromDiscriminatorValue); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "steps", n => { Steps = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>(global::PaperDotNet.Client.Models.WorkflowStep.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "trigger", n => { Trigger = n.GetObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>(global::PaperDotNet.Client.Models.WorkflowTrigger.CreateFromDiscriminatorValue); } },
+                { "variables", n => { Variables = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
             };
         }
         /// <summary>
@@ -100,9 +118,11 @@ namespace PaperDotNet.Client.Models
             writer.WriteStringValue("condition", Condition);
             writer.WriteStringValue("description", Description);
             writer.WriteBoolValue("enabled", Enabled);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.FlowDefinition>("flow", Flow);
             writer.WriteStringValue("name", Name);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>("steps", Steps);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>("trigger", Trigger);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("variables", Variables);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

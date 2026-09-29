@@ -8,14 +8,48 @@ using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.Workflows.Features;
 
-/// <summary>What tokens can refer to: the item, its list, approval outcomes and trigger data.</summary>
-internal sealed record TokenScope(ListItemData? Item, string? ListName, IReadOnlyDictionary<string, string> Outcomes, JsonObject? Data)
+/// <summary>What tokens can refer to: the item, its list, the outputs of nodes that ran, variables and trigger data.</summary>
+internal sealed record TokenScope(ListItemData? Item, string? ListName, JsonObject? Outputs, JsonObject? Variables, JsonObject? Data)
 {
-    public static readonly TokenScope Empty = new(null, null, new Dictionary<string, string>(), null);
+    public static readonly TokenScope Empty = new(null, null, null, null, null);
+
+    /// <summary>
+    /// A value in a node's output: <c>Node.path.to.value</c>. Node ids may contain dots, so the longest id that is an
+    /// output wins.
+    /// </summary>
+    public JsonNode? Step(string reference)
+    {
+        if (Outputs is null)
+        {
+            return null;
+        }
+
+        for (var split = reference.Length; split > 0; split = reference.LastIndexOf('.', split - 1))
+        {
+            if (Outputs[reference[..split]] is { } output)
+            {
+                JsonNode? value = output;
+                foreach (var part in split < reference.Length ? reference[(split + 1)..].Split('.') : [])
+                {
+                    value = value switch
+                    {
+                        JsonObject obj => obj[part],
+                        JsonArray array when int.TryParse(part, CultureInfo.InvariantCulture, out var index) && index >= 0 && index < array.Count => array[index],
+                        _ => null,
+                    };
+                }
+
+                return value;
+            }
+        }
+
+        return null;
+    }
 }
 
 /// <summary>
-/// Replaces <c>{token}</c> and <c>{token:format}</c> in action inputs (see <c>WorkflowActivityContext.ExpandAsync</c>).
+/// Replaces <c>{token}</c> and <c>{token:format}</c> in action inputs (see <c>WorkflowActivityContext.ExpandAsync</c>):
+/// item fields, <c>{outcome:Node}</c>, <c>{var:name}</c>, <c>{step:Node.path}</c> and <c>{trigger:name}</c> (or <c>{data:name}</c>).
 /// Term ids become their names and user ids user names; unknown tokens become empty text.
 /// </summary>
 internal sealed class TokenExpander(ITermStore terms, IUserDirectory users, TimeProvider time)
@@ -66,9 +100,13 @@ internal sealed class TokenExpander(ITermStore terms, IUserDirectory users, Time
             case "today":
                 return Format(time.GetUtcNow(), format);
             case "outcome":
-                return format is not null && scope.Outcomes.TryGetValue(format.Trim(), out var outcome) ? outcome : string.Empty;
-            case "data":
+                return format is not null && scope.Outputs?[format.Trim()]?["outcome"] is JsonValue outcome ? outcome.ToString() : string.Empty;
+            case "data" or "trigger":
                 return format is not null && scope.Data?[format.Trim()] is { } data ? await ValueAsync(data, null, ct) : string.Empty;
+            case "var":
+                return format is not null && scope.Variables?[format.Trim()] is { } variable ? await ValueAsync(variable, null, ct) : string.Empty;
+            case "step":
+                return format is not null && scope.Step(format.Trim()) is { } output ? await ValueAsync(output, null, ct) : string.Empty;
         }
 
         return item?.Fields[name] is { } value ? await ValueAsync(value, format, ct) : string.Empty;

@@ -105,3 +105,62 @@ test('a workflow notifies on new items, shows its runs and can be turned off', a
   await page.getByRole('checkbox', { name: `${name} enabled` }).uncheck();
   await expect(page.getByRole('button', { name: new RegExp(`^${name}`) })).toContainText('Off');
 });
+
+test('a flow edited as JSON fails at a node and is retried from there', async ({ page }) => {
+  test.setTimeout(60_000);
+  const listName = unique('Flow tasks');
+  const listUrl = await createList(page, 'Tasks', listName);
+  const workspaceUrl = listUrl.replace(/\/l\/.*$/, '');
+  const missing = unique('Follow-ups');
+  await page.goto(`${workspaceUrl}/settings/workflows`);
+  await page.getByRole('button', { name: 'New workflow' }).click();
+
+  const editor = page.getByRole('dialog');
+  const name = unique('Follow up');
+  await editor.getByRole('button', { name: 'JSON' }).click();
+  await editor.getByLabel('Workflow JSON').fill(
+    JSON.stringify({
+      name,
+      enabled: true,
+      trigger: { type: 'itemAdded', list: listName },
+      flow: {
+        start: 'make',
+        nodes: { make: { activity: 'task.create', inputs: { list: missing, title: 'Call back' } } },
+      },
+    }),
+  );
+  await editor.getByLabel('Workflow JSON').blur();
+  await editor.getByRole('button', { name: 'JSON' }).click();
+  await expect(editor.getByText('This workflow is a flow with 1 nodes.', { exact: false })).toBeVisible();
+  await editor.getByRole('button', { name: 'Create workflow' }).click();
+  await expect(page.getByText('Workflow created.')).toBeVisible();
+
+  // The list the flow needs does not exist yet: the run fails at its node.
+  await page.goto(listUrl);
+  await page.getByRole('button', { name: 'New task' }).click();
+  await page.getByRole('dialog').getByLabel('Title').fill(unique('Customer call'));
+  await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+  await expect(page).toHaveURL(/item=[0-9a-f-]{36}/);
+  const run = page.getByRole('button', { name: new RegExp(name) });
+  await expect(async () => {
+    await page.goto(`${workspaceUrl}/settings/runs`);
+    await expect(run).toContainText('failed', { timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+
+  // Once the list exists, the run is retried from the failed node.
+  await page.goto(workspaceUrl);
+  await page.getByRole('button', { name: 'New list' }).first().click();
+  await page.getByRole('radio', { name: /^Tasks/ }).click();
+  await page.getByLabel('Name', { exact: true }).fill(missing);
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(page.getByRole('heading', { name: missing })).toBeVisible();
+  await page.goto(`${workspaceUrl}/settings/runs`);
+  await run.click();
+  await expect(page.getByText('Failed at')).toBeVisible();
+  await page.getByRole('button', { name: 'Retry from make' }).click();
+  await expect(page.getByText('Run started again.')).toBeVisible();
+  await expect(async () => {
+    await page.reload();
+    await expect(run).toContainText('completed', { timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+});

@@ -8,7 +8,7 @@ using System;
 namespace PaperDotNet.Client.Models
 {
     /// <summary>
-    /// A workflow with the definition of its current `version` (runs keep the version they started with).
+    /// A workflow with the definition of its current `version` (runs keep the version they started with): `steps`or a `flow`, and the initial `variables`.
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WorkflowResponse : IAdditionalDataHolder, IParsable
@@ -35,6 +35,14 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The enabled property</summary>
         public bool? Enabled { get; set; }
+        /// <summary>The flow property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.FlowDefinition? Flow { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.FlowDefinition Flow { get; set; }
+#endif
         /// <summary>The id property</summary>
         public Guid? Id { get; set; }
         /// <summary>The name property</summary>
@@ -71,6 +79,14 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The updatedAt property</summary>
         public DateTimeOffset? UpdatedAt { get; set; }
+        /// <summary>The variables property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? Variables { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject Variables { get; set; }
+#endif
         /// <summary>The version property</summary>
         public int? Version { get; set; }
         /// <summary>The workspaceId property</summary>
@@ -104,12 +120,14 @@ namespace PaperDotNet.Client.Models
                 { "createdAt", n => { CreatedAt = n.GetDateTimeOffsetValue(); } },
                 { "description", n => { Description = n.GetStringValue(); } },
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
+                { "flow", n => { Flow = n.GetObjectValue<global::PaperDotNet.Client.Models.FlowDefinition>(global::PaperDotNet.Client.Models.FlowDefinition.CreateFromDiscriminatorValue); } },
                 { "id", n => { Id = n.GetGuidValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "steps", n => { Steps = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>(global::PaperDotNet.Client.Models.WorkflowStep.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "trigger", n => { Trigger = n.GetObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>(global::PaperDotNet.Client.Models.WorkflowTrigger.CreateFromDiscriminatorValue); } },
                 { "updatedAt", n => { UpdatedAt = n.GetDateTimeOffsetValue(); } },
+                { "variables", n => { Variables = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "version", n => { Version = n.GetIntValue(); } },
                 { "workspaceId", n => { WorkspaceId = n.GetGuidValue(); } },
             };
@@ -125,12 +143,14 @@ namespace PaperDotNet.Client.Models
             writer.WriteDateTimeOffsetValue("createdAt", CreatedAt);
             writer.WriteStringValue("description", Description);
             writer.WriteBoolValue("enabled", Enabled);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.FlowDefinition>("flow", Flow);
             writer.WriteGuidValue("id", Id);
             writer.WriteStringValue("name", Name);
             writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>("steps", Steps);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>("trigger", Trigger);
             writer.WriteDateTimeOffsetValue("updatedAt", UpdatedAt);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("variables", Variables);
             writer.WriteIntValue("version", Version);
             writer.WriteGuidValue("workspaceId", WorkspaceId);
             writer.WriteAdditionalData(AdditionalData);

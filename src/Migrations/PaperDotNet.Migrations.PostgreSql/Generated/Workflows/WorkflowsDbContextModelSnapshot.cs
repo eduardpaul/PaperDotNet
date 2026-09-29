@@ -196,6 +196,79 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                     b.ToTable("approvals", "automation");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowBookmark", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("key");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Node")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("node");
+
+                    b.Property<string>("Payload")
+                        .HasColumnType("text")
+                        .HasColumnName("payload");
+
+                    b.Property<DateTimeOffset?>("ResumeAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resume_at");
+
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("run_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_bookmarks");
+
+                    b.HasIndex("RunId")
+                        .HasDatabaseName("ix_bookmarks_run_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_bookmarks_tenant_id");
+
+                    b.HasIndex("CompletedAt", "ResumeAt")
+                        .HasDatabaseName("ix_bookmarks_completed_at_resume_at");
+
+                    b.HasIndex("TenantId", "Kind", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("ix_bookmarks_tenant_id_kind_key");
+
+                    b.ToTable("bookmarks", "automation");
+                });
+
             modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowDefinition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -305,6 +378,15 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                         .HasColumnType("uuid")
                         .HasColumnName("event_id");
 
+                    b.Property<int>("Executed")
+                        .HasColumnType("integer")
+                        .HasColumnName("executed");
+
+                    b.Property<string>("FailedNode")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("failed_node");
+
                     b.Property<Guid?>("ItemId")
                         .HasColumnType("uuid")
                         .HasColumnName("item_id");
@@ -334,18 +416,19 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_check_at");
 
-                    b.Property<string>("Outcomes")
+                    b.Property<string>("Node")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("node");
+
+                    b.Property<int>("NodeAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("node_attempts");
+
+                    b.Property<string>("Outputs")
                         .IsRequired()
                         .HasColumnType("text")
-                        .HasColumnName("outcomes");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("integer")
-                        .HasColumnName("position");
-
-                    b.Property<DateTimeOffset?>("ResumeAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("resume_at");
+                        .HasColumnName("outputs");
 
                     b.Property<DateTimeOffset>("StartedAt")
                         .HasColumnType("timestamp with time zone")
@@ -369,15 +452,19 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
 
+                    b.Property<string>("Variables")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("variables");
+
                     b.Property<long>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
 
-                    b.Property<string>("WaitingFor")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("waiting_for");
+                    b.Property<Guid?>("WaitingOn")
+                        .HasColumnType("uuid")
+                        .HasColumnName("waiting_on");
 
                     b.Property<Guid>("WorkflowId")
                         .HasColumnType("uuid")
@@ -399,9 +486,6 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
 
                     b.HasIndex("Status", "LastActivityAt")
                         .HasDatabaseName("ix_runs_status_last_activity_at");
-
-                    b.HasIndex("Status", "ResumeAt")
-                        .HasDatabaseName("ix_runs_status_resume_at");
 
                     b.HasIndex("TenantId", "ItemId")
                         .HasDatabaseName("ix_runs_tenant_id_item_id");

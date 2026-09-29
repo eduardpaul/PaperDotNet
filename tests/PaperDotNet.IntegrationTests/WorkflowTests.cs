@@ -302,7 +302,9 @@ public sealed class WorkflowTests(PaperDotNetApiFactory factory)
             var db = scope.ServiceProvider.GetRequiredService<WorkflowsDbContext>();
             var run = await db.Runs.SingleAsync(r => r.Id == laterRun, Ct);
             Assert.Equal(RunStatus.Waiting, run.Status);
-            run.ResumeAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+            var delay = await db.Bookmarks.SingleAsync(b => b.Id == run.WaitingOn, Ct);
+            Assert.Equal(BookmarkKinds.Delay, delay.Kind);
+            delay.ResumeAt = DateTimeOffset.UtcNow.AddMinutes(-1);
             await db.SaveChangesAsync(Ct);
             await job.RunAsync(Ct);
         }
@@ -332,7 +334,7 @@ public sealed class WorkflowTests(PaperDotNetApiFactory factory)
             var executionId = Guid.CreateVersion7();
             for (var i = 0; i < 2; i++)
             {
-                var result = await executor.ExecuteAsync(action, s.Workspace, null, null, null, new Dictionary<string, string>(), "test", "test:1", executionId, Ct);
+                var result = await executor.ExecuteAsync(action, s.Workspace, null, null, null, null, null, "test", "test:1", executionId, Ct);
                 Assert.True(result.Succeeded, result.Error);
                 Assert.Equal(executionId.ToString(), result.Output!["taskId"]!.GetValue<string>());
             }
@@ -400,6 +402,131 @@ public sealed class WorkflowTests(PaperDotNetApiFactory factory)
             Assert.Equal(RunStatus.Failed, failed.Status);
             Assert.Contains("attempts", failed.Error, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public async Task Flows_use_variables_and_outputs_handle_errors_and_can_be_retried()
+    {
+        var s = await SetupAsync("auto-flows");
+        async Task<JsonElement> RunAsync(string workflow, int amount = 500)
+        {
+            var bill = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "Bill", amount } })).GetProperty("id").GetGuid();
+            var run = await PostIdAsync(s.Admin, $"{s.Item(bill)}/workflows", new { workflow });
+            return await WaitAsync(s.Admin, $"{s.Workflows}/runs/{run}", r => Status(r) is "completed" or "failed" or "waiting");
+        }
+
+        string Note(JsonElement run) =>
+            GetAsync(s.Admin, s.Item(run.GetProperty("itemId").GetGuid())).Result.GetProperty("fields").GetProperty("note").GetString()!;
+
+        // Variables, comparisons and the outputs of earlier nodes.
+        await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Check big bills",
+            trigger = new { type = "manual", list = "Bills" },
+            variables = new { limit = 100 },
+            flow = new
+            {
+                start = "big?",
+                nodes = new Dictionary<string, object>
+                {
+                    ["big?"] = new { activity = "if", inputs = new { left = "{amount}", op = "gt", right = "{var:limit}" }, next = new { @true = "task", @false = "small" } },
+                    ["task"] = new { activity = "task.create", inputs = new { list = "Tasks", title = "Check {title}" }, next = new { done = "remember" } },
+                    ["remember"] = new { activity = "setVariable", inputs = new { name = "task", value = "{step:task.taskId}" }, next = new { done = "note" } },
+                    ["note"] = new { activity = "item.update", inputs = new { fields = new { note = "task {var:task}" } } },
+                    ["small"] = new { activity = "item.update", inputs = new { fields = new { note = "small" } }, next = new { done = "end" } },
+                    ["end"] = new { activity = "end" },
+                },
+            },
+        });
+        var big = await RunAsync("Check big bills");
+        Assert.Equal("completed", Status(big));
+        var taskId = big.GetProperty("outputs").GetProperty("task").GetProperty("taskId").GetString();
+        Assert.Equal(taskId, big.GetProperty("variables").GetProperty("task").GetString());
+        Assert.Equal(100, big.GetProperty("variables").GetProperty("limit").GetInt32());
+        Assert.Equal($"task {taskId}", Note(big));
+        Assert.Equal("small", Note(await RunAsync("Check big bills", amount: 50)));
+
+        // A failing node continues on its error port with the error as its output.
+        await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Report failures",
+            trigger = new { type = "manual", list = "Bills" },
+            flow = new
+            {
+                start = "make",
+                nodes = new Dictionary<string, object>
+                {
+                    ["make"] = new { activity = "task.create", inputs = new { list = "Nope", title = "x" }, next = new { error = "report" } },
+                    ["report"] = new { activity = "item.update", inputs = new { fields = new { note = "failed: {step:make.error}" } } },
+                },
+            },
+        });
+        var reported = await RunAsync("Report failures");
+        Assert.Equal("completed", Status(reported));
+        Assert.Equal("failed: The list 'Nope' does not exist in the workspace.", Note(reported));
+
+        // Without an error port the run fails at the node (an incident) and is retried from there once the cause is fixed.
+        await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Needs a list",
+            trigger = new { type = "manual", list = "Bills" },
+            flow = new
+            {
+                start = "make",
+                nodes = new Dictionary<string, object>
+                {
+                    ["make"] = new { activity = "task.create", inputs = new { list = "Later", title = "Follow up" }, next = new { done = "stop" } },
+                    ["stop"] = new { activity = "fail", inputs = new { message = "Stopped after {step:make.taskId}" } },
+                },
+            },
+        });
+        var incident = await RunAsync("Needs a list");
+        Assert.Equal("failed", Status(incident));
+        Assert.Equal("make", incident.GetProperty("failedNode").GetString());
+        var later = await PostIdAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Later", templateKey = "tasks" });
+        var retry = await s.Admin.PostAsync($"{s.Workflows}/runs/{incident.GetProperty("id").GetGuid()}/retry", null, Ct);
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+        var stopped = await WaitAsync(s.Admin, $"{s.Workflows}/runs/{incident.GetProperty("id").GetGuid()}", r => Status(r) is "failed" && !r.TryGetProperty("failedNode", out _));
+        Assert.StartsWith("Stopped after ", stopped.GetProperty("error").GetString(), StringComparison.Ordinal);
+        Assert.Equal(["Follow up"], await s.Admin.QueryTitlesAsync(s.Workspace, later, ""));
+        Assert.Equal(HttpStatusCode.Conflict, (await s.Admin.PostAsync($"{s.Workflows}/runs/{stopped.GetProperty("id").GetGuid()}/retry", null, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await s.Admin.PostAsync($"{s.Workflows}/runs/{big.GetProperty("id").GetGuid()}/retry", null, Ct)).StatusCode);
+
+        // A retry policy waits and tries the node again (the minute job resumes it).
+        await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Try again",
+            trigger = new { type = "manual", list = "Bills" },
+            flow = new
+            {
+                start = "make",
+                nodes = new Dictionary<string, object>
+                {
+                    ["make"] = new { activity = "task.create", inputs = new { list = "Soon", title = "Eventually" }, retry = new { attempts = 2, delayMinutes = 0 } },
+                },
+            },
+        });
+        var waiting = await RunAsync("Try again");
+        Assert.Equal("waiting", Status(waiting));
+        Assert.Contains("trying again", waiting.GetProperty("log").ToString(), StringComparison.Ordinal);
+        var soon = await PostIdAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Soon", templateKey = "tasks" });
+        await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(s.Tenant.Id, s.Tenant.Identifier))
+        {
+            await scope.ServiceProvider.GetRequiredService<WorkflowTimerJob>().RunAsync(Ct);
+        }
+
+        await WaitAsync(s.Admin, $"{s.Workflows}/runs/{waiting.GetProperty("id").GetGuid()}", r => Status(r) == "completed");
+        Assert.Equal(["Eventually"], await s.Admin.QueryTitlesAsync(s.Workspace, soon, ""));
+
+        // Flows are checked when they are saved.
+        var invalid = await s.Admin.PostAsJsonAsync(s.Workflows, new
+        {
+            name = "Broken",
+            trigger = new { type = "manual" },
+            flow = new { start = "a", nodes = new Dictionary<string, object> { ["a"] = new { activity = "item.update", inputs = new { fields = new { note = "x" } }, next = new { done = "b" } } } },
+        }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Contains("the next node 'b' (done) does not exist", await invalid.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
     }
 
     [Fact]

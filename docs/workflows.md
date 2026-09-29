@@ -69,6 +69,59 @@ an item fail there.
 Changing a workflow creates a new version. Running runs keep the version
 they started with.
 
+## Flows
+
+Instead of `steps`, a workflow can have a `flow` ([ADR-0036](adr/0036-workflows-as-the-core.md)):
+nodes connected by the outcome of each node. Steps are compiled into the same
+kind of flow, so both run the same way.
+
+```json
+{
+  "name": "Check big bills",
+  "trigger": { "type": "itemAdded", "list": "Bills" },
+  "variables": { "limit": 100 },
+  "flow": {
+    "start": "big?",
+    "nodes": {
+      "big?":   { "activity": "if", "inputs": { "left": "{amount}", "op": "gt", "right": "{var:limit}" },
+                  "next": { "true": "task", "false": "done" } },
+      "task":   { "activity": "task.create", "inputs": { "list": "Tasks", "title": "Check {title}" },
+                  "next": { "done": "note", "error": "report" }, "retry": { "attempts": 3, "delayMinutes": 10 } },
+      "note":   { "activity": "item.update", "inputs": { "fields": { "note": "Task {step:task.taskId}" } } },
+      "report": { "activity": "notify", "inputs": { "to": ["creator"], "title": "No task: {step:task.error}" } },
+      "done":   { "activity": "end" }
+    }
+  }
+}
+```
+
+- **Nodes** run an `activity` with `inputs`, then continue with the node that
+  `next` names for their outcome. When the outcome's own port is not
+  connected, `done` is used. A node without a next node ends the run.
+- **Activities:**
+  - any action (`item.update`, `task.create`, extension actions, …): ports
+    `done` and `error`;
+  - `approval` (inputs as the approval step): ports `approved`, `rejected`;
+  - `delay` (`hours`): port `done`;
+  - `if`: `filter` (OData on the item), `step` + `is` (an approval outcome)
+    or `left`, `op` and `right` (text with tokens; `op` is `eq`, `ne`, `gt`,
+    `ge`, `lt`, `le`, `contains`, `empty` or `notEmpty`, and numbers compare
+    as numbers): ports `true`, `false`;
+  - `setVariable` (`name`, `value`: text with tokens or any JSON value):
+    port `done`;
+  - `end` ends the run; `fail` (`message`) ends it as failed.
+- **Outputs and variables:** each node's result is its output (an action's
+  output, an approval's `outcome`, `decidedBy` and `comment`, or `error` on the
+  `error` port). `variables` gives the initial values of the run's variables.
+- **Failures:** a failing node is tried again by its `retry` policy
+  (`attempts` up to 10, `delayMinutes`, default 1), then continues on its
+  `error` port, and otherwise fails the run at that node.
+- **Checks:** the start and every next node must exist, ports must fit their
+  activity, every node must be reachable from the start, and a flow has at
+  most 100 nodes. A run executes at most 1000 nodes.
+
+The web editor edits steps; flows are edited in its JSON view for now.
+
 ## Runs
 
 - **When runs start:** every trigger that matches starts one run, and the same
@@ -80,8 +133,15 @@ they started with.
     condition.
 - **Status and log:** `GET …/workflows/runs?workflowId=&itemId=&status=`
   shows each run's status (`running`, `waiting`, `completed`, `failed`,
-  `cancelled`), the approval outcomes, a log and the error. Cancel a run with
+  `cancelled`), its `node`, the approval `outcomes`, the `outputs` of the
+  nodes that ran, its `variables`, a log and the error. Cancel a run with
   `POST …/workflows/runs/{id}/cancel`.
+- **Retrying failed runs:** a run that failed at a node (`failedNode`) runs
+  again from that node with `POST …/workflows/runs/{id}/retry`, for example
+  after a missing list was created. The node's action keeps its execution id,
+  so it does not repeat what an earlier attempt already did.
+- **Waits** (approvals, delays, retries) are durable bookmarks: a waiting run
+  holds no server and continues when its bookmark is completed.
 - **Retries and servers** ([ADR-0025](adr/0025-reliable-runs-on-several-servers.md)):
   - Only one server executes a run at a time (a lease).
   - A step that fails with an error (rather than a failed action) is retried
@@ -117,7 +177,9 @@ they started with.
 - `{created:yyyy}`, `{modified}`, `{today:yyyy-MM-dd}`;
 - `{list}`, `{id}`;
 - `{outcome:Step}` (approval outcomes);
-- `{data:name}` (extension trigger data).
+- `{var:name}` (variables), `{step:Node.path}` (a value in a node's output,
+  e.g. `{step:task.taskId}`);
+- `{trigger:name}` or `{data:name}` (extension trigger data).
 
 Term values become term names and person values become user names. `{{` and
 `}}` are literal braces.

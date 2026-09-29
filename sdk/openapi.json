@@ -13858,6 +13858,66 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/workflows/runs/{id}/retry": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "RetryWorkflowRun",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/workflows": {
       "post": {
         "tags": [
@@ -17402,6 +17462,66 @@
           }
         }
       },
+      "FlowDefinition": {
+        "required": [
+          "start",
+          "nodes"
+        ],
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string"
+          },
+          "nodes": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FlowNode"
+            }
+          }
+        },
+        "description": "A workflow\u0027s flow (ADR-0036): the \u0060start\u0060 node and the nodes by id. A node runs an activity and continues with\nthe node its outcome port names in \u0060next\u0060 (\u0060done\u0060 when the outcome\u0027s own port is not connected); a node\nwithout a next node ends the run."
+      },
+      "FlowNode": {
+        "required": [
+          "activity"
+        ],
+        "type": "object",
+        "properties": {
+          "activity": {
+            "type": "string"
+          },
+          "inputs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "next": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "retry": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RetryPolicy"
+              }
+            ]
+          }
+        },
+        "description": "A node of a flow: an \u0060activity\u0060 (an action such as \u0060item.update\u0060, or one of the flow activities\n\u0060approval\u0060, \u0060delay\u0060, \u0060if\u0060, \u0060setVariable\u0060, \u0060end\u0060, \u0060fail\u0060), its \u0060inputs\u0060, the next\nnode per outcome port (\u0060done\u0060, \u0060error\u0060, \u0060approved\u0060, \u0060rejected\u0060, \u0060true\u0060, \u0060false\u0060)\nand an optional \u0060retry\u0060 policy for failures."
+      },
       "GroupInboxRequest": {
         "required": [
           "workspaceId",
@@ -19538,6 +19658,26 @@
           }
         }
       },
+      "RetryPolicy": {
+        "required": [
+          "attempts"
+        ],
+        "type": "object",
+        "properties": {
+          "attempts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delayMinutes": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        },
+        "description": "How often a failing activity is tried again (\u0060attempts\u0060, at most 10) and how long to wait in between (\u0060delayMinutes\u0060, default 1)."
+      },
       "RoleAssignmentRequest": {
         "required": [
           "principalId",
@@ -19641,7 +19781,11 @@
           "error",
           "startedBy",
           "startedAt",
-          "completedAt"
+          "completedAt",
+          "node",
+          "failedNode",
+          "outputs",
+          "variables"
         ],
         "type": "object",
         "properties": {
@@ -19723,8 +19867,27 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "node": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failedNode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "outputs": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "variables": {
+            "$ref": "#/components/schemas/JsonObject"
           }
-        }
+        },
+        "description": "A run: its \u0060node\u0060 (next or waited on), the approval \u0060outcomes\u0060 by node, the \u0060outputs\u0060 of the nodes that\nran, its \u0060variables\u0060, a log, and for failed runs the error and the \u0060failedNode\u0060 it can be retried from."
       },
       "RunStatus": {
         "enum": [
@@ -21418,6 +21581,26 @@
           "enabled": {
             "type": "boolean",
             "default": true
+          },
+          "flow": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FlowDefinition"
+              }
+            ]
+          },
+          "variables": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
           }
         }
       },
@@ -21471,7 +21654,10 @@
             ]
           },
           "steps": {
-            "type": "array",
+            "type": [
+              "null",
+              "array"
+            ],
             "items": {
               "$ref": "#/components/schemas/WorkflowStep"
             }
@@ -21484,6 +21670,26 @@
             "type": "string",
             "format": "date-time"
           },
+          "flow": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FlowDefinition"
+              }
+            ]
+          },
+          "variables": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
           "@odata.etag": {
             "type": [
               "null",
@@ -21492,7 +21698,7 @@
             "description": "The ETag for \u0060If-Match\u0060 on changes (the same as the \u0060ETag\u0060 header)."
           }
         },
-        "description": "A workflow with the definition of its current \u0060version\u0060 (runs keep the version they started with)."
+        "description": "A workflow with the definition of its current \u0060version\u0060 (runs keep the version they started with): \u0060steps\u0060\nor a \u0060flow\u0060, and the initial \u0060variables\u0060."
       },
       "WorkflowStep": {
         "required": [

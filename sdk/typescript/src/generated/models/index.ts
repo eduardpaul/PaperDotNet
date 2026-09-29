@@ -1450,6 +1450,24 @@ export function createFileVersionResponseFromDiscriminatorValue(parseNode: Parse
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {FlowDefinition_nodes}
+ */
+// @ts-ignore
+export function createFlowDefinition_nodesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoFlowDefinition_nodes;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {FlowDefinition}
+ */
+// @ts-ignore
+export function createFlowDefinitionFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoFlowDefinition;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {GroupInboxRequest}
  */
 // @ts-ignore
@@ -3902,6 +3920,28 @@ export function deserializeIntoFileVersionResponse(fileVersionResponse: Partial<
 }
 /**
  * The deserialization information for the current model
+ * @param FlowDefinition The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoFlowDefinition(flowDefinition: Partial<FlowDefinition> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "nodes": n => { flowDefinition.nodes = n.getObjectValue<FlowDefinition_nodes>(createFlowDefinition_nodesFromDiscriminatorValue); },
+        "start": n => { flowDefinition.start = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param FlowDefinition_nodes The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoFlowDefinition_nodes(flowDefinition_nodes: Partial<FlowDefinition_nodes> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param GroupInboxRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -4949,14 +4989,18 @@ export function deserializeIntoRunResponse(runResponse: Partial<RunResponse> | u
         "completedAt": n => { runResponse.completedAt = n.getDateValue(); },
         "error": n => { runResponse.errorEscaped = n.getStringValue(); },
         "eventId": n => { runResponse.eventId = n.getGuidValue(); },
+        "failedNode": n => { runResponse.failedNode = n.getStringValue(); },
         "id": n => { runResponse.id = n.getGuidValue(); },
         "itemId": n => { runResponse.itemId = n.getGuidValue(); },
         "listId": n => { runResponse.listId = n.getGuidValue(); },
         "log": n => { runResponse.log = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+        "node": n => { runResponse.node = n.getStringValue(); },
         "outcomes": n => { runResponse.outcomes = n.getObjectValue<RunResponse_outcomes>(createRunResponse_outcomesFromDiscriminatorValue); },
+        "outputs": n => { runResponse.outputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "startedAt": n => { runResponse.startedAt = n.getDateValue(); },
         "startedBy": n => { runResponse.startedBy = n.getGuidValue(); },
         "status": n => { runResponse.status = n.getEnumValue<RunStatus>(RunStatusObject); },
+        "variables": n => { runResponse.variables = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "workflow": n => { runResponse.workflow = n.getStringValue(); },
         "workflowId": n => { runResponse.workflowId = n.getGuidValue(); },
         "workflowVersion": n => { runResponse.workflowVersion = n.getNumberValue(); },
@@ -5632,9 +5676,11 @@ export function deserializeIntoWorkflowRequest(workflowRequest: Partial<Workflow
         "condition": n => { workflowRequest.condition = n.getStringValue(); },
         "description": n => { workflowRequest.description = n.getStringValue(); },
         "enabled": n => { workflowRequest.enabled = n.getBooleanValue() ?? true; },
+        "flow": n => { workflowRequest.flow = n.getObjectValue<FlowDefinition>(createFlowDefinitionFromDiscriminatorValue); },
         "name": n => { workflowRequest.name = n.getStringValue(); },
         "steps": n => { workflowRequest.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
         "trigger": n => { workflowRequest.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
+        "variables": n => { workflowRequest.variables = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
     }
 }
 /**
@@ -5649,12 +5695,14 @@ export function deserializeIntoWorkflowResponse(workflowResponse: Partial<Workfl
         "createdAt": n => { workflowResponse.createdAt = n.getDateValue(); },
         "description": n => { workflowResponse.description = n.getStringValue(); },
         "enabled": n => { workflowResponse.enabled = n.getBooleanValue(); },
+        "flow": n => { workflowResponse.flow = n.getObjectValue<FlowDefinition>(createFlowDefinitionFromDiscriminatorValue); },
         "id": n => { workflowResponse.id = n.getGuidValue(); },
         "name": n => { workflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { workflowResponse.odataEtag = n.getStringValue(); },
         "steps": n => { workflowResponse.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
         "trigger": n => { workflowResponse.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
         "updatedAt": n => { workflowResponse.updatedAt = n.getDateValue(); },
+        "variables": n => { workflowResponse.variables = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "version": n => { workflowResponse.version = n.getNumberValue(); },
         "workspaceId": n => { workflowResponse.workspaceId = n.getGuidValue(); },
     }
@@ -6228,6 +6276,21 @@ export interface FileVersionResponse extends AdditionalDataHolder, Parsable {
      * The textLanguage property
      */
     textLanguage?: string | null;
+}
+/**
+ * A workflow's flow (ADR-0036): the `start` node and the nodes by id. A node runs an activity and continues withthe node its outcome port names in `next` (`done` when the outcome's own port is not connected); a nodewithout a next node ends the run.
+ */
+export interface FlowDefinition extends AdditionalDataHolder, Parsable {
+    /**
+     * The nodes property
+     */
+    nodes?: FlowDefinition_nodes | null;
+    /**
+     * The start property
+     */
+    start?: string | null;
+}
+export interface FlowDefinition_nodes extends AdditionalDataHolder, Parsable {
 }
 export interface GroupInboxRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -7619,6 +7682,9 @@ export interface RoleResponse extends AdditionalDataHolder, Parsable {
      */
     scopes?: string[] | null;
 }
+/**
+ * A run: its `node` (next or waited on), the approval `outcomes` by node, the `outputs` of the nodes thatran, its `variables`, a log, and for failed runs the error and the `failedNode` it can be retried from.
+ */
 export interface RunResponse extends AdditionalDataHolder, Parsable {
     /**
      * The completedAt property
@@ -7632,6 +7698,10 @@ export interface RunResponse extends AdditionalDataHolder, Parsable {
      * The eventId property
      */
     eventId?: Guid | null;
+    /**
+     * The failedNode property
+     */
+    failedNode?: string | null;
     /**
      * The id property
      */
@@ -7649,9 +7719,17 @@ export interface RunResponse extends AdditionalDataHolder, Parsable {
      */
     log?: UntypedNode | null;
     /**
+     * The node property
+     */
+    node?: string | null;
+    /**
      * The outcomes property
      */
     outcomes?: RunResponse_outcomes | null;
+    /**
+     * The outputs property
+     */
+    outputs?: JsonObject | null;
     /**
      * The startedAt property
      */
@@ -7664,6 +7742,10 @@ export interface RunResponse extends AdditionalDataHolder, Parsable {
      * The status property
      */
     status?: RunStatus | null;
+    /**
+     * The variables property
+     */
+    variables?: JsonObject | null;
     /**
      * The workflow property
      */
@@ -8921,6 +9003,30 @@ export function serializeFileVersionResponse(writer: SerializationWriter, fileVe
 }
 /**
  * Serializes information the current object
+ * @param FlowDefinition The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeFlowDefinition(writer: SerializationWriter, flowDefinition: Partial<FlowDefinition> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!flowDefinition || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<FlowDefinition_nodes>("nodes", flowDefinition.nodes, serializeFlowDefinition_nodes);
+    writer.writeStringValue("start", flowDefinition.start);
+    writer.writeAdditionalData(flowDefinition.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param FlowDefinition_nodes The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeFlowDefinition_nodes(writer: SerializationWriter, flowDefinition_nodes: Partial<FlowDefinition_nodes> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!flowDefinition_nodes || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(flowDefinition_nodes.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param GroupInboxRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -10045,14 +10151,18 @@ export function serializeRunResponse(writer: SerializationWriter, runResponse: P
     writer.writeDateValue("completedAt", runResponse.completedAt);
     writer.writeStringValue("error", runResponse.errorEscaped);
     writer.writeGuidValue("eventId", runResponse.eventId);
+    writer.writeStringValue("failedNode", runResponse.failedNode);
     writer.writeGuidValue("id", runResponse.id);
     writer.writeGuidValue("itemId", runResponse.itemId);
     writer.writeGuidValue("listId", runResponse.listId);
     writer.writeObjectValue("log", runResponse.log);
+    writer.writeStringValue("node", runResponse.node);
     writer.writeObjectValue<RunResponse_outcomes>("outcomes", runResponse.outcomes, serializeRunResponse_outcomes);
+    writer.writeObjectValue<JsonObject>("outputs", runResponse.outputs, serializeJsonObject);
     writer.writeDateValue("startedAt", runResponse.startedAt);
     writer.writeGuidValue("startedBy", runResponse.startedBy);
     writer.writeEnumValue<RunStatus>("status", runResponse.status);
+    writer.writeObjectValue<JsonObject>("variables", runResponse.variables, serializeJsonObject);
     writer.writeStringValue("workflow", runResponse.workflow);
     writer.writeGuidValue("workflowId", runResponse.workflowId);
     writer.writeNumberValue("workflowVersion", runResponse.workflowVersion);
@@ -10775,9 +10885,11 @@ export function serializeWorkflowRequest(writer: SerializationWriter, workflowRe
     writer.writeStringValue("condition", workflowRequest.condition);
     writer.writeStringValue("description", workflowRequest.description);
     writer.writeBooleanValue("enabled", workflowRequest.enabled ?? true);
+    writer.writeObjectValue<FlowDefinition>("flow", workflowRequest.flow, serializeFlowDefinition);
     writer.writeStringValue("name", workflowRequest.name);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowRequest.steps, serializeWorkflowStep);
     writer.writeObjectValue<WorkflowTrigger>("trigger", workflowRequest.trigger, serializeWorkflowTrigger);
+    writer.writeObjectValue<JsonObject>("variables", workflowRequest.variables, serializeJsonObject);
     writer.writeAdditionalData(workflowRequest.additionalData);
 }
 /**
@@ -10793,12 +10905,14 @@ export function serializeWorkflowResponse(writer: SerializationWriter, workflowR
     writer.writeDateValue("createdAt", workflowResponse.createdAt);
     writer.writeStringValue("description", workflowResponse.description);
     writer.writeBooleanValue("enabled", workflowResponse.enabled);
+    writer.writeObjectValue<FlowDefinition>("flow", workflowResponse.flow, serializeFlowDefinition);
     writer.writeGuidValue("id", workflowResponse.id);
     writer.writeStringValue("name", workflowResponse.name);
     writer.writeStringValue("@odata.etag", workflowResponse.odataEtag);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowResponse.steps, serializeWorkflowStep);
     writer.writeObjectValue<WorkflowTrigger>("trigger", workflowResponse.trigger, serializeWorkflowTrigger);
     writer.writeDateValue("updatedAt", workflowResponse.updatedAt);
+    writer.writeObjectValue<JsonObject>("variables", workflowResponse.variables, serializeJsonObject);
     writer.writeNumberValue("version", workflowResponse.version);
     writer.writeGuidValue("workspaceId", workflowResponse.workspaceId);
     writer.writeAdditionalData(workflowResponse.additionalData);
@@ -11719,6 +11833,10 @@ export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
      */
     enabled?: boolean | null;
     /**
+     * The flow property
+     */
+    flow?: FlowDefinition | null;
+    /**
      * The name property
      */
     name?: string | null;
@@ -11730,9 +11848,13 @@ export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
      * The trigger property
      */
     trigger?: WorkflowTrigger | null;
+    /**
+     * The variables property
+     */
+    variables?: JsonObject | null;
 }
 /**
- * A workflow with the definition of its current `version` (runs keep the version they started with).
+ * A workflow with the definition of its current `version` (runs keep the version they started with): `steps`or a `flow`, and the initial `variables`.
  */
 export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
     /**
@@ -11751,6 +11873,10 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      * The enabled property
      */
     enabled?: boolean | null;
+    /**
+     * The flow property
+     */
+    flow?: FlowDefinition | null;
     /**
      * The id property
      */
@@ -11775,6 +11901,10 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      * The updatedAt property
      */
     updatedAt?: Date | null;
+    /**
+     * The variables property
+     */
+    variables?: JsonObject | null;
     /**
      * The version property
      */

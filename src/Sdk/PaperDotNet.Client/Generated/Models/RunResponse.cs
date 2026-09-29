@@ -7,10 +7,11 @@ using System.IO;
 using System;
 namespace PaperDotNet.Client.Models
 {
+    /// <summary>
+    /// A run: its `node` (next or waited on), the approval `outcomes` by node, the `outputs` of the nodes thatran, its `variables`, a log, and for failed runs the error and the `failedNode` it can be retried from.
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
     public partial class RunResponse : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
@@ -26,6 +27,14 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The eventId property</summary>
         public Guid? EventId { get; set; }
+        /// <summary>The failedNode property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? FailedNode { get; set; }
+#nullable restore
+#else
+        public string FailedNode { get; set; }
+#endif
         /// <summary>The id property</summary>
         public Guid? Id { get; set; }
         /// <summary>The itemId property</summary>
@@ -40,6 +49,14 @@ namespace PaperDotNet.Client.Models
 #else
         public UntypedNode Log { get; set; }
 #endif
+        /// <summary>The node property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Node { get; set; }
+#nullable restore
+#else
+        public string Node { get; set; }
+#endif
         /// <summary>The outcomes property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -48,12 +65,28 @@ namespace PaperDotNet.Client.Models
 #else
         public global::PaperDotNet.Client.Models.RunResponse_outcomes Outcomes { get; set; }
 #endif
+        /// <summary>The outputs property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? Outputs { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject Outputs { get; set; }
+#endif
         /// <summary>The startedAt property</summary>
         public DateTimeOffset? StartedAt { get; set; }
         /// <summary>The startedBy property</summary>
         public Guid? StartedBy { get; set; }
         /// <summary>The status property</summary>
         public global::PaperDotNet.Client.Models.RunStatus? Status { get; set; }
+        /// <summary>The variables property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? Variables { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject Variables { get; set; }
+#endif
         /// <summary>The workflow property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -96,14 +129,18 @@ namespace PaperDotNet.Client.Models
                 { "completedAt", n => { CompletedAt = n.GetDateTimeOffsetValue(); } },
                 { "error", n => { Error = n.GetStringValue(); } },
                 { "eventId", n => { EventId = n.GetGuidValue(); } },
+                { "failedNode", n => { FailedNode = n.GetStringValue(); } },
                 { "id", n => { Id = n.GetGuidValue(); } },
                 { "itemId", n => { ItemId = n.GetGuidValue(); } },
                 { "listId", n => { ListId = n.GetGuidValue(); } },
                 { "log", n => { Log = n.GetObjectValue<UntypedNode>(UntypedNode.CreateFromDiscriminatorValue); } },
+                { "node", n => { Node = n.GetStringValue(); } },
                 { "outcomes", n => { Outcomes = n.GetObjectValue<global::PaperDotNet.Client.Models.RunResponse_outcomes>(global::PaperDotNet.Client.Models.RunResponse_outcomes.CreateFromDiscriminatorValue); } },
+                { "outputs", n => { Outputs = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "startedAt", n => { StartedAt = n.GetDateTimeOffsetValue(); } },
                 { "startedBy", n => { StartedBy = n.GetGuidValue(); } },
                 { "status", n => { Status = n.GetEnumValue<global::PaperDotNet.Client.Models.RunStatus>(); } },
+                { "variables", n => { Variables = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "workflow", n => { Workflow = n.GetStringValue(); } },
                 { "workflowId", n => { WorkflowId = n.GetGuidValue(); } },
                 { "workflowVersion", n => { WorkflowVersion = n.GetIntValue(); } },
@@ -120,14 +157,18 @@ namespace PaperDotNet.Client.Models
             writer.WriteDateTimeOffsetValue("completedAt", CompletedAt);
             writer.WriteStringValue("error", Error);
             writer.WriteGuidValue("eventId", EventId);
+            writer.WriteStringValue("failedNode", FailedNode);
             writer.WriteGuidValue("id", Id);
             writer.WriteGuidValue("itemId", ItemId);
             writer.WriteGuidValue("listId", ListId);
             writer.WriteObjectValue<UntypedNode>("log", Log);
+            writer.WriteStringValue("node", Node);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.RunResponse_outcomes>("outcomes", Outcomes);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("outputs", Outputs);
             writer.WriteDateTimeOffsetValue("startedAt", StartedAt);
             writer.WriteGuidValue("startedBy", StartedBy);
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.RunStatus>("status", Status);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("variables", Variables);
             writer.WriteStringValue("workflow", Workflow);
             writer.WriteGuidValue("workflowId", WorkflowId);
             writer.WriteIntValue("workflowVersion", WorkflowVersion);

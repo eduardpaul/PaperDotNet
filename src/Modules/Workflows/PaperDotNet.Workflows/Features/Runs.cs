@@ -15,11 +15,12 @@ using PaperDotNet.Workflows.Data;
 namespace PaperDotNet.Workflows.Features;
 
 /// <summary>
-/// Resumes a workflow run (ADR-0019, ADR-0024): sent with the run when it starts, with a decision when an approval
-/// is decided, and by the minute job when a delay is over. <see cref="WaitKey"/> names the wait it ends (null for
-/// the start); messages for a wait the run no longer has are ignored, so duplicates and stale ones are harmless.
+/// Resumes a workflow run (ADR-0019, ADR-0036): sent with the run when it starts, with the completion of the bookmark it
+/// waits on (an approval decided, a delay over), and by the minute job to recover stalled runs. <see cref="BookmarkId"/>
+/// names the wait it ends (null for the start or a running run); messages for a wait the run is not in are ignored, so
+/// duplicates and stale ones are harmless.
 /// </summary>
-public sealed record ResumeRun(Guid RunId, string? WaitKey, Guid TenantId, string TenantIdentifier, Guid? UserId = null) : ITenantMessage;
+public sealed record ResumeRun(Guid RunId, Guid? BookmarkId, Guid TenantId, string TenantIdentifier, Guid? UserId = null) : ITenantMessage;
 
 /// <summary>Wolverine handler for <see cref="ResumeRun"/> (discovered by convention).</summary>
 public static class ResumeRunHandler
@@ -27,7 +28,7 @@ public static class ResumeRunHandler
     public static async Task Handle(ResumeRun message, ITenantScopeFactory scopes, CancellationToken cancellationToken)
     {
         await using var scope = scopes.CreateScope(message.TenantId, message.TenantIdentifier);
-        await scope.ServiceProvider.GetRequiredService<WorkflowInterpreter>().RunAsync(message.RunId, message.WaitKey, cancellationToken);
+        await scope.ServiceProvider.GetRequiredService<WorkflowInterpreter>().RunAsync(message.RunId, message.BookmarkId, cancellationToken);
     }
 }
 
@@ -191,12 +192,16 @@ public static class NotifyApprovalHandler
 }
 
 /// <summary>
-/// Runs a workflow's compiled steps from the run's position until it finishes or has to wait (EVT-07, EVT-08).
+/// Runs a workflow's flow (ADR-0036) from the run's node until it finishes or has to wait (EVT-07, EVT-08).
 /// <list type="bullet">
 /// <item>A handler first claims the run with a lease (a conditional update), so only one server executes it at a time;
 /// a busy run makes the message retry later. A crashed handler's lease expires and the timer job resumes the run.</item>
-/// <item>Progress is saved after every step, so a retried execution continues where it stopped. An action step gets a
-/// stable execution id and key before it runs, the same when it runs again.</item>
+/// <item>Progress (node, variables, outputs) is saved after every node, so a retried execution continues where it
+/// stopped. An action gets a stable execution id and key before it runs, the same when it runs again.</item>
+/// <item>Waits are bookmarks: the run stops and a completed bookmark (with the message that resumes it) continues it
+/// with the bookmark's payload as the node's output.</item>
+/// <item>A failing node is tried again by its retry policy, else continues on its <c>error</c> port, else fails the run
+/// at that node (it can be retried from there).</item>
 /// <item>A run that keeps failing to make progress is failed after <see cref="MaxAttempts"/> attempts.</item>
 /// </list>
 /// </summary>
@@ -214,15 +219,16 @@ internal sealed partial class WorkflowInterpreter(
 {
     public const int MaxAttempts = 10;
     public static readonly TimeSpan Lease = TimeSpan.FromMinutes(5);
-    private const int MaxInstructionsPerRun = 500;
+    private const int MaxNodesPerExecution = 500;
+    private const int MaxNodesPerRun = 1000;
     private const int MaxLogEntries = 100;
+    private const int MaxStateLength = 256 * 1024;
 
-    /// <summary>Continues the run when <paramref name="waitKey"/> is the wait it is in (null: not started or running).</summary>
-    public async Task RunAsync(Guid runId, string? waitKey, CancellationToken ct)
+    /// <summary>Continues the run when <paramref name="bookmarkId"/> is the wait it is in (null: not started or running).</summary>
+    public async Task RunAsync(Guid runId, Guid? bookmarkId, CancellationToken ct)
     {
         var current = await db.Runs.AsNoTracking().FirstOrDefaultAsync(r => r.Id == runId, ct);
-        if (current is null || IsFinished(current.Status) || current.WaitingFor != waitKey
-            || (current.ResumeAt is { } resumeAt && resumeAt > time.GetUtcNow()))
+        if (current is null || IsFinished(current.Status) || current.WaitingOn != bookmarkId)
         {
             return;
         }
@@ -230,13 +236,13 @@ internal sealed partial class WorkflowInterpreter(
         var lease = Ids.New();
         var now = time.GetUtcNow();
         var claimed = await db.Runs
-            .Where(r => r.Id == runId && r.WaitingFor == waitKey && (r.LeaseUntil == null || r.LeaseUntil < now)
+            .Where(r => r.Id == runId && r.WaitingOn == bookmarkId && (r.LeaseUntil == null || r.LeaseUntil < now)
                 && (r.Status == RunStatus.Running || r.Status == RunStatus.Waiting))
             .ExecuteUpdateAsync(u => u.SetProperty(r => r.LeaseId, lease).SetProperty(r => r.LeaseUntil, now + Lease).SetProperty(r => r.Attempts, r => r.Attempts + 1), ct);
         if (claimed == 0)
         {
             var again = await db.Runs.AsNoTracking().FirstOrDefaultAsync(r => r.Id == runId, ct);
-            if (again is null || IsFinished(again.Status) || again.WaitingFor != waitKey)
+            if (again is null || IsFinished(again.Status) || again.WaitingOn != bookmarkId)
             {
                 return;
             }
@@ -266,8 +272,10 @@ internal sealed partial class WorkflowInterpreter(
         causation.Depth = run.Depth + 1;
         var workflow = await db.Workflows.AsNoTracking().FirstAsync(a => a.Id == run.WorkflowId, ct);
         var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == run.WorkflowId && v.Number == run.WorkflowVersion, ct);
-        var program = Definitions.Compile(DefinitionJson.Deserialize<WorkflowSpec>(version.Definition).Steps);
-        var outcomes = DefinitionJson.Deserialize<Dictionary<string, string>>(run.Outcomes);
+        var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
+        var flow = Definitions.FlowOf(spec);
+        var outputs = JsonNode.Parse(run.Outputs) as JsonObject ?? [];
+        var variables = JsonNode.Parse(run.Variables) as JsonObject ?? [];
         var log = JsonNode.Parse(run.Log) as JsonArray ?? [];
         var item = run.ListId is { } listId && run.ItemId is { } itemId ? new WorkflowItem(run.WorkspaceId, listId, itemId) : null;
         var data = run.Data is { } json ? JsonNode.Parse(json) as JsonObject : null;
@@ -278,9 +286,6 @@ internal sealed partial class WorkflowInterpreter(
             {
                 log.RemoveAt(0);
             }
-
-            run.Log = log.ToJsonString();
-            run.Outcomes = DefinitionJson.Serialize(outcomes);
         }
 
         // Saves progress and extends the lease; releases it when the run stops (finished or waiting).
@@ -288,162 +293,302 @@ internal sealed partial class WorkflowInterpreter(
         {
             var now = time.GetUtcNow();
             run.LastActivityAt = now;
+            run.Log = log.ToJsonString();
+            run.Outputs = outputs.ToJsonString();
+            run.Variables = variables.ToJsonString();
             var stopped = run.Status != RunStatus.Running;
             run.LeaseId = stopped ? null : lease;
             run.LeaseUntil = stopped ? null : now + Lease;
             return messages is { Count: > 0 } ? outbox.SaveChangesAsync(db, [], messages, ct) : db.SaveChangesAsync(ct);
         }
 
-        void Advance(int position)
+        void Advance(string node)
         {
-            run.Position = position;
+            run.Node = node;
             run.StepExecutionId = null;
             run.Attempts = 0;
+            run.NodeAttempts = 0;
         }
 
-        async Task FailAsync(string error)
+        async Task FailAsync(string error, string? node)
         {
             Log($"Failed: {error}");
             run.Status = RunStatus.Failed;
             run.Error = Truncate(error);
-            run.WaitingFor = null;
-            run.ResumeAt = null;
+            run.FailedNode = node;
+            run.WaitingOn = null;
             run.CompletedAt = time.GetUtcNow();
             await SaveAsync();
             LogRunFailed(run.Id, error);
         }
 
-        if (run.Attempts > MaxAttempts)
+        async Task CompleteAsync()
         {
-            await FailAsync($"The run stopped after {MaxAttempts} attempts without progress (see the server log).");
-            return;
-        }
-
-        if (run.Status == RunStatus.Waiting && run.Position < program.Count)
-        {
-            var waiting = program[run.Position];
-            if (waiting.Op == OpCode.Approval)
-            {
-                var decided = await db.Approvals.AsNoTracking().FirstOrDefaultAsync(a => a.RunId == run.Id && a.StepName == waiting.StepName && a.Status != ApprovalStatus.Pending && a.Status != ApprovalStatus.Cancelled, ct);
-                if (decided is null)
-                {
-                    // Nothing to do yet (e.g. a duplicate message); not a failed attempt.
-                    run.Attempts = 0;
-                    await SaveAsync();
-                    return;
-                }
-
-                var outcome = decided.Status == ApprovalStatus.Approved ? ApprovalOutcomes.Approved : ApprovalOutcomes.Rejected;
-                outcomes[waiting.StepName] = outcome;
-                Log($"{waiting.StepName}: {outcome}");
-            }
-
-            Advance(run.Position + 1);
-            run.Status = RunStatus.Running;
-            run.WaitingFor = null;
-            run.ResumeAt = null;
-            run.NextCheckAt = null;
+            run.Status = RunStatus.Completed;
+            run.CompletedAt = time.GetUtcNow();
+            Log("Completed");
             await SaveAsync();
         }
 
-        for (var executed = 0; run.Position < program.Count; executed++)
+        // Moves on along the outcome's port (done when that port is not connected); false when the run ended.
+        async Task<bool> ContinueAsync(string node, string outcome)
         {
-            if (executed >= MaxInstructionsPerRun)
+            var next = flow.Nodes.GetValueOrDefault(node)?.Next;
+            var target = next?.GetValueOrDefault(outcome) ?? (outcome == "error" ? null : next?.GetValueOrDefault("done"));
+            if (target is not null)
             {
-                await FailAsync("The workflow ran too many steps.");
+                Advance(target);
+                return true;
+            }
+
+            await CompleteAsync();
+            return false;
+        }
+
+        Task WaitAsync(WorkflowBookmark bookmark, IReadOnlyCollection<ITenantMessage>? messages = null)
+        {
+            run.Status = RunStatus.Waiting;
+            run.WaitingOn = bookmark.Id;
+            run.NextCheckAt = null;
+            return SaveAsync(messages);
+        }
+
+        // A failure of a node: its retry policy, else its error port, else the run fails there. False when the run stopped.
+        async Task<bool> FailedAsync(string id, FlowNode node, string error)
+        {
+            if (node.Retry is { } retry && run.NodeAttempts < retry.Attempts)
+            {
+                run.NodeAttempts++;
+                var delay = retry.DelayMinutes ?? 1;
+                Log($"{id}: {error} (trying again in {delay} minutes, {run.NodeAttempts} of {retry.Attempts})");
+                var bookmark = NewBookmark(run, id, BookmarkKinds.Retry, $"{run.Id:N}:{id}:{run.Executed}", time.GetUtcNow().AddMinutes(delay));
+                await WaitAsync(bookmark);
+                return false;
+            }
+
+            if (node.Next?.GetValueOrDefault("error") is { } target)
+            {
+                outputs[id] = new JsonObject { ["error"] = error };
+                Log($"{id}: {error} (continuing with {target})");
+                Advance(target);
+                return true;
+            }
+
+            await FailAsync($"{id} ({node.Activity}): {error}", id);
+            return false;
+        }
+
+        TokenScope? scope = null;
+        async Task<string> ExpandAsync(string template)
+        {
+            if (scope is null)
+            {
+                var store = items.AsSystem();
+                var current = item is null ? null : await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
+                var list = item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
+                scope = new TokenScope(current, list?.Name, outputs, variables, data);
+            }
+
+            return await tokens.ExpandAsync(template, scope, ct);
+        }
+
+        if (run.Attempts > MaxAttempts)
+        {
+            await FailAsync($"The run stopped after {MaxAttempts} attempts without progress (see the server log).", run.Node);
+            return;
+        }
+
+        if (run.Node is null)
+        {
+            run.Node = flow.Start;
+            if (spec.Variables is { } initial)
+            {
+                variables = initial.DeepClone().AsObject();
+            }
+        }
+
+        if (run.Status == RunStatus.Waiting)
+        {
+            var bookmark = run.WaitingOn is { } waitingOn ? await db.Bookmarks.AsNoTracking().FirstOrDefaultAsync(b => b.Id == waitingOn, ct) : null;
+            if (bookmark is null)
+            {
+                await FailAsync("The wait of the run no longer exists.", run.Node);
                 return;
             }
 
-            var instruction = program[run.Position];
-            switch (instruction.Op)
+            if (bookmark.CompletedAt is null)
             {
-                case OpCode.Action:
-                    var action = (ActionNode)instruction.Step;
-                    if (run.StepExecutionId is null)
-                    {
-                        // Stable across retries of this step: actions use it to be safe to repeat.
-                        run.StepExecutionId = Ids.New();
-                        await SaveAsync();
-                    }
+                // Nothing to do yet (e.g. a duplicate message); not a failed attempt.
+                run.Attempts = 0;
+                await SaveAsync();
+                return;
+            }
 
-                    var result = await executor.ExecuteAsync(
-                        new ActionDefinition(action.Action!, action.Inputs), run.WorkspaceId, item, run.StartedBy, data, outcomes,
-                        $"workflow:{workflow.Name}", $"run:{run.Id:N}:{run.Position}", run.StepExecutionId.Value, ct);
-                    if (!result.Succeeded)
+            run.Status = RunStatus.Running;
+            run.WaitingOn = null;
+            run.NextCheckAt = null;
+            if (bookmark.Kind != BookmarkKinds.Retry)
+            {
+                var payload = bookmark.Payload is { } text ? JsonNode.Parse(text) as JsonObject ?? [] : [];
+                outputs[bookmark.Node] = payload;
+                var outcome = payload["outcome"] is JsonValue value && value.TryGetValue<string>(out var named) ? named : "done";
+                if (bookmark.Kind != BookmarkKinds.Delay)
+                {
+                    Log($"{bookmark.Node}: {outcome}");
+                }
+
+                if (!await ContinueAsync(bookmark.Node, outcome))
+                {
+                    return;
+                }
+            }
+
+            await SaveAsync();
+        }
+
+        for (var executed = 0; ; executed++)
+        {
+            if (executed >= MaxNodesPerExecution || run.Executed >= MaxNodesPerRun)
+            {
+                await FailAsync("The workflow ran too many steps.", run.Node);
+                return;
+            }
+
+            scope = null; // the item may have changed
+            var id = run.Node!;
+            if (!flow.Nodes.TryGetValue(id, out var node))
+            {
+                await FailAsync($"The node '{id}' does not exist.", null);
+                return;
+            }
+
+            run.Executed++;
+            var inputs = node.Inputs ?? [];
+            switch (node.Activity)
+            {
+                case FlowActivities.End:
+                    await CompleteAsync();
+                    return;
+                case FlowActivities.Fail:
+                    await FailAsync(await ExpandAsync(Inputs.Text(inputs, "message") ?? "The workflow ended with a failure."), null);
+                    return;
+                case FlowActivities.SetVariable:
+                    var name = Inputs.Text(inputs, "name")!;
+                    variables[name] = inputs["value"] is JsonValue template && template.TryGetValue<string>(out var text)
+                        ? JsonValue.Create(await ExpandAsync(text))
+                        : inputs["value"]?.DeepClone();
+                    if (variables.ToJsonString().Length > MaxStateLength)
                     {
-                        await FailAsync($"{instruction.StepName} ({action.Action}): {result.Error}");
+                        await FailAsync($"{id}: the variables are too large.", id);
                         return;
                     }
 
-                    Log($"{instruction.StepName}: {action.Action} done");
-                    Advance(run.Position + 1);
+                    if (!await ContinueAsync(id, "done"))
+                    {
+                        return;
+                    }
+
                     break;
-                case OpCode.Approval:
+                case FlowActivities.If:
+                    var (holds, error) = await EvaluateAsync(inputs, item, outputs, ExpandAsync, ct);
+                    if (error is not null ? !await FailedAsync(id, node, error) : !await ContinueAsync(id, holds ? "true" : "false"))
+                    {
+                        return;
+                    }
+
+                    break;
+                case FlowActivities.Delay:
+                    var hours = Inputs.Number(inputs, "hours") ?? 0;
+                    Log($"{id}: waiting {hours} hours");
+                    await WaitAsync(NewBookmark(run, id, BookmarkKinds.Delay, $"{run.Id:N}:{id}:{run.Executed}", time.GetUtcNow().AddHours(hours)));
+                    return;
+                case FlowActivities.Approval:
                     if (item is null)
                     {
-                        await FailAsync($"{instruction.StepName}: an approval needs an item (the trigger has none).");
+                        await FailAsync($"{id}: an approval needs an item (the trigger has none).", id);
                         return;
                     }
 
-                    var approval = await CreateApprovalAsync(run, item, instruction, outcomes, ct);
+                    var approval = await CreateApprovalAsync(run, item, id, inputs, ExpandAsync, ct);
                     if (approval is null)
                     {
-                        await FailAsync($"{instruction.StepName}: no assignee could be found.");
+                        await FailAsync($"{id}: no assignee could be found.", id);
                         return;
                     }
 
                     // The request, the wait and the notification are saved together: a decision can never find the run
                     // not yet waiting for it, and the assignees are always told.
-                    run.Status = RunStatus.Waiting;
-                    run.WaitingFor = WaitKey(approval.Id);
-                    Log($"{instruction.StepName}: waiting for approval");
-                    await SaveAsync([new NotifyApproval(approval.Id, false, tenant.TenantId!.Value, tenant.TenantIdentifier!)]);
+                    var key = BookmarkKey(approval.Id);
+                    var waitFor = await db.Bookmarks.FirstOrDefaultAsync(b => b.Kind == BookmarkKinds.Approval && b.Key == key, ct)
+                        ?? NewBookmark(run, id, BookmarkKinds.Approval, key, null);
+                    Log($"{id}: waiting for approval");
+                    await WaitAsync(waitFor, [new NotifyApproval(approval.Id, false, tenant.TenantId!.Value, tenant.TenantIdentifier!)]);
                     return;
-                case OpCode.Delay:
-                    var delay = (DelayNode)instruction.Step;
-                    run.Status = RunStatus.Waiting;
-                    run.WaitingFor = DelayKey(run.Id, run.Position);
-                    run.ResumeAt = time.GetUtcNow().AddHours(delay.Hours!.Value);
-                    run.NextCheckAt = null;
-                    Log($"{instruction.StepName}: waiting {delay.Hours} hours");
-                    await SaveAsync();
-                    return;
-                case OpCode.Branch:
-                    var condition = (ConditionNode)instruction.Step;
-                    var (holds, error) = await EvaluateAsync(condition, item, outcomes, ct);
-                    if (error is not null)
+                default:
+                    if (run.StepExecutionId is null)
                     {
-                        await FailAsync($"{instruction.StepName}: {error}");
+                        // Stable across retries of this node: actions use it to be safe to repeat.
+                        run.StepExecutionId = Ids.New();
+                        await SaveAsync();
+                    }
+
+                    var result = await executor.ExecuteAsync(
+                        new ActionDefinition(node.Activity, node.Inputs), run.WorkspaceId, item, run.StartedBy, data, outputs, variables,
+                        $"workflow:{workflow.Name}", $"run:{run.Id:N}:{run.StepExecutionId.Value:N}", run.StepExecutionId.Value, ct);
+                    if (!result.Succeeded)
+                    {
+                        if (!await FailedAsync(id, node, result.Error ?? "The action failed."))
+                        {
+                            return;
+                        }
+
+                        break;
+                    }
+
+                    outputs[id] = result.Output?.DeepClone() ?? new JsonObject();
+                    if (outputs.ToJsonString().Length > MaxStateLength)
+                    {
+                        await FailAsync($"{id}: the outputs of the run are too large.", id);
                         return;
                     }
 
-                    Advance(holds ? run.Position + 1 : instruction.Target);
-                    break;
-                case OpCode.Jump:
-                    Advance(instruction.Target);
+                    Log($"{id}: {node.Activity} done");
+                    if (!await ContinueAsync(id, "done"))
+                    {
+                        return;
+                    }
+
                     break;
             }
 
             await SaveAsync();
         }
-
-        run.Status = RunStatus.Completed;
-        run.CompletedAt = time.GetUtcNow();
-        Log("Completed");
-        await SaveAsync();
     }
 
-    public static string WaitKey(Guid approvalId) => $"approval:{approvalId:N}";
-
-    public static string DelayKey(Guid runId, int position) => $"delay:{runId:N}:{position}";
+    public static string BookmarkKey(Guid approvalId) => approvalId.ToString("N");
 
     public static string Truncate(string text) => text.Length > 2000 ? text[..2000] : text;
 
-    private async Task<(bool Holds, string? Error)> EvaluateAsync(ConditionNode step, WorkflowItem? item, Dictionary<string, string> outcomes, CancellationToken ct)
+    private WorkflowBookmark NewBookmark(WorkflowRun run, string node, string kind, string key, DateTimeOffset? resumeAt)
     {
-        if (step.ApprovalName is { } name)
+        var bookmark = new WorkflowBookmark { Id = Ids.New(), RunId = run.Id, Node = node, Kind = kind, Key = key, ResumeAt = resumeAt, CreatedAt = time.GetUtcNow() };
+        db.Bookmarks.Add(bookmark);
+        return bookmark;
+    }
+
+    private async Task<(bool Holds, string? Error)> EvaluateAsync(
+        JsonObject inputs, WorkflowItem? item, JsonObject outputs, Func<string, Task<string>> expand, CancellationToken ct)
+    {
+        if (Inputs.Text(inputs, "step") is { } step)
         {
-            return (outcomes.TryGetValue(name, out var outcome) && outcome == step.Outcome, null);
+            return (outputs[step]?["outcome"] is JsonValue outcome && outcome.ToString() == Inputs.Text(inputs, "is"), null);
+        }
+
+        if (Inputs.Text(inputs, "op") is { } op)
+        {
+            var left = Inputs.Text(inputs, "left") is { } l ? await expand(l) : string.Empty;
+            var right = Inputs.Text(inputs, "right") is { } r ? await expand(r) : string.Empty;
+            return (Comparison.Holds(left, op, right), null);
         }
 
         if (item is null)
@@ -451,43 +596,41 @@ internal sealed partial class WorkflowInterpreter(
             return (false, "a filter needs an item (the trigger has none).");
         }
 
-        var (matches, error) = await items.AsSystem().QueryAsync(item.WorkspaceId, item.ListId, new ListItemQuery($"id eq {item.ItemId} and ({step.Filter})", Top: 1), ct);
+        var (matches, error) = await items.AsSystem().QueryAsync(item.WorkspaceId, item.ListId, new ListItemQuery($"id eq {item.ItemId} and ({Inputs.Text(inputs, "filter")})", Top: 1), ct);
         return (matches.Count > 0, error);
     }
 
-    /// <summary>The pending request of this step (reused when the step runs again), or a new one (not saved yet).</summary>
-    private async Task<ApprovalRequest?> CreateApprovalAsync(WorkflowRun run, WorkflowItem item, Instruction instruction, Dictionary<string, string> outcomes, CancellationToken ct)
+    /// <summary>The pending request of this node (reused when the node runs again), or a new one (not saved yet).</summary>
+    private async Task<ApprovalRequest?> CreateApprovalAsync(
+        WorkflowRun run, WorkflowItem item, string node, JsonObject inputs, Func<string, Task<string>> expand, CancellationToken ct)
     {
-        var existing = await db.Approvals.FirstOrDefaultAsync(a => a.RunId == run.Id && a.StepName == instruction.StepName && a.Status == ApprovalStatus.Pending, ct);
+        var existing = await db.Approvals.FirstOrDefaultAsync(a => a.RunId == run.Id && a.StepName == node && a.Status == ApprovalStatus.Pending, ct);
         if (existing is not null)
         {
             return existing;
         }
 
-        var step = (ApprovalNode)instruction.Step;
         var current = await items.AsSystem().GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
-        var (assignees, _) = await recipients.ResolveAsync(step.Assignees ?? [], current, run.StartedBy, ct);
+        var (assignees, _) = await recipients.ResolveAsync(Inputs.Texts(inputs, "assignees") ?? [], current, run.StartedBy, ct);
         if (assignees.Count == 0)
         {
             return null;
         }
 
-        var (escalateTo, _) = await recipients.ResolveAsync(step.EscalateTo ?? [], current, run.StartedBy, ct);
-        var list = await items.AsSystem().GetListAsync(item.WorkspaceId, item.ListId, ct);
-        var scope = new TokenScope(current, list?.Name, outcomes, run.Data is { } data ? JsonNode.Parse(data) as JsonObject : null);
-        var title = await tokens.ExpandAsync(step.Title ?? $"Approve {{title}} ({instruction.StepName})", scope, ct);
+        var (escalateTo, _) = await recipients.ResolveAsync(Inputs.Texts(inputs, "escalateTo") ?? [], current, run.StartedBy, ct);
+        var title = await expand(Inputs.Text(inputs, "title") ?? $"Approve {{title}} ({node})");
         var approval = new ApprovalRequest
         {
             Id = Ids.New(),
             RunId = run.Id,
-            StepName = instruction.StepName,
+            StepName = node,
             WorkspaceId = run.WorkspaceId,
             ListId = item.ListId,
             ItemId = item.ItemId,
             Title = title.Length > 1000 ? title[..1000] : title,
             Assignees = assignees,
             EscalateTo = [.. escalateTo.Except(assignees)],
-            DueAt = step.DueInHours is { } hours ? time.GetUtcNow().AddHours(hours) : null,
+            DueAt = Inputs.Number(inputs, "dueInHours") is { } hours ? time.GetUtcNow().AddHours(hours) : null,
             Status = ApprovalStatus.Pending,
         };
         db.Approvals.Add(approval);
@@ -498,8 +641,8 @@ internal sealed partial class WorkflowInterpreter(
     private partial void LogRunFailed(Guid runId, string error);
 }
 
-/// <summary>Decisions on approvals and cancelling runs.</summary>
-internal sealed class ApprovalService(WorkflowsDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time, IItemActivity activity)
+/// <summary>Decisions on approvals, completing bookmarks, and cancelling and retrying runs.</summary>
+internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time, IItemActivity activity)
 {
     public enum DecisionResult
     {
@@ -509,8 +652,8 @@ internal sealed class ApprovalService(WorkflowsDbContext db, IOutbox outbox, ITe
     }
 
     /// <summary>
-    /// Records the decision of an assignee; the message that resumes the run is stored with it. A concurrent change of
-    /// the request (e.g. an escalation adding assignees) is retried.
+    /// Records the decision of an assignee and completes the approval's bookmark; the message that resumes the run is
+    /// stored with it. A concurrent change of the request (e.g. an escalation adding assignees) is retried.
     /// </summary>
     public async Task<DecisionResult> DecideAsync(Guid approvalId, Guid userId, string outcome, string? comment, CancellationToken ct)
     {
@@ -531,9 +674,17 @@ internal sealed class ApprovalService(WorkflowsDbContext db, IOutbox outbox, ITe
             approval.DecidedBy = userId;
             approval.DecidedAt = time.GetUtcNow();
             approval.Comment = comment;
+            var messages = new List<ITenantMessage>();
+            var key = WorkflowInterpreter.BookmarkKey(approval.Id);
+            if (await db.Bookmarks.FirstOrDefaultAsync(b => b.Kind == BookmarkKinds.Approval && b.Key == key && b.CompletedAt == null, ct) is { } bookmark)
+            {
+                Complete(bookmark, new JsonObject { ["outcome"] = outcome, ["decidedBy"] = userId.ToString(), ["comment"] = comment });
+                messages.Add(Resume(bookmark.RunId, bookmark.Id));
+            }
+
             try
             {
-                await outbox.SaveChangesAsync(db, [], [Resume(approval.RunId, WorkflowInterpreter.WaitKey(approval.Id))], ct);
+                await outbox.SaveChangesAsync(db, [], messages, ct);
             }
             catch (DbUpdateConcurrencyException) when (attempt < 3)
             {
@@ -548,25 +699,33 @@ internal sealed class ApprovalService(WorkflowsDbContext db, IOutbox outbox, ITe
         }
     }
 
-    public ResumeRun Resume(Guid runId, string? waitKey) => new(runId, waitKey, tenant.TenantId!.Value, tenant.TenantIdentifier!);
+    /// <summary>Marks a tracked bookmark completed with its payload (the caller saves it with the resume message).</summary>
+    public void Complete(WorkflowBookmark bookmark, JsonObject? payload)
+    {
+        bookmark.CompletedAt = time.GetUtcNow();
+        bookmark.Payload = payload?.ToJsonString();
+    }
+
+    public ResumeRun Resume(Guid runId, Guid? bookmarkId) => new(runId, bookmarkId, tenant.TenantId!.Value, tenant.TenantIdentifier!);
 
     /// <summary>
-    /// Stops a run and cancels its pending approvals. Retries when the run was changed concurrently (the
-    /// interpreter may be saving it); messages for the run that arrive later find it cancelled and do nothing.
+    /// Stops a run, cancels its pending approvals and removes its open waits. Retries when the run was changed
+    /// concurrently (the interpreter may be saving it); messages for the run that arrive later find it cancelled and do
+    /// nothing.
     /// </summary>
     public async Task CancelAsync(WorkflowRun run, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)
         {
             run.Status = RunStatus.Cancelled;
-            run.WaitingFor = null;
-            run.ResumeAt = null;
+            run.WaitingOn = null;
             run.CompletedAt = time.GetUtcNow();
             foreach (var approval in await db.Approvals.Where(a => a.RunId == run.Id && a.Status == ApprovalStatus.Pending).ToListAsync(ct))
             {
                 approval.Status = ApprovalStatus.Cancelled;
             }
 
+            db.Bookmarks.RemoveRange(await db.Bookmarks.Where(b => b.RunId == run.Id && b.CompletedAt == null).ToListAsync(ct));
             try
             {
                 await db.SaveChangesAsync(ct);
@@ -583,20 +742,47 @@ internal sealed class ApprovalService(WorkflowsDbContext db, IOutbox outbox, ITe
             }
         }
     }
+
+    /// <summary>
+    /// Runs a failed run again from the node where it failed (an incident fixed, e.g. a list renamed back). The node's
+    /// action keeps its execution id, so what an earlier attempt did is not repeated. False when the run cannot be retried.
+    /// </summary>
+    public async Task<bool> RetryAsync(WorkflowRun run, Guid? userId, CancellationToken ct)
+    {
+        if (run is not { Status: RunStatus.Failed, FailedNode: { } node })
+        {
+            return false;
+        }
+
+        var now = time.GetUtcNow();
+        run.Status = RunStatus.Running;
+        run.Node = node;
+        run.FailedNode = null;
+        run.Error = null;
+        run.CompletedAt = null;
+        run.Attempts = 0;
+        run.NodeAttempts = 0;
+        run.LastActivityAt = now;
+        var log = JsonNode.Parse(run.Log) as JsonArray ?? [];
+        log.Add(new JsonObject { ["at"] = now.ToString("O"), ["message"] = $"Retried from {node}" + (userId is null ? string.Empty : " by a person") });
+        run.Log = log.ToJsonString();
+        await outbox.SaveChangesAsync(db, [], [Resume(run.Id, null)], ct);
+        return true;
+    }
 }
 
 /// <summary>
 /// Every minute:
 /// <list type="bullet">
-/// <item>resumes runs whose delay is over;</item>
+/// <item>completes bookmarks whose time has come (delays, retries) and resumes their runs;</item>
 /// <item>recovers runs that stopped making progress: running runs whose handler died (lease expired) or whose
-/// message was lost or dead-lettered, and runs waiting for an approval that was decided but not acted on;</item>
+/// message was lost or dead-lettered, and waiting runs whose bookmark was completed but not acted on;</item>
 /// <item>escalates overdue approvals (adds <c>escalateTo</c> as assignees and notifies everyone).</item>
 /// </list>
-/// A run it resumes is not looked at again for <see cref="Recheck"/>, so slow or failing runs are not flooded with
+/// A run it recovers is not looked at again for <see cref="Recheck"/>, so slow or failing runs are not flooded with
 /// messages; the interpreter's attempt limit ends runs that never make progress.
 /// </summary>
-internal sealed class WorkflowTimerJob(WorkflowsDbContext db, ApprovalService approvals, IOutbox outbox, ITenantContext tenant, TimeProvider time) : ITenantRecurringJob
+internal sealed class WorkflowTimerJob(WorkflowsDbContext db, RunService runs, IOutbox outbox, ITenantContext tenant, TimeProvider time) : ITenantRecurringJob
 {
     public const string Name = "workflows.timers";
     public const string Schedule = "* * * * *";
@@ -608,21 +794,39 @@ internal sealed class WorkflowTimerJob(WorkflowsDbContext db, ApprovalService ap
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         var now = time.GetUtcNow();
+        var dueBookmarks = await db.Bookmarks.Where(b => b.CompletedAt == null && b.ResumeAt != null && b.ResumeAt <= now)
+            .OrderBy(b => b.ResumeAt).Take(500).ToListAsync(cancellationToken);
+        if (dueBookmarks.Count > 0)
+        {
+            foreach (var bookmark in dueBookmarks)
+            {
+                runs.Complete(bookmark, null);
+            }
+
+            try
+            {
+                await outbox.SaveChangesAsync(db, [], [.. dueBookmarks.Select(b => runs.Resume(b.RunId, b.Id))], cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Completed (or removed) meanwhile: the rest is picked up next minute.
+                db.ChangeTracker.Clear();
+            }
+        }
+
         var stalled = now - Stalled;
         var due = await db.Runs.AsNoTracking()
             .Where(r => r.NextCheckAt == null || r.NextCheckAt <= now)
-            .Where(r => (r.Status == RunStatus.Waiting && r.ResumeAt != null && r.ResumeAt <= now)
-                || (r.Status == RunStatus.Running && r.LastActivityAt < stalled && (r.LeaseUntil == null || r.LeaseUntil < now))
-                || (r.Status == RunStatus.Waiting && r.ResumeAt == null && r.LastActivityAt < stalled
-                    && db.Approvals.Any(a => a.RunId == r.Id && (a.Status == ApprovalStatus.Approved || a.Status == ApprovalStatus.Rejected)
-                        && a.DecidedAt > r.LastActivityAt && a.DecidedAt < stalled)))
+            .Where(r => (r.Status == RunStatus.Running && r.LastActivityAt < stalled && (r.LeaseUntil == null || r.LeaseUntil < now))
+                || (r.Status == RunStatus.Waiting && r.LastActivityAt < stalled
+                    && db.Bookmarks.Any(b => b.Id == r.WaitingOn && b.CompletedAt != null && b.CompletedAt < stalled)))
             .OrderBy(r => r.LastActivityAt)
-            .Select(r => new { r.Id, r.WaitingFor })
+            .Select(r => new { r.Id, r.WaitingOn })
             .Take(500)
             .ToListAsync(cancellationToken);
         if (due.Count > 0)
         {
-            await outbox.SaveChangesAsync(db, [], [.. due.Select(r => approvals.Resume(r.Id, r.WaitingFor))], cancellationToken);
+            await outbox.SaveChangesAsync(db, [], [.. due.Select(r => runs.Resume(r.Id, r.WaitingOn))], cancellationToken);
             var ids = due.Select(r => r.Id).ToList();
             await db.Runs.Where(r => ids.Contains(r.Id)).ExecuteUpdateAsync(u => u.SetProperty(r => r.NextCheckAt, now + Recheck), cancellationToken);
         }
@@ -647,7 +851,7 @@ internal sealed class WorkflowTimerJob(WorkflowsDbContext db, ApprovalService ap
     }
 }
 
-/// <summary>Options of the workflow module (<c>Workflow</c> section).</summary>
+/// <summary>Options of the workflow module (<c>Workflows</c> section).</summary>
 public sealed class WorkflowOptions
 {
     /// <summary>Finished runs (and their approvals) are deleted after this many days.</summary>
@@ -675,6 +879,7 @@ internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<Work
             }
 
             await db.Approvals.Where(a => ids.Contains(a.RunId)).ExecuteDeleteAsync(cancellationToken);
+            await db.Bookmarks.Where(b => ids.Contains(b.RunId)).ExecuteDeleteAsync(cancellationToken);
             await db.Runs.Where(r => ids.Contains(r.Id)).ExecuteDeleteAsync(cancellationToken);
         }
     }

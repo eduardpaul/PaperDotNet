@@ -15,6 +15,7 @@ import { userName, useUsers } from '@/features/fields/directory';
 import { itemLink } from '@/features/lists/item-link';
 import { SettingsSection } from '@/features/settings/section';
 import { workspaceBuilder, workspaceQuery } from '@/features/workspaces/queries';
+import { problemMessage } from '@/lib/errors';
 import { useFormat } from '@/lib/preferences';
 import { cn } from '@/lib/utils';
 
@@ -134,6 +135,14 @@ function RunRow({ run, workspaceId }: { run: RunResponse; workspaceId: string })
       await queryClient.invalidateQueries({ queryKey: [...keys.workspace(workspaceId), 'runs'] });
     },
   });
+  const retry = useMutation({
+    mutationFn: () => workspaceBuilder(workspaceId).workflows.runs.byId(run.id!).retry.post(),
+    onSuccess: async () => {
+      toast.success('Run started again.');
+      await queryClient.invalidateQueries({ queryKey: [...keys.workspace(workspaceId), 'runs'] });
+    },
+    onError: (error) => toast.error(problemMessage(error)),
+  });
   const status = run.status ?? 'running';
   const log = (jsonOf(run.log) as { at?: string; message?: string }[] | undefined) ?? [];
   const outcomes = Object.entries(run.outcomes?.additionalData ?? {});
@@ -171,6 +180,12 @@ function RunRow({ run, workspaceId }: { run: RunResponse; workspaceId: string })
             )}
             <dt className="text-muted">Version</dt>
             <dd>{run.workflowVersion}</dd>
+            {run.failedNode && (
+              <>
+                <dt className="text-muted">Failed at</dt>
+                <dd>{run.failedNode}</dd>
+              </>
+            )}
             {link && (
               <>
                 <dt className="text-muted">Item</dt>
@@ -203,6 +218,11 @@ function RunRow({ run, workspaceId }: { run: RunResponse; workspaceId: string })
           {active && workspace?.access === 'manage' && (
             <Button size="sm" className="self-start" disabled={cancel.isPending} onClick={() => cancel.mutate()}>
               Cancel run
+            </Button>
+          )}
+          {status === 'failed' && run.failedNode && workspace?.access === 'manage' && (
+            <Button size="sm" className="self-start" disabled={retry.isPending} onClick={() => retry.mutate()}>
+              Retry from {run.failedNode}
             </Button>
           )}
         </div>

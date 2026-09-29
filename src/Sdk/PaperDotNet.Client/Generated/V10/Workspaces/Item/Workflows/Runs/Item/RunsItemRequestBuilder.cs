@@ -5,6 +5,7 @@ using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
 using PaperDotNet.Client.V10.Workspaces.Item.Workflows.Runs.Item.Cancel;
+using PaperDotNet.Client.V10.Workspaces.Item.Workflows.Runs.Item.Retry;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -22,6 +23,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Workflows.Runs.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.Runs.Item.Cancel.CancelRequestBuilder Cancel
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.Runs.Item.Cancel.CancelRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The retry property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.Runs.Item.Retry.RetryRequestBuilder Retry
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.Runs.Item.Retry.RetryRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.Runs.Item.RunsItemRequestBuilder"/> and sets the default values.

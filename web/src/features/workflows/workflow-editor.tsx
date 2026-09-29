@@ -236,7 +236,18 @@ export function WorkflowEditor({
 
                 <section className="flex flex-col gap-3">
                   <h3 className="text-[13px] font-semibold">Then</h3>
-                  <StepList steps={draft.steps} onChange={(steps) => setDraft({ ...draft, steps })} context={context} />
+                  {draft.flow ? (
+                    <p className="text-[13px] text-muted">
+                      This workflow is a flow with {Object.keys(draft.flow.nodes).length} nodes. Edit it in the JSON
+                      view.
+                    </p>
+                  ) : (
+                    <StepList
+                      steps={draft.steps}
+                      onChange={(steps) => setDraft({ ...draft, steps })}
+                      context={context}
+                    />
+                  )}
                 </section>
               </fieldset>
             )}

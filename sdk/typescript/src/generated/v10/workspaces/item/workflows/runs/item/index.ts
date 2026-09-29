@@ -6,6 +6,8 @@ import { createApiProblemFromDiscriminatorValue, createRunResponseFromDiscrimina
 // @ts-ignore
 import { CancelRequestBuilderRequestsMetadata, type CancelRequestBuilder } from './cancel/index.js';
 // @ts-ignore
+import { RetryRequestBuilderRequestsMetadata, type RetryRequestBuilder } from './retry/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -16,6 +18,10 @@ export interface RunsItemRequestBuilder extends BaseRequestBuilder<RunsItemReque
      * The cancel property
      */
     get cancel(): CancelRequestBuilder;
+    /**
+     * The retry property
+     */
+    get retry(): RetryRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<RunResponse>}
@@ -38,6 +44,9 @@ export const RunsItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{wo
 export const RunsItemRequestBuilderNavigationMetadata: Record<Exclude<keyof RunsItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     cancel: {
         requestsMetadata: CancelRequestBuilderRequestsMetadata,
+    },
+    retry: {
+        requestsMetadata: RetryRequestBuilderRequestsMetadata,
     },
 };
 /**

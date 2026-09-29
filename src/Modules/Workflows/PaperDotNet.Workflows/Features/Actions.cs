@@ -38,7 +38,8 @@ internal static class Inputs
     };
 
     public static double? Number(JsonObject inputs, string name) =>
-        inputs[name] is JsonValue value && value.TryGetValue<double>(out var number) ? number : null;
+        inputs[name] is JsonValue value && value.GetValueKind() == JsonValueKind.Number
+            && double.TryParse(value.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number : null;
 
     public static IEnumerable<string> Required(JsonObject inputs, params string[] names) =>
         names.Where(n => Text(inputs, n) is null).Select(n => $"{n} is required.");
@@ -236,7 +237,7 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
 {
     public async Task<WorkflowActivityResult> ExecuteAsync(
         ActionDefinition action, Guid workspaceId, WorkflowItem? item, Guid? actor, JsonObject? data,
-        IReadOnlyDictionary<string, string> outcomes, string source, string executionKey, Guid executionId, CancellationToken ct)
+        JsonObject? outputs, JsonObject? variables, string source, string executionKey, Guid executionId, CancellationToken ct)
     {
         if (catalog.Find(action.Type) is not { } found)
         {
@@ -251,7 +252,7 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
                 var store = items.AsSystem();
                 var current = item is null ? null : await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, token);
                 var list = item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, token);
-                scope = new TokenScope(current, list?.Name, outcomes, data);
+                scope = new TokenScope(current, list?.Name, outputs, variables, data);
             }
 
             return await tokens.ExpandAsync(template, scope, token);

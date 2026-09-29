@@ -71,8 +71,9 @@ public enum RunStatus
 }
 
 /// <summary>
-/// A run of a workflow: the interpreter's position, step outcomes and a short log. A run started by an event
-/// records the event (unique per workflow, so a redelivered event starts nothing).
+/// A run of a workflow (ADR-0036): the node it is at, its variables and the outputs of the nodes it ran, and a short
+/// log. A run started by an event records the event (unique per workflow, so a redelivered event starts nothing). A
+/// waiting run waits on one <see cref="WorkflowBookmark"/>.
 /// </summary>
 [NotAudited]
 public sealed class WorkflowRun : ITenantOwned, IVersioned
@@ -100,26 +101,35 @@ public sealed class WorkflowRun : ITenantOwned, IVersioned
 
     public RunStatus Status { get; set; }
 
-    /// <summary>Index of the next instruction.</summary>
-    public int Position { get; set; }
+    /// <summary>The node to run next (or being waited on); null before the start node.</summary>
+    public string? Node { get; set; }
 
-    /// <summary>Outcomes of approval steps by step name, as a JSON object.</summary>
-    public string Outcomes { get; set; } = "{}";
+    /// <summary>The run's variables as a JSON object.</summary>
+    public string Variables { get; set; } = "{}";
+
+    /// <summary>Outputs of the nodes that ran, by node id, as a JSON object (an approval's output holds its <c>outcome</c>).</summary>
+    public string Outputs { get; set; } = "{}";
 
     /// <summary>Recent log entries as a JSON array.</summary>
     public string Log { get; set; } = "[]";
 
     public string? Error { get; set; }
 
-    /// <summary>The wait the run is in (an approval or a delay), if any; resume messages must name it.</summary>
-    public string? WaitingFor { get; set; }
+    /// <summary>The node where the run failed; a failed run with a node can be retried from there.</summary>
+    public string? FailedNode { get; set; }
 
-    /// <summary>When a delay is over (the minute job resumes the run then).</summary>
-    public DateTimeOffset? ResumeAt { get; set; }
+    /// <summary>The bookmark a waiting run waits on; resume messages must name it.</summary>
+    public Guid? WaitingOn { get; set; }
+
+    /// <summary>Failed tries of the current node so far (its retry policy decides whether it runs again).</summary>
+    public int NodeAttempts { get; set; }
+
+    /// <summary>Nodes the run executed in all (a limit ends runs that loop forever).</summary>
+    public int Executed { get; set; }
 
     public int Depth { get; set; }
 
-    /// <summary>Id of the current action step's execution (stable across retries of the step).</summary>
+    /// <summary>Id of the current action's execution (stable across retries of the node).</summary>
     public Guid? StepExecutionId { get; set; }
 
     /// <summary>The handler executing the run and until when (a crashed handler's lease expires).</summary>
@@ -142,6 +152,50 @@ public sealed class WorkflowRun : ITenantOwned, IVersioned
     public DateTimeOffset StartedAt { get; set; }
 
     public DateTimeOffset? CompletedAt { get; set; }
+
+    public uint Version { get; set; }
+}
+
+/// <summary>Kinds of bookmarks the engine creates itself; other modules complete bookmarks of their own kinds.</summary>
+public static class BookmarkKinds
+{
+    public const string Approval = "approval";
+    public const string Delay = "delay";
+
+    /// <summary>A failed node waits before it runs again (its retry policy).</summary>
+    public const string Retry = "retry";
+}
+
+/// <summary>
+/// A durable wait of a run (ADR-0036): an approval, a delay, a retry, or anything another module completes (e.g. an AI
+/// batch). It is completed with a payload, together with the message that resumes the run; bookmarks with a
+/// <see cref="ResumeAt"/> are completed by the minute job when their time has come.
+/// </summary>
+[NotAudited]
+public sealed class WorkflowBookmark : ITenantOwned, IVersioned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid RunId { get; set; }
+
+    /// <summary>The node that waits.</summary>
+    public required string Node { get; set; }
+
+    public required string Kind { get; set; }
+
+    /// <summary>What completes it, unique per kind (e.g. the approval id).</summary>
+    public required string Key { get; set; }
+
+    public DateTimeOffset? ResumeAt { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset? CompletedAt { get; set; }
+
+    /// <summary>What completed it as a JSON object; becomes the node's output (its <c>outcome</c> picks the port).</summary>
+    public string? Payload { get; set; }
 
     public uint Version { get; set; }
 }
@@ -217,6 +271,8 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
 
     public DbSet<ApprovalRequest> Approvals => Set<ApprovalRequest>();
 
+    public DbSet<WorkflowBookmark> Bookmarks => Set<WorkflowBookmark>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
@@ -239,11 +295,11 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
             b.ToTable("runs");
             b.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
             b.Property(r => r.Error).HasMaxLength(2000);
-            b.Property(r => r.WaitingFor).HasMaxLength(100);
+            b.Property(r => r.Node).HasMaxLength(200);
+            b.Property(r => r.FailedNode).HasMaxLength(200);
             b.HasIndex(r => new { r.WorkflowId, r.EventId }).IsUnique();
             b.HasIndex(r => new { r.TenantId, r.ItemId });
             b.HasIndex(r => new { r.TenantId, r.WorkflowId, r.StartedAt });
-            b.HasIndex(r => new { r.Status, r.ResumeAt });
             b.HasIndex(r => new { r.Status, r.LastActivityAt });
             b.HasIndex(r => new { r.TenantId, r.Status, r.CompletedAt });
         });
@@ -256,6 +312,16 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
             b.Property(a => a.Comment).HasMaxLength(2000);
             b.HasIndex(a => new { a.TenantId, a.Status, a.DueAt });
             b.HasIndex(a => a.RunId);
+        });
+        modelBuilder.Entity<WorkflowBookmark>(b =>
+        {
+            b.ToTable("bookmarks");
+            b.Property(k => k.Node).HasMaxLength(200);
+            b.Property(k => k.Kind).HasMaxLength(100);
+            b.Property(k => k.Key).HasMaxLength(200);
+            b.HasIndex(k => new { k.TenantId, k.Kind, k.Key }).IsUnique();
+            b.HasIndex(k => k.RunId);
+            b.HasIndex(k => new { k.CompletedAt, k.ResumeAt });
         });
         modelBuilder.ApplyPaperDotNetConventions(this);
     }

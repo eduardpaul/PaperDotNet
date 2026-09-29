@@ -20,12 +20,17 @@ public sealed record WorkflowRequest(
     WorkflowTrigger? Trigger,
     [property: StringLength(4000)] string? Condition,
     IReadOnlyList<WorkflowStep>? Steps,
-    bool Enabled = true);
+    bool Enabled = true,
+    FlowDefinition? Flow = null,
+    JsonObject? Variables = null);
 
-/// <summary>A workflow with the definition of its current <c>version</c> (runs keep the version they started with).</summary>
+/// <summary>
+/// A workflow with the definition of its current <c>version</c> (runs keep the version they started with): <c>steps</c>
+/// or a <c>flow</c>, and the initial <c>variables</c>.
+/// </summary>
 public sealed record WorkflowResponse(
     Guid Id, Guid WorkspaceId, string Name, string? Description, bool Enabled, int Version, WorkflowTrigger Trigger, string? Condition,
-    IReadOnlyList<WorkflowStep> Steps, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt)
+    IReadOnlyList<WorkflowStep>? Steps, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, FlowDefinition? Flow = null, JsonObject? Variables = null)
 {
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
     [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
@@ -34,10 +39,14 @@ public sealed record WorkflowResponse(
 
 public sealed record StartWorkflowRequest([property: Required] string Workflow);
 
+/// <summary>
+/// A run: its <c>node</c> (next or waited on), the approval <c>outcomes</c> by node, the <c>outputs</c> of the nodes that
+/// ran, its <c>variables</c>, a log, and for failed runs the error and the <c>failedNode</c> it can be retried from.
+/// </summary>
 public sealed record RunResponse(
     Guid Id, Guid WorkflowId, string? Workflow, int WorkflowVersion, Guid WorkspaceId, Guid? ListId, Guid? ItemId, Guid? EventId,
     RunStatus Status, IReadOnlyDictionary<string, string> Outcomes, JsonArray Log, string? Error, Guid? StartedBy, DateTimeOffset StartedAt,
-    DateTimeOffset? CompletedAt);
+    DateTimeOffset? CompletedAt, string? Node, string? FailedNode, JsonObject Outputs, JsonObject Variables);
 
 public sealed record ApprovalResponse(
     Guid Id, Guid RunId, string StepName, string Title, Guid WorkspaceId, Guid ListId, Guid ItemId, ApprovalStatus Status,
@@ -69,6 +78,7 @@ internal static class WorkflowEndpoints
         group.MapGet("/runs", ListRunsAsync).RequireScope(WorkflowScopes.Read).WithName("ListWorkflowRuns").WithQueryEnum<RunStatus>("status");
         group.MapGet("/runs/{id:guid}", GetRunAsync).RequireScope(WorkflowScopes.Read).WithName("GetWorkflowRun");
         group.MapPost("/runs/{id:guid}/cancel", CancelRunAsync).RequireScope(WorkflowScopes.Write).WithName("CancelWorkflowRun");
+        group.MapPost("/runs/{id:guid}/retry", RetryRunAsync).RequireScope(WorkflowScopes.Write).WithName("RetryWorkflowRun");
 
         endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}/workflows", "Workflows")
             .MapPost("", StartAsync).RequireScope(WorkflowScopes.Write).WithName("StartWorkflow");
@@ -216,6 +226,7 @@ internal static class WorkflowEndpoints
 
         var runs = db.Runs.Where(r => r.WorkflowId == id).Select(r => r.Id);
         await db.Approvals.Where(a => runs.Contains(a.RunId)).ExecuteDeleteAsync(ct);
+        await db.Bookmarks.Where(b => runs.Contains(b.RunId)).ExecuteDeleteAsync(ct);
         await db.Runs.Where(r => r.WorkflowId == id).ExecuteDeleteAsync(ct);
         await db.Versions.Where(v => v.WorkflowId == id).ExecuteDeleteAsync(ct);
         db.Workflows.Remove(workflow);
@@ -231,7 +242,9 @@ internal static class WorkflowEndpoints
             return (null, invalid);
         }
 
-        var spec = new WorkflowSpec(request.Trigger!, string.IsNullOrWhiteSpace(request.Condition) ? null : request.Condition.Trim(), request.Steps ?? []);
+        var spec = new WorkflowSpec(
+            request.Trigger!, string.IsNullOrWhiteSpace(request.Condition) ? null : request.Condition.Trim(),
+            request.Flow is null ? request.Steps ?? [] : request.Steps is { Count: > 0 } ? request.Steps : null, request.Flow, request.Variables);
         var errors = await validator.ValidateAsync(workspaceId, spec, ct);
         return errors.Count == 0 ? (spec, null) : (null, ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [.. errors] }));
     }
@@ -241,7 +254,7 @@ internal static class WorkflowEndpoints
         var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
         return new WorkflowResponse(workflow.Id, workflow.WorkspaceId, workflow.Name, workflow.Description, workflow.Enabled,
-            workflow.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, workflow.CreatedAt, workflow.UpdatedAt)
+            workflow.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, workflow.CreatedAt, workflow.UpdatedAt, spec.Flow, spec.Variables)
         { ETag = ETags.From(workflow.Version) };
     }
 
@@ -325,7 +338,7 @@ internal static class WorkflowEndpoints
     }
 
     private static async Task<Results<Ok<RunResponse>, ProblemHttpResult>> CancelRunAsync(
-        Guid workspaceId, Guid id, IWorkspaceAccess workspaces, WorkflowsDbContext db, ApprovalService approvals, CancellationToken ct)
+        Guid workspaceId, Guid id, IWorkspaceAccess workspaces, WorkflowsDbContext db, RunService approvals, CancellationToken ct)
     {
         if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Manage, ct) is { } denied)
         {
@@ -346,12 +359,38 @@ internal static class WorkflowEndpoints
         return TypedResults.Ok(await ToResponseAsync(db, await db.Runs.AsNoTracking().FirstAsync(r => r.Id == id, ct), ct));
     }
 
+    /// <summary>Runs a failed run again from the node where it failed (<c>failedNode</c>); 409 when it cannot be retried.</summary>
+    private static async Task<Results<Ok<RunResponse>, ProblemHttpResult>> RetryRunAsync(
+        Guid workspaceId, Guid id, IWorkspaceAccess workspaces, WorkflowsDbContext db, RunService runs, ICurrentUser user, CancellationToken ct)
+    {
+        if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Manage, ct) is { } denied)
+        {
+            return denied;
+        }
+
+        var run = await db.Runs.FirstOrDefaultAsync(r => r.Id == id && r.WorkspaceId == workspaceId, ct);
+        if (run is null)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        if (!await runs.RetryAsync(run, user.UserId, ct))
+        {
+            return ApiErrors.Conflict("notRetryable", "Only runs that failed at a node can be retried.");
+        }
+
+        return TypedResults.Ok(await ToResponseAsync(db, await db.Runs.AsNoTracking().FirstAsync(r => r.Id == id, ct), ct));
+    }
+
     private static async Task<RunResponse> ToResponseAsync(WorkflowsDbContext db, WorkflowRun run, CancellationToken ct)
     {
         var name = await db.Workflows.AsNoTracking().Where(a => a.Id == run.WorkflowId).Select(a => a.Name).FirstOrDefaultAsync(ct);
+        var outputs = JsonNode.Parse(run.Outputs) as JsonObject ?? [];
+        var outcomes = outputs.Where(o => o.Value?["outcome"] is JsonValue value && value.TryGetValue<string>(out _))
+            .ToDictionary(o => o.Key, o => o.Value!["outcome"]!.GetValue<string>(), StringComparer.Ordinal);
         return new RunResponse(run.Id, run.WorkflowId, name, run.WorkflowVersion, run.WorkspaceId, run.ListId, run.ItemId, run.EventId, run.Status,
-            DefinitionJson.Deserialize<Dictionary<string, string>>(run.Outcomes), JsonNode.Parse(run.Log) as JsonArray ?? [], run.Error, run.StartedBy,
-            run.StartedAt, run.CompletedAt);
+            outcomes, JsonNode.Parse(run.Log) as JsonArray ?? [], run.Error, run.StartedBy, run.StartedAt, run.CompletedAt, run.Node, run.FailedNode,
+            outputs, JsonNode.Parse(run.Variables) as JsonObject ?? []);
     }
 
     // ---- Approvals ---------------------------------------------------------------------
@@ -379,7 +418,7 @@ internal static class WorkflowEndpoints
     }
 
     private static async Task<Results<Ok<ApprovalResponse>, ValidationProblem, ProblemHttpResult>> DecideAsync(
-        Guid id, DecisionRequest request, ApprovalService approvals, WorkflowsDbContext db, ICurrentUser user, CancellationToken ct)
+        Guid id, DecisionRequest request, RunService approvals, WorkflowsDbContext db, ICurrentUser user, CancellationToken ct)
     {
         if (RequestValidation.Validate(request) is { } invalid)
         {
@@ -393,9 +432,9 @@ internal static class WorkflowEndpoints
 
         switch (await approvals.DecideAsync(id, user.UserId!.Value, request.Outcome, request.Comment, ct))
         {
-            case ApprovalService.DecisionResult.NotFound:
+            case RunService.DecisionResult.NotFound:
                 return ApiErrors.NotFound();
-            case ApprovalService.DecisionResult.AlreadyDecided:
+            case RunService.DecisionResult.AlreadyDecided:
                 return ApiErrors.Conflict("alreadyDecided", "The approval was already decided or cancelled.");
         }
 
