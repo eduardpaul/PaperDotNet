@@ -28,6 +28,18 @@ public sealed class WorkflowDefinition : ITenantOwned, IAuditable, IVersioned
     /// <summary>The version new runs use.</summary>
     public int CurrentVersion { get; set; }
 
+    /// <summary>
+    /// The built-in workflow this is (EVT-12): read-only, its definition comes from the release with
+    /// <see cref="Parameters"/> filled in; null for workflows people wrote.
+    /// </summary>
+    public string? BuiltInKey { get; set; }
+
+    /// <summary>The values of a built-in workflow's parameters as a JSON object.</summary>
+    public string? Parameters { get; set; }
+
+    /// <summary>The built-in workflow this one was copied from, if any.</summary>
+    public string? CopiedFrom { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
@@ -464,6 +476,9 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
             b.Property(a => a.Trigger).HasMaxLength(200);
             b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.Name }).IsUnique();
             b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.Trigger });
+            b.Property(a => a.BuiltInKey).HasMaxLength(200);
+            b.Property(a => a.CopiedFrom).HasMaxLength(200);
+            b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.BuiltInKey }).IsUnique();
         });
         modelBuilder.Entity<WorkflowVersion>(b =>
         {

@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState, Skeleton } from '@/components/ui/feedback';
 import { Checkbox } from '@/components/ui/select';
+import { BuiltInWorkflows } from '@/features/workflows/built-in-workflows';
 import { WorkflowEditor } from '@/features/workflows/workflow-editor';
 import { describeTrigger, draftFrom, requestFrom } from '@/features/workflows/model';
-import { workflowsQuery } from '@/features/workflows/queries';
+import { builtInWorkflowsQuery, workflowsQuery } from '@/features/workflows/queries';
 import { ConfirmDialog, SettingsSection } from '@/features/settings/section';
 import { workspaceBuilder, workspaceQuery } from '@/features/workspaces/queries';
 import { useFormat } from '@/lib/preferences';
@@ -40,13 +41,20 @@ function Workflows() {
   const [deleting, setDeleting] = useState<WorkflowResponse>();
   const canManage = workspace?.access === 'manage';
   const setEdit = (value?: string) => void navigate({ search: { edit: value } });
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: workflowsQuery(workspaceId).queryKey });
+  const invalidate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: workflowsQuery(workspaceId).queryKey }),
+      queryClient.invalidateQueries({ queryKey: builtInWorkflowsQuery(workspaceId).queryKey }),
+    ]);
 
+  // A built-in workflow is switched through its own settings (its definition cannot be replaced).
   const toggle = useMutation({
     mutationFn: ({ workflow, enabled }: { workflow: WorkflowResponse; enabled: boolean }) =>
-      workspaceBuilder(workspaceId)
-        .workflows.byId(workflow.id!)
-        .put({ ...requestFrom(draftFrom(workflow)), enabled }, ifMatch(workflow)),
+      workflow.builtIn
+        ? workspaceBuilder(workspaceId).workflows.builtIns.byKey(workflow.builtIn).put({ enabled })
+        : workspaceBuilder(workspaceId)
+            .workflows.byId(workflow.id!)
+            .put({ ...requestFrom(draftFrom(workflow)), enabled }, ifMatch(workflow)),
     onSettled: invalidate,
   });
   const remove = useMutation({
@@ -89,6 +97,7 @@ function Workflows() {
                 <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setEdit(workflow.id!)}>
                   <span className="flex items-center gap-2">
                     <span className="truncate text-[13px] font-medium">{workflow.name}</span>
+                    {workflow.builtIn && <Badge tone="accent">Built-in</Badge>}
                     {!workflow.enabled && <Badge>Off</Badge>}
                   </span>
                   <span className="block truncate text-xs text-muted">
@@ -121,12 +130,13 @@ function Workflows() {
           </EmptyState>
         )}
       </SettingsSection>
+      <BuiltInWorkflows workspaceId={workspaceId} canManage={canManage} onCopied={(id) => setEdit(id)} />
       {edit && (edit === 'new' || editing) && (
         <WorkflowEditor
           key={edit}
           workspaceId={workspaceId}
           workflow={editing}
-          canManage={canManage}
+          canManage={canManage && !editing?.builtIn}
           onClose={() => setEdit(undefined)}
         />
       )}

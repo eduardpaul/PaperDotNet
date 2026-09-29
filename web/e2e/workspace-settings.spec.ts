@@ -188,3 +188,44 @@ test('a scheduled workflow is set up with a cron expression', async ({ page }) =
   await expect(page.getByText('Workflow created.')).toBeVisible();
   await expect(page.getByRole('button', { name: new RegExp(`^${name}`) })).toContainText('On the schedule 0 8 * * 1-5');
 });
+
+test('a built-in workflow is turned on with settings and copied to change it', async ({ page }) => {
+  const list = unique('Requests');
+  const listUrl = await createList(page, 'Tasks', list);
+  const workspaceUrl = listUrl.replace(/\/l\/.*$/, '');
+  await page.goto(`${workspaceUrl}/settings/workflows`);
+
+  const builtIns = page.getByRole('region', { name: 'Built-in workflows' });
+  const approve = builtIns.getByRole('listitem').filter({ hasText: 'Approve new items' });
+  await expect(approve).toContainText('Off');
+  await approve.getByRole('button', { name: 'Set up Approve new items' }).click();
+
+  // The settings form comes from the parameters; the server checks the values like a saved workflow.
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('statusField')).toHaveValue('status');
+  await dialog.getByLabel('list *').fill('No such list');
+  await dialog.getByLabel('approvers *').fill('creator');
+  await dialog.getByRole('button', { name: 'Turn on' }).click();
+  await expect(dialog.getByText(/does not exist/)).toBeVisible();
+  await dialog.getByLabel('list *').fill(list);
+  await dialog.getByRole('button', { name: 'Turn on' }).click();
+  await expect(page.getByText('Approve new items is on.')).toBeVisible();
+  await expect(approve).toContainText('On');
+
+  // Listed with the workspace's workflows, marked built-in, and read-only in the editor.
+  const row = page.getByRole('button', { name: /^Approve new items/ });
+  await expect(row).toContainText('Built-in');
+  await row.click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Save' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  // A copy is a workflow of the workspace to change; the built-in one is turned off.
+  await approve.getByRole('button', { name: 'Copy Approve new items' }).click();
+  const copyName = unique('Approve requests');
+  await page.getByRole('dialog').getByLabel('Name').fill(copyName);
+  await page.getByRole('dialog').getByRole('button', { name: 'Copy' }).click();
+  await expect(page.getByText('Copied. The built-in workflow is off here now.')).toBeVisible();
+  await expect(page.getByRole('dialog').getByLabel('Name', { exact: true })).toHaveValue(copyName);
+  await page.keyboard.press('Escape');
+  await expect(approve).toContainText('Off');
+});

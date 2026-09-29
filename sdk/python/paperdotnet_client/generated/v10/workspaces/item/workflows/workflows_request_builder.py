@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from .....models.api_problem import ApiProblem
     from .....models.workflow_request import WorkflowRequest
     from .....models.workflow_response import WorkflowResponse
+    from .built_ins.built_ins_request_builder import BuiltInsRequestBuilder
     from .item.workflows_item_request_builder import WorkflowsItemRequestBuilder
     from .runs.runs_request_builder import RunsRequestBuilder
 
@@ -123,6 +124,15 @@ class WorkflowsRequestBuilder(BaseRequestBuilder):
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
         return WorkflowsRequestBuilder(self.request_adapter, raw_url)
+    
+    @property
+    def built_ins(self) -> BuiltInsRequestBuilder:
+        """
+        The builtIns property
+        """
+        from .built_ins.built_ins_request_builder import BuiltInsRequestBuilder
+
+        return BuiltInsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def runs(self) -> RunsRequestBuilder:

@@ -21,3 +21,10 @@ export const actionCatalogQuery = queryOptions({
   queryFn: async () => ((await api.v10.workflows.activities.get()) ?? []).filter((a) => a.kind === 'action'),
   staleTime: Infinity,
 });
+
+/** Built-in workflows (EVT-12) and their state in the workspace. */
+export const builtInWorkflowsQuery = (workspaceId: string) =>
+  queryOptions({
+    queryKey: [...keys.workspace(workspaceId), 'workflows', 'builtIns'],
+    queryFn: async () => (await workspaceBuilder(workspaceId).workflows.builtIns.get()) ?? [],
+  });

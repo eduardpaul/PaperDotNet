@@ -193,6 +193,40 @@ public interface IWorkflowTriggers
     Task RaiseAsync(string triggerKey, Guid workspaceId, WorkflowItem? item, JsonObject? data, Guid eventId, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// A workflow the product ships (EVT-12, ADR-0036): read-only, versioned with the release, offered in each workspace's
+/// catalog of built-in workflows. A workspace manager enables it with values for its <see cref="Parameters"/>, or copies
+/// it into a workflow of their own to change it.
+/// </summary>
+/// <param name="Key">Unique, starting with the module or extension, e.g. <c>documents.classify</c>.</param>
+/// <param name="Name">The name it has in each workspace.</param>
+/// <param name="Description">What it does, for the catalog.</param>
+/// <param name="Definition">
+/// The definition as in the API (<c>trigger</c>, <c>condition</c>, <c>steps</c> or <c>flow</c>, <c>variables</c>). A string
+/// that is exactly <c>{param:name}</c> is replaced by the parameter's value (any JSON, e.g. a list of fields, or null);
+/// <c>{param:name}</c> inside a longer string or a property name is replaced by its text.
+/// </param>
+public sealed record BuiltInWorkflow(string Key, string Name, string Description, JsonObject Definition)
+{
+    /// <summary>The parameters as a JSON Schema object (<c>properties</c> with a <c>type</c>, <c>default</c> and <c>description</c> each, <c>required</c>).</summary>
+    public JsonObject? Parameters { get; init; }
+
+    /// <summary>What the server needs for it to be offered as available, e.g. <see cref="BuiltInRequirements.Ai"/>.</summary>
+    public string? Requires { get; init; }
+}
+
+public static class BuiltInRequirements
+{
+    /// <summary>A chat model is configured (<c>AI:Chat</c>).</summary>
+    public const string Ai = "ai";
+}
+
+/// <summary>Ships built-in workflows (register with <c>services.AddSingleton&lt;IWorkflowDefinitionProvider, …&gt;()</c>).</summary>
+public interface IWorkflowDefinitionProvider
+{
+    IEnumerable<BuiltInWorkflow> GetWorkflows();
+}
+
 /// <summary>Built-in trigger types of workflows.</summary>
 public static class WorkflowTriggers
 {

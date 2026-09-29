@@ -13638,6 +13638,218 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/workflows/builtIns": {
+      "get": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "ListBuiltInWorkflows",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BuiltInWorkflowResponse"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/workflows/builtIns/{key}": {
+      "put": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "SetBuiltInWorkflow",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuiltInSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuiltInWorkflowResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/workflows/builtIns/{key}/copy": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "CopyBuiltInWorkflow",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyBuiltInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workspaces/{workspaceId}/workflows/runs": {
       "get": {
         "tags": [
@@ -15630,6 +15842,93 @@
           }
         }
       },
+      "BuiltInSettingsRequest": {
+        "required": [
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "parameters": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          }
+        },
+        "description": "Turns a built-in workflow on or off in the workspace; \u0060parameters\u0060 (default: the ones it had) fill in its definition."
+      },
+      "BuiltInWorkflowResponse": {
+        "required": [
+          "key",
+          "name",
+          "description",
+          "parameters",
+          "requires",
+          "available",
+          "enabled",
+          "workflowId",
+          "values"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "parameters": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "requires": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "values": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          }
+        },
+        "description": "A built-in workflow (EVT-12) and its state in the workspace: its \u0060parameters\u0060 (JSON Schema), whether the server\nhas what it needs (\u0060available\u0060), and when it was turned on, the \u0060workflowId\u0060 it runs as and its \u0060values\u0060."
+      },
       "BulkUpdateRequest": {
         "required": [
           "filter",
@@ -16193,6 +16492,30 @@
           }
         },
         "description": "A content type. \u0060key\u0060 is set when it comes from a template; \u0060extensionId\u0060 when an extension manages it (read-only)."
+      },
+      "CopyBuiltInRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "parameters": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          }
+        },
+        "description": "Copies a built-in workflow into a workflow of the workspace named \u0060name\u0060, to change it."
       },
       "Counters": {
         "type": "object",
@@ -21864,6 +22187,18 @@
               {
                 "$ref": "#/components/schemas/JsonObject"
               }
+            ]
+          },
+          "builtIn": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "copiedFrom": {
+            "type": [
+              "null",
+              "string"
             ]
           },
           "@odata.etag": {

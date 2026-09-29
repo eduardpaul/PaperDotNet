@@ -31,12 +31,26 @@ public sealed record WorkflowRequest(
 /// </summary>
 public sealed record WorkflowResponse(
     Guid Id, Guid WorkspaceId, string Name, string? Description, bool Enabled, int Version, WorkflowTrigger Trigger, string? Condition,
-    IReadOnlyList<WorkflowStep>? Steps, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, FlowDefinition? Flow = null, JsonObject? Variables = null)
+    IReadOnlyList<WorkflowStep>? Steps, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, FlowDefinition? Flow = null, JsonObject? Variables = null,
+    string? BuiltIn = null, string? CopiedFrom = null)
 {
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
     [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
     public string? ETag { get; init; }
 }
+
+/// <summary>
+/// A built-in workflow (EVT-12) and its state in the workspace: its <c>parameters</c> (JSON Schema), whether the server
+/// has what it needs (<c>available</c>), and when it was turned on, the <c>workflowId</c> it runs as and its <c>values</c>.
+/// </summary>
+public sealed record BuiltInWorkflowResponse(
+    string Key, string Name, string Description, JsonObject? Parameters, string? Requires, bool Available, bool Enabled, Guid? WorkflowId, JsonObject? Values);
+
+/// <summary>Turns a built-in workflow on or off in the workspace; <c>parameters</c> (default: the ones it had) fill in its definition.</summary>
+public sealed record BuiltInSettingsRequest(bool Enabled, JsonObject? Parameters = null);
+
+/// <summary>Copies a built-in workflow into a workflow of the workspace named <c>name</c>, to change it.</summary>
+public sealed record CopyBuiltInRequest([property: Required, StringLength(200, MinimumLength = 1)] string Name, JsonObject? Parameters = null);
 
 /// <summary>Starts a <c>manual</c> workflow on an item, by name; <c>inputs</c> become run variables (checked against the trigger's <c>inputs</c>).</summary>
 public sealed record StartWorkflowRequest([property: Required] string Workflow, JsonObject? Inputs = null);
@@ -83,6 +97,9 @@ internal static class WorkflowEndpoints
         group.MapPost("", CreateAsync).RequireScope(WorkflowScopes.Write).WithName("CreateWorkflow");
         group.MapPut("/{id:guid}", ReplaceAsync).RequireScope(WorkflowScopes.Write).WithName("ReplaceWorkflow");
         group.MapDelete("/{id:guid}", DeleteAsync).RequireScope(WorkflowScopes.Write).WithName("DeleteWorkflow");
+        group.MapGet("/builtIns", ListBuiltInsAsync).RequireScope(WorkflowScopes.Read).WithName("ListBuiltInWorkflows");
+        group.MapPut("/builtIns/{key}", SetBuiltInAsync).RequireScope(WorkflowScopes.Write).WithName("SetBuiltInWorkflow");
+        group.MapPost("/builtIns/{key}/copy", CopyBuiltInAsync).RequireScope(WorkflowScopes.Write).WithName("CopyBuiltInWorkflow");
         group.MapGet("/runs", ListRunsAsync).RequireScope(WorkflowScopes.Read).WithName("ListWorkflowRuns").WithQueryEnum<RunStatus>("status");
         group.MapGet("/runs/{id:guid}", GetRunAsync).RequireScope(WorkflowScopes.Read).WithName("GetWorkflowRun");
         group.MapPost("/runs/{id:guid}/cancel", CancelRunAsync).RequireScope(WorkflowScopes.Write).WithName("CancelWorkflowRun");
@@ -189,6 +206,11 @@ internal static class WorkflowEndpoints
             return precondition;
         }
 
+        if (workflow.BuiltInKey is not null)
+        {
+            return ApiErrors.Conflict("builtInReadOnly", "A built-in workflow cannot be changed; set its parameters, or copy it to change it.");
+        }
+
         var (spec, invalid) = await ValidateAsync(workspaceId, request, validator, ct);
         if (invalid is not null)
         {
@@ -263,9 +285,101 @@ internal static class WorkflowEndpoints
         var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
         return new WorkflowResponse(workflow.Id, workflow.WorkspaceId, workflow.Name, workflow.Description, workflow.Enabled,
-            workflow.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, workflow.CreatedAt, workflow.UpdatedAt, spec.Flow, spec.Variables)
+            workflow.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, workflow.CreatedAt, workflow.UpdatedAt, spec.Flow, spec.Variables,
+            workflow.BuiltInKey, workflow.CopiedFrom)
         { ETag = ETags.From(workflow.Version) };
     }
+
+    // ---- Built-in workflows ---------------------------------------------------------
+
+    private static async Task<Results<Ok<List<BuiltInWorkflowResponse>>, ProblemHttpResult>> ListBuiltInsAsync(
+        Guid workspaceId, IWorkspaceAccess workspaces, BuiltInWorkflows builtIns, WorkflowsDbContext db, CancellationToken ct)
+    {
+        if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Read, ct) is { } denied)
+        {
+            return denied;
+        }
+
+        var rows = await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == workspaceId && w.BuiltInKey != null).ToListAsync(ct);
+        return TypedResults.Ok(builtIns.All.Select(w => ToResponse(builtIns, w, rows.FirstOrDefault(r => r.BuiltInKey == w.Key))).ToList());
+    }
+
+    /// <summary>Turns a built-in workflow on (checked like a saved workflow) or off in the workspace.</summary>
+    private static async Task<Results<Ok<BuiltInWorkflowResponse>, ValidationProblem, ProblemHttpResult>> SetBuiltInAsync(
+        Guid workspaceId, string key, BuiltInSettingsRequest request, IWorkspaceAccess workspaces, BuiltInWorkflows builtIns, WorkflowsDbContext db,
+        CancellationToken ct)
+    {
+        if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Manage, ct) is { } denied)
+        {
+            return denied;
+        }
+
+        if (builtIns.Find(key) is not { } workflow)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        var (row, errors, nameTaken) = await builtIns.SetAsync(workspaceId, workflow, request.Enabled, request.Parameters, ct);
+        if (nameTaken)
+        {
+            return ApiErrors.Conflict("nameAlreadyExists", errors[0]);
+        }
+
+        if (errors.Count > 0)
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["parameters"] = [.. errors] });
+        }
+
+        if (await SaveAsync(db, ct) is { } conflict)
+        {
+            return conflict;
+        }
+
+        return TypedResults.Ok(ToResponse(builtIns, workflow, row));
+    }
+
+    private static async Task<Results<Created<WorkflowResponse>, ValidationProblem, ProblemHttpResult>> CopyBuiltInAsync(
+        Guid workspaceId, string key, CopyBuiltInRequest request, IWorkspaceAccess workspaces, BuiltInWorkflows builtIns, WorkflowsDbContext db,
+        HttpResponse response, CancellationToken ct)
+    {
+        if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Manage, ct) is { } denied)
+        {
+            return denied;
+        }
+
+        if (RequestValidation.Validate(request) is { } invalid)
+        {
+            return invalid;
+        }
+
+        if (builtIns.Find(key) is not { } workflow)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        var (copy, errors, nameTaken) = await builtIns.CopyAsync(workspaceId, workflow, request.Name.Trim(), request.Parameters, ct);
+        if (nameTaken)
+        {
+            return ApiErrors.Conflict("nameAlreadyExists", errors[0]);
+        }
+
+        if (errors.Count > 0)
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["parameters"] = [.. errors] });
+        }
+
+        if (await SaveAsync(db, ct) is { } conflict)
+        {
+            return conflict;
+        }
+
+        ETags.Set(response, copy!.Version);
+        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/workflows/{copy.Id}", await ToResponseAsync(db, copy, ct));
+    }
+
+    private static BuiltInWorkflowResponse ToResponse(BuiltInWorkflows builtIns, BuiltInWorkflow workflow, WorkflowDefinition? row) =>
+        new(workflow.Key, workflow.Name, workflow.Description, workflow.Parameters?.DeepClone().AsObject(), workflow.Requires, builtIns.IsAvailable(workflow),
+            row?.Enabled == true, row?.Id, BuiltInWorkflows.Values(row));
 
     // ---- Runs ------------------------------------------------------------------------
 

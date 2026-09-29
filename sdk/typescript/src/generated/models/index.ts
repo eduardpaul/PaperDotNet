@@ -420,6 +420,60 @@ export interface BreakInheritanceRequest extends AdditionalDataHolder, Parsable 
     copyGrants?: boolean | null;
 }
 /**
+ * Turns a built-in workflow on or off in the workspace; `parameters` (default: the ones it had) fill in its definition.
+ */
+export interface BuiltInSettingsRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The enabled property
+     */
+    enabled?: boolean | null;
+    /**
+     * The parameters property
+     */
+    parameters?: JsonObject | null;
+}
+/**
+ * A built-in workflow (EVT-12) and its state in the workspace: its `parameters` (JSON Schema), whether the serverhas what it needs (`available`), and when it was turned on, the `workflowId` it runs as and its `values`.
+ */
+export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The available property
+     */
+    available?: boolean | null;
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The enabled property
+     */
+    enabled?: boolean | null;
+    /**
+     * The key property
+     */
+    key?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The parameters property
+     */
+    parameters?: JsonObject | null;
+    /**
+     * The requires property
+     */
+    requires?: string | null;
+    /**
+     * The values property
+     */
+    values?: JsonObject | null;
+    /**
+     * The workflowId property
+     */
+    workflowId?: Guid | null;
+}
+/**
  * Bulk update body: an OData filter (optional: all items) and field values to merge.
  */
 export interface BulkUpdateRequest extends AdditionalDataHolder, Parsable {
@@ -749,6 +803,19 @@ export interface ContentTypeResponse extends AdditionalDataHolder, Parsable {
      */
     odataEtag?: string | null;
 }
+/**
+ * Copies a built-in workflow into a workflow of the workspace named `name`, to change it.
+ */
+export interface CopyBuiltInRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The parameters property
+     */
+    parameters?: JsonObject | null;
+}
 export interface Counters extends AdditionalDataHolder, Parsable {
     /**
      * The itemsAdded property
@@ -1025,6 +1092,24 @@ export function createBreakInheritanceRequestFromDiscriminatorValue(parseNode: P
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BuiltInSettingsRequest}
+ */
+// @ts-ignore
+export function createBuiltInSettingsRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBuiltInSettingsRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BuiltInWorkflowResponse}
+ */
+// @ts-ignore
+export function createBuiltInWorkflowResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBuiltInWorkflowResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {BulkUpdateRequest}
  */
 // @ts-ignore
@@ -1156,6 +1241,15 @@ export function createContentTypeRequestFromDiscriminatorValue(parseNode: ParseN
 // @ts-ignore
 export function createContentTypeResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoContentTypeResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CopyBuiltInRequest}
+ */
+// @ts-ignore
+export function createCopyBuiltInRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCopyBuiltInRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -3239,6 +3333,37 @@ export function deserializeIntoBreakInheritanceRequest(breakInheritanceRequest: 
 }
 /**
  * The deserialization information for the current model
+ * @param BuiltInSettingsRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBuiltInSettingsRequest(builtInSettingsRequest: Partial<BuiltInSettingsRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "enabled": n => { builtInSettingsRequest.enabled = n.getBooleanValue(); },
+        "parameters": n => { builtInSettingsRequest.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param BuiltInWorkflowResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBuiltInWorkflowResponse(builtInWorkflowResponse: Partial<BuiltInWorkflowResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "available": n => { builtInWorkflowResponse.available = n.getBooleanValue(); },
+        "description": n => { builtInWorkflowResponse.description = n.getStringValue(); },
+        "enabled": n => { builtInWorkflowResponse.enabled = n.getBooleanValue(); },
+        "key": n => { builtInWorkflowResponse.key = n.getStringValue(); },
+        "name": n => { builtInWorkflowResponse.name = n.getStringValue(); },
+        "parameters": n => { builtInWorkflowResponse.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "requires": n => { builtInWorkflowResponse.requires = n.getStringValue(); },
+        "values": n => { builtInWorkflowResponse.values = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "workflowId": n => { builtInWorkflowResponse.workflowId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param BulkUpdateRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -3454,6 +3579,18 @@ export function deserializeIntoContentTypeResponse(contentTypeResponse: Partial<
         "key": n => { contentTypeResponse.key = n.getStringValue(); },
         "name": n => { contentTypeResponse.name = n.getStringValue(); },
         "@odata.etag": n => { contentTypeResponse.odataEtag = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CopyBuiltInRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCopyBuiltInRequest(copyBuiltInRequest: Partial<CopyBuiltInRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "name": n => { copyBuiltInRequest.name = n.getStringValue(); },
+        "parameters": n => { copyBuiltInRequest.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
     }
 }
 /**
@@ -5768,7 +5905,9 @@ export function deserializeIntoWorkflowRequest(workflowRequest: Partial<Workflow
 // @ts-ignore
 export function deserializeIntoWorkflowResponse(workflowResponse: Partial<WorkflowResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "builtIn": n => { workflowResponse.builtIn = n.getStringValue(); },
         "condition": n => { workflowResponse.condition = n.getStringValue(); },
+        "copiedFrom": n => { workflowResponse.copiedFrom = n.getStringValue(); },
         "createdAt": n => { workflowResponse.createdAt = n.getDateValue(); },
         "description": n => { workflowResponse.description = n.getStringValue(); },
         "enabled": n => { workflowResponse.enabled = n.getBooleanValue(); },
@@ -8309,6 +8448,39 @@ export function serializeBreakInheritanceRequest(writer: SerializationWriter, br
 }
 /**
  * Serializes information the current object
+ * @param BuiltInSettingsRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBuiltInSettingsRequest(writer: SerializationWriter, builtInSettingsRequest: Partial<BuiltInSettingsRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!builtInSettingsRequest || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("enabled", builtInSettingsRequest.enabled);
+    writer.writeObjectValue<JsonObject>("parameters", builtInSettingsRequest.parameters, serializeJsonObject);
+    writer.writeAdditionalData(builtInSettingsRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param BuiltInWorkflowResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBuiltInWorkflowResponse(writer: SerializationWriter, builtInWorkflowResponse: Partial<BuiltInWorkflowResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!builtInWorkflowResponse || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("available", builtInWorkflowResponse.available);
+    writer.writeStringValue("description", builtInWorkflowResponse.description);
+    writer.writeBooleanValue("enabled", builtInWorkflowResponse.enabled);
+    writer.writeStringValue("key", builtInWorkflowResponse.key);
+    writer.writeStringValue("name", builtInWorkflowResponse.name);
+    writer.writeObjectValue<JsonObject>("parameters", builtInWorkflowResponse.parameters, serializeJsonObject);
+    writer.writeStringValue("requires", builtInWorkflowResponse.requires);
+    writer.writeObjectValue<JsonObject>("values", builtInWorkflowResponse.values, serializeJsonObject);
+    writer.writeGuidValue("workflowId", builtInWorkflowResponse.workflowId);
+    writer.writeAdditionalData(builtInWorkflowResponse.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param BulkUpdateRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -8540,6 +8712,19 @@ export function serializeContentTypeResponse(writer: SerializationWriter, conten
     writer.writeStringValue("name", contentTypeResponse.name);
     writer.writeStringValue("@odata.etag", contentTypeResponse.odataEtag);
     writer.writeAdditionalData(contentTypeResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CopyBuiltInRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCopyBuiltInRequest(writer: SerializationWriter, copyBuiltInRequest: Partial<CopyBuiltInRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!copyBuiltInRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("name", copyBuiltInRequest.name);
+    writer.writeObjectValue<JsonObject>("parameters", copyBuiltInRequest.parameters, serializeJsonObject);
+    writer.writeAdditionalData(copyBuiltInRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -11016,7 +11201,9 @@ export function serializeWorkflowRequest(writer: SerializationWriter, workflowRe
 // @ts-ignore
 export function serializeWorkflowResponse(writer: SerializationWriter, workflowResponse: Partial<WorkflowResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!workflowResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("builtIn", workflowResponse.builtIn);
     writer.writeStringValue("condition", workflowResponse.condition);
+    writer.writeStringValue("copiedFrom", workflowResponse.copiedFrom);
     writer.writeDateValue("createdAt", workflowResponse.createdAt);
     writer.writeStringValue("description", workflowResponse.description);
     writer.writeBooleanValue("enabled", workflowResponse.enabled);
@@ -12003,9 +12190,17 @@ export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
  */
 export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
     /**
+     * The builtIn property
+     */
+    builtIn?: string | null;
+    /**
      * The condition property
      */
     condition?: string | null;
+    /**
+     * The copiedFrom property
+     */
+    copiedFrom?: string | null;
     /**
      * The createdAt property
      */

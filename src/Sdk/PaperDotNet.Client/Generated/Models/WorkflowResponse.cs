@@ -15,6 +15,14 @@ namespace PaperDotNet.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The builtIn property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? BuiltIn { get; set; }
+#nullable restore
+#else
+        public string BuiltIn { get; set; }
+#endif
         /// <summary>The condition property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -22,6 +30,14 @@ namespace PaperDotNet.Client.Models
 #nullable restore
 #else
         public string Condition { get; set; }
+#endif
+        /// <summary>The copiedFrom property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? CopiedFrom { get; set; }
+#nullable restore
+#else
+        public string CopiedFrom { get; set; }
 #endif
         /// <summary>The createdAt property</summary>
         public DateTimeOffset? CreatedAt { get; set; }
@@ -116,7 +132,9 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "builtIn", n => { BuiltIn = n.GetStringValue(); } },
                 { "condition", n => { Condition = n.GetStringValue(); } },
+                { "copiedFrom", n => { CopiedFrom = n.GetStringValue(); } },
                 { "createdAt", n => { CreatedAt = n.GetDateTimeOffsetValue(); } },
                 { "description", n => { Description = n.GetStringValue(); } },
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
@@ -139,7 +157,9 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteStringValue("builtIn", BuiltIn);
             writer.WriteStringValue("condition", Condition);
+            writer.WriteStringValue("copiedFrom", CopiedFrom);
             writer.WriteDateTimeOffsetValue("createdAt", CreatedAt);
             writer.WriteStringValue("description", Description);
             writer.WriteBoolValue("enabled", Enabled);

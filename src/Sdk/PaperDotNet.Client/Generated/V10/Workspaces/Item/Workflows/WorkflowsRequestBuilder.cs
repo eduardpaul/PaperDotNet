@@ -4,6 +4,7 @@ using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
+using PaperDotNet.Client.V10.Workspaces.Item.Workflows.BuiltIns;
 using PaperDotNet.Client.V10.Workspaces.Item.Workflows.Item;
 using PaperDotNet.Client.V10.Workspaces.Item.Workflows.Runs;
 using System.Collections.Generic;
@@ -19,6 +20,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Workflows
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WorkflowsRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The builtIns property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.BuiltIns.BuiltInsRequestBuilder BuiltIns
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.BuiltIns.BuiltInsRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The runs property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.Runs.RunsRequestBuilder Runs
         {

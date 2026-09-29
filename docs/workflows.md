@@ -312,6 +312,41 @@ Example: read receipts and send uncertain ones to review.
 }
 ```
 
+## Built-in workflows
+
+The product ships ready-made workflows (EVT-12,
+[ADR-0036](adr/0036-workflows-as-the-core.md)). They are listed under
+**Built-in workflows** in the workspace's workflow settings, and at
+`GET /v1.0/workspaces/{ws}/workflows/builtIns`.
+
+| Key | Name | Parameters | Needs |
+|---|---|---|---|
+| `workflows.approveItems` | Approve new items | `list`, `approvers` (required); `statusField` (`status`), `approvedValue` (`Approved`), `rejectedValue` (`Rejected`), `dueInHours` | |
+| `documents.classify` | Classify new documents | `termSet` (`Group/Set`), `field` (required); `minConfidence` (0.7), `library`, `execution` | AI |
+| `documents.extract` | Extract fields | `fields`, `minConfidence` (0.7), `library`, `execution` | AI |
+
+- **Turn on or off** per workspace with its parameters:
+  `PUT …/workflows/builtIns/{key}` `{ "enabled": true, "parameters": { … } }`.
+  The values are checked like a saved workflow (the list must exist, and so
+  on). Turning it off keeps them.
+- Once on, it is listed with the workspace's workflows (`builtIn` holds its
+  key), runs like any workflow, and cannot be edited.
+- **Copy to change:** `POST …/workflows/builtIns/{key}/copy` `{ "name": … }`
+  creates a workflow of the workspace from it (`copiedFrom` holds the key),
+  with its current settings, and turns the built-in one off there.
+- **Updates:** when a new release changes a built-in definition, an hourly job
+  saves it as a new version of each workspace's copy (running runs keep
+  theirs). A built-in workflow that the release no longer has is turned off.
+- `library` narrows the document workflows to one library (default: all
+  libraries of the workspace), and `execution: batch` sends their AI calls in
+  the batch window.
+
+Modules ship built-in workflows with an `IWorkflowDefinitionProvider`
+(Workflows.Contracts): a key, a name, a definition as in the API, and
+parameters as a JSON Schema. In the definition, a string that is exactly
+`{param:name}` is replaced by the value (any JSON). Inside a longer string or
+a property name, `{param:name}` is replaced by its text.
+
 ## Export and import
 
 Workflows travel in the same templates and packages as lists and libraries
@@ -326,6 +361,9 @@ Workflows travel in the same templates and packages as lists and libraries
 - The section is checked in the dry run like the rest of the template: an
   unknown trigger or action (for example of an extension that is not enabled
   in the target) fails it with the workflow's name.
+- A built-in workflow is exported as its key (`BuiltIn`) with its parameter
+  values, so the target uses its own release's definition. A copy keeps
+  `CopiedFrom`. A key the target does not have fails the dry run.
 - Runs, approvals and waits are never exported.
 - Templates made before the rename (section `Automations` in
   `urn:paperdotnet:automation:2`) are still read.

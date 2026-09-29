@@ -337,3 +337,23 @@ These defaults were chosen when implementation started; each can still be change
   Without a client, the batch window calls the chat model for each queued question.
 - **Budget.** Questions are counted when they are answered (the batch's call record holds the tokens). Each
   run's use of an answer is recorded as a cached call.
+
+**9d (done):**
+
+- **Rows, not a second engine.** A built-in workflow turned on in a workspace is an ordinary workflow row with a
+  `BuiltInKey` and its parameter values. Runs, the run history, retries and the trigger lookup need nothing new. The
+  row's definition is the release's definition with the values filled in. It cannot be replaced through the API;
+  people change the values, or copy it.
+- **Parameters** are a JSON Schema object (the same small validator as manual inputs, with `default`). The
+  definition uses `{param:name}` placeholders. A whole-string placeholder takes any JSON value, and absent values
+  become null, which the activities treat as "not given".
+- **Scope.** Built-in workflows are turned on per workspace. A narrower scope is a parameter (`library`, `list`),
+  so it travels with the definition. The organization level (default state for all workspaces) comes with
+  organization workflows (9g). Nothing is on by default, including the AI workflows (they need a term set or
+  fields): the catalog shows them as available when a chat model is configured.
+- **Release updates.** An hourly tenant job rewrites each row from the release. A changed definition becomes a
+  new version, as an edit would. A key the release dropped turns the row off. A row whose values no longer fit
+  (e.g. a renamed list) keeps its version.
+- **Extensions** do not ship built-in workflows yet. That needs an extension point gated per tenant
+  (`IExtensionBuilder`) and comes when an extension needs it.
+

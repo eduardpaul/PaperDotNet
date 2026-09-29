@@ -122,7 +122,8 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `ExecutionKey`, described by `InputSchema`/`OutputSchema`/`Outcomes`) and triggers are raised with
   `IWorkflowTriggers` (Workflows.Contracts); long waits are bookmarks: return `WorkflowActivityResult.Wait(kind, key)`
   and complete with `IWorkflowBookmarks.CompleteAsync`; runs are started and resumed with `ResumeRun`
-  messages through the outbox (no workflow engine or durable execution framework). Code that reacts to an event
+  messages through the outbox (no workflow engine or durable execution framework). Product processes people should
+  see or vary ship as built-in workflows (`IWorkflowDefinitionProvider`, EVT-12), not hidden code. Code that reacts to an event
   and changes data should set `EventCausation.Depth` to the event's depth + 1 (loop protection).
 - Group membership → `IUserDirectory` (`GetGroupIdsAsync`, `GetGroupMembersAsync`), which includes
   groups inside groups (ADR-0035); inside Identity, go through `GroupClosures`, never `GroupMembers` alone.

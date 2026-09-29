@@ -4,6 +4,8 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createWorkflowResponseFromDiscriminatorValue, serializeWorkflowRequest, serializeWorkflowResponse, type ApiProblem, type WorkflowRequest, type WorkflowResponse } from '../../../../models/index.js';
 // @ts-ignore
+import { BuiltInsRequestBuilderNavigationMetadata, BuiltInsRequestBuilderRequestsMetadata, type BuiltInsRequestBuilder } from './builtIns/index.js';
+// @ts-ignore
 import { type WorkflowsItemRequestBuilder, WorkflowsItemRequestBuilderNavigationMetadata, WorkflowsItemRequestBuilderRequestsMetadata } from './item/index.js';
 // @ts-ignore
 import { RunsRequestBuilderNavigationMetadata, RunsRequestBuilderRequestsMetadata, type RunsRequestBuilder } from './runs/index.js';
@@ -14,6 +16,10 @@ import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMeta
  * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/workflows
  */
 export interface WorkflowsRequestBuilder extends BaseRequestBuilder<WorkflowsRequestBuilder> {
+    /**
+     * The builtIns property
+     */
+    get builtIns(): BuiltInsRequestBuilder;
     /**
      * The runs property
      */
@@ -62,6 +68,10 @@ export const WorkflowsRequestBuilderNavigationMetadata: Record<Exclude<keyof Wor
         requestsMetadata: WorkflowsItemRequestBuilderRequestsMetadata,
         navigationMetadata: WorkflowsItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["id"],
+    },
+    builtIns: {
+        requestsMetadata: BuiltInsRequestBuilderRequestsMetadata,
+        navigationMetadata: BuiltInsRequestBuilderNavigationMetadata,
     },
     runs: {
         requestsMetadata: RunsRequestBuilderRequestsMetadata,

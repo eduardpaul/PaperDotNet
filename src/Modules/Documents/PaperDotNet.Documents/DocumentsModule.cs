@@ -60,6 +60,7 @@ public sealed class DocumentsModule : IModule
         services.AddTenantRecurringJob<StoredFileCleanupJob>(StoredFileCleanupJob.Name, StoredFileCleanupJob.Schedule);
         services.AddSingleton(new WorkflowTriggerDefinition(WorkflowTriggers.DocumentProcessed,
             "A document's file was processed: text extracted and OCR done (data: version, pageCount, ocr)."));
+        services.AddSingleton<IWorkflowDefinitionProvider, DocumentWorkflows>();
         services.AddScoped<ITemplateHandler, LibrarySettingsTemplateHandler>();
         services.AddScoped<ITemplateHandler, DocumentFilesTemplateHandler>();
         services.AddScopes(DocumentScopes.All);

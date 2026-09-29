@@ -20,8 +20,12 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
+    # The builtIn property
+    built_in: Optional[str] = None
     # The condition property
     condition: Optional[str] = None
+    # The copiedFrom property
+    copied_from: Optional[str] = None
     # The createdAt property
     created_at: Optional[datetime.datetime] = None
     # The description property
@@ -76,7 +80,9 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
         from .workflow_trigger import WorkflowTrigger
 
         fields: dict[str, Callable[[Any], None]] = {
+            "builtIn": lambda n : setattr(self, 'built_in', n.get_str_value()),
             "condition": lambda n : setattr(self, 'condition', n.get_str_value()),
+            "copiedFrom": lambda n : setattr(self, 'copied_from', n.get_str_value()),
             "createdAt": lambda n : setattr(self, 'created_at', n.get_datetime_value()),
             "description": lambda n : setattr(self, 'description', n.get_str_value()),
             "enabled": lambda n : setattr(self, 'enabled', n.get_bool_value()),
@@ -101,7 +107,9 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
         """
         if writer is None:
             raise TypeError("writer cannot be null.")
+        writer.write_str_value("builtIn", self.built_in)
         writer.write_str_value("condition", self.condition)
+        writer.write_str_value("copiedFrom", self.copied_from)
         writer.write_datetime_value("createdAt", self.created_at)
         writer.write_str_value("description", self.description)
         writer.write_bool_value("enabled", self.enabled)

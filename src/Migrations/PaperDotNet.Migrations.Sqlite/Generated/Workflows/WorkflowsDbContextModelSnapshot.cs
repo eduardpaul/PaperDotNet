@@ -521,6 +521,16 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
 
+                    b.Property<string>("BuiltInKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("built_in_key");
+
+                    b.Property<string>("CopiedFrom")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("copied_from");
+
                     b.Property<long>("CreatedAt")
                         .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
@@ -547,6 +557,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                         .HasMaxLength(200)
                         .HasColumnType("TEXT")
                         .HasColumnName("name");
+
+                    b.Property<string>("Parameters")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("parameters");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")
@@ -580,6 +594,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_automation_definitions_tenant_id");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "BuiltInKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_automation_definitions_tenant_id_workspace_id_built_in_key");
 
                     b.HasIndex("TenantId", "WorkspaceId", "Name")
                         .IsUnique()
