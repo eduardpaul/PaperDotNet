@@ -178,6 +178,41 @@ Only processes that people need to see or vary move into workflows. Infrastructu
   - A run inspector: the path taken, each node's inputs and outputs (secrets redacted), incidents and retry.
 - **Templates:** `urn:paperdotnet:workflow:1`, with references by name as today. Built-in workflows are referenced by key.
 
+### 9. Batched AI calls
+
+LLM work that is not urgent (classifying last night's scans, extracting receipts, summaries) is cheaper and
+easier on quotas when it is sent in batches: the Azure OpenAI and OpenAI Batch APIs cost about half and use a
+separate quota, with results within 24 hours. The batch collects requests from **all workflows of the
+organization** and sends them together once or twice a day.
+
+- **Mode per AI activity:**
+  - `execution`: `immediate` (default) or `batch`. The organization can set the default.
+  - `deadline`: at most how long to wait, for example `36h`. After the deadline the activity either calls the model right away or takes its `error` port.
+- **Queueing is a bookmark:**
+  - The activity builds a provider-neutral request (prompt, messages, response schema, AI profile) and checks the AI-06 cache (content hash, prompt, schema, model). A hit completes it at once.
+  - On a miss it saves an `ai_requests` row (tenant-owned) and its bookmark (`ai-batch`, key = request id) in the same transaction, and the run waits.
+  - The run holds no lease while it waits, so waits of hours or days are safe, as with approvals.
+  - Identical requests from several runs share one batch line and one charge.
+- **Submit job** (`ai.batch.submit`, a tenant recurring job on the organization's cron, e.g. `0 1,13 * * *` in its time zone, plus "submit now" for admins). It works per tenant and per AI profile, because a batch file targets one deployment and credentials are per tenant (AI-01). It never mixes tenants. It is crash-safe in three steps:
+  1. It saves an `ai_batches` row (`preparing`) and assigns the queued lines to it, in one transaction.
+  2. It uploads the JSONL (`custom_id` = line id) and creates the batch with `metadata.paperdotnetBatch` = the row id, then saves the provider's batch id (`submitted`).
+  3. After a crash between the upload and that save, the next run finds the provider's batch by its metadata and adopts it, so nothing is paid twice. If the enqueued-token quota is full (`token_limit_exceeded`), the batch stays queued and is retried with backoff.
+- **Poll job** (every few minutes while batches are open), when a batch is `completed`, `expired`, `cancelled` or `failed`:
+  - It downloads the output and error files.
+  - For each line it stores the result and token usage, writes the cache entry and the AI-06 audit, and saves `ResumeRun(runId, bookmarkId)` for every waiting run, all in one transaction (outbox).
+  - Lines without a result go back into the queue for the next window, or follow their deadline policy.
+  - Provider files are deleted after import, and request bodies once they are applied.
+- **Resuming:** the activity reads its line's result, validates it against the response schema (the `error` port on failure) and continues in suggest or apply mode, as an immediate call would.
+- **Providers:** `IAiBatchClient` in `PaperDotNet.AI` (Microsoft.Extensions.AI has no batch abstraction), with two implementations:
+  - **OpenAI-compatible Batch API** (Azure OpenAI `…/openai/v1/`, OpenAI) with the `OpenAI` package that `Microsoft.Extensions.AI.OpenAI` already brings in (`BatchClient`, file client). It adds no new dependency.
+  - **Deferred** for providers without a batch API (Ollama and other local models): the submit job runs the queued requests itself, with limited concurrency. That still moves the load into the chosen windows, and the tables and resume path are the same.
+- **Visibility:**
+  - A waiting run shows "waiting for AI batch (queued, next window 13:00)" or "submitted".
+  - An organization page shows the queue, open batches, tokens and estimated cost, with "submit now".
+
+The same pattern (an activity that suspends and an external job that completes its bookmark) is available to other
+deferred work, such as re-embedding with SRC-07 or bulk OCR.
+
 ## Plan
 
 Slices, each shippable and tested on both databases:
@@ -187,6 +222,7 @@ Slices, each shippable and tested on both databases:
 | **9a Engine** | Rename to workflows; graph model (`steps` compiled into a flow); run tokens, variables and step outputs; bookmarks table; activity descriptors with schemas; error ports, retries and incidents; migration of existing automations | EVT-07, EVT-08 |
 | **9b Triggers** | `IWorkflowTriggerProvider`; `schedule`; `date`; `document.processed`; term changes; `approval.decided`, `task.completed`, `comment.added`; manual with an input form and selection | EVT-10, EVT-11 (new) |
 | **9c AI activities** | AI-01 per-tenant provider; `ai.classify`, `ai.extract`, `ai.summarize`, `ai.prompt`; suggestion mode; AI-06 cache, quotas and audit | AI-01…04, AI-06, AI-07 |
+| **9c2 Batched AI** | `execution: batch` and deadlines; `ai_requests` and `ai_batches`; submit and poll jobs; OpenAI-compatible batch client (Azure OpenAI) and deferred client; organization batch page | AI-08 (new) |
 | **9d Built-in workflows** | `IWorkflowDefinitionProvider`, catalog, enable, disable and copy; "Classify new documents", "Extract fields" and approval templates | EVT-12 (new) |
 | **9e Flow control and integration** | For each, parallel and join, wait for event, call workflow, ask for input; HTTP request, outbound and inbound webhooks with allow-lists and secrets | EVT-08, EVT-13 (new) |
 | **9f Designer** | Flow designer, run inspector, test runs, association from list settings | EVT-14 (new) |
@@ -198,6 +234,7 @@ After 9a and 9b, the first three goals are covered: timers, events and LLM calls
 
 - One engine for every process users can see, with built-in workflows as its first users. This keeps the engine honest.
 - No new dependency except `@xyflow/react` in `web/` (MIT). The license policy stays intact, and all workflow data stays tenant-owned under RLS.
+- Batched AI calls are ordinary bookmarks, so they need no second queue or engine. They depend on the provider's batch API behaving as documented (24-hour target, one deployment per file), and the deferred client covers providers without one.
 - We keep maintaining our own engine. Parallel branches and joins are the risky part (9e) and come after the linear features pay off.
 - The rename touches the API, SDKs, UI, templates and docs (`automation.md`) once, before release.
 - Elsa stays an option: re-check its dependencies when a new version ships. A swap would replace `PaperDotNet.Workflows` internals, not definitions or the API.
@@ -208,3 +245,4 @@ After 9a and 9b, the first three goals are covered: timers, events and LLM calls
 2. Elsa: stay with this reference-only decision, or accept the maintenance fee terms (a change to the license policy) or a frozen 3.7.1?
 3. Should organization workflows be in 9g, or earlier for organization-wide retention and AI classification?
 4. Is "run as the triggering user" needed beyond manual starts?
+5. Batched AI: should `batch` be the organization default for built-in AI workflows (classify, extract), and what is the default fallback when the deadline passes, an immediate call or the error port?
