@@ -62,8 +62,8 @@ public sealed class OpenAiBatchClient(OpenAIClient client, string completionWind
             ["metadata"] = new JsonObject { [TagKey] = batchId.ToString("N") },
         };
         var operation = await _batches.CreateBatchAsync(BinaryContent.Create(BinaryData.FromString(request.ToJsonString())), waitUntilCompleted: false,
-            new RequestOptions { CancellationToken = cancellationToken });
-        return JsonNode.Parse(operation.GetRawResponse().Content)?["id"]?.GetValue<string>()
+            Options(cancellationToken));
+        return JsonNode.Parse(Succeeded(operation.GetRawResponse()).Content)?["id"]?.GetValue<string>()
             ?? throw new InvalidOperationException("The batch API answered without a batch id.");
     }
 
@@ -80,8 +80,8 @@ public sealed class OpenAiBatchClient(OpenAIClient client, string completionWind
         form.Add(file, "file", fileName);
         var body = await form.ReadAsByteArrayAsync(ct);
         var result = await _files.UploadFileAsync(BinaryContent.Create(BinaryData.FromBytes(body)), form.Headers.ContentType!.ToString(),
-            new RequestOptions { CancellationToken = ct });
-        return JsonNode.Parse(result.GetRawResponse().Content)?["id"]?.GetValue<string>()
+            Options(ct));
+        return JsonNode.Parse(Succeeded(result.GetRawResponse()).Content)?["id"]?.GetValue<string>()
             ?? throw new InvalidOperationException("The file API answered without a file id.");
     }
 
@@ -108,8 +108,8 @@ public sealed class OpenAiBatchClient(OpenAIClient client, string completionWind
 
     public async Task<AiBatchStatus> GetAsync(string providerBatchId, CancellationToken cancellationToken)
     {
-        var response = await _batches.GetBatchAsync(providerBatchId, new RequestOptions { CancellationToken = cancellationToken });
-        var batch = JsonNode.Parse(response.GetRawResponse().Content)!.AsObject();
+        var response = await _batches.GetBatchAsync(providerBatchId, Options(cancellationToken));
+        var batch = JsonNode.Parse(Succeeded(response.GetRawResponse()).Content)!.AsObject();
         var status = batch["status"]?.GetValue<string>();
         if (status is "validating" or "in_progress" or "finalizing" or "cancelling")
         {
@@ -218,6 +218,15 @@ public sealed class OpenAiBatchClient(OpenAIClient client, string completionWind
             yield return new AiBatchResult(customId, null, input, output, error);
         }
     }
+
+    /// <summary>
+    /// Protocol calls check the status here: the SDK accepts only 200, but Azure answers 201 Created to uploads and new
+    /// batches.
+    /// </summary>
+    private static RequestOptions Options(CancellationToken ct) => new() { CancellationToken = ct, ErrorOptions = ClientErrorBehaviors.NoThrow };
+
+    private static PipelineResponse Succeeded(PipelineResponse response) =>
+        response.Status is >= 200 and < 300 ? response : throw new ClientResultException(response);
 
     private static string? Errors(JsonObject batch) =>
         batch["errors"]?["data"] is JsonArray { Count: > 0 } errors

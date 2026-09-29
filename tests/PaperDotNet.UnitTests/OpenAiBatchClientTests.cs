@@ -52,6 +52,8 @@ public sealed class OpenAiBatchClientTests
         var client = Client(api);
 
         Assert.Equal(AiBatchState.Running, (await client.GetAsync("batch_1", TestContext.Current.CancellationToken)).State);
+        api.FailNext = HttpStatusCode.TooManyRequests;
+        await Assert.ThrowsAsync<ClientResultException>(() => client.GetAsync("batch_1", TestContext.Current.CancellationToken));
 
         api.Status = "completed";
         api.Output = """
@@ -98,10 +100,18 @@ public sealed class OpenAiBatchClientTests
 
         public string? Errors { get; set; }
 
+        public HttpStatusCode? FailNext { get; set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri!.AbsolutePath;
             Assert.Equal("Bearer key", request.Headers.Authorization?.ToString());
+            if (FailNext is { } failure)
+            {
+                FailNext = null;
+                return new HttpResponseMessage(failure) { Content = new StringContent("""{"error":{"message":"No."}}""", Encoding.UTF8, "application/json") };
+            }
+
             switch (request.Method.Method, path)
             {
                 case ("POST", "/openai/v1/files"):
@@ -110,10 +120,10 @@ public sealed class OpenAiBatchClientTests
                     // Azure OpenAI rejects a file part without a content type.
                     Assert.Contains("Content-Type: application/octet-stream", form, StringComparison.Ordinal);
                     UploadedJsonl = string.Join('\n', form.Split('\n').Where(l => l.TrimStart().StartsWith("{\"custom_id\"", StringComparison.Ordinal)));
-                    return Json(new JsonObject { ["id"] = FileId, ["object"] = "file", ["purpose"] = "batch", ["filename"] = "x.jsonl", ["bytes"] = 1, ["created_at"] = 1, ["status"] = "processed" });
+                    return Json(HttpStatusCode.Created, new JsonObject { ["id"] = FileId, ["object"] = "file", ["purpose"] = "batch", ["filename"] = "x.jsonl", ["bytes"] = 1, ["created_at"] = 1, ["status"] = "processed" });
                 case ("POST", "/openai/v1/batches"):
                     Created = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken))!.AsObject();
-                    return Json(Batch());
+                    return Json(HttpStatusCode.Created, Batch()); // Azure answers 201 where OpenAI answers 200
                 case ("GET", "/openai/v1/batches"):
                     return Json(new JsonObject { ["object"] = "list", ["data"] = new JsonArray(Batch()), ["has_more"] = false });
                 case ("GET", "/openai/v1/batches/batch_1"):
@@ -141,7 +151,9 @@ public sealed class OpenAiBatchClientTests
             ["metadata"] = Created?["metadata"]?.DeepClone(),
         };
 
-        private static HttpResponseMessage Json(JsonObject body) => new(HttpStatusCode.OK) { Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json") };
+        private static HttpResponseMessage Json(JsonObject body) => Json(HttpStatusCode.OK, body);
+
+        private static HttpResponseMessage Json(HttpStatusCode status, JsonObject body) => new(status) { Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json") };
 
         private static HttpResponseMessage Text(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/octet-stream") };
     }
