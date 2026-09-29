@@ -145,6 +145,8 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                             b1.Property<string>("DisplayName")
                                 .IsRequired();
 
+                            b1.Property<bool>("Indexed");
+
                             b1.Property<Guid?>("LookupListId");
 
                             b1.Property<int?>("MaxLength");
@@ -237,6 +239,40 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasDatabaseName("ix_item_changes_tenant_id_at");
 
                     b.ToTable("item_changes", "lists");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Lists.Data.ItemValue", b =>
+                {
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<short>("Field")
+                        .HasColumnType("smallint")
+                        .HasColumnName("field");
+
+                    b.Property<Guid>("Value")
+                        .HasColumnType("uuid")
+                        .HasColumnName("value");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("list_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("ItemId", "Field", "Value")
+                        .HasName("pk_item_values");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_item_values_tenant_id");
+
+                    b.HasIndex("ListId", "Field", "Value", "ItemId")
+                        .HasDatabaseName("ix_item_values_list_id_field_value_item_id");
+
+                    b.ToTable("item_values", "lists");
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.ItemVersion", b =>
@@ -343,6 +379,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasColumnType("boolean")
                         .HasColumnName("has_unique_permissions");
 
+                    b.Property<bool>("IndexPending")
+                        .HasColumnType("boolean")
+                        .HasColumnName("index_pending");
+
                     b.Property<int>("Kind")
                         .HasColumnType("integer")
                         .HasColumnName("kind");
@@ -356,6 +396,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
+
+                    b.Property<short>("NextValueField")
+                        .HasColumnType("smallint")
+                        .HasColumnName("next_value_field");
 
                     b.Property<string>("SystemKey")
                         .HasMaxLength(50)
@@ -394,11 +438,34 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasColumnType("uuid")
                         .HasColumnName("workspace_id");
 
+                    b.ComplexCollection(typeof(List<Dictionary<string, object>>), "IndexedFields", "PaperDotNet.Lists.Data.ListDefinition.IndexedFields#IndexedField", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Column");
+
+                            b1.Property<string>("Field")
+                                .IsRequired();
+
+                            b1.Property<int>("Kind");
+
+                            b1.Property<bool>("Ready");
+
+                            b1.Property<short?>("ValueField");
+
+                            b1
+                                .ToJson("indexed_fields")
+                                .HasColumnType("jsonb");
+                        });
+
                     b.HasKey("Id")
                         .HasName("pk_lists");
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_lists_tenant_id");
+
+                    b.HasIndex("TenantId", "IndexPending")
+                        .HasDatabaseName("ix_lists_tenant_id_index_pending");
 
                     b.HasIndex("TenantId", "WorkspaceId")
                         .HasDatabaseName("ix_lists_tenant_id_workspace_id");
@@ -429,6 +496,56 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
+                    b.Property<string>("Date1")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("date1");
+
+                    b.Property<string>("Date10")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("date10");
+
+                    b.Property<string>("Date2")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("date2");
+
+                    b.Property<string>("Date3")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("date3");
+
+                    b.Property<string>("Date4")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("date4");
+
+                    b.Property<string>("Date5")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("date5");
+
+                    b.Property<string>("Date6")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("date6");
+
+                    b.Property<string>("Date7")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("date7");
+
+                    b.Property<string>("Date8")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("date8");
+
+                    b.Property<string>("Date9")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("date9");
+
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
@@ -455,6 +572,46 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasColumnType("uuid")
                         .HasColumnName("list_id");
 
+                    b.Property<double?>("Number1")
+                        .HasColumnType("double precision")
+                        .HasColumnName("number1");
+
+                    b.Property<double?>("Number10")
+                        .HasColumnType("double precision")
+                        .HasColumnName("number10");
+
+                    b.Property<double?>("Number2")
+                        .HasColumnType("double precision")
+                        .HasColumnName("number2");
+
+                    b.Property<double?>("Number3")
+                        .HasColumnType("double precision")
+                        .HasColumnName("number3");
+
+                    b.Property<double?>("Number4")
+                        .HasColumnType("double precision")
+                        .HasColumnName("number4");
+
+                    b.Property<double?>("Number5")
+                        .HasColumnType("double precision")
+                        .HasColumnName("number5");
+
+                    b.Property<double?>("Number6")
+                        .HasColumnType("double precision")
+                        .HasColumnName("number6");
+
+                    b.Property<double?>("Number7")
+                        .HasColumnType("double precision")
+                        .HasColumnName("number7");
+
+                    b.Property<double?>("Number8")
+                        .HasColumnType("double precision")
+                        .HasColumnName("number8");
+
+                    b.Property<double?>("Number9")
+                        .HasColumnType("double precision")
+                        .HasColumnName("number9");
+
                     b.Property<Guid?>("ParentId")
                         .HasColumnType("uuid")
                         .HasColumnName("parent_id");
@@ -466,6 +623,56 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
+
+                    b.Property<string>("Text1")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("text1");
+
+                    b.Property<string>("Text10")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("text10");
+
+                    b.Property<string>("Text2")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("text2");
+
+                    b.Property<string>("Text3")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("text3");
+
+                    b.Property<string>("Text4")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("text4");
+
+                    b.Property<string>("Text5")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("text5");
+
+                    b.Property<string>("Text6")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("text6");
+
+                    b.Property<string>("Text7")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("text7");
+
+                    b.Property<string>("Text8")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("text8");
+
+                    b.Property<string>("Text9")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("text9");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -504,6 +711,129 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
 
                     b.HasIndex("ListId", "ScopeId")
                         .HasDatabaseName("ix_items_list_id_scope_id");
+
+                    b.HasIndex("ListId", "Date1", "Id")
+                        .HasDatabaseName("ix_items_list_id_date1_id")
+                        .HasFilter("date1 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date10", "Id")
+                        .HasDatabaseName("ix_items_list_id_date10_id")
+                        .HasFilter("date10 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date2", "Id")
+                        .HasDatabaseName("ix_items_list_id_date2_id")
+                        .HasFilter("date2 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date3", "Id")
+                        .HasDatabaseName("ix_items_list_id_date3_id")
+                        .HasFilter("date3 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date4", "Id")
+                        .HasDatabaseName("ix_items_list_id_date4_id")
+                        .HasFilter("date4 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date5", "Id")
+                        .HasDatabaseName("ix_items_list_id_date5_id")
+                        .HasFilter("date5 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date6", "Id")
+                        .HasDatabaseName("ix_items_list_id_date6_id")
+                        .HasFilter("date6 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date7", "Id")
+                        .HasDatabaseName("ix_items_list_id_date7_id")
+                        .HasFilter("date7 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date8", "Id")
+                        .HasDatabaseName("ix_items_list_id_date8_id")
+                        .HasFilter("date8 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Date9", "Id")
+                        .HasDatabaseName("ix_items_list_id_date9_id")
+                        .HasFilter("date9 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number1", "Id")
+                        .HasDatabaseName("ix_items_list_id_number1_id")
+                        .HasFilter("number1 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number10", "Id")
+                        .HasDatabaseName("ix_items_list_id_number10_id")
+                        .HasFilter("number10 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number2", "Id")
+                        .HasDatabaseName("ix_items_list_id_number2_id")
+                        .HasFilter("number2 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number3", "Id")
+                        .HasDatabaseName("ix_items_list_id_number3_id")
+                        .HasFilter("number3 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number4", "Id")
+                        .HasDatabaseName("ix_items_list_id_number4_id")
+                        .HasFilter("number4 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number5", "Id")
+                        .HasDatabaseName("ix_items_list_id_number5_id")
+                        .HasFilter("number5 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number6", "Id")
+                        .HasDatabaseName("ix_items_list_id_number6_id")
+                        .HasFilter("number6 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number7", "Id")
+                        .HasDatabaseName("ix_items_list_id_number7_id")
+                        .HasFilter("number7 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number8", "Id")
+                        .HasDatabaseName("ix_items_list_id_number8_id")
+                        .HasFilter("number8 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Number9", "Id")
+                        .HasDatabaseName("ix_items_list_id_number9_id")
+                        .HasFilter("number9 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text1", "Id")
+                        .HasDatabaseName("ix_items_list_id_text1_id")
+                        .HasFilter("text1 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text10", "Id")
+                        .HasDatabaseName("ix_items_list_id_text10_id")
+                        .HasFilter("text10 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text2", "Id")
+                        .HasDatabaseName("ix_items_list_id_text2_id")
+                        .HasFilter("text2 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text3", "Id")
+                        .HasDatabaseName("ix_items_list_id_text3_id")
+                        .HasFilter("text3 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text4", "Id")
+                        .HasDatabaseName("ix_items_list_id_text4_id")
+                        .HasFilter("text4 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text5", "Id")
+                        .HasDatabaseName("ix_items_list_id_text5_id")
+                        .HasFilter("text5 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text6", "Id")
+                        .HasDatabaseName("ix_items_list_id_text6_id")
+                        .HasFilter("text6 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text7", "Id")
+                        .HasDatabaseName("ix_items_list_id_text7_id")
+                        .HasFilter("text7 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text8", "Id")
+                        .HasDatabaseName("ix_items_list_id_text8_id")
+                        .HasFilter("text8 IS NOT NULL");
+
+                    b.HasIndex("ListId", "Text9", "Id")
+                        .HasDatabaseName("ix_items_list_id_text9_id")
+                        .HasFilter("text9 IS NOT NULL");
+
+                    b.HasIndex("ListId", "ParentId", "IsFolder", "Title", "Id")
+                        .HasDatabaseName("ix_items_list_id_parent_id_is_folder_title_id");
 
                     b.ToTable("items", "lists");
                 });

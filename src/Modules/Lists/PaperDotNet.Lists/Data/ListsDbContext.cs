@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Features;
+using PaperDotNet.Lists.Fields;
 using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Lists.Data;
 
-public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITenantContext tenant, TimeProvider? time = null)
+public sealed class ListsDbContext(
+    DbContextOptions<ListsDbContext> options, ITenantContext tenant, TimeProvider? time = null, FieldTypeRegistry? fieldTypes = null,
+    IOptions<ListsOptions>? listsOptions = null)
     : DbContext(options), ITenantScopedDbContext
 {
     private readonly TimeProvider time = time ?? TimeProvider.System;
@@ -30,16 +34,142 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
 
     public DbSet<SmartFolder> SmartFolders => Set<SmartFolder>();
 
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public DbSet<ItemValue> ItemValues => Set<ItemValue>();
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        await IndexFieldsAsync(cancellationToken);
         RecordChanges();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        IndexFieldsAsync(CancellationToken.None).GetAwaiter().GetResult();
         RecordChanges();
         return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    /// <summary>
+    /// Keeps indexed fields current (ADR-0035), whichever path saved: lists that are new or whose content types
+    /// changed get their columns planned, and saved items get their columns and value rows written.
+    /// </summary>
+    private async Task IndexFieldsAsync(CancellationToken ct)
+    {
+        if (fieldTypes is null)
+        {
+            return; // Design time (migrations).
+        }
+
+        await PlanListsAsync(ct);
+
+        var deleted = ChangeTracker.Entries<ListItem>().Where(e => e.State == EntityState.Deleted).Select(e => e.Entity.Id).ToArray();
+        if (deleted.Length > 0)
+        {
+            ItemValues.RemoveRange(await ItemValues.Where(v => EF.Parameter(deleted).Contains(v.ItemId)).ToListAsync(ct));
+        }
+
+        var saved = ChangeTracker.Entries<ListItem>()
+            .Where(e => e.State == EntityState.Added || (e.State == EntityState.Modified && e.Property(nameof(ListItem.Fields)).IsModified))
+            .ToList();
+        if (saved.Count == 0)
+        {
+            return;
+        }
+
+        var lists = ChangeTracker.Entries<ListDefinition>().Select(e => e.Entity).ToDictionary(l => l.Id);
+        var missing = saved.Select(e => e.Entity.ListId).Distinct().Where(id => !lists.ContainsKey(id)).ToArray();
+        if (missing.Length > 0)
+        {
+            foreach (var list in await Lists.IgnoreQueryFilters([QueryFilters.SoftDelete]).AsNoTracking()
+                         .Where(l => EF.Parameter(missing).Contains(l.Id)).ToListAsync(ct))
+            {
+                lists[list.Id] = list;
+            }
+        }
+
+        var desired = new Dictionary<Guid, (ListItem Item, Dictionary<short, HashSet<Guid>> Values)>();
+        foreach (var entry in saved)
+        {
+            if (lists.GetValueOrDefault(entry.Entity.ListId) is { } list)
+            {
+                desired[entry.Entity.Id] = (entry.Entity, FieldIndex.Apply(entry.Entity, list.IndexedFields));
+            }
+        }
+
+        await SyncValuesAsync(saved.Where(e => e.State == EntityState.Modified).Select(e => e.Entity).ToList(), desired, lists, ct);
+    }
+
+    /// <summary>Adds and removes <see cref="ItemValue"/> rows so they match the items' values.</summary>
+    internal async Task SyncValuesAsync(
+        IReadOnlyCollection<ListItem> existingItems, Dictionary<Guid, (ListItem Item, Dictionary<short, HashSet<Guid>> Values)> desired,
+        IReadOnlyDictionary<Guid, ListDefinition> lists, CancellationToken ct)
+    {
+        var withValues = existingItems.Where(i => lists.GetValueOrDefault(i.ListId)?.IndexedFields.Any(f => f.Kind == IndexKind.Values) == true)
+            .Select(i => i.Id).ToArray();
+        var existing = (withValues.Length == 0 ? [] : await ItemValues.Where(v => EF.Parameter(withValues).Contains(v.ItemId)).ToListAsync(ct))
+            .ToLookup(v => v.ItemId);
+        foreach (var (itemId, (item, values)) in desired)
+        {
+            var current = existing[itemId].ToList();
+            ItemValues.RemoveRange(current.Where(v => !values.TryGetValue(v.Field, out var set) || !set.Contains(v.Value)));
+            foreach (var (field, set) in values)
+            {
+                ItemValues.AddRange(set.Where(value => !current.Any(v => v.Field == field && v.Value == value))
+                    .Select(value => new ItemValue { ItemId = itemId, Field = field, Value = value, ListId = item.ListId }));
+            }
+        }
+    }
+
+    /// <summary>Plans the indexed fields of new lists, lists whose content types changed, and lists using a changed content type.</summary>
+    private async Task PlanListsAsync(CancellationToken ct)
+    {
+        var plan = new Dictionary<Guid, (ListDefinition List, bool IsNew)>();
+        foreach (var entry in ChangeTracker.Entries<ListDefinition>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                plan[entry.Entity.Id] = (entry.Entity, true);
+            }
+            else if (entry.State == EntityState.Modified && entry.Property(nameof(ListDefinition.ContentTypeIds)).IsModified)
+            {
+                plan[entry.Entity.Id] = (entry.Entity, false);
+            }
+        }
+
+        var changedTypes = ChangeTracker.Entries<ContentType>().Where(e => e.State == EntityState.Modified).Select(e => e.Entity.Id).ToHashSet();
+        if (changedTypes.Count > 0)
+        {
+            foreach (var list in await Lists.ToListAsync(ct))
+            {
+                if (list.ContentTypeIds.Any(changedTypes.Contains))
+                {
+                    plan.TryAdd(list.Id, (list, false));
+                }
+            }
+        }
+
+        if (plan.Count == 0)
+        {
+            return;
+        }
+
+        var types = ChangeTracker.Entries<ContentType>().Select(e => e.Entity).ToDictionary(c => c.Id);
+        var missing = plan.Values.SelectMany(p => p.List.ContentTypeIds).Distinct().Where(id => !types.ContainsKey(id)).ToArray();
+        if (missing.Length > 0)
+        {
+            foreach (var type in await ContentTypes.AsNoTracking().Where(c => EF.Parameter(missing).Contains(c.Id)).ToListAsync(ct))
+            {
+                types[type.Id] = type;
+            }
+        }
+
+        var limits = listsOptions?.Value.IndexedFields ?? new IndexedFieldLimits();
+        foreach (var (list, isNew) in plan.Values)
+        {
+            var fields = list.ContentTypeIds.Select(types.GetValueOrDefault).OfType<ContentType>().SelectMany(c => c.Fields);
+            FieldIndex.Plan(list, fields, fieldTypes!.Find, limits, isNew);
+        }
     }
 
     /// <summary>
@@ -118,6 +248,8 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
         modelBuilder.Entity<ListDefinition>(b =>
         {
             b.ToTable("lists");
+            b.ComplexCollection(l => l.IndexedFields, f => f.ToJson());
+            b.HasIndex(l => new { l.TenantId, l.IndexPending });
             b.Property(l => l.Name).HasMaxLength(200);
             b.HasIndex(l => new { l.TenantId, l.WorkspaceId });
             b.Property(l => l.Versioning).HasConversion<string>().HasMaxLength(20);
@@ -153,6 +285,31 @@ public sealed class ListsDbContext(DbContextOptions<ListsDbContext> options, ITe
             b.HasIndex(i => new { i.ListId, i.ScopeId });
             b.Property(i => i.Fields).IsJsonDocument();
             b.HasIndex(i => i.Fields).IsJsonContainmentIndex();
+
+            // Indexed fields (ADR-0035): one partial index per column, so a list pays only for the columns it fills.
+            foreach (var kind in new[] { IndexKind.Text, IndexKind.Number, IndexKind.Date })
+            {
+                for (var n = 1; n <= FieldIndex.SlotsPerKind; n++)
+                {
+                    var column = FieldIndex.ColumnName(kind, n);
+                    if (kind != IndexKind.Number)
+                    {
+                        b.Property<string>(column).HasMaxLength(kind == IndexKind.Text ? FieldIndex.MaxTextLength : 40);
+                    }
+
+                    b.HasIndex(nameof(ListItem.ListId), column, nameof(ListItem.Id)).HasFilter($"{column.ToLowerInvariant()} IS NOT NULL");
+                }
+            }
+
+            // Browsing a folder: folders first, then by title (issue 0001).
+            b.HasIndex(i => new { i.ListId, i.ParentId, i.IsFolder, i.Title, i.Id });
+        });
+
+        modelBuilder.Entity<ItemValue>(b =>
+        {
+            b.ToTable("item_values");
+            b.HasKey(v => new { v.ItemId, v.Field, v.Value });
+            b.HasIndex(v => new { v.ListId, v.Field, v.Value, v.ItemId });
         });
 
         modelBuilder.Entity<ItemChange>(b =>

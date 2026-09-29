@@ -5,6 +5,7 @@ using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.BulkUpdate;
+using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Counts;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Delta;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item;
 using System.Collections.Generic;
@@ -24,6 +25,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.BulkUpdate.BulkUpdateRequestBuilder BulkUpdate
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.BulkUpdate.BulkUpdateRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The counts property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Counts.CountsRequestBuilder Counts
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Counts.CountsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The delta property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Delta.DeltaRequestBuilder Delta

@@ -6,6 +6,8 @@ import { createApiProblemFromDiscriminatorValue, createItemPageFromDiscriminator
 // @ts-ignore
 import { BulkUpdateRequestBuilderRequestsMetadata, type BulkUpdateRequestBuilder } from './bulkUpdate/index.js';
 // @ts-ignore
+import { CountsRequestBuilderRequestsMetadata, type CountsRequestBuilder } from './counts/index.js';
+// @ts-ignore
 import { DeltaRequestBuilderRequestsMetadata, type DeltaRequestBuilder } from './delta/index.js';
 // @ts-ignore
 import { type WithItemItemRequestBuilder, WithItemItemRequestBuilderNavigationMetadata, WithItemItemRequestBuilderRequestsMetadata } from './item/index.js';
@@ -20,6 +22,10 @@ export interface ItemsRequestBuilder extends BaseRequestBuilder<ItemsRequestBuil
      * The bulkUpdate property
      */
     get bulkUpdate(): BulkUpdateRequestBuilder;
+    /**
+     * The counts property
+     */
+    get counts(): CountsRequestBuilder;
     /**
      * The delta property
      */
@@ -110,6 +116,9 @@ export const ItemsRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemsRe
     },
     bulkUpdate: {
         requestsMetadata: BulkUpdateRequestBuilderRequestsMetadata,
+    },
+    counts: {
+        requestsMetadata: CountsRequestBuilderRequestsMetadata,
     },
     delta: {
         requestsMetadata: DeltaRequestBuilderRequestsMetadata,

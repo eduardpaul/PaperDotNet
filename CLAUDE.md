@@ -98,6 +98,8 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `Pages` (page hits, SRC-09); semantic search embeds passages automatically when
   `AI:Embeddings` is configured (ADR-0027). AI providers come from `PaperDotNet.AI`
   (`IEmbeddingGenerator`, Microsoft.Extensions.AI), off by default.
+- Fields that lists filter, sort or group on at scale → `indexed: true` on the field (ADR-0035): item columns or the
+  value table, kept current by `ListsDbContext`; never add ad hoc columns or JSON indexes for one field.
 - Tags/classification → term ids from `ITermStore` (Taxonomy.Contracts) in
   `managedMetadata`/`keywords` fields; never store tag names as values.
 - Long work → `IOperations.StartAsync` + `OperationHandler<T>` (202 + `/operations/{id}`);

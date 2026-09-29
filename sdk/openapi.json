@@ -5654,6 +5654,84 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/counts": {
+      "get": {
+        "tags": [
+          "Items"
+        ],
+        "operationId": "CountItemValues",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "field",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValueCountsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/smartFolders": {
       "get": {
         "tags": [
@@ -17459,6 +17537,10 @@
                 "$ref": "#/components/schemas/FieldSearchWeight"
               }
             ]
+          },
+          "indexed": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -21396,6 +21478,40 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "ValueCount": {
+        "required": [
+          "value",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "description": "How many readable items have a value: the stored value as text (a choice, a number, a date, or a person, lookup\nor term id), or null for items without one."
+      },
+      "ValueCountsResponse": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValueCount"
+            }
           }
         }
       },

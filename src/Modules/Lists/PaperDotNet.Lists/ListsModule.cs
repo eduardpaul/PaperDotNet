@@ -83,6 +83,7 @@ public sealed class ListsModule : IModule
         services.AddIntegrationEvent<ItemPurged>();
         services.AddTenantRecurringJob<RecycleBinCleanupJob>(RecycleBinCleanupJob.Name, RecycleBinCleanupJob.Schedule);
         services.AddTenantRecurringJob<ItemChangeCleanupJob>(ItemChangeCleanupJob.Name, ItemChangeCleanupJob.Schedule);
+        services.AddTenantRecurringJob<IndexedFieldBackfillJob>(IndexedFieldBackfillJob.Name, IndexedFieldBackfillJob.Schedule);
         services.AddOperationHandler<BulkUpdateOperation>();
         services.AddEventSubscriber<TermMerged, TermMergedSubscriber>();
         services.AddEventSubscriber<PrincipalDeleted, PrincipalDeletedSubscriber>();
@@ -104,6 +105,7 @@ public sealed class ListsModule : IModule
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
         DeltaEndpoints.Map(endpoints);
+        ItemCountEndpoints.Map(endpoints);
         SmartFolders.Map(endpoints);
         BulkUpdateEndpoints.Map(endpoints);
         ViewEndpoints.Map(endpoints);

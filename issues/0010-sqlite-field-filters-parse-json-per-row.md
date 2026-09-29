@@ -1,6 +1,6 @@
 # 0010: On SQLite, every equality filter on a field parses the JSON of every row
 
-- **Status:** confirmed
+- **Status:** done
 - **Area:** Lists
 - **Date:** 2026-09-28
 
@@ -32,3 +32,9 @@ fields in indexed columns: 1.6 ms and 0.11 ms.
 - Promoted fields in typed columns and a table for multi-valued references
   ([item-and-permission-storage.md](../docs/item-and-permission-storage.md),
   decision 2; also [0005](0005-dynamic-json-fields-no-promotion-path-for-hot-columns.md)).
+
+## Done (2026-09-29)
+
+[ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 4. Indexed fields no longer parse the JSON: equality, ranges and sorting use the item column, and filters on
+multi-value fields use the value table (`IN` for rare values, `EXISTS` for common ones). Fields that are not indexed
+still parse the JSON on SQLite.

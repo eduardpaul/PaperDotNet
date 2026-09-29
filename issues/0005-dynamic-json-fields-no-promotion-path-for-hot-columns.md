@@ -1,6 +1,6 @@
 # 0005: No promotion path from a hot dynamic field to a real indexed column
 
-- **Status:** confirmed
+- **Status:** done
 - **Area:** Lists
 - **Date:** 2026-09-27
 
@@ -57,3 +57,10 @@ With [the storage benchmark](../tests/benchmarks/item-storage/README.md) on 500,
 A typed pivot table was also measured and rejected: it joins badly when one
 field filters and another sorts (148 ms), and costs the most on writes.
 Options: [item-and-permission-storage.md](../docs/item-and-permission-storage.md), decision 2.
+
+## Done (2026-09-29)
+
+[ADR-0035](../docs/adr/0035-item-storage-and-permissions-at-scale.md) step 4. A field marked `indexed` is copied to one of 10 text, 10 number or 10 date columns of the item (per list,
+`Lists:IndexedFields`), each with a partial index, or, with multiple values or as a reference, to `lists.item_values`.
+Filters, sorting, grouping and `GET …/items/counts` use them; fields indexed later are backfilled in the background and
+read from the JSON until then.

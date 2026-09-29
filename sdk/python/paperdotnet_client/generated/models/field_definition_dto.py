@@ -15,6 +15,8 @@ class FieldDefinitionDto(AdditionalDataHolder, Parsable):
 
     # The allowMultiple property
     allow_multiple: Optional[bool] = False
+    # The indexed property
+    indexed: Optional[bool] = False
     # The required property
     required: Optional[bool] = False
     # The choices property
@@ -68,6 +70,7 @@ class FieldDefinitionDto(AdditionalDataHolder, Parsable):
             "currencyCode": lambda n : setattr(self, 'currency_code', n.get_str_value()),
             "description": lambda n : setattr(self, 'description', n.get_str_value()),
             "displayName": lambda n : setattr(self, 'display_name', n.get_str_value()),
+            "indexed": lambda n : setattr(self, 'indexed', n.get_bool_value()),
             "lookupListId": lambda n : setattr(self, 'lookup_list_id', n.get_uuid_value()),
             "maxLength": lambda n : setattr(self, 'max_length', n.get_int_value()),
             "maximum": lambda n : setattr(self, 'maximum', n.get_float_value()),
@@ -93,6 +96,7 @@ class FieldDefinitionDto(AdditionalDataHolder, Parsable):
         writer.write_str_value("currencyCode", self.currency_code)
         writer.write_str_value("description", self.description)
         writer.write_str_value("displayName", self.display_name)
+        writer.write_bool_value("indexed", self.indexed)
         writer.write_uuid_value("lookupListId", self.lookup_list_id)
         writer.write_int_value("maxLength", self.max_length)
         writer.write_float_value("maximum", self.maximum)

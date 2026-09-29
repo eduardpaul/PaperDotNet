@@ -102,6 +102,7 @@ internal sealed class ItemWriter(
         }
 
         values = await FinalizeAsync(definitions, snapshot, context.After!, !isFolder, errors, ct);
+        CheckIndexedValues(schema, values, errors);
         if (errors.Count > 0)
         {
             return new ItemWriteResult(null, errors);
@@ -182,6 +183,7 @@ internal sealed class ItemWriter(
         }
 
         values = await FinalizeAsync(definitions, snapshot, context.After!, !item.IsFolder, errors, ct);
+        CheckIndexedValues(schema, values, errors);
         if (errors.Count > 0)
         {
             return new ItemWriteResult(null, errors);
@@ -507,6 +509,18 @@ internal sealed class ItemWriter(
     /// <summary>
     /// Tells connected clients to reload this item. Ids only, to every user of the tenant: the API still decides who may read it.
     /// </summary>
+    /// <summary>Indexed multi-value fields take at most <see cref="FieldIndex.MaxValuesPerItem"/> values (ADR-0035).</summary>
+    private static void CheckIndexedValues(ListSchema schema, JsonObject values, Dictionary<string, string[]> errors)
+    {
+        foreach (var field in schema.List.IndexedFields.Where(f => f.Kind == IndexKind.Values))
+        {
+            if (values[field.Field] is JsonArray array && array.Count > FieldIndex.MaxValuesPerItem)
+            {
+                errors[field.Field] = [$"An indexed field takes at most {FieldIndex.MaxValuesPerItem} values."];
+            }
+        }
+    }
+
     /// <summary>Tells connected clients who can read the item (the principals of its scope, ADR-0035) that it changed.</summary>
     private async Task PublishChangedAsync(string kind, ListSchema schema, ListItem item, CancellationToken ct)
     {

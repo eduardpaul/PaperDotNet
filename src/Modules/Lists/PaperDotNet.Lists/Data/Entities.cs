@@ -1,5 +1,6 @@
 using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Lists.Features;
 using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Data;
@@ -94,6 +95,15 @@ public sealed class ListDefinition : ITenantOwned, IAuditable, ISoftDeletable, I
     public const string HomeInboxKey = "home.inbox";
     public const string HomeDocumentsKey = "home.documents";
 
+    /// <summary>Where the list's indexed fields are stored (ADR-0035): a column of the item or a field number of the value table.</summary>
+    public List<IndexedField> IndexedFields { get; set; } = [];
+
+    /// <summary>Next field number for the value table (numbers are never reused; 1–15 are for well-known fields).</summary>
+    public short NextValueField { get; set; } = FieldIndex.FirstCustomValueField;
+
+    /// <summary>Some indexed fields are not filled for existing items yet (the backfill job does it).</summary>
+    public bool IndexPending { get; set; }
+
     /// <summary>Versions kept per item; older ones are removed.</summary>
     public int MaxVersions { get; set; } = DefaultMaxVersions;
 
@@ -146,6 +156,71 @@ public sealed class ListItem : ITenantOwned, IAuditable, ISoftDeletable, IVersio
     /// <summary>All other field values as a JSON object (normalized by their field types).</summary>
     public string Fields { get; set; } = "{}";
 
+    /// <summary>
+    /// Indexed single-value fields (ADR-0035): copies of values from <see cref="Fields"/>, assigned per list in
+    /// <see cref="ListDefinition.IndexedFields"/>. Text slots hold text, choice and boolean values, number slots
+    /// numbers and currencies, date slots dates and date-times in their canonical text form. Written on every save.
+    /// </summary>
+    public string? Text1 { get; set; }
+
+    public string? Text2 { get; set; }
+
+    public string? Text3 { get; set; }
+
+    public string? Text4 { get; set; }
+
+    public string? Text5 { get; set; }
+
+    public string? Text6 { get; set; }
+
+    public string? Text7 { get; set; }
+
+    public string? Text8 { get; set; }
+
+    public string? Text9 { get; set; }
+
+    public string? Text10 { get; set; }
+
+    public double? Number1 { get; set; }
+
+    public double? Number2 { get; set; }
+
+    public double? Number3 { get; set; }
+
+    public double? Number4 { get; set; }
+
+    public double? Number5 { get; set; }
+
+    public double? Number6 { get; set; }
+
+    public double? Number7 { get; set; }
+
+    public double? Number8 { get; set; }
+
+    public double? Number9 { get; set; }
+
+    public double? Number10 { get; set; }
+
+    public string? Date1 { get; set; }
+
+    public string? Date2 { get; set; }
+
+    public string? Date3 { get; set; }
+
+    public string? Date4 { get; set; }
+
+    public string? Date5 { get; set; }
+
+    public string? Date6 { get; set; }
+
+    public string? Date7 { get; set; }
+
+    public string? Date8 { get; set; }
+
+    public string? Date9 { get; set; }
+
+    public string? Date10 { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
@@ -159,6 +234,53 @@ public sealed class ListItem : ITenantOwned, IAuditable, ISoftDeletable, IVersio
     public Guid? DeletedBy { get; set; }
 
     public uint Version { get; set; }
+}
+
+/// <summary>How an indexed field is stored.</summary>
+public enum IndexKind
+{
+    Text = 0,
+    Number = 1,
+    Date = 2,
+
+    /// <summary>In <see cref="ItemValue"/> rows: people, lookups, terms, and multiple choices (as name-based ids).</summary>
+    Values = 3,
+}
+
+/// <summary>An indexed field of a list and where its values are (ADR-0035).</summary>
+public sealed class IndexedField
+{
+    public string Field { get; set; } = string.Empty;
+
+    public IndexKind Kind { get; set; }
+
+    /// <summary>The item column (<c>Text3</c>, <c>Number1</c>, <c>Date2</c>) for single values.</summary>
+    public string? Column { get; set; }
+
+    /// <summary>The field number in <see cref="ItemValue"/> for <see cref="IndexKind.Values"/>.</summary>
+    public short? ValueField { get; set; }
+
+    /// <summary>Every item has it filled; until then queries read the JSON.</summary>
+    public bool Ready { get; set; }
+}
+
+/// <summary>
+/// One value of an indexed multi-value or reference field (ADR-0035): a person, lookup item or term id, or a
+/// name-based id of a choice. Lets filters, counts per value and reverse lookups use an index.
+/// </summary>
+[NotAudited]
+public sealed class ItemValue : ITenantOwned
+{
+    public Guid ItemId { get; set; }
+
+    /// <summary>The field number (<see cref="IndexedField.ValueField"/>).</summary>
+    public short Field { get; set; }
+
+    public Guid Value { get; set; }
+
+    public Guid ListId { get; set; }
+
+    public Guid TenantId { get; set; }
 }
 
 /// <summary>

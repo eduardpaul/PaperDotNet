@@ -49,6 +49,8 @@ test('list settings rename the list, keep versions, add columns through a conten
   field = editor.getByRole('region', { name: 'Field Build phase' });
   await field.getByLabel('Type').selectOption('choice');
   await field.getByLabel('Choices').fill('Plan\nBuild\nDone');
+  // Indexed for fast filters, sorting and counts in large lists (ADR-0035).
+  await field.getByLabel('Indexed').check();
   await editor.getByRole('button', { name: 'Create content type' }).click();
   await expect(page.getByText('Content type created.')).toBeVisible();
   await expect(page.getByRole('row', { name: /Budget budget Money/ })).toBeVisible();

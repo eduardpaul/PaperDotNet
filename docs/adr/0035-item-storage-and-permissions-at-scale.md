@@ -1,6 +1,6 @@
 # ADR-0035: Item storage and permissions at scale
 
-- **Status:** Accepted; steps 1 (ACL by principal), 2 (nested groups) and 3 (fan-out) implemented
+- **Status:** Accepted; steps 1–4 implemented (ACL by principal, nested groups, fan-out, indexed fields)
 - **Date:** 2026-09-28
 - **Replaces:** how ADR-0011 evaluates permissions (its scope model stays) and
   how ADR-0012 trims search.
@@ -316,3 +316,44 @@ Done as decided, with these details:
   scope; `/me/events` compares it with the user's principals
   (`IPrincipalSet`, reloaded at most once a minute) and the PostgreSQL
   backplane forwards it.
+
+### Step 4: indexed fields (2026-09-29)
+
+- **Storage:** `FieldDefinition.Indexed`; `items` has `Text1..10` (512
+  characters), `Number1..10` (`double`) and `Date1..10` (the canonical text of
+  dates and date-times, which sorts in order), each with a partial index;
+  `lists.item_values(ItemId, Field, Value)`. A list's places are in
+  `ListDefinition.IndexedFields` (JSON).
+- **Kinds:** text (up to 512 characters), choice and boolean (`"true"`/`"false"`)
+  in text columns; number and currency in number columns; date and date-time in
+  date columns; people, lookups, terms (single or multiple) and multiple choices
+  in the value table. `note` cannot be indexed. Numbers are `double` in the
+  column (SQLite cannot order decimals); the JSON keeps the exact value.
+- **Planning** (`FieldIndex.Plan`) runs in `ListsDbContext` whenever a list is
+  created, its content types change, or a content type it uses changes. Kept
+  fields keep their place; the task and event fields take fixed places (status
+  `Text1`, priority `Text2`, due date `Date1`, start `Date2`, end `Date3`,
+  assignees value field 1, attendees 2) so queries across lists can use one
+  column. Fields over a list's limit stay unindexed rather than failing the
+  change. Value field numbers are never reused.
+- **Writes:** every save fills the columns and value rows of saved items,
+  whichever path saved them (term merges included); purged items lose their
+  rows. An indexed multi-value field takes at most 100 values.
+- **Backfill:** `IndexedFieldBackfillJob` (every 20 seconds per tenant) fills
+  new places for existing items with direct updates, so item versions, audit and
+  delta stay as they are; until a place is ready, queries read the JSON.
+  Different from the decision: a recurring job, not an `IOperations`
+  operation, because planning happens inside a save, where no operation can be
+  started, and a job cannot be forgotten by a code path.
+- **Queries:** ready columns replace the JSON in filters and sorting; value
+  fields answer `eq`, `ne`, `in` and `any` (and so "all of" with `and`, "none
+  of" with `not`), with `IN` or `EXISTS` chosen by a count capped at 2,000.
+  Multi-value fields cannot be sorted.
+- **Counts:** `GET …/items/counts?field=…&$filter=…` counts readable items per
+  value (an item counts for each of its values; items without one count as
+  null). Multi-value fields must be indexed to be counted.
+- **Paging (issue 0001):** the count is on the first page only; the browse
+  index `(ListId, ParentId, IsFolder, Title, Id)`; orders made of `isFolder`
+  and `fields/title` continue after the last row. No case-insensitive title
+  index: the search box does `contains`, which no b-tree index serves.
+- **Web:** the field editor has an "Indexed" option.

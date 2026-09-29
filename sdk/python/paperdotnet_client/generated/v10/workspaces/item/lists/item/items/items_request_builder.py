@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from .......models.item_page import ItemPage
     from .......models.item_response import ItemResponse
     from .bulk_update.bulk_update_request_builder import BulkUpdateRequestBuilder
+    from .counts.counts_request_builder import CountsRequestBuilder
     from .delta.delta_request_builder import DeltaRequestBuilder
     from .item.with_item_item_request_builder import WithItemItemRequestBuilder
 
@@ -135,6 +136,15 @@ class ItemsRequestBuilder(BaseRequestBuilder):
         from .bulk_update.bulk_update_request_builder import BulkUpdateRequestBuilder
 
         return BulkUpdateRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def counts(self) -> CountsRequestBuilder:
+        """
+        The counts property
+        """
+        from .counts.counts_request_builder import CountsRequestBuilder
+
+        return CountsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def delta(self) -> DeltaRequestBuilder:

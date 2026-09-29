@@ -283,4 +283,7 @@ public sealed class ListsOptions
     /// folder); the rest is moved in the background, and keeps its old access until then (ADR-0035).
     /// </summary>
     public int ScopeMoveInlineLimit { get; set; } = 5000;
+
+    /// <summary>Item columns a list may use for indexed fields, per kind (<c>Lists:IndexedFields:Text</c>, …; at most 10).</summary>
+    public IndexedFieldLimits IndexedFields { get; set; } = new();
 }

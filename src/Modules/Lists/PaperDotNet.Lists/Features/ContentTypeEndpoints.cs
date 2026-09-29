@@ -29,7 +29,8 @@ public sealed record FieldDefinitionDto(
     string? CurrencyCode = null,
     JsonElement? DefaultValue = null,
     Guid? TermSetId = null,
-    FieldSearchWeight? Search = null)
+    FieldSearchWeight? Search = null,
+    bool Indexed = false)
 {
     internal FieldDefinition ToEntity() => new()
     {
@@ -46,6 +47,7 @@ public sealed record FieldDefinitionDto(
         LookupListId = LookupListId,
         TermSetId = TermSetId,
         Search = Search,
+        Indexed = Indexed,
         CurrencyCode = CurrencyCode,
         DefaultValue = DefaultValue is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined } d ? d.GetRawText() : null,
     };
@@ -55,7 +57,8 @@ public sealed record FieldDefinitionDto(
         f.Choices.Count > 0 ? f.Choices : null, f.LookupListId, f.CurrencyCode,
         f.DefaultValue is null ? null : JsonDocument.Parse(f.DefaultValue).RootElement.Clone(),
         f.TermSetId,
-        f.Search);
+        f.Search,
+        f.Indexed);
 }
 
 /// <summary>A content type. <c>key</c> is set when it comes from a template; <c>extensionId</c> when an extension manages it (read-only).</summary>
