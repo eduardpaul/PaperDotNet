@@ -66,8 +66,8 @@ internal sealed record AiAnswer(string Text, bool Cached, long Tokens)
 /// All AI activities call the chat model through here (AI-06, ADR-0036): the same model and input reuse an earlier answer
 /// (the cache), an organization's daily token budget is enforced, and every call is recorded (<see cref="AiCall"/>: a hash
 /// of what was sent, the model, tokens and the answer). Records are saved with the run's next step, so they are atomic
-/// with its progress. With <c>execution: batch</c> (AI-08) a question is queued for the organization's next batch
-/// (<see cref="AiBatchRequest"/>) and the run waits; its node runs again with the answer.
+/// with its progress. With <c>execution: batch</c> (AI-08) the step waits on an <c>ai.batch</c> wait with its question as
+/// data, which the workspace's batch workflow answers (<see cref="AiBatchActivity"/>); the step then runs again with it.
 /// </summary>
 internal sealed class AiGateway(
     IServiceProvider services, WorkflowsDbContext db, IOptions<WorkflowAiOptions> options, IOptions<AiBatchOptions> batchOptions, TimeProvider time)
@@ -96,34 +96,26 @@ internal sealed class AiGateway(
         AiCall Record(string? response, bool cached) => db.AiCalls.Add(NewCall(question.Activity, context.Source, context.RunId, model, hash, response, cached, now)).Entity;
 
         var execution = Inputs.Text(context.Inputs, AiActivity.Execution) ?? batchOptions.Value.Execution;
-        if (execution == AiActivity.Batch && context.RunId is { } runId)
+        if (execution == AiActivity.Batch && context.RunId is not null)
         {
-            var suffix = ":" + context.ExecutionId.ToString("N");
-            var waiting = await db.Bookmarks.AsNoTracking()
-                .Where(b => b.RunId == runId && b.Kind == AiBatchRequests.WaitKind && b.Key.EndsWith(suffix))
-                .Select(b => b.Key).FirstOrDefaultAsync(ct);
-            var request = waiting is not null && Guid.TryParseExact(waiting[..32], "N", out var requestId)
-                ? await db.AiBatchRequests.FirstOrDefaultAsync(r => r.Id == requestId, ct)
-                : null;
             var immediately = Inputs.Text(context.Inputs, AiActivity.OnDeadline) != AiActivity.Fail;
-            if (request is not null)
+            if (context.Resumed is { Kind: AiBatch.WaitKind } resumed)
             {
-                // The node runs again after its wait: the answer, or what to do at the deadline.
-                if (request is { Status: AiBatchRequestStatus.Completed, Response: { } response })
+                // Back from the batch: its answer, the model's error, or the deadline passed without an answer.
+                if (resumed.Payload?["text"] is JsonValue answer && answer.TryGetValue<string>(out var answered))
                 {
-                    Record(response, cached: true);
-                    return (new AiAnswer(response, false, 0), null, null);
+                    Record(answered, cached: true);
+                    return (new AiAnswer(answered, false, 0), null, null);
                 }
 
-                var late = now >= request.DeadlineAt;
-                if (!late && request.Status is AiBatchRequestStatus.Queued or AiBatchRequestStatus.Submitted)
+                if (resumed.Payload?["error"] is JsonValue failure && failure.TryGetValue<string>(out var failed) && !resumed.TimedOut)
                 {
-                    return (null, null, AiBatchRequests.Wait(request, context.ExecutionId));
+                    return (null, $"The AI model failed: {failed}", null);
                 }
 
-                if (!late || !immediately)
+                if (!immediately)
                 {
-                    return (null, request.Error ?? AiBatchRequests.MissedDeadline, null);
+                    return (null, AiBatch.MissedDeadline, null);
                 }
             }
             else if (await CachedAsync(hash, now, ct) is { } cachedAnswer)
@@ -131,47 +123,15 @@ internal sealed class AiGateway(
                 Record(cachedAnswer, cached: true);
                 return (new AiAnswer(cachedAnswer, true, 0), null, null);
             }
-            else
+            else if (await AiBatch.IsScheduledAsync(db, context.WorkspaceId, ct))
             {
-                // A pending request for the same question is shared (one per question: a concurrent second one conflicts,
-                // and the retry joins); joining conflicts with a concurrent answer (the version), so the run is never left
-                // waiting for an answer that was already given.
-                var pending = await db.AiBatchRequests.FirstOrDefaultAsync(r => r.PendingHash == hash, ct);
-                if (pending is not null && now >= pending.DeadlineAt)
-                {
-                    // Pending past its deadline (not expired yet): as at the deadline.
-                    if (!immediately)
-                    {
-                        return (null, AiBatchRequests.MissedDeadline, null);
-                    }
-                }
-                else
-                {
-                    pending ??= NewRequest();
-                    pending.Waiters++;
-                    return (null, null, AiBatchRequests.Wait(pending, context.ExecutionId));
-                }
-
-                AiBatchRequest NewRequest()
-                {
-                    var hours = Inputs.Number(context.Inputs, AiActivity.DeadlineHours) ?? batchOptions.Value.DeadlineHours;
-                    var created = new AiBatchRequest
-                    {
-                        Id = Ids.New(),
-                        Activity = question.Activity,
-                        Source = Truncate(context.Source, 300),
-                        Model = Truncate(model, 200),
-                        InputHash = hash,
-                        PendingHash = hash,
-                        Question = JsonSerializer.Serialize(question),
-                        Status = AiBatchRequestStatus.Queued,
-                        CreatedAt = now,
-                        DeadlineAt = now.AddHours(Math.Clamp(hours, 1, 24 * 14)),
-                    };
-                    db.AiBatchRequests.Add(created);
-                    return created;
-                }
+                // Waits for the workspace's batch workflow (ai.batch) with the question as the wait's data.
+                var hours = Inputs.Number(context.Inputs, AiActivity.DeadlineHours) ?? batchOptions.Value.DeadlineHours;
+                return (null, null, WorkflowActivityResult.WaitAndRunAgain(
+                    AiBatch.WaitKind, context.ExecutionId.ToString("N"), now.AddHours(Math.Clamp(hours, 1, 24 * 14)), AiBatch.Data(hash, model, question)));
             }
+
+            // No batch workflow is on in the workspace: nothing would answer, so the question is asked now.
         }
         else if (await CachedAsync(hash, now, ct) is { } cachedAnswer)
         {
@@ -258,7 +218,8 @@ internal sealed class AiGateway(
 
     public static string Truncate(string text, int length) => text.Length > length ? text[..length] : text;
 
-    private async Task<string?> CachedAsync(string hash, DateTimeOffset now, CancellationToken ct)
+    /// <summary>An earlier answer to the same model and input within <see cref="WorkflowAiOptions.CacheDays"/>, or null.</summary>
+    public async Task<string?> CachedAsync(string hash, DateTimeOffset now, CancellationToken ct)
     {
         if (options.Value.CacheDays <= 0)
         {

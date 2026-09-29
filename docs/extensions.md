@@ -201,8 +201,11 @@ create with `IListItemStore.CreateAsync(workspaceId, listId, itemId, …)`) or
 inputs and outputs with `InputSchema` and `OutputSchema`, and offer extra
 ports with `Outcomes`. To wait for something outside the run (a reply, a
 payment, a batch), return `WorkflowActivityResult.Wait("{extension id}.kind",
-key, resumeAt)` and complete it later with `IWorkflowBookmarks.CompleteAsync`.
-See `docs/workflows.md`.
+key, resumeAt, data)` and complete it later with `IWorkflowBookmarks.CompleteAsync`.
+To finish the work yourself when the wait ends (or to poll, keeping state in the
+wait's data), return `WaitAndRunAgain(…)`: the step runs again with the wait in
+`context.Resumed`. Keep such state in waits and workflows, not in tables of your
+own. See `docs/workflows.md`.
 
 ## 5. Analyzers
 

@@ -1,10 +1,11 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Jobs.Contracts;
-using PaperDotNet.Messaging;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workflows.Data;
 
@@ -20,327 +21,404 @@ public sealed class AiBatchOptions
 
     /// <summary>The longest a run waits for a batch answer (hours) unless the activity says otherwise.</summary>
     public double DeadlineHours { get; set; } = 48;
-
-    /// <summary>When queued questions are sent (cron, UTC), e.g. <c>0 1,13 * * *</c> for twice a day.</summary>
-    public string Schedule { get; set; } = "0 1 * * *";
-}
-
-/// <summary>Waiting for and completing batch requests.</summary>
-internal static class AiBatchRequests
-{
-    /// <summary>The kind of the bookmarks runs wait on; the key is <c>{request id}:{execution id}</c>.</summary>
-    public const string WaitKind = "ai.batch";
-
-    public const string MissedDeadline = "The batch did not answer by the deadline.";
-
-    public static WorkflowActivityResult Wait(AiBatchRequest request, Guid executionId) =>
-        WorkflowActivityResult.WaitAndRunAgain(WaitKind, $"{request.Id:N}:{executionId:N}", request.DeadlineAt);
-
-    public static AiQuestion Question(AiBatchRequest request) => JsonSerializer.Deserialize<AiQuestion>(request.Question!)!;
-
-    /// <summary>
-    /// Completes the waits of runs on the finished <paramref name="requests"/> (tracked, not saved): the resume messages to
-    /// save with them, so the answer and the runs going on are one transaction.
-    /// </summary>
-    public static async Task<List<ITenantMessage>> CompleteWaitersAsync(
-        WorkflowsDbContext db, RunService runs, IReadOnlyCollection<AiBatchRequest> requests, CancellationToken ct)
-    {
-        var messages = new List<ITenantMessage>();
-        if (requests.Count == 0)
-        {
-            return messages;
-        }
-
-        var prefixes = requests.Select(r => r.Id.ToString("N") + ":").ToHashSet();
-        var open = await db.Bookmarks.Where(b => b.Kind == WaitKind && b.CompletedAt == null).ToListAsync(ct);
-        foreach (var bookmark in open.Where(b => b.Key.Length > 33 && prefixes.Contains(b.Key[..33])))
-        {
-            runs.Complete(bookmark, null);
-            messages.Add(runs.Resume(bookmark.RunId, bookmark.Id));
-        }
-
-        return messages;
-    }
-
-    /// <summary>Ends a request with an answer or an error and removes its question.</summary>
-    public static void Finish(AiBatchRequest request, string? response, string? error, DateTimeOffset at)
-    {
-        request.Status = response is null ? AiBatchRequestStatus.Failed : AiBatchRequestStatus.Completed;
-        request.PendingHash = null;
-        request.Response = response;
-        request.Error = error is null ? null : AiGateway.Truncate(error, 2000);
-        request.Question = null;
-        request.CompletedAt = at;
-    }
 }
 
 /// <summary>
-/// In the batch window (<see cref="AiBatchOptions.Schedule"/>) sends the organization's queued AI questions: in batches of
-/// one model to the provider's batch API when an <see cref="IAiBatchClient"/> is registered (the results job collects the
-/// answers), else answers them one by one with the chat model (deferred). Skipped while the day's AI budget is used up.
-/// A batch is saved as preparing (with its requests) before it is sent, so a crash in between is recovered by looking it
-/// up at the provider (<see cref="IAiBatchClient.FindAsync"/>) instead of paying for it twice.
+/// Batched AI is built from workflow parts only (ADR-0036): a batched AI step waits on a wait of kind
+/// <see cref="WaitKind"/> whose data is its question; the workspace's batch workflow (built-in "AI batch": a schedule
+/// trigger and the <see cref="AiBatchActivity"/>) answers the waiting questions and completes the waits; the steps run
+/// again with the answer.
 /// </summary>
-internal sealed partial class AiBatchSubmitJob(
-    WorkflowsDbContext db, AiGateway ai, RunService runs, IOutbox outbox, TimeProvider time, ILogger<AiBatchSubmitJob> logger, IAiBatchClient? client = null)
-    : ITenantRecurringJob
+internal static class AiBatch
 {
-    public const string Name = "workflows.aiBatches";
-    private const int Page = 100;
+    /// <summary>A question waiting for the batch; key: the step's execution id; data: see <see cref="Data"/>.</summary>
+    public const string WaitKind = "ai.batch";
 
-    public async Task RunAsync(CancellationToken cancellationToken)
+    /// <summary>The batch step waiting for the provider's batches; data: <c>{ "batches": [{ "tag", "model", "providerId" }] }</c>.</summary>
+    public const string PollKind = "ai.batch.poll";
+
+    public const string MissedDeadline = "The batch did not answer by the deadline.";
+
+    /// <summary>The wait data's field naming the batch run that took the question.</summary>
+    public const string ClaimedBy = "batchRun";
+
+    public static JsonObject Data(string hash, string model, AiQuestion question) => new()
     {
-        if (await ai.BudgetProblemAsync(cancellationToken) is { } problem)
+        ["hash"] = hash,
+        ["model"] = model,
+        ["activity"] = question.Activity,
+        ["instructions"] = question.Instructions,
+        ["input"] = question.Input,
+        ["schema"] = question.Schema?.DeepClone(),
+    };
+
+    public static AiQuestion Question(JsonObject data) =>
+        new(Text(data, "activity") ?? "ai.prompt", Text(data, "instructions") ?? string.Empty, Text(data, "input") ?? string.Empty, data["schema"] as JsonObject);
+
+    public static string? Text(JsonObject data, string name) => data[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+
+    /// <summary>
+    /// Whether an enabled workflow of the workspace answers batched questions (its definition uses <c>ai.batch</c>); without
+    /// one, batched steps ask at once instead of waiting for nothing.
+    /// </summary>
+    public static Task<bool> IsScheduledAsync(WorkflowsDbContext db, Guid workspaceId, CancellationToken ct) =>
+        db.Workflows.AnyAsync(w => w.WorkspaceId == workspaceId && w.Enabled
+            && db.Versions.Any(v => v.WorkflowId == w.Id && v.Number == w.CurrentVersion && v.Definition.Contains("\"ai.batch\"")), ct);
+}
+
+/// <summary>
+/// <c>ai.batch</c> (AI-08): answers the AI questions waiting in the workspace (steps with <c>execution: batch</c>).
+/// With a provider's batch API (<see cref="IAiBatchClient"/>) it sends them, one batch per model and each question once,
+/// and polls until the results are in; without one, it asks the chat model (within the day's budget). Each answer
+/// completes the waits of all steps that asked it. Safe to repeat: questions are taken by the batch run (the wait's data)
+/// and a batch is tagged with an id derived from the step's execution id, so a retry adopts what it already sent.
+/// </summary>
+internal sealed partial class AiBatchActivity(
+    ITenantScopeFactory scopes, ITenantContext tenant, TimeProvider time, ILogger<AiBatchActivity> logger, IAiBatchClient? client = null)
+    : IWorkflowActivity
+{
+    private const int Page = 500;
+
+    public string Key => "ai.batch";
+
+    public string Description => "Answers the AI questions waiting in the workspace (steps with execution: batch): { \"pollMinutes\": 5 }.";
+
+    public JsonObject? InputSchema => Schemas.Object([],
+        ("maxQuestions", Schemas.Number("Most waiting steps taken per run (default 2000; the rest wait for the next).")),
+        ("pollMinutes", Schemas.Number("How often the provider's batches are checked (default 5).")));
+
+    public JsonObject? OutputSchema => Schemas.Object([],
+        ("answered", Schemas.Number("Steps answered.")), ("failed", Schemas.Number("Steps whose question failed.")),
+        ("released", Schemas.Number("Steps left for the next batch.")));
+
+    public IEnumerable<string> Validate(JsonObject inputs)
+    {
+        if (inputs["maxQuestions"] is not null && Inputs.Number(inputs, "maxQuestions") is not (>= 1 and <= 100_000))
+        {
+            yield return "maxQuestions must be from 1 to 100000.";
+        }
+
+        if (inputs["pollMinutes"] is not null && Inputs.Number(inputs, "pollMinutes") is not (>= 1 and <= 1440))
+        {
+            yield return "pollMinutes must be from 1 to 1440.";
+        }
+    }
+
+    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
+    {
+        if (context.RunId is not { } runId)
+        {
+            return WorkflowActivityResult.Fail("ai.batch runs in a workflow run.");
+        }
+
+        // Its own scope: answers are saved (with the messages that resume the steps) apart from the batch run's progress.
+        await using var scope = scopes.CreateScope(tenant.TenantId!.Value, tenant.TenantIdentifier!);
+        var work = new BatchWork(scope.ServiceProvider, context, runId, time);
+        if (context.Resumed is { Kind: AiBatch.PollKind } poll)
+        {
+            return await ProviderAsync(() => CollectAsync(work, poll.Data ?? [], cancellationToken));
+        }
+
+        var max = (int)(Inputs.Number(context.Inputs, "maxQuestions") ?? 2000);
+        if (client is not null)
+        {
+            max = Math.Min(max, client.MaxLines);
+        }
+
+        var waiting = await work.TakeAsync(max, cancellationToken);
+        if (waiting.Count == 0)
+        {
+            return WorkflowActivityResult.Ok(Counts(0, 0, 0));
+        }
+
+        if (await work.Gateway.BudgetProblemAsync(cancellationToken) is { } problem)
         {
             LogSkipped(problem);
-            return;
+            return WorkflowActivityResult.Ok(Counts(0, 0, await work.ReleaseAsync(waiting, cancellationToken)));
         }
 
-        if (client is null)
-        {
-            await AnswerAsync(cancellationToken);
-            return;
-        }
-
-        var now = time.GetUtcNow();
-        var models = await db.AiBatchRequests.Where(r => r.Status == AiBatchRequestStatus.Queued && r.DeadlineAt > now)
-            .Select(r => r.Model).Distinct().ToListAsync(cancellationToken);
-        foreach (var model in models)
-        {
-            while (await SubmitAsync(model, now, cancellationToken))
-            {
-            }
-        }
+        return client is null ? await AnswerAsync(work, waiting, cancellationToken) : await ProviderAsync(() => SendAsync(work, waiting, cancellationToken));
     }
 
-    /// <summary>Sends one batch of the model's queued requests; false when there were none (or they changed meanwhile).</summary>
-    private async Task<bool> SubmitAsync(string model, DateTimeOffset now, CancellationToken ct)
+    /// <summary>A failing batch API fails the step (its retry policy runs it again, adopting what it sent), not the run's handler.</summary>
+    private static async Task<WorkflowActivityResult> ProviderAsync(Func<Task<WorkflowActivityResult>> call)
     {
-        db.ChangeTracker.Clear();
-        var requests = await db.AiBatchRequests
-            .Where(r => r.Status == AiBatchRequestStatus.Queued && r.Model == model && r.DeadlineAt > now)
-            .OrderBy(r => r.CreatedAt).Take(Math.Max(1, client!.MaxLines)).ToListAsync(ct);
-        if (requests.Count == 0)
-        {
-            return false;
-        }
-
-        var batch = new AiBatch { Id = Ids.New(), Model = model, Status = AiBatchPhase.Preparing, Lines = requests.Count, CreatedAt = time.GetUtcNow() };
-        db.AiBatches.Add(batch);
-        foreach (var request in requests)
-        {
-            request.Status = AiBatchRequestStatus.Submitted;
-            request.BatchId = batch.Id;
-        }
-
         try
         {
-            await db.SaveChangesAsync(ct);
+            return await call();
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (ex is not (OperationCanceledException or DbUpdateException))
         {
-            // Joined or answered meanwhile: the next round reads them again.
-            return true;
+            return WorkflowActivityResult.Fail($"The AI batch API failed: {ex.Message}");
         }
-
-        var lines = requests.Select(r =>
-        {
-            var question = AiBatchRequests.Question(r);
-            return new AiBatchLine(r.Id.ToString("N"), r.Model, question.Instructions, question.Input, question.Schema);
-        }).ToList();
-
-        // A failure here leaves the batch preparing: the results job looks it up and adopts it, or queues its requests again.
-        batch.ProviderId = await client!.SubmitAsync(batch.Id, lines, ct);
-        batch.Status = AiBatchPhase.Submitted;
-        batch.SubmittedAt = time.GetUtcNow();
-        await db.SaveChangesAsync(ct);
-        LogSubmitted(batch.Id, batch.ProviderId, requests.Count);
-        return true;
     }
 
-    /// <summary>Without a batch API: answers the queued requests with the chat model, each with its runs going on.</summary>
-    private async Task AnswerAsync(CancellationToken ct)
+    /// <summary>Without a batch API: asks the chat model each question once and completes its steps' waits.</summary>
+    private static async Task<WorkflowActivityResult> AnswerAsync(BatchWork work, List<WorkflowBookmark> waiting, CancellationToken ct)
     {
-        var failed = new HashSet<Guid>();
-        while (true)
+        int answered = 0, failed = 0;
+        var groups = waiting.GroupBy(b => AiBatch.Text(BatchWork.DataOf(b), "hash")).ToList();
+        for (var i = 0; i < groups.Count; i++)
         {
-            db.ChangeTracker.Clear();
-            var now = time.GetUtcNow();
-            var requests = await db.AiBatchRequests.Where(r => r.Status == AiBatchRequestStatus.Queued && r.DeadlineAt > now && !failed.Contains(r.Id))
-                .OrderBy(r => r.CreatedAt).Take(Page).ToListAsync(ct);
-            if (requests.Count == 0)
+            var group = groups[i].ToList();
+            var data = BatchWork.DataOf(group[0]);
+            var hash = groups[i].Key ?? string.Empty;
+            var text = await work.Gateway.CachedAsync(hash, work.Now, ct);
+            string? error = null;
+            if (text is null)
             {
-                return;
-            }
-
-            foreach (var request in requests)
-            {
-                db.ChangeTracker.Clear();
-                db.AiBatchRequests.Attach(request);
-                var (call, error) = await ai.CallAsync(AiBatchRequests.Question(request), request.Model, request.InputHash, "batch:" + request.Source, null, ct);
+                var (call, problem) = await work.Gateway.CallAsync(AiBatch.Question(data), AiBatch.Text(data, "model") ?? "default", hash, work.Context.Source, work.RunId, ct);
                 if (call is null)
                 {
-                    LogSkipped(error!);
-                    return;
+                    // The day's budget is used up: the rest wait for the next batch (or their deadline).
+                    var released = await work.ReleaseAsync([.. groups.Skip(i).SelectMany(g => g)], ct);
+                    return WorkflowActivityResult.Ok(Counts(answered, failed, released));
                 }
 
-                AiBatchRequests.Finish(request, call.Response, call.Response is null ? error : null, time.GetUtcNow());
-                try
-                {
-                    await outbox.SaveChangesAsync(db, [], await AiBatchRequests.CompleteWaitersAsync(db, runs, [request], ct), ct);
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    // Changed meanwhile (joined): answered again in the next round, from the cache when it is on.
-                    failed.Add(request.Id);
-                }
+                await work.Db.SaveChangesAsync(ct);
+                (text, error) = (call.Response, call.Response is null ? problem : null);
+            }
+
+            var count = await work.CompleteAsync(group, text, error, ct);
+            if (text is null)
+            {
+                failed += count;
+            }
+            else
+            {
+                answered += count;
             }
         }
+
+        return WorkflowActivityResult.Ok(Counts(answered, failed, 0));
     }
+
+    /// <summary>With a batch API: one batch per model (each question once), then waits and polls for the results.</summary>
+    private async Task<WorkflowActivityResult> SendAsync(BatchWork work, List<WorkflowBookmark> waiting, CancellationToken ct)
+    {
+        var batches = new JsonArray();
+        foreach (var model in waiting.GroupBy(b => AiBatch.Text(BatchWork.DataOf(b), "model") ?? "default"))
+        {
+            var lines = model.GroupBy(b => AiBatch.Text(BatchWork.DataOf(b), "hash") ?? string.Empty).Select(g =>
+            {
+                var question = AiBatch.Question(BatchWork.DataOf(g.First()));
+                return new AiBatchLine(g.Key, model.Key, question.Instructions, question.Input, question.Schema);
+            }).ToList();
+
+            // The same tag when the step runs again: a batch sent before a crash or failure is adopted, not sent twice.
+            var tag = Tag(work.Context.ExecutionId, model.Key);
+            var providerId = await client!.FindAsync(tag, ct) ?? await client.SubmitAsync(tag, lines, ct);
+            LogSubmitted(tag, providerId, lines.Count);
+            batches.Add(new JsonObject { ["tag"] = tag.ToString(), ["model"] = model.Key, ["providerId"] = providerId });
+        }
+
+        return Poll(work, batches);
+    }
+
+    /// <summary>Checks the provider's batches: finished ones complete their steps' waits; the others are polled again.</summary>
+    private async Task<WorkflowActivityResult> CollectAsync(BatchWork work, JsonObject state, CancellationToken ct)
+    {
+        var pending = new JsonArray();
+        int answered = 0, failed = 0, released = 0;
+        var taken = await work.TakenAsync(ct);
+        foreach (var batch in (state["batches"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            var providerId = AiBatch.Text(batch, "providerId")!;
+            var model = AiBatch.Text(batch, "model");
+            var status = await client!.GetAsync(providerId, ct);
+            if (status.State == AiBatchState.Running)
+            {
+                pending.Add(batch.DeepClone());
+                continue;
+            }
+
+            var results = status.Results.GroupBy(r => r.CustomId).ToDictionary(g => g.Key, g => g.First());
+            var unanswered = new List<WorkflowBookmark>();
+            foreach (var group in taken.Where(b => AiBatch.Text(BatchWork.DataOf(b), "model") == model).GroupBy(b => AiBatch.Text(BatchWork.DataOf(b), "hash") ?? string.Empty))
+            {
+                if (!results.TryGetValue(group.Key, out var result))
+                {
+                    unanswered.AddRange(group);
+                    continue;
+                }
+
+                var data = BatchWork.DataOf(group.First());
+                var call = AiGateway.NewCall(AiBatch.Text(data, "activity") ?? "ai.prompt", work.Context.Source, work.RunId, model ?? "default", group.Key,
+                    result.Error is null ? result.Text : null, false, work.Now);
+                call.InputTokens = result.InputTokens;
+                call.OutputTokens = result.OutputTokens;
+                call.Error = result.Error is null ? null : AiGateway.Truncate(result.Error, 2000);
+                work.Db.AiCalls.Add(call);
+                await work.Db.SaveChangesAsync(ct);
+                var count = await work.CompleteAsync([.. group], call.Response, call.Response is null ? result.Error ?? "The model gave no answer." : null, ct);
+                if (call.Response is null)
+                {
+                    failed += count;
+                }
+                else
+                {
+                    answered += count;
+                }
+            }
+
+            // Questions the batch did not answer (it failed or expired) wait for the next batch, until their deadline.
+            released += await work.ReleaseAsync(unanswered, ct);
+            var ended = status.State;
+            LogCollected(providerId, ended, results.Count);
+        }
+
+        return pending.Count > 0 ? Poll(work, pending) : WorkflowActivityResult.Ok(Counts(answered, failed, released));
+    }
+
+    private static WorkflowActivityResult Poll(BatchWork work, JsonArray batches)
+    {
+        var minutes = Inputs.Number(work.Context.Inputs, "pollMinutes") ?? 5;
+        return WorkflowActivityResult.WaitAndRunAgain(AiBatch.PollKind, work.Context.ExecutionId.ToString("N"), work.Now.AddMinutes(minutes),
+            new JsonObject { ["batches"] = batches });
+    }
+
+    private static JsonObject Counts(int answered, int failed, int released) =>
+        new() { ["answered"] = answered, ["failed"] = failed, ["released"] = released };
+
+    /// <summary>The batch's tag: derived from the step's execution and the model, so the same when the step runs again.</summary>
+    private static Guid Tag(Guid executionId, string model) =>
+        new(SHA256.HashData(Encoding.UTF8.GetBytes($"{executionId:N}:{model}"))[..16]);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "AI batch skipped: {Reason}")]
     private partial void LogSkipped(string reason);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "AI batch {BatchId} submitted as {ProviderId} with {Lines} lines")]
-    private partial void LogSubmitted(Guid batchId, string providerId, int lines);
-}
+    [LoggerMessage(Level = LogLevel.Information, Message = "AI batch {Tag} is {ProviderId} with {Lines} questions")]
+    private partial void LogSubmitted(Guid tag, string providerId, int lines);
 
-/// <summary>
-/// Every few minutes: collects finished batches from the provider (answers recorded as <see cref="AiCall"/>s, waiting runs
-/// go on; lines without an answer are queued again until their deadline), recovers batches left preparing by a crash,
-/// and ends requests whose deadline passed (their runs call the model at once or fail, by <c>onDeadline</c>).
-/// </summary>
-internal sealed partial class AiBatchResultsJob(
-    WorkflowsDbContext db, RunService runs, IOutbox outbox, TimeProvider time, ILogger<AiBatchResultsJob> logger, IAiBatchClient? client = null)
-    : ITenantRecurringJob
-{
-    public const string Name = "workflows.aiBatchResults";
-    public const string Schedule = "*/5 * * * *";
+    [LoggerMessage(Level = LogLevel.Information, Message = "AI batch {ProviderId} ended ({State}) with {Results} results")]
+    private partial void LogCollected(string providerId, AiBatchState state, int results);
 
-    /// <summary>A batch still preparing after this long was interrupted.</summary>
-    public static readonly TimeSpan Interrupted = TimeSpan.FromMinutes(10);
-
-    public async Task RunAsync(CancellationToken cancellationToken)
+    /// <summary>The waits a batch run works on, in its own scope.</summary>
+    private sealed class BatchWork(IServiceProvider services, WorkflowActivityContext context, Guid runId, TimeProvider time)
     {
-        await ExpireAsync(cancellationToken);
-        if (client is null)
-        {
-            return;
-        }
+        public WorkflowsDbContext Db { get; } = services.GetRequiredService<WorkflowsDbContext>();
 
-        var interrupted = time.GetUtcNow() - Interrupted;
-        foreach (var id in await db.AiBatches.Where(b => b.Status == AiBatchPhase.Preparing && b.CreatedAt < interrupted).Select(b => b.Id).ToListAsync(cancellationToken))
-        {
-            await RecoverAsync(id, cancellationToken);
-        }
+        public AiGateway Gateway { get; } = services.GetRequiredService<AiGateway>();
 
-        foreach (var id in await db.AiBatches.Where(b => b.Status == AiBatchPhase.Submitted).OrderBy(b => b.SubmittedAt).Select(b => b.Id).ToListAsync(cancellationToken))
-        {
-            await CollectAsync(id, cancellationToken);
-        }
-    }
+        public WorkflowActivityContext Context => context;
 
-    /// <summary>Queued requests whose deadline passed are not sent any more.</summary>
-    private async Task ExpireAsync(CancellationToken ct)
-    {
-        db.ChangeTracker.Clear();
-        var now = time.GetUtcNow();
-        var expired = await db.AiBatchRequests.Where(r => r.Status == AiBatchRequestStatus.Queued && r.DeadlineAt <= now).Take(500).ToListAsync(ct);
-        foreach (var request in expired)
-        {
-            AiBatchRequests.Finish(request, null, AiBatchRequests.MissedDeadline, now);
-        }
+        public Guid RunId => runId;
 
-        await SaveAsync(expired, ct);
-    }
+        public DateTimeOffset Now => time.GetUtcNow();
 
-    private async Task RecoverAsync(Guid batchId, CancellationToken ct)
-    {
-        db.ChangeTracker.Clear();
-        var batch = await db.AiBatches.FirstAsync(b => b.Id == batchId, ct);
-        if (await client!.FindAsync(batch.Id, ct) is { } providerId)
+        private string Claim => runId.ToString("N");
+
+        public static JsonObject DataOf(WorkflowBookmark bookmark) => (bookmark.Data is { } json ? JsonNode.Parse(json) as JsonObject : null) ?? [];
+
+        private static string? ClaimOf(WorkflowBookmark bookmark) => AiBatch.Text(DataOf(bookmark), AiBatch.ClaimedBy);
+
+        /// <summary>
+        /// Takes up to <paramref name="max"/> open questions of the workspace, oldest first: free ones, this run's, and ones
+        /// a batch run that ended left behind. Saved before anything is sent, so two batch runs never send the same.
+        /// </summary>
+        public async Task<List<WorkflowBookmark>> TakeAsync(int max, CancellationToken ct)
         {
-            batch.ProviderId = providerId;
-            batch.Status = AiBatchPhase.Submitted;
-            batch.SubmittedAt = time.GetUtcNow();
-            LogRecovered(batch.Id, providerId);
-        }
-        else
-        {
-            batch.Status = AiBatchPhase.Failed;
-            batch.Error = "The batch was not sent.";
-            batch.CompletedAt = time.GetUtcNow();
-            foreach (var request in await db.AiBatchRequests.Where(r => r.BatchId == batch.Id && r.Status == AiBatchRequestStatus.Submitted).ToListAsync(ct))
+            var taken = new List<WorkflowBookmark>();
+            var runs = new Dictionary<string, bool>();
+            for (var skip = 0; taken.Count < max; skip += Page)
             {
-                request.Status = AiBatchRequestStatus.Queued;
-                request.BatchId = null;
+                var page = await Open().OrderBy(b => b.CreatedAt).ThenBy(b => b.Id).Skip(skip).Take(Page).ToListAsync(ct);
+                foreach (var bookmark in page)
+                {
+                    var claim = ClaimOf(bookmark);
+                    if (claim is not null && claim != Claim)
+                    {
+                        if (!runs.TryGetValue(claim, out var active))
+                        {
+                            active = Guid.TryParseExact(claim, "N", out var other)
+                                && await Db.Runs.AnyAsync(r => r.Id == other && (r.Status == RunStatus.Running || r.Status == RunStatus.Waiting), ct);
+                            runs[claim] = active;
+                        }
+
+                        if (active)
+                        {
+                            continue;
+                        }
+                    }
+
+                    if (claim != Claim)
+                    {
+                        var data = DataOf(bookmark);
+                        data[AiBatch.ClaimedBy] = Claim;
+                        bookmark.Data = data.ToJsonString();
+                    }
+
+                    taken.Add(bookmark);
+                    if (taken.Count == max)
+                    {
+                        break;
+                    }
+                }
+
+                if (page.Count < Page)
+                {
+                    break;
+                }
+            }
+
+            await Db.SaveChangesAsync(ct);
+            return taken;
+        }
+
+        /// <summary>The open questions this run took.</summary>
+        public async Task<List<WorkflowBookmark>> TakenAsync(CancellationToken ct)
+        {
+            var taken = new List<WorkflowBookmark>();
+            for (var skip = 0; ; skip += Page)
+            {
+                var page = await Open().OrderBy(b => b.CreatedAt).ThenBy(b => b.Id).Skip(skip).Take(Page).ToListAsync(ct);
+                taken.AddRange(page.Where(b => ClaimOf(b) == Claim));
+                if (page.Count < Page)
+                {
+                    return taken;
+                }
             }
         }
 
-        await SaveAsync([], ct);
-    }
-
-    private async Task CollectAsync(Guid batchId, CancellationToken ct)
-    {
-        db.ChangeTracker.Clear();
-        var batch = await db.AiBatches.FirstAsync(b => b.Id == batchId, ct);
-        var status = await client!.GetAsync(batch.ProviderId!, ct);
-        if (status.State == AiBatchState.Running)
+        /// <summary>Gives questions back for the next batch; how many.</summary>
+        public async Task<int> ReleaseAsync(List<WorkflowBookmark> bookmarks, CancellationToken ct)
         {
-            return;
-        }
-
-        var now = time.GetUtcNow();
-        var results = status.Results.GroupBy(r => r.CustomId).ToDictionary(g => g.Key, g => g.First());
-        var finished = new List<AiBatchRequest>();
-        foreach (var request in await db.AiBatchRequests.Where(r => r.BatchId == batch.Id && r.Status == AiBatchRequestStatus.Submitted).ToListAsync(ct))
-        {
-            if (results.TryGetValue(request.Id.ToString("N"), out var result))
+            foreach (var bookmark in bookmarks)
             {
-                var call = AiGateway.NewCall(request.Activity, $"batch:{batch.Id:N}", null, request.Model, request.InputHash, result.Error is null ? result.Text : null, false, now);
-                call.InputTokens = result.InputTokens;
-                call.OutputTokens = result.OutputTokens;
-                call.Error = result.Error is null ? null : AiGateway.Truncate(result.Error, 2000);
-                db.AiCalls.Add(call);
-                AiBatchRequests.Finish(request, call.Response, call.Response is null ? result.Error ?? "The model gave no answer." : null, now);
-                finished.Add(request);
+                if (Db.Entry(bookmark).State == EntityState.Detached)
+                {
+                    Db.Attach(bookmark); // completing another wait may have cleared the context
+                }
+
+                var data = DataOf(bookmark);
+                data.Remove(AiBatch.ClaimedBy);
+                bookmark.Data = data.ToJsonString();
             }
-            else if (request.DeadlineAt > now)
-            {
-                request.Status = AiBatchRequestStatus.Queued;
-                request.BatchId = null;
-            }
-            else
-            {
-                AiBatchRequests.Finish(request, null, AiBatchRequests.MissedDeadline, now);
-                finished.Add(request);
-            }
+
+            await Db.SaveChangesAsync(ct);
+            return bookmarks.Count;
         }
 
-        batch.Status = status.State == AiBatchState.Completed ? AiBatchPhase.Completed : AiBatchPhase.Failed;
-        batch.Error = status.Error is null ? null : AiGateway.Truncate(status.Error, 2000);
-        batch.CompletedAt = now;
-        await SaveAsync(finished, ct);
-        var answered = finished.Count(r => r.Status == AiBatchRequestStatus.Completed);
-        LogCollected(batch.Id, answered, batch.Lines);
-    }
-
-    /// <summary>Saves the changes with the waits of the finished requests completed; a concurrent change is picked up next time.</summary>
-    private async Task SaveAsync(IReadOnlyCollection<AiBatchRequest> finished, CancellationToken ct)
-    {
-        try
+        /// <summary>Completes the steps' waits with the answer (<c>text</c>) or the <c>error</c>; how many were still open.</summary>
+        public async Task<int> CompleteAsync(List<WorkflowBookmark> bookmarks, string? text, string? error, CancellationToken ct)
         {
-            await outbox.SaveChangesAsync(db, [], await AiBatchRequests.CompleteWaitersAsync(db, runs, finished, ct), ct);
+            var completer = services.GetRequiredService<IWorkflowBookmarks>();
+            var count = 0;
+            foreach (var bookmark in bookmarks)
+            {
+                var payload = text is not null ? new JsonObject { ["text"] = text } : new JsonObject { ["error"] = error ?? "No answer." };
+                if (await completer.CompleteAsync(AiBatch.WaitKind, bookmark.Key, payload, ct))
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
-        catch (DbUpdateConcurrencyException)
-        {
-            db.ChangeTracker.Clear();
-        }
+
+        /// <summary>Open questions of the run's workspace.</summary>
+        private IQueryable<WorkflowBookmark> Open() =>
+            Db.Bookmarks.Where(b => b.Kind == AiBatch.WaitKind && b.CompletedAt == null && b.Data != null
+                && Db.Runs.Any(r => r.Id == b.RunId && r.WorkspaceId == context.WorkspaceId));
     }
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "AI batch {BatchId} was interrupted and found at the provider as {ProviderId}")]
-    private partial void LogRecovered(Guid batchId, string providerId);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "AI batch {BatchId} finished: {Answered} of {Lines} answered")]
-    private partial void LogCollected(Guid batchId, int answered, int lines);
 }

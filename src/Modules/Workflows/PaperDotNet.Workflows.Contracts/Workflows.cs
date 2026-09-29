@@ -27,18 +27,20 @@ public sealed record WorkflowActivityResult(bool Succeeded, string? Error = null
     /// <summary>
     /// Suspends the run until <see cref="IWorkflowBookmarks.CompleteAsync"/> completes the wait (<paramref name="kind"/>,
     /// <paramref name="key"/>), or until <paramref name="resumeAt"/> if given. The completion's payload becomes the node's
-    /// output, and its <c>outcome</c> (default <c>done</c>) picks the port.
+    /// output, and its <c>outcome</c> (default <c>done</c>) picks the port. <paramref name="data"/> is kept with the wait
+    /// (what it is about), for whoever completes it.
     /// </summary>
-    public static WorkflowActivityResult Wait(string kind, string key, DateTimeOffset? resumeAt = null) =>
-        new(true) { Waiting = new WorkflowWait(kind, key, resumeAt) };
+    public static WorkflowActivityResult Wait(string kind, string key, DateTimeOffset? resumeAt = null, JsonObject? data = null) =>
+        new(true) { Waiting = new WorkflowWait(kind, key, resumeAt) { Data = data } };
 
     /// <summary>
-    /// Suspends the run like <see cref="Wait(string, string, DateTimeOffset?)"/>, but when the wait is completed (or
-    /// <paramref name="resumeAt"/> passes) the activity runs again with the same execution id and key, instead of the
-    /// payload becoming its output: for activities that look up the result themselves (e.g. a batch answer).
+    /// Suspends the run like <see cref="Wait"/>, but when the wait is completed (or <paramref name="resumeAt"/> passes) the
+    /// activity runs again with the same execution id, and gets the wait back as <see cref="WorkflowActivityContext.Resumed"/>
+    /// (its data and the completion's payload) instead of the payload becoming its output: for activities that finish
+    /// the work themselves (e.g. with a batch answer) or keep state between polls in the wait's data.
     /// </summary>
-    public static WorkflowActivityResult WaitAndRunAgain(string kind, string key, DateTimeOffset? resumeAt = null) =>
-        new(true) { Waiting = new WorkflowWait(kind, key, resumeAt) { RunAgain = true } };
+    public static WorkflowActivityResult WaitAndRunAgain(string kind, string key, DateTimeOffset? resumeAt = null, JsonObject? data = null) =>
+        new(true) { Waiting = new WorkflowWait(kind, key, resumeAt) { RunAgain = true, Data = data } };
 }
 
 /// <summary>A durable wait: <see cref="Kind"/> (e.g. <c>{extension id}.batch</c>) and <see cref="Key"/> identify it within the tenant.</summary>
@@ -46,9 +48,22 @@ public sealed record WorkflowWait(string Kind, string Key, DateTimeOffset? Resum
 {
     /// <summary>Run the activity again when the wait ends (see <see cref="WorkflowActivityResult.WaitAndRunAgain"/>).</summary>
     public bool RunAgain { get; init; }
+
+    /// <summary>What the wait is about, as JSON (e.g. the question a batch should answer); kept with the wait.</summary>
+    public JsonObject? Data { get; init; }
 }
 
-/// <summary>One question of an AI batch: <see cref="CustomId"/> identifies its answer.</summary>
+/// <summary>
+/// The wait a run-again activity is back from (<see cref="WorkflowActivityResult.WaitAndRunAgain"/>): its data, and the
+/// payload it was completed with (null when completed without one; <c>{ "outcome": "timeout" }</c> when its time passed).
+/// </summary>
+public sealed record WorkflowResumedWait(string Kind, string Key, JsonObject? Data, JsonObject? Payload)
+{
+    /// <summary>Whether the wait ended because its time passed, not because it was completed.</summary>
+    public bool TimedOut => Payload?["outcome"]?.GetValueKind() == System.Text.Json.JsonValueKind.String && Payload["outcome"]!.GetValue<string>() == "timeout";
+}
+
+/// <summary>One question of an AI batch: <see cref="CustomId"/> identifies its answer (the same question is sent once).</summary>
 public sealed record AiBatchLine(string CustomId, string Model, string Instructions, string Input, JsonObject? Schema);
 
 /// <summary>The answer to one line (or its error), with the tokens it used.</summary>
@@ -71,8 +86,9 @@ public sealed record AiBatchStatus(AiBatchState State, IReadOnlyList<AiBatchResu
 
 /// <summary>
 /// A provider's batch API for AI activities with <c>execution: batch</c> (AI-08, ADR-0036), e.g. the Azure OpenAI or
-/// OpenAI Batch API: cheaper, with a separate quota and results within a day. Register one to send queued questions
-/// in batches; without one, the batch job answers them itself in the batch window. A batch holds one model's lines.
+/// OpenAI Batch API: cheaper, with a separate quota and results within a day. Register one and the <c>ai.batch</c>
+/// activity (the "AI batch" workflow) sends the waiting questions in batches; without one, it answers them with the chat
+/// model. A batch holds one model's lines.
 /// </summary>
 public interface IAiBatchClient
 {
@@ -83,8 +99,8 @@ public interface IAiBatchClient
     Task<string> SubmitAsync(Guid batchId, IReadOnlyList<AiBatchLine> lines, CancellationToken cancellationToken);
 
     /// <summary>
-    /// The provider's id of the batch tagged with <paramref name="batchId"/>, or null when there is none: after a crash
-    /// between submitting and saving the id, the job adopts the batch instead of paying for it twice.
+    /// The provider's id of the batch tagged with <paramref name="batchId"/>, or null when there is none: when the step runs
+    /// again after a crash or failure, it adopts a batch it already sent instead of paying for it twice.
     /// </summary>
     Task<string?> FindAsync(Guid batchId, CancellationToken cancellationToken);
 
@@ -127,6 +143,9 @@ public sealed class WorkflowActivityContext
 
     /// <summary>The run the activity is part of (null when an activity runs outside a run).</summary>
     public Guid? RunId { get; init; }
+
+    /// <summary>The wait this execution is back from, when the activity waited with <c>WaitAndRunAgain</c>; else null.</summary>
+    public WorkflowResumedWait? Resumed { get; init; }
 
     /// <summary>Where the action runs, e.g. <c>workflow:File invoices</c>.</summary>
     public required string Source { get; init; }

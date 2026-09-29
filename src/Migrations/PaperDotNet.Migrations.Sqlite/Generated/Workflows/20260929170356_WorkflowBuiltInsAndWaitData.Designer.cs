@@ -11,8 +11,8 @@ using PaperDotNet.Workflows.Data;
 namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
 {
     [DbContext(typeof(WorkflowsDbContext))]
-    [Migration("20260929161218_WorkflowAiBatches")]
-    partial class WorkflowAiBatches
+    [Migration("20260929170356_WorkflowBuiltInsAndWaitData")]
+    partial class WorkflowBuiltInsAndWaitData
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -78,175 +78,6 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                         .HasDatabaseName("ix_automation_audit_log_tenant_id_at");
 
                     b.ToTable("automation_audit_log", (string)null);
-                });
-
-            modelBuilder.Entity("PaperDotNet.Workflows.Data.AiBatch", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
-
-                    b.Property<long?>("CompletedAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("completed_at");
-
-                    b.Property<long>("CreatedAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Error")
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("error");
-
-                    b.Property<int>("Lines")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("lines");
-
-                    b.Property<string>("Model")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("model");
-
-                    b.Property<string>("ProviderId")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("provider_id");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("status");
-
-                    b.Property<long?>("SubmittedAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("submitted_at");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<uint>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id")
-                        .HasName("pk_automation_ai_batches");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_automation_ai_batches_tenant_id");
-
-                    b.HasIndex("TenantId", "Status")
-                        .HasDatabaseName("ix_automation_ai_batches_tenant_id_status");
-
-                    b.ToTable("automation_ai_batches", (string)null);
-                });
-
-            modelBuilder.Entity("PaperDotNet.Workflows.Data.AiBatchRequest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Activity")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("activity");
-
-                    b.Property<Guid?>("BatchId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("batch_id");
-
-                    b.Property<long?>("CompletedAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("completed_at");
-
-                    b.Property<long>("CreatedAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("created_at");
-
-                    b.Property<long>("DeadlineAt")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("deadline_at");
-
-                    b.Property<string>("Error")
-                        .HasMaxLength(2000)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("error");
-
-                    b.Property<string>("InputHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("input_hash");
-
-                    b.Property<string>("Model")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("model");
-
-                    b.Property<string>("PendingHash")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("pending_hash");
-
-                    b.Property<string>("Question")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("question");
-
-                    b.Property<string>("Response")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("response");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("source");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("status");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<uint>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("version");
-
-                    b.Property<int>("Waiters")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("waiters");
-
-                    b.HasKey("Id")
-                        .HasName("pk_automation_ai_batch_requests");
-
-                    b.HasIndex("BatchId")
-                        .HasDatabaseName("ix_automation_ai_batch_requests_batch_id");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_automation_ai_batch_requests_tenant_id");
-
-                    b.HasIndex("TenantId", "PendingHash")
-                        .IsUnique()
-                        .HasDatabaseName("ix_automation_ai_batch_requests_tenant_id_pending_hash");
-
-                    b.HasIndex("TenantId", "Status", "CreatedAt")
-                        .HasDatabaseName("ix_automation_ai_batch_requests_tenant_id_status_created_at");
-
-                    b.ToTable("automation_ai_batch_requests", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Workflows.Data.AiCall", b =>
@@ -455,6 +286,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                         .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("Data")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("data");
+
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -524,6 +359,16 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
 
+                    b.Property<string>("BuiltInKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("built_in_key");
+
+                    b.Property<string>("CopiedFrom")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("copied_from");
+
                     b.Property<long>("CreatedAt")
                         .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
@@ -550,6 +395,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                         .HasMaxLength(200)
                         .HasColumnType("TEXT")
                         .HasColumnName("name");
+
+                    b.Property<string>("Parameters")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("parameters");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")
@@ -583,6 +432,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_automation_definitions_tenant_id");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "BuiltInKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_automation_definitions_tenant_id_workspace_id_built_in_key");
 
                     b.HasIndex("TenantId", "WorkspaceId", "Name")
                         .IsUnique()

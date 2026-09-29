@@ -301,7 +301,8 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
 {
     public async Task<WorkflowActivityResult> ExecuteAsync(
         ActionDefinition action, Guid workspaceId, WorkflowItem? item, Guid? actor, JsonObject? data,
-        JsonObject? outputs, JsonObject? variables, string source, string executionKey, Guid executionId, CancellationToken ct, Guid? runId = null)
+        JsonObject? outputs, JsonObject? variables, string source, string executionKey, Guid executionId, CancellationToken ct, Guid? runId = null,
+        WorkflowResumedWait? resumed = null)
     {
         if (catalog.Find(action.Type) is not { } found)
         {
@@ -334,6 +335,7 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
                 Data = data,
                 Source = source,
                 RunId = runId,
+                Resumed = resumed,
                 ExecutionKey = executionKey,
                 ExecutionId = executionId,
                 ExpandAsync = ExpandAsync,

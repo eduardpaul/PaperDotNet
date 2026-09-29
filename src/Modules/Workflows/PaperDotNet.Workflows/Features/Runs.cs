@@ -643,9 +643,24 @@ internal sealed partial class WorkflowInterpreter(
                         await SaveAsync();
                     }
 
+                    // A run-again wait of this node that ended is handed back to the activity (its data and payload) until
+                    // the node moves on, so a retry after a failure or crash sees it too.
+                    var resumed = await db.Bookmarks
+                        .Where(b => b.RunId == run.Id && b.Node == id && b.RunAgain && b.CompletedAt != null)
+                        .OrderByDescending(b => b.CompletedAt)
+                        .FirstOrDefaultAsync(ct);
+                    void Consumed()
+                    {
+                        if (resumed is not null)
+                        {
+                            db.Bookmarks.Remove(resumed);
+                        }
+                    }
+
                     var result = await executor.ExecuteAsync(
                         new ActionDefinition(node.Activity, node.Inputs), run.WorkspaceId, item, run.StartedBy, data, outputs, variables,
-                        $"workflow:{workflow.Name}", $"run:{run.Id:N}:{run.StepExecutionId.Value:N}", run.StepExecutionId.Value, ct, run.Id);
+                        $"workflow:{workflow.Name}", $"run:{run.Id:N}:{run.StepExecutionId.Value:N}", run.StepExecutionId.Value, ct, run.Id,
+                        resumed is null ? null : new WorkflowResumedWait(resumed.Kind, resumed.Key, JsonObjectOf(resumed.Data), JsonObjectOf(resumed.Payload)));
                     if (!result.Succeeded)
                     {
                         if (!await FailedAsync(id, node, result.Error ?? "The action failed."))
@@ -653,6 +668,7 @@ internal sealed partial class WorkflowInterpreter(
                             return;
                         }
 
+                        Consumed(); // continued on the error port
                         break;
                     }
 
@@ -675,15 +691,26 @@ internal sealed partial class WorkflowInterpreter(
                         var waitOn = existing ?? NewBookmark(run, id, wait.Kind, wait.Key, wait.ResumeAt);
                         if (wait.RunAgain && existing is { CompletedAt: not null } && existing.RunId == run.Id)
                         {
-                            // The node ran again and still waits for the same thing: wait anew.
+                            // The node ran again and waits for the same thing again (e.g. the next poll): wait anew.
                             existing.CompletedAt = null;
                             existing.Payload = null;
                             existing.ResumeAt = wait.ResumeAt;
+                        }
+                        else
+                        {
+                            Consumed();
                         }
 
                         waitOn.RunId = run.Id;
                         waitOn.Node = id;
                         waitOn.RunAgain = wait.RunAgain;
+                        waitOn.Data = wait.Data?.ToJsonString();
+                        if (waitOn.Data?.Length > MaxStateLength)
+                        {
+                            await FailAsync($"{id}: the data of the wait is too large.", id);
+                            return;
+                        }
+
                         Log($"{id}: waiting ({wait.Kind})");
                         await WaitAsync(waitOn, waitOn.CompletedAt is null ? null : [new ResumeRun(run.Id, waitOn.Id, tenant.TenantId!.Value, tenant.TenantIdentifier!)]);
                         return;
@@ -697,6 +724,7 @@ internal sealed partial class WorkflowInterpreter(
                     }
 
                     Log($"{id}: {node.Activity} done" + (result.Outcome is { } chosen ? $" ({chosen})" : string.Empty));
+                    Consumed();
                     if (!await ContinueAsync(id, result.Outcome ?? "done"))
                     {
                         return;
@@ -710,6 +738,8 @@ internal sealed partial class WorkflowInterpreter(
     }
 
     public static string BookmarkKey(Guid approvalId) => approvalId.ToString("N");
+
+    private static JsonObject? JsonObjectOf(string? json) => json is null ? null : JsonNode.Parse(json) as JsonObject;
 
     /// <summary>Why an activity cannot wait on (kind, key), or null: a valid wait that is new, unclaimed or this node's own.</summary>
     private static string? WaitProblem(WorkflowWait wait, WorkflowBookmark? existing, WorkflowRun run, string node)
@@ -1044,7 +1074,7 @@ public sealed class WorkflowOptions
     public int RunRetentionDays { get; set; } = 30;
 }
 
-/// <summary>Daily: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals and bookmarks, old unclaimed completions, old AI call records and finished AI batches.</summary>
+/// <summary>Daily: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals and bookmarks, old unclaimed completions, and old AI call records.</summary>
 internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<WorkflowOptions> options, IOptions<WorkflowAiOptions> ai, TimeProvider time) : ITenantRecurringJob
 {
     public const string Name = "workflows.runCleanup";
@@ -1061,9 +1091,6 @@ internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<Work
         // Records of AI calls, kept as long as runs and the AI cache need them.
         var aiCutoff = time.GetUtcNow().AddDays(-Math.Max(Math.Max(1, options.Value.RunRetentionDays), ai.Value.CacheDays));
         await db.AiCalls.Where(c => c.CreatedAt < aiCutoff).ExecuteDeleteAsync(cancellationToken);
-        await db.AiBatchRequests.Where(r => (r.Status == AiBatchRequestStatus.Completed || r.Status == AiBatchRequestStatus.Failed) && r.CompletedAt < cutoff)
-            .ExecuteDeleteAsync(cancellationToken);
-        await db.AiBatches.Where(b => (b.Status == AiBatchPhase.Completed || b.Status == AiBatchPhase.Failed) && b.CompletedAt < cutoff).ExecuteDeleteAsync(cancellationToken);
         while (true)
         {
             var ids = await db.Runs

@@ -5,7 +5,7 @@
 namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
 {
     /// <inheritdoc />
-    public partial class WorkflowBuiltIns : Migration
+    public partial class WorkflowBuiltInsAndWaitData : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -32,6 +32,21 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                 table: "definitions",
                 type: "text",
                 nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "data",
+                schema: "automation",
+                table: "bookmarks",
+                type: "text",
+                nullable: true);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "run_again",
+                schema: "automation",
+                table: "bookmarks",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
 
             migrationBuilder.CreateIndex(
                 name: "ix_definitions_tenant_id_workspace_id_built_in_key",
@@ -63,6 +78,16 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                 name: "parameters",
                 schema: "automation",
                 table: "definitions");
+
+            migrationBuilder.DropColumn(
+                name: "data",
+                schema: "automation",
+                table: "bookmarks");
+
+            migrationBuilder.DropColumn(
+                name: "run_again",
+                schema: "automation",
+                table: "bookmarks");
         }
     }
 }

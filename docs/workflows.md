@@ -261,40 +261,58 @@ PAPERDOTNET__AI__Chat__DailyTokens=200000         # per organization and UTC day
 ### Batched AI
 
 An AI activity with `"execution": "batch"` does not call the model right away
-(AI-08). It queues its question for the organization's next batch, and the
-run waits (it holds no server). When the answer is there, the node runs again
-and continues with it.
+(AI-08). Batching is built from workflow parts only; there are no tables of its
+own:
+
+1. The step **waits** on a wait of kind `ai.batch`, with its question as the
+   wait's data. The run holds no server while it waits.
+2. The workspace's **batch workflow** answers the waiting questions on its
+   schedule. This is the built-in workflow "AI batch": a `schedule` trigger and
+   the activity `ai.batch`.
+3. The step **runs again** with the answer and continues.
 
 | Input | Meaning |
 |---|---|
 | `execution` | `immediate` (call now) or `batch`; the default is `AI:Batch:Execution` (`immediate`) |
-| `deadlineHours` | the longest the run waits (1 to 336); the default is `AI:Batch:DeadlineHours` (48) |
+| `deadlineHours` | the longest the step waits (1 to 336); the default is `AI:Batch:DeadlineHours` (48) |
 | `onDeadline` | when the deadline passes without an answer: `immediate` (default: call the model now) or `fail` |
 
-```bash
-PAPERDOTNET__AI__Batch__Schedule="0 1,13 * * *"   # when queued questions are sent (cron, UTC; default 0 1 * * *)
-PAPERDOTNET__AI__Batch__Execution=batch           # make batch the default for AI activities
-```
+Turn on "AI batch" in the workspace's workflow settings. Its parameters:
 
-- **Shared questions.** Runs that ask the same question (same model and input)
-  while it is queued share one request and one call.
+- `schedule`: a cron expression, default `0 1 * * *`, or `0 1,13 * * *` for
+  twice a day.
+- `timeZone`.
+- `pollMinutes`: default 5.
+- `maxQuestions`: default 2000 per run.
+
+`PAPERDOTNET__AI__Batch__Execution=batch` makes batch the default for AI
+activities.
+
+- **No batch workflow, no waiting.** If no enabled workflow of the workspace
+  uses `ai.batch`, a batched step asks at once, so it never waits for nothing.
+- **Shared questions.** Steps that ask the same question (same model and
+  input) are answered with one call.
 - **Cache first.** A question answered before (within `CacheDays`) is
-  answered right away, without queueing.
-- **Batch window.** Without a batch API the server answers the queued
-  questions itself at the scheduled time (one call each, within the daily
-  budget). This is still useful: the calls happen outside working hours, and
-  duplicates are asked once.
-- **Batch API.** A server can register an `IAiBatchClient`
+  answered right away, without waiting.
+- **Without a batch API**, `ai.batch` asks the chat model each question once,
+  within the daily budget. This is still useful: the calls happen outside
+  working hours, and duplicates are asked once.
+- **With a batch API**, a server registers an `IAiBatchClient`
   (Workflows.Contracts), for example for the Azure OpenAI or OpenAI Batch API.
-  Queued questions are then sent as one batch per model. A job collects the
-  results every 5 minutes, records each answer's tokens and lets the waiting
-  runs go on. Questions a failed or expired batch did not answer are queued
-  again until their deadline.
-- **Crash safety.** A batch is saved before it is sent. If the server stops
-  before it saves the provider's batch id, the job looks the batch up
+  `ai.batch` then sends one batch per model and waits: it checks every
+  `pollMinutes` with a run-again wait that keeps the provider's batch ids as
+  its data. When a batch has finished, it records each answer's tokens and
+  lets the steps go on. Questions a failed or expired batch did not answer are
+  given back for the next run, until their deadline.
+- **Crash safety.** A batch run first takes its questions: it marks them in
+  their waits' data, so two runs never send the same. Each batch is tagged with
+  an id derived from the step's execution id. When the step runs again after a
+  failure (its retry policy) or a crash, it finds its batch at the provider
   (`FindAsync`) instead of sending it twice.
-- While the day's budget is used up, nothing is sent; the questions wait for
-  the next window or their deadline.
+- While the day's budget is used up, nothing is sent. The questions wait for
+  the next run or their deadline.
+- Batches are per workspace. Batching across the whole organization comes
+  with organization workflows.
 
 Example: read receipts and send uncertain ones to review.
 
@@ -324,6 +342,7 @@ The product ships ready-made workflows (EVT-12,
 | `workflows.approveItems` | Approve new items | `list`, `approvers` (required); `statusField` (`status`), `approvedValue` (`Approved`), `rejectedValue` (`Rejected`), `dueInHours` | |
 | `documents.classify` | Classify new documents | `termSet` (`Group/Set`), `field` (required); `minConfidence` (0.7), `library`, `execution` | AI |
 | `documents.extract` | Extract fields | `fields`, `minConfidence` (0.7), `library`, `execution` | AI |
+| `workflows.aiBatch` | AI batch | `schedule` (`0 1 * * *`), `timeZone`, `pollMinutes` (5), `maxQuestions` | AI |
 
 - **Turn on or off** per workspace with its parameters:
   `PUT …/workflows/builtIns/{key}` `{ "enabled": true, "parameters": { … } }`.
@@ -410,10 +429,16 @@ await bookmarks.CompleteAsync(kind, key, new JsonObject { ["outcome"] = "paid" }
 This is how long-running work outside the engine joins a workflow, for example
 a daily batch of AI requests.
 
-An activity that looks up the result itself returns
-`WorkflowActivityResult.WaitAndRunAgain(kind, key, resumeAt)` instead: when
-the wait is completed (or `resumeAt` passes), the node runs again with the same
-`ExecutionId`, and the payload is not used. Batched AI works this way.
+A wait can carry data (`Wait(kind, key, resumeAt, data)`): what it is about,
+as JSON, for whoever completes it.
+
+An activity that finishes the work itself returns
+`WorkflowActivityResult.WaitAndRunAgain(kind, key, resumeAt, data)` instead.
+When the wait is completed (or `resumeAt` passes), the node runs again with the
+same `ExecutionId`. It gets the wait back as `context.Resumed`, with its data
+and the completion's payload. This is also how an activity keeps state between
+polls: it waits again with the same key and new data. Batched AI works this
+way.
 
 See `docs/extensions.md` and the sample `samples.invoices` (trigger
 `approvalNeeded`, actions `approve` and `awaitPayment`, which waits until the

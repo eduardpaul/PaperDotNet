@@ -225,12 +225,15 @@ Only processes that people need to see or vary move into workflows. Infrastructu
 
 ### 9. Batched AI calls
 
-AI activities can use `execution: batch`, with a `deadline`. The activity queues its request and waits on a
-bookmark (`ai-batch`, key = request id). A tenant job sends the queued requests of all workflows in the
-organization once or twice a day, for example through the Azure OpenAI Batch API. When the results arrive,
-it completes the bookmarks with `IWorkflowBookmarks.CompleteAsync`. The engine needs nothing more: a wait
-of a day is an ordinary bookmark and holds no lease. The batch implementation belongs to `PaperDotNet.AI`
-and is designed separately.
+AI activities can use `execution: batch`, with a deadline. Batching is built from workflow parts, with no tables of
+its own:
+- The step waits on a bookmark (kind `ai.batch`, key: its execution id) whose data is the question.
+- A batch workflow answers the waiting questions. It is the built-in "AI batch": a `schedule` trigger (for example,
+  once or twice a day) and the activity `ai.batch`.
+- `ai.batch` sends the questions through a provider's batch API such as Azure OpenAI, or asks the chat model. It
+  completes the waits with `IWorkflowBookmarks.CompleteAsync`, and the steps run again with the answer.
+- The engine needs nothing more than wait data and run-again waits. A wait of a day is an ordinary bookmark and
+  holds no lease.
 
 ## Plan
 
@@ -320,23 +323,30 @@ These defaults were chosen when implementation started; each can still be change
 - Large outputs still count against the 256 KB run limit; extraction outputs are small, so moving them to the
   blob store stays deferred.
 
-**9c2 (done):**
+**9c2 (done; reworked on workflow parts):**
 
-- **Run again.** A batched activity returns `WaitAndRunAgain`. When the bookmark is completed (the answer is
-  there) or its time passes (the deadline), the node runs again with the same execution id and finds the answer
-  itself. The completion payload does not carry the answer. This way many runs can share one answer, and the
-  batch job never needs to know the runs' outputs.
-- **Requests.** One pending request per question (`ai_batch_requests`, unique pending hash). A run asking the
-  same question at the same time conflicts, retries and joins it. Joining changes the request's version, so it
-  cannot slip past a concurrent answer. The question text is kept only until it is answered.
-- **Bookmark keys** are `{request id}:{execution id}`. The job completes all waits of a request by prefix, and
-  a node finds its own request through its run's bookmark.
-- **Batch API.** It is a contract (`IAiBatchClient`: submit, find by our batch id, get status and results), with
-  no provider package in the module. A batch is saved as preparing before it is sent. After a crash the results
-  job looks it up by our id (`FindAsync`) and adopts it, or queues its questions again, so nothing is paid twice.
-  Without a client, the batch window calls the chat model for each queued question.
-- **Budget.** Questions are counted when they are answered (the batch's call record holds the tokens). Each
-  run's use of an answer is recorded as a cached call.
+- **No tables of its own.** A first version kept a request and batch table with two jobs. It was replaced before
+  release, because batching must be expressible with the workflow infrastructure. What it needed became two generic
+  engine features:
+  - **Wait data:** a wait's JSON `data`, which says what it is about.
+  - **Resumed waits:** a run-again activity gets back the wait it left, with its data and payload. It keeps getting
+    it until the node moves on, so a retry after a failure or crash sees it too.
+- **Questions are waits.** A batched step waits on `ai.batch` (key: its execution id) with the question, its hash and
+  its model as data. Its resume time is the deadline. When the step runs again, it takes the answer from the
+  payload. At the deadline (a timeout payload) it calls the model or fails, per `onDeadline`. If no enabled workflow
+  of the workspace uses `ai.batch`, the step asks at once instead of waiting.
+- **The batch is a workflow.** The built-in "AI batch" is a schedule trigger and the `ai.batch` activity, with a
+  retry policy.
+  - `ai.batch` takes the open questions of its workspace by writing its run id into their data. Questions of an
+    ended batch run are free again. The claims are saved before anything is sent.
+  - It answers each distinct question once: with the chat model, or as a provider batch per model. A batch is tagged
+    with an id derived from the step's execution id, so a retry finds it (`FindAsync`) instead of sending it again.
+  - It polls with a run-again wait that keeps the provider batch ids as data. It completes the questions' waits
+    (`IWorkflowBookmarks`) and gives back those a failed batch did not answer.
+- **Budget and records.** Each answer is an AI call record of the batch run, with its tokens. Each step's use of an
+  answer is recorded as a cached call.
+- **Scope.** Batches are per workspace, because a workspace workflow acts only inside its workspace. With
+  organization workflows (9g), the same activity batches across the organization.
 
 **9d (done):**
 

@@ -223,6 +223,7 @@ internal sealed class BuiltInSyncJob(BuiltInWorkflows builtIns) : ITenantRecurri
 internal sealed class WorkflowBuiltIns : IWorkflowDefinitionProvider
 {
     public const string ApproveItems = "workflows.approveItems";
+    public const string AiBatch = "workflows.aiBatch";
 
     public IEnumerable<BuiltInWorkflow> GetWorkflows() =>
     [
@@ -256,6 +257,34 @@ internal sealed class WorkflowBuiltIns : IWorkflowDefinitionProvider
                   "required": ["list", "approvers"]
                 }
                 """)!.AsObject(),
+        },
+        new(AiBatch, "AI batch",
+            "Answers the workspace's batched AI questions (steps with execution: batch) on a schedule, through the provider's batch API when the server has one.",
+            JsonNode.Parse("""
+                {
+                  "trigger": { "type": "schedule", "cron": "{param:schedule}", "timeZone": "{param:timeZone}" },
+                  "flow": {
+                    "start": "batch",
+                    "nodes": {
+                      "batch": { "activity": "ai.batch", "inputs": { "maxQuestions": "{param:maxQuestions}", "pollMinutes": "{param:pollMinutes}" },
+                                 "retry": { "attempts": 3, "delayMinutes": 10 } }
+                    }
+                  }
+                }
+                """)!.AsObject())
+        {
+            Parameters = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "schedule": { "type": "string", "default": "0 1 * * *", "description": "When to send (cron), e.g. 0 1,13 * * * for twice a day." },
+                    "timeZone": { "type": "string", "description": "The schedule's time zone (default: the organization's)." },
+                    "maxQuestions": { "type": "number", "description": "Most questions per batch run (default 2000)." },
+                    "pollMinutes": { "type": "number", "default": 5, "description": "How often the provider's batches are checked." }
+                  }
+                }
+                """)!.AsObject(),
+            Requires = BuiltInRequirements.Ai,
         },
     ];
 }

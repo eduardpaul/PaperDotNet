@@ -5,7 +5,7 @@
 namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
 {
     /// <inheritdoc />
-    public partial class WorkflowBuiltIns : Migration
+    public partial class WorkflowBuiltInsAndWaitData : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -29,6 +29,19 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                 table: "automation_definitions",
                 type: "TEXT",
                 nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "data",
+                table: "automation_bookmarks",
+                type: "TEXT",
+                nullable: true);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "run_again",
+                table: "automation_bookmarks",
+                type: "INTEGER",
+                nullable: false,
+                defaultValue: false);
 
             migrationBuilder.CreateIndex(
                 name: "ix_automation_definitions_tenant_id_workspace_id_built_in_key",
@@ -55,6 +68,14 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
             migrationBuilder.DropColumn(
                 name: "parameters",
                 table: "automation_definitions");
+
+            migrationBuilder.DropColumn(
+                name: "data",
+                table: "automation_bookmarks");
+
+            migrationBuilder.DropColumn(
+                name: "run_again",
+                table: "automation_bookmarks");
         }
     }
 }
