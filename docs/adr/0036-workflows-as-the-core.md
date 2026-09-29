@@ -56,7 +56,42 @@ Elsa as a **package** still does not fit:
 - **Designer.** Elsa Studio is Blazor. The web UI is React on our SDK (ADR-0033), so we would build our own designer anyway.
 - **Runtime.** Our runtime (outbox, leases, recovery, RLS) is already the hard part, and it works on SQLite and PostgreSQL. Elsa would bring a second runtime next to Wolverine.
 
+### Durable execution frameworks, checked on 2026-09-29
+
+The question is whether long waits need a durable execution framework. Examples of long waits are a daily LLM batch window, approvals that take days, and timers.
+
+What such a framework provides, compared with what we have:
+
+| Property | Temporal, Dapr Workflow, Durable Task | Our engine (ADR-0019, ADR-0025) |
+|---|---|---|
+| State survives crashes and restarts | Event history, replayed | Run row saved after every step, in the application database |
+| Durable timers | Built in | `ResumeAt` and the minute job; Wolverine's durable scheduled messages are available too |
+| Waits for external signals lasting days | Signals and external events | Bookmarks (approvals today) and a message in the same transaction |
+| Retries | Activity retry policies | Wolverine retries, attempts, dead letters and recovery |
+| One executor at a time | Task queues | Leases |
+| Exactly-once side effects | **No**: activities must be idempotent | **No**: `ExecutionKey` and `ExecutionId` |
+| Versions of running instances | Deterministic replay and patching | Runs pin their definition version |
+| Parallel branches, joins, child workflows | Built in | To build (9e) |
+
+These frameworks make **code** durable: deterministic C# functions that are replayed from history. Our workflows are **data**, defined by users in JSON. On any of them we would write one generic interpreter workflow, which is what happened with WorkflowCore (ADR-0018 and ADR-0019): the framework supplied only waits, timers and retries, which Wolverine and our tables already do. Replay would also add rules the interpreter must follow: it must be deterministic, and histories are capped, so long for-each loops would need continue-as-new.
+
+The candidates:
+
+- **Temporal** (MIT; server in Go, .NET SDK):
+  - It needs its own service and database. SQLite is for development only; production needs PostgreSQL, MySQL or Cassandra. That breaks the one-container SQLite install (ADR-0009).
+  - It is a second system to back up next to PLT-12.
+  - Workflow inputs and outputs (document text, prompts, LLM answers) would live outside our tenant filters and RLS.
+- **Dapr Workflow** (Apache-2.0) needs the `daprd` sidecar plus the placement and scheduler services and a state store: the same problem of extra runtime services.
+- **durabletask-go** (the engine under Dapr) has SQLite and PostgreSQL backends, but it is Go, so it would still be a sidecar.
+- **Durable Task Framework for .NET** runs in-process, but its backends are Azure Storage, SQL Server, Netherite and the managed Durable Task Scheduler. It has no SQLite or PostgreSQL backend.
+- **DBOS** is the closest model: a library that checkpoints to the application's own database. It has no .NET SDK (still an open request) and no SQLite support.
+- **Elsa and WorkflowCore:** see above and ADR-0018/0019.
+
+A framework would pay off for code-first orchestrations in C#, for very large numbers of concurrently active runs where polling the database becomes the bottleneck, or for a hosted service where running a cluster is acceptable. None of these applies now. **Temporal** would be the choice then. It could run behind the same definitions and API as an optional engine for large installations, not as a requirement.
+
 ## Decision (proposed)
+
+**No durable execution framework.** Durability stays in our tables with the Wolverine outbox. It is extended with generic bookmarks that any module can complete in its own transaction (section 5), and with crash tests on both databases.
 
 **Use Elsa as the design reference, not as a dependency.**
 - Evolve our engine into an Elsa-shaped model: activities, flowcharts, bookmarks, variables and trigger providers.
@@ -141,6 +176,10 @@ The same module and messages, generalized from a flat program to a graph:
   - the start and the first message in one transaction;
   - leases, recovery of stuck runs, the attempts limit and retention;
   - the loop depth through `EventCausation`.
+- **External completion:** `IWorkflowBookmarks.CompleteAsync(kind, key, payload)` (Workflows.Contracts) completes matching bookmarks and saves their `ResumeRun` messages in the caller's transaction (outbox). Any job or subscriber can wake runs this way, including an LLM batch importer, an approval decision or an inbound webhook. Bulk completions resume in chunks.
+- **Large data:** step outputs above a size limit go to the blob store, so the run row stays small.
+- **Timers:** due bookmarks are also sent as Wolverine durable scheduled messages for precision. The minute job stays as recovery.
+- **Crash tests:** each step boundary (before and after an action, before and after a save) is tested by killing the handler, on SQLite and PostgreSQL.
 - **Errors:** each activity has a retry policy (count, backoff). After the retries, the `error` port runs if it is connected; otherwise the run fails with an **incident**. An incident can be retried from the failed node after a fix.
 - **Limits:** maximum nodes executed per run, items per for-each, parallel branches, run duration, and runs per tenant per day. Limits are configurable, with PLT-06 quotas later.
 
@@ -180,38 +219,12 @@ Only processes that people need to see or vary move into workflows. Infrastructu
 
 ### 9. Batched AI calls
 
-LLM work that is not urgent (classifying last night's scans, extracting receipts, summaries) is cheaper and
-easier on quotas when it is sent in batches: the Azure OpenAI and OpenAI Batch APIs cost about half and use a
-separate quota, with results within 24 hours. The batch collects requests from **all workflows of the
-organization** and sends them together once or twice a day.
-
-- **Mode per AI activity:**
-  - `execution`: `immediate` (default) or `batch`. The organization can set the default.
-  - `deadline`: at most how long to wait, for example `36h`. After the deadline the activity either calls the model right away or takes its `error` port.
-- **Queueing is a bookmark:**
-  - The activity builds a provider-neutral request (prompt, messages, response schema, AI profile) and checks the AI-06 cache (content hash, prompt, schema, model). A hit completes it at once.
-  - On a miss it saves an `ai_requests` row (tenant-owned) and its bookmark (`ai-batch`, key = request id) in the same transaction, and the run waits.
-  - The run holds no lease while it waits, so waits of hours or days are safe, as with approvals.
-  - Identical requests from several runs share one batch line and one charge.
-- **Submit job** (`ai.batch.submit`, a tenant recurring job on the organization's cron, e.g. `0 1,13 * * *` in its time zone, plus "submit now" for admins). It works per tenant and per AI profile, because a batch file targets one deployment and credentials are per tenant (AI-01). It never mixes tenants. It is crash-safe in three steps:
-  1. It saves an `ai_batches` row (`preparing`) and assigns the queued lines to it, in one transaction.
-  2. It uploads the JSONL (`custom_id` = line id) and creates the batch with `metadata.paperdotnetBatch` = the row id, then saves the provider's batch id (`submitted`).
-  3. After a crash between the upload and that save, the next run finds the provider's batch by its metadata and adopts it, so nothing is paid twice. If the enqueued-token quota is full (`token_limit_exceeded`), the batch stays queued and is retried with backoff.
-- **Poll job** (every few minutes while batches are open), when a batch is `completed`, `expired`, `cancelled` or `failed`:
-  - It downloads the output and error files.
-  - For each line it stores the result and token usage, writes the cache entry and the AI-06 audit, and saves `ResumeRun(runId, bookmarkId)` for every waiting run, all in one transaction (outbox).
-  - Lines without a result go back into the queue for the next window, or follow their deadline policy.
-  - Provider files are deleted after import, and request bodies once they are applied.
-- **Resuming:** the activity reads its line's result, validates it against the response schema (the `error` port on failure) and continues in suggest or apply mode, as an immediate call would.
-- **Providers:** `IAiBatchClient` in `PaperDotNet.AI` (Microsoft.Extensions.AI has no batch abstraction), with two implementations:
-  - **OpenAI-compatible Batch API** (Azure OpenAI `…/openai/v1/`, OpenAI) with the `OpenAI` package that `Microsoft.Extensions.AI.OpenAI` already brings in (`BatchClient`, file client). It adds no new dependency.
-  - **Deferred** for providers without a batch API (Ollama and other local models): the submit job runs the queued requests itself, with limited concurrency. That still moves the load into the chosen windows, and the tables and resume path are the same.
-- **Visibility:**
-  - A waiting run shows "waiting for AI batch (queued, next window 13:00)" or "submitted".
-  - An organization page shows the queue, open batches, tokens and estimated cost, with "submit now".
-
-The same pattern (an activity that suspends and an external job that completes its bookmark) is available to other
-deferred work, such as re-embedding with SRC-07 or bulk OCR.
+AI activities can use `execution: batch`, with a `deadline`. The activity queues its request and waits on a
+bookmark (`ai-batch`, key = request id). A tenant job sends the queued requests of all workflows in the
+organization once or twice a day, for example through the Azure OpenAI Batch API. When the results arrive,
+it completes the bookmarks with `IWorkflowBookmarks.CompleteAsync`. The engine needs nothing more: a wait
+of a day is an ordinary bookmark and holds no lease. The batch implementation belongs to `PaperDotNet.AI`
+and is designed separately.
 
 ## Plan
 
@@ -222,7 +235,7 @@ Slices, each shippable and tested on both databases:
 | **9a Engine** | Rename to workflows; graph model (`steps` compiled into a flow); run tokens, variables and step outputs; bookmarks table; activity descriptors with schemas; error ports, retries and incidents; migration of existing automations | EVT-07, EVT-08 |
 | **9b Triggers** | `IWorkflowTriggerProvider`; `schedule`; `date`; `document.processed`; term changes; `approval.decided`, `task.completed`, `comment.added`; manual with an input form and selection | EVT-10, EVT-11 (new) |
 | **9c AI activities** | AI-01 per-tenant provider; `ai.classify`, `ai.extract`, `ai.summarize`, `ai.prompt`; suggestion mode; AI-06 cache, quotas and audit | AI-01…04, AI-06, AI-07 |
-| **9c2 Batched AI** | `execution: batch` and deadlines; `ai_requests` and `ai_batches`; submit and poll jobs; OpenAI-compatible batch client (Azure OpenAI) and deferred client; organization batch page | AI-08 (new) |
+| **9c2 Batched AI** | `execution: batch` and deadlines on AI activities; batch job completing bookmarks | AI-08 (new) |
 | **9d Built-in workflows** | `IWorkflowDefinitionProvider`, catalog, enable, disable and copy; "Classify new documents", "Extract fields" and approval templates | EVT-12 (new) |
 | **9e Flow control and integration** | For each, parallel and join, wait for event, call workflow, ask for input; HTTP request, outbound and inbound webhooks with allow-lists and secrets | EVT-08, EVT-13 (new) |
 | **9f Designer** | Flow designer, run inspector, test runs, association from list settings | EVT-14 (new) |
@@ -234,7 +247,8 @@ After 9a and 9b, the first three goals are covered: timers, events and LLM calls
 
 - One engine for every process users can see, with built-in workflows as its first users. This keeps the engine honest.
 - No new dependency except `@xyflow/react` in `web/` (MIT). The license policy stays intact, and all workflow data stays tenant-owned under RLS.
-- Batched AI calls are ordinary bookmarks, so they need no second queue or engine. They depend on the provider's batch API behaving as documented (24-hour target, one deployment per file), and the deferred client covers providers without one.
+- Batched AI calls and other long waits are ordinary bookmarks. No second runtime, database or backup is needed, and all workflow data stays under RLS.
+- The durability is our own code: leases, recovery and crash tests must stay rigorous. If code-first orchestrations or very large installations become goals, revisit Temporal as an optional engine.
 - We keep maintaining our own engine. Parallel branches and joins are the risky part (9e) and come after the linear features pay off.
 - The rename touches the API, SDKs, UI, templates and docs (`automation.md`) once, before release.
 - Elsa stays an option: re-check its dependencies when a new version ships. A swap would replace `PaperDotNet.Workflows` internals, not definitions or the API.
@@ -245,4 +259,4 @@ After 9a and 9b, the first three goals are covered: timers, events and LLM calls
 2. Elsa: stay with this reference-only decision, or accept the maintenance fee terms (a change to the license policy) or a frozen 3.7.1?
 3. Should organization workflows be in 9g, or earlier for organization-wide retention and AI classification?
 4. Is "run as the triggering user" needed beyond manual starts?
-5. Batched AI: should `batch` be the organization default for built-in AI workflows (classify, extract), and what is the default fallback when the deadline passes, an immediate call or the error port?
+5. Batched AI: should `batch` be the organization default for built-in AI workflows (classify, extract)?
