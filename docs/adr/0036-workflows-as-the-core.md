@@ -1,6 +1,6 @@
 # ADR-0036: Workflows as the core of automation (built-in and user-defined)
 
-- **Status:** Proposed (extends [ADR-0024](0024-one-automation-model.md) and [ADR-0019](0019-workflows-on-wolverine.md); keeps [ADR-0025](0025-reliable-runs-on-several-servers.md))
+- **Status:** Accepted (extends [ADR-0024](0024-one-automation-model.md) and [ADR-0019](0019-workflows-on-wolverine.md); keeps [ADR-0025](0025-reliable-runs-on-several-servers.md))
 - **Date:** 2026-09-29
 
 ## Context
@@ -89,7 +89,7 @@ The candidates:
 
 A framework would pay off for code-first orchestrations in C#, for very large numbers of concurrently active runs where polling the database becomes the bottleneck, or for a hosted service where running a cluster is acceptable. None of these applies now. **Temporal** would be the choice then. It could run behind the same definitions and API as an optional engine for large installations, not as a requirement.
 
-## Decision (proposed)
+## Decision
 
 **No durable execution framework.** Durability stays in our tables with the Wolverine outbox. It is extended with generic bookmarks that any module can complete in its own transaction (section 5), and with crash tests on both databases.
 
@@ -215,7 +215,13 @@ Only processes that people need to see or vary move into workflows. Infrastructu
   - The simple editor, which is today's step form, generated from activity schemas.
   - A **flow designer** built on React Flow (`@xyflow/react`, MIT).
   - A run inspector: the path taken, each node's inputs and outputs (secrets redacted), incidents and retry.
-- **Templates:** `urn:paperdotnet:workflow:1`, with references by name as today. Built-in workflows are referenced by key.
+- **Export and import:** workflows travel in the same template and package as lists and libraries (PRV-01…04, PLT-13): `template.xml` holds the workflow section, and `includeContent` changes nothing for workflows.
+  - **Workspace level:** section `Workflows` in `urn:paperdotnet:workflow:1` with each workflow's current published definition (JSON), name, description, enabled flag and built-in key if it is a copy.
+  - **Tenant level:** organization workflows, and the enabled or disabled state of built-in workflows, by key, per organization, workspace and list.
+  - **Portability:** definitions refer to lists, content types, fields, terms, users, groups and other workflows by name, as today. Associations with a list or content type are trigger filters, so they travel with the definition.
+  - **Order:** the section is applied after lists, content types and term sets, so its references can be checked in the dry run. An activity or trigger that the target does not have (a disabled extension) fails the dry run with the workflow's name.
+  - **Never exported:** runs, bookmarks, approvals, queued AI requests and secrets (webhook secrets, credentials of HTTP activities). Secrets become template parameters (`parameters[Name]`) or are set after the import.
+  - **Matching:** workflows are matched by name, and a changed definition becomes a new version (additive and idempotent, as today). The old section `Automations` in `urn:paperdotnet:automation:2` is still read on import.
 
 ### 9. Batched AI calls
 
@@ -232,7 +238,7 @@ Slices, each shippable and tested on both databases:
 
 | Slice | Content | Features |
 |---|---|---|
-| **9a Engine** | Rename to workflows; graph model (`steps` compiled into a flow); run tokens, variables and step outputs; bookmarks table; activity descriptors with schemas; error ports, retries and incidents; migration of existing automations | EVT-07, EVT-08 |
+| **9a Engine** | Rename to workflows; graph model (`steps` compiled into a flow); run tokens, variables and step outputs; bookmarks table; activity descriptors with schemas; error ports, retries and incidents; migration of existing automations; template section `urn:paperdotnet:workflow:1` in templates and packages | EVT-07, EVT-08, PRV-01…04 |
 | **9b Triggers** | `IWorkflowTriggerProvider`; `schedule`; `date`; `document.processed`; term changes; `approval.decided`, `task.completed`, `comment.added`; manual with an input form and selection | EVT-10, EVT-11 (new) |
 | **9c AI activities** | AI-01 per-tenant provider; `ai.classify`, `ai.extract`, `ai.summarize`, `ai.prompt`; suggestion mode; AI-06 cache, quotas and audit | AI-01…04, AI-06, AI-07 |
 | **9c2 Batched AI** | `execution: batch` and deadlines on AI activities; batch job completing bookmarks | AI-08 (new) |
@@ -253,10 +259,12 @@ After 9a and 9b, the first three goals are covered: timers, events and LLM calls
 - The rename touches the API, SDKs, UI, templates and docs (`automation.md`) once, before release.
 - Elsa stays an option: re-check its dependencies when a new version ships. A swap would replace `PaperDotNet.Workflows` internals, not definitions or the API.
 
-## Open questions
+## Settled on acceptance
 
-1. Accept the rename to *workflows*, or keep *automations* in the API?
-2. Elsa: stay with this reference-only decision, or accept the maintenance fee terms (a change to the license policy) or a frozen 3.7.1?
-3. Should organization workflows be in 9g, or earlier for organization-wide retention and AI classification?
-4. Is "run as the triggering user" needed beyond manual starts?
-5. Batched AI: should `batch` be the organization default for built-in AI workflows (classify, extract)?
+These defaults were chosen when implementation started; each can still be changed.
+
+1. *Automations* are renamed to **workflows** in the API, SDKs, UI and templates (pre-release, so there is no compatibility layer except reading old template sections).
+2. Elsa is a design reference only (see above); no durable execution framework.
+3. Organization workflows come in 9g.
+4. "Run as the triggering user" applies to manual starts only.
+5. Batched AI: `immediate` stays the default; the organization can choose `batch` (decided in 9c2).
