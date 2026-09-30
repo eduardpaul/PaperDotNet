@@ -43,6 +43,8 @@ internal static class ListsJsonText
 
     public static string Ids(IEnumerable<Guid> ids) => JsonSerializer.Serialize(ids.ToList(), ListsJson.Default.ListGuid);
 
+    public static string Strings(IReadOnlyList<string> values) => JsonSerializer.Serialize(values, ListsJson.Default.IReadOnlyListString);
+
     public static IReadOnlyList<string> Strings(string json) => JsonSerializer.Deserialize(json, ListsJson.Default.IReadOnlyListString) ?? [];
 }
 

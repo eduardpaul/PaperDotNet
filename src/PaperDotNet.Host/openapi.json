@@ -86,6 +86,29 @@
         }
       }
     },
+    "/v1.0/listTemplates": {
+      "get": {
+        "tags": [
+          "Lists"
+        ],
+        "operationId": "ListListTemplates",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ListTemplateResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/audit": {
       "get": {
         "tags": [
@@ -5374,6 +5397,72 @@
             "format": "date-time"
           },
           "templateKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ListTemplateContentType": {
+        "required": [
+          "key",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ListTemplateResponse": {
+        "required": [
+          "key",
+          "name",
+          "description",
+          "isLibrary",
+          "versioning",
+          "contentTypes",
+          "views",
+          "extensionId"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isLibrary": {
+            "type": "boolean"
+          },
+          "versioning": {
+            "type": "boolean"
+          },
+          "contentTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListTemplateContentType"
+            }
+          },
+          "views": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "extensionId": {
             "type": [
               "null",
               "string"

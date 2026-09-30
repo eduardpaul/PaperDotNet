@@ -35,8 +35,8 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | T08c | Item counts per field value (`/items/counts`; without indexed fields: JSON values, `json_each` for multi-value fields) | done |
 | T08d | Bulk update as an operation (`/items/bulkUpdate`) | done |
 | T08e | Delta (change log, `/items/delta`, scope changes for delta) | done |
-| T08f | List templates and `templateKey` | in progress |
-| T08g | Smart folders | |
+| T08f | List templates and `templateKey` (`/listTemplates`; the document keywords field comes with T12) | done (AOT smoke run pending) |
+| T08g | Smart folders | in progress |
 | T08h | Indexed fields (item columns and value table, backfill; no reflection over columns under AOT) | |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Lists.Templates;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
@@ -35,6 +37,20 @@ public sealed class ListsModule : IModule
         }
 
         services.AddSingleton<FieldTypeRegistry>();
+        services.TryAddScoped<IExtensionAvailability, NoExtensions>();
+        foreach (var template in BuiltInTemplates.ContentTypes)
+        {
+            services.AddSingleton(template);
+        }
+
+        foreach (var template in BuiltInTemplates.Lists)
+        {
+            services.AddSingleton(template);
+        }
+
+        services.AddSingleton<ListTemplateRegistry>();
+        services.AddScoped<ContentTypeProvisioner>();
+        services.AddScoped<IContentTypeProvisioning>(sp => sp.GetRequiredService<ContentTypeProvisioner>());
         services.AddScoped<ItemAccess>();
         services.AddScoped<IPrincipalSet>(sp => sp.GetRequiredService<ItemAccess>());
         services.AddScoped<ListSchemaLoader>();
@@ -50,6 +66,7 @@ public sealed class ListsModule : IModule
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         ContentTypeEndpoints.Map(endpoints);
+        ListTemplateEndpoints.Map(endpoints);
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
         ItemCountEndpoints.Map(endpoints);

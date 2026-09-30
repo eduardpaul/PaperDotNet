@@ -5,6 +5,7 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
+using PaperDotNet.Lists.Templates;
 using PaperDotNet.Messaging;
 using PaperDotNet.Workspaces.Contracts;
 
@@ -79,7 +80,8 @@ internal static class ListEndpoints
     /// <summary>Creates a list from content types (the built-in Item content type when none is given).</summary>
     private static async Task<Results<Created<ListResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
         Guid workspaceId, CreateListRequest request, Caller caller, IWorkspaceAccess workspaces, ListsDbContext db, ListSchemaLoader loader,
-        IOutbox outbox, HttpResponse response, CancellationToken cancellationToken)
+        ListTemplateRegistry templates, IExtensionAvailability extensions, ContentTypeProvisioner provisioner, IOutbox outbox, HttpResponse response,
+        CancellationToken cancellationToken)
     {
         var permission = await workspaces.GetPermissionAsync(caller.TenantId, caller.UserId, workspaceId, cancellationToken);
         if (permission == WorkspaceAccessLevel.None)
@@ -102,12 +104,27 @@ internal static class ListEndpoints
             return ApiErrors.Validation("kind", "The kind is list or library.");
         }
 
-        if (request.TemplateKey is not null)
+        ListTemplateDefinition? template = null;
+        if (request.TemplateKey is { } templateKey)
         {
-            return ApiErrors.Validation("templateKey", "Unknown list template.");
+            template = await ListTemplateEndpoints.FindAvailableAsync(templates, extensions, caller.TenantId, templateKey, cancellationToken);
+            if (template is null)
+            {
+                return ApiErrors.Validation("templateKey", "Unknown list template.");
+            }
+
+            if (request.ContentTypeIds is { Count: > 0 })
+            {
+                return ApiErrors.Validation("contentTypeIds", "Use either a template or content types.");
+            }
         }
 
         var contentTypeIds = request.ContentTypeIds?.Distinct().ToList() ?? [];
+        foreach (var key in template?.ContentTypeKeys ?? [])
+        {
+            contentTypeIds.Add((await provisioner.EnsureAsync(caller.TenantId, templates.FindContentType(key)!, cancellationToken)).Id);
+        }
+
         if (contentTypeIds.Count == 0)
         {
             contentTypeIds.Add(await ContentTypeEndpoints.EnsureItemContentTypeAsync(db, caller.TenantId, cancellationToken));
@@ -130,7 +147,7 @@ internal static class ListEndpoints
             fields.AddRange(contentType.Fields);
         }
 
-        var kind = request.Kind ?? ListKinds.List;
+        var kind = template is null ? request.Kind ?? ListKinds.List : template.IsLibrary ? ListKinds.Library : ListKinds.List;
         var list = new ListDefinition
         {
             Id = Ids.New(),
@@ -139,14 +156,20 @@ internal static class ListEndpoints
             Name = request.Name!.Trim(),
             Description = request.Description,
             Kind = kind,
-            AllowFolders = request.AllowFolders,
+            AllowFolders = template?.AllowFolders ?? request.AllowFolders,
+            TemplateKey = template?.Key,
             ContentTypeIds = ListsJsonText.Ids(contentTypeIds),
             MaxVersions = request.MaxVersions,
 
             // Libraries keep versions by default (like SharePoint document libraries).
-            Versioning = request.Versioning ?? (kind == ListKinds.Library ? ListVersionings.Major : ListVersionings.Off),
+            Versioning = request.Versioning ?? (template?.Versioning == true || kind == ListKinds.Library ? ListVersionings.Major : ListVersionings.Off),
         };
         db.Lists.Add(list);
+        if (template is not null)
+        {
+            db.Views.AddRange(ListTemplateEndpoints.Views(list, template));
+        }
+
         await outbox.SaveChangesAsync(db, [new ListCreated { TenantId = caller.TenantId, UserId = caller.UserId, WorkspaceId = workspaceId, ListId = list.Id, Name = list.Name }], cancellationToken);
         ETags.Set(response, list.Version);
         return TypedResults.Created($"/v1.0/workspaces/{workspaceId}/lists/{list.Id}", ToResponse(new ListSchema(list, contentTypes, ListAccess.Full(list.Id))));
