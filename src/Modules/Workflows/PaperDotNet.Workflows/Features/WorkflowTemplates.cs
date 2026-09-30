@@ -83,8 +83,20 @@ internal class WorkflowTemplateHandler(
                 context.Defer(async ct =>
                 {
                     await ApplyBuiltInAsync(element, key, name, context, workspace, workspaceName, planned, ct);
-                    if (!context.DryRun)
+                    if (context.DryRun)
                     {
+                        return;
+                    }
+
+                    try
+                    {
+                        await db.SaveChangesAsync(ct);
+                    }
+                    catch (DbUpdateException)
+                    {
+                        // The library's defaults were created meanwhile (its imported items raised events): set that row.
+                        db.ChangeTracker.Clear();
+                        await ApplyBuiltInAsync(element, key, name, context, workspace, workspaceName, planned, ct);
                         await db.SaveChangesAsync(ct);
                     }
                 });
