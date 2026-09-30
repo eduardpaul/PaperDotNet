@@ -39,4 +39,12 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | T08g | Smart folders | moved to T12: they filter by and assign Taxonomy terms |
 | T08h | Indexed fields (item columns and value table, backfill; no reflection over columns under AOT) | done |
 
+### T09 steps (in order)
+
+| Step | Task | Status |
+|---|---|---|
+| T09a | SDK core and extension host: manifest, catalog, per-tenant state and settings (tenant explicit), gated field types, item mutators, content types, list templates, recurring jobs, workflow activities and triggers, endpoints under `/v1.0/ext/{id}`, subscribers of list events; the build-time generator | in progress |
+| T09b | Extension tables (`ExtensionDbContext` with a compiled model and precompiled queries, migrations as SQL per extension) and the Invoices sample (the parts whose modules are ported) | |
+| later | Term sets (T12), template sections (T13), shipped workflows and waits (T14), MCP tools (T16) | |
+
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).
