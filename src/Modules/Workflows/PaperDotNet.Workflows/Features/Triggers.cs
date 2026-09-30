@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
@@ -51,6 +52,25 @@ internal sealed class WorkflowTriggerPublisher(WorkflowsDbContext db, IOutbox ou
             ItemId = item?.ItemId,
             Data = data?.ToJsonString(),
         }], cancellationToken: cancellationToken);
+}
+
+/// <summary>
+/// The workflow's <c>Trigger</c> column: the types of its triggers joined with commas (<see cref="WorkflowSpec.TriggerTypes"/>),
+/// so workflows for an event are found in the database.
+/// </summary>
+internal static class TriggerColumn
+{
+    /// <summary>Workflows with a trigger of <paramref name="type"/>.</summary>
+    public static Expression<Func<WorkflowDefinition, bool>> Has(string type)
+    {
+        var first = type + ",";
+        var last = "," + type;
+        var middle = "," + type + ",";
+        return w => w.Trigger == type || w.Trigger.StartsWith(first) || w.Trigger.EndsWith(last) || w.Trigger.Contains(middle);
+    }
+
+    /// <summary>Whether the column value has <paramref name="type"/> (in memory).</summary>
+    public static bool Contains(string column, string type) => column.Split(',').Contains(type, StringComparer.Ordinal);
 }
 
 /// <summary>Trigger types workflows can use: built-in triggers and those of extensions.</summary>
@@ -119,7 +139,8 @@ internal sealed class WorkflowTriggerHandler(
         }
 
         var workflows = await db.Workflows.AsNoTracking()
-            .Where(a => a.WorkspaceId == workspaceId && a.Trigger == trigger && a.Enabled)
+            .Where(a => a.WorkspaceId == workspaceId && a.Enabled)
+            .Where(TriggerColumn.Has(trigger))
             .OrderBy(a => a.Name)
             .ToListAsync(ct);
         if (workflows.Count == 0)
@@ -151,28 +172,23 @@ internal sealed class WorkflowTriggerHandler(
             return current;
         }
 
+        var triggerData = data is null ? null : JsonNode.Parse(data) as JsonObject;
         var starts = new List<WorkflowStart>();
         foreach (var workflow in workflows)
         {
             var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
             var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
-            if ((spec.Trigger.List is { } listName && list?.Name != listName)
-                || (spec.Trigger.ChangedFields is { Count: > 0 } fields && itemEvent is not null && !fields.Intersect(itemEvent.ChangedFields).Any()))
+            var matched = false;
+            foreach (var candidate in spec.AllTriggers.Where(t => t.Type == trigger))
             {
-                continue;
-            }
-
-            if (spec.Trigger.ContentType is { } type)
-            {
-                var contentTypeId = itemEvent?.ContentTypeId ?? (await CurrentAsync())?.ContentTypeId;
-                var contentType = list?.ContentTypes.FirstOrDefault(c => c.Id == contentTypeId);
-                if (contentType?.Name != type && contentType?.Key != type)
+                if (await MatchesAsync(candidate))
                 {
-                    continue;
+                    matched = true;
+                    break;
                 }
             }
 
-            if (spec.Trigger.Terms is { Count: > 0 } wanted && !await HasTermAsync(await CurrentAsync(), wanted, ct))
+            if (!matched)
             {
                 continue;
             }
@@ -188,6 +204,29 @@ internal sealed class WorkflowTriggerHandler(
         }
 
         await starter.StartAsync(starts, ct);
+
+        // A trigger of the event's type matches when its list, changed fields, content type, terms and data fit.
+        async Task<bool> MatchesAsync(WorkflowTrigger candidate)
+        {
+            if ((candidate.List is { } listName && list?.Name != listName)
+                || (candidate.ChangedFields is { Count: > 0 } fields && itemEvent is not null && !fields.Intersect(itemEvent.ChangedFields).Any())
+                || !candidate.MatchesData(triggerData))
+            {
+                return false;
+            }
+
+            if (candidate.ContentType is { } type)
+            {
+                var contentTypeId = itemEvent?.ContentTypeId ?? (await CurrentAsync())?.ContentTypeId;
+                var contentType = list?.ContentTypes.FirstOrDefault(c => c.Id == contentTypeId);
+                if (contentType?.Name != type && contentType?.Key != type)
+                {
+                    return false;
+                }
+            }
+
+            return candidate.Terms is not { Count: > 0 } wanted || await HasTermAsync(await CurrentAsync(), wanted, ct);
+        }
     }
 
     /// <summary>

@@ -142,9 +142,9 @@ internal sealed class WorkflowStarter(
         WorkflowDefinition workflow, IReadOnlyList<WorkflowItem> targets, JsonObject? inputs, Guid? startedBy, CancellationToken ct)
     {
         var name = workflow.Name;
-        if (workflow.Trigger != WorkflowTriggers.Manual)
+        if (!TriggerColumn.Contains(workflow.Trigger, WorkflowTriggers.Manual))
         {
-            return ([], $"The workflow '{name}' is not started manually (its trigger is {workflow.Trigger}).");
+            return ([], $"The workflow '{name}' is not started manually (its triggers: {workflow.Trigger.Replace(",", ", ", StringComparison.Ordinal)}).");
         }
 
         if (!workflow.Enabled)
@@ -154,12 +154,13 @@ internal sealed class WorkflowStarter(
 
         var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
-        if (WorkflowInputs.Check(spec.Trigger.Inputs, inputs) is { } invalid)
+        var manual = spec.AllTriggers.First(t => t.Type == WorkflowTriggers.Manual);
+        if (WorkflowInputs.Check(manual.Inputs, inputs) is { } invalid)
         {
             return ([], invalid);
         }
 
-        if (targets.Count == 0 && spec.Trigger.List is { } needed)
+        if (targets.Count == 0 && manual.List is { } needed)
         {
             return ([], $"The workflow '{name}' runs on items of the list '{needed}'; choose items.");
         }
@@ -168,12 +169,12 @@ internal sealed class WorkflowStarter(
         foreach (var item in targets)
         {
             var list = await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
-            if (spec.Trigger.List is { } listName && list?.Name != listName)
+            if (manual.List is { } listName && list?.Name != listName)
             {
                 return ([], $"The workflow '{name}' only runs on items of the list '{listName}'.");
             }
 
-            if (spec.Trigger.ContentType is { } type)
+            if (manual.ContentType is { } type)
             {
                 var data = await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
                 var contentType = list?.ContentTypes.FirstOrDefault(c => c.Id == data?.ContentTypeId);

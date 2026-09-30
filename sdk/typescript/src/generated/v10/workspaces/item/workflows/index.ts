@@ -37,7 +37,7 @@ export interface WorkflowsRequestBuilder extends BaseRequestBuilder<WorkflowsReq
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<WorkflowResponse[] | undefined>;
     /**
-     * @param body The request body
+     * @param body A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<WorkflowResponse>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -50,7 +50,7 @@ export interface WorkflowsRequestBuilder extends BaseRequestBuilder<WorkflowsReq
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
     /**
-     * @param body The request body
+     * @param body A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

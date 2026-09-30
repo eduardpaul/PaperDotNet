@@ -1,6 +1,6 @@
 import type { WorkflowResponse } from '@paperdotnet/client';
 import { describe, expect, it } from 'vitest';
-import { draftFrom, fromPlain, requestFrom, toPlain } from './model';
+import { describeTriggers, draftFrom, fromPlain, requestFrom, toPlain } from './model';
 
 const flow = {
   start: 'big?',
@@ -46,6 +46,31 @@ describe('workflow model', () => {
     expect(toPlain(draft).concurrency).toBe('skip');
     expect(requestFrom(draft).concurrency).toBe('skip');
     expect(toPlain(fromPlain({ name: 'Default', trigger: { type: 'manual' } }))).not.toHaveProperty('concurrency');
+  });
+
+  it('keeps several triggers from the API through the JSON view to a request, and describes them', () => {
+    const response = {
+      name: 'Read receipts',
+      triggers: [
+        { type: 'itemUpdated', list: 'Receipts', changedFields: ['tags'], contentType: null },
+        { type: 'document.processed', list: 'Receipts', data: { additionalData: { hasText: false } } },
+      ],
+      steps: [],
+    } as unknown as WorkflowResponse;
+    const draft = draftFrom(response);
+    const plain = toPlain(draft);
+    expect(plain).not.toHaveProperty('trigger');
+    expect(plain.triggers).toEqual([
+      { type: 'itemUpdated', list: 'Receipts', changedFields: ['tags'] },
+      { type: 'document.processed', list: 'Receipts', data: { hasText: false } },
+    ]);
+    expect(toPlain(fromPlain(plain)).triggers).toEqual(plain.triggers);
+    const request = requestFrom(draft);
+    expect(request.trigger).toBeUndefined();
+    expect(request.triggers?.[1]?.data?.additionalData).toEqual({ hasText: false });
+    expect(describeTriggers(response)).toBe(
+      'When an item changes in Receipts, or When a document is processed in Receipts',
+    );
   });
 
   it('sends steps when there is no flow', () => {

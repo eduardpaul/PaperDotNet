@@ -17,6 +17,7 @@ import { workspaceBuilder } from '@/features/workspaces/queries';
 import { problemMessage } from '@/lib/errors';
 import {
   approvalNames,
+  describeTriggers,
   draftFrom,
   emptyWorkflow,
   fromPlain,
@@ -61,7 +62,9 @@ export function WorkflowEditor({
   const { data: lists } = useQuery(listsQuery(workspaceId));
   const { data: triggers } = useQuery(triggerCatalogQuery);
   const { data: actions } = useQuery(actionCatalogQuery);
-  const triggerList = lists?.find((l) => l.name === draft.trigger.list);
+  // With several triggers the condition uses the fields of the first list they name.
+  const listName = draft.triggers ? draft.triggers.find((t) => t.list)?.list : draft.trigger.list;
+  const triggerList = lists?.find((l) => l.name === listName);
   const { data: list } = useQuery({ ...listQuery(workspaceId, triggerList?.id ?? ''), enabled: !!triggerList });
   const fields = triggerList ? listFields(list) : [];
   const setTrigger = (patch: Partial<WorkflowDraft['trigger']>) =>
@@ -149,134 +152,141 @@ export function WorkflowEditor({
 
                 <section className="flex flex-col gap-3 rounded-lg border bg-surface-muted/30 p-4">
                   <h3 className="text-[13px] font-semibold">When</h3>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Row label="Trigger">
-                      {(id) => (
-                        <Select
-                          id={id}
-                          value={draft.trigger.type}
-                          onChange={(e) => setTrigger({ type: e.target.value })}
-                        >
-                          {(triggers ?? []).map((t) => (
-                            <option key={t.key} value={t.key!} title={t.description ?? undefined}>
-                              {triggerLabels[t.key!] ?? t.key}
-                            </option>
-                          ))}
-                          {!triggers?.some((t) => t.key === draft.trigger.type) && (
-                            <option value={draft.trigger.type}>{draft.trigger.type}</option>
-                          )}
-                        </Select>
-                      )}
-                    </Row>
-                    {draft.trigger.type === 'schedule' && (
-                      <>
-                        <Row label="Cron" hint="Minute hour day month weekday, e.g. 0 8 * * 1-5 (weekdays at 8:00).">
-                          {(id) => (
-                            <Input
-                              id={id}
-                              className="font-mono text-xs"
-                              value={draft.trigger.cron}
-                              onChange={(e) => setTrigger({ cron: e.target.value })}
-                            />
-                          )}
-                        </Row>
-                        <Row label="Time zone" hint="Optional, e.g. Europe/Berlin. Default: the organization's.">
-                          {(id) => (
-                            <Input
-                              id={id}
-                              value={draft.trigger.timeZone}
-                              onChange={(e) => setTrigger({ timeZone: e.target.value })}
-                            />
-                          )}
-                        </Row>
-                      </>
-                    )}
-                    {draft.trigger.type !== 'schedule' && (
-                      <Row label="List">
+                  {draft.triggers ? (
+                    <p className="text-[13px] text-muted">
+                      {describeTriggers({ triggers: draft.triggers })}. This workflow has {draft.triggers.length}{' '}
+                      triggers; edit them in the JSON view.
+                    </p>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Row label="Trigger">
                         {(id) => (
                           <Select
                             id={id}
-                            value={draft.trigger.list}
-                            onChange={(e) => setTrigger({ list: e.target.value, contentType: '', changedFields: [] })}
+                            value={draft.trigger.type}
+                            onChange={(e) => setTrigger({ type: e.target.value })}
                           >
-                            <option value="">Any list</option>
-                            {lists?.map((l) => (
-                              <option key={l.id} value={l.name!}>
-                                {l.name}
+                            {(triggers ?? []).map((t) => (
+                              <option key={t.key} value={t.key!} title={t.description ?? undefined}>
+                                {triggerLabels[t.key!] ?? t.key}
                               </option>
                             ))}
+                            {!triggers?.some((t) => t.key === draft.trigger.type) && (
+                              <option value={draft.trigger.type}>{draft.trigger.type}</option>
+                            )}
                           </Select>
                         )}
                       </Row>
-                    )}
-                    {draft.trigger.type === 'date' && (
-                      <>
-                        <Row label="Date field">
+                      {draft.trigger.type === 'schedule' && (
+                        <>
+                          <Row label="Cron" hint="Minute hour day month weekday, e.g. 0 8 * * 1-5 (weekdays at 8:00).">
+                            {(id) => (
+                              <Input
+                                id={id}
+                                className="font-mono text-xs"
+                                value={draft.trigger.cron}
+                                onChange={(e) => setTrigger({ cron: e.target.value })}
+                              />
+                            )}
+                          </Row>
+                          <Row label="Time zone" hint="Optional, e.g. Europe/Berlin. Default: the organization's.">
+                            {(id) => (
+                              <Input
+                                id={id}
+                                value={draft.trigger.timeZone}
+                                onChange={(e) => setTrigger({ timeZone: e.target.value })}
+                              />
+                            )}
+                          </Row>
+                        </>
+                      )}
+                      {draft.trigger.type !== 'schedule' && (
+                        <Row label="List">
                           {(id) => (
                             <Select
                               id={id}
-                              value={draft.trigger.field}
-                              onChange={(e) => setTrigger({ field: e.target.value })}
+                              value={draft.trigger.list}
+                              onChange={(e) => setTrigger({ list: e.target.value, contentType: '', changedFields: [] })}
                             >
-                              <option value="">Choose a field</option>
-                              {fields
-                                .filter((f) => f.type === 'date' || f.type === 'dateTime')
-                                .map((f) => (
-                                  <option key={f.name} value={f.name!}>
-                                    {fieldLabel(f)}
-                                  </option>
-                                ))}
+                              <option value="">Any list</option>
+                              {lists?.map((l) => (
+                                <option key={l.id} value={l.name!}>
+                                  {l.name}
+                                </option>
+                              ))}
                             </Select>
                           )}
                         </Row>
-                        <Row label="Hours after the date" hint="Negative for before, e.g. -24 for a day before.">
+                      )}
+                      {draft.trigger.type === 'date' && (
+                        <>
+                          <Row label="Date field">
+                            {(id) => (
+                              <Select
+                                id={id}
+                                value={draft.trigger.field}
+                                onChange={(e) => setTrigger({ field: e.target.value })}
+                              >
+                                <option value="">Choose a field</option>
+                                {fields
+                                  .filter((f) => f.type === 'date' || f.type === 'dateTime')
+                                  .map((f) => (
+                                    <option key={f.name} value={f.name!}>
+                                      {fieldLabel(f)}
+                                    </option>
+                                  ))}
+                              </Select>
+                            )}
+                          </Row>
+                          <Row label="Hours after the date" hint="Negative for before, e.g. -24 for a day before.">
+                            {(id) => (
+                              <Input
+                                id={id}
+                                type="number"
+                                value={draft.trigger.offsetHours}
+                                onChange={(e) => setTrigger({ offsetHours: e.target.value })}
+                              />
+                            )}
+                          </Row>
+                        </>
+                      )}
+                      {triggerList && (list?.contentTypes?.length ?? 0) > 1 && (
+                        <Row label="Content type">
                           {(id) => (
-                            <Input
+                            <Select
                               id={id}
-                              type="number"
-                              value={draft.trigger.offsetHours}
-                              onChange={(e) => setTrigger({ offsetHours: e.target.value })}
+                              value={draft.trigger.contentType}
+                              onChange={(e) => setTrigger({ contentType: e.target.value })}
+                            >
+                              <option value="">Any</option>
+                              {list?.contentTypes?.map((c) => (
+                                <option key={c.id} value={c.name!}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </Select>
+                          )}
+                        </Row>
+                      )}
+                      {draft.trigger.type === 'itemUpdated' && triggerList && (
+                        <Row label="Only when these change">
+                          {(_, labelId) => (
+                            <Combobox
+                              aria-labelledby={labelId}
+                              multiple
+                              placeholder="Any field"
+                              options={fields.map((f) => ({ value: f.name!, label: fieldLabel(f) }))}
+                              selected={draft.trigger.changedFields.map((name) => ({
+                                value: name,
+                                label: fieldLabel(fields.find((f) => f.name === name) ?? { name }),
+                              }))}
+                              onChange={(options) => setTrigger({ changedFields: options.map((o) => o.value) })}
                             />
                           )}
                         </Row>
-                      </>
-                    )}
-                    {triggerList && (list?.contentTypes?.length ?? 0) > 1 && (
-                      <Row label="Content type">
-                        {(id) => (
-                          <Select
-                            id={id}
-                            value={draft.trigger.contentType}
-                            onChange={(e) => setTrigger({ contentType: e.target.value })}
-                          >
-                            <option value="">Any</option>
-                            {list?.contentTypes?.map((c) => (
-                              <option key={c.id} value={c.name!}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </Select>
-                        )}
-                      </Row>
-                    )}
-                    {draft.trigger.type === 'itemUpdated' && triggerList && (
-                      <Row label="Only when these change">
-                        {(_, labelId) => (
-                          <Combobox
-                            aria-labelledby={labelId}
-                            multiple
-                            placeholder="Any field"
-                            options={fields.map((f) => ({ value: f.name!, label: fieldLabel(f) }))}
-                            selected={draft.trigger.changedFields.map((name) => ({
-                              value: name,
-                              label: fieldLabel(fields.find((f) => f.name === name) ?? { name }),
-                            }))}
-                            onChange={(options) => setTrigger({ changedFields: options.map((o) => o.value) })}
-                          />
-                        )}
-                      </Row>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                   <Row
                     label="Only if the item matches"
                     hint={

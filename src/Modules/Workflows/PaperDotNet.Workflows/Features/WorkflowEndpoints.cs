@@ -15,6 +15,7 @@ using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Workflows.Features;
 
+/// <summary>A workflow: <c>trigger</c>, or several <c>triggers</c> (any of them starts a run), and its definition.</summary>
 public sealed record WorkflowRequest(
     [property: Required, StringLength(200, MinimumLength = 1)] string Name,
     [property: StringLength(2000)] string? Description,
@@ -24,17 +25,14 @@ public sealed record WorkflowRequest(
     bool Enabled = true,
     FlowDefinition? Flow = null,
     JsonObject? Variables = null,
-    [property: StringLength(20)] string? Concurrency = null);
+    [property: StringLength(20)] string? Concurrency = null,
+    IReadOnlyList<WorkflowTrigger>? Triggers = null);
 
-/// <summary>
-/// A workflow with the definition of its current <c>version</c> (runs keep the version they started with): <c>steps</c>
-/// or a <c>flow</c>, the initial <c>variables</c>, and <c>concurrency</c> (runs on the same item: <c>parallel</c>,
-/// <c>skip</c> or <c>replace</c>).
-/// </summary>
+/// <summary>A workflow with the definition of its current <c>version</c> (runs keep the version they started with): its <c>trigger</c> or <c>triggers</c> (as it was defined), <c>steps</c> or a <c>flow</c>, the initial <c>variables</c>, and <c>concurrency</c> (runs on the same item: <c>parallel</c>, <c>skip</c> or <c>replace</c>).</summary>
 public sealed record WorkflowResponse(
-    Guid Id, Guid WorkspaceId, string Name, string? Description, bool Enabled, int Version, WorkflowTrigger Trigger, string? Condition,
+    Guid Id, Guid WorkspaceId, string Name, string? Description, bool Enabled, int Version, WorkflowTrigger? Trigger, string? Condition,
     IReadOnlyList<WorkflowStep>? Steps, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, FlowDefinition? Flow = null, JsonObject? Variables = null,
-    string? BuiltIn = null, string? CopiedFrom = null, string? Concurrency = null)
+    string? BuiltIn = null, string? CopiedFrom = null, string? Concurrency = null, IReadOnlyList<WorkflowTrigger>? Triggers = null)
 {
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
     [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
@@ -284,9 +282,9 @@ internal static class WorkflowEndpoints
         }
 
         var spec = new WorkflowSpec(
-            request.Trigger!, string.IsNullOrWhiteSpace(request.Condition) ? null : request.Condition.Trim(),
+            request.Trigger, string.IsNullOrWhiteSpace(request.Condition) ? null : request.Condition.Trim(),
             request.Flow is null ? request.Steps ?? [] : request.Steps is { Count: > 0 } ? request.Steps : null, request.Flow, request.Variables,
-            string.IsNullOrWhiteSpace(request.Concurrency) ? null : request.Concurrency);
+            string.IsNullOrWhiteSpace(request.Concurrency) ? null : request.Concurrency, request.Triggers);
         var errors = await validator.ValidateAsync(workspaceId, spec, ct);
         return errors.Count == 0 ? (spec, null) : (null, ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [.. errors] }));
     }
@@ -297,7 +295,7 @@ internal static class WorkflowEndpoints
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
         return new WorkflowResponse(workflow.Id, workflow.WorkspaceId, workflow.Name, workflow.Description, workflow.Enabled,
             workflow.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, workflow.CreatedAt, workflow.UpdatedAt, spec.Flow, spec.Variables,
-            workflow.BuiltInKey, workflow.CopiedFrom, spec.Concurrency)
+            workflow.BuiltInKey, workflow.CopiedFrom, spec.Concurrency, spec.Triggers)
         { ETag = ETags.From(workflow.Version) };
     }
 
@@ -712,7 +710,7 @@ internal static class WorkflowWriter
             Name = name,
             Description = description,
             Enabled = enabled,
-            Trigger = spec.Trigger.Type,
+            Trigger = spec.TriggerTypes,
             CurrentVersion = 1,
         };
         db.Workflows.Add(workflow);
@@ -731,7 +729,7 @@ internal static class WorkflowWriter
         }
 
         workflow.CurrentVersion++;
-        workflow.Trigger = spec.Trigger.Type;
+        workflow.Trigger = spec.TriggerTypes;
         db.Versions.Add(new WorkflowVersion { Id = Ids.New(), WorkflowId = workflow.Id, Number = workflow.CurrentVersion, Definition = json });
         return true;
     }
@@ -743,47 +741,60 @@ internal sealed class WorkflowValidator(TriggerCatalog triggers, ActionCatalog a
     public async Task<List<string>> ValidateAsync(Guid workspaceId, WorkflowSpec spec, CancellationToken ct)
     {
         var errors = Definitions.Validate(spec, triggers.Keys, actions);
-        foreach (var path in errors.Count > 0 ? [] : spec.Trigger.Terms ?? [])
-        {
-            if (await terms.FindTermByPathAsync(path, ct) is null)
-            {
-                errors.Add($"The term '{path}' does not exist (use a path such as Group/Set/Term).");
-            }
-        }
-
-        if (errors.Count > 0 || spec.Trigger.List is not { } listName)
+        if (errors.Count > 0)
         {
             return errors;
         }
 
-        var list = (await items.AsSystem().GetListsAsync(workspaceId, null, ct)).FirstOrDefault(l => l.Name == listName);
-        if (list is null)
+        var several = spec.Triggers is not null;
+        var lists = await items.AsSystem().GetListsAsync(workspaceId, null, ct);
+        var checkedConditions = new HashSet<Guid>();
+        foreach (var (trigger, index) in spec.AllTriggers.Select((t, i) => (t, i)))
         {
-            errors.Add($"The list '{listName}' does not exist in the workspace.");
-            return errors;
-        }
-
-        if (spec.Trigger.ContentType is { } type && !list.ContentTypes.Any(c => c.Name == type || c.Key == type))
-        {
-            errors.Add($"The list '{listName}' has no content type '{type}'.");
-        }
-
-        if (spec.Trigger.Type == WorkflowTriggers.Date)
-        {
-            var description = await items.AsSystem().DescribeListAsync(workspaceId, list.Id, ct);
-            var field = description?.ContentTypes.SelectMany(c => c.Fields).FirstOrDefault(f => f.Name == spec.Trigger.Field);
-            if (field?.Type is not ("date" or "dateTime"))
+            var prefix = several ? $"triggers[{index}]: " : string.Empty;
+            foreach (var path in trigger.Terms ?? [])
             {
-                errors.Add($"The list '{listName}' has no date field '{spec.Trigger.Field}'.");
+                if (await terms.FindTermByPathAsync(path, ct) is null)
+                {
+                    errors.Add($"{prefix}The term '{path}' does not exist (use a path such as Group/Set/Term).");
+                }
             }
-        }
 
-        if (spec.Condition is { } condition)
-        {
-            var (_, error) = await items.AsSystem().QueryAsync(workspaceId, list.Id, new ListItemQuery($"id eq {Guid.Empty} and ({condition})", Top: 1), ct);
-            if (error is not null)
+            if (trigger.List is not { } listName)
             {
-                errors.Add($"condition: {error}");
+                continue;
+            }
+
+            var list = lists.FirstOrDefault(l => l.Name == listName);
+            if (list is null)
+            {
+                errors.Add($"{prefix}The list '{listName}' does not exist in the workspace.");
+                continue;
+            }
+
+            if (trigger.ContentType is { } type && !list.ContentTypes.Any(c => c.Name == type || c.Key == type))
+            {
+                errors.Add($"{prefix}The list '{listName}' has no content type '{type}'.");
+            }
+
+            if (trigger.Type == WorkflowTriggers.Date)
+            {
+                var description = await items.AsSystem().DescribeListAsync(workspaceId, list.Id, ct);
+                var field = description?.ContentTypes.SelectMany(c => c.Fields).FirstOrDefault(f => f.Name == trigger.Field);
+                if (field?.Type is not ("date" or "dateTime"))
+                {
+                    errors.Add($"{prefix}The list '{listName}' has no date field '{trigger.Field}'.");
+                }
+            }
+
+            // The condition is checked against every list a trigger names.
+            if (spec.Condition is { } condition && checkedConditions.Add(list.Id))
+            {
+                var (_, error) = await items.AsSystem().QueryAsync(workspaceId, list.Id, new ListItemQuery($"id eq {Guid.Empty} and ({condition})", Top: 1), ct);
+                if (error is not null)
+                {
+                    errors.Add($"condition: {error}");
+                }
             }
         }
 

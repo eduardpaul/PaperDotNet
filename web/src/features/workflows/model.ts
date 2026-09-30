@@ -1,8 +1,9 @@
 // The workflow editor works on a plain draft (ids for React keys, strings for number inputs). Everything converts
 // through the API's JSON shape (docs/workflows.md), which the JSON view also shows: steps with `inputs` as a plain
 // object and `else` (the SDK names it elseEscaped because `else` is a reserved word). Unknown step types are kept, and so
-// are a `flow` and `variables` (ADR-0036), which the form does not edit: flows are edited in the JSON view.
-import type { WorkflowRequest, WorkflowResponse, WorkflowStep } from '@paperdotnet/client';
+// are a `flow`, `variables` (ADR-0036) and several `triggers`, which the form does not edit: they are edited in the JSON
+// view.
+import type { WorkflowRequest, WorkflowResponse, WorkflowStep, WorkflowTrigger } from '@paperdotnet/client';
 import { fields as jsonObject, fieldsOf } from '@paperdotnet/client';
 
 export type StepType = 'action' | 'approval' | 'condition' | 'delay';
@@ -34,6 +35,8 @@ export interface WorkflowDraft {
   description: string;
   enabled: boolean;
   trigger: TriggerDraft;
+  /** Several triggers (any of them starts a run) instead of `trigger`; kept as the API's JSON. */
+  triggers?: PlainTrigger[];
   condition: string;
   steps: StepDraft[];
   /** A flow (nodes connected by outcome ports) instead of steps; kept as the API's JSON. */
@@ -57,6 +60,8 @@ export interface TriggerDraft {
   offsetHours: string;
   terms?: string[];
   inputs?: Record<string, unknown>;
+  /** Module and extension triggers: values the trigger's data must have. */
+  data?: Record<string, unknown>;
 }
 
 /** A trigger as the API's JSON has it. */
@@ -71,6 +76,7 @@ export interface PlainTrigger {
   field?: string | null;
   offsetHours?: number | null;
   inputs?: Record<string, unknown> | null;
+  data?: Record<string, unknown> | null;
 }
 
 /** A flow as the API's JSON has it (docs/workflows.md). */
@@ -102,6 +108,7 @@ export interface PlainWorkflow {
   description?: string | null;
   enabled?: boolean;
   trigger?: PlainTrigger;
+  triggers?: PlainTrigger[];
   condition?: string | null;
   steps?: PlainStep[];
   flow?: PlainFlow;
@@ -195,7 +202,9 @@ export function fromPlain(plain: PlainWorkflow): WorkflowDraft {
       offsetHours: text(plain.trigger?.offsetHours),
       ...(plain.trigger?.terms?.length ? { terms: plain.trigger.terms } : {}),
       ...(plain.trigger?.inputs ? { inputs: plain.trigger.inputs } : {}),
+      ...(plain.trigger?.data ? { data: plain.trigger.data } : {}),
     },
+    ...(plain.triggers ? { triggers: plain.triggers } : {}),
     condition: plain.condition ?? '',
     steps: (plain.steps ?? []).map(stepFromPlain),
     ...(plain.flow ? { flow: plain.flow } : {}),
@@ -239,7 +248,7 @@ export function toPlain(draft: WorkflowDraft): PlainWorkflow {
     name: draft.name.trim(),
     description: orUndefined(draft.description) ?? null,
     enabled: draft.enabled,
-    trigger: triggerToPlain(draft.trigger),
+    ...(draft.triggers ? { triggers: draft.triggers } : { trigger: triggerToPlain(draft.trigger) }),
     condition: orUndefined(draft.condition) ?? null,
     ...(draft.flow ? { flow: draft.flow } : { steps: draft.steps.map(stepToPlain) }),
     ...(draft.variables ? { variables: draft.variables } : {}),
@@ -261,6 +270,7 @@ function triggerToPlain(trigger: TriggerDraft): PlainTrigger {
       : {}),
     ...(trigger.terms?.length && type !== 'schedule' ? { terms: trigger.terms } : {}),
     ...(trigger.inputs && type === 'manual' ? { inputs: trigger.inputs } : {}),
+    ...(trigger.data ? { data: trigger.data } : {}),
   };
 }
 
@@ -287,17 +297,31 @@ function stepToSdk(step: PlainStep): WorkflowStep {
   };
 }
 
+function triggerFromSdk(trigger: WorkflowTrigger): PlainTrigger {
+  const { inputs, data, additionalData: _, ...rest } = trigger;
+  return {
+    ...(Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== null && v !== undefined)) as PlainTrigger),
+    ...(inputs ? { inputs: { ...fieldsOf({ fields: inputs }) } } : {}),
+    ...(data ? { data: { ...fieldsOf({ fields: data }) } } : {}),
+  };
+}
+
+function triggerToSdk(trigger: PlainTrigger): WorkflowTrigger {
+  const { inputs, data, ...rest } = trigger;
+  return {
+    ...rest,
+    ...(inputs ? { inputs: jsonObject(inputs) } : {}),
+    ...(data ? { data: jsonObject(data) } : {}),
+  } as WorkflowTrigger;
+}
+
 export function draftFrom(workflow: WorkflowResponse): WorkflowDraft {
   return fromPlain({
     name: workflow.name ?? '',
     description: workflow.description,
     enabled: workflow.enabled ?? true,
-    trigger: workflow.trigger
-      ? {
-          ...workflow.trigger,
-          inputs: workflow.trigger.inputs ? { ...fieldsOf({ fields: workflow.trigger.inputs }) } : undefined,
-        }
-      : undefined,
+    trigger: workflow.trigger ? triggerFromSdk(workflow.trigger) : undefined,
+    ...(workflow.triggers ? { triggers: workflow.triggers.map(triggerFromSdk) } : {}),
     condition: workflow.condition,
     steps: (workflow.steps ?? []).map(stepFromSdk),
     ...(workflow.flow
@@ -309,11 +333,10 @@ export function draftFrom(workflow: WorkflowResponse): WorkflowDraft {
 }
 
 export function requestFrom(draft: WorkflowDraft): WorkflowRequest {
-  const { flow, variables, steps, trigger, ...plain } = toPlain(draft);
-  const { inputs, ...triggerRest } = trigger ?? {};
+  const { flow, variables, steps, trigger, triggers, ...plain } = toPlain(draft);
   return {
     ...plain,
-    trigger: { ...triggerRest, ...(inputs ? { inputs: jsonObject(inputs) } : {}) },
+    ...(triggers ? { triggers: triggers.map(triggerToSdk) } : { trigger: triggerToSdk(trigger ?? {}) }),
     ...(flow
       ? { flow: { start: flow.start, nodes: { additionalData: flow.nodes } } }
       : { steps: (steps ?? []).map(stepToSdk) }),
@@ -332,19 +355,26 @@ export function approvalNames(steps: StepDraft[]): string[] {
   ]);
 }
 
+/** The triggers of a workflow in one sentence: "When an item is added in Invoices, or on the schedule 0 8 * * *". */
+export function describeTriggers(workflow: {
+  trigger?: DescribedTrigger | null;
+  triggers?: DescribedTrigger[] | null;
+}): string {
+  const all = workflow.triggers ?? (workflow.trigger ? [workflow.trigger] : []);
+  return all.length ? all.map(describeTrigger).join(', or ') : describeTrigger(undefined);
+}
+
+/** What describing a trigger needs (the SDK's trigger or the plain JSON). */
+interface DescribedTrigger {
+  type?: string | null;
+  list?: string | null;
+  contentType?: string | null;
+  cron?: string | null;
+  field?: string | null;
+}
+
 /** A short sentence for lists: "When an item is added in Invoices". */
-export function describeTrigger(
-  trigger:
-    | {
-        type?: string | null;
-        list?: string | null;
-        contentType?: string | null;
-        cron?: string | null;
-        field?: string | null;
-      }
-    | null
-    | undefined,
-): string {
+export function describeTrigger(trigger: DescribedTrigger | null | undefined): string {
   const where = trigger?.list ? ` in ${trigger.list}` : '';
   const what = trigger?.contentType ? ` (${trigger.contentType})` : '';
   switch (trigger?.type) {

@@ -85,7 +85,7 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
             .ToDictionary(l => l.GetProperty("name").GetString()!, l => l.GetProperty("id").GetGuid());
         var workflows = (await (await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows", Ct)).ReadJsonAsync()).EnumerateArray()
             .ToDictionary(w => w.GetProperty("name").GetString()!, w => w.GetProperty("id").GetGuid());
-        Assert.Equal(["AI batch", "Read new receipts", "Read tagged receipts"], workflows.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(["AI batch", "Read receipts"], workflows.Keys.Order(StringComparer.Ordinal));
 
         // A receipt is uploaded, processed, then tagged "ticket": its reading waits for the batch.
         var receipts = $"/v1.0/workspaces/{ws}/lists/{lists["Receipts"]}";
@@ -106,7 +106,7 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
             JsonElement run = default;
             await Eventually.WaitForAsync(async () =>
             {
-                var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read tagged receipts"]}&itemId={receipt}", Ct);
+                var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read receipts"]}&itemId={receipt}", Ct);
                 run = (await response.ReadJsonAsync()).GetProperty("value").EnumerateArray().FirstOrDefault();
                 return run.ValueKind == JsonValueKind.Object && statuses.Contains(run.GetProperty("status").GetString()) ? true : (bool?)null;
             }, TimeSpan.FromSeconds(30));
@@ -133,7 +133,7 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
                         .ExecuteUpdateAsync(u => u.SetProperty(b => b.ResumeAt, DateTimeOffset.UtcNow.AddMinutes(-1)), Ct);
                     await services.GetRequiredService<WorkflowTimerJob>().RunAsync(Ct);
                 });
-                var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read tagged receipts"]}&itemId={receipt}", Ct);
+                var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read receipts"]}&itemId={receipt}", Ct);
                 var status = (await response.ReadJsonAsync()).GetProperty("value").EnumerateArray().First().GetProperty("status").GetString();
                 return status is "completed" or "failed" ? true : (bool?)null;
             }, TimeSpan.FromSeconds(60));
@@ -174,7 +174,7 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
 
         await Eventually.WaitForAsync(async () =>
         {
-            var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read tagged receipts"]}&itemId={receipt}&status=waiting", Ct);
+            var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read receipts"]}&itemId={receipt}&status=waiting", Ct);
             return (await response.ReadJsonAsync()).GetProperty("value").GetArrayLength() == 1 ? true : (bool?)null;
         }, TimeSpan.FromSeconds(30));
         await BatchWindowAsync(2);

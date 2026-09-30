@@ -132,6 +132,84 @@ public sealed class WorkflowTriggerTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task A_workflow_with_several_triggers_starts_once_for_any_of_them()
+    {
+        var s = await SetupAsync("wf-several");
+        var log = await PostIdAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Log", templateKey = "tasks" });
+        var workflow = await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Watch",
+            triggers = new object[]
+            {
+                new { type = "itemAdded", list = "Tasks" },
+                new { type = "itemUpdated", list = "Tasks", changedFields = new[] { "priority" } },
+                new { type = "manual", list = "Tasks" },
+                new { type = "schedule", cron = "0 8 * * *" },
+                new { type = "schedule", cron = "0 18 * * *" },
+            },
+            steps = Note("Log", "Seen"),
+        });
+        var definition = await GetAsync(s.Admin, $"{s.Workflows}/{workflow}");
+        Assert.Equal(5, definition.GetProperty("triggers").GetArrayLength());
+        Assert.False(definition.TryGetProperty("trigger", out var single) && single.ValueKind != JsonValueKind.Null);
+
+        // Added, then updated in a watched field (starts), then in another field (does not).
+        var task = (await s.Admin.CreateItemAsync(s.Workspace, s.Tasks, new { fields = new { title = "Write report" } })).GetProperty("id").GetGuid();
+        await RunsAsync(s, workflow, r => r.Count == 1 && AllCompleted(r));
+        var item = $"{s.List(s.Tasks)}/items/{task}";
+        async Task PatchAsync(object fields) =>
+            Assert.True((await s.Admin.SendWithEtagAsync(HttpMethod.Patch, item, (await s.Admin.GetAsync(item, Ct)).Headers.ETag!.Tag, new { fields })).IsSuccessStatusCode);
+        await PatchAsync(new { priority = "high" });
+        await RunsAsync(s, workflow, r => r.Count == 2 && AllCompleted(r));
+        await PatchAsync(new { description = "Only text" });
+
+        // A manual start works when one of the triggers is manual.
+        Assert.True((await s.Admin.PostAsJsonAsync($"{item}/workflows", new { workflow = "Watch" }, Ct)).IsSuccessStatusCode);
+        await RunsAsync(s, workflow, r => r.Count == 3 && AllCompleted(r));
+
+        // Each schedule keeps its own state: the second one's occurrence starts a run of its own.
+        await TickAsync(s);
+        var (first, second) = (WorkflowScheduleJob.StateId(workflow, 3), WorkflowScheduleJob.StateId(workflow, 4));
+        await TickAsync(s, async db =>
+        {
+            Assert.Equal(2, await db.Schedules.CountAsync(x => x.Id == first || x.Id == second, Ct));
+            var state = await db.Schedules.SingleAsync(x => x.Id == second, Ct);
+            state.NextAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+            await db.SaveChangesAsync(Ct);
+        });
+        await RunsAsync(s, workflow, r => r.Count == 4 && AllCompleted(r));
+        Assert.Equal(4, (await s.Admin.QueryTitlesAsync(s.Workspace, log, "")).Count(t => t == "Seen"));
+
+        // Triggers are checked one by one.
+        async Task<string> InvalidAsync(object body)
+        {
+            var response = await s.Admin.PostAsJsonAsync(s.Workflows, body, Ct);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            return await response.Content.ReadAsStringAsync(Ct);
+        }
+
+        Assert.Contains("triggers[1]: The list 'Nope' does not exist", await InvalidAsync(new
+        {
+            name = "Bad",
+            triggers = new object[] { new { type = "itemAdded", list = "Tasks" }, new { type = "itemAdded", list = "Nope" } },
+            steps = Note("Log", "x"),
+        }), StringComparison.Ordinal);
+        Assert.Contains("Use either trigger or triggers", await InvalidAsync(new
+        {
+            name = "Bad",
+            trigger = new { type = "itemAdded" },
+            triggers = new object[] { new { type = "itemAdded" } },
+            steps = Note("Log", "x"),
+        }), StringComparison.Ordinal);
+        Assert.Contains("data is only used with module and extension triggers", await InvalidAsync(new
+        {
+            name = "Bad",
+            trigger = new { type = "itemAdded", data = new { x = 1 } },
+            steps = Note("Log", "x"),
+        }), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Date_triggers_start_once_per_item_and_date()
     {
         var s = await SetupAsync("wf-dates");

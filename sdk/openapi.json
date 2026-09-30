@@ -22141,8 +22141,18 @@
               "null",
               "string"
             ]
+          },
+          "triggers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowTrigger"
+            }
           }
-        }
+        },
+        "description": "A workflow: \u0060trigger\u0060, or several \u0060triggers\u0060 (any of them starts a run), and its definition."
       },
       "WorkflowResponse": {
         "required": [
@@ -22185,7 +22195,14 @@
             "format": "int32"
           },
           "trigger": {
-            "$ref": "#/components/schemas/WorkflowTrigger"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowTrigger"
+              }
+            ]
           },
           "condition": {
             "type": [
@@ -22248,6 +22265,15 @@
               "string"
             ]
           },
+          "triggers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowTrigger"
+            }
+          },
           "@odata.etag": {
             "type": [
               "null",
@@ -22256,7 +22282,7 @@
             "description": "The ETag for \u0060If-Match\u0060 on changes (the same as the \u0060ETag\u0060 header)."
           }
         },
-        "description": "A workflow with the definition of its current \u0060version\u0060 (runs keep the version they started with): \u0060steps\u0060\nor a \u0060flow\u0060, the initial \u0060variables\u0060, and \u0060concurrency\u0060 (runs on the same item: \u0060parallel\u0060,\n\u0060skip\u0060 or \u0060replace\u0060)."
+        "description": "A workflow with the definition of its current \u0060version\u0060 (runs keep the version they started with): its \u0060trigger\u0060 or \u0060triggers\u0060 (as it was defined), \u0060steps\u0060 or a \u0060flow\u0060, the initial \u0060variables\u0060, and \u0060concurrency\u0060 (runs on the same item: \u0060parallel\u0060, \u0060skip\u0060 or \u0060replace\u0060)."
       },
       "WorkflowStep": {
         "required": [
@@ -22439,9 +22465,19 @@
                 "$ref": "#/components/schemas/JsonObject"
               }
             ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
           }
         },
-        "description": "When a workflow runs: \u0060type\u0060 is \u0060manual\u0060 (started by a person), an item event (\u0060itemAdded\u0060,\n\u0060itemUpdated\u0060, \u0060itemDeleted\u0060, \u0060itemRestored\u0060), \u0060schedule\u0060, \u0060date\u0060, a module trigger\n(\u0060document.processed\u0060, \u0060approval.decided\u0060, \u0060task.completed\u0060, \u0060comment.added\u0060) or an extension\ntrigger. \u0060list\u0060 and \u0060contentType\u0060 narrow it by name; \u0060changedFields\u0060 (updates) needs one of them to\nchange; \u0060terms\u0060 (term paths \u0060Group/Set/Term\u0060) needs the item to have one of them or a term below.\n\u0060schedule\u0060 runs on \u0060cron\u0060 (5 fields) in \u0060timeZone\u0060 (default: the organization\u0027s). \u0060date\u0060 runs for\neach item of \u0060list\u0060 when its date \u0060field\u0060 plus \u0060offsetHours\u0060 (negative: before) is reached. \u0060manual\u0060\nmay describe the \u0060inputs\u0060 a person gives when starting it (a JSON Schema object; they become run variables)."
+        "description": "When a workflow runs: \u0060type\u0060 is \u0060manual\u0060 (started by a person), an item event (\u0060itemAdded\u0060,\n\u0060itemUpdated\u0060, \u0060itemDeleted\u0060, \u0060itemRestored\u0060), \u0060schedule\u0060, \u0060date\u0060, a module trigger\n(\u0060document.processed\u0060, \u0060approval.decided\u0060, \u0060task.completed\u0060, \u0060comment.added\u0060) or an extension\ntrigger. \u0060list\u0060 and \u0060contentType\u0060 narrow it by name; \u0060changedFields\u0060 (updates) needs one of them to\nchange; \u0060terms\u0060 (term paths \u0060Group/Set/Term\u0060) needs the item to have one of them or a term below.\n\u0060schedule\u0060 runs on \u0060cron\u0060 (5 fields) in \u0060timeZone\u0060 (default: the organization\u0027s). \u0060date\u0060 runs for\neach item of \u0060list\u0060 when its date \u0060field\u0060 plus \u0060offsetHours\u0060 (negative: before) is reached. \u0060manual\u0060\nmay describe the \u0060inputs\u0060 a person gives when starting it (a JSON Schema object; they become run variables).\n\u0060data\u0060 (module and extension triggers) needs the trigger\u0027s data to have these values, e.g. \u0060{ \u0022hasText\u0022: false }\u0060."
       },
       "WorkspaceAccessLevel": {
         "enum": [

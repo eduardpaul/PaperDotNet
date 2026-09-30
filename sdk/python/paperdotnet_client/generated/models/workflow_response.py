@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 @dataclass
 class WorkflowResponse(AdditionalDataHolder, Parsable):
     """
-    A workflow with the definition of its current `version` (runs keep the version they started with): `steps`or a `flow`, the initial `variables`, and `concurrency` (runs on the same item: `parallel`,`skip` or `replace`).
+    A workflow with the definition of its current `version` (runs keep the version they started with): its `trigger` or `triggers` (as it was defined), `steps` or a `flow`, the initial `variables`, and `concurrency` (runs on the same item: `parallel`, `skip` or `replace`).
     """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
@@ -44,8 +44,10 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
     odata_etag: Optional[str] = None
     # The steps property
     steps: Optional[list[WorkflowStep]] = None
-    # When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization's). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).
+    # The trigger property
     trigger: Optional[WorkflowTrigger] = None
+    # The triggers property
+    triggers: Optional[list[WorkflowTrigger]] = None
     # The updatedAt property
     updated_at: Optional[datetime.datetime] = None
     # The variables property
@@ -95,6 +97,7 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
             "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "steps": lambda n : setattr(self, 'steps', n.get_collection_of_object_values(WorkflowStep)),
             "trigger": lambda n : setattr(self, 'trigger', n.get_object_value(WorkflowTrigger)),
+            "triggers": lambda n : setattr(self, 'triggers', n.get_collection_of_object_values(WorkflowTrigger)),
             "updatedAt": lambda n : setattr(self, 'updated_at', n.get_datetime_value()),
             "variables": lambda n : setattr(self, 'variables', n.get_object_value(JsonObject)),
             "version": lambda n : setattr(self, 'version', n.get_int_value()),
@@ -123,6 +126,7 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
         writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_collection_of_object_values("steps", self.steps)
         writer.write_object_value("trigger", self.trigger)
+        writer.write_collection_of_object_values("triggers", self.triggers)
         writer.write_datetime_value("updatedAt", self.updated_at)
         writer.write_object_value("variables", self.variables)
         writer.write_int_value("version", self.version)

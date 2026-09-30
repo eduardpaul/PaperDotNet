@@ -14,6 +14,7 @@ namespace PaperDotNet.Workflows.Features;
 /// <c>schedule</c> runs on <c>cron</c> (5 fields) in <c>timeZone</c> (default: the organization's). <c>date</c> runs for
 /// each item of <c>list</c> when its date <c>field</c> plus <c>offsetHours</c> (negative: before) is reached. <c>manual</c>
 /// may describe the <c>inputs</c> a person gives when starting it (a JSON Schema object; they become run variables).
+/// <c>data</c> (module and extension triggers) needs the trigger's data to have these values, e.g. <c>{ "hasText": false }</c>.
 /// </summary>
 public sealed record WorkflowTrigger(
     string Type,
@@ -25,20 +26,39 @@ public sealed record WorkflowTrigger(
     string? TimeZone = null,
     string? Field = null,
     double? OffsetHours = null,
-    JsonObject? Inputs = null);
+    JsonObject? Inputs = null,
+    JsonObject? Data = null)
+{
+    /// <summary>Whether the trigger's data has every value of <see cref="Data"/> (true without <see cref="Data"/>).</summary>
+    public bool MatchesData(JsonObject? data) =>
+        Data is null || Data.All(wanted => data is not null && data.TryGetPropertyValue(wanted.Key, out var value) && JsonNode.DeepEquals(value, wanted.Value));
+}
 
 /// <summary>An action with its inputs (strings may contain tokens such as <c>{title}</c>).</summary>
 public sealed record ActionDefinition(string Type, JsonObject? Inputs = null);
 
 /// <summary>
-/// What a workflow does (a version of it): its trigger, an OData condition on the item checked when the trigger
-/// fires (optional), and its body: either <c>steps</c> (a sequence with if/else) or a <c>flow</c> (nodes connected by
-/// outcome ports, ADR-0036). <c>variables</c> are the initial values of the run's variables. <c>concurrency</c> says what
-/// happens when a run on an item starts while another run of the workflow on that item is going (<see cref="RunConcurrency"/>).
+/// What a workflow does (a version of it): its trigger (<c>trigger</c>, or several in <c>triggers</c>: any of them starts
+/// a run), an OData condition on the item checked when a trigger fires (optional), and its body: either <c>steps</c> (a
+/// sequence with if/else) or a <c>flow</c> (nodes connected by outcome ports, ADR-0036). <c>variables</c> are the initial
+/// values of the run's variables. <c>concurrency</c> says what happens when a run on an item starts while another run of
+/// the workflow on that item is going (<see cref="RunConcurrency"/>).
 /// </summary>
 public sealed record WorkflowSpec(
-    WorkflowTrigger Trigger, string? Condition, IReadOnlyList<WorkflowStep>? Steps, FlowDefinition? Flow = null, JsonObject? Variables = null,
-    string? Concurrency = null);
+    WorkflowTrigger? Trigger, string? Condition, IReadOnlyList<WorkflowStep>? Steps, FlowDefinition? Flow = null, JsonObject? Variables = null,
+    string? Concurrency = null, IReadOnlyList<WorkflowTrigger>? Triggers = null)
+{
+    /// <summary>Most triggers of a workflow.</summary>
+    public const int MaxTriggers = 10;
+
+    /// <summary>The triggers: <c>triggers</c>, or the one <c>trigger</c>.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<WorkflowTrigger> AllTriggers => Triggers ?? (Trigger is null ? [] : [Trigger]);
+
+    /// <summary>The trigger types, for the workflow's <c>Trigger</c> column (joined with commas, each once).</summary>
+    [JsonIgnore]
+    public string TriggerTypes => string.Join(',', AllTriggers.Select(t => t.Type).Distinct(StringComparer.Ordinal));
+}
 
 /// <summary>Runs of one workflow on the same item (ADR-0037).</summary>
 public static class RunConcurrency
@@ -237,34 +257,60 @@ internal static class Definitions
     public static List<string> Validate(WorkflowSpec? spec, IReadOnlySet<string> triggers, ActionCatalog actions)
     {
         var errors = new List<string>();
-        if (spec?.Trigger is null)
+        if (spec is not null && spec.Trigger is not null && spec.Triggers is not null)
         {
-            errors.Add("A trigger is required.");
+            errors.Add("Use either trigger or triggers, not both.");
             return errors;
         }
 
-        var trigger = spec.Trigger;
-        if (!triggers.Contains(trigger.Type))
+        if (spec is null || spec.AllTriggers.Count == 0)
         {
-            errors.Add($"Unknown trigger '{trigger.Type}'.");
+            errors.Add("A trigger is required (trigger, or a list of triggers).");
+            return errors;
         }
 
-        if (trigger.ChangedFields is { Count: > 0 } && trigger.Type != WorkflowTriggers.ItemUpdated)
+        if (spec.AllTriggers.Count > WorkflowSpec.MaxTriggers)
         {
-            errors.Add("changedFields is only used with itemUpdated.");
+            errors.Add($"A workflow has at most {WorkflowSpec.MaxTriggers} triggers.");
         }
 
-        if (!string.IsNullOrWhiteSpace(spec.Condition) && trigger.Type == WorkflowTriggers.ItemDeleted)
+        var several = spec.Triggers is not null;
+        foreach (var (trigger, index) in spec.AllTriggers.Select((t, i) => (t, i)))
         {
-            errors.Add("Conditions cannot be checked on deleted items.");
+            var prefix = several ? $"triggers[{index}]: " : string.Empty;
+            if (trigger is null)
+            {
+                errors.Add($"{prefix}a trigger is required.");
+                continue;
+            }
+
+            if (!triggers.Contains(trigger.Type))
+            {
+                errors.Add($"{prefix}Unknown trigger '{trigger.Type}'.");
+            }
+
+            if (trigger.ChangedFields is { Count: > 0 } && trigger.Type != WorkflowTriggers.ItemUpdated)
+            {
+                errors.Add($"{prefix}changedFields is only used with itemUpdated.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(spec.Condition) && trigger.Type == WorkflowTriggers.ItemDeleted)
+            {
+                errors.Add($"{prefix}Conditions cannot be checked on deleted items.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(spec.Condition) && trigger.List is null)
+            {
+                errors.Add($"{prefix}A condition needs the trigger's list (its fields).");
+            }
+
+            errors.AddRange(ValidateTrigger(trigger).Select(e => prefix + e));
         }
 
-        if (!string.IsNullOrWhiteSpace(spec.Condition) && trigger.List is null)
+        if (spec.TriggerTypes.Length > 200)
         {
-            errors.Add("A condition needs the trigger's list (its fields).");
+            errors.Add("The triggers' types are too long together (at most 200 characters).");
         }
-
-        errors.AddRange(ValidateTrigger(trigger));
 
         if (spec.Concurrency is { } concurrency && !RunConcurrency.All.Contains(concurrency))
         {
@@ -286,6 +332,13 @@ internal static class Definitions
 
         return errors;
     }
+
+    /// <summary>Triggers without data of their own.</summary>
+    private static readonly HashSet<string> ItemTriggers =
+    [
+        WorkflowTriggers.Manual, WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted,
+        WorkflowTriggers.ItemRestored, WorkflowTriggers.Schedule, WorkflowTriggers.Date,
+    ];
 
     /// <summary>Checks the settings of schedule and date triggers, and that other triggers do not use them.</summary>
     private static IEnumerable<string> ValidateTrigger(WorkflowTrigger trigger)
@@ -343,6 +396,11 @@ internal static class Definitions
         if (trigger.Inputs is not null && trigger.Type != WorkflowTriggers.Manual)
         {
             yield return "inputs are only used with manual.";
+        }
+
+        if (trigger.Data is not null && ItemTriggers.Contains(trigger.Type))
+        {
+            yield return "data is only used with module and extension triggers (they have data).";
         }
 
         foreach (var error in WorkflowInputs.ValidateSchema(trigger.Inputs))

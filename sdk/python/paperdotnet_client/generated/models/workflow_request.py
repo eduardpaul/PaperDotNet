@@ -12,6 +12,9 @@ if TYPE_CHECKING:
 
 @dataclass
 class WorkflowRequest(AdditionalDataHolder, Parsable):
+    """
+    A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
+    """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
@@ -31,6 +34,8 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
     steps: Optional[list[WorkflowStep]] = None
     # The trigger property
     trigger: Optional[WorkflowTrigger] = None
+    # The triggers property
+    triggers: Optional[list[WorkflowTrigger]] = None
     # The variables property
     variables: Optional[JsonObject] = None
     
@@ -69,6 +74,7 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "steps": lambda n : setattr(self, 'steps', n.get_collection_of_object_values(WorkflowStep)),
             "trigger": lambda n : setattr(self, 'trigger', n.get_object_value(WorkflowTrigger)),
+            "triggers": lambda n : setattr(self, 'triggers', n.get_collection_of_object_values(WorkflowTrigger)),
             "variables": lambda n : setattr(self, 'variables', n.get_object_value(JsonObject)),
         }
         return fields
@@ -89,6 +95,7 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
         writer.write_str_value("name", self.name)
         writer.write_collection_of_object_values("steps", self.steps)
         writer.write_object_value("trigger", self.trigger)
+        writer.write_collection_of_object_values("triggers", self.triggers)
         writer.write_object_value("variables", self.variables)
         writer.write_additional_data_value(self.additional_data)
     

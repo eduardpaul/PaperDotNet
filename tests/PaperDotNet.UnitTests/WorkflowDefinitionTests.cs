@@ -108,6 +108,35 @@ public sealed class WorkflowDefinitionTests
     }
 
     [Fact]
+    public void Several_triggers_are_checked_each_and_data_filters_match_values()
+    {
+        var triggers = new HashSet<string>(["schedule", "manual", "itemAdded", "document.processed"]);
+        List<string> Check(WorkflowSpec spec) => Definitions.Validate(spec, triggers, Actions);
+
+        var two = new WorkflowSpec(null, null, [Act("a")], Triggers: [new WorkflowTrigger("itemAdded", "Bills"), new WorkflowTrigger("schedule", Cron: "0 8 * * *")]);
+        Assert.Empty(Check(two));
+        Assert.Equal("itemAdded,schedule", two.TriggerTypes);
+        Assert.Equal(["A trigger is required (trigger, or a list of triggers)."], Check(new WorkflowSpec(null, null, [Act("a")], Triggers: [])));
+        Assert.Equal(["Use either trigger or triggers, not both."],
+            Check(new WorkflowSpec(new WorkflowTrigger("manual"), null, [Act("a")], Triggers: [new WorkflowTrigger("manual")])));
+        Assert.Contains("triggers[1]: schedule needs cron: 5 fields (minute hour day month weekday), e.g. 0 8 * * 1-5.",
+            Check(new WorkflowSpec(null, null, [Act("a")], Triggers: [new WorkflowTrigger("manual"), new WorkflowTrigger("schedule")])));
+        Assert.Contains("A workflow has at most 10 triggers.",
+            Check(new WorkflowSpec(null, null, [Act("a")], Triggers: [.. Enumerable.Repeat(new WorkflowTrigger("manual"), 11)])));
+        Assert.Contains("triggers[1]: A condition needs the trigger's list (its fields).",
+            Check(new WorkflowSpec(null, "fields/a eq 1", [Act("a")], Triggers: [new WorkflowTrigger("itemAdded", "Bills"), new WorkflowTrigger("manual")])));
+
+        var scans = new WorkflowTrigger("document.processed", Data: new JsonObject { ["hasText"] = false });
+        Assert.Empty(Check(new WorkflowSpec(scans, null, [Act("a")])));
+        Assert.True(scans.MatchesData(new JsonObject { ["hasText"] = false, ["pageCount"] = 3 }));
+        Assert.False(scans.MatchesData(new JsonObject { ["hasText"] = true }));
+        Assert.False(scans.MatchesData(null));
+        Assert.True(new WorkflowTrigger("document.processed").MatchesData(null));
+        Assert.Contains("data is only used with module and extension triggers (they have data).",
+            Check(new WorkflowSpec(new WorkflowTrigger("itemAdded", Data: []), null, [Act("a")])));
+    }
+
+    [Fact]
     public void Timed_triggers_and_inputs_are_checked()
     {
         var triggers = new HashSet<string>(["schedule", "date", "manual", "itemAdded"]);

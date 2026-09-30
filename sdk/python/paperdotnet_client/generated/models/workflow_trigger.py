@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 @dataclass
 class WorkflowTrigger(AdditionalDataHolder, Parsable):
     """
-    When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization's). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).
+    When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization's). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).`data` (module and extension triggers) needs the trigger's data to have these values, e.g. `{ "hasText": false }`.
     """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
@@ -21,6 +21,8 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
     content_type: Optional[str] = None
     # The cron property
     cron: Optional[str] = None
+    # The data property
+    data: Optional[JsonObject] = None
     # The field property
     field: Optional[str] = None
     # The inputs property
@@ -60,6 +62,7 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
             "changedFields": lambda n : setattr(self, 'changed_fields', n.get_collection_of_primitive_values(str)),
             "contentType": lambda n : setattr(self, 'content_type', n.get_str_value()),
             "cron": lambda n : setattr(self, 'cron', n.get_str_value()),
+            "data": lambda n : setattr(self, 'data', n.get_object_value(JsonObject)),
             "field": lambda n : setattr(self, 'field', n.get_str_value()),
             "inputs": lambda n : setattr(self, 'inputs', n.get_object_value(JsonObject)),
             "list": lambda n : setattr(self, 'list_', n.get_str_value()),
@@ -81,6 +84,7 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
         writer.write_collection_of_primitive_values("changedFields", self.changed_fields)
         writer.write_str_value("contentType", self.content_type)
         writer.write_str_value("cron", self.cron)
+        writer.write_object_value("data", self.data)
         writer.write_str_value("field", self.field)
         writer.write_object_value("inputs", self.inputs)
         writer.write_str_value("list", self.list_)

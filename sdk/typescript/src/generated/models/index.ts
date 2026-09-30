@@ -5906,6 +5906,7 @@ export function deserializeIntoWorkflowRequest(workflowRequest: Partial<Workflow
         "name": n => { workflowRequest.name = n.getStringValue(); },
         "steps": n => { workflowRequest.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
         "trigger": n => { workflowRequest.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
+        "triggers": n => { workflowRequest.triggers = n.getCollectionOfObjectValues<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
         "variables": n => { workflowRequest.variables = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
     }
 }
@@ -5930,6 +5931,7 @@ export function deserializeIntoWorkflowResponse(workflowResponse: Partial<Workfl
         "@odata.etag": n => { workflowResponse.odataEtag = n.getStringValue(); },
         "steps": n => { workflowResponse.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
         "trigger": n => { workflowResponse.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
+        "triggers": n => { workflowResponse.triggers = n.getCollectionOfObjectValues<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
         "updatedAt": n => { workflowResponse.updatedAt = n.getDateValue(); },
         "variables": n => { workflowResponse.variables = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "version": n => { workflowResponse.version = n.getNumberValue(); },
@@ -5971,6 +5973,7 @@ export function deserializeIntoWorkflowTrigger(workflowTrigger: Partial<Workflow
         "changedFields": n => { workflowTrigger.changedFields = n.getCollectionOfPrimitiveValues<string>("string"); },
         "contentType": n => { workflowTrigger.contentType = n.getStringValue(); },
         "cron": n => { workflowTrigger.cron = n.getStringValue(); },
+        "data": n => { workflowTrigger.data = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "field": n => { workflowTrigger.field = n.getStringValue(); },
         "inputs": n => { workflowTrigger.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "list": n => { workflowTrigger.list = n.getStringValue(); },
@@ -11210,6 +11213,7 @@ export function serializeWorkflowRequest(writer: SerializationWriter, workflowRe
     writer.writeStringValue("name", workflowRequest.name);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowRequest.steps, serializeWorkflowStep);
     writer.writeObjectValue<WorkflowTrigger>("trigger", workflowRequest.trigger, serializeWorkflowTrigger);
+    writer.writeCollectionOfObjectValues<WorkflowTrigger>("triggers", workflowRequest.triggers, serializeWorkflowTrigger);
     writer.writeObjectValue<JsonObject>("variables", workflowRequest.variables, serializeJsonObject);
     writer.writeAdditionalData(workflowRequest.additionalData);
 }
@@ -11235,6 +11239,7 @@ export function serializeWorkflowResponse(writer: SerializationWriter, workflowR
     writer.writeStringValue("@odata.etag", workflowResponse.odataEtag);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowResponse.steps, serializeWorkflowStep);
     writer.writeObjectValue<WorkflowTrigger>("trigger", workflowResponse.trigger, serializeWorkflowTrigger);
+    writer.writeCollectionOfObjectValues<WorkflowTrigger>("triggers", workflowResponse.triggers, serializeWorkflowTrigger);
     writer.writeDateValue("updatedAt", workflowResponse.updatedAt);
     writer.writeObjectValue<JsonObject>("variables", workflowResponse.variables, serializeJsonObject);
     writer.writeNumberValue("version", workflowResponse.version);
@@ -11278,6 +11283,7 @@ export function serializeWorkflowTrigger(writer: SerializationWriter, workflowTr
     writer.writeCollectionOfPrimitiveValues<string>("changedFields", workflowTrigger.changedFields);
     writer.writeStringValue("contentType", workflowTrigger.contentType);
     writer.writeStringValue("cron", workflowTrigger.cron);
+    writer.writeObjectValue<JsonObject>("data", workflowTrigger.data, serializeJsonObject);
     writer.writeStringValue("field", workflowTrigger.field);
     writer.writeObjectValue<JsonObject>("inputs", workflowTrigger.inputs, serializeJsonObject);
     writer.writeStringValue("list", workflowTrigger.list);
@@ -12173,6 +12179,9 @@ export interface ViewResponse extends AdditionalDataHolder, Parsable {
      */
     orderBy?: string | null;
 }
+/**
+ * A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
+ */
 export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
     /**
      * The concurrency property
@@ -12207,12 +12216,16 @@ export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
      */
     trigger?: WorkflowTrigger | null;
     /**
+     * The triggers property
+     */
+    triggers?: WorkflowTrigger[] | null;
+    /**
      * The variables property
      */
     variables?: JsonObject | null;
 }
 /**
- * A workflow with the definition of its current `version` (runs keep the version they started with): `steps`or a `flow`, the initial `variables`, and `concurrency` (runs on the same item: `parallel`,`skip` or `replace`).
+ * A workflow with the definition of its current `version` (runs keep the version they started with): its `trigger` or `triggers` (as it was defined), `steps` or a `flow`, the initial `variables`, and `concurrency` (runs on the same item: `parallel`, `skip` or `replace`).
  */
 export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
     /**
@@ -12264,9 +12277,13 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      */
     steps?: WorkflowStep[] | null;
     /**
-     * When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization's). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).
+     * The trigger property
      */
     trigger?: WorkflowTrigger | null;
+    /**
+     * The triggers property
+     */
+    triggers?: WorkflowTrigger[] | null;
     /**
      * The updatedAt property
      */
@@ -12346,7 +12363,7 @@ export interface WorkflowStep extends AdditionalDataHolder, Parsable {
     type?: string | null;
 }
 /**
- * When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization's). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).
+ * When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization's). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).`data` (module and extension triggers) needs the trigger's data to have these values, e.g. `{ "hasText": false }`.
  */
 export interface WorkflowTrigger extends AdditionalDataHolder, Parsable {
     /**
@@ -12361,6 +12378,10 @@ export interface WorkflowTrigger extends AdditionalDataHolder, Parsable {
      * The cron property
      */
     cron?: string | null;
+    /**
+     * The data property
+     */
+    data?: JsonObject | null;
     /**
      * The field property
      */

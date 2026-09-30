@@ -7,10 +7,11 @@ using System.IO;
 using System;
 namespace PaperDotNet.Client.Models
 {
+    /// <summary>
+    /// A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
     public partial class WorkflowRequest : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
@@ -72,6 +73,14 @@ namespace PaperDotNet.Client.Models
 #else
         public global::PaperDotNet.Client.Models.WorkflowTrigger Trigger { get; set; }
 #endif
+        /// <summary>The triggers property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::PaperDotNet.Client.Models.WorkflowTrigger>? Triggers { get; set; }
+#nullable restore
+#else
+        public List<global::PaperDotNet.Client.Models.WorkflowTrigger> Triggers { get; set; }
+#endif
         /// <summary>The variables property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -114,6 +123,7 @@ namespace PaperDotNet.Client.Models
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "steps", n => { Steps = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>(global::PaperDotNet.Client.Models.WorkflowStep.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "trigger", n => { Trigger = n.GetObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>(global::PaperDotNet.Client.Models.WorkflowTrigger.CreateFromDiscriminatorValue); } },
+                { "triggers", n => { Triggers = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowTrigger>(global::PaperDotNet.Client.Models.WorkflowTrigger.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "variables", n => { Variables = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
             };
         }
@@ -132,6 +142,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteStringValue("name", Name);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>("steps", Steps);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>("trigger", Trigger);
+            writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowTrigger>("triggers", Triggers);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("variables", Variables);
             writer.WriteAdditionalData(AdditionalData);
         }

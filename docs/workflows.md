@@ -58,7 +58,9 @@ groups **by name**, so they are portable in templates.
     `workflow`, `step`, `outcome`, `comment`, `decidedBy`);
   - or an extension trigger.
 - `list`, `contentType` (name or key) and, for updates, `changedFields`
-  narrow it down. `terms` (term paths `Group/Set/Term`) needs the item to
+  narrow it down. `data` (module and extension triggers) needs the trigger's
+  data to have these values, e.g. `"data": { "hasText": false }` on
+  `document.processed`. `terms` (term paths `Group/Set/Term`) needs the item to
   have one of these terms, or a term below one, in any field. Folders never
   trigger workflows.
 - `terms`, `contentType` and the condition are checked against the item's
@@ -71,10 +73,25 @@ groups **by name**, so they are portable in templates.
   dates in the past, and occurrences missed while the server was down run
   once.
 
+**Several triggers:** `triggers` instead of `trigger` lists up to 10 of
+them, and any of them starts a run. One event starts one run, even when
+several triggers match it. Each trigger is checked on its own: a schedule or
+date trigger keeps its own state, and a manual start uses the `manual` one.
+For example, the receipts package reads a receipt when it is tagged, and
+when a file uploaded with the tag is processed:
+
+```json
+"triggers": [
+  { "type": "itemUpdated", "list": "Receipts", "changedFields": ["tags"], "terms": ["Receipts/Tags/ticket"] },
+  { "type": "document.processed", "list": "Receipts", "terms": ["Receipts/Tags/ticket"] }
+]
+```
+
 **Condition:** an OData filter on the item, as in the items API. It needs the
-trigger's `list` and is checked when the trigger fires. An item that does not
-match starts nothing. A condition that can no longer be checked (for example,
-a field was removed) gives a failed run with the error.
+trigger's `list` (every trigger's, with several) and is checked when the
+trigger fires. An item that does not match starts nothing. A condition that
+can no longer be checked (for example, a field was removed) gives a failed run
+with the error.
 
 **Steps** run in order, on behalf of the organization:
 

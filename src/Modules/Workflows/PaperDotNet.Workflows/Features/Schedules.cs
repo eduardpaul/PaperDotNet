@@ -42,7 +42,8 @@ internal static class TriggerSchedules
 /// (dates without a time count from midnight in the organization's time zone). Only moments after the workflow was
 /// saved or turned on count, so a new workflow does not run for dates in the past.</item>
 /// </list>
-/// The state per workflow is a <see cref="WorkflowSchedule"/> row; a new version or turning the workflow off starts over.
+/// The state per timed trigger is a <see cref="WorkflowSchedule"/> row (<see cref="StateId"/>); a new version or turning the
+/// workflow off starts over.
 /// </summary>
 internal sealed class WorkflowScheduleJob(
     WorkflowsDbContext db, WorkflowStarter starter, IListItemStore items, IUserPreferences preferences, TimeProvider time) : ITenantRecurringJob
@@ -56,13 +57,23 @@ internal sealed class WorkflowScheduleJob(
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         var now = time.GetUtcNow();
-        var workflows = await db.Workflows.AsNoTracking()
-            .Where(w => w.Trigger == WorkflowTriggers.Schedule || w.Trigger == WorkflowTriggers.Date)
-            .ToListAsync(cancellationToken);
+        var workflows = (await db.Workflows.AsNoTracking().Where(TriggerColumn.Has(WorkflowTriggers.Schedule)).ToListAsync(cancellationToken))
+            .Concat(await db.Workflows.AsNoTracking().Where(TriggerColumn.Has(WorkflowTriggers.Date)).ToListAsync(cancellationToken))
+            .DistinctBy(w => w.Id)
+            .ToList();
         var states = await db.Schedules.ToDictionaryAsync(s => s.Id, cancellationToken);
 
-        // Workflows that were turned off, deleted or changed their trigger start over when they come back.
-        var active = workflows.Where(w => w.Enabled).Select(w => w.Id).ToHashSet();
+        // The timed triggers of the enabled workflows.
+        var timed = new List<(WorkflowDefinition Workflow, WorkflowSpec Spec, WorkflowTrigger Trigger, int Index)>();
+        foreach (var workflow in workflows.Where(w => w.Enabled))
+        {
+            var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, cancellationToken);
+            var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
+            timed.AddRange(spec.AllTriggers.Select((t, i) => (workflow, spec, t, i)).Where(t => t.t.Type is WorkflowTriggers.Schedule or WorkflowTriggers.Date));
+        }
+
+        // Triggers of workflows that were turned off, deleted or changed start over when they come back.
+        var active = timed.Select(t => StateId(t.Workflow.Id, t.Index)).ToHashSet();
         db.Schedules.RemoveRange(states.Values.Where(s => !active.Contains(s.Id)));
 
         TimeZoneInfo? organizationZone = null;
@@ -71,11 +82,10 @@ internal sealed class WorkflowScheduleJob(
                 ? found
                 : organizationZone ??= (await preferences.GetDefaultsAsync(cancellationToken)).Zone;
 
-        foreach (var workflow in workflows.Where(w => w.Enabled))
+        foreach (var (workflow, spec, trigger, index) in timed)
         {
-            var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, cancellationToken);
-            var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
-            if (!states.TryGetValue(workflow.Id, out var state) || state.WorkflowVersion != workflow.CurrentVersion)
+            var id = StateId(workflow.Id, index);
+            if (!states.TryGetValue(id, out var state) || state.WorkflowVersion != workflow.CurrentVersion)
             {
                 if (state is not null)
                 {
@@ -84,17 +94,17 @@ internal sealed class WorkflowScheduleJob(
                 }
 
                 // Counting starts when the workflow (or this version) was saved or turned on.
-                state = new WorkflowSchedule { Id = workflow.Id, WorkflowVersion = workflow.CurrentVersion, CheckedUntil = workflow.UpdatedAt };
+                state = new WorkflowSchedule { Id = id, WorkflowVersion = workflow.CurrentVersion, CheckedUntil = workflow.UpdatedAt };
                 db.Schedules.Add(state);
             }
 
-            if (spec.Trigger.Type == WorkflowTriggers.Schedule)
+            if (trigger.Type == WorkflowTriggers.Schedule)
             {
-                await ScheduleAsync(workflow, spec.Trigger, state, await ZoneAsync(spec.Trigger.TimeZone), now, cancellationToken);
+                await ScheduleAsync(workflow, trigger, index, state, await ZoneAsync(trigger.TimeZone), now, cancellationToken);
             }
             else
             {
-                await DatesAsync(workflow, spec, state, await ZoneAsync(null), now, cancellationToken);
+                await DatesAsync(workflow, spec, trigger, index, state, await ZoneAsync(null), now, cancellationToken);
             }
 
             await db.SaveChangesAsync(cancellationToken);
@@ -103,7 +113,14 @@ internal sealed class WorkflowScheduleJob(
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task ScheduleAsync(WorkflowDefinition workflow, WorkflowTrigger trigger, WorkflowSchedule state, TimeZoneInfo zone, DateTimeOffset now, CancellationToken ct)
+    /// <summary>
+    /// The state row of a workflow's timed trigger: the workflow's id for its first trigger (as before several triggers),
+    /// else one derived from the trigger's position.
+    /// </summary>
+    internal static Guid StateId(Guid workflowId, int index) => index == 0 ? workflowId : TriggerSchedules.EventId(workflowId, "trigger", index);
+
+    private async Task ScheduleAsync(
+        WorkflowDefinition workflow, WorkflowTrigger trigger, int index, WorkflowSchedule state, TimeZoneInfo zone, DateTimeOffset now, CancellationToken ct)
     {
         if (TriggerSchedules.ParseCron(trigger.Cron) is not { } cron)
         {
@@ -116,7 +133,8 @@ internal sealed class WorkflowScheduleJob(
             return;
         }
 
-        var eventId = TriggerSchedules.EventId(workflow.Id, due.UtcDateTime.ToString("O", CultureInfo.InvariantCulture));
+        var occurrence = due.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+        var eventId = index == 0 ? TriggerSchedules.EventId(workflow.Id, occurrence) : TriggerSchedules.EventId(workflow.Id, index, occurrence);
         if (!await db.Runs.AnyAsync(r => r.WorkflowId == workflow.Id && r.EventId == eventId, ct))
         {
             var data = new JsonObject { ["occurrence"] = due.ToString("O", CultureInfo.InvariantCulture) };
@@ -128,9 +146,10 @@ internal sealed class WorkflowScheduleJob(
         state.CheckedUntil = now;
     }
 
-    private async Task DatesAsync(WorkflowDefinition workflow, WorkflowSpec spec, WorkflowSchedule state, TimeZoneInfo zone, DateTimeOffset now, CancellationToken ct)
+    private async Task DatesAsync(
+        WorkflowDefinition workflow, WorkflowSpec spec, WorkflowTrigger trigger, int index, WorkflowSchedule state, TimeZoneInfo zone, DateTimeOffset now,
+        CancellationToken ct)
     {
-        var trigger = spec.Trigger;
         var offset = TimeSpan.FromHours(trigger.OffsetHours ?? 0);
         var from = state.CheckedUntil ?? now;
         if (from >= now)
@@ -173,7 +192,9 @@ internal sealed class WorkflowScheduleJob(
             }
 
             var candidates = page.Items.Select(i => (Item: i, Value: i.Fields[field.Name]?.ToString() ?? string.Empty))
-                .Select(c => (c.Item, c.Value, EventId: TriggerSchedules.EventId(workflow.Id, c.Item.Id, c.Value)))
+                .Select(c => (c.Item, c.Value, EventId: index == 0
+                    ? TriggerSchedules.EventId(workflow.Id, c.Item.Id, c.Value)
+                    : TriggerSchedules.EventId(workflow.Id, index, c.Item.Id, c.Value)))
                 .ToList();
             var eventIds = candidates.Select(c => (Guid?)c.EventId).ToList();
             var started = (await db.Runs.Where(r => r.WorkflowId == workflow.Id && eventIds.Contains(r.EventId)).Select(r => r.EventId).ToListAsync(ct)).ToHashSet();

@@ -8,7 +8,7 @@ using System;
 namespace PaperDotNet.Client.Models
 {
     /// <summary>
-    /// A workflow with the definition of its current `version` (runs keep the version they started with): `steps`or a `flow`, the initial `variables`, and `concurrency` (runs on the same item: `parallel`,`skip` or `replace`).
+    /// A workflow with the definition of its current `version` (runs keep the version they started with): its `trigger` or `triggers` (as it was defined), `steps` or a `flow`, the initial `variables`, and `concurrency` (runs on the same item: `parallel`, `skip` or `replace`).
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WorkflowResponse : IAdditionalDataHolder, IParsable
@@ -93,13 +93,21 @@ namespace PaperDotNet.Client.Models
 #else
         public List<global::PaperDotNet.Client.Models.WorkflowStep> Steps { get; set; }
 #endif
-        /// <summary>When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization&apos;s). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).</summary>
+        /// <summary>The trigger property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public global::PaperDotNet.Client.Models.WorkflowTrigger? Trigger { get; set; }
 #nullable restore
 #else
         public global::PaperDotNet.Client.Models.WorkflowTrigger Trigger { get; set; }
+#endif
+        /// <summary>The triggers property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::PaperDotNet.Client.Models.WorkflowTrigger>? Triggers { get; set; }
+#nullable restore
+#else
+        public List<global::PaperDotNet.Client.Models.WorkflowTrigger> Triggers { get; set; }
 #endif
         /// <summary>The updatedAt property</summary>
         public DateTimeOffset? UpdatedAt { get; set; }
@@ -153,6 +161,7 @@ namespace PaperDotNet.Client.Models
                 { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "steps", n => { Steps = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>(global::PaperDotNet.Client.Models.WorkflowStep.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "trigger", n => { Trigger = n.GetObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>(global::PaperDotNet.Client.Models.WorkflowTrigger.CreateFromDiscriminatorValue); } },
+                { "triggers", n => { Triggers = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowTrigger>(global::PaperDotNet.Client.Models.WorkflowTrigger.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "updatedAt", n => { UpdatedAt = n.GetDateTimeOffsetValue(); } },
                 { "variables", n => { Variables = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "version", n => { Version = n.GetIntValue(); } },
@@ -179,6 +188,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>("steps", Steps);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>("trigger", Trigger);
+            writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowTrigger>("triggers", Triggers);
             writer.WriteDateTimeOffsetValue("updatedAt", UpdatedAt);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("variables", Variables);
             writer.WriteIntValue("version", Version);

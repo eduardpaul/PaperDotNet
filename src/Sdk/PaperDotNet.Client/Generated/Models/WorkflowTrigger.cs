@@ -8,7 +8,7 @@ using System;
 namespace PaperDotNet.Client.Models
 {
     /// <summary>
-    /// When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization&apos;s). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).
+    /// When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization&apos;s). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).`data` (module and extension triggers) needs the trigger&apos;s data to have these values, e.g. `{ &quot;hasText&quot;: false }`.
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WorkflowTrigger : IAdditionalDataHolder, IParsable
@@ -38,6 +38,14 @@ namespace PaperDotNet.Client.Models
 #nullable restore
 #else
         public string Cron { get; set; }
+#endif
+        /// <summary>The data property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? Data { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject Data { get; set; }
 #endif
         /// <summary>The field property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -117,6 +125,7 @@ namespace PaperDotNet.Client.Models
                 { "changedFields", n => { ChangedFields = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "contentType", n => { ContentType = n.GetStringValue(); } },
                 { "cron", n => { Cron = n.GetStringValue(); } },
+                { "data", n => { Data = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "field", n => { Field = n.GetStringValue(); } },
                 { "inputs", n => { Inputs = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "list", n => { List = n.GetStringValue(); } },
@@ -136,6 +145,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteCollectionOfPrimitiveValues<string>("changedFields", ChangedFields);
             writer.WriteStringValue("contentType", ContentType);
             writer.WriteStringValue("cron", Cron);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("data", Data);
             writer.WriteStringValue("field", Field);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputs", Inputs);
             writer.WriteStringValue("list", List);

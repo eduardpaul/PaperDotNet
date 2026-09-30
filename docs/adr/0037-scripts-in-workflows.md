@@ -101,10 +101,17 @@ A full JavaScript engine (V8) would be a native dependency on every platform. So
     the same moment (two quick changes) still end up as one: with `skip` the earlier run is kept, with `replace` the
     later one.
 
+- **Several triggers per workflow** (added after the receipts package needed the same flow twice):
+  - `triggers` lists up to 10 triggers; any of them starts a run, and one event starts one run. `trigger` keeps
+    working.
+  - The workflow's trigger column holds the types joined with commas, so workflows for an event are still found in
+    the database, without a new table.
+  - Schedule and date triggers keep a state each; a manual start uses the `manual` trigger.
+- **Trigger data filters.** A module or extension trigger can require values of its data (`"data": { "hasText": false }`),
+  so a workflow does not start runs only to find there is nothing to do.
+
 ### Not now
 
-- **Several triggers per workflow.** This changes storage (the trigger is a column of the workflow). With scripts,
-  a flow is short enough to repeat. It comes with the designer (9f).
 - **Collecting loop results in `forEach`.** Scripts do this more simply.
 
 ## Consequences

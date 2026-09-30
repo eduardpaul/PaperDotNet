@@ -51,133 +51,26 @@
     <Workspace Name="{parameter:Workspace}" Description="Receipts read by AI: tag a photo or PDF with &quot;{parameter:Tag}&quot;.">
       <w:Workflows xmlns:w="urn:paperdotnet:workflow:1">
         <w:Workflow Name="AI batch" BuiltIn="ai.batchWindow" Enabled="true">{"schedule": "{parameter:BatchSchedule}", "pollMinutes": 5}</w:Workflow>
-        <w:Workflow Name="Read tagged receipts" Description="Reads a receipt when it is tagged, in the AI batch." Enabled="true">{
-          "trigger": {
-            "type": "itemUpdated",
-            "list": "Receipts",
-            "changedFields": [
-              "tags"
-            ],
-            "terms": [
-              "Receipts/Tags/{parameter:Tag}"
-            ]
-          },
-          "concurrency": "replace",
-          "flow": {
-            "start": "read",
-            "nodes": {
-              "read": {
-                "activity": "ai.prompt",
-                "inputs": {
-                  "execution": "batch",
-                  "onDeadline": "fail",
-                  "deadlineHours": 48,
-                  "system": "You read shop receipts (tickets) from photos and scans. The OCR text below the question can be noisy or miss the prices; the images are the source. Use only what the receipt says.",
-                  "prompt": "Read this receipt: the store, the purchase date, the currency, the total, and every item line with its description, quantity, unit price and amount. Leave out lines that are not items (subtotals, taxes, payment, change).",
-                  "includeContent": true,
-                  "includeImages": 2,
-                  "schema": {
-                    "type": "object",
-                    "properties": {
-                      "store": {
-                        "type": "string",
-                        "description": "The store or company name as printed."
-                      },
-                      "date": {
-                        "type": "string",
-                        "description": "The purchase date as yyyy-MM-dd.",
-                        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
-                      },
-                      "currency": {
-                        "type": "string",
-                        "description": "ISO 4217 code, e.g. EUR.",
-                        "pattern": "^[A-Z]{3}$"
-                      },
-                      "total": {
-                        "type": "number",
-                        "description": "The total paid."
-                      },
-                      "lines": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "description": {
-                              "type": "string"
-                            },
-                            "quantity": {
-                              "type": "number"
-                            },
-                            "unitPrice": {
-                              "type": "number"
-                            },
-                            "amount": {
-                              "type": "number",
-                              "description": "The line's amount as printed."
-                            }
-                          },
-                          "required": [
-                            "description",
-                            "quantity",
-                            "amount"
-                          ]
-                        }
-                      }
-                    },
-                    "required": [
-                      "store",
-                      "date",
-                      "currency",
-                      "total",
-                      "lines"
-                    ]
-                  }
-                },
-                "next": {
-                  "done": "save",
-                  "error": "review"
-                }
-              },
-              "save": {
-                "activity": "script",
-                "inputs": {
-                  "code": [
-                    "const receipt = steps.read.json;",
-                    "await items.update(item.list, item.id, { store: receipt.store, purchaseDate: receipt.date, currency: receipt.currency, total: receipt.total, status: 'Read' });",
-                    "// Reading again replaces the lines of an earlier reading.",
-                    "for (const old of await items.query('Receipt lines', { filter: `fields/receipt eq ${item.id}`, top: 1000 })) {",
-                    "  await items.delete('Receipt lines', old.id);",
-                    "}",
-                    "for (const line of receipt.lines) {",
-                    "  await items.create('Receipt lines', { title: line.description, quantity: line.quantity, unitPrice: line.unitPrice ?? null, amount: line.amount, receipt: item.id });",
-                    "}",
-                    "log(`${receipt.store}: ${receipt.lines.length} lines`);",
-                    "return { lines: receipt.lines.length };"
-                  ]
-                },
-                "next": {
-                  "error": "review"
-                }
-              },
-              "review": {
-                "activity": "item.update",
-                "inputs": {
-                  "fields": {
-                    "status": "Needs review"
-                  }
-                }
-              }
+        <w:Workflow Name="Read receipts" Description="Reads a receipt in the AI batch when it is tagged, or when a file uploaded with the tag is processed." Enabled="true">{
+          "triggers": [
+            {
+              "type": "itemUpdated",
+              "list": "Receipts",
+              "changedFields": [
+                "tags"
+              ],
+              "terms": [
+                "Receipts/Tags/{parameter:Tag}"
+              ]
+            },
+            {
+              "type": "document.processed",
+              "list": "Receipts",
+              "terms": [
+                "Receipts/Tags/{parameter:Tag}"
+              ]
             }
-          }
-        }</w:Workflow>
-        <w:Workflow Name="Read new receipts" Description="Reads a receipt uploaded with the tag once its text is ready, in the AI batch." Enabled="true">{
-          "trigger": {
-            "type": "document.processed",
-            "list": "Receipts",
-            "terms": [
-              "Receipts/Tags/{parameter:Tag}"
-            ]
-          },
+          ],
           "concurrency": "replace",
           "flow": {
             "start": "read",

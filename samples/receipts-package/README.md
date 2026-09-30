@@ -33,11 +33,13 @@ server's sandbox, so the package needs no extension.
 | Content type **Receipt** | `tags`, `status` (New, Read, Needs review), `store`, `purchaseDate`, `currency`, `total` |
 | Content type **Receipt line** | `receipt` (lookup to the library), `quantity`, `unitPrice`, `amount`; the title is the description |
 | Workspace **Receipts** (parameter `Workspace`) | The library **Receipts** (views: All receipts, Needs review) and the list **Receipt lines** |
-| Workflow **Read tagged receipts** | When a receipt's tags change to one at or below *ticket* |
-| Workflow **Read new receipts** | When a file uploaded with the tag has been processed (its text exists) |
+| Workflow **Read receipts** | Two triggers: when a receipt's tags change to one at or below *ticket*, and when a file uploaded with the tag has been processed |
 | Built-in workflow **AI batch** | Sends the waiting questions on the schedule `BatchSchedule` (default: every hour) |
 
-Both reading workflows run the same flow:
+The reading workflow has two triggers, because a receipt comes in two ways:
+tagged after the upload (the tags change), or uploaded with the tag (its tags
+never change, so it is read once its file is processed). Either one starts
+the same flow:
 
 1. `read` (`ai.prompt`): asks the model for the receipt as JSON, following the
    template's schema. It sends:

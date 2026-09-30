@@ -11,7 +11,7 @@ import { EmptyState, Skeleton } from '@/components/ui/feedback';
 import { Checkbox } from '@/components/ui/select';
 import { BuiltInWorkflows } from '@/features/workflows/built-in-workflows';
 import { WorkflowEditor } from '@/features/workflows/workflow-editor';
-import { describeTrigger, draftFrom, requestFrom } from '@/features/workflows/model';
+import { describeTriggers, draftFrom, requestFrom } from '@/features/workflows/model';
 import { builtInWorkflowsQuery, workflowsQuery } from '@/features/workflows/queries';
 import { ConfirmDialog, SettingsSection } from '@/features/settings/section';
 import { workspaceBuilder, workspaceQuery } from '@/features/workspaces/queries';
@@ -101,7 +101,7 @@ function Workflows() {
                     {!workflow.enabled && <Badge>Off</Badge>}
                   </span>
                   <span className="block truncate text-xs text-muted">
-                    {describeTrigger(workflow.trigger)} · {workflow.steps?.length ?? 0}{' '}
+                    {describeTriggers(workflow)} · {workflow.steps?.length ?? 0}{' '}
                     {workflow.steps?.length === 1 ? 'step' : 'steps'} · v{workflow.version}, changed{' '}
                     {format.relative(workflow.updatedAt)}
                   </span>

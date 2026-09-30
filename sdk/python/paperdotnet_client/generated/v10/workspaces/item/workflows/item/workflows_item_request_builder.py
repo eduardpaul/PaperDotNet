@@ -70,7 +70,7 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
     
     async def put(self,body: WorkflowRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[WorkflowResponse]:
         """
-        param body: The request body
+        param body: A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[WorkflowResponse]
         """
@@ -113,7 +113,7 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
     
     def to_put_request_information(self,body: WorkflowRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        param body: The request body
+        param body: A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
