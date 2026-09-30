@@ -1,3 +1,4 @@
+using JasperFx;
 using PaperDotNet.Host;
 using PaperDotNet.Host.Cli;
 
@@ -7,11 +8,17 @@ if (args is ["healthcheck", ..])
     return await HealthProbe.RunAsync(args);
 }
 
+var isCodegen = args is ["codegen", ..];
 var isCli = AdminCli.IsCommand(args);
-var builder = WebApplication.CreateBuilder(isCli ? [] : args);
-builder.AddPaperDotNet(runBootstrap: !isCli);
+var builder = WebApplication.CreateBuilder(isCli || isCodegen ? [] : args);
+if (isCodegen) { builder.Configuration["Messaging:RuntimeCompilation"] = "true"; }
+builder.AddPaperDotNet(runBootstrap: !isCli && !isCodegen);
 
 var app = builder.Build();
+if (isCodegen)
+{
+    return await app.RunJasperFxCommands(args);
+}
 if (isCli)
 {
     return await AdminCli.RunAsync(app.Services, args);

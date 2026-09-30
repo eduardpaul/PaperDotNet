@@ -32,6 +32,16 @@ jobs:
           dotnet restore PaperDotNet.slnx
           dotnet tool restore
 
+      - name: Verify compiled message handlers
+        run: |
+          dotnet run --project src/PaperDotNet.Host --no-launch-profile -- codegen write
+          git diff --exit-code -- src/PaperDotNet.Host/Internal/Generated
+          if [ -n "$(git ls-files --others --exclude-standard -- src/PaperDotNet.Host/Internal/Generated)" ]; then
+            echo "New generated message handlers must be committed."
+            exit 1
+          fi
+          dotnet restore PaperDotNet.slnx -p:Configuration=Release
+
       - name: Format
         run: dotnet format PaperDotNet.slnx --verify-no-changes --no-restore
 
@@ -63,6 +73,24 @@ jobs:
         env:
           PAPERDOTNET_TEST_PROVIDER: ${{ matrix.provider }}
         run: dotnet test --solution PaperDotNet.slnx -c Release --no-build
+
+      # Validate the published process and fixture, not machine-specific throughput.
+      - name: Performance harness smoke (${{ matrix.provider }})
+        env:
+          PERF_HOST_PATH: ${{ github.workspace }}/artifacts/performance-host/paperdotnet.dll
+          PERF_OUTPUT: ${{ github.workspace }}/artifacts/performance-smoke/results.json
+          PERF_P95_MS: 30000
+        run: |
+          dotnet publish src/PaperDotNet.Host -c Release --no-build --no-restore -o artifacts/performance-host
+          dotnet tests/PaperDotNet.Performance/bin/Release/net10.0/PaperDotNet.Performance.dll ${{ matrix.provider }} --smoke --gate
+
+      - name: Upload performance smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-smoke-${{ matrix.provider }}
+          path: artifacts/performance-smoke/
+          if-no-files-found: ignore
 
   # The web UI and the TypeScript SDK (ADR-0032, ADR-0033), against a real host on SQLite.
   web:

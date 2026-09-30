@@ -3,6 +3,8 @@
     <AssemblyName>paperdotnet</AssemblyName>
     <RootNamespace>PaperDotNet.Host</RootNamespace>
     <UserSecretsId>paperdotnet-host</UserSecretsId>
+    <!-- Favor a small self-hosted footprint. Throughput-focused deployments can override this property. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
     <!--
       Published images are framework-dependent ReadyToRun (Dockerfile passes -r linux-x64).
       Native AOT and trimming do not fit: Wolverine, the EF JSON translators and the event

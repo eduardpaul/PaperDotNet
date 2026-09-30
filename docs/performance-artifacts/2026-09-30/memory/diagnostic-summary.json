@@ -1,0 +1,249 @@
+{
+  "purpose": "Compact record of diagnostic and alternative-GC runs; full local evidence is ignored under artifacts/review-evidence/memory.",
+  "runs": [
+    {
+      "source": "limited-conserve.json",
+      "sourceSha256": "378c07ffe01f887038700084dbab02271b8f0eb3ef0f0099224df7fc685c339f",
+      "exitCode": null,
+      "metadata": {
+        "DOTNET_PROCESSOR_COUNT": "4",
+        "DOTNET_GCConserveMemory": "9"
+      },
+      "runs": [
+        {
+          "provider": "sqlite",
+          "repeat": 1,
+          "status": "completed",
+          "memoryPhases": [
+            {
+              "phase": "ready-before-seeding",
+              "workingSetBytes": 239652864
+            },
+            {
+              "phase": "indexed-fixture",
+              "workingSetBytes": 313942016
+            },
+            {
+              "phase": "after-workload-and-idle",
+              "workingSetBytes": 407150592
+            }
+          ],
+          "maximumSampledRssBytes": 407150592
+        },
+        {
+          "provider": "sqlite",
+          "repeat": 2,
+          "status": "completed",
+          "memoryPhases": [
+            {
+              "phase": "ready-before-seeding",
+              "workingSetBytes": 239960064
+            },
+            {
+              "phase": "indexed-fixture",
+              "workingSetBytes": 334159872
+            },
+            {
+              "phase": "after-workload-and-idle",
+              "workingSetBytes": 368787456
+            }
+          ],
+          "maximumSampledRssBytes": 406364160
+        },
+        {
+          "provider": "postgresql",
+          "repeat": 1,
+          "status": "completed",
+          "memoryPhases": [
+            {
+              "phase": "ready-before-seeding",
+              "workingSetBytes": 251404288
+            },
+            {
+              "phase": "indexed-fixture",
+              "workingSetBytes": 330125312
+            },
+            {
+              "phase": "after-workload-and-idle",
+              "workingSetBytes": 352092160
+            }
+          ],
+          "maximumSampledRssBytes": 352923648
+        },
+        {
+          "provider": "postgresql",
+          "repeat": 2,
+          "status": "completed",
+          "memoryPhases": [
+            {
+              "phase": "ready-before-seeding",
+              "workingSetBytes": 251203584
+            },
+            {
+              "phase": "indexed-fixture",
+              "workingSetBytes": 327979008
+            },
+            {
+              "phase": "after-workload-and-idle",
+              "workingSetBytes": 351469568
+            }
+          ],
+          "maximumSampledRssBytes": 351473664
+        }
+      ]
+    },
+    {
+      "source": "limited-datas.json",
+      "sourceSha256": "ab4fefc28e5af45239a646cea1991dcda043dcc250b4cccf7703b17157d9c8eb",
+      "exitCode": null,
+      "metadata": {
+        "DOTNET_PROCESSOR_COUNT": "4",
+        "DOTNET_GCConserveMemory": "9",
+        "DOTNET_GCDynamicAdaptationMode": "1",
+        "DOTNET_GCDGen0GrowthPercent": "0x19"
+      },
+      "runs": [
+        {
+          "provider": "sqlite",
+          "repeat": 1,
+          "status": "completed",
+          "memoryPhases": [
+            {
+              "phase": "ready-before-seeding",
+              "workingSetBytes": 243728384
+            },
+            {
+              "phase": "indexed-fixture",
+              "workingSetBytes": 328974336
+            },
+            {
+              "phase": "after-workload-and-idle",
+              "workingSetBytes": 415051776
+            }
+          ],
+          "maximumSampledRssBytes": 415051776
+        },
+        {
+          "provider": "sqlite",
+          "repeat": 2,
+          "status": "completed",
+          "memoryPhases": [
+            {
+              "phase": "ready-before-seeding",
+              "workingSetBytes": 241020928
+            },
+            {
+              "phase": "indexed-fixture",
+              "workingSetBytes": 326000640
+            },
+            {
+              "phase": "after-workload-and-idle",
+              "workingSetBytes": 416628736
+            }
+          ],
+          "maximumSampledRssBytes": 436350976
+        },
+        {
+          "provider": "postgresql",
+          "repeat": 1,
+          "status": "completed",
+          "memoryPhases": [
+            {
+              "phase": "ready-before-seeding",
+              "workingSetBytes": 253521920
+            },
+            {
+              "phase": "indexed-fixture",
+              "workingSetBytes": 367992832
+            },
+            {
+              "phase": "after-workload-and-idle",
+              "workingSetBytes": 381927424
+            }
+          ],
+          "maximumSampledRssBytes": 382009344
+        },
+        {
+          "provider": "postgresql",
+          "repeat": 2,
+          "status": "completed",
+          "memoryPhases": [
+            {
+              "phase": "ready-before-seeding",
+              "workingSetBytes": 253419520
+            },
+            {
+              "phase": "indexed-fixture",
+              "workingSetBytes": 370536448
+            },
+            {
+              "phase": "after-workload-and-idle",
+              "workingSetBytes": 348164096
+            }
+          ],
+          "maximumSampledRssBytes": 380387328
+        }
+      ]
+    },
+    {
+      "source": "profile-final.json",
+      "sourceSha256": "bf53dd62df82779bb8133f67950c4d8ea75c680d07573d30e6462ca7f8c99669",
+      "exitCode": 0,
+      "metadata": {
+        "DOTNET_PROCESSOR_COUNT": "4"
+      },
+      "runs": [
+        {
+          "provider": "sqlite",
+          "repeat": 1,
+          "status": "completed",
+          "memoryPhases": [
+            {
+              "phase": "ready-before-seeding",
+              "workingSetBytes": 230113280
+            },
+            {
+              "phase": "indexed-fixture",
+              "workingSetBytes": 307929088
+            },
+            {
+              "phase": "after-workload-and-idle",
+              "workingSetBytes": 409542656
+            }
+          ],
+          "maximumSampledRssBytes": 409542656
+        }
+      ]
+    },
+    {
+      "source": "loader-profile.json",
+      "sourceSha256": "22ee96fde780e7bc03e52e95c5793f06e548206e7e6204f181bd0f3ddb4cb473",
+      "exitCode": 0,
+      "metadata": {
+        "DOTNET_PROCESSOR_COUNT": "4"
+      },
+      "runs": [
+        {
+          "provider": "sqlite",
+          "repeat": 1,
+          "status": "completed",
+          "memoryPhases": [
+            {
+              "phase": "ready-before-seeding",
+              "workingSetBytes": 232058880
+            },
+            {
+              "phase": "indexed-fixture",
+              "workingSetBytes": 312725504
+            },
+            {
+              "phase": "after-workload-and-idle",
+              "workingSetBytes": 431964160
+            }
+          ],
+          "maximumSampledRssBytes": 468254720
+        }
+      ]
+    }
+  ]
+}

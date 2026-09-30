@@ -71,7 +71,8 @@ public static class MessagingServiceCollectionExtensions
     /// picks the message storage matching the database provider.
     /// </summary>
     public static IServiceCollection AddPaperDotNetMessaging(
-        this IServiceCollection services, Action<WolverineOptions> configureStorage, IEnumerable<System.Reflection.Assembly> handlerAssemblies)
+        this IServiceCollection services, Action<WolverineOptions> configureStorage, IEnumerable<System.Reflection.Assembly> handlerAssemblies,
+        bool automaticDiscovery = true)
     {
         services.AddSingleton<EventTypeRegistry>();
         services.AddSingleton<EventSubscriberRegistry>();
@@ -79,7 +80,7 @@ public static class MessagingServiceCollectionExtensions
         services.AddScoped<IOutbox, WolverineOutbox>();
         services.AddScoped<IMessageScheduler, WolverineMessageScheduler>();
 
-        services.AddWolverine(options =>
+        services.AddWolverine(automaticDiscovery ? ExtensionDiscovery.Automatic : ExtensionDiscovery.ManualOnly, options =>
         {
             configureStorage(options);
             options.UseEntityFrameworkCoreTransactions();

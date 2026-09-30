@@ -88,9 +88,10 @@ public sealed class DatabaseMigrator(IServiceProvider services, ModuleDbContextR
 {
     public async Task MigrateAsync(CancellationToken cancellationToken)
     {
-        await using var scope = services.CreateAsyncScope();
         foreach (var type in registry.Contexts)
         {
+            // Do not keep every module's context, connection and migration state alive until the last module finishes.
+            await using var scope = services.CreateAsyncScope();
             var context = (DbContext)scope.ServiceProvider.GetRequiredService(type);
             try
             {

@@ -1,0 +1,1058 @@
+{
+  "notes": [
+    "Diagnostic instance differs from the original mapping snapshot.",
+    "Heap totals are committed bytes, not RSS.",
+    "Method body sizes exclude code-heap overhead and are not RSS.",
+    "JIT entries include generic specializations and optimization-tier versions."
+  ],
+  "jitBodyBytes": 22981647,
+  "jitCodeEntries": 60416,
+  "nonJitBodyBytes": 2199735,
+  "loadedModules": 261,
+  "loaderHeapCommittedBytes": {
+    "Loader Heap": 0,
+    "LowFrequencyHeap": 27013120,
+    "HighFrequencyHeap": 42639360,
+    "StubHeap": 212992,
+    "FixupPrecodeHeap": 6651904,
+    "NewStubPrecodeHeap": 98304,
+    "IndirectionCellHeap": 368640,
+    "CacheEntryHeap": 221184,
+    "LoaderCodeHeap": 24301568,
+    "HostCodeHeap": 1937408
+  },
+  "jitByModule": {
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.dll": {
+      "bodyBytes": 4086751,
+      "codeEntries": 10484
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.Relational.dll": {
+      "bodyBytes": 3166010,
+      "codeEntries": 6053
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Private.CoreLib.dll": {
+      "bodyBytes": 2552981,
+      "codeEntries": 11348
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Migrations.Sqlite.dll": {
+      "bodyBytes": 1476066,
+      "codeEntries": 1919
+    },
+    "Anonymously Hosted DynamicMethods Assembly": {
+      "bodyBytes": 1158923,
+      "codeEntries": 3865
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Lists.dll": {
+      "bodyBytes": 1084910,
+      "codeEntries": 1690
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Text.Json.dll": {
+      "bodyBytes": 889670,
+      "codeEntries": 2773
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Linq.dll": {
+      "bodyBytes": 864505,
+      "codeEntries": 2007
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Linq.Expressions.dll": {
+      "bodyBytes": 644391,
+      "codeEntries": 1054
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Wolverine.dll": {
+      "bodyBytes": 592446,
+      "codeEntries": 1799
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.OData.Core.dll": {
+      "bodyBytes": 428930,
+      "codeEntries": 1184
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.Server.dll": {
+      "bodyBytes": 318995,
+      "codeEntries": 1407
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Server.Kestrel.Core.dll": {
+      "bodyBytes": 278634,
+      "codeEntries": 429
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Search.dll": {
+      "bodyBytes": 274390,
+      "codeEntries": 420
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.Sqlite.dll": {
+      "bodyBytes": 248993,
+      "codeEntries": 588
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Collections.Concurrent.dll": {
+      "bodyBytes": 235065,
+      "codeEntries": 522
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.Data.Sqlite.dll": {
+      "bodyBytes": 232501,
+      "codeEntries": 656
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.OData.Edm.dll": {
+      "bodyBytes": 225163,
+      "codeEntries": 889
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.DependencyInjection.dll": {
+      "bodyBytes": 196103,
+      "codeEntries": 365
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/JasperFx.dll": {
+      "bodyBytes": 176009,
+      "codeEntries": 568
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.Validation.dll": {
+      "bodyBytes": 141948,
+      "codeEntries": 592
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Collections.Immutable.dll": {
+      "bodyBytes": 140035,
+      "codeEntries": 451
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Identity.dll": {
+      "bodyBytes": 124859,
+      "codeEntries": 307
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.Core.dll": {
+      "bodyBytes": 112776,
+      "codeEntries": 145
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Wolverine.RDBMS.dll": {
+      "bodyBytes": 108040,
+      "codeEntries": 205
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Private.Uri.dll": {
+      "bodyBytes": 95109,
+      "codeEntries": 144
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Notifications.dll": {
+      "bodyBytes": 89650,
+      "codeEntries": 60
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Workflows.dll": {
+      "bodyBytes": 85408,
+      "codeEntries": 104
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenTelemetry.dll": {
+      "bodyBytes": 75266,
+      "codeEntries": 305
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Diagnostics.DiagnosticSource.dll": {
+      "bodyBytes": 74558,
+      "codeEntries": 275
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenTelemetry.Instrumentation.AspNetCore.dll": {
+      "bodyBytes": 73848,
+      "codeEntries": 153
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Notes.dll": {
+      "bodyBytes": 72273,
+      "codeEntries": 64
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Persistence.dll": {
+      "bodyBytes": 71294,
+      "codeEntries": 188
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Routing.dll": {
+      "bodyBytes": 70215,
+      "codeEntries": 80
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.EntityFrameworkCore.dll": {
+      "bodyBytes": 70206,
+      "codeEntries": 101
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.Server.AspNetCore.dll": {
+      "bodyBytes": 70080,
+      "codeEntries": 184
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Workspaces.dll": {
+      "bodyBytes": 69534,
+      "codeEntries": 113
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.Abstractions.dll": {
+      "bodyBytes": 67175,
+      "codeEntries": 204
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.Validation.AspNetCore.dll": {
+      "bodyBytes": 66177,
+      "codeEntries": 125
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Finbuckle.MultiTenant.dll": {
+      "bodyBytes": 64460,
+      "codeEntries": 159
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Weasel.Sqlite.dll": {
+      "bodyBytes": 64008,
+      "codeEntries": 193
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Collections.dll": {
+      "bodyBytes": 58356,
+      "codeEntries": 287
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Tenancy.dll": {
+      "bodyBytes": 58030,
+      "codeEntries": 154
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Weasel.Core.dll": {
+      "bodyBytes": 56862,
+      "codeEntries": 270
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Http.dll": {
+      "bodyBytes": 56227,
+      "codeEntries": 162
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Security.Cryptography.dll": {
+      "bodyBytes": 51153,
+      "codeEntries": 120
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Collaboration.dll": {
+      "bodyBytes": 49807,
+      "codeEntries": 96
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Documents.dll": {
+      "bodyBytes": 49405,
+      "codeEntries": 58
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Authorization.dll": {
+      "bodyBytes": 48516,
+      "codeEntries": 71
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/System.Threading.RateLimiting.dll": {
+      "bodyBytes": 47080,
+      "codeEntries": 106
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Net.Sockets.dll": {
+      "bodyBytes": 47005,
+      "codeEntries": 86
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Tasks.dll": {
+      "bodyBytes": 46811,
+      "codeEntries": 92
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.IO.Pipelines.dll": {
+      "bodyBytes": 46157,
+      "codeEntries": 133
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.Extensions.Caching.Hybrid.dll": {
+      "bodyBytes": 43755,
+      "codeEntries": 165
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Linq.Queryable.dll": {
+      "bodyBytes": 42340,
+      "codeEntries": 50
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/paperdotnet.dll": {
+      "bodyBytes": 42124,
+      "codeEntries": 113
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Http.Extensions.dll": {
+      "bodyBytes": 41622,
+      "codeEntries": 111
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/SQLitePCLRaw.core.dll": {
+      "bodyBytes": 40424,
+      "codeEntries": 229
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Persistence.Sqlite.dll": {
+      "bodyBytes": 40082,
+      "codeEntries": 97
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Messaging.dll": {
+      "bodyBytes": 39118,
+      "codeEntries": 74
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Http.Results.dll": {
+      "bodyBytes": 38942,
+      "codeEntries": 32
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Wolverine.Sqlite.dll": {
+      "bodyBytes": 37252,
+      "codeEntries": 66
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.IdentityModel.Tokens.dll": {
+      "bodyBytes": 36002,
+      "codeEntries": 435
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Api.dll": {
+      "bodyBytes": 35208,
+      "codeEntries": 95
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.dll": {
+      "bodyBytes": 33946,
+      "codeEntries": 43
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Hosting.dll": {
+      "bodyBytes": 33822,
+      "codeEntries": 27
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.DataProtection.dll": {
+      "bodyBytes": 32242,
+      "codeEntries": 49
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll": {
+      "bodyBytes": 32103,
+      "codeEntries": 47
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.Validation.DataProtection.dll": {
+      "bodyBytes": 31868,
+      "codeEntries": 60
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Authorization.Policy.dll": {
+      "bodyBytes": 26748,
+      "codeEntries": 16
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Net.Http.Headers.dll": {
+      "bodyBytes": 26686,
+      "codeEntries": 34
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Data.Common.dll": {
+      "bodyBytes": 26501,
+      "codeEntries": 86
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Logging.Abstractions.dll": {
+      "bodyBytes": 26204,
+      "codeEntries": 140
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/EFCore.NamingConventions.dll": {
+      "bodyBytes": 26031,
+      "codeEntries": 62
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Wolverine.EntityFrameworkCore.dll": {
+      "bodyBytes": 26009,
+      "codeEntries": 58
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Authentication.dll": {
+      "bodyBytes": 25161,
+      "codeEntries": 41
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Taxonomy.dll": {
+      "bodyBytes": 24827,
+      "codeEntries": 60
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Http.Abstractions.dll": {
+      "bodyBytes": 23787,
+      "codeEntries": 71
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Private.Xml.dll": {
+      "bodyBytes": 23142,
+      "codeEntries": 36
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/SQLitePCLRaw.provider.e_sqlite3.dll": {
+      "bodyBytes": 22793,
+      "codeEntries": 100
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Memory.dll": {
+      "bodyBytes": 22601,
+      "codeEntries": 141
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenTelemetry.Api.dll": {
+      "bodyBytes": 21580,
+      "codeEntries": 80
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Finbuckle.MultiTenant.AspNetCore.dll": {
+      "bodyBytes": 21137,
+      "codeEntries": 30
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.RateLimiting.dll": {
+      "bodyBytes": 19311,
+      "codeEntries": 28
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.Extensions.Http.Resilience.dll": {
+      "bodyBytes": 18713,
+      "codeEntries": 59
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Jobs.dll": {
+      "bodyBytes": 18207,
+      "codeEntries": 47
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Lists.Contracts.dll": {
+      "bodyBytes": 17811,
+      "codeEntries": 280
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Authentication.Core.dll": {
+      "bodyBytes": 17379,
+      "codeEntries": 26
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Security.Claims.dll": {
+      "bodyBytes": 16397,
+      "codeEntries": 59
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.Server.DataProtection.dll": {
+      "bodyBytes": 16304,
+      "codeEntries": 43
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Authentication.Abstractions.dll": {
+      "bodyBytes": 16184,
+      "codeEntries": 45
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Threading.Channels.dll": {
+      "bodyBytes": 16128,
+      "codeEntries": 44
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Features.dll": {
+      "bodyBytes": 15472,
+      "codeEntries": 96
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Caching.Memory.dll": {
+      "bodyBytes": 15342,
+      "codeEntries": 31
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.DependencyInjection.Abstractions.dll": {
+      "bodyBytes": 15328,
+      "codeEntries": 22
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Logging.dll": {
+      "bodyBytes": 15276,
+      "codeEntries": 40
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Identity.Core.dll": {
+      "bodyBytes": 14661,
+      "codeEntries": 18
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Calendar.dll": {
+      "bodyBytes": 14169,
+      "codeEntries": 37
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Cronos.dll": {
+      "bodyBytes": 12642,
+      "codeEntries": 42
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenTelemetry.Instrumentation.Http.dll": {
+      "bodyBytes": 11649,
+      "codeEntries": 47
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Logging.Console.dll": {
+      "bodyBytes": 11142,
+      "codeEntries": 14
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Logging.EventSource.dll": {
+      "bodyBytes": 10904,
+      "codeEntries": 11
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.ExtensionHost.dll": {
+      "bodyBytes": 10019,
+      "codeEntries": 22
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Abstractions.dll": {
+      "bodyBytes": 9210,
+      "codeEntries": 79
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Diagnostics.dll": {
+      "bodyBytes": 8858,
+      "codeEntries": 8
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Provisioning.dll": {
+      "bodyBytes": 7082,
+      "codeEntries": 16
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/NewId.dll": {
+      "bodyBytes": 6782,
+      "codeEntries": 38
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Text.Encodings.Web.dll": {
+      "bodyBytes": 6671,
+      "codeEntries": 19
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.AiWorkflows.dll": {
+      "bodyBytes": 6521,
+      "codeEntries": 33
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Storage.dll": {
+      "bodyBytes": 6438,
+      "codeEntries": 29
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.ComponentModel.TypeConverter.dll": {
+      "bodyBytes": 6330,
+      "codeEntries": 17
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Diagnostics.dll": {
+      "bodyBytes": 6296,
+      "codeEntries": 12
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.IdentityModel.JsonWebTokens.dll": {
+      "bodyBytes": 5930,
+      "codeEntries": 7
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.AspNetCore.OpenApi.dll": {
+      "bodyBytes": 5806,
+      "codeEntries": 29
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Caching.Abstractions.dll": {
+      "bodyBytes": 5711,
+      "codeEntries": 19
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.AI.dll": {
+      "bodyBytes": 5635,
+      "codeEntries": 14
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/ModelContextProtocol.AspNetCore.dll": {
+      "bodyBytes": 5549,
+      "codeEntries": 27
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Finbuckle.MultiTenant.Abstractions.dll": {
+      "bodyBytes": 5433,
+      "codeEntries": 48
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.ServiceDefaults.dll": {
+      "bodyBytes": 5170,
+      "codeEntries": 24
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Options.dll": {
+      "bodyBytes": 4765,
+      "codeEntries": 8
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.ComponentModel.Annotations.dll": {
+      "bodyBytes": 4452,
+      "codeEntries": 11
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Net.Quic.dll": {
+      "bodyBytes": 4309,
+      "codeEntries": 1
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Primitives.dll": {
+      "bodyBytes": 4264,
+      "codeEntries": 48
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.dll": {
+      "bodyBytes": 4039,
+      "codeEntries": 24
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenTelemetry.Api.ProviderBuilderExtensions.dll": {
+      "bodyBytes": 3834,
+      "codeEntries": 42
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.HostFiltering.dll": {
+      "bodyBytes": 3794,
+      "codeEntries": 6
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Transactions.Local.dll": {
+      "bodyBytes": 3558,
+      "codeEntries": 14
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Net.Primitives.dll": {
+      "bodyBytes": 3480,
+      "codeEntries": 18
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Logging.Debug.dll": {
+      "bodyBytes": 3457,
+      "codeEntries": 11
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Polly.Extensions.dll": {
+      "bodyBytes": 3307,
+      "codeEntries": 15
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.WebUtilities.dll": {
+      "bodyBytes": 3290,
+      "codeEntries": 10
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Search.Contracts.dll": {
+      "bodyBytes": 2410,
+      "codeEntries": 54
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.DataProtection.Abstractions.dll": {
+      "bodyBytes": 2387,
+      "codeEntries": 2
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Polly.Core.dll": {
+      "bodyBytes": 2276,
+      "codeEntries": 30
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Identity.Stores.dll": {
+      "bodyBytes": 2267,
+      "codeEntries": 37
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.EntityFrameworkCore.Models.dll": {
+      "bodyBytes": 1932,
+      "codeEntries": 42
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.Validation.ServerIntegration.dll": {
+      "bodyBytes": 1818,
+      "codeEntries": 5
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Workspaces.Contracts.dll": {
+      "bodyBytes": 1763,
+      "codeEntries": 11
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Mcp.dll": {
+      "bodyBytes": 1565,
+      "codeEntries": 7
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Extensions.Abstractions.dll": {
+      "bodyBytes": 1465,
+      "codeEntries": 5
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.IdentityModel.Logging.dll": {
+      "bodyBytes": 1418,
+      "codeEntries": 14
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.ComponentModel.Primitives.dll": {
+      "bodyBytes": 1347,
+      "codeEntries": 8
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Workflows.Contracts.dll": {
+      "bodyBytes": 1277,
+      "codeEntries": 23
+    },
+    "/usr/lib/dotnet/shared/Microsoft.NETCore.App/10.0.12/System.Text.RegularExpressions.dll": {
+      "bodyBytes": 1247,
+      "codeEntries": 4
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenTelemetry.Extensions.Hosting.dll": {
+      "bodyBytes": 1125,
+      "codeEntries": 12
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.ObjectPool.dll": {
+      "bodyBytes": 980,
+      "codeEntries": 5
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/ModelContextProtocol.dll": {
+      "bodyBytes": 844,
+      "codeEntries": 9
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.IdentityModel.Protocols.dll": {
+      "bodyBytes": 703,
+      "codeEntries": 4
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenTelemetry.Instrumentation.Runtime.dll": {
+      "bodyBytes": 607,
+      "codeEntries": 5
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.Extensions.Diagnostics.ExceptionSummarization.dll": {
+      "bodyBytes": 541,
+      "codeEntries": 6
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Audit.dll": {
+      "bodyBytes": 502,
+      "codeEntries": 3
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Jobs.Contracts.dll": {
+      "bodyBytes": 460,
+      "codeEntries": 5
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Logging.Configuration.dll": {
+      "bodyBytes": 300,
+      "codeEntries": 3
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.AspNetCore.Cryptography.Internal.dll": {
+      "bodyBytes": 271,
+      "codeEntries": 4
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Identity.Contracts.dll": {
+      "bodyBytes": 269,
+      "codeEntries": 6
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Tenancy.Contracts.dll": {
+      "bodyBytes": 237,
+      "codeEntries": 4
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Npgsql.OpenTelemetry.dll": {
+      "bodyBytes": 194,
+      "codeEntries": 2
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.IdentityModel.Abstractions.dll": {
+      "bodyBytes": 190,
+      "codeEntries": 6
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Polly.RateLimiting.dll": {
+      "bodyBytes": 162,
+      "codeEntries": 2
+    },
+    "/usr/lib/dotnet/shared/Microsoft.AspNetCore.App/10.0.12/Microsoft.Extensions.Configuration.Binder.dll": {
+      "bodyBytes": 135,
+      "codeEntries": 1
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.Abstractions.dll": {
+      "bodyBytes": 63,
+      "codeEntries": 3
+    },
+    "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/SQLitePCLRaw.batteries_v2.dll": {
+      "bodyBytes": 62,
+      "codeEntries": 1
+    }
+  },
+  "jitByOptimizationTier": {
+    "Optimized": {
+      "bodyBytes": 1405179,
+      "codeEntries": 5041
+    },
+    "QuickJitted": {
+      "bodyBytes": 10236188,
+      "codeEntries": 30777
+    },
+    "OptimizedTier1": {
+      "bodyBytes": 6208566,
+      "codeEntries": 10843
+    },
+    "OptimizedTier1Instrumented": {
+      "bodyBytes": 1956590,
+      "codeEntries": 4791
+    },
+    "QuickJittedInstrumented": {
+      "bodyBytes": 3175124,
+      "codeEntries": 8964
+    }
+  },
+  "largestJitEntries": [
+    {
+      "address": 136178657162000,
+      "size": 47992,
+      "moduleId": 136178592189352,
+      "namespace": "dynamicClass",
+      "name": "lambda_method2585",
+      "signature": "pMT: 0x7bda8e3b2c78  (pMT: 0x7bda8c9bc728,pMT: 0x7bda8d4184b8)",
+      "flags": "Dynamic, Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "Optimized",
+      "module": "Anonymously Hosted DynamicMethods Assembly"
+    },
+    {
+      "address": 136178615262704,
+      "size": 47262,
+      "moduleId": 136178594476864,
+      "namespace": "Microsoft.EntityFrameworkCore.Query.RelationalShapedQueryCompilingExpressionVisitor+ShaperProcessingExpressionVisitor",
+      "name": "VisitExtension",
+      "signature": "instance class System.Linq.Expressions.Expression  (class System.Linq.Expressions.Expression)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJitted",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.Relational.dll"
+    },
+    {
+      "address": 136178677212896,
+      "size": 45615,
+      "moduleId": 136178594476864,
+      "namespace": "Microsoft.EntityFrameworkCore.Query.RelationalShapedQueryCompilingExpressionVisitor+ShaperProcessingExpressionVisitor",
+      "name": "VisitExtension",
+      "signature": "instance class System.Linq.Expressions.Expression  (class System.Linq.Expressions.Expression)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJittedInstrumented",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.Relational.dll"
+    },
+    {
+      "address": 136178614890464,
+      "size": 36747,
+      "moduleId": 136178549063680,
+      "namespace": "Microsoft.EntityFrameworkCore.Query.Internal.CallForwardingExpressionVisitor",
+      "name": ".cctor",
+      "signature": "void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJitted",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.dll"
+    },
+    {
+      "address": 136178606142640,
+      "size": 27724,
+      "moduleId": 136178595220160,
+      "namespace": "Microsoft.EntityFrameworkCore.Migrations.SqliteMigrationsSqlGenerator",
+      "name": "RewriteOperations",
+      "signature": "instance class System.Collections.Generic.IReadOnlyList`1<class Microsoft.EntityFrameworkCore.Migrations.Operations.MigrationOperation>  (class System.Collections.Generic.IReadOnlyList`1<class Microsoft.EntityFrameworkCore.Migrations.Operations.MigrationOperation>,class Microsoft.EntityFrameworkCore.Metadata.IModel)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJitted",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.Sqlite.dll"
+    },
+    {
+      "address": 136178615011872,
+      "size": 27037,
+      "moduleId": 136178549063680,
+      "namespace": "Microsoft.EntityFrameworkCore.Query.QueryableMethodTranslatingExpressionVisitor",
+      "name": "VisitMethodCall",
+      "signature": "instance class System.Linq.Expressions.Expression  (class System.Linq.Expressions.MethodCallExpression)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJitted",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.dll"
+    },
+    {
+      "address": 136178677346144,
+      "size": 27020,
+      "moduleId": 136178549063680,
+      "namespace": "Microsoft.EntityFrameworkCore.Query.QueryableMethodTranslatingExpressionVisitor",
+      "name": "VisitMethodCall",
+      "signature": "instance class System.Linq.Expressions.Expression  (class System.Linq.Expressions.MethodCallExpression)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJittedInstrumented",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.dll"
+    },
+    {
+      "address": 136178606608464,
+      "size": 25657,
+      "moduleId": 136178549063680,
+      "namespace": "Microsoft.EntityFrameworkCore.Metadata.Internal.InternalForeignKeyBuilder",
+      "name": "ReplaceForeignKey",
+      "signature": "instance class Microsoft.EntityFrameworkCore.Metadata.Internal.InternalForeignKeyBuilder  (class Microsoft.EntityFrameworkCore.Metadata.Internal.InternalEntityTypeBuilder,class Microsoft.EntityFrameworkCore.Metadata.Internal.InternalEntityTypeBuilder,value class System.Nullable`1<value class Microsoft.EntityFrameworkCore.Metadata.MemberIdentity>,value class System.Nullable`1<value class Microsoft.EntityFrameworkCore.Metadata.MemberIdentity>,class System.Collections.Generic.IReadOnlyList`1<class Microsoft.EntityFrameworkCore.Metadata.Internal.Property>,class System.Collections.Generic.IReadOnlyList`1<class Microsoft.EntityFrameworkCore.Metadata.Internal.Property>,class System.Collections.Generic.IReadOnlyList`1<class Microsoft.EntityFrameworkCore.Metadata.Internal.Property>,value class System.Nullable`1<bool>,value class System.Nullable`1<bool>,value class System.Nullable`1<bool>,value class System.Nullable`1<bool>,value class System.Nullable`1<value class Microsoft.EntityFrameworkCore.DeleteBehavior>,bool,bool,value class System.Nullable`1<value class Microsoft.EntityFrameworkCore.Metadata.ConfigurationSource>,value class Microsoft.EntityFrameworkCore.Metadata.ConfigurationSource)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJitted",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.dll"
+    },
+    {
+      "address": 136178693591968,
+      "size": 21783,
+      "moduleId": 136178594476864,
+      "namespace": "Microsoft.EntityFrameworkCore.Query.RelationalShapedQueryCompilingExpressionVisitor+ShaperProcessingExpressionVisitor",
+      "name": "VisitExtension",
+      "signature": "instance class System.Linq.Expressions.Expression  (class System.Linq.Expressions.Expression)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.Relational.dll"
+    },
+    {
+      "address": 136178641684912,
+      "size": 21709,
+      "moduleId": 136178570607952,
+      "namespace": "OpenIddict.Server.OpenIddictServerConfiguration",
+      "name": "PostConfigure",
+      "signature": "instance void  (class System.String,class OpenIddict.Server.OpenIddictServerOptions)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJitted",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/OpenIddict.Server.dll"
+    },
+    {
+      "address": 136178606735696,
+      "size": 19942,
+      "moduleId": 136178549063680,
+      "namespace": "Microsoft.EntityFrameworkCore.Metadata.Internal.InternalEntityTypeBuilder",
+      "name": "HasBaseType",
+      "signature": "instance class Microsoft.EntityFrameworkCore.Metadata.Internal.InternalEntityTypeBuilder  (class Microsoft.EntityFrameworkCore.Metadata.Internal.EntityType,value class Microsoft.EntityFrameworkCore.Metadata.ConfigurationSource)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJitted",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.dll"
+    },
+    {
+      "address": 136178694518144,
+      "size": 19273,
+      "moduleId": 136178561240496,
+      "namespace": "PaperDotNet.Lists.Querying.ItemQueryRunner+<MatchingManyAsync>d__12",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Lists.dll"
+    },
+    {
+      "address": 136178615055952,
+      "size": 19180,
+      "moduleId": 136178594476864,
+      "namespace": "Microsoft.EntityFrameworkCore.Query.RelationalQueryableMethodTranslatingExpressionVisitor",
+      "name": "<CreateSelect>g__CreateRootSelectExpressionCore|0_0",
+      "signature": "instance class Microsoft.EntityFrameworkCore.Query.SqlExpressions.SelectExpression  (class Microsoft.EntityFrameworkCore.Metadata.IEntityType)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJitted",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.Relational.dll"
+    },
+    {
+      "address": 136178690028032,
+      "size": 19172,
+      "moduleId": 136178594476864,
+      "namespace": "Microsoft.EntityFrameworkCore.Query.RelationalQueryableMethodTranslatingExpressionVisitor",
+      "name": "<CreateSelect>g__CreateRootSelectExpressionCore|0_0",
+      "signature": "instance class Microsoft.EntityFrameworkCore.Query.SqlExpressions.SelectExpression  (class Microsoft.EntityFrameworkCore.Metadata.IEntityType)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJittedInstrumented",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.Relational.dll"
+    },
+    {
+      "address": 136178693651040,
+      "size": 19050,
+      "moduleId": 136178549063680,
+      "namespace": "Microsoft.EntityFrameworkCore.Query.QueryableMethodTranslatingExpressionVisitor",
+      "name": "VisitMethodCall",
+      "signature": "instance class System.Linq.Expressions.Expression  (class System.Linq.Expressions.MethodCallExpression)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.dll"
+    },
+    {
+      "address": 136178597523584,
+      "size": 18156,
+      "moduleId": 136178549063680,
+      "namespace": "Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverterSelector+<Select>d__11",
+      "name": "MoveNext",
+      "signature": "instance bool  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJitted",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.dll"
+    },
+    {
+      "address": 136178691244224,
+      "size": 17823,
+      "moduleId": 136178561240496,
+      "namespace": "PaperDotNet.Lists.Features.ItemAccess+<GetScopesAsync>d__11",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Lists.dll"
+    },
+    {
+      "address": 136178690929056,
+      "size": 17790,
+      "moduleId": 136178561240496,
+      "namespace": "PaperDotNet.Lists.Querying.ItemQueryRunner+<RunAsync>d__15",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Lists.dll"
+    },
+    {
+      "address": 136178681328736,
+      "size": 17544,
+      "moduleId": 136178549063680,
+      "namespace": "Microsoft.EntityFrameworkCore.Query.Internal.NavigationExpandingExpressionVisitor",
+      "name": "VisitMethodCall",
+      "signature": "instance class System.Linq.Expressions.Expression  (class System.Linq.Expressions.MethodCallExpression)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJittedInstrumented",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.dll"
+    },
+    {
+      "address": 136178689808192,
+      "size": 17015,
+      "moduleId": 136178561248320,
+      "namespace": "PaperDotNet.Notes.Features.NoteLinkIndexer+<RemoveAsync>d__12",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Notes.dll"
+    },
+    {
+      "address": 136178694997120,
+      "size": 16954,
+      "moduleId": 136178561243104,
+      "namespace": "PaperDotNet.Search.Features.SearchService+<WithPassagesAsync>d__19",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Search.dll"
+    },
+    {
+      "address": 136178694496128,
+      "size": 16908,
+      "moduleId": 136178561240496,
+      "namespace": "PaperDotNet.Lists.Features.ListSchemaLoader+<LoadManyAsync>d__5",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Lists.dll"
+    },
+    {
+      "address": 136178694973664,
+      "size": 16626,
+      "moduleId": 136178561243104,
+      "namespace": "PaperDotNet.Search.Features.SearchService+<FacetsAsync>d__20",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Search.dll"
+    },
+    {
+      "address": 136178694460128,
+      "size": 16572,
+      "moduleId": 136178561240496,
+      "namespace": "PaperDotNet.Lists.Features.ListSchemaLoader+<VisibleListsAsync>d__9",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Lists.dll"
+    },
+    {
+      "address": 136178694938624,
+      "size": 16450,
+      "moduleId": 136178561243104,
+      "namespace": "PaperDotNet.Search.Features.SearchService+<FilteredAsync>d__15",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Search.dll"
+    },
+    {
+      "address": 136178689562368,
+      "size": 16260,
+      "moduleId": 136178561250944,
+      "namespace": "PaperDotNet.Collaboration.Features.CommentSearchContent+<GetContentAsync>d__3",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Collaboration.dll"
+    },
+    {
+      "address": 136178613693344,
+      "size": 16207,
+      "moduleId": 136178604531936,
+      "namespace": "PaperDotNet.Migrations.Sqlite.Generated.Lists.IndexedFields",
+      "name": "Up",
+      "signature": "instance void  (class Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJitted",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Migrations.Sqlite.dll"
+    },
+    {
+      "address": 136178689746624,
+      "size": 16193,
+      "moduleId": 136178562762352,
+      "namespace": "PaperDotNet.Workflows.Features.WorkflowTriggerHandler+<StartAsync>d__14",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Workflows.dll"
+    },
+    {
+      "address": 136178606446144,
+      "size": 15898,
+      "moduleId": 136178549063680,
+      "namespace": "Microsoft.EntityFrameworkCore.Metadata.Internal.InternalForeignKeyBuilder",
+      "name": "FindCompatibleRelationship",
+      "signature": "instance class Microsoft.EntityFrameworkCore.Metadata.Internal.InternalForeignKeyBuilder  (class Microsoft.EntityFrameworkCore.Metadata.Internal.EntityType,class Microsoft.EntityFrameworkCore.Metadata.Internal.EntityType,value class System.Nullable`1<value class Microsoft.EntityFrameworkCore.Metadata.MemberIdentity>,value class System.Nullable`1<value class Microsoft.EntityFrameworkCore.Metadata.MemberIdentity>,class System.Collections.Generic.IReadOnlyList`1<class Microsoft.EntityFrameworkCore.Metadata.Internal.Property>,class System.Collections.Generic.IReadOnlyList`1<class Microsoft.EntityFrameworkCore.Metadata.Internal.Property>,value class System.Nullable`1<value class Microsoft.EntityFrameworkCore.Metadata.ConfigurationSource>,value class System.Nullable`1<value class Microsoft.EntityFrameworkCore.Metadata.ConfigurationSource>,value class System.Nullable`1<bool>&,bool&,class System.Collections.Generic.List`1<value class System.ValueTuple`4<class Microsoft.EntityFrameworkCore.Metadata.Internal.InternalForeignKeyBuilder,bool,value class Resolution,bool>>&)",
+      "flags": "Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "QuickJitted",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/Microsoft.EntityFrameworkCore.dll"
+    },
+    {
+      "address": 136178694776640,
+      "size": 15581,
+      "moduleId": 136178561243104,
+      "namespace": "PaperDotNet.Search.Features.SearchService+<FacetAsync>d__21`1[System.__Canon]",
+      "name": "MoveNext",
+      "signature": "instance void  ()",
+      "flags": "Generic, HasSharedGenericCode, Jitted",
+      "event": "Method/DCStopVerbose",
+      "optimizationTier": "OptimizedTier1",
+      "module": "/home/eduapaul/repos/PaperDotNet/artifacts/memory-analysis/final-host/PaperDotNet.Search.dll"
+    }
+  ]
+}

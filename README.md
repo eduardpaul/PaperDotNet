@@ -92,16 +92,16 @@ npm run check -w web                               # typecheck, lint, format, un
 npm run test:e2e -w web                            # Playwright against a real host
 ```
 
-Performance (not part of `dotnet test`). One process, the real API, a fresh database per provider. It seeds a list and a list of folders with unique permissions, then ramps concurrency on create, read, filtered query, a member's page of the shared list, a member's tasks across 20 task lists and search until p95 passes 1000 ms or any request fails. That concurrency is the limit for the budget.
+Performance (not part of `dotnet test`). A published Kestrel process serves the real API, with a fresh database per provider/repeat. The harness warms up each concurrency step, verifies the indexed fixture, measures reads before writes, drains in-flight requests, and records server/generator CPU and RSS separately. `--gate` fails on budget breaches; missing provider coverage always fails. See the [harness guide](tests/PaperDotNet.Performance/README.md) for the measurement contract and schema v2 reports, and the [memory investigation](docs/memory-footprint-2026-09-30.md) for the self-hosted footprint and measured improvements.
 
 ```bash
-dotnet run --project tests/PaperDotNet.Performance -c Release -- sqlite
-dotnet run --project tests/PaperDotNet.Performance -c Release -- postgresql   # Docker, or PAPERDOTNET_TEST_POSTGRES
-dotnet run --project tests/PaperDotNet.Performance -c Release -- both
-dotnet run --project tests/PaperDotNet.Performance -- --smoke sqlite          # 20 items, 1 s, one caller
+bash tests/PaperDotNet.Performance/run.sh sqlite --smoke --gate
+bash tests/PaperDotNet.Performance/run.sh postgresql --smoke --gate   # Docker, or PAPERDOTNET_TEST_POSTGRES
+bash tests/PaperDotNet.Performance/run.sh both --gate
+dotnet run --project tests/PaperDotNet.Performance -c Release -- sqlite --in-process --smoke
 ```
 
-`PERF_ITEMS` (200), `PERF_SECONDS` (3 per concurrency step), `PERF_MAX_CONCURRENCY` (16), `PERF_P95_MS` (1000) and `PERF_OUTPUT` (`perf-results.json`) override the run. Use Release for numbers you keep.
+Defaults: `PERF_ITEMS=200`, `PERF_SECONDS=30`, `PERF_WARMUP_SECONDS=5`, `PERF_REPEATS=3`, `PERF_MAX_CONCURRENCY=16`, `PERF_P95_MS=1000`, `PERF_OUTPUT=perf-results.json`. Smoke fixes 20 items, one repeat/caller, and one measured second. A passing cap is a lower bound, not a discovered capacity limit.
 
 Configuration comes from environment variables `PAPERDOTNET__Section__Key`.
 Semantic search needs an embedding model (optional; see `docs/search.md`).

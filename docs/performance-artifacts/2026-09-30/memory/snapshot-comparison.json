@@ -1,0 +1,26 @@
+{
+  "final": {
+    "Rss": {
+      "smapsSumKiB": 351676,
+      "laterRollupKiB": 350460,
+      "differenceKiB": 1216
+    },
+    "Pss": {
+      "smapsSumKiB": 306624,
+      "laterRollupKiB": 306076,
+      "differenceKiB": 548
+    }
+  },
+  "loader": {
+    "Rss": {
+      "smapsSumKiB": 360664,
+      "laterRollupKiB": 360024,
+      "differenceKiB": 640
+    },
+    "Pss": {
+      "smapsSumKiB": 320931,
+      "laterRollupKiB": 320914,
+      "differenceKiB": 17
+    }
+  }
+}

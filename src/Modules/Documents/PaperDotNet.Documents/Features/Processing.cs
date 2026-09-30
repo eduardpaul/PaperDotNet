@@ -450,7 +450,7 @@ internal sealed class PageRenderer(DocumentsDbContext db, IBlobStore blobs, IOpt
         }
 
         var paths = new List<string>();
-        var bytes = await File.ReadAllBytesAsync(pdfPath, ct);
+        await using var pdf = File.OpenRead(pdfPath);
         for (var i = 0; i < Math.Min(pageCount, options.Value.MaxOcrPages); i++)
         {
             var path = Path.Combine(directory, $"page-{i + 1:D4}.png");
@@ -458,7 +458,9 @@ internal sealed class PageRenderer(DocumentsDbContext db, IBlobStore blobs, IOpt
             try
             {
                 await using var file = File.Create(path);
-                PDFtoImage.Conversion.SavePng(file, bytes, i, password: null, new PDFtoImage.RenderOptions { Dpi = options.Value.OcrDpi, WithAnnotations = true });
+                pdf.Position = 0;
+                PDFtoImage.Conversion.SavePng(file, pdf, i, leaveOpen: true, password: null,
+                    new PDFtoImage.RenderOptions { Dpi = options.Value.OcrDpi, WithAnnotations = true });
             }
             finally
             {
@@ -480,19 +482,29 @@ internal sealed class PageRenderer(DocumentsDbContext db, IBlobStore blobs, IOpt
             return null;
         }
 
-        using var buffer = new MemoryStream();
-        await content.CopyToAsync(buffer, ct);
-        var bytes = buffer.ToArray();
         await PdfiumLock.WaitAsync(ct);
         try
         {
-            if (page < 1 || page > PDFtoImage.Conversion.GetPageCount(bytes))
+            // Local blobs are seekable file streams. PDFium reads them directly;
+            // queued render requests no longer retain two full managed copies of each PDF.
+            await using var temporary = content.CanSeek ? null : new FileStream(
+                Path.Combine(Path.GetTempPath(), $"pdn_pdf_{Ids.New():N}.tmp"), FileMode.CreateNew,
+                FileAccess.ReadWrite, FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+            var pdf = content;
+            if (temporary is not null)
+            {
+                await content.CopyToAsync(temporary, ct);
+                pdf = temporary;
+            }
+            pdf.Position = 0;
+            if (page < 1 || page > PDFtoImage.Conversion.GetPageCount(pdf, leaveOpen: true))
             {
                 return null;
             }
 
             using var output = new MemoryStream();
-            PDFtoImage.Conversion.SaveJpeg(output, bytes, page - 1, password: null,
+            pdf.Position = 0;
+            PDFtoImage.Conversion.SaveJpeg(output, pdf, page - 1, leaveOpen: true, password: null,
                 new PDFtoImage.RenderOptions { Width = width, WithAspectRatio = true, WithAnnotations = true, BackgroundColor = SKColors.White });
             return output.ToArray();
         }

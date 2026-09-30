@@ -6,7 +6,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="WolverineFx" />
-    <PackageReference Include="WolverineFx.RuntimeCompilation" />
+    <!-- Generate handlers in Debug; Release runs compiled adapters without the runtime compiler package. -->
+    <PackageReference Include="WolverineFx.RuntimeCompilation" Condition="'$(Configuration)' == 'Debug' or '$(EnableRuntimeCompilation)' == 'true'" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
   </ItemGroup>

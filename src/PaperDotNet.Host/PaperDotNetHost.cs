@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using JasperFx.CodeGeneration;
 using Microsoft.AspNetCore.HttpOverrides;
 using PaperDotNet.Abstractions;
 using PaperDotNet.AI;
@@ -120,9 +121,16 @@ public static class PaperDotNetHost
 
         services.AddPaperDotNetExtensions(builder.Configuration, Extensions());
 
+        var runtimeCompilation = builder.Configuration.GetValue("Messaging:RuntimeCompilation", builder.Environment.IsDevelopment());
         services.AddPaperDotNetMessaging(
-            options => ConfigureMessageStorage(options, builder.Configuration),
-            Modules.Select(m => m.GetType().Assembly).Distinct());
+            options =>
+            {
+                ConfigureMessageStorage(options, builder.Configuration);
+                options.ApplicationAssembly = typeof(PaperDotNetHost).Assembly;
+                options.CodeGeneration.TypeLoadMode = runtimeCompilation ? TypeLoadMode.Dynamic : TypeLoadMode.Static;
+            },
+            Modules.Select(m => m.GetType().Assembly).Distinct(),
+            automaticDiscovery: builder.Configuration.GetValue("Messaging:AutomaticDiscovery", runtimeCompilation));
 
         services.AddProblemDetails();
         services.ConfigureHttpJsonOptions(o =>

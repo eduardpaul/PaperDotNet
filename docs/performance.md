@@ -1,5 +1,11 @@
 # Performance
 
+For a current assessment of the runner, CPU/memory profiling tools, remaining performance candidates, and a prioritized measurement plan, see the [2026-09-30 performance review](performance-review-2026-09-30.md). The measurements below are historical and use different fixtures and environments.
+
+The improved harness and its initial SQLite/PostgreSQL results are documented in the [separate-process baseline](performance-baseline-2026-09-30.md). The [memory investigation](memory-footprint-2026-09-30.md) explains the resident footprint, measured reductions, and self-hosting tradeoffs.
+
+The host now defaults to Workstation GC and compiled Wolverine message adapters for a smaller self-hosted footprint. Regenerate adapters after changing message handlers or middleware with `dotnet run --project src/PaperDotNet.Host --no-launch-profile -- codegen write`; CI checks the committed output and the Docker build regenerates it. Release excludes `WolverineFx.RuntimeCompilation`; Development builds retain it. Throughput-focused deployments can publish with `-p:ServerGarbageCollection=true`. Custom hosts with additional Wolverine handlers must generate their own adapters or explicitly enable runtime compilation in their build and configuration. The built-in host registers its Wolverine integrations explicitly and skips automatic reference-graph discovery in static mode; `Messaging:AutomaticDiscovery=true` restores module discovery for custom Wolverine integrations. PaperDotNet extension registration is independent of this setting.
+
 One Release smoke run of `tests/PaperDotNet.Performance` on SQLite. PostgreSQL was not measured, and concurrency never went above one caller. This is a baseline, not a capacity limit.
 
 ## How it was run
@@ -123,17 +129,18 @@ For storage and permission queries at scale (1.6M items, thousands of unique sco
 
 ## Running it again
 
-Smoke, SQLite only:
+Use the current harness guide for the [measurement contract and all settings](../tests/PaperDotNet.Performance/README.md). The default now uses a published host in a separate process and schema v2 reports, with warm-up, repeats and deadline draining.
 
 ```bash
-dotnet tests/PaperDotNet.Performance/bin/Release/net10.0/PaperDotNet.Performance.dll --smoke sqlite
+bash tests/PaperDotNet.Performance/run.sh sqlite --smoke --gate
+bash tests/PaperDotNet.Performance/run.sh postgresql --smoke --gate
+bash tests/PaperDotNet.Performance/run.sh both --gate
 ```
 
-A real limit check (still one provider at a time) raises concurrency from 1 through 16, three seconds per step, 200 items, and stops when any response fails or p95 crosses 1000 ms:
+To retain the in-process integration mode:
 
 ```bash
-dotnet tests/PaperDotNet.Performance/bin/Release/net10.0/PaperDotNet.Performance.dll sqlite
-dotnet tests/PaperDotNet.Performance/bin/Release/net10.0/PaperDotNet.Performance.dll postgresql
+dotnet run -c Release --project tests/PaperDotNet.Performance -- sqlite --in-process --smoke --gate
 ```
 
-PostgreSQL needs Docker, or `PAPERDOTNET_TEST_POSTGRES` pointing at a server the runner may create a database on. Do not run both providers, or a rebuild, while the machine is already short of memory. `PERF_ITEMS`, `PERF_SECONDS`, `PERF_MAX_CONCURRENCY`, and `PERF_P95_MS` change the run. Results go to `perf-results.json` unless `PERF_OUTPUT` is set.
+PostgreSQL needs Docker, or `PAPERDOTNET_TEST_POSTGRES` pointing at a server the runner may create and remove its private database/role on. Providers run serially. A passing maximum is a lower bound, not a discovered capacity limit. Defaults are 200 base items, 30-second measured steps, five-second warm-ups, three fresh repeats and a concurrency cap of 16. `PERF_OUTPUT` selects the report path (`perf-results.json` by default).

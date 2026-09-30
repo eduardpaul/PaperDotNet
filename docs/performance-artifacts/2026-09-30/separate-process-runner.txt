@@ -1,0 +1,117 @@
+sqlite repeat 1/3 (Kestrel process)
+Ready in 16.0s; indexed 500 fixture documents.
+read    c= 1   6000 req    600.0 req/s p95      2.4 ms errors=0 timeout=0 cancelled=0 pass
+read    c= 2  11963 req   1196.2 req/s p95      2.6 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 1   4709 req    470.8 req/s p95      2.8 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 2   8251 req    825.1 req/s p95      3.4 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 1   3946 req    394.6 req/s p95      3.3 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 2   6792 req    679.0 req/s p95      4.0 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 1   1803 req    180.2 req/s p95      6.8 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 2   3080 req    308.0 req/s p95      8.0 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 1    313 req     31.3 req/s p95     35.1 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 2    530 req     52.9 req/s p95     41.3 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 1   2456 req    245.5 req/s p95      7.9 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 2   1564 req    156.2 req/s p95     23.4 ms errors=0 timeout=0 cancelled=0 pass
+sqlite repeat 2/3 (Kestrel process)
+Ready in 16.0s; indexed 500 fixture documents.
+read    c= 1   5685 req    568.4 req/s p95      2.5 ms errors=0 timeout=0 cancelled=0 pass
+read    c= 2  11544 req   1154.2 req/s p95      2.6 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 1   4403 req    440.3 req/s p95      3.2 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 2   7448 req    744.7 req/s p95      3.9 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 1   3265 req    326.4 req/s p95      4.9 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 2   6255 req    625.3 req/s p95      4.5 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 1   1719 req    171.8 req/s p95      7.2 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 2   2723 req    272.1 req/s p95     10.2 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 1    297 req     29.6 req/s p95     38.2 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 2    524 req     52.3 req/s p95     43.2 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 1   2414 req    241.3 req/s p95      8.1 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 2   1438 req    143.7 req/s p95     26.6 ms errors=0 timeout=0 cancelled=0 pass
+sqlite repeat 3/3 (Kestrel process)
+Ready in 18.5s; indexed 500 fixture documents.
+read    c= 1   4167 req    416.7 req/s p95      3.9 ms errors=0 timeout=0 cancelled=0 pass
+read    c= 2  10946 req   1094.5 req/s p95      2.8 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 1   4589 req    458.8 req/s p95      3.0 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 2   6650 req    664.8 req/s p95      4.5 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 1   3128 req    312.8 req/s p95      4.9 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 2   5773 req    577.2 req/s p95      5.1 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 1   1733 req    173.2 req/s p95      7.1 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 2   2964 req    296.3 req/s p95      8.3 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 1    301 req     30.0 req/s p95     36.6 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 2    519 req     51.8 req/s p95     42.1 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 1   1945 req    194.4 req/s p95     10.8 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 2   1423 req    142.1 req/s p95     30.9 ms errors=0 timeout=0 cancelled=0 pass
+postgresql repeat 1/3 (Kestrel process)
+[testcontainers.org 00:00:00.19] Connected to Docker:
+  Host: unix:///run/user/1000/docker.sock
+  Server Version: 29.4.3
+  Kernel Version: 6.6.114.1-microsoft-standard-WSL2
+  API Version: 1.54
+  Operating System: Ubuntu 26.04 LTS
+  Total Memory: 7.65 GB
+[testcontainers.org 00:00:00.57] Docker container 90e52ccbadef created
+[testcontainers.org 00:00:00.62] Start Docker container 90e52ccbadef
+[testcontainers.org 00:00:00.86] Wait for Docker container 90e52ccbadef to complete readiness checks
+[testcontainers.org 00:00:00.86] Execute "pg_isready --host localhost --dbname postgres --username postgres" at Docker container 90e52ccbadef
+[testcontainers.org 00:00:01.98] Execute "pg_isready --host localhost --dbname postgres --username postgres" at Docker container 90e52ccbadef
+[testcontainers.org 00:00:03.07] Execute "pg_isready --host localhost --dbname postgres --username postgres" at Docker container 90e52ccbadef
+[testcontainers.org 00:00:04.16] Execute "pg_isready --host localhost --dbname postgres --username postgres" at Docker container 90e52ccbadef
+[testcontainers.org 00:00:04.31] Docker container 90e52ccbadef ready
+Ready in 34.5s; indexed 500 fixture documents.
+read    c= 1   1804 req    180.4 req/s p95      7.0 ms errors=0 timeout=0 cancelled=0 pass
+read    c= 2   3614 req    361.3 req/s p95      7.0 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 1   1593 req    159.2 req/s p95      9.0 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 2   3323 req    332.3 req/s p95      7.3 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 1   1351 req    135.0 req/s p95      8.8 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 2   2402 req    240.1 req/s p95     10.3 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 1    709 req     70.9 req/s p95     15.7 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 2   1350 req    134.8 req/s p95     17.2 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 1    529 req     52.8 req/s p95     20.7 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 2   1028 req    102.7 req/s p95     21.5 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 1    610 req     61.0 req/s p95     18.6 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 2   1110 req    110.8 req/s p95     20.9 ms errors=0 timeout=0 cancelled=0 pass
+[testcontainers.org 00:02:59.09] Delete Docker container 90e52ccbadef
+postgresql repeat 2/3 (Kestrel process)
+[testcontainers.org 00:02:59.71] Docker container 4215130314af created
+[testcontainers.org 00:02:59.72] Start Docker container 4215130314af
+[testcontainers.org 00:02:59.93] Wait for Docker container 4215130314af to complete readiness checks
+[testcontainers.org 00:02:59.93] Execute "pg_isready --host localhost --dbname postgres --username postgres" at Docker container 4215130314af
+[testcontainers.org 00:03:01.01] Execute "pg_isready --host localhost --dbname postgres --username postgres" at Docker container 4215130314af
+[testcontainers.org 00:03:02.08] Execute "pg_isready --host localhost --dbname postgres --username postgres" at Docker container 4215130314af
+[testcontainers.org 00:03:02.16] Docker container 4215130314af ready
+Ready in 28.7s; indexed 500 fixture documents.
+read    c= 1   1967 req    196.7 req/s p95      6.3 ms errors=0 timeout=0 cancelled=0 pass
+read    c= 2   2402 req    240.2 req/s p95     16.1 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 1   1722 req    172.2 req/s p95      7.5 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 2   3380 req    337.9 req/s p95      7.3 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 1   1419 req    141.8 req/s p95      8.2 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 2   2529 req    252.8 req/s p95      9.1 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 1    735 req     73.4 req/s p95     15.1 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 2   1360 req    135.9 req/s p95     17.0 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 1    534 req     53.3 req/s p95     20.4 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 2    778 req     77.8 req/s p95     48.1 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 1    494 req     49.4 req/s p95     26.8 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 2   1101 req    110.0 req/s p95     21.3 ms errors=0 timeout=0 cancelled=0 pass
+[testcontainers.org 00:05:52.97] Delete Docker container 4215130314af
+postgresql repeat 3/3 (Kestrel process)
+[testcontainers.org 00:05:53.62] Docker container b3304c7686fa created
+[testcontainers.org 00:05:53.63] Start Docker container b3304c7686fa
+[testcontainers.org 00:05:53.87] Wait for Docker container b3304c7686fa to complete readiness checks
+[testcontainers.org 00:05:53.87] Execute "pg_isready --host localhost --dbname postgres --username postgres" at Docker container b3304c7686fa
+[testcontainers.org 00:05:54.95] Execute "pg_isready --host localhost --dbname postgres --username postgres" at Docker container b3304c7686fa
+[testcontainers.org 00:05:55.99] Execute "pg_isready --host localhost --dbname postgres --username postgres" at Docker container b3304c7686fa
+[testcontainers.org 00:05:56.09] Docker container b3304c7686fa ready
+Ready in 29.1s; indexed 500 fixture documents.
+read    c= 1   2006 req    200.5 req/s p95      6.1 ms errors=0 timeout=0 cancelled=0 pass
+read    c= 2   3746 req    374.6 req/s p95      6.7 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 1    668 req     65.2 req/s p95      6.6 ms errors=0 timeout=0 cancelled=0 pass
+query   c= 2     52 req      5.0 req/s p95    524.9 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 1    252 req     25.1 req/s p95     47.5 ms errors=0 timeout=0 cancelled=0 pass
+shared  c= 2    438 req     43.6 req/s p95     61.8 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 1     99 req      9.9 req/s p95    146.6 ms errors=0 timeout=0 cancelled=0 pass
+mytasks c= 2    150 req     14.8 req/s p95    182.4 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 1     72 req      7.1 req/s p95    194.6 ms errors=0 timeout=0 cancelled=0 pass
+search  c= 2    167 req     16.6 req/s p95    140.1 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 1     80 req      8.0 req/s p95    194.9 ms errors=0 timeout=0 cancelled=0 pass
+create  c= 2    116 req     11.4 req/s p95    345.8 ms errors=0 timeout=0 cancelled=0 pass
+[testcontainers.org 00:08:53.78] Delete Docker container b3304c7686fa
+Wrote /home/eduapaul/repos/PaperDotNet/artifacts/performance-baseline-2026-09-30/results.json
