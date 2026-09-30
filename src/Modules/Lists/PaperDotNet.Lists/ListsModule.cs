@@ -38,6 +38,7 @@ public sealed class ListsModule : IModule
         services.AddScoped<IPrincipalSet>(sp => sp.GetRequiredService<ItemAccess>());
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
+        services.AddOperationHandler<BulkUpdateOperation>();
         services.AddScoped(sp => new ScopeMover(sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<IItemQueries>(), sp.GetRequiredService<IOptions<ListsOptions>>()));
         services.AddScoped<IItemQueries, SqliteItemQueries>();
         services.AddScoped<ItemQueryRunner>();
@@ -51,6 +52,7 @@ public sealed class ListsModule : IModule
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
         ItemCountEndpoints.Map(endpoints);
+        BulkUpdateEndpoints.Map(endpoints);
         ItemHistoryEndpoints.Map(endpoints);
         PermissionEndpoints.Map(endpoints);
         ViewEndpoints.Map(endpoints);

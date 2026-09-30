@@ -72,6 +72,15 @@ curl -sf -X DELETE "${AUTH[@]}" -H 'If-Match: "2"' "$ITEMS/$ITEM" || fail "delet
 [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$LIST/recycleBin" | json 'len(d["value"])') == 1 ]] || fail "recycle bin"
 curl -sf -X POST "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$LIST/recycleBin/$ITEM/restore" -o /dev/null || fail "restore item"
 
+# Bulk update as an operation: the item matching the filter is changed in the background.
+OPERATION=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS/bulkUpdate" -d "{\"filter\":\"fields/title eq 'Versioned'\",\"fields\":{\"amount\":3}}" | json 'd["id"]') || fail "start bulk update"
+BULK=""
+for _ in $(seq 1 50); do
+  BULK=$(curl -sf "${AUTH[@]}" "$BASE/v1.0/operations/$OPERATION" | json 'd["status"] + ":" + str((d.get("result") or {}).get("updated"))')
+  [[ "$BULK" == succeeded:* || "$BULK" == failed:* ]] && break; sleep 0.2
+done
+[[ "$BULK" == "succeeded:1" ]] || fail "bulk update: $BULK"
+
 AUDITED=0
 for _ in $(seq 1 50); do
   AUDITED=$(curl -sf "${AUTH[@]}" "$BASE/v1.0/audit?\$top=100" | json 'len(d["value"])')

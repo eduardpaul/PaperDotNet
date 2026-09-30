@@ -2340,6 +2340,67 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/bulkUpdate": {
+      "post": {
+        "tags": [
+          "Items"
+        ],
+        "description": "Merges fields into every item matching filter, in the background: 202 with the operation to poll.",
+        "operationId": "BulkUpdateItems",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationAcceptedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/versions": {
       "get": {
         "tags": [
@@ -4176,6 +4237,32 @@
           }
         }
       },
+      "BulkUpdateRequest": {
+        "required": [
+          "filter",
+          "fields"
+        ],
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fields": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          }
+        },
+        "description": "Bulk update body: an OData filter (optional: all items) and field values to merge."
+      },
       "ChangePasswordRequest": {
         "required": [
           "currentPassword",
@@ -5127,6 +5214,23 @@
             }
           }
         }
+      },
+      "OperationAcceptedResponse": {
+        "required": [
+          "id",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "description": "An operation that was started: poll `/v1.0/operations/{id}`."
       },
       "OperationResponse": {
         "required": [
