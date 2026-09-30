@@ -50,6 +50,7 @@ public sealed class ListsModule : IModule
         ContentTypeEndpoints.Map(endpoints);
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
+        ItemCountEndpoints.Map(endpoints);
         ItemHistoryEndpoints.Map(endpoints);
         PermissionEndpoints.Map(endpoints);
         ViewEndpoints.Map(endpoints);

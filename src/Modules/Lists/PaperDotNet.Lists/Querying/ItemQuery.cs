@@ -54,6 +54,13 @@ internal interface IItemQueries
     /// update: EF Core cannot precompile <c>ExecuteUpdate</c> (ADR-0039).
     /// </summary>
     Task<int> MoveScopeAsync(Guid tenantId, Guid parentId, Guid oldScope, Guid newScope, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Counts the items matching <paramref name="query"/> per value of <paramref name="field"/> (at most
+    /// <see cref="ItemQuery.Top"/> values, most frequent first); with <paramref name="multiple"/> an item counts once
+    /// per value, and items without a value are one more entry with a null value.
+    /// </summary>
+    Task<IReadOnlyList<Features.ValueCount>> CountValuesAsync(ItemQuery query, string field, bool multiple, CancellationToken cancellationToken);
 }
 
 /// <summary>Parsed <c>$filter</c> clauses and <c>$orderby</c> with the aliases they refer to.</summary>

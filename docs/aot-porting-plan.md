@@ -31,9 +31,9 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | Step | Task | Status |
 |---|---|---|
 | T08a | Item permissions: break/reset inheritance, grants for lists and items, folder contents follow scope changes (`ScopeMover`, `CompleteFolderScopeChange`) | done |
-| T08b | Views (`/views`, `?viewId=` on item queries) | done (AOT smoke run pending) |
-| T08c | Item counts (per list, per folder, grouped) | in progress |
-| T08d | Bulk update as an operation (`/items/bulkUpdate`) | |
+| T08b | Views (`/views`, `?viewId=` on item queries) | done |
+| T08c | Item counts per field value (`/items/counts`; without indexed fields: JSON values, `json_each` for multi-value fields) | done (AOT smoke run pending) |
+| T08d | Bulk update as an operation (`/items/bulkUpdate`) | in progress |
 | T08e | Delta (change log, `/items/delta`, scope changes for delta) | |
 | T08f | List templates and `templateKey` | |
 | T08g | Smart folders | |

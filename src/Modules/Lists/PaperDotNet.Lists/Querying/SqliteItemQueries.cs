@@ -6,6 +6,7 @@ using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
+using PaperDotNet.Lists.Features;
 
 namespace PaperDotNet.Lists.Querying;
 
@@ -61,31 +62,7 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
         {
             await using var command = connection.CreateCommand();
             var translator = new Translator(command);
-            var where = new StringBuilder("\"i\".\"TenantId\" = ").Append(translator.Parameter(GuidText(query.TenantId)))
-                .Append(" AND \"i\".\"DeletedAt\" IS NULL AND \"i\".\"ListId\" IN (")
-                .Append(string.Join(", ", query.ListIds.Select(id => translator.Parameter(GuidText(id))))).Append(')');
-            if (query.Scopes is { } scopes)
-            {
-                where.Append(" AND \"i\".\"ScopeId\" IN (").Append(string.Join(", ", scopes.Select(id => translator.Parameter(GuidText(id))))).Append(')');
-            }
-
-            where.Append(query.Folders switch
-            {
-                FolderMode.ItemsOnly => " AND \"i\".\"IsFolder\" = 0",
-                FolderMode.Children when query.ParentId is { } parent => $" AND \"i\".\"ParentId\" = {translator.Parameter(GuidText(parent))}",
-                FolderMode.Children => " AND \"i\".\"ParentId\" IS NULL",
-                _ => "",
-            });
-            if (query.ItemId is { } itemId)
-            {
-                where.Append(" AND \"i\".\"Id\" = ").Append(translator.Parameter(GuidText(itemId)));
-            }
-
-            foreach (var (clause, aliases) in query.Parsed.Filters)
-            {
-                translator.Aliases = aliases;
-                where.Append(" AND (").Append(translator.Predicate(clause.Expression)).Append(')');
-            }
+            var where = Where(query, translator);
 
             long? count = null;
             if (query.Count)
@@ -139,6 +116,101 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
             await db.Database.CloseConnectionAsync();
         }
     }
+
+    /// <summary>The WHERE clause of an item query: tenant, lists, readable scopes, folders and filters.</summary>
+    private static string Where(ItemQuery query, Translator translator)
+    {
+        var where = new StringBuilder("\"i\".\"TenantId\" = ").Append(translator.Parameter(GuidText(query.TenantId)))
+                .Append(" AND \"i\".\"DeletedAt\" IS NULL AND \"i\".\"ListId\" IN (")
+                .Append(string.Join(", ", query.ListIds.Select(id => translator.Parameter(GuidText(id))))).Append(')');
+        if (query.Scopes is { } scopes)
+        {
+            where.Append(" AND \"i\".\"ScopeId\" IN (").Append(string.Join(", ", scopes.Select(id => translator.Parameter(GuidText(id))))).Append(')');
+        }
+
+        where.Append(query.Folders switch
+        {
+            FolderMode.ItemsOnly => " AND \"i\".\"IsFolder\" = 0",
+            FolderMode.Children when query.ParentId is { } parent => $" AND \"i\".\"ParentId\" = {translator.Parameter(GuidText(parent))}",
+            FolderMode.Children => " AND \"i\".\"ParentId\" IS NULL",
+            _ => "",
+        });
+        if (query.ItemId is { } itemId)
+        {
+            where.Append(" AND \"i\".\"Id\" = ").Append(translator.Parameter(GuidText(itemId)));
+        }
+
+        foreach (var (clause, aliases) in query.Parsed.Filters)
+        {
+            translator.Aliases = aliases;
+            where.Append(" AND (").Append(translator.Predicate(clause.Expression)).Append(')');
+        }
+
+        return where.ToString();
+    }
+
+    public async Task<IReadOnlyList<ValueCount>> CountValuesAsync(ItemQuery query, string field, bool multiple, CancellationToken cancellationToken)
+    {
+        if (query.ListIds.Count == 0 || query.Scopes is { Count: 0 })
+        {
+            return [];
+        }
+
+        var connection = db.Database.GetDbConnection();
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            var translator = new Translator(command);
+            var where = Where(query, translator);
+            var path = translator.Parameter("$." + field);
+            var limit = translator.Parameter(query.Top);
+            var counts = new List<ValueCount>();
+
+            // The type is grouped too, so true and 1 stay apart; values come back as text.
+            command.CommandText = multiple
+                ? $"SELECT \"j\".\"type\", \"j\".\"value\", COUNT(*) FROM \"list_items\" AS \"i\", json_each(\"i\".\"Fields\", {path}) AS \"j\" "
+                  + $"WHERE {where} GROUP BY 1, 2 ORDER BY 3 DESC LIMIT {limit}"
+                : $"SELECT json_type(\"i\".\"Fields\", {path}), json_extract(\"i\".\"Fields\", {path}), COUNT(*) FROM \"list_items\" AS \"i\" "
+                  + $"WHERE {where} GROUP BY 1, 2 ORDER BY 3 DESC LIMIT {limit}";
+            await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    counts.Add(new ValueCount(reader.IsDBNull(0) ? null : ValueText(reader.GetString(0), reader.GetValue(1)), reader.GetInt64(2)));
+                }
+            }
+
+            if (multiple)
+            {
+                // Items without any value.
+                command.CommandText = $"SELECT COUNT(*) FROM \"list_items\" AS \"i\" WHERE {where} "
+                    + $"AND COALESCE(json_array_length(\"i\".\"Fields\", {path}), 0) = 0";
+                var empty = Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+                if (empty > 0)
+                {
+                    counts.Add(new ValueCount(null, empty));
+                }
+            }
+
+            return counts;
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
+    /// <summary>A JSON value as the API shows it in counts: numbers in invariant form, booleans as true/false.</summary>
+    private static string? ValueText(string type, object value) => type switch
+    {
+        "null" => null,
+        "true" => "true",
+        "false" => "false",
+        "integer" => Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+        "real" => Convert.ToDouble(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+        _ => Convert.ToString(value, CultureInfo.InvariantCulture),
+    };
 
     private static ListItem Read(DbDataReader reader, Guid tenantId) => new()
     {

@@ -33,6 +33,7 @@ namespace PaperDotNet.Lists;
 [JsonSerializable(typeof(CreateItemRequest))]
 [JsonSerializable(typeof(JsonObject))]
 [JsonSerializable(typeof(JsonElement))]
+[JsonSerializable(typeof(ValueCountsResponse))]
 [JsonSerializable(typeof(ViewResponse))]
 [JsonSerializable(typeof(List<ViewResponse>))]
 [JsonSerializable(typeof(ViewRequest))]
