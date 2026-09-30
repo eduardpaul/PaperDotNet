@@ -126,19 +126,21 @@ public class ListsDbContext : DbContext
 
     internal Task<List<ItemValue>> ValuesOfAsync(Guid tenantId, Guid itemId, CancellationToken cancellationToken)
     {
+        var context = this;
         var tenant = tenantId;
         var id = itemId;
         var ct = cancellationToken;
-        return ItemValues.Where(v => v.TenantId == tenant && v.ItemId == id).ToListAsync(ct);
+        return context.ItemValues.Where(v => v.TenantId == tenant && v.ItemId == id).ToListAsync(ct);
     }
 
     /// <summary>A list of the tenant (tracked), also in the recycle bin.</summary>
     private Task<ListDefinition?> FindListAsync(Guid tenantId, Guid listId, CancellationToken cancellationToken)
     {
+        var context = this;
         var tenant = tenantId;
         var id = listId;
         var ct = cancellationToken;
-        return Lists.Where(l => l.TenantId == tenant && l.Id == id).FirstOrDefaultAsync(ct);
+        return context.Lists.Where(l => l.TenantId == tenant && l.Id == id).FirstOrDefaultAsync(ct);
     }
 
     /// <summary>Plans the indexed fields of new lists, lists whose content types changed, and lists using a changed content type.</summary>
@@ -200,17 +202,19 @@ public class ListsDbContext : DbContext
 
     private Task<List<ListDefinition>> ListsOfTenantAsync(Guid tenantId, CancellationToken cancellationToken)
     {
+        var context = this;
         var tenant = tenantId;
         var ct = cancellationToken;
-        return Lists.Where(l => l.TenantId == tenant && l.DeletedAt == null).ToListAsync(ct);
+        return context.Lists.Where(l => l.TenantId == tenant && l.DeletedAt == null).ToListAsync(ct);
     }
 
     private Task<ContentType?> FindContentTypeAsync(Guid tenantId, Guid contentTypeId, CancellationToken cancellationToken)
     {
+        var context = this;
         var tenant = tenantId;
         var id = contentTypeId;
         var ct = cancellationToken;
-        return ContentTypes.AsNoTracking().Where(c => c.TenantId == tenant && c.Id == id).FirstOrDefaultAsync(ct);
+        return context.ContentTypes.AsNoTracking().Where(c => c.TenantId == tenant && c.Id == id).FirstOrDefaultAsync(ct);
     }
 
     /// <summary>
