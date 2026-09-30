@@ -184,6 +184,13 @@ public sealed class WorkflowActivityContext
     /// <c>{outcome:Step name}</c> and <c>{data:name}</c>. <c>{{</c> and <c>}}</c> are literal braces.
     /// </summary>
     public required Func<string, CancellationToken, Task<string>> ExpandAsync { get; init; }
+
+    /// <summary>
+    /// The value of an input as JSON: a text that is exactly one token without a format (<c>{step:read.json.total}</c>,
+    /// <c>{var:line}</c>, <c>{amount}</c>) gives that value with its type (a number stays a number, a list a list); other
+    /// text is expanded like <see cref="ExpandAsync"/>. Null when the token has no value.
+    /// </summary>
+    public required Func<string, CancellationToken, Task<JsonNode?>> ResolveAsync { get; init; }
 }
 
 /// <summary>

@@ -403,6 +403,17 @@ These defaults were chosen when implementation started; each can still be change
   is sent: directly, or when the batch is built. So a batched step's wait data stays small.
 - **Pages come from a contract.** `IItemPageImageSource` in Lists.Contracts is next to `IItemSearchContributor`.
   Documents implements it with the page renderer and its cache. AiWorkflows stays on the SDK.
-- **The sample shows the split.** The receipts package is configuration only: tags, content types, lists, the
-  prompt, the schema and the workflows. Its extension adds the one action configuration cannot express: JSON to
-  typed fields and line items.
+- **Mapping data is part of the workflow JSON, not code.** A first version of the receipts sample needed an
+  extension action to turn the AI's answer into fields and lines. That was a gap in the engine, so it is closed there
+  with the first part of 9e:
+  - `forEach` goes through an array (one token, such as `{step:read.json.lines}`) or the items a list query finds,
+    with the element in a variable. It keeps its state (elements, index) in its node output, and the body leads back
+    to it, so it is an ordinary node of the graph: a run waits, crashes and retries inside a loop like anywhere else.
+    Each body node gets a new execution id per element, so actions in a loop stay safe to repeat. At most 500
+    elements.
+  - `item.create` and `item.delete` act on any list of the workspace by name. `item.create` uses the execution id as
+    the item id.
+  - In `fields`, a value that is exactly one token keeps its JSON type for fields that are not text. So
+    `"total": "{step:read.json.total}"` writes a number, and terms and people stay ids. Text fields still get text,
+    so existing workflows behave as before. Activities get the same through `WorkflowActivityContext.ResolveAsync`.
+  - The receipts package is now configuration only, and the sample extension is gone.

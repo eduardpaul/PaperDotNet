@@ -28,16 +28,25 @@ internal sealed record TokenScope(ListItemData? Item, string? ListName, JsonObje
     /// A value in a node's output: <c>Node.path.to.value</c>. Node ids may contain dots, so the longest id that is an
     /// output wins.
     /// </summary>
-    public JsonNode? Step(string reference)
+    public JsonNode? Step(string reference) => Path(Outputs, reference);
+
+    /// <summary>A variable, or a value in it: <c>line.description</c>.</summary>
+    public JsonNode? Variable(string reference) => Path(Variables, reference);
+
+    /// <summary>A value of the trigger data, or in it.</summary>
+    public JsonNode? Trigger(string reference) => Path(Data, reference);
+
+    /// <summary>A value under a name (the longest name that exists wins, as names may contain dots) and a path into it.</summary>
+    private static JsonNode? Path(JsonObject? root, string reference)
     {
-        if (Outputs is null)
+        if (root is null)
         {
             return null;
         }
 
         for (var split = reference.Length; split > 0; split = reference.LastIndexOf('.', split - 1))
         {
-            if (Outputs[reference[..split]] is { } output)
+            if (root[reference[..split]] is { } output)
             {
                 JsonNode? value = output;
                 foreach (var part in split < reference.Length ? reference[(split + 1)..].Split('.') : [])
@@ -95,6 +104,34 @@ internal sealed class TokenExpander(ITermStore terms, IUserDirectory users, Time
         return result.ToString();
     }
 
+    /// <summary>
+    /// The value of an input (see <c>WorkflowActivityContext.ResolveAsync</c>): a text that is exactly one token without a
+    /// format gives the value it refers to as JSON (<c>{step:…}</c>, <c>{var:…}</c>, <c>{trigger:…}</c> and item fields);
+    /// other text is expanded. Null when the token has no value.
+    /// </summary>
+    public async Task<JsonNode?> ValueAsync(string template, TokenScope scope, CancellationToken ct)
+    {
+        if (template.Length > 2 && template[0] == '{' && template[1] != '{' && template.IndexOf('}', StringComparison.Ordinal) == template.Length - 1)
+        {
+            var token = template[1..^1];
+            var colon = token.IndexOf(':', StringComparison.Ordinal);
+            var (name, reference) = colon < 0 ? (token.Trim(), null) : (token[..colon].Trim(), token[(colon + 1)..].Trim());
+            switch (name, reference)
+            {
+                case ("step", { } path):
+                    return scope.Step(path)?.DeepClone();
+                case ("var", { } path):
+                    return scope.Variable(path)?.DeepClone();
+                case ("data" or "trigger", { } path):
+                    return scope.Trigger(path)?.DeepClone();
+                case (not ("id" or "list" or "created" or "modified" or "today" or "outcome"), null):
+                    return scope.Item?.Fields[name]?.DeepClone();
+            }
+        }
+
+        return JsonValue.Create(await ExpandAsync(template, scope, ct));
+    }
+
     private async Task<string> ResolveAsync(string name, string? format, TokenScope scope, CancellationToken ct)
     {
         var item = scope.Item;
@@ -113,9 +150,9 @@ internal sealed class TokenExpander(ITermStore terms, IUserDirectory users, Time
             case "outcome":
                 return format is not null && scope.Outputs?[format.Trim()]?["outcome"] is JsonValue outcome ? outcome.ToString() : string.Empty;
             case "data" or "trigger":
-                return format is not null && scope.Data?[format.Trim()] is { } data ? await ValueAsync(data, null, ct) : string.Empty;
+                return format is not null && scope.Trigger(format.Trim()) is { } data ? await ValueAsync(data, null, ct) : string.Empty;
             case "var":
-                return format is not null && scope.Variables?[format.Trim()] is { } variable ? await ValueAsync(variable, null, ct) : string.Empty;
+                return format is not null && scope.Variable(format.Trim()) is { } variable ? await ValueAsync(variable, null, ct) : string.Empty;
             case "step":
                 return format is not null && scope.Step(format.Trim()) is { } output ? await ValueAsync(output, null, ct) : string.Empty;
         }

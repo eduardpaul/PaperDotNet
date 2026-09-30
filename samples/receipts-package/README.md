@@ -12,26 +12,28 @@ into the receipt's fields:
 It also creates one item per line (description, quantity, unit price, amount)
 in the list **Receipt lines**.
 
-It shows the two ways PaperDotNet is meant to be changed:
+**It is configuration only: no code.** Everything is one template
+([template.xml](template.xml)), which you can apply to any organization,
+export, and change:
+- the tags, the content types and the views;
+- the library, and the lines list with its lookup to the receipt;
+- the OCR languages;
+- the workflows.
 
-- **Portable configuration.** Everything in the workspace is one template
-  ([template.xml](template.xml)): the tags, the content types, the library,
-  the lines list with its lookup to the receipt, the views, the OCR languages,
-  and the workflows. The AI part is part of the configuration too: the prompt,
-  the JSON schema of the answer, batch execution and images. You can apply it
-  to any organization, export it, and change it without writing code.
-- **Extensions for what configuration cannot do.** Turning the AI's JSON into
-  typed fields and line items is one workflow action, `samples.receipts.save`,
-  in the sample extension
-  [PaperDotNet.Samples.Receipts](../PaperDotNet.Samples.Receipts/ReceiptsExtension.cs).
-  The extension references only the extension SDK and adds the action with the
-  same call the product's own modules use (`AddWorkflowActivity`).
+The workflows cover the AI part too: the prompt, the JSON schema of the answer,
+batch execution and images. They also map the answer into the lists:
+- `item.update` writes the fields;
+- `forEach` with `item.create` makes the lines;
+- `forEach` over a query with `item.delete` removes the lines of an earlier
+  reading.
+
+A value such as `"total": "{step:read.json.total}"` keeps its type (a number
+for a number field), so no conversion code is needed.
 
 ## What the template contains
 
 | Part | What it is |
 |---|---|
-| Extension `samples.receipts` | Enabled for the organization |
 | Term set `Receipts/Tags` | **ticket** (synonym *receipt*) with Groceries, Restaurant and Fuel below it; Warranty |
 | Content type **Receipt** | `tags`, `status` (New, Read, Needs review), `store`, `purchaseDate`, `currency`, `total` |
 | Content type **Receipt line** | `receipt` (lookup to the library), `quantity`, `unitPrice`, `amount`; the title is the description |
@@ -51,22 +53,22 @@ Both reading workflows run the same flow:
    With `execution: batch` the step waits for the AI batch (the run holds no
    server while it waits). With `onDeadline: fail` it never falls back to an
    immediate call.
-2. `save` (`samples.receipts.save`): writes the fields, sets the status to
-   *Read*, and replaces the lines of an earlier reading.
-3. On an error in either step, `review` (`item.update`) sets the status to
+2. `save` (`item.update`): writes the store, date, currency and total from
+   `{step:read.json.…}`, and sets the status to *Read*.
+3. `old lines` (`forEach` over a query of *Receipt lines* where `receipt` is
+   this receipt) with `remove` (`item.delete`): removes the lines of an
+   earlier reading. The receipt can be read again by tagging it again.
+4. `lines` (`forEach` over `{step:read.json.lines}` as `line`) with `add`
+   (`item.create`): one item per line, with `{var:line.description}`,
+   `{var:line.quantity}`, `{var:line.unitPrice}`, `{var:line.amount}`, and the
+   receipt as its lookup (`{id}`).
+5. On an error in any step, `review` (`item.update`) sets the status to
    *Needs review*.
 
 ## Try it
 
-1. **Build a server with the sample extension:**
-
-   ```bash
-   dotnet run --project src/PaperDotNet.Host -p:IncludeSamples=true
-   ```
-
-   `IncludeSamples` adds the sample extensions to the host build. It is off in
-   normal builds and images; a real deployment references its extensions as
-   packages (see [extensions.md](../../docs/extensions.md#7-add-it-to-a-host-build)).
+1. **Run any PaperDotNet server** (`dotnet run --project src/PaperDotNet.Host`,
+   or the container). It needs nothing extra.
 
 2. **Configure a model that reads images, ideally with a batch API.** For
    example, Azure AI Foundry with a *Global Batch* deployment of gpt-4.1:

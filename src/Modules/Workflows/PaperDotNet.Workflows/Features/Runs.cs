@@ -486,6 +486,52 @@ internal sealed partial class WorkflowInterpreter(
             return await tokens.ExpandAsync(template, scope, ct);
         }
 
+        // The elements a forEach goes through: its items (an array or one token), or the items its query finds.
+        async Task<(JsonArray? Elements, string? Error)> ElementsAsync(JsonObject inputs)
+        {
+            JsonNode? value;
+            if (inputs["query"] is JsonObject query)
+            {
+                var store = items.AsSystem();
+                var listName = await ExpandAsync(ActivityInputs.Text(query, "list")!);
+                if ((await store.GetListsAsync(run.WorkspaceId, null, ct)).FirstOrDefault(l => l.Name == listName) is not { } list)
+                {
+                    return (null, $"The list '{listName}' does not exist in the workspace.");
+                }
+
+                var filter = ActivityInputs.Text(query, "filter") is { } text ? await ExpandAsync(text) : null;
+                var (found, problem) = await store.QueryAsync(run.WorkspaceId, list.Id, new ListItemQuery(filter, Top: FlowActivities.MaxForEachItems + 1), ct);
+                if (problem is not null)
+                {
+                    return (null, problem);
+                }
+
+                value = new JsonArray([.. found.Select(i =>
+                {
+                    var element = i.Fields.DeepClone().AsObject();
+                    element["id"] = i.Id.ToString();
+                    return (JsonNode)element;
+                })]);
+            }
+            else if (inputs["items"] is JsonValue token && token.TryGetValue<string>(out var template))
+            {
+                scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct);
+                value = await tokens.ValueAsync(template, scope, ct);
+            }
+            else
+            {
+                value = inputs["items"]?.DeepClone();
+            }
+
+            return value switch
+            {
+                null => ([], null),
+                JsonArray { Count: > FlowActivities.MaxForEachItems } => (null, $"forEach goes through at most {FlowActivities.MaxForEachItems} elements."),
+                JsonArray array => (array, null),
+                _ => (null, "items is not a list."),
+            };
+        }
+
         if (run.Attempts > MaxAttempts)
         {
             await FailAsync($"The run stopped after {MaxAttempts} attempts without progress (see the server log).", run.Node);
@@ -592,6 +638,59 @@ internal sealed partial class WorkflowInterpreter(
                     if (!await ContinueAsync(id, "done"))
                     {
                         return;
+                    }
+
+                    break;
+                case FlowActivities.ForEach:
+                    // The loop's state is the node's output: the elements, the current index and the count. The body
+                    // leads back here, which moves on to the next element; after the last, the node continues with done.
+                    var loop = outputs[id] as JsonObject;
+                    var active = loop?["active"] is JsonValue flag && flag.GetValueKind() == System.Text.Json.JsonValueKind.True && loop["items"] is JsonArray;
+                    var (elements, elementsError) = active ? ((JsonArray)loop!["items"]!, null) : await ElementsAsync(inputs);
+                    if (elements is null)
+                    {
+                        if (!await FailedAsync(id, node, elementsError!))
+                        {
+                            return;
+                        }
+
+                        break;
+                    }
+
+                    var position = active ? loop!["index"]!.GetValue<int>() + 1 : 0;
+                    var element = ActivityInputs.Text(inputs, "as") ?? "item";
+                    if (position < elements.Count)
+                    {
+                        if (active)
+                        {
+                            loop!["index"] = position;
+                        }
+                        else
+                        {
+                            Log($"{id}: {elements.Count} element(s)");
+                            outputs[id] = new JsonObject { ["active"] = true, ["index"] = position, ["count"] = elements.Count, ["items"] = elements };
+                        }
+
+                        variables[element] = elements[position]?.DeepClone();
+                        if (outputs.ToJsonString().Length > MaxStateLength)
+                        {
+                            await FailAsync($"{id}: the elements are too large.", id);
+                            return;
+                        }
+
+                        if (!await ContinueAsync(id, "item"))
+                        {
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        variables.Remove(element);
+                        outputs[id] = new JsonObject { ["index"] = elements.Count, ["count"] = elements.Count };
+                        if (!await ContinueAsync(id, "done"))
+                        {
+                            return;
+                        }
                     }
 
                     break;

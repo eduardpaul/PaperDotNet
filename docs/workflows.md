@@ -130,6 +130,13 @@ kind of flow, so both run the same way.
     as numbers): ports `true`, `false`;
   - `setVariable` (`name`, `value`: text with tokens or any JSON value):
     port `done`;
+  - `forEach`: runs the nodes on its `item` port once per element, with the
+    element in the variable `as` (default `item`: `{var:item.name}`); the last
+    of those nodes leads back to the `forEach` node. The elements are `items`
+    (an array, or one token such as `{step:read.json.lines}`) or the items a
+    `query` finds (`list` by name, `filter` in OData with tokens; each element
+    is the item's fields and its `id`). At most 500 elements. Then port `done`;
+    its output is `index` and `count`;
   - `end` ends the run; `fail` (`message`) ends it as failed.
 - **Outputs and variables:** each node's result is its output (an action's
   output, an approval's `outcome`, `decidedBy` and `comment`, or `error` on the
@@ -140,6 +147,26 @@ kind of flow, so both run the same way.
 - **Checks:** the start and every next node must exist, ports must fit their
   activity, every node must be reachable from the start, and a flow has at
   most 100 nodes. A run executes at most 1000 nodes.
+
+**Mapping data, without code.** An AI answer or any other node output can be
+written to lists with the JSON alone: `item.update` for the item's fields,
+`forEach` over an array, and `item.create` for one item per element. For a
+field that is not text, a value that is exactly one token keeps its type, so
+`"total": "{step:read.json.total}"` writes a number. The receipts package
+([samples/receipts-package](../samples/receipts-package/README.md)) does
+exactly that:
+
+```json
+"save":      { "activity": "item.update", "inputs": { "fields": { "store": "{step:read.json.store}", "total": "{step:read.json.total}" } },
+               "next": { "done": "old lines" } },
+"old lines": { "activity": "forEach", "inputs": { "query": { "list": "Receipt lines", "filter": "fields/receipt eq {id}" }, "as": "old" },
+               "next": { "item": "remove", "done": "lines" } },
+"remove":    { "activity": "item.delete", "inputs": { "list": "Receipt lines", "id": "{var:old.id}" }, "next": { "done": "old lines" } },
+"lines":     { "activity": "forEach", "inputs": { "items": "{step:read.json.lines}", "as": "line" }, "next": { "item": "add" } },
+"add":       { "activity": "item.create", "inputs": { "list": "Receipt lines",
+               "fields": { "title": "{var:line.description}", "amount": "{var:line.amount}", "receipt": "{id}" } },
+               "next": { "done": "lines" } }
+```
 
 The web editor edits steps; flows are edited in its JSON view for now.
 
@@ -194,7 +221,9 @@ The web editor edits steps; flows are edited in its JSON view for now.
 
 | Action | Inputs |
 |---|---|
-| `item.update` | `fields`: values to set; text may contain tokens |
+| `item.update` | `fields`: values to set; text may contain tokens (a single token keeps its type, see below) |
+| `item.create` | `list` (by name), `fields` (as `item.update`), `contentType`; output `itemId`. Safe to repeat: the item's id is the step's execution id |
+| `item.delete` | `list`, `id` (e.g. `{var:line.id}`): to the recycle bin; an item already gone is not an error |
 | `item.file` | `folder`: path template (each level becomes a folder; missing ones are created); `title`: new title |
 | `task.create` | `list` (a task list), `title`, `assignedTo`, `dueInDays`, `priority`, `description` |
 | `notify` | `to`, `title`, `body`; the notification links to the item |
@@ -210,12 +239,18 @@ The web editor edits steps; flows are edited in its JSON view for now.
 - `{created:yyyy}`, `{modified}`, `{today:yyyy-MM-dd}`;
 - `{list}`, `{id}`;
 - `{outcome:Step}` (approval outcomes);
-- `{var:name}` (variables), `{step:Node.path}` (a value in a node's output,
-  e.g. `{step:task.taskId}`);
+- `{var:name}` or `{var:name.path}` (variables), `{step:Node.path}` (a value in
+  a node's output, e.g. `{step:task.taskId}`);
 - `{trigger:name}` or `{data:name}` (extension trigger data).
 
 Term values become term names and person values become user names. `{{` and
 `}}` are literal braces.
+
+**Typed values:** in the `fields` of `item.update` and `item.create`, a value
+for a field that is not text (number, date, lookup, person, term, …) that is
+exactly one token without a format gets the value with its type: a number
+stays a number, a list a list, and terms and people stay ids. Text fields
+(text, note, email, url, choice) always get the text.
 
 **People** (`to`, `assignedTo`, `assignees`, `escalateTo`):
 

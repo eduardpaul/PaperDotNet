@@ -92,13 +92,23 @@ public static class FlowActivities
     /// <summary>Sets the variable <c>name</c> to <c>value</c> (text with tokens, or any JSON value).</summary>
     public const string SetVariable = "setVariable";
 
+    /// <summary>
+    /// Runs the nodes on its <c>item</c> port once per element of <c>items</c> (an array, or a text that is exactly one
+    /// token, e.g. <c>{step:read.json.lines}</c>) or of the items a <c>query</c> finds (<c>list</c>, <c>filter</c>), with
+    /// the element in the variable <c>as</c> (default <c>item</c>); the body leads back to this node. Then <c>done</c>.
+    /// </summary>
+    public const string ForEach = "forEach";
+
+    /// <summary>Most elements a <see cref="ForEach"/> goes through.</summary>
+    public const int MaxForEachItems = 500;
+
     /// <summary>Ends the run as completed.</summary>
     public const string End = "end";
 
     /// <summary>Ends the run as failed with <c>message</c>.</summary>
     public const string Fail = "fail";
 
-    public static readonly string[] All = [Approval, Delay, If, SetVariable, End, Fail];
+    public static readonly string[] All = [Approval, Delay, If, SetVariable, ForEach, End, Fail];
 
     /// <summary>The outcome ports each activity has; actions have <c>done</c> and <c>error</c>.</summary>
     public static IReadOnlySet<string> Ports(string activity) => activity switch
@@ -107,6 +117,7 @@ public static class FlowActivities
         Delay => new HashSet<string>(["done"], StringComparer.Ordinal),
         If => new HashSet<string>(["true", "false", "error"], StringComparer.Ordinal),
         SetVariable => new HashSet<string>(["done"], StringComparer.Ordinal),
+        ForEach => new HashSet<string>(["item", "done", "error"], StringComparer.Ordinal),
         End or Fail => new HashSet<string>(StringComparer.Ordinal),
         _ => new HashSet<string>(["done", "error"], StringComparer.Ordinal),
     };
@@ -480,6 +491,32 @@ internal static class Definitions
                     if (ActivityInputs.Text(inputs, "name") is null)
                     {
                         errors.Add($"{at}: name is required.");
+                    }
+
+                    break;
+                case FlowActivities.ForEach:
+                    var query = inputs["query"] as JsonObject;
+                    if ((inputs["items"] is null) == (query is null))
+                    {
+                        errors.Add($"{at}: use either items (an array, or one token such as {{step:read.json.lines}}) or query (list, filter).");
+                    }
+                    else if (inputs["items"] is { } list && list is not JsonArray && !(list is JsonValue value && value.GetValueKind() == JsonValueKind.String))
+                    {
+                        errors.Add($"{at}: items must be an array or a token.");
+                    }
+                    else if (query is not null && ActivityInputs.Text(query, "list") is null)
+                    {
+                        errors.Add($"{at}: query needs list.");
+                    }
+
+                    if (ActivityInputs.Text(inputs, "as") is { } variable && !System.Text.RegularExpressions.Regex.IsMatch(variable, "^[A-Za-z][A-Za-z0-9_]*$"))
+                    {
+                        errors.Add($"{at}: as must be a name (letters, digits and _).");
+                    }
+
+                    if (node.Next?.ContainsKey("item") != true)
+                    {
+                        errors.Add($"{at}: forEach needs an item port (the nodes to run for each element).");
                     }
 
                     break;

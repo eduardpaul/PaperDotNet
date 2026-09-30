@@ -538,6 +538,109 @@ public sealed class WorkflowTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task Flows_map_json_to_fields_and_loop_over_arrays_and_queries()
+    {
+        var s = await SetupAsync("auto-foreach");
+        var lineType = await s.Admin.CreateContentTypeAsync("Line", [
+            new { name = "bill", type = "lookup", lookupListId = s.Invoices },
+            new { name = "qty", type = "number" },
+            new { name = "note", type = "text" },
+        ]);
+        var lines = await s.Admin.CreateListAsync(s.Workspace, "Lines", lineType);
+
+        // Invalid loops are rejected when saved.
+        async Task<string> InvalidAsync(object flow)
+        {
+            var response = await s.Admin.PostAsJsonAsync(s.Workflows, new { name = "Bad loop", trigger = new { type = "manual", list = "Bills" }, flow }, Ct);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            return await response.Content.ReadAsStringAsync(Ct);
+        }
+
+        Assert.Contains("item port", await InvalidAsync(new { start = "each", nodes = new { each = new { activity = "forEach", inputs = new { items = "{var:x}" } } } }), StringComparison.Ordinal);
+        Assert.Contains("either items", await InvalidAsync(new
+        {
+            start = "each",
+            nodes = new Dictionary<string, object>
+            {
+                ["each"] = new { activity = "forEach", inputs = new { items = "{var:x}", query = new { list = "Lines" } }, next = new { item = "add" } },
+                ["add"] = new { activity = "item.create", inputs = new { list = "Lines", fields = new { title = "x" } }, next = new { done = "each" } },
+            },
+        }), StringComparison.Ordinal);
+
+        // A structured value (as an AI step returns it) becomes the bill's fields and one line per element. Lines of an
+        // earlier run are found with a query and deleted first, so running again replaces them.
+        await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Split",
+            trigger = new { type = "manual", list = "Bills" },
+            variables = new { reading = new { total = 7.5, lines = new object[] { new { name = "Paper", qty = 2 }, new { name = "Ink", qty = 3.5 } } } },
+            flow = new
+            {
+                start = "save",
+                nodes = new Dictionary<string, object>
+                {
+                    ["save"] = new { activity = "item.update", inputs = new { fields = new { amount = "{var:reading.total}", note = "was {amount}" } }, next = new { done = "clear" } },
+                    ["clear"] = new { activity = "forEach", inputs = new { query = new { list = "Lines", filter = "fields/bill eq {id}" }, @as = "old" }, next = new { item = "drop", done = "each" } },
+                    ["drop"] = new { activity = "item.delete", inputs = new { list = "Lines", id = "{var:old.id}" }, next = new { done = "clear" } },
+                    ["each"] = new { activity = "forEach", inputs = new { items = "{var:reading.lines}", @as = "line" }, next = new { item = "add" } },
+                    ["add"] = new
+                    {
+                        activity = "item.create",
+                        inputs = new { list = "Lines", fields = new { title = "{var:line.name}", qty = "{var:line.qty}", note = "{var:line.qty}", bill = "{id}" } },
+                        next = new { done = "each" },
+                    },
+                },
+            },
+        });
+        var bill = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "Bill", amount = 500 } })).GetProperty("id").GetGuid();
+        async Task<JsonElement> SplitAsync()
+        {
+            var run = await PostIdAsync(s.Admin, $"{s.Item(bill)}/workflows", new { workflow = "Split" });
+            var done = await WaitAsync(s.Admin, $"{s.Workflows}/runs/{run}", r => Status(r) is "completed" or "failed");
+            Assert.True(Status(done) == "completed", done.ToString());
+            return done;
+        }
+
+        var first = await SplitAsync();
+        Assert.Equal(2, first.GetProperty("outputs").GetProperty("each").GetProperty("count").GetInt32());
+        Assert.False(first.GetProperty("variables").TryGetProperty("line", out _));
+        var fields = (await GetAsync(s.Admin, s.Item(bill))).GetProperty("fields");
+        Assert.Equal(7.5m, fields.GetProperty("amount").GetDecimal());
+        Assert.Equal("was 500", fields.GetProperty("note").GetString());
+        var created = Values(await GetAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists/{lines}/items")).Select(i => i.GetProperty("fields")).OrderBy(f => f.GetProperty("title").GetString()).ToList();
+        Assert.Equal(["Ink", "Paper"], created.Select(f => f.GetProperty("title").GetString()));
+        Assert.Equal([3.5m, 2m], created.Select(f => f.GetProperty("qty").GetDecimal()));
+        Assert.Equal(["3.5", "2"], created.Select(f => f.GetProperty("note").GetString())); // a number into a text field is its text
+        Assert.All(created, f => Assert.Equal(bill.ToString(), f.GetProperty("bill").GetString()));
+
+        var firstIds = Values(await GetAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists/{lines}/items")).Select(i => i.GetProperty("id").GetGuid()).ToList();
+        await SplitAsync();
+        var again = Values(await GetAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists/{lines}/items")).Select(i => i.GetProperty("id").GetGuid()).ToList();
+        Assert.Equal(2, again.Count);
+        Assert.Empty(again.Intersect(firstIds));
+
+        // A forEach over something that is not a list fails at the node.
+        await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Not a list",
+            trigger = new { type = "manual", list = "Bills" },
+            flow = new
+            {
+                start = "each",
+                nodes = new Dictionary<string, object>
+                {
+                    ["each"] = new { activity = "forEach", inputs = new { items = "{amount}" }, next = new { item = "noop" } },
+                    ["noop"] = new { activity = "setVariable", inputs = new { name = "x", value = 1 }, next = new { done = "each" } },
+                },
+            },
+        });
+        var notList = await PostIdAsync(s.Admin, $"{s.Item(bill)}/workflows", new { workflow = "Not a list" });
+        var failed = await WaitAsync(s.Admin, $"{s.Workflows}/runs/{notList}", r => Status(r) is "completed" or "failed");
+        Assert.Equal("failed", Status(failed));
+        Assert.Contains("items is not a list", failed.GetProperty("error").GetString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Extension_triggers_start_workflows_that_use_extension_actions()
     {
         var s = await SetupAsync("auto-ext");

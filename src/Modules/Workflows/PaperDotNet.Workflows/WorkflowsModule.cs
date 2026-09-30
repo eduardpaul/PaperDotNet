@@ -45,6 +45,8 @@ public sealed class WorkflowsModule : IModule
         services.AddScoped<WorkflowValidator>();
         services.AddWorkflowActivity<ItemUpdateAction>();
         services.AddWorkflowActivity<ItemFileAction>();
+        services.AddWorkflowActivity<ItemCreateAction>();
+        services.AddWorkflowActivity<ItemDeleteAction>();
 
         services.AddIntegrationEvent<WorkflowTriggerRaised>();
         services.AddScoped<IWorkflowTriggers, WorkflowTriggerPublisher>();

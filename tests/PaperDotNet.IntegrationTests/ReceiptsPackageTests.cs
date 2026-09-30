@@ -17,16 +17,17 @@ namespace PaperDotNet.IntegrationTests;
 
 /// <summary>
 /// The sample package <c>samples/receipts-package</c>: applied as it ships, it reads a receipt tagged "ticket" in the AI batch
-/// window and fills its fields and lines through the sample extension's action.
+/// window and fills its fields and lines. No code of its own: the workflow JSON maps the answer (item.update with typed
+/// tokens, forEach, item.create, item.delete).
 /// </summary>
 public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private const string Reading = """
-        {"store": "LIDL", "date": "2026-09-28", "currency": "eur", "total": 6.19,
+        {"store": "LIDL", "date": "2026-09-28", "currency": "EUR", "total": 6.19,
          "lines": [{"description": "Milk", "quantity": 1, "unitPrice": 1.19, "amount": 1.19},
-                   {"description": "Bread", "quantity": 2, "unitPrice": "2,50", "amount": 5.00}]}
+                   {"description": "Bread", "quantity": 2, "unitPrice": 2.50, "amount": 5.00}]}
         """;
 
     private static string Template()

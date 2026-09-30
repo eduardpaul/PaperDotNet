@@ -128,7 +128,9 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `AddWorkflowTrigger(…)`, `AddWorkflow(…)` (extensions: the same on `IExtensionBuilder`); the engine only runs
   workflows. Build workflow features
   from workflow parts (waits with JSON data, run-again activities, built-in workflows), not tables or jobs of their own
-  (e.g. batched AI: `ai.batch` waits + the "AI batch" workflow). Code that reacts to an event
+  (e.g. batched AI: `ai.batch` waits + the "AI batch" workflow). Mapping data into lists is workflow JSON, not a new
+  action: `item.update`/`item.create` with typed single tokens (`"total": "{step:read.json.total}"`) and `forEach`
+  (samples/receipts-package). Code that reacts to an event
   and changes data should set `EventCausation.Depth` to the event's depth + 1 (loop protection).
 - Group membership → `IUserDirectory` (`GetGroupIdsAsync`, `GetGroupMembersAsync`), which includes
   groups inside groups (ADR-0035); inside Identity, go through `GroupClosures`, never `GroupMembers` alone.
