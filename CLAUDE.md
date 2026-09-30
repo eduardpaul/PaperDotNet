@@ -27,6 +27,11 @@ inspired by Papermerge and SharePoint lists/libraries.
 
 ## Current scope
 
+**Native AOT core (ADR-0039, `core/`)**: the server is being rebuilt as one Native AOT binary on .NET 11 (budget:
+under 100 MB idle, under 300 MB under load). New server work goes to `core/` and follows its rules (below and
+`core/README.md`); modules move from `src/` one at a time, best effort: keep a dependency if it works under AOT,
+otherwise use a standard that does, otherwise a plain REST implementation.
+
 **Web UI (Phase 8)** on the TypeScript SDK with React, TanStack and Tailwind
 (ADR-0033, plan and screen map in `docs/frontend.md`). The UI is an SDK
 consumer: gaps are fixed in the API and regenerated, never worked around in
@@ -66,7 +71,20 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Sqlite 
 dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.PostgreSql -c <Module>DbContext -o Generated/<Module>
 ```
 
+## Native AOT core (`core/`, ADR-0039)
+
+Build from `core/` (own `global.json`, .NET 11): `dotnet build PaperDotNet.Core.slnx`, `dotnet test --solution
+PaperDotNet.Core.slnx`, `eng/aot-smoke.sh` (publishes, runs, checks the memory budget).
+- Trim/AOT analyzers are on and warnings are errors; JSON only through `CoreJson` (source generation).
+- EF Core queries must precompile: one expression from a `DbSet` to the terminal operator, DbContext and captured
+  values copied into locals first, entities not `sealed`. No global query filters: filter on `TenantId` in every query.
+- Dynamic queries (item filters) are OData syntax translated to SQL by `IItemQueries` per provider, never dynamic LINQ.
+- Model change → `eng/schema.sh add <Name>`; subscriber change → `eng/codegen.sh`; endpoint change → `eng/openapi.sh`.
+- Prefer plain defaults over memory tuning; only tune when `eng/aot-smoke.sh` is over budget.
+
 ## Code conventions
+
+The conventions below describe the .NET 10 application in `src/`; in `core/` the AOT rules above win.
 
 - Modules live in `src/Modules/<Name>` with an `IModule`, a DbContext in its own
   schema, feature folders (endpoints + handlers together), and a `.Contracts`

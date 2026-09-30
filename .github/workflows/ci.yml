@@ -64,6 +64,39 @@ jobs:
           PAPERDOTNET_TEST_PROVIDER: ${{ matrix.provider }}
         run: dotnet test --solution PaperDotNet.slnx -c Release --no-build
 
+  # The Native AOT core (ADR-0039) on .NET 11: its own solution, tests, and the published binary with its memory budget.
+  core-aot:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: core/global.json
+
+      - name: Restore
+        run: |
+          dotnet restore PaperDotNet.Core.slnx
+          dotnet tool restore
+
+      - name: Format
+        run: dotnet format PaperDotNet.Core.slnx --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build PaperDotNet.Core.slnx -c Release --no-restore
+
+      - name: Schema scripts match the model
+        run: eng/schema.sh check
+
+      - name: Test
+        run: dotnet test --solution PaperDotNet.Core.slnx -c Release --no-build
+
+      - name: Native AOT publish and smoke test (memory budget)
+        run: eng/aot-smoke.sh
+
   # The web UI and the TypeScript SDK (ADR-0032, ADR-0033), against a real host on SQLite.
   web:
     runs-on: ubuntu-latest
