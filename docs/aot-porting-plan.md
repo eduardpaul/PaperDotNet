@@ -17,7 +17,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T09 | M | Extension SDK, extension host and generator | |
 | T10 | S-M | Notes, Collaboration, Notifications | |
 | T11 | M | Tasks and Calendar | |
-| T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search) | |
+| T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g) | |
 | T13 | M | Provisioning and templates | |
 | T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins) and AI workflows | |
 | T15 | XL | Documents (PDF libraries, page images, OCR) | |
@@ -35,8 +35,8 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | T08c | Item counts per field value (`/items/counts`; without indexed fields: JSON values, `json_each` for multi-value fields) | done |
 | T08d | Bulk update as an operation (`/items/bulkUpdate`) | done |
 | T08e | Delta (change log, `/items/delta`, scope changes for delta) | done |
-| T08f | List templates and `templateKey` (`/listTemplates`; the document keywords field comes with T12) | done (AOT smoke run pending) |
-| T08g | Smart folders | in progress |
-| T08h | Indexed fields (item columns and value table, backfill; no reflection over columns under AOT) | |
+| T08f | List templates and `templateKey` (`/listTemplates`; the document keywords field comes with T12) | done |
+| T08g | Smart folders | moved to T12: they filter by and assign Taxonomy terms |
+| T08h | Indexed fields (item columns and value table, backfill; no reflection over columns under AOT) | in progress |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).
