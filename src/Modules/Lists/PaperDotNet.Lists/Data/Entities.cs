@@ -253,6 +253,53 @@ public class ListView : ITenantOwned, IAuditable, IVersioned
     public uint Version { get; set; }
 }
 
+/// <summary>Values of <see cref="ItemChange.Kind"/>.</summary>
+public static class ItemChangeKinds
+{
+    /// <summary>The item was added, changed, moved or restored.</summary>
+    public const string Upserted = "upserted";
+
+    /// <summary>The item was moved to the recycle bin or purged.</summary>
+    public const string Deleted = "deleted";
+
+    /// <summary>
+    /// The access list of <see cref="ItemChange.ScopeId"/> changed: delta returns the scope's items again, as changed or
+    /// removed for the caller (ADR-0035).
+    /// </summary>
+    public const string ScopeChanged = "scopeChanged";
+}
+
+/// <summary>
+/// One entry of a list's change log (API-05), written in the same transaction as the change. The sequence orders
+/// changes; delta tokens point into it.
+/// </summary>
+public class ItemChange : ITenantOwned
+{
+    public long Sequence { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid ListId { get; set; }
+
+    /// <summary>Null for <see cref="ItemChangeKinds.ScopeChanged"/>.</summary>
+    public Guid? ItemId { get; set; }
+
+    /// <summary>The item's permission scope after the change (checks access after a purge), or the changed scope.</summary>
+    public Guid? ScopeId { get; set; }
+
+    /// <summary>
+    /// The item's scope before the change when it moved to another scope: callers who could read that scope get the
+    /// item as removed when they cannot read the new one.
+    /// </summary>
+    public Guid? FromScopeId { get; set; }
+
+    /// <summary>An <see cref="ItemChangeKinds"/> value.</summary>
+    public string Kind { get; set; } = ItemChangeKinds.Upserted;
+
+    /// <summary>When, in Unix milliseconds (UTC): SQLite compares numbers in SQL, not <see cref="DateTimeOffset"/> (ADR-0039).</summary>
+    public long At { get; set; }
+}
+
 /// <summary>A deleted item's id and time of deletion (a query projection).</summary>
 public sealed record DeletedItem(Guid Id, DateTimeOffset? DeletedAt);
 

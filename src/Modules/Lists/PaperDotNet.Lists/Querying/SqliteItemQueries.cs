@@ -18,7 +18,7 @@ namespace PaperDotNet.Lists.Querying;
 /// upper-case text, <see cref="DateTimeOffset"/> columns as <c>yyyy-MM-dd HH:mm:ss.FFFFFFFzzz</c> in UTC; field values
 /// as <see cref="FieldFormats"/> writes them (ADR-0039).
 /// </summary>
-internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
+internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : IItemQueries
 {
     private const string Columns =
         "\"i\".\"Id\", \"i\".\"ListId\", \"i\".\"ContentTypeId\", \"i\".\"ParentId\", \"i\".\"IsFolder\", \"i\".\"ScopeId\", \"i\".\"Title\", \"i\".\"Fields\", "
@@ -31,8 +31,12 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
         try
         {
             await using var command = connection.CreateCommand();
-            command.CommandText = "UPDATE \"list_items\" SET \"ScopeId\" = $new WHERE \"TenantId\" = $tenant AND \"ParentId\" = $parent "
-                + "AND \"HasUniquePermissions\" = 0 AND \"ScopeId\" = $old";
+            // The change log for delta gets the items (not those in the recycle bin) with the scope they came from.
+            const string moving = "WHERE \"TenantId\" = $tenant AND \"ParentId\" = $parent AND \"HasUniquePermissions\" = 0 AND \"ScopeId\" = $old";
+            command.CommandText =
+                "INSERT INTO \"item_changes\" (\"TenantId\", \"ListId\", \"ItemId\", \"ScopeId\", \"FromScopeId\", \"Kind\", \"At\") "
+                + $"SELECT \"TenantId\", \"ListId\", \"Id\", $new, $old, '{ItemChangeKinds.Upserted}', $at FROM \"list_items\" {moving} AND \"DeletedAt\" IS NULL; "
+                + $"UPDATE \"list_items\" SET \"ScopeId\" = $new {moving}; SELECT changes();";
             foreach (var (name, value) in new[] { ("$new", newScope), ("$tenant", tenantId), ("$parent", parentId), ("$old", oldScope) })
             {
                 var parameter = command.CreateParameter();
@@ -41,7 +45,17 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
                 command.Parameters.Add(parameter);
             }
 
-            return await command.ExecuteNonQueryAsync(cancellationToken);
+            var at = command.CreateParameter();
+            at.ParameterName = "$at";
+            at.Value = time.GetUtcNow().ToUnixTimeMilliseconds();
+            command.Parameters.Add(at);
+
+            // One transaction: the log and the move are saved together.
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            command.Transaction = transaction;
+            var moved = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+            await transaction.CommitAsync(cancellationToken);
+            return moved;
         }
         finally
         {

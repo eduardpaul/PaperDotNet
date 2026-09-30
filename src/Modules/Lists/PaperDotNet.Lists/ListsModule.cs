@@ -26,6 +26,7 @@ public sealed class ListsModule : IModule
         services.AddModuleDbContext<ListsDbContext>();
         services.Configure<ListsOptions>(configuration.GetSection(ListsOptions.Section));
         services.AddTenantRecurringJob<RecycleBinCleanupJob>(RecycleBinCleanupJob.Name, RecycleBinCleanupJob.Schedule);
+        services.AddTenantRecurringJob<ItemChangeCleanupJob>(ItemChangeCleanupJob.Name, ItemChangeCleanupJob.Schedule);
         services.AddScopes(ListScopes.All);
         services.AddMemoryCache();
         foreach (var type in FieldTypeRegistry.BuiltIn())
@@ -53,6 +54,7 @@ public sealed class ListsModule : IModule
         ItemEndpoints.Map(endpoints);
         ItemCountEndpoints.Map(endpoints);
         BulkUpdateEndpoints.Map(endpoints);
+        DeltaEndpoints.Map(endpoints);
         ItemHistoryEndpoints.Map(endpoints);
         PermissionEndpoints.Map(endpoints);
         ViewEndpoints.Map(endpoints);

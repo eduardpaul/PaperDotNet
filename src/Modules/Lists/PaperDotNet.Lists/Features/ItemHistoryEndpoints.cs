@@ -282,6 +282,21 @@ public sealed class ListsOptions
     /// folder); the rest is moved in the background, and keeps its old access until then (ADR-0035).
     /// </summary>
     public int ScopeMoveInlineLimit { get; set; } = 5000;
+
+    /// <summary>Days changes stay in the delta change log; older delta tokens get 410 (resync).</summary>
+    public int DeltaRetentionDays { get; set; } = 30;
+
+    /// <summary>
+    /// Delta only returns changes older than this, so changes of transactions that commit late (with a lower sequence)
+    /// are not skipped.
+    /// </summary>
+    public TimeSpan DeltaSafetyWindow { get; set; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// When the permissions of a scope change, delta returns the scope's items (as changed or removed); a scope with
+    /// more items than this answers 410 (resync) instead (ADR-0035).
+    /// </summary>
+    public int DeltaScopeLimit { get; set; } = 1000;
 }
 
 /// <summary>Permanently deletes recycle-bin items older than the retention period (daily at 03:30 UTC).</summary>

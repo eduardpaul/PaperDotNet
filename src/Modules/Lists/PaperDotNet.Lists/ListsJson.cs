@@ -34,6 +34,7 @@ namespace PaperDotNet.Lists;
 [JsonSerializable(typeof(JsonObject))]
 [JsonSerializable(typeof(JsonElement))]
 [JsonSerializable(typeof(ValueCountsResponse))]
+[JsonSerializable(typeof(DeltaPage))]
 [JsonSerializable(typeof(BulkUpdateRequest))]
 [JsonSerializable(typeof(BulkUpdatePayload))]
 [JsonSerializable(typeof(BulkUpdateResult))]

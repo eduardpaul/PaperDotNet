@@ -15,11 +15,14 @@ namespace PaperDotNet.Lists.Data;
 /// </summary>
 public class ListsDbContext : DbContext
 {
+    private readonly TimeProvider _time;
+
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
-    public ListsDbContext(DbContextOptions<ListsDbContext> options)
+    public ListsDbContext(DbContextOptions<ListsDbContext> options, TimeProvider? time = null)
         : base(options)
     {
+        _time = time ?? TimeProvider.System;
     }
 
     public DbSet<ContentType> ContentTypes { get; set; } = null!;
@@ -34,7 +37,12 @@ public class ListsDbContext : DbContext
 
     public DbSet<ListView> Views { get; set; } = null!;
 
-    /// <summary>Saves; a new list gets the permission entries of the workspace roles unless the save brings its own.</summary>
+    public DbSet<ItemChange> ItemChanges { get; set; } = null!;
+
+    /// <summary>
+    /// Saves. A new list gets the permission entries of the workspace roles unless the save brings its own; the change
+    /// log for delta sync (API-05) is written from the tracked changes, so every write path is covered.
+    /// </summary>
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         var newLists = ChangeTracker.Entries<ListDefinition>().Where(e => e.State == EntityState.Added).Select(e => e.Entity).ToList();
@@ -44,7 +52,58 @@ public class ListsDbContext : DbContext
             AclEntries.AddRange(newLists.Where(l => !withEntries.Contains(l.Id)).SelectMany(Features.Acl.RoleEntries));
         }
 
+        RecordChanges(newLists);
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>
+    /// An item that moved to another permission scope records the scope it came from; a changed access list records a
+    /// <see cref="ItemChangeKinds.ScopeChanged"/> marker, unless the scope is new or its items are logged one by one
+    /// (ADR-0035). Removing an item (the recycle bin, or a purge) logs it as deleted.
+    /// </summary>
+    private void RecordChanges(List<ListDefinition> newLists)
+    {
+        var at = _time.GetUtcNow().ToUnixTimeMilliseconds();
+        var items = new Dictionary<Guid, ItemChange>();
+        var movingScopes = new HashSet<Guid>(newLists.Select(l => l.Id));
+        var scopes = new Dictionary<Guid, (Guid TenantId, Guid ListId)>();
+        foreach (var entry in ChangeTracker.Entries().ToList())
+        {
+            switch (entry.Entity)
+            {
+                case ListItem item when entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted:
+                    var scope = entry.Property(nameof(ListItem.ScopeId));
+                    if (entry.State == EntityState.Added || entry.Property(nameof(ListItem.HasUniquePermissions)).IsModified)
+                    {
+                        movingScopes.Add(item.Id);
+                    }
+
+                    items[item.Id] = new ItemChange
+                    {
+                        TenantId = item.TenantId,
+                        ListId = item.ListId,
+                        ItemId = item.Id,
+                        ScopeId = item.ScopeId,
+                        FromScopeId = entry.State == EntityState.Modified && scope.IsModified ? (Guid)scope.OriginalValue! : null,
+                        Kind = entry.State == EntityState.Deleted || item.DeletedAt is not null ? ItemChangeKinds.Deleted : ItemChangeKinds.Upserted,
+                        At = at,
+                    };
+                    break;
+                case AclEntry acl when entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted:
+                    scopes[acl.ScopeId] = (acl.TenantId, acl.ListId);
+                    break;
+            }
+        }
+
+        ItemChanges.AddRange(items.Values);
+        ItemChanges.AddRange(scopes.Where(s => !movingScopes.Contains(s.Key)).Select(s => new ItemChange
+        {
+            TenantId = s.Value.TenantId,
+            ListId = s.Value.ListId,
+            ScopeId = s.Key,
+            Kind = ItemChangeKinds.ScopeChanged,
+            At = at,
+        }));
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -98,6 +157,16 @@ public class ListsDbContext : DbContext
             version.ToTable("item_versions");
             version.Property(v => v.Title).HasMaxLength(1024);
             version.HasIndex(v => new { v.TenantId, v.ItemId, v.Number }).IsUnique();
+        });
+
+        modelBuilder.Entity<ItemChange>(change =>
+        {
+            change.ToTable("item_changes");
+            change.HasKey(c => c.Sequence);
+            change.Property(c => c.Sequence).ValueGeneratedOnAdd();
+            change.Property(c => c.Kind).HasMaxLength(16);
+            change.HasIndex(c => new { c.TenantId, c.ListId, c.Sequence });
+            change.HasIndex(c => new { c.TenantId, c.At });
         });
 
         modelBuilder.Entity<ListView>(view =>

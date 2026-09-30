@@ -80,6 +80,9 @@ for _ in $(seq 1 50); do
   [[ "$BULK" == succeeded:* || "$BULK" == failed:* ]] && break; sleep 0.2
 done
 [[ "$BULK" == "succeeded:1" ]] || fail "bulk update: $BULK"
+DELTA=$(curl -sf "${AUTH[@]}" "$ITEMS/delta" | json 'str(len(d["value"])) + " " + d["@odata.deltaLink"]') || fail "delta sync"
+[[ ${DELTA%% *} -ge 7 ]] || fail "delta items: ${DELTA%% *}"
+curl -sf "${AUTH[@]}" "${DELTA#* }" -o /dev/null || fail "delta changes"
 
 AUDITED=0
 for _ in $(seq 1 50); do
