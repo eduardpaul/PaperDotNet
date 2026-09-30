@@ -6,121 +6,138 @@ using PaperDotNet.Workspaces.Data;
 namespace PaperDotNet.Workspaces.Features;
 
 /// <summary>
-/// Workspace-level access: members see their workspaces, owners change them,
-/// and holders of <c>workspace.manage</c> administer all of them. Invisible
-/// workspaces return 404, never 403, so their existence isn't leaked.
+/// Workspace-level access: members see their workspaces, owners change them, and holders of <c>workspace.manage</c>
+/// administer all of them. Invisible workspaces return 404, never 403, so their existence isn't leaked.
 /// </summary>
-internal sealed class WorkspaceAccess(ICurrentUser user, IEffectiveScopeProvider scopes, WorkspacesDbContext db) : IWorkspaceAccess
+internal sealed class WorkspaceAccess(IEffectiveScopeProvider scopes, WorkspacesDbContext db) : IWorkspaceAccess
 {
-    public async Task<WorkspaceAccessLevel> GetPermissionAsync(Guid workspaceId, CancellationToken cancellationToken)
+    public static WorkspaceAccessLevel LevelOf(string role) => role switch
     {
-        if (!await db.Workspaces.AnyAsync(w => w.Id == workspaceId, cancellationToken))
+        WorkspaceRoles.Owner => WorkspaceAccessLevel.Manage,
+        WorkspaceRoles.Member => WorkspaceAccessLevel.Contribute,
+        _ => WorkspaceAccessLevel.Read,
+    };
+
+    public async Task<bool> IsAdministratorAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken) =>
+        (await scopes.GetScopesAsync(tenantId, userId, cancellationToken))?.Contains(WorkspaceScopes.Manage) == true;
+
+    public Task<Workspace?> FindAsync(Guid tenantId, Guid workspaceId, CancellationToken cancellationToken)
+    {
+        var context = db;
+        var tenant = tenantId;
+        var id = workspaceId;
+        var ct = cancellationToken;
+        return context.Workspaces.Where(w => w.TenantId == tenant && w.Id == id && w.DeletedAt == null).FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<WorkspaceAccessLevel> GetPermissionAsync(Guid tenantId, Guid userId, Guid workspaceId, CancellationToken cancellationToken)
+    {
+        if (await FindAsync(tenantId, workspaceId, cancellationToken) is null)
         {
             return WorkspaceAccessLevel.None;
         }
 
-        if (await IsAdministratorAsync(cancellationToken))
+        if (await IsAdministratorAsync(tenantId, userId, cancellationToken))
         {
             return WorkspaceAccessLevel.Manage;
         }
 
-        var userId = user.UserId;
-        var role = await db.Members
-            .Where(m => m.WorkspaceId == workspaceId && m.UserId == userId)
-            .Select(m => (WorkspaceRole?)m.Role)
-            .FirstOrDefaultAsync(cancellationToken);
-        return role is { } r ? LevelOf(r) : WorkspaceAccessLevel.None;
+        var role = await RoleAsync(tenantId, userId, workspaceId, cancellationToken);
+        return role is null ? WorkspaceAccessLevel.None : LevelOf(role);
     }
 
-    public async Task<IReadOnlyList<WorkspaceMemberAccess>> GetMembersAsync(Guid workspaceId, CancellationToken cancellationToken) =>
-        (await db.Members.AsNoTracking().Where(m => m.WorkspaceId == workspaceId).ToListAsync(cancellationToken))
-            .Select(m => new WorkspaceMemberAccess(m.UserId, LevelOf(m.Role)))
-            .ToList();
-
-    public async Task<IReadOnlyList<WorkspaceMembership>> GetMyWorkspacesAsync(CancellationToken cancellationToken) =>
-        user.UserId is { } userId ? await GetMembershipsAsync(userId, cancellationToken) : [];
-
-    public async Task<IReadOnlyList<WorkspaceMembership>> GetMembershipsAsync(Guid userId, CancellationToken cancellationToken)
+    public Task<string?> RoleAsync(Guid tenantId, Guid userId, Guid workspaceId, CancellationToken cancellationToken)
     {
-        if ((await scopes.GetScopesAsync(userId, cancellationToken))?.Contains(WorkspaceScopes.Manage) == true)
+        var context = db;
+        var tenant = tenantId;
+        var user = userId;
+        var workspace = workspaceId;
+        var ct = cancellationToken;
+        return context.Members.Where(m => m.TenantId == tenant && m.WorkspaceId == workspace && m.UserId == user).Select(m => m.Role).FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<bool> CanManageAsync(Guid tenantId, Guid userId, Guid workspaceId, CancellationToken cancellationToken) =>
+        await GetPermissionAsync(tenantId, userId, workspaceId, cancellationToken) == WorkspaceAccessLevel.Manage;
+
+    public async Task<IReadOnlyList<WorkspaceMemberAccess>> GetMembersAsync(Guid tenantId, Guid workspaceId, CancellationToken cancellationToken)
+    {
+        var context = db;
+        var tenant = tenantId;
+        var workspace = workspaceId;
+        var ct = cancellationToken;
+        var members = await context.Members.Where(m => m.TenantId == tenant && m.WorkspaceId == workspace).ToListAsync(ct);
+        return [.. members.Select(m => new WorkspaceMemberAccess(m.UserId, LevelOf(m.Role)))];
+    }
+
+    public async Task<IReadOnlyList<WorkspaceMembership>> GetMembershipsAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken)
+    {
+        var context = db;
+        var tenant = tenantId;
+        var user = userId;
+        var ct = cancellationToken;
+        if (await IsAdministratorAsync(tenantId, userId, cancellationToken))
         {
-            return (await db.Workspaces.AsNoTracking().Select(w => w.Id).ToListAsync(cancellationToken))
-                .Select(id => new WorkspaceMembership(id, WorkspaceAccessLevel.Manage))
-                .ToList();
+            var all = await context.Workspaces.Where(w => w.TenantId == tenant && w.DeletedAt == null).Select(w => w.Id).ToListAsync(ct);
+            return [.. all.Select(id => new WorkspaceMembership(id, WorkspaceAccessLevel.Manage))];
         }
 
-        return (await db.Members.AsNoTracking()
-                .Where(m => m.UserId == userId && db.Workspaces.Any(w => w.Id == m.WorkspaceId))
-                .ToListAsync(cancellationToken))
-            .Select(m => new WorkspaceMembership(m.WorkspaceId, LevelOf(m.Role)))
-            .ToList();
+        var members = await context.Members
+            .Where(m => m.TenantId == tenant && m.UserId == user && context.Workspaces.Any(w => w.TenantId == tenant && w.Id == m.WorkspaceId && w.DeletedAt == null))
+            .ToListAsync(ct);
+        return [.. members.Select(m => new WorkspaceMembership(m.WorkspaceId, LevelOf(m.Role)))];
     }
 
-    public async Task<Guid> EnsurePersonalWorkspaceAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyDictionary<Guid, string>> GetNamesAsync(Guid tenantId, IReadOnlyCollection<Guid> workspaceIds, CancellationToken cancellationToken)
     {
-        var userId = user.UserId ?? throw new InvalidOperationException("A signed-in user is required.");
+        var context = db;
+        var tenant = tenantId;
+        var ct = cancellationToken;
+        var wanted = workspaceIds.ToHashSet();
+        var workspaces = await context.Workspaces.Where(w => w.TenantId == tenant && w.DeletedAt == null).ToListAsync(ct);
+        return workspaces.Where(w => wanted.Contains(w.Id)).ToDictionary(w => w.Id, w => w.Name);
+    }
+
+    public async Task<Guid?> FindSharedAsync(Guid tenantId, string name, CancellationToken cancellationToken)
+    {
+        var context = db;
+        var tenant = tenantId;
+        var workspaceName = name;
+        var ct = cancellationToken;
+        var id = await context.Workspaces
+            .Where(w => w.TenantId == tenant && w.DeletedAt == null && w.PersonalOwnerId == null && w.Name == workspaceName)
+            .OrderBy(w => w.Id)
+            .Select(w => w.Id)
+            .FirstOrDefaultAsync(ct);
+        return id == Guid.Empty ? null : id;
+    }
+
+    public async Task<Guid> EnsurePersonalWorkspaceAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken)
+    {
+        var context = db;
+        var tenant = tenantId;
+        var user = userId;
+        var ct = cancellationToken;
         for (var attempt = 0; ; attempt++)
         {
-            var existing = await db.Workspaces.Where(w => w.PersonalOwnerId == userId).Select(w => (Guid?)w.Id).FirstOrDefaultAsync(cancellationToken);
-            if (existing is { } id)
+            var existing = await context.Workspaces.Where(w => w.TenantId == tenant && w.PersonalOwnerId == user).Select(w => w.Id).FirstOrDefaultAsync(ct);
+            if (existing != Guid.Empty)
             {
-                return id;
+                return existing;
             }
 
-            var workspace = new Workspace { Id = Ids.New(), Name = "Home", Description = "Personal workspace.", PersonalOwnerId = userId };
-            workspace.Members.Add(new WorkspaceMember { UserId = userId, Role = WorkspaceRole.Owner });
-            db.Workspaces.Add(workspace);
+            var workspace = new Workspace { Id = Ids.New(), TenantId = tenant, Name = "Home", Description = "Personal workspace.", PersonalOwnerId = user, CreatedBy = user };
+            context.Workspaces.Add(workspace);
+            context.Members.Add(new WorkspaceMember { TenantId = tenant, WorkspaceId = workspace.Id, UserId = user, Role = WorkspaceRoles.Owner });
             try
             {
-                await db.SaveChangesAsync(cancellationToken);
+                await context.SaveChangesAsync(ct);
                 return workspace.Id;
             }
             catch (DbUpdateException) when (attempt == 0)
             {
                 // Created concurrently (unique index); read it back.
-                db.ChangeTracker.Clear();
+                context.ChangeTracker.Clear();
             }
         }
     }
-
-    private static WorkspaceAccessLevel LevelOf(WorkspaceRole role) => role switch
-    {
-        WorkspaceRole.Owner => WorkspaceAccessLevel.Manage,
-        WorkspaceRole.Member => WorkspaceAccessLevel.Contribute,
-        _ => WorkspaceAccessLevel.Read,
-    };
-
-    public async Task<IReadOnlyDictionary<Guid, string>> GetNamesAsync(IReadOnlyCollection<Guid> workspaceIds, CancellationToken cancellationToken) =>
-        await db.Workspaces.AsNoTracking().Where(w => workspaceIds.Contains(w.Id)).ToDictionaryAsync(w => w.Id, w => w.Name, cancellationToken);
-
-    public async Task<Guid?> FindSharedAsync(string name, CancellationToken cancellationToken) =>
-        await db.Workspaces.AsNoTracking().Where(w => w.PersonalOwnerId == null && w.Name == name)
-            .OrderBy(w => w.CreatedAt).Select(w => (Guid?)w.Id).FirstOrDefaultAsync(cancellationToken);
-
-    public async Task<IQueryable<Workspace>> VisibleAsync(IQueryable<Workspace> query, CancellationToken ct)
-    {
-        if (await IsAdministratorAsync(ct))
-        {
-            return query;
-        }
-
-        var userId = user.UserId;
-        return query.Where(w => w.Members.Any(m => m.UserId == userId));
-    }
-
-    public async Task<bool> CanManageAsync(Guid workspaceId, CancellationToken ct)
-    {
-        if (await IsAdministratorAsync(ct))
-        {
-            return await db.Workspaces.AnyAsync(w => w.Id == workspaceId, ct);
-        }
-
-        var userId = user.UserId;
-        return await db.Members.AnyAsync(
-            m => m.WorkspaceId == workspaceId && m.UserId == userId && m.Role == WorkspaceRole.Owner
-                 && db.Workspaces.Any(w => w.Id == workspaceId), ct);
-    }
-
-    private async Task<bool> IsAdministratorAsync(CancellationToken ct) =>
-        user.UserId is { } id && (await scopes.GetScopesAsync(id, ct))?.Contains(WorkspaceScopes.Manage) == true;
 }

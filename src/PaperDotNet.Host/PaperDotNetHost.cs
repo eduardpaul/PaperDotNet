@@ -10,6 +10,7 @@ using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Storage;
 using PaperDotNet.Workflows;
+using PaperDotNet.Workspaces;
 using Wolverine;
 using Wolverine.Sqlite;
 
@@ -21,7 +22,7 @@ namespace PaperDotNet.Host;
 /// </summary>
 internal static class PaperDotNetHost
 {
-    private static readonly IModule[] Modules = [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule(), new JobsModule()];
+    private static readonly IModule[] Modules = [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule(), new JobsModule(), new WorkspacesModule()];
 
     public static WebApplicationBuilder AddPaperDotNet(this WebApplicationBuilder builder, bool generatingCode)
     {

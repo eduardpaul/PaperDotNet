@@ -5,7 +5,8 @@ using PaperDotNet.Abstractions;
 namespace PaperDotNet.Persistence;
 
 /// <summary>
-/// Stamps versions and audit fields and guards tenant isolation on every save. Reads cannot be guarded here (no global
+/// Stamps versions and audit fields, turns deletes of <see cref="ISoftDeletable"/> entities into soft deletes, and
+/// guards tenant isolation on every save. Reads cannot be guarded here (no global
 /// query filters under Native AOT, ADR-0039), so every query filters on the tenant itself; writes are checked here:
 /// an added row gets the caller's tenant, and a row of another tenant can never be written in a request.
 /// </summary>
@@ -55,6 +56,15 @@ public sealed class SaveChangesGuard(ICurrentUser user, TimeProvider time) : Sav
                 {
                     throw new InvalidOperationException($"The tenant of a {entry.Metadata.DisplayName()} cannot change.");
                 }
+            }
+
+            // Removing a soft-deletable entity moves it to the recycle bin; removing it from there purges it.
+            if (entry.State == EntityState.Deleted && entry.Entity is ISoftDeletable deletable
+                && entry.Property(nameof(ISoftDeletable.DeletedAt)).OriginalValue is null)
+            {
+                entry.State = EntityState.Modified;
+                deletable.DeletedAt = now;
+                deletable.DeletedBy = user.UserId;
             }
 
             if (entry.Entity is IVersioned versioned)

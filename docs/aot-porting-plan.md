@@ -10,7 +10,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T02 | S | Storage building block (`IBlobStore`, local disk) | done |
 | T03 | S/M | Jobs: recurring tenant jobs (Cronos) and operations (202 + `/operations/{id}`) | done (with live events, `/v1.0/me/events`, and the tenant directory in Identity) |
 | T04 | M | Identity parity: tenants admin, user lifecycle, groups (nested), directory, preferences, API tokens | done: roles and scopes, nested groups, user lifecycle, lockout, API tokens, preferences, organization, directory. The authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in need `/connect/authorize` and move to T17 with the web UI |
-| T05 | M | Workspaces with members and roles | |
+| T05 | M | Workspaces with members and roles | done (workspace templates come with T13) |
 | T06 | L | Lists parity 1: workspace-scoped API, content types, all field types, folders | |
 | T07 | L | Lists parity 2: versions and history, recycle bin, item mutators, full item events | |
 | T08 | XL | Lists parity 3: permissions (ADR-0035), indexed fields, views, templates, smart folders, delta, bulk | |

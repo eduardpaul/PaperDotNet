@@ -39,6 +39,10 @@
     <Project Path="src/Modules/Workflows/PaperDotNet.Workflows.Contracts/PaperDotNet.Workflows.Contracts.csproj" />
     <Project Path="src/Modules/Workflows/PaperDotNet.Workflows/PaperDotNet.Workflows.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Workspaces/">
+    <Project Path="src/Modules/Workspaces/PaperDotNet.Workspaces.Contracts/PaperDotNet.Workspaces.Contracts.csproj" />
+    <Project Path="src/Modules/Workspaces/PaperDotNet.Workspaces/PaperDotNet.Workspaces.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PaperDotNet.IntegrationTests/PaperDotNet.IntegrationTests.csproj" />
   </Folder>

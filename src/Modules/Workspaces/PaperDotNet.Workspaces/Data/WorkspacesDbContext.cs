@@ -1,54 +1,45 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Hybrid;
-using PaperDotNet.Abstractions;
-using PaperDotNet.Persistence;
+using Microsoft.EntityFrameworkCore.Design;
+using PaperDotNet.Persistence.Sqlite;
 
 namespace PaperDotNet.Workspaces.Data;
 
-public sealed class WorkspacesDbContext(DbContextOptions<WorkspacesDbContext> options, ITenantContext tenant, HybridCache? cache = null)
-    : DbContext(options), ITenantScopedDbContext
+/// <summary>Workspaces and their members. Query rules as in every module (ADR-0039): locals, one expression, explicit <c>TenantId</c>.</summary>
+public class WorkspacesDbContext : DbContext
 {
-    public const string Schema = "workspaces";
-
-    public Guid? CurrentTenantId => tenant.TenantId;
-
-    public DbSet<Workspace> Workspaces => Set<Workspace>();
-
-    public DbSet<WorkspaceMember> Members => Set<WorkspaceMember>();
-
-    /// <summary>
-    /// Saves, and evicts the cached principals of the tenant when memberships changed or a workspace was added
-    /// (administrators own every workspace), so access checks see the change at once (ADR-0035).
-    /// </summary>
-    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
+    public WorkspacesDbContext(DbContextOptions<WorkspacesDbContext> options)
+        : base(options)
     {
-        var membershipsChanged = ChangeTracker.Entries().Any(e =>
-            (e.Entity is WorkspaceMember && e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
-            || (e.Entity is Workspace && e.State == EntityState.Added));
-        var saved = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
-        if (membershipsChanged && cache is not null && tenant.TenantId is { } tenantId)
-        {
-            await cache.RemoveByTagAsync(AccessCacheTags.Principals(tenantId), cancellationToken);
-        }
-
-        return saved;
     }
+
+    public DbSet<Workspace> Workspaces { get; set; } = null!;
+
+    public DbSet<WorkspaceMember> Members { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema(Schema);
-        modelBuilder.Entity<Workspace>(b =>
+        modelBuilder.Entity<Workspace>(workspace =>
         {
-            b.Property(w => w.Name).HasMaxLength(200);
-            b.Property(w => w.Description).HasMaxLength(2000);
-            b.HasMany(w => w.Members).WithOne().HasForeignKey(m => m.WorkspaceId);
-            b.HasIndex(w => new { w.TenantId, w.PersonalOwnerId }).IsUnique();
+            workspace.ToTable("workspaces");
+            workspace.Property(w => w.Name).HasMaxLength(200);
+            workspace.Property(w => w.Description).HasMaxLength(2000);
+            workspace.HasIndex(w => new { w.TenantId, w.PersonalOwnerId }).IsUnique();
         });
-        modelBuilder.Entity<WorkspaceMember>(b =>
+        modelBuilder.Entity<WorkspaceMember>(member =>
         {
-            b.HasKey(m => new { m.WorkspaceId, m.UserId });
-            b.HasIndex(m => m.UserId);
+            member.ToTable("workspace_members");
+            member.HasKey(m => new { m.WorkspaceId, m.UserId });
+            member.Property(m => m.Role).HasMaxLength(16);
+            member.HasIndex(m => new { m.TenantId, m.UserId });
         });
-        modelBuilder.ApplyPaperDotNetConventions(this);
     }
+}
+
+/// <summary>For the EF Core tools: the compiled model, precompiled queries and migrations.</summary>
+internal sealed class WorkspacesDesignTimeFactory : IDesignTimeDbContextFactory<WorkspacesDbContext>
+{
+    public WorkspacesDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<WorkspacesDbContext>());
 }

@@ -5,6 +5,7 @@ using PaperDotNet.Jobs.Data;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Workflows.Data;
+using PaperDotNet.Workspaces.Data;
 
 namespace PaperDotNet.Migrations.Sqlite;
 
@@ -33,4 +34,9 @@ internal sealed class WorkflowsFactory : IDesignTimeDbContextFactory<WorkflowsDb
 internal sealed class JobsFactory : IDesignTimeDbContextFactory<JobsDbContext>
 {
     public JobsDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<JobsDbContext>());
+}
+
+internal sealed class WorkspacesFactory : IDesignTimeDbContextFactory<WorkspacesDbContext>
+{
+    public WorkspacesDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<WorkspacesDbContext>());
 }

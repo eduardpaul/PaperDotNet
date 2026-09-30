@@ -90,6 +90,11 @@ SECRET=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/me/apiTokens" -d '{"name
 curl -sf -H "Authorization: Bearer $SECRET" "$BASE/v1.0/lists" -o /dev/null || fail "API token read"
 [[ $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $SECRET" "$BASE/v1.0/users") == 403 ]] || fail "API token scope"
 
+# Workspaces: the member sees a workspace they were added to, with its access level.
+WORKSPACE=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces" -d '{"name":"Team"}' | json 'd["id"]') || fail "create workspace"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WORKSPACE/members" -d "{\"userId\":\"$MEMBER\",\"role\":\"visitor\"}" || fail "add workspace member"
+[[ $(curl -sf -H "Authorization: Bearer $MEMBER_TOKEN" "$BASE/v1.0/workspaces" | json 'd["value"][0]["access"]') == read ]] || fail "workspace access"
+
 # Jobs: live events stream (server-sent events), operations of nobody are not found.
 EVENTS=$(curl -sN --max-time 2 "${AUTH[@]}" "$BASE/v1.0/me/events" || true)  # the stream only ends at the timeout
 grep -q '^event: connected' <<<"$EVENTS" || fail "live events stream: $EVENTS"

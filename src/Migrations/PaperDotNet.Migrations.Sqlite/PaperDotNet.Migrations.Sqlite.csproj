@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\Modules\Audit\PaperDotNet.Audit\PaperDotNet.Audit.csproj" />
     <ProjectReference Include="..\..\Modules\Workflows\PaperDotNet.Workflows\PaperDotNet.Workflows.csproj" />
     <ProjectReference Include="..\..\Modules\Jobs\PaperDotNet.Jobs\PaperDotNet.Jobs.csproj" />
+    <ProjectReference Include="..\..\Modules\Workspaces\PaperDotNet.Workspaces\PaperDotNet.Workspaces.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />

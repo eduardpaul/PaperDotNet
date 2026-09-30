@@ -36,3 +36,15 @@ public interface IAuditable
 
     Guid? UpdatedBy { get; set; }
 }
+
+/// <summary>
+/// Soft delete (recycle bin): removing the entity sets <see cref="DeletedAt"/> and <see cref="DeletedBy"/> instead, and
+/// removing it again purges it (the save interceptor does both). Queries filter on <c>DeletedAt == null</c> explicitly,
+/// as they do on the tenant (ADR-0039).
+/// </summary>
+public interface ISoftDeletable
+{
+    DateTimeOffset? DeletedAt { get; set; }
+
+    Guid? DeletedBy { get; set; }
+}
