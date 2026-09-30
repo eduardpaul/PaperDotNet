@@ -8,7 +8,7 @@ using System;
 namespace PaperDotNet.Client.Models
 {
     /// <summary>
-    /// A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
+    /// A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WorkflowRequest : IAdditionalDataHolder, IParsable
@@ -48,6 +48,14 @@ namespace PaperDotNet.Client.Models
 #nullable restore
 #else
         public global::PaperDotNet.Client.Models.FlowDefinition Flow { get; set; }
+#endif
+        /// <summary>The key property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Key { get; set; }
+#nullable restore
+#else
+        public string Key { get; set; }
 #endif
         /// <summary>The name property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -120,6 +128,7 @@ namespace PaperDotNet.Client.Models
                 { "description", n => { Description = n.GetStringValue(); } },
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
                 { "flow", n => { Flow = n.GetObjectValue<global::PaperDotNet.Client.Models.FlowDefinition>(global::PaperDotNet.Client.Models.FlowDefinition.CreateFromDiscriminatorValue); } },
+                { "key", n => { Key = n.GetStringValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "steps", n => { Steps = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>(global::PaperDotNet.Client.Models.WorkflowStep.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "trigger", n => { Trigger = n.GetObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>(global::PaperDotNet.Client.Models.WorkflowTrigger.CreateFromDiscriminatorValue); } },
@@ -139,6 +148,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteStringValue("description", Description);
             writer.WriteBoolValue("enabled", Enabled);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.FlowDefinition>("flow", Flow);
+            writer.WriteStringValue("key", Key);
             writer.WriteStringValue("name", Name);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>("steps", Steps);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>("trigger", Trigger);

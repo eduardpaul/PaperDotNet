@@ -6,11 +6,11 @@ from kiota_abstractions.serialization import AdditionalDataHolder, Parsable, Par
 from typing import Any, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
-if TYPE_CHECKING:
-    from .processing_status import ProcessingStatus
-
 @dataclass
 class FileVersionResponse(AdditionalDataHolder, Parsable):
+    """
+    A version of a document's file. `pageCount` and `textLanguage` are set by the library's workflows (reading the text, OCR).
+    """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
@@ -28,14 +28,8 @@ class FileVersionResponse(AdditionalDataHolder, Parsable):
     media_type: Optional[str] = None
     # The number property
     number: Optional[int] = None
-    # The operationId property
-    operation_id: Optional[UUID] = None
     # The pageCount property
     page_count: Optional[int] = None
-    # The processingError property
-    processing_error: Optional[str] = None
-    # Processing of a file version (DOC-09): text extraction, OCR, thumbnails.
-    processing_status: Optional[ProcessingStatus] = None
     # The sha256 property
     sha256: Optional[str] = None
     # The size property
@@ -61,10 +55,6 @@ class FileVersionResponse(AdditionalDataHolder, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
-        from .processing_status import ProcessingStatus
-
-        from .processing_status import ProcessingStatus
-
         fields: dict[str, Callable[[Any], None]] = {
             "createdAt": lambda n : setattr(self, 'created_at', n.get_datetime_value()),
             "createdBy": lambda n : setattr(self, 'created_by', n.get_uuid_value()),
@@ -73,10 +63,7 @@ class FileVersionResponse(AdditionalDataHolder, Parsable):
             "languages": lambda n : setattr(self, 'languages', n.get_str_value()),
             "mediaType": lambda n : setattr(self, 'media_type', n.get_str_value()),
             "number": lambda n : setattr(self, 'number', n.get_int_value()),
-            "operationId": lambda n : setattr(self, 'operation_id', n.get_uuid_value()),
             "pageCount": lambda n : setattr(self, 'page_count', n.get_int_value()),
-            "processingError": lambda n : setattr(self, 'processing_error', n.get_str_value()),
-            "processingStatus": lambda n : setattr(self, 'processing_status', n.get_enum_value(ProcessingStatus)),
             "sha256": lambda n : setattr(self, 'sha256', n.get_str_value()),
             "size": lambda n : setattr(self, 'size', n.get_int_value()),
             "source": lambda n : setattr(self, 'source', n.get_str_value()),
@@ -99,10 +86,7 @@ class FileVersionResponse(AdditionalDataHolder, Parsable):
         writer.write_str_value("languages", self.languages)
         writer.write_str_value("mediaType", self.media_type)
         writer.write_int_value("number", self.number)
-        writer.write_uuid_value("operationId", self.operation_id)
         writer.write_int_value("pageCount", self.page_count)
-        writer.write_str_value("processingError", self.processing_error)
-        writer.write_enum_value("processingStatus", self.processing_status)
         writer.write_str_value("sha256", self.sha256)
         writer.write_int_value("size", self.size)
         writer.write_str_value("source", self.source)

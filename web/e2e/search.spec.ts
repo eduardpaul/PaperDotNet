@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { createList, signIn, textPdf, unique } from './helpers';
+import { createList, expectTextRead, signIn, textPdf, unique } from './helpers';
 
 test.beforeEach(async ({ page }) => signIn(page));
 
@@ -8,7 +8,7 @@ async function uploadAndWait(page: Page, name: string, ...pages: string[]) {
   await page.getByRole('button', { name: 'Upload' }).click();
   await (await chooser).setFiles({ name, mimeType: 'application/pdf', buffer: textPdf(...pages) });
   await page.getByRole('region', { name: 'Uploads' }).getByRole('link', { name }).click();
-  await expect(page.getByRole('dialog').getByText('Searchable')).toBeVisible({ timeout: 30_000 });
+  await expectTextRead(page.getByRole('dialog'));
   await page.keyboard.press('Escape');
 }
 
@@ -17,7 +17,7 @@ test('search finds the page of a document and opens it there', async ({ page }) 
   const word = `zebra${Date.now().toString(36)}`;
   await uploadAndWait(page, `${unique('report')}.pdf`, 'Introduction', `The ${word} appears on page two`);
 
-  // Indexing runs in the background after processing.
+  // Indexing runs in the background after the text was read.
   await expect(async () => {
     await page.goto(`/search?q=${word}`);
     await expect(page.getByRole('listitem').filter({ hasText: 'Page 2' })).toBeVisible({ timeout: 2_000 });

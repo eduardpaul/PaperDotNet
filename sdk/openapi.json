@@ -8741,101 +8741,6 @@
         }
       }
     },
-    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/process": {
-      "post": {
-        "tags": [
-          "Documents"
-        ],
-        "operationId": "ProcessFile",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "listId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "itemId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/ProcessRequest"
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": "Accepted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProcessResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "4XX": {
-            "description": "Client error",
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "5XX": {
-            "description": "Server error",
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/{page}/image": {
       "get": {
         "tags": [
@@ -14312,6 +14217,157 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns": {
+      "get": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "ListLibraryBuiltInWorkflows",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BuiltInWorkflowResponse"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns/{key}": {
+      "put": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "SetLibraryBuiltInWorkflow",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuiltInSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuiltInWorkflowResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/me/approvals": {
       "get": {
         "tags": [
@@ -15852,6 +15908,13 @@
           }
         }
       },
+      "BuiltInScope": {
+        "enum": [
+          "workspace",
+          "library"
+        ],
+        "default": "workspace"
+      },
       "BuiltInSettingsRequest": {
         "required": [
           "enabled"
@@ -15935,6 +15998,13 @@
                 "$ref": "#/components/schemas/JsonObject"
               }
             ]
+          },
+          "scope": {
+            "$ref": "#/components/schemas/BuiltInScope"
+          },
+          "enabledByDefault": {
+            "type": "boolean",
+            "default": false
           },
           "@odata.etag": {
             "type": [
@@ -17870,9 +17940,6 @@
           "source",
           "createdAt",
           "createdBy",
-          "processingStatus",
-          "processingError",
-          "operationId",
           "pageCount",
           "textLanguage",
           "languages"
@@ -17913,22 +17980,6 @@
             ],
             "format": "uuid"
           },
-          "processingStatus": {
-            "$ref": "#/components/schemas/ProcessingStatus"
-          },
-          "processingError": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "operationId": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          },
           "pageCount": {
             "type": [
               "null",
@@ -17948,7 +17999,8 @@
               "string"
             ]
           }
-        }
+        },
+        "description": "A version of a document\u0027s file. \u0060pageCount\u0060 and \u0060textLanguage\u0060 are set by the library\u0027s workflows (reading the text, OCR)."
       },
       "FlowDefinition": {
         "required": [
@@ -18437,8 +18489,6 @@
       "LibrarySettingsRequest": {
         "required": [
           "duplicatePolicy",
-          "autoProcess",
-          "ocrMode",
           "ocrLanguages"
         ],
         "type": "object",
@@ -18450,22 +18500,6 @@
               },
               {
                 "$ref": "#/components/schemas/DuplicatePolicy"
-              }
-            ]
-          },
-          "autoProcess": {
-            "type": [
-              "null",
-              "boolean"
-            ]
-          },
-          "ocrMode": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/OcrMode"
               }
             ]
           },
@@ -18482,8 +18516,6 @@
         "required": [
           "listId",
           "duplicatePolicy",
-          "autoProcess",
-          "ocrMode",
           "ocrLanguages",
           "ocrLanguagesInherited"
         ],
@@ -18495,12 +18527,6 @@
           },
           "duplicatePolicy": {
             "$ref": "#/components/schemas/DuplicatePolicy"
-          },
-          "autoProcess": {
-            "type": "boolean"
-          },
-          "ocrMode": {
-            "$ref": "#/components/schemas/OcrMode"
           },
           "ocrLanguages": {
             "type": "string"
@@ -19156,13 +19182,6 @@
           }
         },
         "description": "Changes for one occurrence: \u0060fields\u0060 are merged over the series\u0027 values (e.g. a new \u0060start\u0060)."
-      },
-      "OcrMode": {
-        "enum": [
-          "auto",
-          "off"
-        ],
-        "description": "When a library runs OCR."
       },
       "OperationAcceptedResponse": {
         "required": [
@@ -19973,47 +19992,6 @@
           "user",
           "group"
         ]
-      },
-      "ProcessingStatus": {
-        "enum": [
-          "none",
-          "scheduled",
-          "running",
-          "succeeded",
-          "failed"
-        ],
-        "description": "Processing of a file version (DOC-09): text extraction, OCR, thumbnails."
-      },
-      "ProcessRequest": {
-        "required": [
-          "forceOcr",
-          "languages"
-        ],
-        "type": "object",
-        "properties": {
-          "forceOcr": {
-            "type": "boolean"
-          },
-          "languages": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        },
-        "description": "On-demand processing: \u0060forceOcr\u0060 runs OCR even when the PDF has text; \u0060languages\u0060 like \u0060deu\u002Beng\u0060."
-      },
-      "ProcessResponse": {
-        "required": [
-          "operationId"
-        ],
-        "type": "object",
-        "properties": {
-          "operationId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
       },
       "PromoteKeywordRequest": {
         "required": [
@@ -22150,9 +22128,17 @@
             "items": {
               "$ref": "#/components/schemas/WorkflowTrigger"
             }
+          },
+          "key": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
           }
         },
-        "description": "A workflow: \u0060trigger\u0060, or several \u0060triggers\u0060 (any of them starts a run), and its definition."
+        "description": "A workflow: \u0060trigger\u0060, or several \u0060triggers\u0060 (any of them starts a run), and its definition. \u0060key\u0060 names its events (\u0060wf.{key}.completed\u0060; default: made from the name when it is created)."
       },
       "WorkflowResponse": {
         "required": [
@@ -22273,6 +22259,19 @@
             "items": {
               "$ref": "#/components/schemas/WorkflowTrigger"
             }
+          },
+          "key": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           },
           "@odata.etag": {
             "type": [

@@ -22,7 +22,7 @@ class DocumentResponse(AdditionalDataHolder, Parsable):
     duplicates: Optional[list[DuplicateResponse]] = None
     # The fields property
     fields: Optional[JsonObject] = None
-    # The file property
+    # A version of a document's file. `pageCount` and `textLanguage` are set by the library's workflows (reading the text, OCR).
     file: Optional[FileVersionResponse] = None
     # The itemId property
     item_id: Optional[UUID] = None

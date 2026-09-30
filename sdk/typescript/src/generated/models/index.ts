@@ -419,6 +419,7 @@ export interface BreakInheritanceRequest extends AdditionalDataHolder, Parsable 
      */
     copyGrants?: boolean | null;
 }
+export type BuiltInScope = (typeof BuiltInScopeObject)[keyof typeof BuiltInScopeObject];
 /**
  * Turns a built-in workflow on or off in the workspace; `parameters` (default: the ones it had) fill in its definition.
  */
@@ -449,6 +450,10 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      */
     enabled?: boolean | null;
     /**
+     * The enabledByDefault property
+     */
+    enabledByDefault?: boolean | null;
+    /**
      * The key property
      */
     key?: string | null;
@@ -468,6 +473,10 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      * The requires property
      */
     requires?: string | null;
+    /**
+     * The scope property
+     */
+    scope?: BuiltInScope | null;
     /**
      * The values property
      */
@@ -2249,24 +2258,6 @@ export function createPreferencesResponseFromDiscriminatorValue(parseNode: Parse
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {ProcessRequest}
- */
-// @ts-ignore
-export function createProcessRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoProcessRequest;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {ProcessResponse}
- */
-// @ts-ignore
-export function createProcessResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoProcessResponse;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PromoteKeywordRequest}
  */
 // @ts-ignore
@@ -3362,11 +3353,13 @@ export function deserializeIntoBuiltInWorkflowResponse(builtInWorkflowResponse: 
         "available": n => { builtInWorkflowResponse.available = n.getBooleanValue(); },
         "description": n => { builtInWorkflowResponse.description = n.getStringValue(); },
         "enabled": n => { builtInWorkflowResponse.enabled = n.getBooleanValue(); },
+        "enabledByDefault": n => { builtInWorkflowResponse.enabledByDefault = n.getBooleanValue() ?? false; },
         "key": n => { builtInWorkflowResponse.key = n.getStringValue(); },
         "name": n => { builtInWorkflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { builtInWorkflowResponse.odataEtag = n.getStringValue(); },
         "parameters": n => { builtInWorkflowResponse.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "requires": n => { builtInWorkflowResponse.requires = n.getStringValue(); },
+        "scope": n => { builtInWorkflowResponse.scope = n.getEnumValue<BuiltInScope>(BuiltInScopeObject) ?? BuiltInScopeObject.Workspace; },
         "values": n => { builtInWorkflowResponse.values = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "workflowId": n => { builtInWorkflowResponse.workflowId = n.getGuidValue(); },
     }
@@ -4119,10 +4112,7 @@ export function deserializeIntoFileVersionResponse(fileVersionResponse: Partial<
         "languages": n => { fileVersionResponse.languages = n.getStringValue(); },
         "mediaType": n => { fileVersionResponse.mediaType = n.getStringValue(); },
         "number": n => { fileVersionResponse.number = n.getNumberValue(); },
-        "operationId": n => { fileVersionResponse.operationId = n.getGuidValue(); },
         "pageCount": n => { fileVersionResponse.pageCount = n.getNumberValue(); },
-        "processingError": n => { fileVersionResponse.processingError = n.getStringValue(); },
-        "processingStatus": n => { fileVersionResponse.processingStatus = n.getEnumValue<ProcessingStatus>(ProcessingStatusObject); },
         "sha256": n => { fileVersionResponse.sha256 = n.getStringValue(); },
         "size": n => { fileVersionResponse.size = n.getNumberValue(); },
         "source": n => { fileVersionResponse.source = n.getStringValue(); },
@@ -4347,10 +4337,8 @@ export function deserializeIntoKeywordRequest(keywordRequest: Partial<KeywordReq
 // @ts-ignore
 export function deserializeIntoLibrarySettingsRequest(librarySettingsRequest: Partial<LibrarySettingsRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "autoProcess": n => { librarySettingsRequest.autoProcess = n.getBooleanValue(); },
         "duplicatePolicy": n => { librarySettingsRequest.duplicatePolicy = n.getEnumValue<DuplicatePolicy>(DuplicatePolicyObject); },
         "ocrLanguages": n => { librarySettingsRequest.ocrLanguages = n.getStringValue(); },
-        "ocrMode": n => { librarySettingsRequest.ocrMode = n.getEnumValue<OcrMode>(OcrModeObject); },
     }
 }
 /**
@@ -4361,12 +4349,10 @@ export function deserializeIntoLibrarySettingsRequest(librarySettingsRequest: Pa
 // @ts-ignore
 export function deserializeIntoLibrarySettingsResponse(librarySettingsResponse: Partial<LibrarySettingsResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "autoProcess": n => { librarySettingsResponse.autoProcess = n.getBooleanValue(); },
         "duplicatePolicy": n => { librarySettingsResponse.duplicatePolicy = n.getEnumValue<DuplicatePolicy>(DuplicatePolicyObject); },
         "listId": n => { librarySettingsResponse.listId = n.getGuidValue(); },
         "ocrLanguages": n => { librarySettingsResponse.ocrLanguages = n.getStringValue(); },
         "ocrLanguagesInherited": n => { librarySettingsResponse.ocrLanguagesInherited = n.getBooleanValue(); },
-        "ocrMode": n => { librarySettingsResponse.ocrMode = n.getEnumValue<OcrMode>(OcrModeObject); },
         "@odata.etag": n => { librarySettingsResponse.odataEtag = n.getStringValue(); },
     }
 }
@@ -5036,29 +5022,6 @@ export function deserializeIntoPreferencesResponse(preferencesResponse: Partial<
         "theme": n => { preferencesResponse.theme = n.getStringValue(); },
         "timeFormat": n => { preferencesResponse.timeFormat = n.getStringValue(); },
         "timeZone": n => { preferencesResponse.timeZone = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param ProcessRequest The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoProcessRequest(processRequest: Partial<ProcessRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "forceOcr": n => { processRequest.forceOcr = n.getBooleanValue(); },
-        "languages": n => { processRequest.languages = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param ProcessResponse The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoProcessResponse(processResponse: Partial<ProcessResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "operationId": n => { processResponse.operationId = n.getGuidValue(); },
     }
 }
 /**
@@ -5903,6 +5866,7 @@ export function deserializeIntoWorkflowRequest(workflowRequest: Partial<Workflow
         "description": n => { workflowRequest.description = n.getStringValue(); },
         "enabled": n => { workflowRequest.enabled = n.getBooleanValue() ?? true; },
         "flow": n => { workflowRequest.flow = n.getObjectValue<FlowDefinition>(createFlowDefinitionFromDiscriminatorValue); },
+        "key": n => { workflowRequest.key = n.getStringValue(); },
         "name": n => { workflowRequest.name = n.getStringValue(); },
         "steps": n => { workflowRequest.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
         "trigger": n => { workflowRequest.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
@@ -5927,6 +5891,8 @@ export function deserializeIntoWorkflowResponse(workflowResponse: Partial<Workfl
         "enabled": n => { workflowResponse.enabled = n.getBooleanValue(); },
         "flow": n => { workflowResponse.flow = n.getObjectValue<FlowDefinition>(createFlowDefinitionFromDiscriminatorValue); },
         "id": n => { workflowResponse.id = n.getGuidValue(); },
+        "key": n => { workflowResponse.key = n.getStringValue(); },
+        "listId": n => { workflowResponse.listId = n.getGuidValue(); },
         "name": n => { workflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { workflowResponse.odataEtag = n.getStringValue(); },
         "steps": n => { workflowResponse.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
@@ -6026,7 +5992,7 @@ export interface DocumentResponse extends AdditionalDataHolder, Parsable {
      */
     fields?: JsonObject | null;
     /**
-     * The file property
+     * A version of a document's file. `pageCount` and `textLanguage` are set by the library's workflows (reading the text, OCR).
      */
     file?: FileVersionResponse | null;
     /**
@@ -6457,6 +6423,9 @@ export interface FileVersionList extends AdditionalDataHolder, Parsable {
      */
     value?: FileVersionResponse[] | null;
 }
+/**
+ * A version of a document's file. `pageCount` and `textLanguage` are set by the library's workflows (reading the text, OCR).
+ */
 export interface FileVersionResponse extends AdditionalDataHolder, Parsable {
     /**
      * The createdAt property
@@ -6487,21 +6456,9 @@ export interface FileVersionResponse extends AdditionalDataHolder, Parsable {
      */
     number?: number | null;
     /**
-     * The operationId property
-     */
-    operationId?: Guid | null;
-    /**
      * The pageCount property
      */
     pageCount?: number | null;
-    /**
-     * The processingError property
-     */
-    processingError?: string | null;
-    /**
-     * Processing of a file version (DOC-09): text extraction, OCR, thumbnails.
-     */
-    processingStatus?: ProcessingStatus | null;
     /**
      * The sha256 property
      */
@@ -6812,10 +6769,6 @@ export interface KeywordRequest extends AdditionalDataHolder, Parsable {
  */
 export interface LibrarySettingsRequest extends AdditionalDataHolder, Parsable {
     /**
-     * The autoProcess property
-     */
-    autoProcess?: boolean | null;
-    /**
      * The duplicatePolicy property
      */
     duplicatePolicy?: DuplicatePolicy | null;
@@ -6823,19 +6776,11 @@ export interface LibrarySettingsRequest extends AdditionalDataHolder, Parsable {
      * The ocrLanguages property
      */
     ocrLanguages?: string | null;
-    /**
-     * The ocrMode property
-     */
-    ocrMode?: OcrMode | null;
 }
 /**
  * Library settings; `ocrLanguagesInherited` means the organization's default document languages apply.
  */
 export interface LibrarySettingsResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The autoProcess property
-     */
-    autoProcess?: boolean | null;
     /**
      * What happens when an upload has the same content as an existing document (DOC-10).
      */
@@ -6852,10 +6797,6 @@ export interface LibrarySettingsResponse extends AdditionalDataHolder, Parsable 
      * The ocrLanguagesInherited property
      */
     ocrLanguagesInherited?: boolean | null;
-    /**
-     * When a library runs OCR.
-     */
-    ocrMode?: OcrMode | null;
     /**
      * The ETag for `If-Match` on changes (the same as the `ETag` header).
      */
@@ -7262,7 +7203,6 @@ export interface OccurrenceRequest extends AdditionalDataHolder, Parsable {
      */
     fields?: JsonObject | null;
 }
-export type OcrMode = (typeof OcrModeObject)[keyof typeof OcrModeObject];
 export interface OperationAcceptedResponse extends AdditionalDataHolder, Parsable {
     /**
      * The id property
@@ -7766,26 +7706,6 @@ export interface PreferencesResponse extends AdditionalDataHolder, Parsable {
     timeZone?: string | null;
 }
 export type PrincipalType = (typeof PrincipalTypeObject)[keyof typeof PrincipalTypeObject];
-export type ProcessingStatus = (typeof ProcessingStatusObject)[keyof typeof ProcessingStatusObject];
-/**
- * On-demand processing: `forceOcr` runs OCR even when the PDF has text; `languages` like `deu+eng`.
- */
-export interface ProcessRequest extends AdditionalDataHolder, Parsable {
-    /**
-     * The forceOcr property
-     */
-    forceOcr?: boolean | null;
-    /**
-     * The languages property
-     */
-    languages?: string | null;
-}
-export interface ProcessResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The operationId property
-     */
-    operationId?: Guid | null;
-}
 /**
  * Promotes a keyword into `termSetId` (under `parentId`, optional).
  */
@@ -8491,11 +8411,13 @@ export function serializeBuiltInWorkflowResponse(writer: SerializationWriter, bu
     writer.writeBooleanValue("available", builtInWorkflowResponse.available);
     writer.writeStringValue("description", builtInWorkflowResponse.description);
     writer.writeBooleanValue("enabled", builtInWorkflowResponse.enabled);
+    writer.writeBooleanValue("enabledByDefault", builtInWorkflowResponse.enabledByDefault ?? false);
     writer.writeStringValue("key", builtInWorkflowResponse.key);
     writer.writeStringValue("name", builtInWorkflowResponse.name);
     writer.writeStringValue("@odata.etag", builtInWorkflowResponse.odataEtag);
     writer.writeObjectValue<JsonObject>("parameters", builtInWorkflowResponse.parameters, serializeJsonObject);
     writer.writeStringValue("requires", builtInWorkflowResponse.requires);
+    writer.writeEnumValue<BuiltInScope>("scope", builtInWorkflowResponse.scope ?? BuiltInScopeObject.Workspace);
     writer.writeObjectValue<JsonObject>("values", builtInWorkflowResponse.values, serializeJsonObject);
     writer.writeGuidValue("workflowId", builtInWorkflowResponse.workflowId);
     writer.writeAdditionalData(builtInWorkflowResponse.additionalData);
@@ -9299,10 +9221,7 @@ export function serializeFileVersionResponse(writer: SerializationWriter, fileVe
     writer.writeStringValue("languages", fileVersionResponse.languages);
     writer.writeStringValue("mediaType", fileVersionResponse.mediaType);
     writer.writeNumberValue("number", fileVersionResponse.number);
-    writer.writeGuidValue("operationId", fileVersionResponse.operationId);
     writer.writeNumberValue("pageCount", fileVersionResponse.pageCount);
-    writer.writeStringValue("processingError", fileVersionResponse.processingError);
-    writer.writeEnumValue<ProcessingStatus>("processingStatus", fileVersionResponse.processingStatus);
     writer.writeStringValue("sha256", fileVersionResponse.sha256);
     writer.writeNumberValue("size", fileVersionResponse.size);
     writer.writeStringValue("source", fileVersionResponse.source);
@@ -9543,10 +9462,8 @@ export function serializeKeywordRequest(writer: SerializationWriter, keywordRequ
 // @ts-ignore
 export function serializeLibrarySettingsRequest(writer: SerializationWriter, librarySettingsRequest: Partial<LibrarySettingsRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!librarySettingsRequest || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("autoProcess", librarySettingsRequest.autoProcess);
     writer.writeEnumValue<DuplicatePolicy>("duplicatePolicy", librarySettingsRequest.duplicatePolicy);
     writer.writeStringValue("ocrLanguages", librarySettingsRequest.ocrLanguages);
-    writer.writeEnumValue<OcrMode>("ocrMode", librarySettingsRequest.ocrMode);
     writer.writeAdditionalData(librarySettingsRequest.additionalData);
 }
 /**
@@ -9558,12 +9475,10 @@ export function serializeLibrarySettingsRequest(writer: SerializationWriter, lib
 // @ts-ignore
 export function serializeLibrarySettingsResponse(writer: SerializationWriter, librarySettingsResponse: Partial<LibrarySettingsResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!librarySettingsResponse || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("autoProcess", librarySettingsResponse.autoProcess);
     writer.writeEnumValue<DuplicatePolicy>("duplicatePolicy", librarySettingsResponse.duplicatePolicy);
     writer.writeGuidValue("listId", librarySettingsResponse.listId);
     writer.writeStringValue("ocrLanguages", librarySettingsResponse.ocrLanguages);
     writer.writeBooleanValue("ocrLanguagesInherited", librarySettingsResponse.ocrLanguagesInherited);
-    writer.writeEnumValue<OcrMode>("ocrMode", librarySettingsResponse.ocrMode);
     writer.writeStringValue("@odata.etag", librarySettingsResponse.odataEtag);
     writer.writeAdditionalData(librarySettingsResponse.additionalData);
 }
@@ -10283,31 +10198,6 @@ export function serializePreferencesResponse(writer: SerializationWriter, prefer
     writer.writeStringValue("timeFormat", preferencesResponse.timeFormat);
     writer.writeStringValue("timeZone", preferencesResponse.timeZone);
     writer.writeAdditionalData(preferencesResponse.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param ProcessRequest The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeProcessRequest(writer: SerializationWriter, processRequest: Partial<ProcessRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!processRequest || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("forceOcr", processRequest.forceOcr);
-    writer.writeStringValue("languages", processRequest.languages);
-    writer.writeAdditionalData(processRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param ProcessResponse The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeProcessResponse(writer: SerializationWriter, processResponse: Partial<ProcessResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!processResponse || isSerializingDerivedType) { return; }
-    writer.writeGuidValue("operationId", processResponse.operationId);
-    writer.writeAdditionalData(processResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -11210,6 +11100,7 @@ export function serializeWorkflowRequest(writer: SerializationWriter, workflowRe
     writer.writeStringValue("description", workflowRequest.description);
     writer.writeBooleanValue("enabled", workflowRequest.enabled ?? true);
     writer.writeObjectValue<FlowDefinition>("flow", workflowRequest.flow, serializeFlowDefinition);
+    writer.writeStringValue("key", workflowRequest.key);
     writer.writeStringValue("name", workflowRequest.name);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowRequest.steps, serializeWorkflowStep);
     writer.writeObjectValue<WorkflowTrigger>("trigger", workflowRequest.trigger, serializeWorkflowTrigger);
@@ -11235,6 +11126,8 @@ export function serializeWorkflowResponse(writer: SerializationWriter, workflowR
     writer.writeBooleanValue("enabled", workflowResponse.enabled);
     writer.writeObjectValue<FlowDefinition>("flow", workflowResponse.flow, serializeFlowDefinition);
     writer.writeGuidValue("id", workflowResponse.id);
+    writer.writeStringValue("key", workflowResponse.key);
+    writer.writeGuidValue("listId", workflowResponse.listId);
     writer.writeStringValue("name", workflowResponse.name);
     writer.writeStringValue("@odata.etag", workflowResponse.odataEtag);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowResponse.steps, serializeWorkflowStep);
@@ -12180,7 +12073,7 @@ export interface ViewResponse extends AdditionalDataHolder, Parsable {
     orderBy?: string | null;
 }
 /**
- * A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
+ * A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).
  */
 export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -12203,6 +12096,10 @@ export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
      * The flow property
      */
     flow?: FlowDefinition | null;
+    /**
+     * The key property
+     */
+    key?: string | null;
     /**
      * The name property
      */
@@ -12264,6 +12161,14 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      * The id property
      */
     id?: Guid | null;
+    /**
+     * The key property
+     */
+    key?: string | null;
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
     /**
      * The name property
      */
@@ -12484,6 +12389,10 @@ export const AuditActionObject = {
     Restored: "restored",
     Purged: "purged",
 } as const;
+export const BuiltInScopeObject = {
+    Workspace: "workspace",
+    Library: "library",
+} as const;
 /**
  * What happens when an upload has the same content as an existing document (DOC-10).
  */
@@ -12515,13 +12424,6 @@ export const ListVersioningObject = {
     Off: "off",
     Major: "major",
 } as const;
-/**
- * When a library runs OCR.
- */
-export const OcrModeObject = {
-    Auto: "auto",
-    Off: "off",
-} as const;
 export const OperationStatusObject = {
     NotStarted: "notStarted",
     Running: "running",
@@ -12531,16 +12433,6 @@ export const OperationStatusObject = {
 export const PrincipalTypeObject = {
     User: "user",
     Group: "group",
-} as const;
-/**
- * Processing of a file version (DOC-09): text extraction, OCR, thumbnails.
- */
-export const ProcessingStatusObject = {
-    None: "none",
-    Scheduled: "scheduled",
-    Running: "running",
-    Succeeded: "succeeded",
-    Failed: "failed",
 } as const;
 export const RunStatusObject = {
     Running: "running",

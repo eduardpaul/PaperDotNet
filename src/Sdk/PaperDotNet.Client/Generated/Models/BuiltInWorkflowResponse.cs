@@ -27,6 +27,8 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The enabled property</summary>
         public bool? Enabled { get; set; }
+        /// <summary>The enabledByDefault property</summary>
+        public bool? EnabledByDefault { get; set; }
         /// <summary>The key property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -67,6 +69,8 @@ namespace PaperDotNet.Client.Models
 #else
         public string Requires { get; set; }
 #endif
+        /// <summary>The scope property</summary>
+        public global::PaperDotNet.Client.Models.BuiltInScope? Scope { get; set; }
         /// <summary>The values property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -83,6 +87,8 @@ namespace PaperDotNet.Client.Models
         public BuiltInWorkflowResponse()
         {
             AdditionalData = new Dictionary<string, object>();
+            EnabledByDefault = false;
+            Scope = global::PaperDotNet.Client.Models.BuiltInScope.Workspace;
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
@@ -105,11 +111,13 @@ namespace PaperDotNet.Client.Models
                 { "available", n => { Available = n.GetBoolValue(); } },
                 { "description", n => { Description = n.GetStringValue(); } },
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
+                { "enabledByDefault", n => { EnabledByDefault = n.GetBoolValue(); } },
                 { "key", n => { Key = n.GetStringValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "parameters", n => { Parameters = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "requires", n => { Requires = n.GetStringValue(); } },
+                { "scope", n => { Scope = n.GetEnumValue<global::PaperDotNet.Client.Models.BuiltInScope>(); } },
                 { "values", n => { Values = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "workflowId", n => { WorkflowId = n.GetGuidValue(); } },
             };
@@ -124,11 +132,13 @@ namespace PaperDotNet.Client.Models
             writer.WriteBoolValue("available", Available);
             writer.WriteStringValue("description", Description);
             writer.WriteBoolValue("enabled", Enabled);
+            writer.WriteBoolValue("enabledByDefault", EnabledByDefault);
             writer.WriteStringValue("key", Key);
             writer.WriteStringValue("name", Name);
             writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("parameters", Parameters);
             writer.WriteStringValue("requires", Requires);
+            writer.WriteEnumValue<global::PaperDotNet.Client.Models.BuiltInScope>("scope", Scope);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("values", Values);
             writer.WriteGuidValue("workflowId", WorkflowId);
             writer.WriteAdditionalData(AdditionalData);

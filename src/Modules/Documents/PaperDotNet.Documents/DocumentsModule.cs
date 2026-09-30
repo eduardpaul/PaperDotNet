@@ -46,10 +46,14 @@ public sealed class DocumentsModule : IModule
         services.AddScoped<FileIntake>();
         services.AddScoped<DocumentService>();
         services.AddScoped<PageEditor>();
-        services.AddScoped<ProcessingScheduler>();
+        services.AddScoped<DocumentEvents>();
         services.AddScoped<OcrEngine>();
         services.AddScoped<PageRenderer>();
-        services.AddOperationHandler<DocumentProcessor>();
+        services.AddOperationHandler<DocumentOcr>();
+        services.AddWorkflowActivity<ReadTextActivity>();
+        services.AddWorkflowActivity<ThumbnailActivity>();
+        services.AddWorkflowActivity<RenderPagesActivity>();
+        services.AddWorkflowActivity<OcrActivity>();
         services.AddScoped<IItemSearchContributor, DocumentSearchContent>();
         services.AddScoped<IItemPageImageSource, DocumentPageImages>();
         services.AddScoped<IMcpTool, UploadDocumentTool>();
@@ -59,8 +63,8 @@ public sealed class DocumentsModule : IModule
         services.AddEventSubscriber<ItemPurged, PurgedItemFiles>();
         services.AddEventSubscriber<PrincipalDeleted, DeletedGroupInbox>();
         services.AddTenantRecurringJob<StoredFileCleanupJob>(StoredFileCleanupJob.Name, StoredFileCleanupJob.Schedule);
-        services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggers.DocumentProcessed,
-            "A document's file was processed: text extracted and OCR done (data: version, pageCount, ocr)."));
+        services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggers.DocumentAdded,
+            "A file was added to a library: a new document or a new version (data: version, mediaType, fileName, newDocument). Nothing else happens on upload."));
         foreach (var workflow in DocumentWorkflows.All)
         {
             services.AddWorkflow(workflow);

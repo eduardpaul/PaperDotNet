@@ -3,17 +3,18 @@ using System.Runtime.Serialization;
 using System;
 namespace PaperDotNet.Client.Models
 {
-    /// <summary>When a library runs OCR.</summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    public enum OcrMode
+    #pragma warning disable CS1591
+    public enum BuiltInScope
+    #pragma warning restore CS1591
     {
-        [EnumMember(Value = "auto")]
+        [EnumMember(Value = "workspace")]
         #pragma warning disable CS1591
-        Auto,
+        Workspace,
         #pragma warning restore CS1591
-        [EnumMember(Value = "off")]
+        [EnumMember(Value = "library")]
         #pragma warning disable CS1591
-        Off,
+        Library,
         #pragma warning restore CS1591
     }
 }

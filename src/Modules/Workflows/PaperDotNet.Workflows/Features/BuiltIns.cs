@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Jobs.Contracts;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workflows.Data;
 
@@ -17,7 +18,7 @@ namespace PaperDotNet.Workflows.Features;
 /// and a new release's definition becomes a new version (<see cref="BuiltInSyncJob"/>).
 /// </summary>
 internal sealed partial class BuiltInWorkflows(
-    IEnumerable<IWorkflowDefinitionProvider> providers, IServiceProvider services, WorkflowsDbContext db, WorkflowValidator validator)
+    IEnumerable<IWorkflowDefinitionProvider> providers, IServiceProvider services, WorkflowsDbContext db, WorkflowValidator validator, IListItemStore items)
 {
     /// <summary>The built-in workflows offered in the organization (an extension's only where it is enabled).</summary>
     public async Task<IReadOnlyList<BuiltInWorkflow>> ListAsync(CancellationToken ct)
@@ -46,9 +47,9 @@ internal sealed partial class BuiltInWorkflows(
 
     /// <summary>
     /// The definition with the parameter values filled in (missing values take the schema's <c>default</c>): the definition,
-    /// the values used, or why they do not fit.
+    /// the values used, or why they do not fit. A per-library workflow gets the library's name as <c>{param:list}</c>.
     /// </summary>
-    public static (WorkflowSpec? Spec, JsonObject Values, string? Error) Resolve(BuiltInWorkflow workflow, JsonObject? parameters)
+    public static (WorkflowSpec? Spec, JsonObject Values, string? Error) Resolve(BuiltInWorkflow workflow, JsonObject? parameters, string? listName = null)
     {
         var values = parameters?.DeepClone().AsObject() ?? [];
         foreach (var (name, property) in workflow.Parameters?["properties"] as JsonObject ?? [])
@@ -69,20 +70,26 @@ internal sealed partial class BuiltInWorkflows(
             return (null, values, error.Replace("input", "parameter", StringComparison.Ordinal));
         }
 
-        var (spec, invalid) = DefinitionJson.TryParse<WorkflowSpec>(Fill(workflow.Definition, values)!.ToJsonString());
+        var filled = values.DeepClone().AsObject();
+        if (listName is not null)
+        {
+            filled["list"] = listName;
+        }
+
+        var (spec, invalid) = DefinitionJson.TryParse<WorkflowSpec>(Fill(workflow.Definition, filled)!.ToJsonString());
         return (spec, values, invalid is null ? null : $"The definition is not valid: {invalid}");
     }
 
     /// <summary>Why the workflow cannot run in the workspace with these values, or null.</summary>
     public async Task<(WorkflowSpec? Spec, JsonObject Values, List<string> Errors)> CheckAsync(
-        Guid workspaceId, BuiltInWorkflow workflow, JsonObject? parameters, CancellationToken ct)
+        Guid workspaceId, BuiltInWorkflow workflow, JsonObject? parameters, CancellationToken ct, string? listName = null)
     {
         if (!IsAvailable(workflow))
         {
             return (null, parameters ?? [], [$"'{workflow.Name}' needs {workflow.Requires} to be configured on the server."]);
         }
 
-        var (spec, values, error) = Resolve(workflow, parameters);
+        var (spec, values, error) = Resolve(workflow, parameters, listName);
         if (error is not null)
         {
             return (null, values, [error]);
@@ -92,9 +99,12 @@ internal sealed partial class BuiltInWorkflows(
         return (errors.Count == 0 ? spec : null, values, errors);
     }
 
-    /// <summary>The built-in workflow's row in the workspace (null when it was never enabled).</summary>
-    public Task<WorkflowDefinition?> RowAsync(Guid workspaceId, string key, CancellationToken ct) =>
-        db.Workflows.FirstOrDefaultAsync(w => w.WorkspaceId == workspaceId && w.BuiltInKey == key, ct);
+    /// <summary>The built-in workflow's row in the workspace, or in the library for per-library ones (null when it was never enabled).</summary>
+    public Task<WorkflowDefinition?> RowAsync(Guid workspaceId, string key, CancellationToken ct, Guid? listId = null) =>
+        db.Workflows.FirstOrDefaultAsync(w => w.WorkspaceId == workspaceId && w.BuiltInKey == key && w.ListId == listId, ct);
+
+    /// <summary>The name of a built-in workflow's row: per library, with the library's name (names are unique in a workspace).</summary>
+    public static string RowName(BuiltInWorkflow workflow, ListData? list) => list is null ? workflow.Name : $"{workflow.Name} ({list.Name})";
 
     public static JsonObject? Values(WorkflowDefinition? row) => row?.Parameters is { } json ? JsonNode.Parse(json) as JsonObject : null;
 
@@ -103,33 +113,52 @@ internal sealed partial class BuiltInWorkflows(
     /// The row is added to the context, not saved. Errors when the values do not fit, or a workflow of the same name exists.
     /// </summary>
     public async Task<(WorkflowDefinition? Row, List<string> Errors, bool NameTaken)> SetAsync(
-        Guid workspaceId, BuiltInWorkflow workflow, bool enabled, JsonObject? parameters, CancellationToken ct)
+        Guid workspaceId, BuiltInWorkflow workflow, bool enabled, JsonObject? parameters, CancellationToken ct, ListData? list = null)
     {
-        var row = await RowAsync(workspaceId, workflow.Key, ct);
+        if ((workflow.Scope == BuiltInScope.Library) != (list is not null))
+        {
+            return (null, [workflow.Scope == BuiltInScope.Library
+                ? $"'{workflow.Name}' is turned on per library (…/lists/{{listId}}/workflows/builtIns)."
+                : $"'{workflow.Name}' is turned on in the workspace, not per list."], false);
+        }
+
+        if (list is { IsLibrary: false })
+        {
+            return (null, [$"'{workflow.Name}' works on document libraries; '{list.Name}' is a list."], false);
+        }
+
+        var row = await RowAsync(workspaceId, workflow.Key, ct, list?.Id);
         if (!enabled && parameters is null)
         {
             if (row is not null)
             {
                 row.Enabled = false;
+                return (row, [], false);
             }
 
-            return (row, [], false);
+            if (!workflow.EnabledByDefault)
+            {
+                return (null, [], false);
+            }
+
+            // Off where it would be on by default: the row is kept, off, so it is not turned on again.
         }
 
-        var (spec, values, errors) = await CheckAsync(workspaceId, workflow, parameters ?? Values(row), ct);
+        var (spec, values, errors) = await CheckAsync(workspaceId, workflow, parameters ?? Values(row), ct, list?.Name);
         if (errors.Count > 0)
         {
             return (null, errors, false);
         }
 
+        var name = RowName(workflow, list);
         if (row is null)
         {
-            if (await db.Workflows.AnyAsync(w => w.WorkspaceId == workspaceId && w.Name == workflow.Name, ct))
+            if (await db.Workflows.AnyAsync(w => w.WorkspaceId == workspaceId && w.Name == name, ct))
             {
-                return (null, [$"A workflow named '{workflow.Name}' already exists in the workspace."], true);
+                return (null, [$"A workflow named '{name}' already exists in the workspace."], true);
             }
 
-            row = WorkflowWriter.Create(db, workspaceId, workflow.Name, workflow.Description, enabled, spec!);
+            row = WorkflowWriter.Create(db, workspaceId, name, workflow.Description, enabled, spec!, workflow.Key, list?.Id);
             row.BuiltInKey = workflow.Key;
         }
         else
@@ -142,6 +171,52 @@ internal sealed partial class BuiltInWorkflows(
         row.Parameters = values.ToJsonString();
         return (row, [], false);
     }
+
+    /// <summary>
+    /// Creates the per-library built-in workflows that are on by default in <paramref name="list"/> (a library), unless the
+    /// library has them already (on or off). Done once per library and process: when a document is added, or its
+    /// settings are read.
+    /// </summary>
+    public async Task EnsureDefaultsAsync(ListData list, Guid tenantId, CancellationToken ct)
+    {
+        // Marked only once the rows are saved: an event handled at the same moment must not match before they exist.
+        if (!list.IsLibrary || EnsuredLibraries.ContainsKey((tenantId, list.Id)))
+        {
+            return;
+        }
+
+        foreach (var workflow in (await ListAsync(ct)).Where(w => w.Scope == BuiltInScope.Library && w.EnabledByDefault && IsAvailable(w)))
+        {
+            if (await RowAsync(list.WorkspaceId, workflow.Key, ct, list.Id) is not null)
+            {
+                continue;
+            }
+
+            var (row, errors, _) = await SetAsync(list.WorkspaceId, workflow, true, null, ct, list);
+            if (row is null || errors.Count > 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                // Created at the same moment by another request: that one counts.
+                db.ChangeTracker.Clear();
+            }
+        }
+
+        EnsuredLibraries.TryAdd((tenantId, list.Id), true);
+    }
+
+    /// <summary>Libraries whose default workflows exist (per tenant), so they are checked once per process.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(Guid Tenant, Guid List), bool> EnsuredLibraries = new();
+
+    /// <summary>Forgets that a library's defaults were created (e.g. its rows were removed), so they are checked again.</summary>
+    public static void ForgetLibrary(Guid tenantId, Guid listId) => EnsuredLibraries.TryRemove((tenantId, listId), out _);
 
     /// <summary>
     /// A workflow of the workspace's own made from the built-in one (to change it), named <paramref name="name"/>; the
@@ -162,7 +237,7 @@ internal sealed partial class BuiltInWorkflows(
             return (null, [$"A workflow named '{name}' already exists in the workspace."], true);
         }
 
-        var copy = WorkflowWriter.Create(db, workspaceId, name, workflow.Description, true, spec!);
+        var copy = WorkflowWriter.Create(db, workspaceId, name, workflow.Description, true, spec!, await WorkflowWriter.KeyForAsync(db, workspaceId, name, ct));
         copy.CopiedFrom = workflow.Key;
         if (row is not null)
         {
@@ -188,11 +263,28 @@ internal sealed partial class BuiltInWorkflows(
                 continue;
             }
 
-            var (spec, _, errors) = await CheckAsync(row.WorkspaceId, workflow, Values(row), ct);
+            // A per-library workflow follows its library's name; a removed library turns it off.
+            ListData? list = null;
+            if (row.ListId is { } listId)
+            {
+                list = await items.AsSystem().GetListAsync(row.WorkspaceId, listId, ct);
+                if (list is null)
+                {
+                    row.Enabled = false;
+                    continue;
+                }
+            }
+
+            var (spec, _, errors) = await CheckAsync(row.WorkspaceId, workflow, Values(row), ct, list?.Name);
             if (errors.Count == 0)
             {
                 await WorkflowWriter.SetSpecAsync(db, row, spec!, ct);
                 row.Description = workflow.Description;
+                var name = RowName(workflow, list);
+                if (row.Name != name && !await db.Workflows.AnyAsync(w => w.WorkspaceId == row.WorkspaceId && w.Name == name, ct))
+                {
+                    row.Name = name;
+                }
             }
         }
 

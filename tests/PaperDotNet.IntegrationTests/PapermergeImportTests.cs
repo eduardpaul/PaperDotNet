@@ -258,7 +258,6 @@ public sealed class PapermergeImportTests(PaperDotNetApiFactory factory)
             var invoiceUrl = $"/v1.0/workspaces/{ws}/lists/{library}/items/{Id(invoice)}";
             var versions = (await (await client.GetAsync($"{invoiceUrl}/file/versions", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray().ToList();
             Assert.Equal(["page_edit", "upload"], versions.Select(v => v.GetProperty("source").GetString()));
-            Assert.All(versions, v => Assert.Equal("succeeded", v.GetProperty("processingStatus").GetString()));
             Assert.Equal("deu", versions[0].GetProperty("textLanguage").GetString());
             await Eventually.WaitForAsync<bool>(async () =>
                 (await (await client.GetAsync("/v1.0/search?q=ocelot", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray()

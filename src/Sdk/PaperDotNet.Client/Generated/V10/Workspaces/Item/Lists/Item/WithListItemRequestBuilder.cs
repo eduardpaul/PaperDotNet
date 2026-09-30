@@ -13,6 +13,7 @@ using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Permissions;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.RecycleBin;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Views;
+using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -70,6 +71,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Views.ViewsRequestBuilder Views
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Views.ViewsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The workflows property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows.WorkflowsRequestBuilder Workflows
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows.WorkflowsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.WithListItemRequestBuilder"/> and sets the default values.

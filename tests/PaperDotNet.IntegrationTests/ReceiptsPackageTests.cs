@@ -67,7 +67,8 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
         var tenant = await factory.CreateTenantAsync("wf-batch-api-receipts");
         var admin = await ApiClient.CreateAsync(factory, "wf-batch-api-receipts");
         var batchApi = FakeBatchClient.For(tenant.Identifier)!;
-        batchApi.Answer = line => line.Input.Contains("LIDL", StringComparison.Ordinal) ? Reading : "{}";
+        // The "model" reads the receipt from its image (the package sends no text).
+        batchApi.Answer = line => line.Images is { Count: > 0 } ? Reading : "{}";
 
         // The package as it ships, with a batch schedule that does not come by itself during the test.
         var apply = await admin.PostAsync($"/v1.0/provisioning/apply?parameters[BatchSchedule]={Uri.EscapeDataString("0 0 1 1 *")}",
@@ -85,18 +86,21 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
             .ToDictionary(l => l.GetProperty("name").GetString()!, l => l.GetProperty("id").GetGuid());
         var workflows = (await (await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows", Ct)).ReadJsonAsync()).EnumerateArray()
             .ToDictionary(w => w.GetProperty("name").GetString()!, w => w.GetProperty("id").GetGuid());
-        Assert.Equal(["AI batch", "Read receipts"], workflows.Keys.Order(StringComparer.Ordinal));
+        // Besides its own, the workspace lists the library's document workflows ("… (Receipts)").
+        Assert.Equal(["AI batch", "Read receipts"], workflows.Keys.Where(k => !k.EndsWith("(Receipts)", StringComparison.Ordinal)).Order(StringComparer.Ordinal));
 
-        // A receipt is uploaded, processed, then tagged "ticket": its reading waits for the batch.
+        // The library makes thumbnails and page images, but reads no text and runs no OCR.
         var receipts = $"/v1.0/workspaces/{ws}/lists/{lists["Receipts"]}";
+        var libraryWorkflows = (await (await admin.GetAsync($"{receipts}/workflows/builtIns", Ct)).ReadJsonAsync()).EnumerateArray()
+            .ToDictionary(w => w.GetProperty("key").GetString()!, w => w.GetProperty("enabled").GetBoolean());
+        Assert.Equal(new Dictionary<string, bool> { ["documents.ocr"] = false, ["documents.pages"] = true, ["documents.text"] = false, ["documents.thumbnail"] = true },
+            libraryWorkflows);
+
+        // A receipt is uploaded (its images are made), then tagged "ticket": its reading waits for the batch.
         var upload = await admin.PostAsync($"{receipts}/documents", new MultipartFormDataContent { { new ByteArrayContent(ReceiptPdf()), "file", "lidl.pdf" } }, Ct);
         Assert.Equal(HttpStatusCode.Created, upload.StatusCode);
         var receipt = (await upload.ReadJsonAsync()).GetProperty("itemId").GetGuid();
-        await Eventually.WaitForAsync<bool>(async () =>
-        {
-            var versions = (await (await admin.GetAsync($"{receipts}/items/{receipt}/file/versions", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray();
-            return versions.All(v => v.GetProperty("processingStatus").GetString() == "succeeded") ? true : null;
-        }, TimeSpan.FromSeconds(60));
+        await DocumentWorkflowRuns.WaitAsync(admin, ws, receipt, 2);
         var item = $"{receipts}/items/{receipt}";
         var tag = await admin.SendWithEtagAsync(HttpMethod.Patch, item, (await admin.GetAsync(item, Ct)).Headers.ETag!.Tag, new { fields = new { tags = new[] { "ticket" } } });
         Assert.True(tag.IsSuccessStatusCode, await tag.Content.ReadAsStringAsync(Ct));
@@ -141,7 +145,7 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
 
         await BatchWindowAsync(1);
         var line = Assert.Single(Assert.Single(batchApi.Submitted).Lines);
-        Assert.Contains("LIDL", line.Input, StringComparison.Ordinal);
+        Assert.DoesNotContain("LIDL", line.Input, StringComparison.Ordinal); // no text: the model reads the image
         Assert.NotNull(line.Schema?["properties"]?["lines"]);
         var image = Assert.Single(line.Images!);
         Assert.Equal("image/jpeg", image.MediaType);
@@ -165,20 +169,19 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
         Assert.Equal(2.50m, saved[0].GetProperty("unitPrice").GetDecimal());
         Assert.All(saved, f => Assert.Equal(receipt.ToString(), f.GetProperty("receipt").GetString()));
 
-        // Tagged again, with a tag below "ticket": read again in the next batch (its values changed, so the question did too),
-        // and the lines are replaced, not added. One change: trigger filters see the item as it is when the event is handled,
-        // so two quick changes could both start a run.
+        // Tagged again, with a tag below "ticket": read again. The question is the same (the same image), so the answer comes
+        // from the cache at once, without a batch; the lines are replaced, not added.
         var retag = await admin.SendWithEtagAsync(HttpMethod.Patch, item, (await admin.GetAsync(item, Ct)).Headers.ETag!.Tag,
             new { fields = new { tags = new[] { "Groceries" } } });
         Assert.True(retag.IsSuccessStatusCode, await retag.Content.ReadAsStringAsync(Ct));
 
         await Eventually.WaitForAsync(async () =>
         {
-            var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read receipts"]}&itemId={receipt}&status=waiting", Ct);
-            return (await response.ReadJsonAsync()).GetProperty("value").GetArrayLength() == 1 ? true : (bool?)null;
+            var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read receipts"]}&itemId={receipt}", Ct);
+            var runs = (await response.ReadJsonAsync()).GetProperty("value").EnumerateArray().ToList();
+            return runs.Count == 2 && runs.All(r => r.GetProperty("status").GetString() == "completed") ? true : (bool?)null;
         }, TimeSpan.FromSeconds(30));
-        await BatchWindowAsync(2);
-        Assert.Equal("completed", (await RunAsync("completed", "failed")).GetProperty("status").GetString());
+        Assert.Single(batchApi.Submitted);
         var replaced = (await (await admin.GetAsync($"/v1.0/workspaces/{ws}/lists/{lists["Receipt lines"]}/items", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray().ToList();
         Assert.Equal(2, replaced.Count);
         Assert.Empty(replaced.Select(i => i.GetProperty("id").GetGuid()).Intersect(firstLines));

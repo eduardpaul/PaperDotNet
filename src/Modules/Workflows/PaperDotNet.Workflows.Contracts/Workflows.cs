@@ -262,6 +262,23 @@ public sealed record BuiltInWorkflow(string Key, string Name, string Description
 
     /// <summary>What the server needs for it to be offered as available, e.g. <see cref="BuiltInRequirements.Ai"/>.</summary>
     public string? Requires { get; init; }
+
+    /// <summary>
+    /// Where it is turned on: in the workspace (default), or per library (<see cref="BuiltInScope.Library"/>: one per
+    /// library, its triggers apply to that library, and <c>{param:list}</c> is the library's name).
+    /// </summary>
+    public BuiltInScope Scope { get; init; } = BuiltInScope.Workspace;
+
+    /// <summary>On where nobody turned it off: created, turned on, the first time a library (or workspace) needs it.</summary>
+    public bool EnabledByDefault { get; init; }
+}
+
+public enum BuiltInScope
+{
+    Workspace = 0,
+
+    /// <summary>Turned on per document library (e.g. reading the text of its files).</summary>
+    Library = 1,
 }
 
 public static class BuiltInRequirements
@@ -296,8 +313,18 @@ public static class WorkflowTriggers
     /// <summary>A set time before or after a date field of the list's items (<c>list</c>, <c>field</c>, <c>offsetHours</c>).</summary>
     public const string Date = "date";
 
-    /// <summary>A document's file was processed: text extracted and OCR done (raised by Documents; data: <c>version</c>, <c>pageCount</c>, <c>ocr</c>).</summary>
-    public const string DocumentProcessed = "document.processed";
+    /// <summary>
+    /// A file was added to a library: a new document or a new version of its file (raised by Documents, ADR-0038; data:
+    /// <c>version</c>, <c>mediaType</c>, <c>fileName</c>, <c>newDocument</c>). Nothing else happens on upload: text,
+    /// thumbnails, page images and OCR are workflows on this trigger.
+    /// </summary>
+    public const string DocumentAdded = "document.added";
+
+    /// <summary>
+    /// Events of workflows start with <c>wf.</c>: <c>wf.{key}.completed</c> and <c>wf.{key}.failed</c> when a run of the
+    /// workflow with that key ends, and <c>wf.{key}.{event}</c> from its <c>event.raise</c> steps (ADR-0038).
+    /// </summary>
+    public const string WorkflowEventPrefix = "wf.";
 
     /// <summary>An approval of a workflow run was decided (data: <c>workflow</c>, <c>step</c>, <c>outcome</c>, <c>comment</c>).</summary>
     public const string ApprovalDecided = "approval.decided";

@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from .........models.api_problem import ApiProblem
     from .........models.document_response import DocumentResponse
     from .pages.pages_request_builder import PagesRequestBuilder
-    from .process.process_request_builder import ProcessRequestBuilder
     from .thumbnail.thumbnail_request_builder import ThumbnailRequestBuilder
     from .versions.versions_request_builder import VersionsRequestBuilder
 
@@ -117,15 +116,6 @@ class FileRequestBuilder(BaseRequestBuilder):
         from .pages.pages_request_builder import PagesRequestBuilder
 
         return PagesRequestBuilder(self.request_adapter, self.path_parameters)
-    
-    @property
-    def process(self) -> ProcessRequestBuilder:
-        """
-        The process property
-        """
-        from .process.process_request_builder import ProcessRequestBuilder
-
-        return ProcessRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def thumbnail(self) -> ThumbnailRequestBuilder:

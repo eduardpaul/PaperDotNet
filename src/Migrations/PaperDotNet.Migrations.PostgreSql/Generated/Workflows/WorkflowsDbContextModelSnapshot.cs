@@ -315,6 +315,15 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                         .HasColumnType("boolean")
                         .HasColumnName("enabled");
 
+                    b.Property<string>("Key")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("key");
+
+                    b.Property<Guid?>("ListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("list_id");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -358,9 +367,8 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_definitions_tenant_id");
 
-                    b.HasIndex("TenantId", "WorkspaceId", "BuiltInKey")
-                        .IsUnique()
-                        .HasDatabaseName("ix_definitions_tenant_id_workspace_id_built_in_key");
+                    b.HasIndex("TenantId", "WorkspaceId", "Key")
+                        .HasDatabaseName("ix_definitions_tenant_id_workspace_id_key");
 
                     b.HasIndex("TenantId", "WorkspaceId", "Name")
                         .IsUnique()
@@ -368,6 +376,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
 
                     b.HasIndex("TenantId", "WorkspaceId", "Trigger")
                         .HasDatabaseName("ix_definitions_tenant_id_workspace_id_trigger");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "BuiltInKey", "ListId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_definitions_tenant_id_workspace_id_built_in_key_list_id");
 
                     b.ToTable("definitions", "automation");
                 });

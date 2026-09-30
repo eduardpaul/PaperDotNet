@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { createList, signIn, textPdf, unique } from './helpers';
+import { createList, expectTextRead, signIn, textPdf, unique } from './helpers';
 
 test.beforeEach(async ({ page }) => signIn(page));
 
 const pdf = (name: string, ...pages: string[]) => ({ name, mimeType: 'application/pdf', buffer: textPdf(...pages) });
 
-test('documents are uploaded into a library, processed live and previewed page by page', async ({ page }) => {
+test('documents are uploaded into a library, read by its workflows live and previewed page by page', async ({
+  page,
+}) => {
   await createList(page, 'Documents', 'Contracts');
   const name = `${unique('lease')}.pdf`;
   const chooser = page.waitForEvent('filechooser');
@@ -19,8 +21,12 @@ test('documents are uploaded into a library, processed live and previewed page b
   await tray.getByRole('link', { name }).click();
   const panel = page.getByRole('dialog');
   await expect(panel.getByRole('tab', { name: 'Preview' })).toHaveAttribute('aria-selected', 'true');
-  // Processing finishes in the background; the live event updates the status without a reload.
-  await expect(panel.getByText('Searchable')).toBeVisible({ timeout: 30_000 });
+  // The library's workflows run in the background; live events update the panel without a reload.
+  const workflows = panel.getByRole('region', { name: 'Workflows' });
+  await expect(workflows.getByRole('listitem').filter({ hasText: 'Read the text (Contracts)' })).toContainText('Done', {
+    timeout: 30_000,
+  });
+  await expect(workflows.getByRole('listitem').filter({ hasText: 'Render pages (Contracts)' })).toContainText('Done');
   await expect(panel.getByText('2 pages')).toBeVisible();
   await expect(panel.getByRole('img', { name: 'Page 2' })).toBeVisible();
 
@@ -45,8 +51,8 @@ test('pages are rotated, reordered and split off into a new document', async ({ 
   await panel.getByRole('button', { name: 'Move later' }).click();
   await expect(panel.getByRole('button', { name: 'Page 2 (was 1)' })).toBeVisible();
   await panel.getByRole('button', { name: 'Save pages' }).click();
-  // Upload, processing (searchable PDF), then the page edit.
-  await expect(panel.getByRole('listitem').filter({ hasText: 'Version 3' })).toContainText('Current');
+  // The upload, then the page edit (OCR is off by default, so no OCR version comes in between).
+  await expect(panel.getByRole('listitem').filter({ hasText: 'Version 2' })).toContainText('Current');
   await expect(panel.getByRole('button', { name: 'Page 1', exact: true })).toBeVisible();
 
   await panel.getByRole('checkbox', { name: 'Select page 3' }).check();
@@ -69,7 +75,7 @@ test('the Inbox takes dropped files and documents are filed into a library', asy
   await page.getByRole('button', { name: new RegExp(title) }).click();
 
   const panel = page.getByRole('dialog');
-  await expect(panel.getByText('Searchable')).toBeVisible({ timeout: 30_000 });
+  await expectTextRead(panel);
   await panel.getByRole('button', { name: 'Item actions' }).click();
   await page.getByRole('menuitem', { name: 'File in a library…' }).click();
   const library = page.getByLabel('Library', { exact: true });

@@ -49,16 +49,12 @@ public sealed class DocumentGapTests(PaperDotNetApiFactory factory)
 
     private static string Item(Guid ws, Guid list, Guid item) => $"/v1.0/workspaces/{ws}/lists/{list}/items/{item}";
 
-    private static async Task<List<JsonElement>> ProcessedAsync(HttpClient client, string itemUrl)
+    /// <summary>Waits for the library's workflows on the item (text, thumbnail, pages: three runs per version); returns its versions.</summary>
+    private static async Task<List<JsonElement>> ProcessedAsync(HttpClient client, string itemUrl, int runs = 3)
     {
-        List<JsonElement> versions = [];
-        await Eventually.WaitForAsync<bool>(async () =>
-        {
-            var body = await (await client.GetAsync($"{itemUrl}/file/versions", Ct)).ReadJsonAsync();
-            versions = [.. body.GetProperty("value").EnumerateArray()];
-            return versions.All(v => v.GetProperty("processingStatus").GetString() is "succeeded" or "failed") ? true : null;
-        }, TimeSpan.FromSeconds(90));
-        return versions;
+        await DocumentWorkflowRuns.WaitAsync(client, itemUrl, runs);
+        var body = await (await client.GetAsync($"{itemUrl}/file/versions", Ct)).ReadJsonAsync();
+        return [.. body.GetProperty("value").EnumerateArray()];
     }
 
     private static async Task<List<(string Text, int Rotation)>> DownloadPagesAsync(HttpClient client, string itemUrl)
@@ -118,7 +114,6 @@ public sealed class DocumentGapTests(PaperDotNetApiFactory factory)
         var version = await edited.ReadJsonAsync();
         Assert.Equal("pages", version.GetProperty("source").GetString());
         Assert.Equal(2, version.GetProperty("pageCount").GetInt32());
-        Assert.Equal("succeeded", version.GetProperty("processingStatus").GetString());
         Assert.Equal([("Gamma page", 0), ("Alpha page", 90)], await DownloadPagesAsync(client, aUrl));
         var versions = (await (await client.GetAsync($"{aUrl}/file/versions", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray().ToList();
         Assert.Equal(before + 1, versions.Count); // Earlier versions stay.
@@ -166,8 +161,7 @@ public sealed class DocumentGapTests(PaperDotNetApiFactory factory)
         await factory.CreateTenantAsync("gaps-languages");
         var client = await ApiClient.CreateAsync(factory, "gaps-languages");
         var (ws, list) = await LibraryAsync(client, "Languages");
-        // Only the text layer is read (no OCR), so the test does not need Tesseract language data.
-        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync($"/v1.0/workspaces/{ws}/lists/{list}/documentSettings", new { ocrMode = "off" }, Ct)).StatusCode);
+        // Only the text layer is read (OCR is off by default), so the test does not need Tesseract language data.
         var upload = $"/v1.0/workspaces/{ws}/lists/{list}/documents";
 
         var invalid = new MultipartFormDataContent { { new ByteArrayContent(Pages("Bonjour")), "file", "fr.pdf" }, { new StringContent("French!"), "languages" } };
@@ -179,14 +173,12 @@ public sealed class DocumentGapTests(PaperDotNetApiFactory factory)
         var processed = Assert.Single(await ProcessedAsync(client, url));
         Assert.Equal("fra", processed.GetProperty("textLanguage").GetString());
 
-        // A new upload keeps the file's languages; processing with other languages changes them.
+        // A new upload keeps the file's languages, and its text is read in them.
         var replaced = await client.PutAsync($"{url}/file", new MultipartFormDataContent { { new ByteArrayContent(Pages("Au revoir")), "file", "fr2.pdf" } }, Ct);
         Assert.Equal("fra", (await replaced.ReadJsonAsync()).GetProperty("file").GetProperty("languages").GetString());
-        await ProcessedAsync(client, url);
-        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync($"{url}/file/process", new { languages = "deu" }, Ct)).StatusCode);
-        var versions = await ProcessedAsync(client, url);
-        Assert.Equal("deu", versions[0].GetProperty("languages").GetString());
-        Assert.Equal("deu", versions[0].GetProperty("textLanguage").GetString());
+        var versions = await ProcessedAsync(client, url, runs: 6);
+        Assert.Equal("fra", versions[0].GetProperty("languages").GetString());
+        Assert.Equal("fra", versions[0].GetProperty("textLanguage").GetString());
     }
 
     [Fact]

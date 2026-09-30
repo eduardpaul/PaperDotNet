@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 @dataclass
 class WorkflowRequest(AdditionalDataHolder, Parsable):
     """
-    A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
+    A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).
     """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
@@ -28,6 +28,8 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
     description: Optional[str] = None
     # The flow property
     flow: Optional[FlowDefinition] = None
+    # The key property
+    key: Optional[str] = None
     # The name property
     name: Optional[str] = None
     # The steps property
@@ -71,6 +73,7 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
             "description": lambda n : setattr(self, 'description', n.get_str_value()),
             "enabled": lambda n : setattr(self, 'enabled', n.get_bool_value()),
             "flow": lambda n : setattr(self, 'flow', n.get_object_value(FlowDefinition)),
+            "key": lambda n : setattr(self, 'key', n.get_str_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "steps": lambda n : setattr(self, 'steps', n.get_collection_of_object_values(WorkflowStep)),
             "trigger": lambda n : setattr(self, 'trigger', n.get_object_value(WorkflowTrigger)),
@@ -92,6 +95,7 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
         writer.write_str_value("description", self.description)
         writer.write_bool_value("enabled", self.enabled)
         writer.write_object_value("flow", self.flow)
+        writer.write_str_value("key", self.key)
         writer.write_str_value("name", self.name)
         writer.write_collection_of_object_values("steps", self.steps)
         writer.write_object_value("trigger", self.trigger)

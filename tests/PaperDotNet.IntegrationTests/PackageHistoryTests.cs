@@ -49,10 +49,10 @@ public sealed class PackageHistoryTests(PaperDotNetApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, uploaded.StatusCode);
         var item = (await uploaded.ReadJsonAsync()).GetProperty("itemId").GetGuid();
         var itemUrl = $"{itemsUrl}/{item}";
-        await Eventually.WaitForAsync<bool>(async () => (await VersionsAsync(source, itemUrl)).All(v => v.GetProperty("processingStatus").GetString() == "succeeded") ? true : null);
+        await DocumentWorkflowRuns.WaitAsync(source, itemUrl, 3);
         var replace = new MultipartFormDataContent { { new ByteArrayContent(Pdf("Final version narwhal")), "file", "report.pdf" } };
         Assert.Equal(HttpStatusCode.OK, (await source.PutAsync($"{itemUrl}/file", replace, Ct)).StatusCode);
-        await Eventually.WaitForAsync<bool>(async () => (await VersionsAsync(source, itemUrl)).All(v => v.GetProperty("processingStatus").GetString() == "succeeded") ? true : null);
+        await DocumentWorkflowRuns.WaitAsync(source, itemUrl, 6);
         var sourceItem = await (await source.GetAsync(itemUrl, Ct)).ReadJsonAsync();
         var sourceVersions = await VersionsAsync(source, itemUrl);
 
@@ -82,10 +82,10 @@ public sealed class PackageHistoryTests(PaperDotNetApiFactory factory)
         // Original stamps.
         Assert.Equal(sourceItem.GetProperty("createdAt").GetDateTimeOffset(), targetItem.GetProperty("createdAt").GetDateTimeOffset());
 
-        // Every version, with page texts (processed without running again).
+        // Every version, with its page texts (read from the package, not again).
         var versions = await VersionsAsync(target, targetUrl);
         Assert.Equal(sourceVersions.Count, versions.Count);
-        Assert.All(versions, v => Assert.Equal("succeeded", v.GetProperty("processingStatus").GetString()));
+        Assert.All(versions, v => Assert.Equal(1, v.GetProperty("pageCount").GetInt32()));
         Assert.Equal(
             sourceVersions.Select(v => v.GetProperty("createdAt").GetDateTimeOffset()).Order(),
             versions.Select(v => v.GetProperty("createdAt").GetDateTimeOffset()).Order());

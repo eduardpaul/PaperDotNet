@@ -70,7 +70,7 @@ class WorkflowsRequestBuilder(BaseRequestBuilder):
     
     async def post(self,body: WorkflowRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[WorkflowResponse]:
         """
-        param body: A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
+        param body: A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[WorkflowResponse]
         """
@@ -103,7 +103,7 @@ class WorkflowsRequestBuilder(BaseRequestBuilder):
     
     def to_post_request_information(self,body: WorkflowRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        param body: A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
+        param body: A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """

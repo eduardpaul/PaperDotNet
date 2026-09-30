@@ -428,7 +428,7 @@ internal sealed partial class WorkflowInterpreter(
         }
 
         // Saves progress and extends the lease; releases it when the run stops (finished or waiting) or pauses.
-        Task SaveAsync(IReadOnlyCollection<ITenantMessage>? messages = null, bool pause = false)
+        Task SaveAsync(IReadOnlyCollection<ITenantMessage>? messages = null, bool pause = false, IReadOnlyCollection<IntegrationEvent>? events = null)
         {
             var now = time.GetUtcNow();
             run.LastActivityAt = now;
@@ -438,8 +438,24 @@ internal sealed partial class WorkflowInterpreter(
             var stopped = run.Status != RunStatus.Running || pause;
             run.LeaseId = stopped ? null : lease;
             run.LeaseUntil = stopped ? null : now + Lease;
-            return messages is { Count: > 0 } ? outbox.SaveChangesAsync(db, [], messages, ct) : db.SaveChangesAsync(ct);
+            return messages is { Count: > 0 } || events is { Count: > 0 } ? outbox.SaveChangesAsync(db, events ?? [], messages, ct) : db.SaveChangesAsync(ct);
         }
+
+        // An event of this workflow (ADR-0038): wf.{key}.{name}, on the run's item, one deeper than the run. Its id comes
+        // from the run and what raised it, so saving it again (a retried message) raises nothing twice.
+        WorkflowTriggerRaised Event(string name, JsonObject? payload, params object[] source) => new()
+        {
+            EventId = TriggerSchedules.EventId(["wf", run.Id, name, .. source]),
+            TenantId = tenant.TenantId!.Value,
+            TenantIdentifier = tenant.TenantIdentifier!,
+            UserId = run.StartedBy,
+            Depth = run.Depth + 1,
+            Trigger = $"{WorkflowTriggers.WorkflowEventPrefix}{workflow.EventKey}.{name}",
+            WorkspaceId = run.WorkspaceId,
+            ListId = run.ListId,
+            ItemId = run.ItemId,
+            Data = payload?.ToJsonString(),
+        };
 
         void Advance(string node)
         {
@@ -457,7 +473,8 @@ internal sealed partial class WorkflowInterpreter(
             run.FailedNode = node;
             run.WaitingOn = null;
             run.CompletedAt = time.GetUtcNow();
-            await SaveAsync();
+            await SaveAsync(events: [Event(WorkflowEvents.Failed,
+                new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = "failed", ["error"] = run.Error }, run.CompletedAt.Value.UtcTicks)]);
             LogRunFailed(run.Id, error);
         }
 
@@ -466,7 +483,7 @@ internal sealed partial class WorkflowInterpreter(
             run.Status = RunStatus.Completed;
             run.CompletedAt = time.GetUtcNow();
             Log("Completed");
-            await SaveAsync();
+            await SaveAsync(events: [Event(WorkflowEvents.Completed, new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = "completed" })]);
         }
 
         // Moves on along the outcome's port (done when that port is not connected); false when the run ended.
@@ -792,6 +809,29 @@ internal sealed partial class WorkflowInterpreter(
                 case FlowActivities.Fail:
                     await FailAsync(await ExpandAsync(ActivityInputs.Text(inputs, "message") ?? "The workflow ended with a failure."), null);
                     return;
+                case FlowActivities.Raise:
+                    // Raises wf.{key}.{event} with data (strings may be tokens; one token keeps its type), saved with the run.
+                    run.StepExecutionId ??= Ids.New();
+                    var eventName = ActivityInputs.Text(inputs, "event")!;
+                    var payload = new JsonObject();
+                    foreach (var (field, value) in inputs["data"] as JsonObject ?? [])
+                    {
+                        scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct);
+                        payload[field] = value is JsonValue raw && raw.TryGetValue<string>(out var valueTemplate)
+                            ? await tokens.ValueAsync(valueTemplate, scope, ct)
+                            : value?.DeepClone();
+                    }
+
+                    // Saved before moving on: a retry raises it again with the same id, which starts nothing twice.
+                    Log($"{id}: raised wf.{workflow.EventKey}.{eventName}");
+                    outputs[id] = new JsonObject { ["event"] = $"{WorkflowTriggers.WorkflowEventPrefix}{workflow.EventKey}.{eventName}" };
+                    await SaveAsync(events: [Event(eventName, payload, id, run.StepExecutionId.Value)]);
+                    if (!await ContinueAsync(id, "done"))
+                    {
+                        return;
+                    }
+
+                    break;
                 case FlowActivities.SetVariable:
                     var name = ActivityInputs.Text(inputs, "name")!;
                     variables[name] = inputs["value"] is JsonValue template && template.TryGetValue<string>(out var text)

@@ -7,10 +7,11 @@ using System.IO;
 using System;
 namespace PaperDotNet.Client.Models
 {
+    /// <summary>
+    /// A version of a document&apos;s file. `pageCount` and `textLanguage` are set by the library&apos;s workflows (reading the text, OCR).
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
     public partial class FileVersionResponse : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
@@ -46,20 +47,8 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The number property</summary>
         public int? Number { get; set; }
-        /// <summary>The operationId property</summary>
-        public Guid? OperationId { get; set; }
         /// <summary>The pageCount property</summary>
         public int? PageCount { get; set; }
-        /// <summary>The processingError property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? ProcessingError { get; set; }
-#nullable restore
-#else
-        public string ProcessingError { get; set; }
-#endif
-        /// <summary>Processing of a file version (DOC-09): text extraction, OCR, thumbnails.</summary>
-        public global::PaperDotNet.Client.Models.ProcessingStatus? ProcessingStatus { get; set; }
         /// <summary>The sha256 property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -118,10 +107,7 @@ namespace PaperDotNet.Client.Models
                 { "languages", n => { Languages = n.GetStringValue(); } },
                 { "mediaType", n => { MediaType = n.GetStringValue(); } },
                 { "number", n => { Number = n.GetIntValue(); } },
-                { "operationId", n => { OperationId = n.GetGuidValue(); } },
                 { "pageCount", n => { PageCount = n.GetIntValue(); } },
-                { "processingError", n => { ProcessingError = n.GetStringValue(); } },
-                { "processingStatus", n => { ProcessingStatus = n.GetEnumValue<global::PaperDotNet.Client.Models.ProcessingStatus>(); } },
                 { "sha256", n => { Sha256 = n.GetStringValue(); } },
                 { "size", n => { Size = n.GetLongValue(); } },
                 { "source", n => { Source = n.GetStringValue(); } },
@@ -142,10 +128,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteStringValue("languages", Languages);
             writer.WriteStringValue("mediaType", MediaType);
             writer.WriteIntValue("number", Number);
-            writer.WriteGuidValue("operationId", OperationId);
             writer.WriteIntValue("pageCount", PageCount);
-            writer.WriteStringValue("processingError", ProcessingError);
-            writer.WriteEnumValue<global::PaperDotNet.Client.Models.ProcessingStatus>("processingStatus", ProcessingStatus);
             writer.WriteStringValue("sha256", Sha256);
             writer.WriteLongValue("size", Size);
             writer.WriteStringValue("source", Source);

@@ -191,10 +191,10 @@ public sealed class WorkflowTests(PaperDotNetApiFactory factory)
         var etag = (await s.Admin.GetAsync(s.Item(bill), Ct)).Headers.ETag!.Tag;
         Assert.True((await s.Admin.SendWithEtagAsync(HttpMethod.Patch, s.Item(bill), etag, new { fields = new { amount = 2 } })).IsSuccessStatusCode);
 
-        // The user's change (depth 0) and two automatic ones start runs; the third automatic change is not reacted to.
-        await WaitAsync(s.Admin, $"{s.Workflows}/runs?workflowId={workflow}", r => Values(r).Count >= 3);
+        // The user's change (depth 0) and four automatic ones start runs; the fifth automatic change is not reacted to.
+        await WaitAsync(s.Admin, $"{s.Workflows}/runs?workflowId={workflow}", r => Values(r).Count >= 5);
         await Task.Delay(3000, Ct);
-        Assert.Equal(3, Values(await GetAsync(s.Admin, $"{s.Workflows}/runs?workflowId={workflow}")).Count);
+        Assert.Equal(5, Values(await GetAsync(s.Admin, $"{s.Workflows}/runs?workflowId={workflow}")).Count);
     }
 
     [Fact]

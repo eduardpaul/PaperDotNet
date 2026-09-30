@@ -25,6 +25,12 @@ batch execution and images. A script node of about ten lines of JavaScript,
 inside the workflow's JSON, saves the answer into the lists. It runs in the
 server's sandbox, so the package needs no extension.
 
+The library shows how documents are composed from workflows
+([ADR-0038](../../docs/adr/0038-documents-composed-from-workflows.md)): an
+upload only stores the file, and the library's own workflows decide the rest.
+Here it keeps thumbnails and page images, but turns off reading the text and
+leaves OCR off, because the model reads the receipt from its images.
+
 ## What the template contains
 
 | Part | What it is |
@@ -33,19 +39,20 @@ server's sandbox, so the package needs no extension.
 | Content type **Receipt** | `tags`, `status` (New, Read, Needs review), `store`, `purchaseDate`, `currency`, `total` |
 | Content type **Receipt line** | `receipt` (lookup to the library), `quantity`, `unitPrice`, `amount`; the title is the description |
 | Workspace **Receipts** (parameter `Workspace`) | The library **Receipts** (views: All receipts, Needs review) and the list **Receipt lines** |
-| Workflow **Read receipts** | Two triggers: when a receipt's tags change to one at or below *ticket*, and when a file uploaded with the tag has been processed |
+| Workflow **Read receipts** | Two triggers: when a receipt's tags change to one at or below *ticket*, and when a file with the tag is added |
+| Library workflows | "Read the text" off (as is "Recognize text"); "Make thumbnails" and "Render pages" on |
 | Built-in workflow **AI batch** | Sends the waiting questions on the schedule `BatchSchedule` (default: every hour) |
 
 The reading workflow has two triggers, because a receipt comes in two ways:
-tagged after the upload (the tags change), or uploaded with the tag (its tags
-never change, so it is read once its file is processed). Either one starts
-the same flow:
+tagged after the upload (the tags change), or added with the tag
+(`document.added`, e.g. from an import). Either one starts the same flow:
 
 1. `read` (`ai.prompt`): asks the model for the receipt as JSON, following the
-   template's schema. It sends:
-   - the OCR text of the file;
-   - the first two pages as images (`includeImages`). Photos of receipts need
-     the images: OCR often loses the prices in the right-hand column.
+   template's schema. It sends the first two pages as images
+   (`includeImages`), and no text: the model reads the receipt from the image,
+   where OCR would often lose the prices in the right-hand column. The images
+   are rendered for the step, so they do not depend on the library's page
+   images.
 
    With `execution: batch` the step waits for the AI batch (the run holds no
    server while it waits). With `onDeadline: fail` it never falls back to an

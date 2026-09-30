@@ -143,6 +143,12 @@ public static class FlowActivities
     /// </summary>
     public const string Script = "script";
 
+    /// <summary>
+    /// Raises the workflow's event <c>event</c> (ADR-0038): other workflows start on <c>wf.{key}.{event}</c>, with the run's
+    /// item and <c>data</c> (strings may be tokens). Then <c>done</c>.
+    /// </summary>
+    public const string Raise = "event.raise";
+
     /// <summary>Most elements a <see cref="ForEach"/> goes through.</summary>
     public const int MaxForEachItems = 500;
 
@@ -152,7 +158,7 @@ public static class FlowActivities
     /// <summary>Ends the run as failed with <c>message</c>.</summary>
     public const string Fail = "fail";
 
-    public static readonly string[] All = [Approval, Delay, If, SetVariable, ForEach, Script, End, Fail];
+    public static readonly string[] All = [Approval, Delay, If, SetVariable, ForEach, Script, Raise, End, Fail];
 
     /// <summary>The outcome ports each activity has; actions have <c>done</c> and <c>error</c>.</summary>
     public static IReadOnlySet<string> Ports(string activity) => activity switch
@@ -246,6 +252,34 @@ internal static class DefinitionJson
     }
 }
 
+/// <summary>Events of workflows (ADR-0038): <c>wf.{key}.{event}</c>.</summary>
+public static partial class WorkflowEvents
+{
+    /// <summary>Raised when a run ends as completed (data: <c>runId</c>, <c>status</c>).</summary>
+    public const string Completed = "completed";
+
+    /// <summary>Raised when a run ends as failed (data: <c>runId</c>, <c>status</c>, <c>error</c>).</summary>
+    public const string Failed = "failed";
+
+    /// <summary>Whether a trigger type is a workflow event: <c>wf.{key}.{event}</c> (the key may have dots, the event not).</summary>
+    public static bool IsEventTrigger(string type) => EventTrigger().IsMatch(type);
+
+    /// <summary>Why an event name raised by <c>event.raise</c> is not valid, or null.</summary>
+    public static string? Check(string? name) => name switch
+    {
+        null or "" => "event is required.",
+        Completed or Failed => $"{name} is raised when a run ends; choose another name.",
+        _ when !EventName().IsMatch(name) => "event is a name of letters, digits, dashes and underscores (e.g. noText).",
+        _ => null,
+    };
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^wf\.[a-z0-9][a-z0-9._-]*\.[A-Za-z][A-Za-z0-9_-]{0,49}$")]
+    private static partial System.Text.RegularExpressions.Regex EventTrigger();
+
+    [System.Text.RegularExpressions.GeneratedRegex("^[A-Za-z][A-Za-z0-9_-]{0,49}$")]
+    private static partial System.Text.RegularExpressions.Regex EventName();
+}
+
 /// <summary>Checks definitions and compiles steps into flows.</summary>
 internal static class Definitions
 {
@@ -284,7 +318,7 @@ internal static class Definitions
                 continue;
             }
 
-            if (!triggers.Contains(trigger.Type))
+            if (!triggers.Contains(trigger.Type) && !WorkflowEvents.IsEventTrigger(trigger.Type))
             {
                 errors.Add($"{prefix}Unknown trigger '{trigger.Type}'.");
             }
@@ -572,6 +606,18 @@ internal static class Definitions
                     else if (ActivityInputs.Text(inputs, "op") is { } op && !Comparison.Operators.Contains(op))
                     {
                         errors.Add($"{at}: op must be one of {string.Join(", ", Comparison.Operators)}.");
+                    }
+
+                    break;
+                case FlowActivities.Raise:
+                    if (WorkflowEvents.Check(ActivityInputs.Text(inputs, "event")) is { } eventError)
+                    {
+                        errors.Add($"{at}: {eventError}");
+                    }
+
+                    if (inputs["data"] is not (null or JsonObject))
+                    {
+                        errors.Add($"{at}: data must be an object.");
                     }
 
                     break;

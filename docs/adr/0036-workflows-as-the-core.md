@@ -133,7 +133,7 @@ Triggers are pluggable through `IWorkflowTriggerProvider` in Workflows.Contracts
 | Trigger | Source |
 |---|---|
 | `item.added/updated/deleted/restored` (list, content type, changed fields, terms added or removed) | Lists events (existing) |
-| `document.processed` (text and OCR ready), `document.versionAdded` | Documents, raised after `DocumentProcessor` succeeds |
+| `document.processed` (text and OCR ready), `document.versionAdded` | Documents, raised after `DocumentProcessor` succeeds. Replaced by `document.added` and the library's workflows ([ADR-0038](0038-documents-composed-from-workflows.md)) |
 | `schedule` (cron in the workspace time zone, stored as UTC) | The scheduler (ADR-0010); one run per occurrence, with the occurrence time as its key |
 | `date` (N minutes, hours or days before or after a date field of items matching a filter) | A minute job over indexed date fields (ADR-0035); one run per item and date value |
 | `approval.decided`, `task.completed`, `comment.added` | Existing events of Automation, Tasks and Collaboration |
@@ -195,7 +195,7 @@ Only processes that people need to see or vary move into workflows. Infrastructu
 
 | Today | Becomes |
 |---|---|
-| OCR, thumbnails and text in `DocumentProcessor` | Stays code; publishes `document.processed` |
+| OCR, thumbnails and text in `DocumentProcessor` | Stays code; publishes `document.processed`. Changed by [ADR-0038](0038-documents-composed-from-workflows.md): each is a built-in workflow per library |
 | (planned AI-02/03) classify and extract on upload | Built-in workflows "Classify new documents" and "Extract fields". Enabled when AI is configured; the `ai.*` activities do the work. |
 | Task and event reminders, recurring tasks | Stay code for now (per-user preferences, RRULE). Custom reminders are `date` trigger workflows. |
 | Alerts and digests (NTF-03) | Stay code (per-user subscriptions) |

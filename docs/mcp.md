@@ -53,13 +53,13 @@ Example client configuration (Streamable HTTP with a header):
 | `delete_item` | `list.write` | Moves an item, or an empty folder, to the recycle bin |
 | `upload_document` | `document.write` | Uploads a PDF, TIFF, JPEG or PNG (`contentBase64`) into a library and creates the item |
 | `replace_document` | `document.write` | A new file version. Pass `sha256` from `get_file` |
-| `get_file` | `document.read` | Name, type, size, sha256, page count and processing status of the current file |
+| `get_file` | `document.read` | Name, type, size, sha256 and page count of the current file |
 | `read_document` | `document.read` | Extracted text, page by page. `nextPage` continues a long document |
 | `{extension}_…` | per tool | Tools of enabled extensions |
 
 `query_items` and `list_children` return `nextCursor` when more rows match. Pass that value back as `cursor` with the same filter and order. When `nextCursor` is absent, the page is the last one.
 
-Library files are not item fields. `upload_document` takes base64 because tool arguments are JSON, checks the bytes (not the extension), and starts text extraction. `read_document` returns text once `processingStatus` is `succeeded`; until then it says the text is not ready. A page longer than `maxCharacters` (default 24000) is cut off.
+Library files are not item fields. `upload_document` takes base64 because tool arguments are JSON and checks the bytes (not the extension); the library's workflows then read the text ([documents.md](documents.md)). `read_document` returns the text they stored; until then, or when a library does not read texts, it returns no pages and says so. A page longer than `maxCharacters` (default 24000) is cut off.
 
 - **Listing:** the tool list only contains tools the caller's token allows and
   that are enabled in the tenant.

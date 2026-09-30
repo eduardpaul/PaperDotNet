@@ -22,6 +22,8 @@ import { RecycleBinRequestBuilderNavigationMetadata, RecycleBinRequestBuilderReq
 // @ts-ignore
 import { type ViewsRequestBuilder, ViewsRequestBuilderNavigationMetadata, ViewsRequestBuilderRequestsMetadata } from './views/index.js';
 // @ts-ignore
+import { type WorkflowsRequestBuilder, WorkflowsRequestBuilderNavigationMetadata } from './workflows/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -64,6 +66,10 @@ export interface WithListItemRequestBuilder extends BaseRequestBuilder<WithListI
      * The views property
      */
     get views(): ViewsRequestBuilder;
+    /**
+     * The workflows property
+     */
+    get workflows(): WorkflowsRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @throws {ApiProblem} error when the service returns a 4XX or 5XX status code
@@ -140,6 +146,9 @@ export const WithListItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     views: {
         requestsMetadata: ViewsRequestBuilderRequestsMetadata,
         navigationMetadata: ViewsRequestBuilderNavigationMetadata,
+    },
+    workflows: {
+        navigationMetadata: WorkflowsRequestBuilderNavigationMetadata,
     },
 };
 /**

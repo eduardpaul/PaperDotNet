@@ -18,6 +18,15 @@ public sealed class WorkflowDefinition : ITenantOwned, IAuditable, IVersioned
 
     public required string Name { get; set; }
 
+    /// <summary>
+    /// The stable key of its events (<c>wf.{key}.completed</c>, ADR-0038): made from the name when created, unchanged by a
+    /// rename; a built-in workflow's is its built-in key. Null only for workflows saved before keys (see <see cref="EventKey"/>).
+    /// </summary>
+    public string? Key { get; set; }
+
+    /// <summary>The list a per-library built-in workflow belongs to (its triggers apply to that list only); null otherwise.</summary>
+    public Guid? ListId { get; set; }
+
     public string? Description { get; set; }
 
     public bool Enabled { get; set; } = true;
@@ -49,6 +58,32 @@ public sealed class WorkflowDefinition : ITenantOwned, IAuditable, IVersioned
     public Guid? UpdatedBy { get; set; }
 
     public uint Version { get; set; }
+
+    /// <summary>The key its events use: <see cref="Key"/>, else the built-in key, else one made from the name.</summary>
+    public string EventKey => Key ?? BuiltInKey ?? WorkflowKeys.FromName(Name);
+}
+
+/// <summary>Keys of workflows (ADR-0038).</summary>
+public static partial class WorkflowKeys
+{
+    public const int MaxLength = 100;
+
+    /// <summary>A key made from a name: lower case letters, digits and dashes, e.g. <c>check-big-bills</c>.</summary>
+    public static string FromName(string name)
+    {
+        var key = NotKey().Replace(name.Trim().ToLowerInvariant(), "-").Trim('-');
+        key = key.Length > MaxLength ? key[..MaxLength].TrimEnd('-') : key;
+        return key.Length == 0 ? "workflow" : key;
+    }
+
+    /// <summary>Whether a key people chose is valid: lower case letters, digits, dashes and underscores (dots are for built-in keys).</summary>
+    public static bool IsValid(string key) => key.Length <= MaxLength && Valid().IsMatch(key);
+
+    [System.Text.RegularExpressions.GeneratedRegex("[^a-z0-9]+")]
+    private static partial System.Text.RegularExpressions.Regex NotKey();
+
+    [System.Text.RegularExpressions.GeneratedRegex("^[a-z0-9][a-z0-9_-]*$")]
+    private static partial System.Text.RegularExpressions.Regex Valid();
 }
 
 /// <summary>An immutable version of a workflow's definition.</summary>
@@ -331,7 +366,9 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
             b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.Trigger });
             b.Property(a => a.BuiltInKey).HasMaxLength(200);
             b.Property(a => a.CopiedFrom).HasMaxLength(200);
-            b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.BuiltInKey }).IsUnique();
+            b.Property(a => a.Key).HasMaxLength(200);
+            b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.BuiltInKey, a.ListId }).IsUnique();
+            b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.Key });
         });
         modelBuilder.Entity<WorkflowVersion>(b =>
         {

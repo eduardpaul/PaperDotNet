@@ -5,7 +5,6 @@ using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Pages;
-using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Process;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Thumbnail;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Versions;
 using System.Collections.Generic;
@@ -25,11 +24,6 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNames
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Pages.PagesRequestBuilder Pages
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Pages.PagesRequestBuilder(PathParameters, RequestAdapter);
-        }
-        /// <summary>The process property</summary>
-        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Process.ProcessRequestBuilder Process
-        {
-            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Process.ProcessRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The thumbnail property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.FileNamespace.Thumbnail.ThumbnailRequestBuilder Thumbnail

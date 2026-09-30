@@ -6,6 +6,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
 if TYPE_CHECKING:
+    from .built_in_scope import BuiltInScope
     from .json_object import JsonObject
 
 @dataclass
@@ -16,6 +17,12 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
+    # The enabledByDefault property
+    enabled_by_default: Optional[bool] = False
+    from .built_in_scope import BuiltInScope
+
+    # The scope property
+    scope: Optional[BuiltInScope] = BuiltInScope("workspace")
     # The available property
     available: Optional[bool] = None
     # The description property
@@ -53,19 +60,23 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .built_in_scope import BuiltInScope
         from .json_object import JsonObject
 
+        from .built_in_scope import BuiltInScope
         from .json_object import JsonObject
 
         fields: dict[str, Callable[[Any], None]] = {
             "available": lambda n : setattr(self, 'available', n.get_bool_value()),
             "description": lambda n : setattr(self, 'description', n.get_str_value()),
             "enabled": lambda n : setattr(self, 'enabled', n.get_bool_value()),
+            "enabledByDefault": lambda n : setattr(self, 'enabled_by_default', n.get_bool_value()),
             "key": lambda n : setattr(self, 'key', n.get_str_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "parameters": lambda n : setattr(self, 'parameters', n.get_object_value(JsonObject)),
             "requires": lambda n : setattr(self, 'requires', n.get_str_value()),
+            "scope": lambda n : setattr(self, 'scope', n.get_enum_value(BuiltInScope)),
             "values": lambda n : setattr(self, 'values', n.get_object_value(JsonObject)),
             "workflowId": lambda n : setattr(self, 'workflow_id', n.get_uuid_value()),
         }
@@ -82,11 +93,13 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
         writer.write_bool_value("available", self.available)
         writer.write_str_value("description", self.description)
         writer.write_bool_value("enabled", self.enabled)
+        writer.write_bool_value("enabledByDefault", self.enabled_by_default)
         writer.write_str_value("key", self.key)
         writer.write_str_value("name", self.name)
         writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_object_value("parameters", self.parameters)
         writer.write_str_value("requires", self.requires)
+        writer.write_enum_value("scope", self.scope)
         writer.write_object_value("values", self.values)
         writer.write_uuid_value("workflowId", self.workflow_id)
         writer.write_additional_data_value(self.additional_data)

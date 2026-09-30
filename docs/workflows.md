@@ -50,17 +50,21 @@ groups **by name**, so they are portable in templates.
     (`"field": "dueDate", "offsetHours": -24`). Dates without a time count
     from midnight in the organization's time zone. `{trigger:date}` is the
     date.
-  - `document.processed`: a document's file was processed, so its text
-    exists (data: `version`, `pageCount`, `ocr`). Use it instead of
-    `itemAdded` for anything that depends on the text.
+  - `document.added`: a file was added to a library, a new document or a new
+    version (data: `version`, `mediaType`, `fileName`, `newDocument`). An
+    upload only stores the file: reading its text, thumbnails, page images and
+    OCR are workflows of the library ([documents.md](documents.md)). For
+    anything that needs the text, use `wf.documents.text.hasText`.
+  - `wf.{key}.{event}`: an event of another workflow (see
+    [Workflow events](#workflow-events)).
   - `task.completed` (data: `completedBy`), `comment.added` (data:
     `commentId`, `text`, `author`, `reply`), `approval.decided` (data:
     `workflow`, `step`, `outcome`, `comment`, `decidedBy`);
   - or an extension trigger.
 - `list`, `contentType` (name or key) and, for updates, `changedFields`
   narrow it down. `data` (module and extension triggers) needs the trigger's
-  data to have these values, e.g. `"data": { "hasText": false }` on
-  `document.processed`. `terms` (term paths `Group/Set/Term`) needs the item to
+  data to have these values, e.g. `"data": { "newDocument": true }` on
+  `document.added`. `terms` (term paths `Group/Set/Term`) needs the item to
   have one of these terms, or a term below one, in any field. Folders never
   trigger workflows.
 - `terms`, `contentType` and the condition are checked against the item's
@@ -83,7 +87,7 @@ when a file uploaded with the tag is processed:
 ```json
 "triggers": [
   { "type": "itemUpdated", "list": "Receipts", "changedFields": ["tags"], "terms": ["Receipts/Tags/ticket"] },
-  { "type": "document.processed", "list": "Receipts", "terms": ["Receipts/Tags/ticket"] }
+  { "type": "document.added", "list": "Receipts", "terms": ["Receipts/Tags/ticket"] }
 ]
 ```
 
@@ -110,6 +114,23 @@ an item fail there.
 
 Changing a workflow creates a new version. Running runs keep the version
 they started with.
+
+### Workflow events
+
+Workflows follow each other by events ([ADR-0038](adr/0038-documents-composed-from-workflows.md)):
+- Every workflow has a **`key`**, the name of its events. It is made from the
+  name when the workflow is created (`Check big bills` → `check-big-bills`),
+  or given as `key` (lower case letters, digits, dashes, underscores; unique
+  in the workspace). A rename does not change it; a built-in workflow's key is
+  its built-in key.
+- When a run ends, the workflow raises **`wf.{key}.completed`** or
+  **`wf.{key}.failed`** (data: `runId`, `status`, and `error`).
+- A flow's **`event.raise`** node raises **`wf.{key}.{event}`** with `data`
+  (strings may be tokens; one token keeps its type):
+  `{ "activity": "event.raise", "inputs": { "event": "ready", "data": { "total": "{amount}" } } }`.
+- The events carry the run's item. Use them as triggers with the usual filters:
+  `{ "type": "wf.check-big-bills.ready", "list": "Bills", "data": { "total": 100 } }`.
+- Each workflow in a chain counts as one step of the loop protection (below).
 
 **Concurrency** (`concurrency`) decides what happens when the workflow starts
 on an item that it is still running on:
@@ -171,6 +192,8 @@ kind of flow, so both run the same way.
     names;
   - `script` (`code`): JavaScript for the data work, see
     [Scripts](#scripts): ports `done` and `error`;
+  - `event.raise` (`event`, `data`): raises `wf.{key}.{event}` for other
+    workflows, see [Workflow events](#workflow-events): port `done`;
   - `end` ends the run; `fail` (`message`) ends it as failed.
 - **Outputs and variables:** each node's result is its output (an action's
   output, an approval's `outcome`, `decidedBy` and `comment`, or `error` on the
@@ -297,8 +320,9 @@ The web editor edits steps; flows are edited in its JSON view for now.
   - Runs whose server crashed or whose message was lost are resumed by the
     minute job within a few minutes.
   - A run that makes no progress after 10 attempts fails.
-- **Loops:** changes made by workflow trigger workflows again up to a depth
-  of 3, then stop. A workflow that updates its own item cannot loop forever.
+- **Loops:** changes made by workflows, and events of workflows
+  (`wf.{key}.…`), trigger workflows again up to a depth of 5, then stop. A
+  workflow that updates its own item cannot loop forever.
 - **Retention:** finished runs are deleted after 30 days
   (`Workflows:RunRetentionDays`).
 
@@ -502,6 +526,10 @@ The product ships ready-made workflows (EVT-12,
 | Key | Name | Parameters | Needs |
 |---|---|---|---|
 | `workflows.approveItems` | Approve new items | `list`, `approvers` (required); `statusField` (`status`), `approvedValue` (`Approved`), `rejectedValue` (`Rejected`), `dueInHours` | |
+| `documents.text` | Read the text (per library, on) | | |
+| `documents.thumbnail` | Make thumbnails (per library, on) | | |
+| `documents.pages` | Render pages (per library, on) | | |
+| `documents.ocr` | Recognize text (per library, off) | `languages` | |
 | `documents.classify` | Classify new documents | `termSet` (`Group/Set`), `field` (required); `minConfidence` (0.7), `library`, `execution` | AI |
 | `documents.extract` | Extract fields | `fields`, `minConfidence` (0.7), `library`, `execution` | AI |
 | `ai.batchWindow` | AI batch | `schedule` (`0 1 * * *`), `timeZone`, `pollMinutes` (5), `maxQuestions` | AI |
@@ -521,9 +549,16 @@ The product ships ready-made workflows (EVT-12,
 - **Updates:** when a new release changes a built-in definition, an hourly job
   saves it as a new version of each workspace's copy (running runs keep
   theirs). A built-in workflow that the release no longer has is turned off.
-- `library` narrows the document workflows to one library (default: all
+- **Per library:** the document workflows "Read the text", "Make thumbnails",
+  "Render pages" and "Recognize text" are turned on per library
+  (`GET`/`PUT …/lists/{listId}/workflows/builtIns[/{key}]`). Each library has
+  its own row, named with the library (`Read the text (Invoices)`), whose
+  triggers apply to it only. Those on by default are created the first time a
+  library needs them; turned off, they stay off. See [documents.md](documents.md).
+- `library` narrows "Classify" and "Extract" to one library (default: all
   libraries of the workspace), and `execution: batch` sends their AI calls in
-  the batch window.
+  the batch window. They start once a document's text was read
+  (`wf.documents.text.hasText`).
 
 Modules ship built-in workflows with `services.AddWorkflow(…)`, and extensions
 with `builder.AddWorkflow(…)`: a `BuiltInWorkflow` with a key, a name, a
@@ -566,7 +601,7 @@ the extension SDK, through the same extension points an extension uses:
 | Tasks | `task.create`, trigger `task.completed` |
 | Notifications | `notify` |
 | AiWorkflows | `ai.extract`, `ai.classify`, `ai.summarize`, `ai.prompt`, `ai.batch`, "AI batch" |
-| Documents | trigger `document.processed`, "Classify new documents", "Extract fields" |
+| Documents | trigger `document.added`; `document.readText`, `document.thumbnail`, `document.renderPages`, `document.ocr`; per library "Read the text", "Make thumbnails", "Render pages", "Recognize text"; "Classify new documents", "Extract fields" |
 | Collaboration | trigger `comment.added` |
 
 Modules register with `services.AddWorkflowActivity<T>()`,

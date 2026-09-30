@@ -113,6 +113,8 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `PaperDotNet.Extensions.Testing` (`ExtensionTestHost`).
 - Documents, Tasks, Calendar and Notifications are built on the SDK only (ADR-0015, ADR-0016): add
   missing pieces to the SDK/contracts, never reference module implementations.
+  An upload only stores the file and raises `document.added`; text, thumbnails, page images and OCR are built-in
+  workflows per library (ADR-0038), so new document work is a workflow activity, never code in the upload.
   Binary content goes through `IBlobStore`; extra item text for search through
   `IItemSearchContributor`; client notifications through `ILiveEvents`
   (`/v1.0/me/events`, SSE; across servers via LISTEN/NOTIFY on PostgreSQL, ADR-0026); user notifications (inbox, webhook) through
@@ -125,8 +127,9 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   messages through the outbox (no workflow engine or durable execution framework). Product processes people should
   see or vary ship as built-in workflows (EVT-12), not hidden code. Workflow content lives in the module that owns the
   domain and uses only the SDK, the same extension points as extensions: `services.AddWorkflowActivity<T>()`,
-  `AddWorkflowTrigger(…)`, `AddWorkflow(…)` (extensions: the same on `IExtensionBuilder`); the engine only runs
-  workflows. Build workflow features
+  `AddWorkflowTrigger(…)`, `AddWorkflow(…)` (extensions: the same on `IExtensionBuilder`; `Scope = Library` for built-ins
+  turned on per library); the engine only runs workflows. Workflows follow each other by events: `wf.{key}.completed`,
+  `wf.{key}.failed` and `event.raise` (`wf.{key}.{event}`), never by code that calls another workflow. Build workflow features
   from workflow parts (waits with JSON data, run-again activities, built-in workflows), not tables or jobs of their own
   (e.g. batched AI: `ai.batch` waits + the "AI batch" workflow). Mapping data into lists is workflow JSON, not a new
   action: `item.update`/`item.create` with typed single tokens (`"total": "{step:read.json.total}"`) and `forEach`, or a

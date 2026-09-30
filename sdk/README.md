@@ -115,7 +115,7 @@ fetch cannot report upload progress, so show an indeterminate indicator.
 import { subscribeLiveEvents, waitForOperation } from '@paperdotnet/client';
 
 const subscription = subscribeLiveEvents(client, {
-  'document.processing': (e) => refresh(e.itemId),       // status: scheduled, running, succeeded, failed
+  'document.changed': (e) => refresh(e.itemId),          // what: text, thumbnail, pages or ocr
   notification: (n) => showToast(n.title),
   operation: (o) => progress(o.id, o.percentComplete),
   error: (e) => { if (e.closed) signIn(); },

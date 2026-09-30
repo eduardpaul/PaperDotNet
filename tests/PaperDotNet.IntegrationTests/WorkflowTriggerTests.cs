@@ -210,6 +210,78 @@ public sealed class WorkflowTriggerTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task Workflows_follow_other_workflows_by_their_events()
+    {
+        var s = await SetupAsync("wf-events");
+        var log = await PostIdAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Log", templateKey = "tasks" });
+
+        // "Check tasks" raises ready with data; its key is made from its name.
+        var first = await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Check tasks",
+            trigger = new { type = "itemAdded", list = "Tasks" },
+            flow = new
+            {
+                start = "raise",
+                nodes = new { raise = new { activity = "event.raise", inputs = new { @event = "ready", data = new { priority = "{priority}", size = 3 } } } },
+            },
+        });
+        Assert.Equal("check-tasks", (await GetAsync(s.Admin, $"{s.Workflows}/{first}")).GetProperty("key").GetString());
+
+        // Others follow its custom event (with a data filter) and its end; renaming it keeps its key.
+        await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "On ready",
+            trigger = new { type = "wf.check-tasks.ready", list = "Tasks", data = new { size = 3 } },
+            steps = Note("Log", "Ready {title}: {trigger:priority}"),
+        });
+        await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Never",
+            trigger = new { type = "wf.check-tasks.ready", data = new { size = 4 } },
+            steps = Note("Log", "Wrong size"),
+        });
+        await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "After check",
+            trigger = new { type = "wf.check-tasks.completed" },
+            steps = Note("Log", "Checked {title} ({trigger:status})"),
+        });
+        var current = await s.Admin.GetAsync($"{s.Workflows}/{first}", Ct);
+        var definition = await current.ReadJsonAsync();
+        var renamed = await s.Admin.SendWithEtagAsync(HttpMethod.Put, $"{s.Workflows}/{first}", current.Headers.ETag!.Tag, new
+        {
+            name = "Check new tasks",
+            trigger = new { type = "itemAdded", list = "Tasks" },
+            flow = JsonSerializer.Deserialize<object>(definition.GetProperty("flow").GetRawText()),
+        });
+        Assert.True(renamed.IsSuccessStatusCode, await renamed.Content.ReadAsStringAsync(Ct));
+        Assert.Equal("check-tasks", (await renamed.ReadJsonAsync()).GetProperty("key").GetString());
+
+        await s.Admin.CreateItemAsync(s.Workspace, s.Tasks, new { fields = new { title = "Plan", priority = "high" } });
+        await Eventually.WaitForAsync(async () =>
+        {
+            var titles = await s.Admin.QueryTitlesAsync(s.Workspace, log, "");
+            return titles.Contains("Ready Plan: high") && titles.Contains("Checked Plan (completed)") ? true : (bool?)null;
+        }, TimeSpan.FromSeconds(30));
+        await Task.Delay(1000, Ct);
+        Assert.DoesNotContain("Wrong size", await s.Admin.QueryTitlesAsync(s.Workspace, log, ""));
+
+        // Keys are unique in the workspace and checked; completed and failed cannot be raised.
+        var taken = await s.Admin.PostAsJsonAsync(s.Workflows, new { name = "Other", key = "check-tasks", trigger = new { type = "manual" }, steps = Note("Log", "x") }, Ct);
+        Assert.Equal(HttpStatusCode.Conflict, taken.StatusCode);
+        var invalidKey = await s.Admin.PostAsJsonAsync(s.Workflows, new { name = "Other", key = "Not a key!", trigger = new { type = "manual" }, steps = Note("Log", "x") }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidKey.StatusCode);
+        var reserved = await s.Admin.PostAsJsonAsync(s.Workflows, new
+        {
+            name = "Reserved",
+            trigger = new { type = "manual" },
+            flow = new { start = "r", nodes = new { r = new { activity = "event.raise", inputs = new { @event = "completed" } } } },
+        }, Ct);
+        Assert.Contains("completed is raised when a run ends", await reserved.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Date_triggers_start_once_per_item_and_date()
     {
         var s = await SetupAsync("wf-dates");
@@ -285,7 +357,7 @@ public sealed class WorkflowTriggerTests(PaperDotNetApiFactory factory)
         var s = await SetupAsync("wf-modules");
         var log = await PostIdAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Log", templateKey = "tasks" });
         var catalog = (await GetAsync(s.Admin, "/v1.0/workflows/triggers")).EnumerateArray().Select(t => t.GetProperty("key").GetString()).ToList();
-        Assert.Superset(new HashSet<string?>(["schedule", "date", "document.processed", "approval.decided", "task.completed", "comment.added"]), catalog.ToHashSet());
+        Assert.Superset(new HashSet<string?>(["schedule", "date", "document.added", "approval.decided", "task.completed", "comment.added"]), catalog.ToHashSet());
 
         await PostIdAsync(s.Admin, s.Workflows, new { name = "Done", trigger = new { type = "task.completed", list = "Tasks" }, steps = Note("Log", "Done: {title}") });
         await PostIdAsync(s.Admin, s.Workflows, new { name = "Commented", trigger = new { type = "comment.added", list = "Tasks" }, steps = Note("Log", "Comment on {title}: {trigger:text}") });
@@ -311,13 +383,19 @@ public sealed class WorkflowTriggerTests(PaperDotNetApiFactory factory)
         await Eventually.WaitForAsync(async () =>
             expected.All((await s.Admin.QueryTitlesAsync(s.Workspace, log, "")).Contains) ? true : (bool?)null, TimeSpan.FromSeconds(30));
 
-        // Documents: the trigger fires once the text is there, with what processing found.
+        // Documents: document.added when the file is stored; the library's "Read the text" raises hasText when it read it.
         var library = await PostIdAsync(s.Admin, $"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Archive", templateKey = "documents" });
         await PostIdAsync(s.Admin, s.Workflows, new
         {
-            name = "Processed",
-            trigger = new { type = "document.processed", list = "Archive" },
-            steps = Note("Log", "Processed {title}: {trigger:pageCount} page(s), OCR {trigger:ocr}"),
+            name = "Added",
+            trigger = new { type = "document.added", list = "Archive" },
+            steps = Note("Log", "Added {title}: {trigger:mediaType}, new {trigger:newDocument}"),
+        });
+        await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Has text",
+            trigger = new { type = "wf.documents.text.hasText", list = "Archive" },
+            steps = Note("Log", "Text of {title}"),
         });
         var builder = new PdfDocumentBuilder();
         builder.AddPage(PageSize.A4).AddText("Invoice for the walrus", 20, new PdfPoint(40, 760), builder.AddStandard14Font(Standard14Font.Helvetica));
@@ -327,7 +405,10 @@ public sealed class WorkflowTriggerTests(PaperDotNetApiFactory factory)
         var document = (await upload.ReadJsonAsync()).GetProperty("itemId").GetGuid();
         var title = (await GetAsync(s.Admin, $"{s.List(library)}/items/{document}")).GetProperty("fields").GetProperty("title").GetString();
         await Eventually.WaitForAsync(async () =>
-            (await s.Admin.QueryTitlesAsync(s.Workspace, log, "")).Contains($"Processed {title}: 1 page(s), OCR false") ? true : (bool?)null, TimeSpan.FromSeconds(60));
+        {
+            var titles = await s.Admin.QueryTitlesAsync(s.Workspace, log, "");
+            return titles.Contains($"Added {title}: application/pdf, new true") && titles.Contains($"Text of {title}") ? true : (bool?)null;
+        }, TimeSpan.FromSeconds(60));
     }
 
     [Fact]

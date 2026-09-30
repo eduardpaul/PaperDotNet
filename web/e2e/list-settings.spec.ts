@@ -111,7 +111,7 @@ test('a list gets its own permissions, and an item too', async ({ page, request 
   await expect(panel.getByText('This item has its own permissions.')).toBeVisible();
 });
 
-test('library settings choose how duplicates and OCR are handled', async ({ page }) => {
+test('library settings choose how duplicates are handled and which document workflows run', async ({ page }) => {
   await createList(page, 'Documents', 'Scans');
   await page.getByRole('link', { name: 'List settings' }).click();
   await expect(page.getByRole('heading', { name: 'Library settings' })).toBeVisible();
@@ -123,4 +123,12 @@ test('library settings choose how duplicates and OCR are handled', async ({ page
   await page.reload();
   await expect(page.getByLabel('Same file again')).toHaveValue('block');
   await expect(page.getByLabel('OCR languages')).toHaveValue('deu+eng');
+
+  // Document workflows: text, thumbnails and pages are on; OCR is turned on here.
+  await expect(page.getByLabel('Read the text')).toBeChecked();
+  await expect(page.getByLabel('Recognize text')).not.toBeChecked();
+  await page.getByLabel('Recognize text').check();
+  await expect(page.getByText('Recognize text is on for this library.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Recognize text')).toBeChecked();
 });

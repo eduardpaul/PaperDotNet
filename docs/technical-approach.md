@@ -278,12 +278,15 @@ outbox dispatcher (BackgroundService)
 
 > **ADR-0015.** 3a implemented: Documents module on the SDK, `IBlobStore` with
 > local disk, content-addressed `stored_files`, `file_versions`, duplicate
-> policy per library, orphan cleanup job. 3b implemented: processing as an
-> operation (`documents.processFile`): PdfPig text, Tesseract CLI OCR (one call
-> over all page images, `pdf` + `txt` output; optional GLM-OCR via Ollama,
-> [ADR-0034](adr/0034-optional-glm-ocr.md)) stored as a new PDF version,
-> PDFtoImage/SkiaSharp page images cached in the blob store, page texts per
-> stored file, `IItemSearchContributor` feeds the item's search document.
+> policy per library, orphan cleanup job. 3b implemented, then composed from
+> workflows (ADR-0038): an upload only stores the file and raises
+> `document.added`; built-in workflows per library read the PdfPig text layer,
+> make thumbnails and page images (PDFtoImage/SkiaSharp, stored in the blob
+> store), and run Tesseract CLI OCR as an operation (`documents.ocrFile`; one
+> call over all page images, `pdf` + `txt` output; optional GLM-OCR via
+> Ollama, [ADR-0034](adr/0034-optional-glm-ocr.md)) stored as a new PDF
+> version. Page texts are stored per file; `IItemSearchContributor` feeds the
+> item's search document. The pipeline below was the plan before that.
 
 - **Blob store abstraction** (`IBlobStore`):
   - **content-addressed** by SHA-256 under a tenant prefix, which gives exact

@@ -69,6 +69,16 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The id property</summary>
         public Guid? Id { get; set; }
+        /// <summary>The key property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Key { get; set; }
+#nullable restore
+#else
+        public string Key { get; set; }
+#endif
+        /// <summary>The listId property</summary>
+        public Guid? ListId { get; set; }
         /// <summary>The name property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -157,6 +167,8 @@ namespace PaperDotNet.Client.Models
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
                 { "flow", n => { Flow = n.GetObjectValue<global::PaperDotNet.Client.Models.FlowDefinition>(global::PaperDotNet.Client.Models.FlowDefinition.CreateFromDiscriminatorValue); } },
                 { "id", n => { Id = n.GetGuidValue(); } },
+                { "key", n => { Key = n.GetStringValue(); } },
+                { "listId", n => { ListId = n.GetGuidValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "steps", n => { Steps = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>(global::PaperDotNet.Client.Models.WorkflowStep.CreateFromDiscriminatorValue)?.AsList(); } },
@@ -184,6 +196,8 @@ namespace PaperDotNet.Client.Models
             writer.WriteBoolValue("enabled", Enabled);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.FlowDefinition>("flow", Flow);
             writer.WriteGuidValue("id", Id);
+            writer.WriteStringValue("key", Key);
+            writer.WriteGuidValue("listId", ListId);
             writer.WriteStringValue("name", Name);
             writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>("steps", Steps);

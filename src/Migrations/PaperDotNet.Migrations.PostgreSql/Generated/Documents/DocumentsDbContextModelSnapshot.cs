@@ -72,24 +72,9 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                         .HasColumnType("integer")
                         .HasColumnName("number");
 
-                    b.Property<Guid?>("OperationId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("operation_id");
-
                     b.Property<int?>("PageCount")
                         .HasColumnType("integer")
                         .HasColumnName("page_count");
-
-                    b.Property<string>("ProcessingError")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("processing_error");
-
-                    b.Property<string>("ProcessingStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("processing_status");
 
                     b.Property<string>("Sha256")
                         .IsRequired()
@@ -210,10 +195,6 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<bool>("AutoProcess")
-                        .HasColumnType("boolean")
-                        .HasColumnName("auto_process");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -236,12 +217,6 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("ocr_languages");
-
-                    b.Property<string>("OcrMode")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("ocr_mode");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")

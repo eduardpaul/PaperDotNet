@@ -97,15 +97,17 @@ internal sealed class TriggerCatalog(IEnumerable<WorkflowTriggerDefinition> exte
 /// Starts the workflows of a workspace for item events and raised triggers (modules and extensions; EVT-07, EVT-11).
 /// The trigger's list, content type, changed fields, terms and condition are checked when the event is handled; each
 /// matching workflow gets a run, saved with the message that starts it (transactional outbox). A run is unique per
-/// workflow and event, so a redelivered event starts nothing. Changes made by workflow carry a higher causation depth;
-/// from depth <see cref="MaxDepth"/> on nothing starts, which ends loops such as a workflow that updates its own item.
+/// workflow and event, so a redelivered event starts nothing. Changes made by workflow carry a higher causation depth, and
+/// so do the events of workflows (<c>wf.{key}.…</c>, ADR-0038); from depth <see cref="MaxDepth"/> on nothing starts,
+/// which ends loops such as a workflow that updates its own item. A library's built-in workflows that are on by default are
+/// created before its events are matched.
 /// </summary>
 internal sealed class WorkflowTriggerHandler(
-    WorkflowsDbContext db, IListItemStore items, ITermStore terms, WorkflowStarter starter)
+    WorkflowsDbContext db, IListItemStore items, ITermStore terms, WorkflowStarter starter, BuiltInWorkflows builtIns, ITenantContext tenant)
     : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemDeleted>, IEventSubscriber<ItemRestored>,
       IEventSubscriber<WorkflowTriggerRaised>
 {
-    public const int MaxDepth = 3;
+    public const int MaxDepth = 5;
 
     public Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken) =>
         ItemAsync(WorkflowTriggers.ItemAdded, integrationEvent, cancellationToken);
@@ -138,11 +140,21 @@ internal sealed class WorkflowTriggerHandler(
             return;
         }
 
-        var workflows = await db.Workflows.AsNoTracking()
+        var store = items.AsSystem();
+        var list = item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
+        if (list is { IsLibrary: true })
+        {
+            await builtIns.EnsureDefaultsAsync(list, tenant.TenantId!.Value, ct);
+        }
+
+        // A per-library workflow only starts for its library's items.
+        var workflows = (await db.Workflows.AsNoTracking()
             .Where(a => a.WorkspaceId == workspaceId && a.Enabled)
             .Where(TriggerColumn.Has(trigger))
             .OrderBy(a => a.Name)
-            .ToListAsync(ct);
+            .ToListAsync(ct))
+            .Where(a => a.ListId is null || a.ListId == item?.ListId)
+            .ToList();
         if (workflows.Count == 0)
         {
             return;
@@ -154,9 +166,6 @@ internal sealed class WorkflowTriggerHandler(
         {
             return;
         }
-
-        var store = items.AsSystem();
-        var list = item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
 
         // The item's values, read once when a content type (of a raised trigger) or terms have to be checked.
         ListItemData? current = null;

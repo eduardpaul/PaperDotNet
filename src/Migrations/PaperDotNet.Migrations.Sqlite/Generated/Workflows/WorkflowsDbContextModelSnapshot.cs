@@ -308,6 +308,15 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                         .HasColumnType("INTEGER")
                         .HasColumnName("enabled");
 
+                    b.Property<string>("Key")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("key");
+
+                    b.Property<Guid?>("ListId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("list_id");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -351,9 +360,8 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_automation_definitions_tenant_id");
 
-                    b.HasIndex("TenantId", "WorkspaceId", "BuiltInKey")
-                        .IsUnique()
-                        .HasDatabaseName("ix_automation_definitions_tenant_id_workspace_id_built_in_key");
+                    b.HasIndex("TenantId", "WorkspaceId", "Key")
+                        .HasDatabaseName("ix_automation_definitions_tenant_id_workspace_id_key");
 
                     b.HasIndex("TenantId", "WorkspaceId", "Name")
                         .IsUnique()
@@ -361,6 +369,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
 
                     b.HasIndex("TenantId", "WorkspaceId", "Trigger")
                         .HasDatabaseName("ix_automation_definitions_tenant_id_workspace_id_trigger");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "BuiltInKey", "ListId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_automation_definitions_tenant_id_workspace_id_built_in_key_list_id");
 
                     b.ToTable("automation_definitions", (string)null);
                 });

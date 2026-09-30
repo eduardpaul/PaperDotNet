@@ -28,7 +28,7 @@ export interface WorkflowsItemRequestBuilder extends BaseRequestBuilder<Workflow
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<WorkflowResponse | undefined>;
     /**
-     * @param body A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
+     * @param body A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<WorkflowResponse>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -46,7 +46,7 @@ export interface WorkflowsItemRequestBuilder extends BaseRequestBuilder<Workflow
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
     /**
-     * @param body A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.
+     * @param body A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

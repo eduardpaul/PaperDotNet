@@ -65,24 +65,9 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Documents
                         .HasColumnType("INTEGER")
                         .HasColumnName("number");
 
-                    b.Property<Guid?>("OperationId")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("operation_id");
-
                     b.Property<int?>("PageCount")
                         .HasColumnType("INTEGER")
                         .HasColumnName("page_count");
-
-                    b.Property<string>("ProcessingError")
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("processing_error");
-
-                    b.Property<string>("ProcessingStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("processing_status");
 
                     b.Property<string>("Sha256")
                         .IsRequired()
@@ -203,10 +188,6 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Documents
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
 
-                    b.Property<bool>("AutoProcess")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("auto_process");
-
                     b.Property<long>("CreatedAt")
                         .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
@@ -229,12 +210,6 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Documents
                         .HasMaxLength(100)
                         .HasColumnType("TEXT")
                         .HasColumnName("ocr_languages");
-
-                    b.Property<string>("OcrMode")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .HasColumnName("ocr_mode");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")

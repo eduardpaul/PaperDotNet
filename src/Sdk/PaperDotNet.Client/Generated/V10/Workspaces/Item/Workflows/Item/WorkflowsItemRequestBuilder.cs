@@ -79,7 +79,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Workflows.Item
             return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.WorkflowResponse>(requestInfo, global::PaperDotNet.Client.Models.WorkflowResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.WorkflowResponse"/></returns>
-        /// <param name="body">A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.</param>
+        /// <param name="body">A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
         /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 400 status code</exception>
@@ -135,7 +135,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Workflows.Item
             return requestInfo;
         }
         /// <returns>A <see cref="RequestInformation"/></returns>
-        /// <param name="body">A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition.</param>
+        /// <param name="body">A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable

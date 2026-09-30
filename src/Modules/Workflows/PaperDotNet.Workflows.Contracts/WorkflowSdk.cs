@@ -54,6 +54,8 @@ public static class ActivitySchemas
 
     public static JsonObject Number(string description) => new() { ["type"] = "number", ["description"] = description };
 
+    public static JsonObject Boolean(string description) => new() { ["type"] = "boolean", ["description"] = description };
+
     public static JsonObject Texts(string description) =>
         new() { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["description"] = description };
 

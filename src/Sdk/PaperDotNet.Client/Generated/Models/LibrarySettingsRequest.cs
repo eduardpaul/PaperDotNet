@@ -15,8 +15,6 @@ namespace PaperDotNet.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The autoProcess property</summary>
-        public bool? AutoProcess { get; set; }
         /// <summary>The duplicatePolicy property</summary>
         public global::PaperDotNet.Client.Models.DuplicatePolicy? DuplicatePolicy { get; set; }
         /// <summary>The ocrLanguages property</summary>
@@ -27,8 +25,6 @@ namespace PaperDotNet.Client.Models
 #else
         public string OcrLanguages { get; set; }
 #endif
-        /// <summary>The ocrMode property</summary>
-        public global::PaperDotNet.Client.Models.OcrMode? OcrMode { get; set; }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.LibrarySettingsRequest"/> and sets the default values.
         /// </summary>
@@ -54,10 +50,8 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
-                { "autoProcess", n => { AutoProcess = n.GetBoolValue(); } },
                 { "duplicatePolicy", n => { DuplicatePolicy = n.GetEnumValue<global::PaperDotNet.Client.Models.DuplicatePolicy>(); } },
                 { "ocrLanguages", n => { OcrLanguages = n.GetStringValue(); } },
-                { "ocrMode", n => { OcrMode = n.GetEnumValue<global::PaperDotNet.Client.Models.OcrMode>(); } },
             };
         }
         /// <summary>
@@ -67,10 +61,8 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
-            writer.WriteBoolValue("autoProcess", AutoProcess);
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.DuplicatePolicy>("duplicatePolicy", DuplicatePolicy);
             writer.WriteStringValue("ocrLanguages", OcrLanguages);
-            writer.WriteEnumValue<global::PaperDotNet.Client.Models.OcrMode>("ocrMode", OcrMode);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

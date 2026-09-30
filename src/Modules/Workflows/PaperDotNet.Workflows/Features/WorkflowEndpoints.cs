@@ -15,7 +15,7 @@ using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Workflows.Features;
 
-/// <summary>A workflow: <c>trigger</c>, or several <c>triggers</c> (any of them starts a run), and its definition.</summary>
+/// <summary>A workflow: <c>trigger</c>, or several <c>triggers</c> (any of them starts a run), and its definition. <c>key</c> names its events (<c>wf.{key}.completed</c>; default: made from the name when it is created).</summary>
 public sealed record WorkflowRequest(
     [property: Required, StringLength(200, MinimumLength = 1)] string Name,
     [property: StringLength(2000)] string? Description,
@@ -26,13 +26,15 @@ public sealed record WorkflowRequest(
     FlowDefinition? Flow = null,
     JsonObject? Variables = null,
     [property: StringLength(20)] string? Concurrency = null,
-    IReadOnlyList<WorkflowTrigger>? Triggers = null);
+    IReadOnlyList<WorkflowTrigger>? Triggers = null,
+    [property: StringLength(WorkflowKeys.MaxLength)] string? Key = null);
 
 /// <summary>A workflow with the definition of its current <c>version</c> (runs keep the version they started with): its <c>trigger</c> or <c>triggers</c> (as it was defined), <c>steps</c> or a <c>flow</c>, the initial <c>variables</c>, and <c>concurrency</c> (runs on the same item: <c>parallel</c>, <c>skip</c> or <c>replace</c>).</summary>
 public sealed record WorkflowResponse(
     Guid Id, Guid WorkspaceId, string Name, string? Description, bool Enabled, int Version, WorkflowTrigger? Trigger, string? Condition,
     IReadOnlyList<WorkflowStep>? Steps, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, FlowDefinition? Flow = null, JsonObject? Variables = null,
-    string? BuiltIn = null, string? CopiedFrom = null, string? Concurrency = null, IReadOnlyList<WorkflowTrigger>? Triggers = null)
+    string? BuiltIn = null, string? CopiedFrom = null, string? Concurrency = null, IReadOnlyList<WorkflowTrigger>? Triggers = null, string? Key = null,
+    Guid? ListId = null)
 {
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
     [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
@@ -44,7 +46,8 @@ public sealed record WorkflowResponse(
 /// has what it needs (<c>available</c>), and when it was turned on, the <c>workflowId</c> it runs as and its <c>values</c>.
 /// </summary>
 public sealed record BuiltInWorkflowResponse(
-    string Key, string Name, string Description, JsonObject? Parameters, string? Requires, bool Available, bool Enabled, Guid? WorkflowId, JsonObject? Values)
+    string Key, string Name, string Description, JsonObject? Parameters, string? Requires, bool Available, bool Enabled, Guid? WorkflowId, JsonObject? Values,
+    BuiltInScope Scope = BuiltInScope.Workspace, bool EnabledByDefault = false)
 {
     /// <summary>
     /// Once it was turned on in the workspace: the ETag for <c>If-Match</c> on changes (the workflow's; the same as the
@@ -117,6 +120,10 @@ internal static class WorkflowEndpoints
         endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}/workflows", "Workflows")
             .MapPost("", StartAsync).RequireScope(WorkflowScopes.Write).WithName("StartWorkflow");
 
+        var library = endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/workflows/builtIns", "Workflows");
+        library.MapGet("", ListLibraryBuiltInsAsync).RequireScope(WorkflowScopes.Read).WithName("ListLibraryBuiltInWorkflows");
+        library.MapPut("/{key}", SetLibraryBuiltInAsync).RequireScope(WorkflowScopes.Write).WithName("SetLibraryBuiltInWorkflow");
+
         var me = endpoints.MapV1Group("me/approvals", "Workflows");
         me.MapGet("", ListApprovalsAsync).RequireScope(WorkflowScopes.Read).WithName("ListMyApprovals").WithQueryEnum<ApprovalStatus>("status");
         me.MapPost("/{id:guid}/decision", DecideAsync).RequireScope(WorkflowScopes.Write).WithName("DecideApproval");
@@ -187,7 +194,13 @@ internal static class WorkflowEndpoints
             return ApiErrors.Conflict("nameAlreadyExists", $"A workflow named '{name}' already exists in the workspace.");
         }
 
-        var workflow = WorkflowWriter.Create(db, workspaceId, name, request.Description, request.Enabled, spec!);
+        var key = request.Key?.Trim() is { Length: > 0 } chosen ? chosen : await WorkflowWriter.KeyForAsync(db, workspaceId, name, ct);
+        if (await KeyProblemAsync(db, workspaceId, key, null, ct) is { } keyProblem)
+        {
+            return keyProblem;
+        }
+
+        var workflow = WorkflowWriter.Create(db, workspaceId, name, request.Description, request.Enabled, spec!, key);
         await db.SaveChangesAsync(ct);
         ETags.Set(response, workflow.Version);
         return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/workflows/{workflow.Id}", await ToResponseAsync(db, workflow, ct));
@@ -231,6 +244,17 @@ internal static class WorkflowEndpoints
             return ApiErrors.Conflict("nameAlreadyExists", $"A workflow named '{name}' already exists in the workspace.");
         }
 
+        if (request.Key?.Trim() is { Length: > 0 } key && key != workflow.EventKey)
+        {
+            if (await KeyProblemAsync(db, workspaceId, key, workflow.Id, ct) is { } keyProblem)
+            {
+                return keyProblem;
+            }
+
+            workflow.Key = key;
+        }
+
+        workflow.Key ??= workflow.EventKey;
         workflow.Name = name;
         workflow.Description = request.Description;
         workflow.Enabled = request.Enabled;
@@ -273,6 +297,20 @@ internal static class WorkflowEndpoints
         return TypedResults.NoContent();
     }
 
+    /// <summary>Why a key chosen for a workflow cannot be used: not valid (400) or used by another workflow (409).</summary>
+    private static async Task<ProblemHttpResult?> KeyProblemAsync(WorkflowsDbContext db, Guid workspaceId, string key, Guid? except, CancellationToken ct)
+    {
+        if (!WorkflowKeys.IsValid(key))
+        {
+            return ApiErrors.Problem(StatusCodes.Status400BadRequest, "invalidKey",
+                "A key has lower case letters, digits, dashes and underscores, e.g. check-big-bills.");
+        }
+
+        return await WorkflowWriter.KeyTakenAsync(db, workspaceId, key, except, ct)
+            ? ApiErrors.Conflict("keyAlreadyExists", $"A workflow with the key '{key}' already exists in the workspace.")
+            : null;
+    }
+
     private static async Task<(WorkflowSpec? Spec, ValidationProblem? Problem)> ValidateAsync(
         Guid workspaceId, WorkflowRequest request, WorkflowValidator validator, CancellationToken ct)
     {
@@ -295,7 +333,7 @@ internal static class WorkflowEndpoints
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
         return new WorkflowResponse(workflow.Id, workflow.WorkspaceId, workflow.Name, workflow.Description, workflow.Enabled,
             workflow.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, workflow.CreatedAt, workflow.UpdatedAt, spec.Flow, spec.Variables,
-            workflow.BuiltInKey, workflow.CopiedFrom, spec.Concurrency, spec.Triggers)
+            workflow.BuiltInKey, workflow.CopiedFrom, spec.Concurrency, spec.Triggers, workflow.EventKey, workflow.ListId)
         { ETag = ETags.From(workflow.Version) };
     }
 
@@ -309,8 +347,81 @@ internal static class WorkflowEndpoints
             return denied;
         }
 
-        var rows = await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == workspaceId && w.BuiltInKey != null).ToListAsync(ct);
-        return TypedResults.Ok((await builtIns.ListAsync(ct)).Select(w => ToResponse(builtIns, w, rows.FirstOrDefault(r => r.BuiltInKey == w.Key))).ToList());
+        var rows = await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == workspaceId && w.BuiltInKey != null && w.ListId == null).ToListAsync(ct);
+        return TypedResults.Ok((await builtIns.ListAsync(ct))
+            .Where(w => w.Scope == BuiltInScope.Workspace)
+            .Select(w => ToResponse(builtIns, w, rows.FirstOrDefault(r => r.BuiltInKey == w.Key)))
+            .ToList());
+    }
+
+    /// <summary>
+    /// The built-in workflows of a document library (ADR-0038: e.g. reading the text, thumbnails, page images, OCR), on or off
+    /// in it. Those on by default are created on first use.
+    /// </summary>
+    private static async Task<Results<Ok<List<BuiltInWorkflowResponse>>, ProblemHttpResult>> ListLibraryBuiltInsAsync(
+        Guid workspaceId, Guid listId, IWorkspaceAccess workspaces, IListItemStore items, BuiltInWorkflows builtIns, WorkflowsDbContext db,
+        ITenantContext tenant, CancellationToken ct)
+    {
+        if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Read, ct) is { } denied)
+        {
+            return denied;
+        }
+
+        if (await items.GetListAsync(workspaceId, listId, ct) is not { } list)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        await builtIns.EnsureDefaultsAsync(list, tenant.TenantId!.Value, ct);
+        var rows = await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == workspaceId && w.ListId == listId && w.BuiltInKey != null).ToListAsync(ct);
+        return TypedResults.Ok((await builtIns.ListAsync(ct))
+            .Where(w => w.Scope == BuiltInScope.Library && list.IsLibrary)
+            .Select(w => ToResponse(builtIns, w, rows.FirstOrDefault(r => r.BuiltInKey == w.Key)))
+            .ToList());
+    }
+
+    /// <summary>Turns a built-in workflow on or off in a document library; once it has a row, changes need <c>If-Match</c> with its ETag.</summary>
+    private static async Task<Results<Ok<BuiltInWorkflowResponse>, ValidationProblem, ProblemHttpResult>> SetLibraryBuiltInAsync(
+        Guid workspaceId, Guid listId, string key, BuiltInSettingsRequest request, IWorkspaceAccess workspaces, IListItemStore items,
+        BuiltInWorkflows builtIns, WorkflowsDbContext db, HttpRequest http, HttpResponse response, CancellationToken ct)
+    {
+        if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Manage, ct) is { } denied)
+        {
+            return denied;
+        }
+
+        if (await items.GetListAsync(workspaceId, listId, ct) is not { } list || await builtIns.FindAsync(key, ct) is not { Scope: BuiltInScope.Library } workflow)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        if (await builtIns.RowAsync(workspaceId, key, ct, listId) is { } existing && CheckIfMatch(db, existing, http) is { } precondition)
+        {
+            return precondition;
+        }
+
+        var (row, errors, nameTaken) = await builtIns.SetAsync(workspaceId, workflow, request.Enabled, request.Parameters, ct, list);
+        if (nameTaken)
+        {
+            return ApiErrors.Conflict("nameAlreadyExists", errors[0]);
+        }
+
+        if (errors.Count > 0)
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["parameters"] = [.. errors] });
+        }
+
+        if (await SaveAsync(db, ct) is { } conflict)
+        {
+            return conflict;
+        }
+
+        if (row is not null)
+        {
+            ETags.Set(response, row.Version);
+        }
+
+        return TypedResults.Ok(ToResponse(builtIns, workflow, row));
     }
 
     /// <summary>
@@ -401,7 +512,7 @@ internal static class WorkflowEndpoints
 
     private static BuiltInWorkflowResponse ToResponse(BuiltInWorkflows builtIns, BuiltInWorkflow workflow, WorkflowDefinition? row) =>
         new(workflow.Key, workflow.Name, workflow.Description, workflow.Parameters?.DeepClone().AsObject(), workflow.Requires, builtIns.IsAvailable(workflow),
-            row?.Enabled == true, row?.Id, BuiltInWorkflows.Values(row))
+            row?.Enabled == true, row?.Id, BuiltInWorkflows.Values(row), workflow.Scope, workflow.EnabledByDefault)
         { ETag = row is null ? null : ETags.From(row.Version) };
 
     // ---- Runs ------------------------------------------------------------------------
@@ -701,13 +812,16 @@ internal static class WorkflowEndpoints
 /// <summary>Creates workflows and their versions (shared by the API and templates).</summary>
 internal static class WorkflowWriter
 {
-    public static WorkflowDefinition Create(WorkflowsDbContext db, Guid workspaceId, string name, string? description, bool enabled, WorkflowSpec spec)
+    public static WorkflowDefinition Create(
+        WorkflowsDbContext db, Guid workspaceId, string name, string? description, bool enabled, WorkflowSpec spec, string key, Guid? listId = null)
     {
         var workflow = new WorkflowDefinition
         {
             Id = Ids.New(),
             WorkspaceId = workspaceId,
             Name = name,
+            Key = key,
+            ListId = listId,
             Description = description,
             Enabled = enabled,
             Trigger = spec.TriggerTypes,
@@ -717,6 +831,24 @@ internal static class WorkflowWriter
         db.Versions.Add(new WorkflowVersion { Id = Ids.New(), WorkflowId = workflow.Id, Number = 1, Definition = DefinitionJson.Serialize(spec) });
         return workflow;
     }
+
+    /// <summary>A key made from <paramref name="name"/> that no workflow of the workspace has (a number is added when needed).</summary>
+    public static async Task<string> KeyForAsync(WorkflowsDbContext db, Guid workspaceId, string name, CancellationToken ct)
+    {
+        var key = WorkflowKeys.FromName(name);
+        for (var n = 2; await KeyTakenAsync(db, workspaceId, key, null, ct); n++)
+        {
+            key = $"{WorkflowKeys.FromName(name)[..Math.Min(WorkflowKeys.FromName(name).Length, WorkflowKeys.MaxLength - 4)]}-{n}";
+        }
+
+        return key;
+    }
+
+    /// <summary>Whether another workflow of the workspace (not <paramref name="except"/>) has the key (also one it gets from its name).</summary>
+    public static async Task<bool> KeyTakenAsync(WorkflowsDbContext db, Guid workspaceId, string key, Guid? except, CancellationToken ct) =>
+        (await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == workspaceId && w.Id != except)
+            .Select(w => new { w.Key, w.BuiltInKey, w.Name }).ToListAsync(ct))
+        .Any(w => (w.Key ?? w.BuiltInKey ?? WorkflowKeys.FromName(w.Name)) == key);
 
     /// <summary>Adds a version when the definition changed; returns whether it did.</summary>
     public static async Task<bool> SetSpecAsync(WorkflowsDbContext db, WorkflowDefinition workflow, WorkflowSpec spec, CancellationToken ct)

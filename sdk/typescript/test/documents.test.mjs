@@ -1,4 +1,5 @@
-// Documents: multipart upload, processing reported through live events, download, search; preferences with null reset.
+// Documents: multipart upload, what the library's workflows made reported through live events, download, search;
+// preferences with null reset.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { downloadFile, fieldsOf, ifMatch, subscribeLiveEvents, uploadBody } from '../dist/index.js';
@@ -10,13 +11,13 @@ const workspace = await api.v10.workspaces.post({ name: unique('SDK documents') 
 const library = await api.v10.workspaces.byWorkspaceId(workspace.id).lists.post({ name: 'Documents', templateKey: 'documents' });
 const libraryApi = api.v10.workspaces.byWorkspaceId(workspace.id).lists.byListId(library.id);
 
-test('upload, processing events, download and search', async () => {
+test('upload, document events, download and search', async () => {
   const events = [];
   let connected;
   const isConnected = new Promise((resolve) => (connected = resolve));
   const subscription = subscribeLiveEvents(client, {
     connected: () => connected(),
-    'document.processing': (e) => events.push(e),
+    'document.changed': (e) => events.push(e),
     error: (e) => events.push({ error: e }),
   });
 
@@ -31,8 +32,8 @@ test('upload, processing events, download and search', async () => {
     assert.equal(uploaded.file.fileName, 'report.pdf');
     assert.equal(uploaded.file.mediaType, 'application/pdf');
 
-    const done = await eventually(() => events.find((e) => e.itemId === uploaded.itemId && (e.status === 'succeeded' || e.status === 'failed')));
-    assert.equal(done.status, 'succeeded', JSON.stringify(events));
+    // The library's workflows read the text and render the pages (ADR-0038).
+    await eventually(() => ['text', 'pages'].every((what) => events.some((e) => e.itemId === uploaded.itemId && e.what === what)));
 
     const fileApi = libraryApi.items.byItemId(uploaded.itemId).file;
     const bytes = await fileApi.get();
