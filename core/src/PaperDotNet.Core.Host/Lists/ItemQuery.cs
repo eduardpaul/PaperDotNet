@@ -11,12 +11,19 @@ namespace PaperDotNet.Core.Host.Lists;
 /// the parsed tree is translated to SQL by the provider (<see cref="IItemQueries"/>), not to LINQ: EF Core cannot run
 /// dynamic LINQ under AOT (ADR-0039).
 /// </summary>
-internal sealed record ItemQuery(Guid TenantId, Guid ListId, FilterClause? Filter, OrderByClause? OrderBy, PageRequest Page, bool Count);
+/// <param name="TenantId"></param>
+/// <param name="ListId"></param>
+/// <param name="Filter"></param>
+/// <param name="OrderBy"></param>
+/// <param name="Page"></param>
+/// <param name="Count"></param>
+/// <param name="ItemId">Only this item (e.g. to test a workflow condition on it).</param>
+public sealed record ItemQuery(Guid TenantId, Guid ListId, FilterClause? Filter, OrderByClause? OrderBy, PageRequest Page, bool Count, Guid? ItemId = null);
 
-internal sealed record ItemQueryResult(IReadOnlyList<ListItem> Items, long? Count);
+public sealed record ItemQueryResult(IReadOnlyList<ListItem> Items, long? Count);
 
 /// <summary>Runs item queries; one implementation per database provider.</summary>
-internal interface IItemQueries
+public interface IItemQueries
 {
     Task<ItemQueryResult> QueryAsync(ItemQuery query, CancellationToken cancellationToken);
 }

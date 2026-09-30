@@ -29,6 +29,11 @@ internal sealed class SqliteItemQueries(CoreDb db) : IItemQueries
             var translator = new Translator(command);
             var where = new StringBuilder("\"i\".\"TenantId\" = ").Append(translator.Parameter(GuidText(query.TenantId)))
                 .Append(" AND \"i\".\"ListId\" = ").Append(translator.Parameter(GuidText(query.ListId)));
+            if (query.ItemId is { } itemId)
+            {
+                where.Append(" AND \"i\".\"Id\" = ").Append(translator.Parameter(GuidText(itemId)));
+            }
+
             if (query.Filter is not null)
             {
                 where.Append(" AND (").Append(translator.Predicate(query.Filter.Expression)).Append(')');

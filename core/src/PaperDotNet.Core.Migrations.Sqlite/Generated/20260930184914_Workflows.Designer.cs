@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PaperDotNet.Core.Host.Data;
 
@@ -10,14 +11,11 @@ using PaperDotNet.Core.Host.Data;
 namespace PaperDotNet.Core.Migrations.Sqlite.Generated;
 
 [DbContext(typeof(CoreDb))]
-partial class CoreDbModelSnapshot : ModelSnapshot
+[Migration("20260930184914_Workflows")]
+partial class _20260930184914_Workflows
 {
-    // If you encounter a merge conflict in the line below, it means you need to
-    // discard one of the migration branches and recreate its migrations on top of
-    // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20260930184914_Workflows";
-
-    protected override void BuildModel(ModelBuilder modelBuilder)
+    /// <inheritdoc />
+    protected override void BuildTargetModel(ModelBuilder modelBuilder)
     {
 #pragma warning disable 612, 618
         modelBuilder

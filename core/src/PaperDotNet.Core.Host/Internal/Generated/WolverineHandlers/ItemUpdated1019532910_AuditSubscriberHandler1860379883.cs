@@ -4,13 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Internal.Generated.WolverineHandlers
 {
-    // START: ItemUpdatedHandler1019532910
+    // START: ItemUpdated1019532910_AuditSubscriberHandler1860379883
     [global::System.CodeDom.Compiler.GeneratedCode("JasperFx", "1.0.0")]
-    public sealed class ItemUpdatedHandler1019532910 : Wolverine.Runtime.Handlers.MessageHandler
+    public sealed class ItemUpdated1019532910_AuditSubscriberHandler1860379883 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
 
-        public ItemUpdatedHandler1019532910(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
+        public ItemUpdated1019532910_AuditSubscriberHandler1860379883(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
         {
             _serviceScopeFactory = serviceScopeFactory;
         }
@@ -36,7 +36,7 @@ namespace Internal.Generated.WolverineHandlers
 
     }
 
-    // END: ItemUpdatedHandler1019532910
+    // END: ItemUpdated1019532910_AuditSubscriberHandler1860379883
     
     
 }

@@ -34,6 +34,15 @@ internal static class CoreHost
             .UseSqlite(connectionString)
             .AddInterceptors(provider.GetRequiredService<CoreSaveChangesInterceptor>()));
         services.AddScoped<IItemQueries, SqliteItemQueries>();
+        services.AddScoped<ListItemService>();
+        services.Configure<WorkflowScriptOptions>(configuration.GetSection("Workflows:Scripts"));
+        services.AddSingleton<TokenExpander>();
+        services.AddScoped<ItemConditions>();
+        services.AddScoped<ScriptRunner>();
+        services.AddScoped<WorkflowStarter>();
+        services.AddScoped<WorkflowInterpreter>();
+        services.AddWorkflowActivity<ItemCreateActivity>();
+        services.AddWorkflowActivity<ItemUpdateActivity>();
         services.AddScoped<TenantProvisioner>();
         services.AddSingleton<TokenIssuer>();
         services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
@@ -82,6 +91,7 @@ internal static class CoreHost
         ListEndpoints.Map(app);
         ItemEndpoints.Map(app);
         AuditEndpoints.Map(app);
+        WorkflowEndpoints.Map(app);
         app.MapHealthChecks("/health");
         app.MapOpenApi();
 

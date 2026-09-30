@@ -4,13 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Internal.Generated.WolverineHandlers
 {
-    // START: ItemDeletedHandler1267809744
+    // START: ItemCreated1181024365_AuditSubscriberHandler1860379883
     [global::System.CodeDom.Compiler.GeneratedCode("JasperFx", "1.0.0")]
-    public sealed class ItemDeletedHandler1267809744 : Wolverine.Runtime.Handlers.MessageHandler
+    public sealed class ItemCreated1181024365_AuditSubscriberHandler1860379883 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
 
-        public ItemDeletedHandler1267809744(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
+        public ItemCreated1181024365_AuditSubscriberHandler1860379883(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
         {
             _serviceScopeFactory = serviceScopeFactory;
         }
@@ -24,19 +24,19 @@ namespace Internal.Generated.WolverineHandlers
             // This service has been marked as requiring service location independent of Wolverine's ability to use constructor injection of everything else
             var coreDb = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Core.Host.Data.CoreDb>(serviceScope.ServiceProvider);
             // The actual message body
-            var itemDeleted = (PaperDotNet.Core.Host.Lists.ItemDeleted)context.Envelope.Message;
+            var itemCreated = (PaperDotNet.Core.Host.Lists.ItemCreated)context.Envelope.Message;
 
             System.Diagnostics.Activity.Current?.SetTag("message.handler", "PaperDotNet.Core.Host.Audit.AuditSubscriber");
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "PaperDotNet.Core.Host.Audit.AuditSubscriber");
             
             // The actual message execution
-            await PaperDotNet.Core.Host.Audit.AuditSubscriber.Handle(itemDeleted, coreDb, cancellation).ConfigureAwait(false);
+            await PaperDotNet.Core.Host.Audit.AuditSubscriber.Handle(itemCreated, coreDb, cancellation).ConfigureAwait(false);
 
         }
 
     }
 
-    // END: ItemDeletedHandler1267809744
+    // END: ItemCreated1181024365_AuditSubscriberHandler1860379883
     
     
 }

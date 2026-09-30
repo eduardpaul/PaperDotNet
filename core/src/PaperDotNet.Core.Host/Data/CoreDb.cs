@@ -34,6 +34,12 @@ public class CoreDb : DbContext
 
     public DbSet<AuditEntry> AuditEntries { get; set; } = null!;
 
+    public DbSet<WorkflowDefinition> Workflows { get; set; } = null!;
+
+    public DbSet<WorkflowVersion> WorkflowVersions { get; set; } = null!;
+
+    public DbSet<WorkflowRun> WorkflowRuns { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Wolverine's inbox/outbox tables, written in the same transaction; Wolverine creates them itself.
@@ -80,6 +86,30 @@ public class CoreDb : DbContext
             entry.Property(e => e.Action).HasMaxLength(64);
             entry.HasIndex(e => new { e.TenantId, e.Id });
             entry.HasIndex(e => new { e.TenantId, e.TargetId });
+        });
+
+        modelBuilder.Entity<WorkflowDefinition>(workflow =>
+        {
+            workflow.ToTable("workflows");
+            workflow.Property(w => w.Name).HasMaxLength(200);
+            workflow.HasIndex(w => new { w.TenantId, w.Name }).IsUnique();
+            workflow.HasIndex(w => new { w.TenantId, w.Enabled });
+            workflow.HasOne<Tenant>().WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkflowVersion>(version =>
+        {
+            version.ToTable("workflow_versions");
+            version.HasIndex(v => new { v.TenantId, v.WorkflowId, v.Number }).IsUnique();
+            version.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(v => v.WorkflowId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkflowRun>(run =>
+        {
+            run.ToTable("workflow_runs");
+            run.Property(r => r.Status).HasMaxLength(16);
+            run.HasIndex(r => new { r.TenantId, r.WorkflowId, r.Id });
+            run.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(r => r.WorkflowId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

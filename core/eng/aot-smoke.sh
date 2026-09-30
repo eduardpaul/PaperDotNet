@@ -35,11 +35,11 @@ rss_mb() { echo $(( $(awk '/VmRSS/{print $2}' "/proc/$PID/status") / 1024 )); }
 for _ in $(seq 1 50); do curl -sf "$BASE/health" >/dev/null && break; sleep 0.2; done
 curl -sf "$BASE/health" >/dev/null || fail "the host did not start"
 "$OUT/paperdotnet" healthcheck "$BASE" || fail "healthcheck command"
-curl -sf "$BASE/openapi/v1.json" | json '"/v1.0/lists" in d["paths"]' | grep -q True || fail "OpenAPI document"
 
 TOKEN=$(curl -sf -X POST "$BASE/connect/token" -d grant_type=password -d username=admin --data-urlencode "password=$PASSWORD" | json 'd["access_token"]') || fail "token"
 AUTH=(-H "Authorization: Bearer $TOKEN")
 sleep 2; IDLE=$(rss_mb)
+curl -sf "$BASE/openapi/v1.json" | json '"/v1.0/lists" in d["paths"]' | grep -q True || fail "OpenAPI document"
 
 LIST=$(curl -sf "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/lists" \
   -d '{"name":"Invoices","fields":[{"name":"amount","type":"number"},{"name":"paid","type":"boolean"},{"name":"due","type":"dateTime"}]}' | json 'd["id"]') || fail "create list"
@@ -59,7 +59,22 @@ for _ in $(seq 1 50); do
 done
 [[ "$AUDITED" -ge 6 ]] || fail "events did not reach the audit log ($AUDITED of 6)"
 
-# Burst: parallel writes (each also queues an event) and filtered reads.
+# Workflows (ADR-0036) with a Jint script step: an added invoice over 25 creates a task through a script.
+curl -sf "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/lists" -d '{"name":"Tasks"}' -o /dev/null || fail "create task list"
+WORKFLOW=$(curl -sf "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/workflows" -d '{"name":"Follow up","definition":{
+  "trigger":{"type":"itemAdded","list":"Invoices"},"condition":"fields/amount gt 25",
+  "flow":{"start":"script","nodes":{
+    "script":{"activity":"script","inputs":{"code":"const all = await items.query(\"Invoices\", { filter: \"fields/amount gt 25\" }); await items.create(\"Tasks\", { title: `Follow up ${item.title} (${all.length})` }); return all.length;"},"next":{"done":"mark"}},
+    "mark":{"activity":"item.update","inputs":{"fields":{"paid":true}}}}}}}' | json 'd["id"]') || fail "create workflow"
+curl -sf "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/lists/$LIST/items" -o /dev/null -d '{"fields":{"title":"Invoice 6","amount":60}}' || fail "create item 6"
+RUN=""
+for _ in $(seq 1 50); do
+  RUN=$(curl -sf "${AUTH[@]}" "$BASE/v1.0/workflows/$WORKFLOW/runs" | json '",".join(r["status"] + ":" + str(r["outputs"].get("script", {}).get("result")) for r in d["value"])')
+  [[ "$RUN" == completed:* ]] && break; sleep 0.2
+done
+[[ "$RUN" == "completed:4" ]] || fail "workflow run: $RUN"
+
+# Burst: parallel writes (each also queues an event and a workflow check) and filtered reads.
 seq 1 2000 | xargs -P 16 -I{} curl -sf -o /dev/null "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/lists/$LIST/items" \
   -d '{"fields":{"title":"Load {}","amount":{}}}' || fail "write burst"
 PEAK=$(rss_mb)

@@ -38,6 +38,8 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" PrivateAssets="all" />
     <PackageReference Include="WolverineFx.Sqlite" />
     <PackageReference Include="Microsoft.OData.Core" />
+    <!-- Script steps of workflows (ADR-0037): sandboxed JavaScript; runs under Native AOT without .NET interop (ADR-0039). -->
+    <PackageReference Include="Jint" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
   </ItemGroup>
   <ItemGroup>
@@ -45,6 +47,7 @@
     <Using Include="PaperDotNet.Core.Host.Audit" />
     <Using Include="PaperDotNet.Core.Host.Identity" />
     <Using Include="PaperDotNet.Core.Host.Lists" />
+    <Using Include="PaperDotNet.Core.Host.Workflows" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Schema\Sqlite\*.sql" LogicalName="Schema.Sqlite.%(Filename).sql" />

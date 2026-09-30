@@ -80,6 +80,8 @@ PaperDotNet.Core.slnx`, `eng/aot-smoke.sh` (publishes, runs, checks the memory b
   values copied into locals first, entities not `sealed`. No global query filters: filter on `TenantId` in every query.
 - Dynamic queries (item filters) are OData syntax translated to SQL by `IItemQueries` per provider, never dynamic LINQ.
 - Model change → `eng/schema.sh add <Name>`; subscriber change → `eng/codegen.sh`; endpoint change → `eng/openapi.sh`.
+- Workflows: activities implement `IWorkflowActivity` (`AddWorkflowActivity<T>()`); Jint host functions are `ClrFunction`s
+  over JSON values only. No enums in entities (string constants). Never keep `[RequiresUnreferencedCode]` added by `dotnet format`.
 - Prefer plain defaults over memory tuning; only tune when `eng/aot-smoke.sh` is over budget.
 
 ## Code conventions

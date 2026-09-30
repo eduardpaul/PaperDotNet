@@ -33,10 +33,15 @@ dependency if it works under AOT, otherwise take a standard that does, otherwise
 | ASP.NET Core **BearerToken** + Data Protection + `PasswordHasher` | ✅ works | In the shared framework. |
 | **Kiota** C# runtime (`Microsoft.Kiota.Bundle` 2.1) | ✅ works | Published with Native AOT without a single warning. |
 | Microsoft.AspNetCore.OpenApi | ✅ works | Every parameter type needs source-generated JSON metadata. |
+| **Jint** 4.16 (workflow scripts, ADR-0037) | ✅ works | The interpreter, async/await, promises, JSON, and the time/memory/statement/recursion limits all work. Its .NET interop (wrapping CLR objects, delegates passed to `SetValue`) uses reflection: host functions are `ClrFunction`s over `JsValue`s and values cross as JSON, which the sandbox did already. About 8 MB of binary. |
+| **Cronos** (cron schedules) | ✅ works | Pure parsing and arithmetic. |
+| **Workflow engine** (ADR-0036) | ✅ ported | Plain C# over `JsonObject`. What blocked it was the same as elsewhere: global query filters, reflection-based JSON, composed queries, sealed entities. |
 
 Memory of the first slice (tenants, users, tokens, lists, items with OData queries, events to an audit log), published
 for linux-x64 with default settings: **46 MB binary, about 85 MB resident when idle, 115–140 MB during a burst of 2,000
-parallel writes and 500 filtered reads.** The JIT build of the same code uses about 170 MB idle. GC tuning, SQLite memory
+parallel writes and 500 filtered reads.** With workflows and Jint: **56 MB binary, 94–96 MB idle, about 150 MB under the
+same burst** (each write then also checks the workflow triggers). The first OpenAPI request adds about 8 MB. Workstation
+GC was worse at idle (106 MB) than the default. The JIT build of the same code uses about 170 MB idle. GC tuning, SQLite memory
 limits and concurrency caps saved 10–20 MB more; we left them out as not worth the complexity.
 
 ## Decision
@@ -79,6 +84,16 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
   `IOutbox.SaveChangesAsync(db, events)`.
 - **Authentication:** first-party clients keep the OAuth 2.0 password and refresh-token grants on `/connect/token`.
   Tokens are ASP.NET Core bearer tokens (Data Protection). Permissions are scopes in the token.
+- **Workflows** (ported from `src/Modules/Workflows`, flow form): triggers `manual`, `itemAdded`, `itemUpdated`,
+  `itemDeleted` (with an OData `condition`); activities `if`, `setVariable`, `script` (Jint), `end`, `fail`, and the
+  actions `item.create` and `item.update` (`IWorkflowActivity`, registered with `AddWorkflowActivity<T>()`). Runs are
+  driven by `ResumeRun` messages through the outbox; a run's own changes are one causation level deeper and stop
+  starting workflows at depth 8. Script host functions are `ClrFunction`s only. Not ported yet: waits (approvals,
+  delays, retries), schedules and date triggers, `forEach`, `event.raise`, the `steps` form, built-in workflows, and
+  leases for several servers.
+- **Enums are not stored** as enums: EF Core's compiled model calls `Enum.GetValues(Type)` for them. Use string
+  constants (e.g. `RunStatus`).
+- **`dotnet format` may add `[RequiresUnreferencedCode]`** as its fix for a trim warning. Never keep it: fix the call.
 - **One DbContext** (`CoreDb`) for the core, with entity configuration per module. SQLite has no schemas, and one
   compiled model keeps publishing simple.
 
@@ -98,8 +113,10 @@ document to `core/sdk/openapi.json` (`eng/openapi.sh`). The SDKs are generated f
   time), so query shapes that do not precompile only show up in the AOT job. `eng/aot-smoke.sh` runs locally too.
 - Queries lose the safety net of global filters. Isolation tests per endpoint and the save interceptor replace it.
   PostgreSQL row-level security (ADR-0013) will be a second layer again in the PostgreSQL build.
+- The idle budget has little room left (94–96 MB of 100 with workflows). The next modules either fit in it, or the
+  budget is revisited on purpose; memory tuning stays the last resort.
 - OpenIddict (authorization code flow, passkeys) and ASP.NET Core OData stay out of the core. Other dependencies are
-  not checked under AOT yet (Jint for workflow scripts, the MCP SDK, the extension host, PDF and OCR libraries). Each
+  not checked under AOT yet (the MCP SDK, the extension host, PDF and OCR libraries). Each
   is tested when its module is ported, with the same best-effort rule: keep it if it works, otherwise find a standard
   that does, otherwise write the plain version.
 - The web UI and the SDKs still target the .NET 10 API until the core covers enough of it.

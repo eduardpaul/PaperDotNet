@@ -145,4 +145,7 @@ internal sealed class ClaimsPrincipalAccessor(ICurrentUser user)
     public Guid TenantId => user.TenantId ?? throw new InvalidOperationException("The caller has no tenant.");
 
     public Guid UserId => user.UserId ?? throw new InvalidOperationException("The caller has no user id.");
+
+    /// <summary>The caller as the author of item changes (causation depth 0: a person's change).</summary>
+    public Lists.ItemActor Actor => new(TenantId, UserId);
 }

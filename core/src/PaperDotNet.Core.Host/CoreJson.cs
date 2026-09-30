@@ -40,4 +40,13 @@ namespace PaperDotNet.Core.Host;
 [JsonSerializable(typeof(ItemCreated))]
 [JsonSerializable(typeof(ItemUpdated))]
 [JsonSerializable(typeof(ItemDeleted))]
+[JsonSerializable(typeof(WorkflowDto))]
+[JsonSerializable(typeof(Page<WorkflowDto>))]
+[JsonSerializable(typeof(CreateWorkflowRequest))]
+[JsonSerializable(typeof(UpdateWorkflowRequest))]
+[JsonSerializable(typeof(StartRunRequest))]
+[JsonSerializable(typeof(RunDto))]
+[JsonSerializable(typeof(Page<RunDto>))]
+[JsonSerializable(typeof(IReadOnlyList<ActivityDto>))]
+[JsonSerializable(typeof(ResumeRun))]
 internal sealed partial class CoreJson : JsonSerializerContext;

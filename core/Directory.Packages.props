@@ -19,6 +19,9 @@
     <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="$(WolverineVersion)" />
     <PackageVersion Include="WolverineFx.Sqlite" Version="$(WolverineVersion)" />
   </ItemGroup>
+  <ItemGroup Label="Workflows">
+    <PackageVersion Include="Jint" Version="4.16.4" />
+  </ItemGroup>
   <ItemGroup Label="Web">
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="$(AspNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="$(AspNetVersion)" />

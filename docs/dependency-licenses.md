@@ -168,7 +168,8 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 - **2026-09-30:** the Native AOT core ([ADR-0039](adr/0039-native-aot-core.md), `core/`) adds no new license: .NET 11
   (MIT), EF Core 11 with `Microsoft.EntityFrameworkCore.Tasks` (MIT, build time), `Microsoft.OData.Core`/`.Edm` alone
   without `Microsoft.AspNetCore.OData` (MIT), Wolverine without `.RuntimeCompilation` (MIT, so no Roslyn at run time),
-  and the ASP.NET Core bearer-token handler instead of OpenIddict (shared framework).
+  and the ASP.NET Core bearer-token handler instead of OpenIddict (shared framework). Workflows add `Jint` (BSD-2-Clause,
+  already in the register for ADR-0037), used without its .NET interop.
 
 - **2026-09-29:** Elsa re-checked for [ADR-0036](adr/0036-workflows-as-the-core.md): 3.8.4 (latest) still
   depends on JsonSchema.Net 9.4.0 (with JsonPointer.Net and Json.More.Net, OSMF EULA) from `Elsa.Workflows.Core`.
