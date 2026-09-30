@@ -43,4 +43,39 @@ internal static class Acl
     /// <summary>The fixed entry every scope has: workspace owners have full control.</summary>
     public static AclEntry Owners(ListDefinition list, Guid scopeId) =>
         Entry(list, scopeId, AclPrincipalTypes.WorkspaceOwners, Guid.Empty, WorkspaceAccessLevel.Manage);
+
+    /// <summary>An entry as the API shows it: for workspace roles the principal id is the workspace id.</summary>
+    public static PermissionGrantDto ToDto(AclEntry entry) =>
+        new(entry.PrincipalType, RoleOf(entry.PrincipalType) is null ? entry.PrincipalId : entry.WorkspaceId, (WorkspaceAccessLevel)entry.Level);
+
+    /// <summary>The entries of <paramref name="scopeId"/> for <paramref name="grants"/>, always with workspace owners (Manage).</summary>
+    public static List<AclEntry> FromGrants(ListDefinition list, Guid scopeId, IEnumerable<PermissionGrantDto> grants)
+    {
+        var entries = grants
+            .Where(g => g.PrincipalType != AclPrincipalTypes.WorkspaceOwners)
+            .Select(g => Entry(list, scopeId, g.PrincipalType, g.PrincipalId, g.Level))
+            .ToList();
+        entries.Add(Owners(list, scopeId));
+        return entries;
+    }
+
+    /// <summary>Makes the tracked <paramref name="existing"/> entries of a scope equal to <paramref name="wanted"/>.</summary>
+    public static void Replace(ListsDbContext db, IReadOnlyCollection<AclEntry> existing, IReadOnlyCollection<AclEntry> wanted)
+    {
+        var byPrincipal = wanted.ToDictionary(e => e.PrincipalId);
+        foreach (var entry in existing)
+        {
+            if (byPrincipal.Remove(entry.PrincipalId, out var replacement))
+            {
+                entry.PrincipalType = replacement.PrincipalType;
+                entry.Level = replacement.Level;
+            }
+            else
+            {
+                db.AclEntries.Remove(entry);
+            }
+        }
+
+        db.AclEntries.AddRange(byPrincipal.Values);
+    }
 }

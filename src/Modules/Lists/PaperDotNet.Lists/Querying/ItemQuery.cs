@@ -47,6 +47,13 @@ internal sealed record ItemQueryResult(IReadOnlyList<Data.ListItem> Items, long?
 internal interface IItemQueries
 {
     Task<ItemQueryResult> QueryAsync(ItemQuery query, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Moves the children of <paramref name="parentId"/> that inherit <paramref name="oldScope"/> (also in the recycle
+    /// bin) to <paramref name="newScope"/> in one statement, without touching their versions (ADR-0035). One bulk
+    /// update: EF Core cannot precompile <c>ExecuteUpdate</c> (ADR-0039).
+    /// </summary>
+    Task<int> MoveScopeAsync(Guid tenantId, Guid parentId, Guid oldScope, Guid newScope, CancellationToken cancellationToken);
 }
 
 /// <summary>Parsed <c>$filter</c> clauses and <c>$orderby</c> with the aliases they refer to.</summary>

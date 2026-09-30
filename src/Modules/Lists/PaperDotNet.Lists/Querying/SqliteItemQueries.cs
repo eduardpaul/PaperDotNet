@@ -23,6 +23,31 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
         "\"i\".\"Id\", \"i\".\"ListId\", \"i\".\"ContentTypeId\", \"i\".\"ParentId\", \"i\".\"IsFolder\", \"i\".\"ScopeId\", \"i\".\"Title\", \"i\".\"Fields\", "
         + "\"i\".\"CreatedAt\", \"i\".\"CreatedBy\", \"i\".\"UpdatedAt\", \"i\".\"UpdatedBy\", \"i\".\"Version\", \"i\".\"HasUniquePermissions\"";
 
+    public async Task<int> MoveScopeAsync(Guid tenantId, Guid parentId, Guid oldScope, Guid newScope, CancellationToken cancellationToken)
+    {
+        var connection = db.Database.GetDbConnection();
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE \"list_items\" SET \"ScopeId\" = $new WHERE \"TenantId\" = $tenant AND \"ParentId\" = $parent "
+                + "AND \"HasUniquePermissions\" = 0 AND \"ScopeId\" = $old";
+            foreach (var (name, value) in new[] { ("$new", newScope), ("$tenant", tenantId), ("$parent", parentId), ("$old", oldScope) })
+            {
+                var parameter = command.CreateParameter();
+                parameter.ParameterName = name;
+                parameter.Value = GuidText(value);
+                command.Parameters.Add(parameter);
+            }
+
+            return await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
     public async Task<ItemQueryResult> QueryAsync(ItemQuery query, CancellationToken cancellationToken)
     {
         if (query.ListIds.Count == 0 || query.Scopes is { Count: 0 })

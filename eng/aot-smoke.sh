@@ -116,6 +116,17 @@ curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WORKSPACE/lists/$NOTE
 [[ $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $MEMBER_TOKEN" "${JSON[@]}" "$BASE/v1.0/workspaces/$WORKSPACE/lists/$NOTES/items" -d '{"fields":{"title":"No"}}') == 403 ]] || fail "visitor cannot write"
 [[ $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $MEMBER_TOKEN" "$ITEMS") == 404 ]] || fail "other workspace hidden"
 
+# Item permissions (ADR-0035): a folder with unique permissions hides its contents from the visitor until reset.
+TEAM_ITEMS="$BASE/v1.0/workspaces/$WORKSPACE/lists/$NOTES/items"
+PRIVATE=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$TEAM_ITEMS" -d '{"isFolder":true,"fields":{"title":"Private"}}' | json 'd["id"]') || fail "create private folder"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$TEAM_ITEMS" -o /dev/null -d "{\"parentId\":\"$PRIVATE\",\"fields\":{\"title\":\"Secret\"}}" || fail "create secret item"
+visible() { curl -sf -H "Authorization: Bearer $MEMBER_TOKEN" "$TEAM_ITEMS" | json 'len(d["value"])'; }
+[[ $(visible) == 3 ]] || fail "visitor sees the folder"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$TEAM_ITEMS/$PRIVATE/permissions/breakInheritance" -d '{"copyGrants":false}' -o /dev/null || fail "break inheritance"
+[[ $(visible) == 1 ]] || fail "unique permissions hide the folder"
+curl -sf -X POST "${AUTH[@]}" "$TEAM_ITEMS/$PRIVATE/permissions/resetInheritance" || fail "reset inheritance"
+[[ $(visible) == 3 ]] || fail "reset inheritance shows the folder"
+
 # Jobs: live events stream (server-sent events), operations of nobody are not found.
 EVENTS=$(curl -sN --max-time 2 "${AUTH[@]}" "$BASE/v1.0/me/events" || true)  # the stream only ends at the timeout
 grep -q '^event: connected' <<<"$EVENTS" || fail "live events stream: $EVENTS"

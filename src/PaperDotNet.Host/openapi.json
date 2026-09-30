@@ -2615,6 +2615,420 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/permissions": {
+      "get": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "GetListPermissions",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/permissions/breakInheritance": {
+      "post": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "BreakListInheritance",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BreakInheritanceRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/permissions/resetInheritance": {
+      "post": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "ResetListInheritance",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/permissions/grants": {
+      "put": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "ReplaceListGrants",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceGrantsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/permissions": {
+      "get": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "GetItemPermissions",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/permissions/breakInheritance": {
+      "post": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "BreakItemInheritance",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BreakInheritanceRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/permissions/resetInheritance": {
+      "post": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "ResetItemInheritance",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/permissions/grants": {
+      "put": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "ReplaceItemGrants",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceGrantsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workspaces/{workspaceId}/workflows": {
       "get": {
         "tags": [
@@ -3466,6 +3880,15 @@
           "occurredAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "BreakInheritanceRequest": {
+        "type": "object",
+        "properties": {
+          "copyGrants": {
+            "type": "boolean",
+            "default": true
           }
         }
       },
@@ -4757,6 +5180,68 @@
         },
         "description": "A page of results in Graph/OData shape."
       },
+      "PermissionGrantDto": {
+        "required": [
+          "principalType",
+          "principalId",
+          "level"
+        ],
+        "type": "object",
+        "properties": {
+          "principalType": {
+            "type": "string"
+          },
+          "principalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "level": {
+            "$ref": "#/components/schemas/WorkspaceAccessLevel"
+          }
+        },
+        "description": "A permission entry: `principalType` is `user`, `group`, `workspaceVisitors`,\n`workspaceMembers` or `workspaceOwners`; for workspace roles the principal id is the workspace id."
+      },
+      "PermissionsResponse": {
+        "required": [
+          "hasUniquePermissions",
+          "inheritsFrom",
+          "inheritsFromId",
+          "effectiveLevel",
+          "grants"
+        ],
+        "type": "object",
+        "properties": {
+          "hasUniquePermissions": {
+            "type": "boolean"
+          },
+          "inheritsFrom": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inheritsFromId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "effectiveLevel": {
+            "$ref": "#/components/schemas/WorkspaceAccessLevel"
+          },
+          "grants": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/PermissionGrantDto"
+            }
+          }
+        },
+        "description": "Permissions of a list or item. `inheritsFrom` names where they come from: `workspace`, `list` or\n`item` (with `inheritsFromId`), or null when unique. Grants are shown to managers only."
+      },
       "PreferencesResponse": {
         "required": [
           "language",
@@ -4825,6 +5310,23 @@
               "string"
             ],
             "format": "uuid"
+          }
+        }
+      },
+      "ReplaceGrantsRequest": {
+        "required": [
+          "grants"
+        ],
+        "type": "object",
+        "properties": {
+          "grants": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/PermissionGrantDto"
+            }
           }
         }
       },
@@ -5536,6 +6038,9 @@
     },
     {
       "name": "Organization"
+    },
+    {
+      "name": "Permissions"
     },
     {
       "name": "Recycle bin"

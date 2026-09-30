@@ -11,7 +11,7 @@ namespace Internal.Generated.WolverineHandlers
 
         public override System.Type[] HandlerTypes()
         {
-            return new System.Type[] { typeof(PaperDotNet.Audit.Features.AuditSubscriber), typeof(PaperDotNet.Jobs.Features.OperationSubscriber), typeof(PaperDotNet.Workflows.Features.WorkflowRunSubscriber), typeof(PaperDotNet.Workflows.Features.WorkflowTriggerSubscriber), typeof(PaperDotNet.Workspaces.Features.WorkspacePrincipalSubscriber) };
+            return new System.Type[] { typeof(PaperDotNet.Audit.Features.AuditSubscriber), typeof(PaperDotNet.Jobs.Features.OperationSubscriber), typeof(PaperDotNet.Lists.Features.FolderScopeSubscriber), typeof(PaperDotNet.Workflows.Features.WorkflowRunSubscriber), typeof(PaperDotNet.Workflows.Features.WorkflowTriggerSubscriber), typeof(PaperDotNet.Workspaces.Features.WorkspacePrincipalSubscriber) };
         }
 
 
@@ -34,6 +34,7 @@ namespace Internal.Generated.WolverineHandlers
 
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.GeneratedHandlerRegistry))]
+        [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.CompleteFolderScopeChangeHandler983869399))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.ItemAdded241617761_AuditSubscriberHandler1397558633))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.ItemAdded241617761_WorkflowTriggerSubscriberHandler1141364860))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.ItemDeleted1130688894_AuditSubscriberHandler1397558633))]
@@ -49,6 +50,7 @@ namespace Internal.Generated.WolverineHandlers
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.RunOperationHandler552251503))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Audit.Features.AuditSubscriber))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Jobs.Features.OperationSubscriber))]
+        [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Lists.Features.FolderScopeSubscriber))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Workflows.Features.WorkflowRunSubscriber))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Workflows.Features.WorkflowTriggerSubscriber))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Workspaces.Features.WorkspacePrincipalSubscriber))]
@@ -79,6 +81,9 @@ namespace Internal.Generated.WolverineHandlers
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Lists.Contracts.ListDeleted))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Wolverine.Runtime.Routing.MessageRouter<PaperDotNet.Lists.Contracts.ListDeleted>))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Wolverine.Runtime.Routing.EmptyMessageRouter<PaperDotNet.Lists.Contracts.ListDeleted>))]
+        [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Lists.Features.CompleteFolderScopeChange))]
+        [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Wolverine.Runtime.Routing.MessageRouter<PaperDotNet.Lists.Features.CompleteFolderScopeChange>))]
+        [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Wolverine.Runtime.Routing.EmptyMessageRouter<PaperDotNet.Lists.Features.CompleteFolderScopeChange>))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Workflows.Features.ResumeRun))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Wolverine.Runtime.Routing.MessageRouter<PaperDotNet.Workflows.Features.ResumeRun>))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Wolverine.Runtime.Routing.EmptyMessageRouter<PaperDotNet.Workflows.Features.ResumeRun>))]

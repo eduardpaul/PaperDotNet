@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization.Metadata;
+using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
@@ -37,6 +38,7 @@ public sealed class ListsModule : IModule
         services.AddScoped<IPrincipalSet>(sp => sp.GetRequiredService<ItemAccess>());
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
+        services.AddScoped(sp => new ScopeMover(sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<IItemQueries>(), sp.GetRequiredService<IOptions<ListsOptions>>()));
         services.AddScoped<IItemQueries, SqliteItemQueries>();
         services.AddScoped<ItemQueryRunner>();
         services.AddScoped<ListItemStore>();
@@ -49,5 +51,6 @@ public sealed class ListsModule : IModule
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
         ItemHistoryEndpoints.Map(endpoints);
+        PermissionEndpoints.Map(endpoints);
     }
 }

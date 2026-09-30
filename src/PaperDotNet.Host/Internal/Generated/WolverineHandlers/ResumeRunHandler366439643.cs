@@ -31,7 +31,7 @@ namespace Internal.Generated.WolverineHandlers
             * 
             * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Features.WorkflowItems Lifetime: Scoped ImplementationType: PaperDotNet.Workflows.Features.WorkflowItems
             * 
-            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_1
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_2
             * The service registration for PaperDotNet.Lists.Contracts.IListItemStore is an 'opaque' lambda factory with the Scoped lifetime and requires service location
             * 
             * 
@@ -39,7 +39,7 @@ namespace Internal.Generated.WolverineHandlers
             * 
             * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Features.WorkflowItems Lifetime: Scoped ImplementationType: PaperDotNet.Workflows.Features.WorkflowItems
             * 
-            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_1
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_2
             * The service registration for PaperDotNet.Lists.Contracts.IListItemStore is an 'opaque' lambda factory with the Scoped lifetime and requires service location
             * 
             * 
@@ -48,7 +48,7 @@ namespace Internal.Generated.WolverineHandlers
             * 
             * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Features.WorkflowItems Lifetime: Scoped ImplementationType: PaperDotNet.Workflows.Features.WorkflowItems
             * 
-            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_1
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_2
             * The service registration for PaperDotNet.Lists.Contracts.IListItemStore is an 'opaque' lambda factory with the Scoped lifetime and requires service location
             */
             var workflowInterpreter = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Workflows.Features.WorkflowInterpreter>(serviceScope.ServiceProvider);

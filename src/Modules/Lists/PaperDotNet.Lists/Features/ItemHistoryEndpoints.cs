@@ -274,8 +274,14 @@ public sealed class ListsOptions
 {
     public const string Section = "Lists";
 
-    /// <summary>Days an item stays in the recycle bin before it is deleted permanently.</summary>
+    /// <summary>Days an item stays in the recycle bin before it is deleted permanently (SharePoint default: 93).</summary>
     public int RecycleBinRetentionDays { get; set; } = 93;
+
+    /// <summary>
+    /// Items a request moves to another permission scope itself (breaking or resetting inheritance, moving a
+    /// folder); the rest is moved in the background, and keeps its old access until then (ADR-0035).
+    /// </summary>
+    public int ScopeMoveInlineLimit { get; set; } = 5000;
 }
 
 /// <summary>Permanently deletes recycle-bin items older than the retention period (daily at 03:30 UTC).</summary>

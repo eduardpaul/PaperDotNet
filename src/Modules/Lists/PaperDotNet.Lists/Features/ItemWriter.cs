@@ -32,7 +32,8 @@ internal sealed class ItemWriter(
     IEnumerable<IItemMutator> mutators,
     IOutbox outbox,
     ILiveEvents live,
-    TimeProvider time)
+    TimeProvider time,
+    ScopeMover mover)
 {
     public const int TitleMaxLength = 1024;
     private const int MaxFolderDepth = 64;
@@ -130,12 +131,6 @@ internal sealed class ItemWriter(
             }
 
             newScopeId = item.HasUniquePermissions ? item.ScopeId : parentScope;
-            if (item.IsFolder && newScopeId != item.ScopeId)
-            {
-                // Moving a folder between permission scopes moves everything inside it too (ADR-0035): that comes with
-                // item permissions (T08); until then all of a list's items share its scope.
-                return new ItemWriteResult(null, Conflict: "The folder cannot move to a place with other permissions.");
-            }
         }
 
         var before = Values(item);
@@ -181,6 +176,7 @@ internal sealed class ItemWriter(
             return new ItemWriteResult(null, errors);
         }
 
+        var oldScopeId = item.ScopeId;
         if (parentId.HasValue)
         {
             item.ParentId = parentId.Value;
@@ -196,7 +192,7 @@ internal sealed class ItemWriter(
             await AddVersionAsync(caller, schema, item, changed, ct);
         }
 
-        await outbox.SaveChangesAsync(db, [Event(Change.Updated, caller, item, schema.List.WorkspaceId, changed)], ct);
+        await SaveAsync(item, oldScopeId, Event(Change.Updated, caller, item, schema.List.WorkspaceId, changed), ct);
         await PublishChangedAsync("updated", caller, schema, item, ct);
         return new ItemWriteResult(item);
     }
@@ -235,9 +231,9 @@ internal sealed class ItemWriter(
     /// </summary>
     public async Task RestoreAsync(ListCaller caller, ListSchema schema, ListItem item, CancellationToken ct)
     {
+        var oldScopeId = item.ScopeId;
         if (item.ParentId is { } parentId && await FindAsync(caller.TenantId, schema.List.Id, parentId, ct) is not { IsFolder: true })
         {
-            // Until item permissions are ported (T08) every item of a list has the list's scope.
             item.ParentId = null;
             if (!item.HasUniquePermissions)
             {
@@ -248,8 +244,25 @@ internal sealed class ItemWriter(
         item.DeletedAt = null;
         item.DeletedBy = null;
         item.UpdatedBy = caller.UserId;
-        await outbox.SaveChangesAsync(db, [Event(Change.Restored, caller, item, schema.List.WorkspaceId, [])], ct);
+        await SaveAsync(item, oldScopeId, Event(Change.Restored, caller, item, schema.List.WorkspaceId, []), ct);
         await PublishChangedAsync("restored", caller, schema, item, ct);
+    }
+
+    /// <summary>
+    /// Saves an item change with its event. A folder that moved to another permission scope takes its contents along
+    /// (ADR-0035): the message saved with it completes what the request does not move.
+    /// </summary>
+    private async Task SaveAsync(ListItem item, Guid oldScopeId, ItemEvent change, CancellationToken ct)
+    {
+        if (!item.IsFolder || item.ScopeId == oldScopeId)
+        {
+            await outbox.SaveChangesAsync(db, [change], ct);
+            return;
+        }
+
+        var message = new CompleteFolderScopeChange(item.TenantId, item.ListId, item.Id, oldScopeId, item.ScopeId);
+        await outbox.SaveChangesAsync(db, [change], [message], ct);
+        await mover.MoveAsync(item.TenantId, item.Id, oldScopeId, item.ScopeId, inline: true, ct);
     }
 
     /// <summary>Deletes items of the recycle bin (tracked, of lists in <paramref name="workspaceId"/>) and their versions permanently.</summary>
@@ -262,6 +275,10 @@ internal sealed class ItemWriter(
         {
             var id = item.Id;
             context.ItemVersions.RemoveRange(await context.ItemVersions.Where(v => v.TenantId == tenant && v.ItemId == id).ToListAsync(ct));
+            if (item.HasUniquePermissions)
+            {
+                context.AclEntries.RemoveRange(await context.AclEntries.Where(e => e.TenantId == tenant && e.ScopeId == id).ToListAsync(ct));
+            }
         }
 
         // Removing an item that is already in the recycle bin deletes it (SaveChangesGuard).
