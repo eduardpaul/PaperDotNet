@@ -30,6 +30,8 @@ const server = spawn('dotnet', [join(host, 'bin/Debug/net10.0/paperdotnet.dll')]
     PAPERDOTNET__Auth__PasskeyServerDomain: 'localhost',
     PAPERDOTNET__Auth__PasskeyOrigins__0: origin,
     PAPERDOTNET__Logging__LogLevel__Default: 'Warning',
+    // The whole suite signs in as one user, faster than any person: the per-user limit would answer 429.
+    PAPERDOTNET__RateLimit__PermitPerMinute: '100000',
   },
   stdio: ['ignore', process.env.PAPERDOTNET_E2E_LOGS ? 'inherit' : 'ignore', 'inherit'],
 });
