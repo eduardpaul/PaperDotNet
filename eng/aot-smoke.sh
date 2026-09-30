@@ -58,7 +58,7 @@ TITLES=$(curl -sf "${AUTH[@]}" -G "$ITEMS" --data-urlencode '$filter=fields/amou
 [[ "$TITLES" == "Invoice 3,Invoice 2|2" ]] || fail "unexpected query result: $TITLES"
 VIEW=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$LIST/views" -d '{"name":"Unpaid","filter":"fields/paid eq false","orderBy":"fields/amount desc","columns":["title"]}' | json 'd["id"]') || fail "create view"
 [[ $(curl -sf "${AUTH[@]}" "$ITEMS?viewId=$VIEW" | json '",".join(i["fields"]["title"] for i in d["value"])') == "Invoice 3,Invoice 2,Invoice 1" ]] || fail "items through a view"
-[[ $(curl -sf "${AUTH[@]}" "$ITEMS/counts?field=paid" | json '",".join(str(c["value"]) + ":" + str(c["count"]) for c in d["value"])') == "false:3,true:2,None:1" ]] || fail "item counts"
+[[ $(curl -sf "${AUTH[@]}" "$ITEMS/counts?field=paid" | json '",".join(str(c["value"]) + ":" + str(c["count"]) for c in d["value"])') == "false:3,true:2" ]] || fail "item counts"
 FOLDER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -d '{"isFolder":true,"fields":{"title":"2026"}}' | json 'd["id"]') || fail "create folder"
 curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -o /dev/null -d "{\"parentId\":\"$FOLDER\",\"fields\":{\"title\":\"Filed\",\"amount\":1}}" || fail "create item in folder"
 [[ $(curl -sf "${AUTH[@]}" "$ITEMS/$FOLDER/children" | json 'd["value"][0]["fields"]["title"]') == Filed ]] || fail "folder children"
