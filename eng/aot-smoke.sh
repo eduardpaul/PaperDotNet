@@ -74,6 +74,22 @@ for _ in $(seq 1 50); do
 done
 [[ "$RUN" == "completed:4" ]] || fail "workflow run: $RUN"
 
+# Identity: a member in a group inside a group gets a role's scope; preferences; an API token limited to one scope.
+JSON=(-H 'Content-Type: application/json')
+MEMBER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/users" -d '{"userName":"member","password":"member-password-1"}' | json 'd["id"]') || fail "create user"
+OUTER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/groups" -d '{"name":"Outer"}' | json 'd["id"]') || fail "create group"
+INNER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/groups" -d '{"name":"Inner"}' | json 'd["id"]') || fail "create group"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/groups/$INNER/members" -d "{\"userId\":\"$MEMBER\"}" || fail "add member"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/groups/$OUTER/groups" -d "{\"groupId\":\"$INNER\"}" || fail "nest group"
+ROLE=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/roles" -d '{"name":"Readers","scopes":["role.read"]}' | json 'd["id"]') || fail "create role"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/roles/$ROLE/assignments" -d "{\"principalId\":\"$OUTER\",\"principalType\":\"group\"}" -o /dev/null || fail "assign role"
+MEMBER_TOKEN=$(curl -sf -X POST "$BASE/connect/token" -d grant_type=password -d username=member -d password=member-password-1 | json 'd["access_token"]') || fail "member token"
+curl -sf -H "Authorization: Bearer $MEMBER_TOKEN" "$BASE/v1.0/roles" -o /dev/null || fail "role through nested groups"
+curl -sf -X PATCH -H "Authorization: Bearer $MEMBER_TOKEN" "${JSON[@]}" "$BASE/v1.0/me/preferences" -d '{"timeZone":"Europe/Berlin"}' -o /dev/null || fail "preferences"
+SECRET=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/me/apiTokens" -d '{"name":"smoke","scopes":["list.read"]}' | json 'd["secret"]') || fail "API token"
+curl -sf -H "Authorization: Bearer $SECRET" "$BASE/v1.0/lists" -o /dev/null || fail "API token read"
+[[ $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $SECRET" "$BASE/v1.0/users") == 403 ]] || fail "API token scope"
+
 # Jobs: live events stream (server-sent events), operations of nobody are not found.
 EVENTS=$(curl -sN --max-time 2 "${AUTH[@]}" "$BASE/v1.0/me/events" || true)  # the stream only ends at the timeout
 grep -q '^event: connected' <<<"$EVENTS" || fail "live events stream: $EVENTS"

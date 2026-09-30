@@ -125,7 +125,7 @@ describes the .NET 10 API; it is regenerated from the new document when the web 
 
 Documents (upload, versions, OCR, page images), Search, Taxonomy, Tasks, Calendar, Notes, Notifications, Workspaces and
 item permissions (ADR-0035), Collaboration, Provisioning and templates, the extension host and SDK, MCP, AI workflows,
-the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
+sign-in in the browser (authorization-code flow, passkeys, OAuth client applications, reverse-proxy sign-in), the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
 schedules, the web UI and the SDKs. Each follows the rules above and brings its tests back from `ToPort`.
 
 ## Consequences

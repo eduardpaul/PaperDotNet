@@ -1210,6 +1210,142 @@
         }
       }
     },
+    "/v1.0/me/preferences": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "operationId": "GetMyPreferences",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Me"
+        ],
+        "operationId": "UpdateMyPreferences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonElement"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/organization": {
+      "get": {
+        "tags": [
+          "Organization"
+        ],
+        "operationId": "GetOrganization",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/organization/preferences": {
+      "get": {
+        "tags": [
+          "Organization"
+        ],
+        "operationId": "GetOrganizationPreferences",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Organization"
+        ],
+        "operationId": "UpdateOrganizationPreferences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonElement"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/lists": {
       "get": {
         "tags": [
@@ -2514,6 +2650,7 @@
           }
         }
       },
+      "JsonElement": {},
       "JsonNode": {},
       "JsonObject": {
         "type": "object"
@@ -2686,6 +2823,26 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "OrganizationResponse": {
+        "required": [
+          "id",
+          "identifier",
+          "displayName"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
           }
         }
       },
@@ -2905,6 +3062,53 @@
           }
         },
         "description": "A page of results in Graph/OData shape."
+      },
+      "PreferencesResponse": {
+        "required": [
+          "language",
+          "timeZone",
+          "dateFormat",
+          "timeFormat",
+          "numberFormat",
+          "theme",
+          "documentLanguages",
+          "inherited",
+          "@odata.etag"
+        ],
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "dateFormat": {
+            "type": "string"
+          },
+          "timeFormat": {
+            "type": "string"
+          },
+          "numberFormat": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "string"
+          },
+          "documentLanguages": {
+            "type": "string"
+          },
+          "inherited": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "@odata.etag": {
+            "type": "string"
+          }
+        },
+        "description": "Effective values, and which of them are inherited (from the organization's or the built-in defaults)."
       },
       "RoleAssignmentRequest": {
         "required": [
@@ -3515,6 +3719,9 @@
     },
     {
       "name": "Operations"
+    },
+    {
+      "name": "Organization"
     },
     {
       "name": "Roles"

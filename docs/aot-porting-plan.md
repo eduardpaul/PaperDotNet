@@ -9,7 +9,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T01 | S | Housekeeping: dev launch settings, GLM image, compose overrides, samples | done (samples come with T09) |
 | T02 | S | Storage building block (`IBlobStore`, local disk) | done |
 | T03 | S/M | Jobs: recurring tenant jobs (Cronos) and operations (202 + `/operations/{id}`) | done (with live events, `/v1.0/me/events`, and the tenant directory in Identity) |
-| T04 | M | Identity parity: tenants admin, user lifecycle, groups (nested), directory, preferences, API tokens | in progress: roles and scopes, nested groups, user lifecycle, lockout, API tokens and the directory done; preferences, organization settings and reverse-proxy sign-in next |
+| T04 | M | Identity parity: tenants admin, user lifecycle, groups (nested), directory, preferences, API tokens | done: roles and scopes, nested groups, user lifecycle, lockout, API tokens, preferences, organization, directory. The authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in need `/connect/authorize` and move to T17 with the web UI |
 | T05 | M | Workspaces with members and roles | |
 | T06 | L | Lists parity 1: workspace-scoped API, content types, all field types, folders | |
 | T07 | L | Lists parity 2: versions and history, recycle bin, item mutators, full item events | |
@@ -22,6 +22,6 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins) and AI workflows | |
 | T15 | XL | Documents (PDF libraries, page images, OCR) | |
 | T16 | M | MCP, admin CLI, backup and restore, Papermerge import | |
-| T17 | XL | PostgreSQL build, SDK regeneration, web UI | |
+| T17 | XL | PostgreSQL build, SDK regeneration, web UI (with the authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in) | |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

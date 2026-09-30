@@ -41,6 +41,7 @@ public sealed class IdentityModule : IModule
         services.AddScoped<IEffectiveScopeProvider, EffectiveScopes>();
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<IRoleProvisioning, RoleProvisioning>();
+        services.AddScoped<IUserPreferences, UserPreferences>();
         services.AddSingleton<TokenIssuer>();
         services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 
@@ -74,5 +75,6 @@ public sealed class IdentityModule : IModule
         Users.Map(endpoints);
         Groups.Map(endpoints);
         Roles.Map(endpoints);
+        PreferencesEndpoints.Map(endpoints);
     }
 }

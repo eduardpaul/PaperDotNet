@@ -300,4 +300,75 @@ public sealed class IdentityTests : IAsyncLifetime
         Assert.Empty((await (await other.GetAsync("/v1.0/groups", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray());
         Assert.Equal(2, (await (await other.GetAsync("/v1.0/roles", Ct)).JsonAsync(HttpStatusCode.OK)).GetArrayLength());
     }
+
+    [Fact]
+    public async Task Preferences_inherit_organization_defaults()
+    {
+        await UserAsync("fay");
+        var fay = await _host.SignInAsync("fay", "fay-password-1");
+
+        var initial = await (await fay.GetAsync("/v1.0/me/preferences", Ct)).JsonAsync(HttpStatusCode.OK);
+        Assert.Equal("UTC", initial.GetProperty("timeZone").GetString());
+        Assert.Equal("eng", initial.GetProperty("documentLanguages").GetString());
+        Assert.Equal(7, initial.GetProperty("inherited").GetArrayLength());
+
+        // Organization defaults: only with organization.manage.
+        Assert.Equal(HttpStatusCode.Forbidden, (await PatchAsync(fay, "/v1.0/organization/preferences", new { timeZone = "Europe/Berlin" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await PatchAsync(_admin, "/v1.0/organization/preferences", new { timeZone = "Europe/Berlin", documentLanguages = "deu+eng", language = "de-DE" })).StatusCode);
+        Assert.Equal("Europe/Berlin", (await (await fay.GetAsync("/v1.0/organization/preferences", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("timeZone").GetString());
+        var inherited = await (await fay.GetAsync("/v1.0/me/preferences", Ct)).JsonAsync(HttpStatusCode.OK);
+        Assert.Equal("Europe/Berlin", inherited.GetProperty("timeZone").GetString());
+        Assert.Equal("de-DE", inherited.GetProperty("language").GetString());
+
+        // Own values: validated, returned as not inherited, and null goes back to the default.
+        using (var invalid = await PatchAsync(fay, "/v1.0/me/preferences", new { timeZone = "Mars/Olympus", theme = "neon", dateFormat = "hh:mm", colour = "red", language = "not a culture" }))
+        {
+            var errors = (await invalid.JsonAsync(HttpStatusCode.BadRequest)).GetProperty("errors");
+            Assert.All(new[] { "timeZone", "theme", "dateFormat", "colour", "language" }, name => Assert.True(errors.TryGetProperty(name, out _), name));
+        }
+
+        using var own = await PatchAsync(fay, "/v1.0/me/preferences", new { timeZone = "America/New_York", theme = "dark", dateFormat = "MM/dd/yyyy", timeFormat = "12h" });
+        var body = await own.JsonAsync(HttpStatusCode.OK);
+        var etag = own.Headers.ETag!.Tag;
+        Assert.Equal("America/New_York", body.GetProperty("timeZone").GetString());
+        Assert.DoesNotContain("timeZone", body.GetProperty("inherited").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(HttpStatusCode.PreconditionFailed, (await PatchAsync(fay, "/v1.0/me/preferences", new { theme = "light" }, "\"0\"")).StatusCode);
+        using var reset = await PatchAsync(fay, "/v1.0/me/preferences", JsonElement.Parse("""{ "timeZone": null }"""), etag);
+        var afterReset = await reset.JsonAsync(HttpStatusCode.OK);
+        Assert.Equal("Europe/Berlin", afterReset.GetProperty("timeZone").GetString());
+        Assert.Equal("dark", afterReset.GetProperty("theme").GetString());
+
+        await using var scope = _host.Services.CreateAsyncScope();
+        var me = await (await fay.GetAsync("/v1.0/me", Ct)).JsonAsync(HttpStatusCode.OK);
+        var values = await scope.ServiceProvider.GetRequiredService<IUserPreferences>()
+            .GetAsync(Guid.Parse(me.GetProperty("tenantId").GetString()!), Guid.Parse(me.Id()), Ct);
+        Assert.Equal("Europe/Berlin", values.TimeZone);
+        Assert.Equal("deu+eng", values.DocumentLanguages);
+    }
+
+    [Fact]
+    public async Task Accounts_and_preferences_are_isolated_per_tenant()
+    {
+        var other = await _host.CreateTenantAsync("iso-b");
+        var user = await UserAsync("gus");
+        var group = await GroupAsync("A team");
+        var role = await RoleAsync("A role", "user.read");
+        Assert.Equal(HttpStatusCode.OK, (await PatchAsync(_admin, "/v1.0/organization/preferences", new { timeZone = "Asia/Tokyo" })).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/v1.0/users/{user}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await PatchAsync(other, $"/v1.0/users/{user}", new { isDisabled = true })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.DeleteAsync($"/v1.0/users/{user}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsJsonAsync($"/v1.0/users/{user}/password", new { password = "hijacked-password-1" }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await PatchAsync(other, $"/v1.0/groups/{group}", new { name = "x" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.DeleteAsync($"/v1.0/groups/{group}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/v1.0/groups/{group}/members", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await PatchAsync(other, $"/v1.0/roles/{role}", new { name = "x" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.DeleteAsync($"/v1.0/roles/{role}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsJsonAsync($"/v1.0/roles/{role}/assignments", new { principalId = user, principalType = "user" }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/v1.0/roles/{role}/assignments", Ct)).StatusCode);
+        Assert.Equal("UTC", (await (await other.GetAsync("/v1.0/organization/preferences", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("timeZone").GetString());
+        Assert.Equal("UTC", (await (await other.GetAsync("/v1.0/me/preferences", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("timeZone").GetString());
+        Assert.Equal("Asia/Tokyo", (await (await _admin.GetAsync("/v1.0/me/preferences", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("timeZone").GetString());
+        Assert.Equal("iso-b", (await (await other.GetAsync("/v1.0/organization", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("identifier").GetString());
+    }
 }
