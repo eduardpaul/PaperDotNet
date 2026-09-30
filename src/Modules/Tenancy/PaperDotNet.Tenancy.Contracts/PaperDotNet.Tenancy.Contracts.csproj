@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- Public contracts of tenants: the tenant directory (implemented by Identity until the Tenancy module is ported). -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
   </ItemGroup>

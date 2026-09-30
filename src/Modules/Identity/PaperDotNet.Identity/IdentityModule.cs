@@ -7,6 +7,7 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Identity.Features;
 using PaperDotNet.Persistence;
+using PaperDotNet.Tenancy.Contracts;
 
 namespace PaperDotNet.Identity;
 
@@ -30,6 +31,7 @@ public sealed class IdentityModule : IModule
 
         services.AddModuleDbContext<IdentityDbContext>();
         services.AddScoped<TenantProvisioner>();
+        services.AddScoped<ITenantDirectory, TenantDirectory>();
         services.AddSingleton<TokenIssuer>();
         services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 

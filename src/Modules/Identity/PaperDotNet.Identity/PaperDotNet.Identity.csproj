@@ -4,4 +4,7 @@
     ASP.NET Core bearer tokens (OpenIddict is not AOT-compatible), users and their scopes, first-start bootstrap.
   -->
   <Import Project="..\..\AotModule.props" />
+  <ItemGroup>
+    <ProjectReference Include="..\..\Tenancy\PaperDotNet.Tenancy.Contracts\PaperDotNet.Tenancy.Contracts.csproj" />
+  </ItemGroup>
 </Project>

@@ -1,6 +1,7 @@
 # ADR-0039: The server as one Native AOT binary on .NET 11
 
-- **Status:** Accepted (Identity, Lists, Audit and Workflows ported; the other modules still to port)
+- **Status:** Accepted (Identity, Lists, Audit, Workflows and Jobs ported; the other modules still to port, see
+  `docs/aot-porting-plan.md`)
 - **Date:** 2026-09-30
 - **Changes:** [ADR-0007](0007-odata-for-item-queries.md) (OData stays as the query syntax, without ASP.NET Core OData),
   [ADR-0008](0008-wolverine-for-reliable-events.md) (Wolverine with code generated ahead of time),
@@ -103,6 +104,10 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
   starting workflows at depth 8. Script host functions are `ClrFunction`s only. Not ported yet: waits (approvals,
   delays, retries), schedules and date triggers, `forEach`, `event.raise`, the `steps` form, built-in workflows, and
   leases for several servers.
+- **Background work names its tenant.** There is no ambient tenant outside a request: messages, operations
+  (`OperationContext.Actor`) and recurring jobs (`ITenantRecurringJob.RunAsync(tenantId, …)`) carry the tenant and
+  user explicitly. Operation payloads and results, and live event data, are JSON (`JsonNode`, or typed with a
+  `JsonTypeInfo`), never `object` serialized by reflection.
 - **Enums are not stored** as enums: EF Core's compiled model calls `Enum.GetValues(Type)` for them. Use string
   constants (e.g. `RunStatus`).
 - **`dotnet format` may add `[RequiresUnreferencedCode]`** as its fix for a trim warning. Never keep it: fix the call.
@@ -117,7 +122,7 @@ describes the .NET 10 API; it is regenerated from the new document when the web 
 
 Documents (upload, versions, OCR, page images), Search, Taxonomy, Tasks, Calendar, Notes, Notifications, Workspaces and
 item permissions (ADR-0035), Collaboration, Provisioning and templates, the extension host and SDK, MCP, AI workflows,
-Jobs and operations, the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
+the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
 schedules, the web UI and the SDKs. Each follows the rules above and brings its tests back from `ToPort`.
 
 ## Consequences

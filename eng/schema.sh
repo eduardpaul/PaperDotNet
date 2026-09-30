@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 project=src/Migrations/PaperDotNet.Migrations.Sqlite
 out=src/BuildingBlocks/PaperDotNet.Persistence.Sqlite/Schema
 # Module DbContexts and the folder of their migrations.
-contexts=(IdentityDbContext:Identity ListsDbContext:Lists AuditDbContext:Audit WorkflowsDbContext:Workflows)
+contexts=(IdentityDbContext:Identity ListsDbContext:Lists AuditDbContext:Audit WorkflowsDbContext:Workflows JobsDbContext:Jobs)
 dotnet tool restore >/dev/null
 dotnet build "$project" >/dev/null
 

@@ -1,10 +1,7 @@
 using Cronos;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using PaperDotNet.Abstractions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Jobs.Data;
 using PaperDotNet.Tenancy.Contracts;
@@ -33,9 +30,8 @@ public sealed class JobsOptions
 }
 
 /// <summary>
-/// Runs due recurring jobs for every active tenant. A job run is claimed by
-/// advancing its next-run time with an optimistic concurrency check, so only
-/// one node runs it even when several app instances share the database.
+/// Runs due recurring jobs for every active tenant. A job run is claimed by advancing its next-run time with an
+/// optimistic concurrency check, so only one server runs it even when several share the database.
 /// </summary>
 internal sealed partial class RecurringJobScheduler(
     IServiceScopeFactory scopes,
@@ -52,7 +48,7 @@ internal sealed partial class RecurringJobScheduler(
             return;
         }
 
-        // Start after the host is up, so startup migrations have run.
+        // Start after the host is up, so the schema is in place.
         var started = new TaskCompletionSource();
         using (lifetime.ApplicationStarted.Register(() => started.TrySetResult()))
         using (stoppingToken.Register(() => started.TrySetCanceled(stoppingToken)))
@@ -91,17 +87,17 @@ internal sealed partial class RecurringJobScheduler(
         while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
-    internal async Task RunIfDueAsync(RecurringJobRegistration job, CancellationToken ct)
+    internal async Task RunIfDueAsync(RecurringJobRegistration job, CancellationToken cancellationToken)
     {
         var now = time.GetUtcNow();
         await using (var scope = scopes.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<JobsDbContext>();
-            var state = await db.RecurringJobs.FirstOrDefaultAsync(j => j.Name == job.Name, ct);
+            var state = await FindAsync(db, job.Name, cancellationToken);
             if (state is null)
             {
                 db.RecurringJobs.Add(new RecurringJobState { Name = job.Name, NextRunAt = job.Next(now) });
-                await TrySaveAsync(db, ct);
+                await TrySaveAsync(db, cancellationToken);
                 return;
             }
 
@@ -112,40 +108,48 @@ internal sealed partial class RecurringJobScheduler(
 
             state.NextRunAt = job.Next(now);
             state.LastRunAt = now;
-            if (!await TrySaveAsync(db, ct))
+            if (!await TrySaveAsync(db, cancellationToken))
             {
-                return; // Another node claimed this run.
+                return; // Another server claimed this run.
             }
         }
 
-        var failures = await RunForAllTenantsAsync(job, ct);
+        var failures = await RunForAllTenantsAsync(job, cancellationToken);
         await using var resultScope = scopes.CreateAsyncScope();
         var resultDb = resultScope.ServiceProvider.GetRequiredService<JobsDbContext>();
-        await resultDb.RecurringJobs.Where(j => j.Name == job.Name).ExecuteUpdateAsync(
-            s => s.SetProperty(j => j.LastStatus, failures.Count == 0 ? "Succeeded" : "Failed")
-                  .SetProperty(j => j.LastError, failures.Count == 0 ? null : string.Join("; ", failures)),
-            ct);
+        if (await FindAsync(resultDb, job.Name, cancellationToken) is { } result)
+        {
+            result.LastStatus = failures.Count == 0 ? "succeeded" : "failed";
+            result.LastError = failures.Count == 0 ? null : string.Join("; ", failures);
+            await TrySaveAsync(resultDb, cancellationToken);
+        }
     }
 
-    private async Task<List<string>> RunForAllTenantsAsync(RecurringJobRegistration job, CancellationToken ct)
+    private static Task<RecurringJobState?> FindAsync(JobsDbContext database, string name, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var jobName = name;
+        var ct = cancellationToken;
+        return db.RecurringJobs.Where(j => j.Name == jobName).FirstOrDefaultAsync(ct);
+    }
+
+    private async Task<List<string>> RunForAllTenantsAsync(RecurringJobRegistration job, CancellationToken cancellationToken)
     {
         IReadOnlyList<TenantSummary> tenants;
         await using (var scope = scopes.CreateAsyncScope())
         {
-            tenants = await scope.ServiceProvider.GetRequiredService<ITenantDirectory>().ListAsync(ct);
+            tenants = await scope.ServiceProvider.GetRequiredService<ITenantDirectory>().ListAsync(cancellationToken);
         }
 
         var failures = new List<string>();
         foreach (var tenant in tenants.Where(t => t.Status == TenantStatus.Active))
         {
-            await using var tenantScope = scopes.CreateAsyncScope();
-            var tenantScopes = tenantScope.ServiceProvider.GetRequiredService<ITenantScopeFactory>();
-            await using var scope = tenantScopes.CreateScope(tenant.Id, tenant.Identifier);
+            await using var scope = scopes.CreateAsyncScope();
             try
             {
-                await ((ITenantRecurringJob)scope.ServiceProvider.GetRequiredService(job.JobType)).RunAsync(ct);
+                await job.Create(scope.ServiceProvider).RunAsync(tenant.Id, cancellationToken);
             }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw; // Shutting down: not a tenant failure.
             }
@@ -161,11 +165,11 @@ internal sealed partial class RecurringJobScheduler(
         return failures;
     }
 
-    private static async Task<bool> TrySaveAsync(DbContext db, CancellationToken ct)
+    private static async Task<bool> TrySaveAsync(DbContext db, CancellationToken cancellationToken)
     {
         try
         {
-            await db.SaveChangesAsync(ct);
+            await db.SaveChangesAsync(cancellationToken);
             return true;
         }
         catch (DbUpdateException)
@@ -188,11 +192,26 @@ internal sealed class OperationsCleanupJob(JobsDbContext db, TimeProvider time) 
     public const string Schedule = "0 3 * * *";
     private static readonly TimeSpan Retention = TimeSpan.FromDays(30);
 
-    public async Task RunAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(Guid tenantId, CancellationToken cancellationToken)
     {
+        var context = db;
+        var tenant = tenantId;
+        var succeeded = OperationStatus.Succeeded;
+        var failed = OperationStatus.Failed;
+        var ct = cancellationToken;
+        // SQLite cannot compare DateTimeOffset values in SQL: the (few) finished operations are filtered here.
+        var finished = await context.Operations
+            .Where(o => o.TenantId == tenant && (o.Status == succeeded || o.Status == failed))
+            .Select(o => new OperationCompletion(o.Id, o.CompletedAt))
+            .ToListAsync(ct);
         var cutoff = time.GetUtcNow() - Retention;
-        await db.Operations
-            .Where(o => (o.Status == OperationStatus.Succeeded || o.Status == OperationStatus.Failed) && o.CompletedAt < cutoff)
-            .ExecuteDeleteAsync(cancellationToken);
+        var expired = finished.Where(o => o.CompletedAt < cutoff).ToList();
+        if (expired.Count == 0)
+        {
+            return;
+        }
+
+        context.Operations.RemoveRange(expired.Select(o => new Operation { Id = o.Id, TenantId = tenant }));
+        await context.SaveChangesAsync(ct);
     }
 }

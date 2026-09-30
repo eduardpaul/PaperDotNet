@@ -15,7 +15,17 @@ public class Tenant
 
     public string Name { get; set; } = "";
 
+    /// <summary>A <see cref="TenantStatuses"/> value: users of a suspended tenant cannot sign in.</summary>
+    public string Status { get; set; } = TenantStatuses.Active;
+
     public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>Stored values of <see cref="Tenant.Status"/> (strings, not an enum: ADR-0039).</summary>
+public static class TenantStatuses
+{
+    public const string Active = "active";
+    public const string Suspended = "suspended";
 }
 
 public class User : ITenantOwned, IVersioned

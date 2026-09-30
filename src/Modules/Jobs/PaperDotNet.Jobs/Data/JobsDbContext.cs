@@ -1,89 +1,45 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
-using PaperDotNet.Abstractions;
-using PaperDotNet.Jobs.Contracts;
-using PaperDotNet.Persistence;
+using Microsoft.EntityFrameworkCore.Design;
+using PaperDotNet.Persistence.Sqlite;
 
 namespace PaperDotNet.Jobs.Data;
 
-/// <summary>A long-running operation (Graph-style <c>/operations/{id}</c>).</summary>
-[NotAudited]
-public sealed class Operation : ITenantOwned, IAuditable, IVersioned
+/// <summary>Operations and recurring job state. Query rules as in every module (ADR-0039): locals, one expression, explicit <c>TenantId</c>.</summary>
+public class JobsDbContext : DbContext
 {
-    public Guid Id { get; set; }
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
+    public JobsDbContext(DbContextOptions<JobsDbContext> options)
+        : base(options)
+    {
+    }
 
-    public Guid TenantId { get; set; }
+    public DbSet<Operation> Operations { get; set; } = null!;
 
-    public required string Type { get; set; }
-
-    public OperationStatus Status { get; set; }
-
-    public int PercentComplete { get; set; }
-
-    /// <summary>Payload as JSON (input of the handler).</summary>
-    public required string Payload { get; set; }
-
-    /// <summary>Result as JSON, when succeeded.</summary>
-    public string? Result { get; set; }
-
-    public string? Error { get; set; }
-
-    public DateTimeOffset? StartedAt { get; set; }
-
-    public DateTimeOffset? CompletedAt { get; set; }
-
-    public DateTimeOffset CreatedAt { get; set; }
-
-    public Guid? CreatedBy { get; set; }
-
-    public DateTimeOffset UpdatedAt { get; set; }
-
-    public Guid? UpdatedBy { get; set; }
-
-    public uint Version { get; set; }
-}
-
-/// <summary>Scheduling state of a recurring job (platform-level, one row per job).</summary>
-public sealed class RecurringJobState : IVersioned
-{
-    public required string Name { get; set; }
-
-    public DateTimeOffset NextRunAt { get; set; }
-
-    public DateTimeOffset? LastRunAt { get; set; }
-
-    public string? LastStatus { get; set; }
-
-    public string? LastError { get; set; }
-
-    public uint Version { get; set; }
-}
-
-public sealed class JobsDbContext(DbContextOptions<JobsDbContext> options, ITenantContext tenant)
-    : DbContext(options), ITenantScopedDbContext
-{
-    public const string Schema = "jobs";
-
-    public Guid? CurrentTenantId => tenant.TenantId;
-
-    public DbSet<Operation> Operations => Set<Operation>();
-
-    public DbSet<RecurringJobState> RecurringJobs => Set<RecurringJobState>();
+    public DbSet<RecurringJobState> RecurringJobs { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema(Schema);
-        modelBuilder.Entity<Operation>(b =>
+        modelBuilder.Entity<Operation>(operation =>
         {
-            b.Property(o => o.Type).HasMaxLength(200);
-            b.Property(o => o.Payload).IsJsonDocument();
-            b.Property(o => o.Result).IsJsonDocument();
-            b.HasIndex(o => new { o.Status, o.CompletedAt });
+            operation.ToTable("operations");
+            operation.Property(o => o.Type).HasMaxLength(200);
+            operation.Property(o => o.Status).HasMaxLength(16);
+            operation.HasIndex(o => new { o.TenantId, o.Status });
         });
-        modelBuilder.Entity<RecurringJobState>(b =>
+        modelBuilder.Entity<RecurringJobState>(job =>
         {
-            b.HasKey(j => j.Name);
-            b.Property(j => j.Name).HasMaxLength(200);
+            job.ToTable("recurring_jobs");
+            job.HasKey(j => j.Name);
+            job.Property(j => j.Name).HasMaxLength(200);
+            job.Property(j => j.LastStatus).HasMaxLength(16);
         });
-        modelBuilder.ApplyPaperDotNetConventions(this);
     }
+}
+
+/// <summary>For the EF Core tools: the compiled model, precompiled queries and migrations.</summary>
+internal sealed class JobsDesignTimeFactory : IDesignTimeDbContextFactory<JobsDbContext>
+{
+    public JobsDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<JobsDbContext>());
 }

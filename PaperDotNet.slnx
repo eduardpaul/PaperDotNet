@@ -23,9 +23,16 @@
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/PaperDotNet.Identity/PaperDotNet.Identity.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Jobs/">
+    <Project Path="src/Modules/Jobs/PaperDotNet.Jobs.Contracts/PaperDotNet.Jobs.Contracts.csproj" />
+    <Project Path="src/Modules/Jobs/PaperDotNet.Jobs/PaperDotNet.Jobs.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Lists/">
     <Project Path="src/Modules/Lists/PaperDotNet.Lists.Contracts/PaperDotNet.Lists.Contracts.csproj" />
     <Project Path="src/Modules/Lists/PaperDotNet.Lists/PaperDotNet.Lists.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Tenancy/">
+    <Project Path="src/Modules/Tenancy/PaperDotNet.Tenancy.Contracts/PaperDotNet.Tenancy.Contracts.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Workflows/">
     <Project Path="src/Modules/Workflows/PaperDotNet.Workflows.Contracts/PaperDotNet.Workflows.Contracts.csproj" />

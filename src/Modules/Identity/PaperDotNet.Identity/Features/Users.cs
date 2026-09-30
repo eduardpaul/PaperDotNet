@@ -38,7 +38,8 @@ internal static class Users
         var identifier = tenantIdentifier;
         var normalized = Normalize(userName);
         var ct = cancellationToken;
-        var tenantId = await db.Tenants.Where(t => t.Identifier == identifier).Select(t => t.Id).FirstOrDefaultAsync(ct);
+        var active = TenantStatuses.Active;
+        var tenantId = await db.Tenants.Where(t => t.Identifier == identifier && t.Status == active).Select(t => t.Id).FirstOrDefaultAsync(ct);
         return tenantId == Guid.Empty
             ? null
             : await db.Users.Where(u => u.TenantId == tenantId && u.NormalizedUserName == normalized).FirstOrDefaultAsync(ct);

@@ -1,6 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Public contracts for long-running operations and recurring jobs (extension-facing). -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 </Project>

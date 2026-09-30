@@ -7,8 +7,12 @@ using PaperDotNet.Identity.Features;
 
 namespace PaperDotNet.IntegrationTests;
 
-/// <summary>A host on a fresh SQLite database with the tenant <c>default</c> and its administrator.</summary>
-public sealed class TestHost : WebApplicationFactory<Program>
+/// <summary>
+/// A host on a fresh SQLite database with the tenant <c>default</c> and its administrator, optionally with more
+/// services (e.g. a test job) and settings.
+/// </summary>
+public sealed class TestHost(Action<IServiceCollection>? services = null, IReadOnlyDictionary<string, string>? settings = null)
+    : WebApplicationFactory<Program>
 {
     public const string AdminPassword = "Admin-Pass-123";
 
@@ -21,6 +25,15 @@ public sealed class TestHost : WebApplicationFactory<Program>
         builder.UseSetting("Bootstrap:TenantIdentifier", "default");
         builder.UseSetting("Bootstrap:AdminUserName", "admin");
         builder.UseSetting("Bootstrap:AdminPassword", AdminPassword);
+        foreach (var (key, value) in settings ?? new Dictionary<string, string>())
+        {
+            builder.UseSetting(key, value);
+        }
+
+        if (services is not null)
+        {
+            builder.ConfigureServices(services);
+        }
     }
 
     /// <summary>A client signed in with the password grant.</summary>

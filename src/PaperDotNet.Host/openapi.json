@@ -90,6 +90,73 @@
         }
       }
     },
+    "/v1.0/operations/{id}": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "description": "Status of a long-running operation started by the caller (EVT-06).",
+        "operationId": "GetOperation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/me/events": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "description": "Server-sent events for the caller: operation progress and other live notifications.",
+        "operationId": "StreamEvents",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "required": [
+                    "data"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/me": {
       "get": {
         "tags": [
@@ -1356,6 +1423,74 @@
           }
         }
       },
+      "OperationResponse": {
+        "required": [
+          "id",
+          "type",
+          "status",
+          "percentComplete",
+          "createdAt",
+          "startedAt",
+          "completedAt",
+          "result",
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "percentComplete": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "result": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "PageOfAuditEntryDto": {
         "required": [
           "value",
@@ -1929,6 +2064,12 @@
     },
     {
       "name": "Lists"
+    },
+    {
+      "name": "Me"
+    },
+    {
+      "name": "Operations"
     },
     {
       "name": "Users"

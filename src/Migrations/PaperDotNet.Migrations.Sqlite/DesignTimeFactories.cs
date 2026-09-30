@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Audit.Data;
 using PaperDotNet.Identity.Data;
+using PaperDotNet.Jobs.Data;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Workflows.Data;
@@ -27,4 +28,9 @@ internal sealed class AuditFactory : IDesignTimeDbContextFactory<AuditDbContext>
 internal sealed class WorkflowsFactory : IDesignTimeDbContextFactory<WorkflowsDbContext>
 {
     public WorkflowsDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<WorkflowsDbContext>());
+}
+
+internal sealed class JobsFactory : IDesignTimeDbContextFactory<JobsDbContext>
+{
+    public JobsDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<JobsDbContext>());
 }

@@ -74,6 +74,11 @@ for _ in $(seq 1 50); do
 done
 [[ "$RUN" == "completed:4" ]] || fail "workflow run: $RUN"
 
+# Jobs: live events stream (server-sent events), operations of nobody are not found.
+EVENTS=$(curl -sN --max-time 2 "${AUTH[@]}" "$BASE/v1.0/me/events" || true)  # the stream only ends at the timeout
+grep -q '^event: connected' <<<"$EVENTS" || fail "live events stream: $EVENTS"
+[[ $(curl -s -o /dev/null -w '%{http_code}' "${AUTH[@]}" "$BASE/v1.0/operations/$(python3 -c 'import uuid; print(uuid.uuid4())')") == 404 ]] || fail "unknown operation"
+
 # Burst: parallel writes (each also queues an event and a workflow check) and filtered reads.
 seq 1 2000 | xargs -P 16 -I{} curl -sf -o /dev/null "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/lists/$LIST/items" \
   -d '{"fields":{"title":"Load {}","amount":{}}}' || fail "write burst"

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Api;
@@ -31,12 +32,15 @@ public sealed class Caller(ICurrentUser user)
 
 public static class ApiServiceCollectionExtensions
 {
-    /// <summary>The caller of the request (<see cref="ICurrentUser"/>, <see cref="Caller"/>).</summary>
+    /// <summary>The caller of the request (<see cref="ICurrentUser"/>, <see cref="Caller"/>) and live events (<see cref="ILiveEvents"/>).</summary>
     public static IServiceCollection AddPaperDotNetApi(this IServiceCollection services)
     {
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
         services.AddScoped<Caller>();
+        services.AddSingleton<ILiveEvents>(sp => new LiveEventHub(
+            sp.GetRequiredService<ILogger<LiveEventHub>>(),
+            sp.GetService<ILiveEventBackplane>()));
         return services;
     }
 }

@@ -26,6 +26,7 @@ public class IdentityDbContext : DbContext
             tenant.ToTable("tenants");
             tenant.Property(t => t.Identifier).HasMaxLength(64);
             tenant.Property(t => t.Name).HasMaxLength(200);
+            tenant.Property(t => t.Status).HasMaxLength(16);
             tenant.HasIndex(t => t.Identifier).IsUnique();
         });
 

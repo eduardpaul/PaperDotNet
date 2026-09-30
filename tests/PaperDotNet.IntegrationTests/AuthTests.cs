@@ -1,4 +1,6 @@
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
+using PaperDotNet.Tenancy.Contracts;
 
 namespace PaperDotNet.IntegrationTests;
 
@@ -31,6 +33,25 @@ public sealed class AuthTests : IAsyncLifetime
 
         using var forged = await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string> { ["grant_type"] = "refresh_token", ["refresh_token"] = "forged" }));
         Assert.Equal("invalid_grant", (await forged.JsonAsync(HttpStatusCode.BadRequest)).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task Users_of_a_suspended_tenant_cannot_sign_in_or_refresh()
+    {
+        await _host.CreateTenantAsync("paused");
+        var client = _host.CreateClient();
+        var form = new Dictionary<string, string> { ["grant_type"] = "password", ["username"] = "admin", ["password"] = TestHost.AdminPassword, ["tenant"] = "paused" };
+        var tokens = await TestHost.RequestTokenAsync(client, form);
+
+        await using (var scope = _host.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<ITenantDirectory>().SetStatusAsync("paused", TenantStatus.Suspended, TestContext.Current.CancellationToken);
+        }
+
+        using var password = await client.PostAsync("/connect/token", new FormUrlEncodedContent(form));
+        Assert.Equal("invalid_grant", (await password.JsonAsync(HttpStatusCode.BadRequest)).GetProperty("error").GetString());
+        using var refresh = await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string> { ["grant_type"] = "refresh_token", ["refresh_token"] = tokens.GetProperty("refresh_token").GetString()! }));
+        Assert.Equal("invalid_grant", (await refresh.JsonAsync(HttpStatusCode.BadRequest)).GetProperty("error").GetString());
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Identity.Data;
+using PaperDotNet.Tenancy.Contracts;
 
 namespace PaperDotNet.Identity.Features;
 
@@ -44,6 +45,69 @@ public sealed class TenantProvisioner(IdentityDbContext db, IPasswordHasher<User
         await db.SaveChangesAsync(cancellationToken);
         return (tenant, admin);
     }
+}
+
+/// <summary>
+/// The tenant directory (Tenancy.Contracts) over the Identity tables, until the Tenancy module is ported. Tenants have
+/// no host names yet: they are chosen by identifier when signing in.
+/// </summary>
+internal sealed class TenantDirectory(IdentityDbContext db, TimeProvider time) : ITenantDirectory
+{
+    public async Task<IReadOnlyList<TenantSummary>> ListAsync(CancellationToken cancellationToken)
+    {
+        var context = db;
+        var ct = cancellationToken;
+        var tenants = await context.Tenants.AsNoTracking().OrderBy(t => t.Identifier).ToListAsync(ct);
+        return [.. tenants.Select(Summary)];
+    }
+
+    public async Task<TenantSummary?> FindAsync(string identifier, CancellationToken cancellationToken)
+    {
+        var tenant = await FindTenantAsync(identifier, cancellationToken);
+        return tenant is null ? null : Summary(tenant);
+    }
+
+    public async Task<TenantSummary> CreateAsync(string identifier, string name, IReadOnlyList<string> hosts, CancellationToken cancellationToken)
+    {
+        var tenant = new Tenant { Id = Ids.New(), Identifier = identifier, Name = name, CreatedAt = time.GetUtcNow() };
+        db.Tenants.Add(tenant);
+        await db.SaveChangesAsync(cancellationToken);
+        return Summary(tenant);
+    }
+
+    public async Task SetStatusAsync(string identifier, TenantStatus status, CancellationToken cancellationToken)
+    {
+        var tenant = await FindTenantAsync(identifier, cancellationToken)
+            ?? throw new InvalidOperationException($"The tenant '{identifier}' does not exist.");
+        tenant.Status = status == TenantStatus.Suspended ? TenantStatuses.Suspended : TenantStatuses.Active;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>Whether users of the tenant may get tokens.</summary>
+    public static Task<bool> IsActiveAsync(IdentityDbContext database, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var context = database;
+        var id = tenantId;
+        var active = TenantStatuses.Active;
+        var ct = cancellationToken;
+        return context.Tenants.AnyAsync(t => t.Id == id && t.Status == active, ct);
+    }
+
+    private Task<Tenant?> FindTenantAsync(string identifier, CancellationToken cancellationToken)
+    {
+        var context = db;
+        var id = identifier;
+        var ct = cancellationToken;
+        return context.Tenants.Where(t => t.Identifier == id).FirstOrDefaultAsync(ct);
+    }
+
+    private static TenantSummary Summary(Tenant tenant) => new(
+        tenant.Id,
+        tenant.Identifier,
+        tenant.Name,
+        tenant.Status == TenantStatuses.Suspended ? TenantStatus.Suspended : TenantStatus.Active,
+        [],
+        tenant.CreatedAt);
 }
 
 public static partial class Bootstrap

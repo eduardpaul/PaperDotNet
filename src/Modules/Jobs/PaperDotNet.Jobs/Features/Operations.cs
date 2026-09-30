@@ -1,13 +1,6 @@
-using System.Net.ServerSentEvents;
-using System.Runtime.CompilerServices;
-using System.Text.Json;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Jobs.Contracts;
@@ -16,54 +9,44 @@ using PaperDotNet.Messaging;
 
 namespace PaperDotNet.Jobs.Features;
 
-/// <summary>Background message that executes one operation.</summary>
-public sealed record RunOperation(Guid OperationId, Guid TenantId, string TenantIdentifier, Guid? UserId) : ITenantMessage;
+/// <summary>Runs one operation in the background; sent through the outbox when the operation starts.</summary>
+public sealed record RunOperation(Guid TenantId, Guid OperationId);
 
-/// <summary>Wolverine handler for <see cref="RunOperation"/> (discovered by convention).</summary>
-public static class RunOperationHandler
+/// <summary>Wolverine handler of <see cref="RunOperation"/> (generated ahead of time).</summary>
+public static class OperationSubscriber
 {
-    public static Task Handle(RunOperation message, OperationDispatcher dispatcher, CancellationToken cancellationToken) =>
-        dispatcher.RunAsync(message, cancellationToken);
+    public static Task Handle(RunOperation message, OperationRunner runner, CancellationToken cancellationToken) =>
+        runner.RunAsync(message.TenantId, message.OperationId, cancellationToken);
 }
 
-/// <summary>Runs an operation message inside its tenant, as the user who started it.</summary>
-public sealed class OperationDispatcher(ITenantScopeFactory tenantScopes)
+internal sealed class OperationService(JobsDbContext db, IOutbox outbox, TimeProvider time) : IOperations
 {
-    public async Task RunAsync(RunOperation message, CancellationToken cancellationToken)
+    public async Task<Guid> StartAsync(ChangeActor actor, string type, JsonNode? payload, CancellationToken cancellationToken)
     {
-        await using var scope = tenantScopes.CreateScope(message.TenantId, message.TenantIdentifier, message.UserId);
-        await scope.ServiceProvider.GetRequiredService<OperationRunner>().RunAsync(message.OperationId, cancellationToken);
-    }
-}
-
-internal sealed class OperationService(JobsDbContext db, IOutbox outbox, ITenantContext tenant, ICurrentUser user) : IOperations
-{
-    public async Task<Guid> StartAsync<TPayload>(string type, TPayload payload, CancellationToken cancellationToken)
-    {
+        ArgumentNullException.ThrowIfNull(actor);
         var operation = new Operation
         {
             Id = Ids.New(),
+            TenantId = actor.TenantId,
             Type = type,
             Status = OperationStatus.NotStarted,
-            Payload = JsonSerializer.Serialize(payload, JobsJson.Options),
+            Payload = payload?.ToJsonString(),
+            CreatedBy = actor.UserId,
+            CreatedAt = time.GetUtcNow(),
         };
         db.Operations.Add(operation);
-        await outbox.SaveChangesAsync(
-            db,
-            [],
-            [new RunOperation(operation.Id, tenant.TenantId!.Value, tenant.TenantIdentifier!, user.UserId)],
-            cancellationToken);
+        await outbox.SaveChangesAsync(db, [], [new RunOperation(operation.TenantId, operation.Id)], cancellationToken);
         return operation.Id;
     }
 }
 
 /// <summary>Runs an operation: marks it running, calls its handler, stores the result or error.</summary>
-internal sealed partial class OperationRunner(
+public sealed partial class OperationRunner(
     JobsDbContext db, IEnumerable<IOperationHandler> handlers, TimeProvider time, ILiveEvents live, ILogger<OperationRunner> logger)
 {
-    public async Task RunAsync(Guid operationId, CancellationToken ct)
+    public async Task RunAsync(Guid tenantId, Guid operationId, CancellationToken cancellationToken)
     {
-        var operation = await db.Operations.FirstOrDefaultAsync(o => o.Id == operationId, ct);
+        var operation = await FindAsync(db, tenantId, operationId, cancellationToken);
         if (operation is null || operation.Status is OperationStatus.Succeeded or OperationStatus.Failed)
         {
             return; // Unknown or already finished: redelivery is harmless.
@@ -71,8 +54,8 @@ internal sealed partial class OperationRunner(
 
         operation.Status = OperationStatus.Running;
         operation.StartedAt ??= time.GetUtcNow();
-        await db.SaveChangesAsync(ct);
-        Publish(operation);
+        await db.SaveChangesAsync(cancellationToken);
+        Publish(live, operation);
 
         var handler = handlers.FirstOrDefault(h => h.Type == operation.Type);
         try
@@ -82,23 +65,37 @@ internal sealed partial class OperationRunner(
                 throw new InvalidOperationException($"No handler for operation type '{operation.Type}'.");
             }
 
-            var payload = JsonSerializer.Deserialize(operation.Payload, handler.PayloadType, JobsJson.Options)!;
-            var result = await handler.ExecuteAsync(payload, new Progress(db, operation, time, live), ct);
-            await CompleteAsync(operationId, OperationStatus.Succeeded, result is null ? null : JsonSerializer.Serialize(result, result.GetType(), JobsJson.Options), null, ct);
+            var context = new OperationContext(
+                operation.Id,
+                new ChangeActor(operation.TenantId, operation.CreatedBy),
+                new Progress(db, operation, time, live));
+            var result = await handler.ExecuteAsync(operation.Payload is null ? null : JsonNode.Parse(operation.Payload), context, cancellationToken);
+            await CompleteAsync(operation, OperationStatus.Succeeded, result?.ToJsonString(), null, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw; // Shutting down: the message is delivered again and the operation continues.
         }
 #pragma warning disable CA1031 // Any handler failure is recorded on the operation instead of retrying it.
         catch (Exception ex)
 #pragma warning restore CA1031
         {
             LogOperationFailed(ex, operation.Type, operationId);
-            await CompleteAsync(operationId, OperationStatus.Failed, null, ex.Message, ct);
+            await CompleteAsync(operation, OperationStatus.Failed, null, ex.Message, cancellationToken);
         }
     }
 
-    private async Task CompleteAsync(Guid operationId, OperationStatus status, string? result, string? error, CancellationToken ct)
+    internal static Task<Operation?> FindAsync(JobsDbContext database, Guid tenantId, Guid operationId, CancellationToken cancellationToken)
     {
-        db.ChangeTracker.Clear();
-        var operation = await db.Operations.FirstAsync(o => o.Id == operationId, ct);
+        var context = database;
+        var tenant = tenantId;
+        var id = operationId;
+        var ct = cancellationToken;
+        return context.Operations.Where(o => o.TenantId == tenant && o.Id == id).FirstOrDefaultAsync(ct);
+    }
+
+    private async Task CompleteAsync(Operation operation, string status, string? result, string? error, CancellationToken cancellationToken)
+    {
         operation.Status = status;
         operation.Result = result;
         operation.Error = error;
@@ -108,21 +105,19 @@ internal sealed partial class OperationRunner(
             operation.PercentComplete = 100;
         }
 
-        await db.SaveChangesAsync(ct);
-        Publish(operation);
+        await db.SaveChangesAsync(cancellationToken);
+        Publish(live, operation);
     }
 
     /// <summary>Tells the user who started the operation about its status (API-07).</summary>
-    private void Publish(Operation operation) => Publish(live, operation);
-
     private static void Publish(ILiveEvents live, Operation operation) =>
-        live.Publish(new LiveEvent("operation", operation.TenantId, operation.CreatedBy, new
+        live.Publish(new LiveEvent("operation", operation.TenantId, operation.CreatedBy, new JsonObject
         {
-            operation.Id,
-            operation.Type,
-            operation.Status,
-            operation.PercentComplete,
-            operation.Error,
+            ["id"] = operation.Id,
+            ["type"] = operation.Type,
+            ["status"] = operation.Status,
+            ["percentComplete"] = operation.PercentComplete,
+            ["error"] = operation.Error,
         }));
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Operation {Type} {OperationId} failed.")]
@@ -142,10 +137,8 @@ internal sealed partial class OperationRunner(
             }
 
             _lastWrite = now;
-            var value = Math.Clamp(percentComplete, 0, 99);
-            await db.Operations.Where(o => o.Id == operation.Id)
-                .ExecuteUpdateAsync(s => s.SetProperty(o => o.PercentComplete, value), cancellationToken);
-            operation.PercentComplete = value;
+            operation.PercentComplete = Math.Clamp(percentComplete, 0, 99);
+            await db.SaveChangesAsync(cancellationToken);
             Publish(live, operation);
         }
     }
@@ -154,86 +147,24 @@ internal sealed partial class OperationRunner(
 public sealed record OperationResponse(
     Guid Id,
     string Type,
-    OperationStatus Status,
+    string Status,
     int PercentComplete,
     DateTimeOffset CreatedAt,
     DateTimeOffset? StartedAt,
     DateTimeOffset? CompletedAt,
-    JsonElement? Result,
+    JsonNode? Result,
     string? Error);
 
 internal static class OperationEndpoints
 {
-    public static void Map(IEndpointRouteBuilder endpoints)
+    public static void Map(IEndpointRouteBuilder app) =>
+        app.MapGet("/v1.0/operations/{id:guid}", GetAsync).RequireAuthorization().WithTags("Operations").WithName("GetOperation")
+            .WithDescription("Status of a long-running operation started by the caller (EVT-06).");
+
+    private static async Task<Results<Ok<OperationResponse>, ProblemHttpResult>> GetAsync(Guid id, Caller caller, JobsDbContext db, CancellationToken cancellationToken)
     {
-        endpoints.MapV1Group("operations", "Operations")
-            .MapGet("/{id:guid}", GetAsync)
-            .WithName("GetOperation");
-        endpoints.MapV1Group("me", "Me")
-            .MapGet("/events", Events)
-            .RequireAuthorization()
-            .WithName("StreamEvents")
-            .ProducesEventStream();
-    }
-
-    /// <summary>
-    /// Server-sent events for the caller (API-07): <c>operation</c> status and progress, document
-    /// processing, and other live notifications. Clients reconnect when the stream ends.
-    /// </summary>
-    private static Results<ServerSentEventsResult<object>, ProblemHttpResult> Events(
-        ILiveEvents live, ITenantScopeFactory scopes, TimeProvider time, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
-    {
-        if (tenant.TenantId is not { } tenantId || tenant.TenantIdentifier is not { } identifier || user.UserId is not { } userId)
-        {
-            return ApiErrors.Problem(StatusCodes.Status403Forbidden, "userRequired", "Live events need a signed-in user.");
-        }
-
-        return TypedResults.ServerSentEvents(Stream(live, scopes, time, tenantId, identifier, userId, ct));
-    }
-
-    /// <summary>How long the caller's principals are reused before an event with an audience loads them again.</summary>
-    private static readonly TimeSpan PrincipalsRefresh = TimeSpan.FromMinutes(1);
-
-    private static async IAsyncEnumerable<SseItem<object>> Stream(
-        ILiveEvents live, ITenantScopeFactory scopes, TimeProvider time, Guid tenantId, string identifier, Guid userId,
-        [EnumeratorCancellation] CancellationToken ct)
-    {
-        // A first event tells the client the stream is live.
-        yield return new SseItem<object>(new { tenantId, userId }, "connected");
-        HashSet<Guid>? principals = null;
-        var loadedAt = DateTimeOffset.MinValue;
-        await foreach (var liveEvent in live.SubscribeAsync(tenantId, userId, ct))
-        {
-            // Events with an audience (e.g. item changes, ADR-0035) only reach users with one of its principals.
-            if (liveEvent.Audience is { } audience)
-            {
-                if (principals is null || time.GetUtcNow() - loadedAt > PrincipalsRefresh)
-                {
-                    principals = await PrincipalsAsync(scopes, tenantId, identifier, userId, ct);
-                    loadedAt = time.GetUtcNow();
-                }
-
-                if (!audience.Any(principals.Contains))
-                {
-                    continue;
-                }
-            }
-
-            yield return new SseItem<object>(liveEvent.Data, liveEvent.Type);
-        }
-    }
-
-    private static async Task<HashSet<Guid>> PrincipalsAsync(ITenantScopeFactory scopes, Guid tenantId, string identifier, Guid userId, CancellationToken ct)
-    {
-        await using var scope = scopes.CreateScope(tenantId, identifier, userId);
-        return scope.ServiceProvider.GetService<IPrincipalSet>() is { } set ? [.. await set.GetPrincipalsAsync(ct)] : [userId];
-    }
-
-    /// <summary>Status of an operation started by the caller.</summary>
-    private static async Task<Results<Ok<OperationResponse>, ProblemHttpResult>> GetAsync(Guid id, JobsDbContext db, ICurrentUser user, CancellationToken ct)
-    {
-        var operation = await db.Operations.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id && o.CreatedBy == user.UserId, ct);
-        if (operation is null)
+        var operation = await OperationRunner.FindAsync(db, caller.TenantId, id, cancellationToken);
+        if (operation is null || operation.CreatedBy != caller.UserId)
         {
             return ApiErrors.NotFound();
         }
@@ -246,12 +177,7 @@ internal static class OperationEndpoints
             operation.CreatedAt,
             operation.StartedAt,
             operation.CompletedAt,
-            operation.Result is null ? null : JsonDocument.Parse(operation.Result).RootElement.Clone(),
+            operation.Result is null ? null : JsonNode.Parse(operation.Result),
             operation.Error));
     }
-}
-
-internal static class JobsJson
-{
-    public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
 }

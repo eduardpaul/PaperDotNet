@@ -116,7 +116,8 @@ internal static class TokenEndpoint
                 {
                     if (issuer.ReadRefreshToken(form["refresh_token"].ToString()) is not { } refresh
                         || await Users.FindAsync(db, refresh.TenantId, refresh.UserId, cancellationToken) is not { IsDisabled: false } user
-                        || user.SecurityStamp != refresh.Stamp)
+                        || user.SecurityStamp != refresh.Stamp
+                        || !await TenantDirectory.IsActiveAsync(db, user.TenantId, cancellationToken))
                     {
                         return Invalid("invalid_grant", "The refresh token is not valid.");
                     }

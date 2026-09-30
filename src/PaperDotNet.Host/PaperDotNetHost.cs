@@ -3,6 +3,7 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
 using PaperDotNet.Identity;
+using PaperDotNet.Jobs;
 using PaperDotNet.Lists;
 using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
@@ -20,7 +21,7 @@ namespace PaperDotNet.Host;
 /// </summary>
 internal static class PaperDotNetHost
 {
-    private static readonly IModule[] Modules = [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule()];
+    private static readonly IModule[] Modules = [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule(), new JobsModule()];
 
     public static WebApplicationBuilder AddPaperDotNet(this WebApplicationBuilder builder, bool generatingCode)
     {
