@@ -174,6 +174,37 @@ public class ListItem : ITenantOwned, IAuditable, ISoftDeletable, IVersioned
     public uint Version { get; set; }
 }
 
+/// <summary>A saved version of an item (LST-11): its values after one change, kept while the list has versioning on.</summary>
+public class ItemVersion : ITenantOwned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid ItemId { get; set; }
+
+    public Guid ListId { get; set; }
+
+    public int Number { get; set; }
+
+    public Guid ContentTypeId { get; set; }
+
+    public string Title { get; set; } = "";
+
+    /// <summary>Field values (without <c>title</c>) as JSON, like <see cref="ListItem.Fields"/>.</summary>
+    public string Fields { get; set; } = "{}";
+
+    /// <summary>Names of the fields changed compared with the previous version (all for the first), as a JSON array.</summary>
+    public string ChangedFields { get; set; } = "[]";
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Guid? CreatedBy { get; set; }
+}
+
+/// <summary>A deleted item's id and time of deletion (a query projection).</summary>
+public sealed record DeletedItem(Guid Id, DateTimeOffset? DeletedAt);
+
 /// <summary>Values of <see cref="AclEntry.PrincipalType"/>: who a permission entry gives access to.</summary>
 public static class AclPrincipalTypes
 {

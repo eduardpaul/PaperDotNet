@@ -31,7 +31,8 @@ internal sealed class ItemWriter(
     IUserDirectory users,
     IEnumerable<IItemMutator> mutators,
     IOutbox outbox,
-    ILiveEvents live)
+    ILiveEvents live,
+    TimeProvider time)
 {
     public const int TitleMaxLength = 1024;
     private const int MaxFolderDepth = 64;
@@ -103,7 +104,8 @@ internal sealed class ItemWriter(
         ApplyValues(item, values);
         db.Items.Add(item);
         var changed = Values(item).Select(p => p.Key).Order(StringComparer.Ordinal).ToList();
-        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Adding, caller, item, schema, changed)], ct);
+        await AddVersionAsync(caller, schema, item, changed, ct);
+        await outbox.SaveChangesAsync(db, [Event(Change.Added, caller, item, schema.List.WorkspaceId, changed)], ct);
         await PublishChangedAsync("added", caller, schema, item, ct);
         return new ItemWriteResult(item);
     }
@@ -189,7 +191,12 @@ internal sealed class ItemWriter(
         ApplyValues(item, values);
         item.UpdatedBy = caller.UserId;
         var changed = ChangedFields(before, Values(item));
-        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Updating, caller, item, schema, changed)], ct);
+        if (changed.Count > 0)
+        {
+            await AddVersionAsync(caller, schema, item, changed, ct);
+        }
+
+        await outbox.SaveChangesAsync(db, [Event(Change.Updated, caller, item, schema.List.WorkspaceId, changed)], ct);
         await PublishChangedAsync("updated", caller, schema, item, ct);
         return new ItemWriteResult(item);
     }
@@ -217,9 +224,84 @@ internal sealed class ItemWriter(
         }
 
         db.Items.Remove(item);
-        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Deleting, caller, item, schema, [])], ct);
+        await outbox.SaveChangesAsync(db, [Event(Change.Deleted, caller, item, schema.List.WorkspaceId, [])], ct);
         await PublishChangedAsync("deleted", caller, schema, item, ct);
         return new ItemWriteResult(item);
+    }
+
+    /// <summary>
+    /// Restores an item from the recycle bin. It returns to its folder when that folder is active, otherwise to the
+    /// list root.
+    /// </summary>
+    public async Task RestoreAsync(ListCaller caller, ListSchema schema, ListItem item, CancellationToken ct)
+    {
+        if (item.ParentId is { } parentId && await FindAsync(caller.TenantId, schema.List.Id, parentId, ct) is not { IsFolder: true })
+        {
+            // Until item permissions are ported (T08) every item of a list has the list's scope.
+            item.ParentId = null;
+            if (!item.HasUniquePermissions)
+            {
+                item.ScopeId = schema.List.Id;
+            }
+        }
+
+        item.DeletedAt = null;
+        item.DeletedBy = null;
+        item.UpdatedBy = caller.UserId;
+        await outbox.SaveChangesAsync(db, [Event(Change.Restored, caller, item, schema.List.WorkspaceId, [])], ct);
+        await PublishChangedAsync("restored", caller, schema, item, ct);
+    }
+
+    /// <summary>Deletes items of the recycle bin (tracked, of lists in <paramref name="workspaceId"/>) and their versions permanently.</summary>
+    public async Task PurgeAsync(ListCaller caller, Guid workspaceId, IReadOnlyCollection<ListItem> deletedItems, CancellationToken cancellationToken)
+    {
+        var context = db;
+        var tenant = caller.TenantId;
+        var ct = cancellationToken;
+        foreach (var item in deletedItems)
+        {
+            var id = item.Id;
+            context.ItemVersions.RemoveRange(await context.ItemVersions.Where(v => v.TenantId == tenant && v.ItemId == id).ToListAsync(ct));
+        }
+
+        // Removing an item that is already in the recycle bin deletes it (SaveChangesGuard).
+        context.Items.RemoveRange(deletedItems);
+        await outbox.SaveChangesAsync(context, [.. deletedItems.Select(item => (IntegrationEvent)Event(Change.Purged, caller, item, workspaceId, []))], ct);
+    }
+
+    /// <summary>Snapshots the item as a new version when the list keeps history, trimming the oldest versions.</summary>
+    private async Task AddVersionAsync(ListCaller caller, ListSchema schema, ListItem item, IReadOnlyList<string> changed, CancellationToken cancellationToken)
+    {
+        if (schema.List.Versioning == ListVersionings.Off || item.IsFolder)
+        {
+            return;
+        }
+
+        var context = db;
+        var tenant = caller.TenantId;
+        var id = item.Id;
+        var ct = cancellationToken;
+        var last = await context.ItemVersions.Where(v => v.TenantId == tenant && v.ItemId == id).MaxAsync(v => (int?)v.Number, ct) ?? 0;
+        context.ItemVersions.Add(new ItemVersion
+        {
+            Id = Ids.New(),
+            TenantId = tenant,
+            ItemId = id,
+            ListId = item.ListId,
+            Number = last + 1,
+            ContentTypeId = item.ContentTypeId,
+            Title = item.Title,
+            Fields = item.Fields,
+            ChangedFields = JsonSerializer.Serialize(changed, ListsJson.Default.IReadOnlyListString),
+            CreatedAt = time.GetUtcNow(),
+            CreatedBy = caller.UserId,
+        });
+
+        var keepFrom = last + 2 - schema.List.MaxVersions;
+        if (keepFrom > 1)
+        {
+            context.ItemVersions.RemoveRange(await context.ItemVersions.Where(v => v.TenantId == tenant && v.ItemId == id && v.Number < keepFrom).ToListAsync(ct));
+        }
     }
 
     private Task<bool> HasChildrenAsync(Guid tenantId, Guid folderId, CancellationToken cancellationToken)
@@ -414,41 +496,76 @@ internal sealed class ItemWriter(
         });
     }
 
-    private static ItemEvent Event(ItemEventKind kind, ListCaller caller, ListItem item, ListSchema schema, IReadOnlyList<string> changed) => kind switch
+    private enum Change
     {
-        ItemEventKind.Adding => new ItemAdded
+        Added,
+        Updated,
+        Deleted,
+        Restored,
+        Purged,
+    }
+
+    private static ItemEvent Event(Change kind, ListCaller caller, ListItem item, Guid workspaceId, IReadOnlyList<string> changed) => kind switch
+    {
+        Change.Added => new ItemAdded
         {
             TenantId = caller.TenantId,
             UserId = caller.UserId,
             Depth = caller.Depth,
-            WorkspaceId = schema.List.WorkspaceId,
-            ListId = schema.List.Id,
+            WorkspaceId = workspaceId,
+            ListId = item.ListId,
             ItemId = item.Id,
             ContentTypeId = item.ContentTypeId,
             IsFolder = item.IsFolder,
             ChangedFields = changed,
             Title = item.Title,
         },
-        ItemEventKind.Updating => new ItemUpdated
+        Change.Updated => new ItemUpdated
         {
             TenantId = caller.TenantId,
             UserId = caller.UserId,
             Depth = caller.Depth,
-            WorkspaceId = schema.List.WorkspaceId,
-            ListId = schema.List.Id,
+            WorkspaceId = workspaceId,
+            ListId = item.ListId,
             ItemId = item.Id,
             ContentTypeId = item.ContentTypeId,
             IsFolder = item.IsFolder,
             ChangedFields = changed,
             Title = item.Title,
         },
-        _ => new ItemDeleted
+        Change.Deleted => new ItemDeleted
         {
             TenantId = caller.TenantId,
             UserId = caller.UserId,
             Depth = caller.Depth,
-            WorkspaceId = schema.List.WorkspaceId,
-            ListId = schema.List.Id,
+            WorkspaceId = workspaceId,
+            ListId = item.ListId,
+            ItemId = item.Id,
+            ContentTypeId = item.ContentTypeId,
+            IsFolder = item.IsFolder,
+            ChangedFields = changed,
+            Title = item.Title,
+        },
+        Change.Restored => new ItemRestored
+        {
+            TenantId = caller.TenantId,
+            UserId = caller.UserId,
+            Depth = caller.Depth,
+            WorkspaceId = workspaceId,
+            ListId = item.ListId,
+            ItemId = item.Id,
+            ContentTypeId = item.ContentTypeId,
+            IsFolder = item.IsFolder,
+            ChangedFields = changed,
+            Title = item.Title,
+        },
+        _ => new ItemPurged
+        {
+            TenantId = caller.TenantId,
+            UserId = caller.UserId,
+            Depth = caller.Depth,
+            WorkspaceId = workspaceId,
+            ListId = item.ListId,
             ItemId = item.Id,
             ContentTypeId = item.ContentTypeId,
             IsFolder = item.IsFolder,

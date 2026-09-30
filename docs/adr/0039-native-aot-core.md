@@ -78,6 +78,8 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
     primary-constructor parameters, dotnet/efcore#35887);
   - entity classes are not `sealed` (the generated materializer tests for `IInjectableService`);
   - no `DateTimeOffset` in `ORDER BY` on SQLite (order by the time-ordered id);
+  - no `Skip` and `Take` in one query: precompiled, both get the parameter `@p` and the offset takes the limit's
+    value (page by keyset on the time-ordered id instead);
   - entities live in the DbContext's namespace (the generated interceptors import only that one).
 - **Tenant isolation without query filters:** every query on a tenant-owned set filters on `TenantId` explicitly.
   `SaveChangesGuard` (PaperDotNet.Persistence) sets the tenant on new rows and refuses writes into another tenant. Every endpoint gets a
@@ -133,7 +135,7 @@ describes the .NET 10 API; it is regenerated from the new document when the web 
 ### Still to port
 
 Documents (upload, versions, OCR, page images), Search, Taxonomy, Tasks, Calendar, Notes, Notifications, item
-versions and the recycle bin, item permissions (ADR-0035), indexed fields, views, list templates, smart folders, delta and bulk updates, Collaboration, Provisioning and templates, the extension host and SDK, MCP, AI workflows,
+permissions (ADR-0035), indexed fields, views, list templates, smart folders, delta and bulk updates, Collaboration, Provisioning and templates, the extension host and SDK, MCP, AI workflows,
 sign-in in the browser (authorization-code flow, passkeys, OAuth client applications, reverse-proxy sign-in), the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
 schedules, the web UI and the SDKs. Each follows the rules above and brings its tests back from `ToPort`.
 
@@ -141,8 +143,8 @@ schedules, the web UI and the SDKs. Each follows the rules above and brings its 
 
 - The memory goal is met with room to spare for more modules. Each module adds code (and so memory), so the smoke test
   runs on every push.
-- EF Core's AOT support is experimental. We already work around four bugs (parameters, sealed entities, missing
-  usings, nullable warnings in generated code). Each is noted where it is worked around, to be removed when EF Core
+- EF Core's AOT support is experimental. We already work around five bugs (parameters, sealed entities, missing
+  usings, nullable warnings in generated code, `Skip` with `Take`). Each is noted where it is worked around, to be removed when EF Core
   fixes it.
 - Precompiled queries are generated only at publish. Tests run the JIT build (runtime model, LINQ compiled at run
   time), so query shapes that do not precompile only show up in the AOT job. `eng/aot-smoke.sh` runs locally too.

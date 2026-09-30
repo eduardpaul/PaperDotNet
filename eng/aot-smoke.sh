@@ -46,7 +46,7 @@ curl -sf "$BASE/openapi/v1.json" | json '"/v1.0/workspaces/{workspaceId}/lists/{
 WS=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces" -d '{"name":"Finance"}' | json 'd["id"]') || fail "create workspace"
 INVOICE=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/contentTypes" \
   -d '{"name":"Invoice","fields":[{"name":"amount","type":"number"},{"name":"paid","type":"boolean"},{"name":"due","type":"dateTime"}]}' | json 'd["id"]') || fail "create content type"
-LIST=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d "{\"name\":\"Invoices\",\"allowFolders\":true,\"contentTypeIds\":[\"$INVOICE\"]}" | json 'd["id"]') || fail "create list"
+LIST=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d "{\"name\":\"Invoices\",\"versioning\":\"major\",\"contentTypeIds\":[\"$INVOICE\"]}" | json 'd["id"]') || fail "create list"
 ITEMS="$BASE/v1.0/workspaces/$WS/lists/$LIST/items"
 for n in 1 2 3 4 5; do
   curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -o /dev/null \
@@ -59,6 +59,15 @@ TITLES=$(curl -sf "${AUTH[@]}" -G "$ITEMS" --data-urlencode '$filter=fields/amou
 FOLDER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -d '{"isFolder":true,"fields":{"title":"2026"}}' | json 'd["id"]') || fail "create folder"
 curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -o /dev/null -d "{\"parentId\":\"$FOLDER\",\"fields\":{\"title\":\"Filed\",\"amount\":1}}" || fail "create item in folder"
 [[ $(curl -sf "${AUTH[@]}" "$ITEMS/$FOLDER/children" | json 'd["value"][0]["fields"]["title"]') == Filed ]] || fail "folder children"
+
+# Versions and the recycle bin: a change adds a version; a deleted item can be restored.
+read -r ITEM ETAG < <(curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -d '{"fields":{"title":"Versioned","amount":1}}' | json 'd["id"] + " " + d["@odata.etag"]') || fail "create versioned item"
+curl -sf -X PATCH "${AUTH[@]}" "${JSON[@]}" -H "If-Match: $ETAG" "$ITEMS/$ITEM" -d '{"fields":{"amount":2}}' -o /dev/null || fail "update versioned item"
+VERSIONS=$(curl -s "${AUTH[@]}" "$ITEMS/$ITEM/versions")
+[[ $(json '",".join(str(v["number"]) for v in d["value"])' <<<"$VERSIONS") == "2,1" ]] || fail "item versions: $VERSIONS"
+curl -sf -X DELETE "${AUTH[@]}" -H 'If-Match: "2"' "$ITEMS/$ITEM" || fail "delete item"
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$LIST/recycleBin" | json 'len(d["value"])') == 1 ]] || fail "recycle bin"
+curl -sf -X POST "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$LIST/recycleBin/$ITEM/restore" -o /dev/null || fail "restore item"
 
 AUDITED=0
 for _ in $(seq 1 50); do

@@ -30,6 +30,8 @@ public class ListsDbContext : DbContext
 
     public DbSet<AclEntry> AclEntries { get; set; } = null!;
 
+    public DbSet<ItemVersion> ItemVersions { get; set; } = null!;
+
     /// <summary>Saves; a new list gets the permission entries of the workspace roles unless the save brings its own.</summary>
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
@@ -87,6 +89,13 @@ public class ListsDbContext : DbContext
             entry.Property(e => e.PrincipalType).HasMaxLength(20);
             entry.HasIndex(e => new { e.TenantId, e.PrincipalId, e.ListId });
             entry.HasIndex(e => new { e.TenantId, e.ListId });
+        });
+
+        modelBuilder.Entity<ItemVersion>(version =>
+        {
+            version.ToTable("item_versions");
+            version.Property(v => v.Title).HasMaxLength(1024);
+            version.HasIndex(v => new { v.TenantId, v.ItemId, v.Number }).IsUnique();
         });
     }
 }

@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
@@ -22,6 +23,8 @@ public sealed class ListsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<ListsDbContext>();
+        services.Configure<ListsOptions>(configuration.GetSection(ListsOptions.Section));
+        services.AddTenantRecurringJob<RecycleBinCleanupJob>(RecycleBinCleanupJob.Name, RecycleBinCleanupJob.Schedule);
         services.AddScopes(ListScopes.All);
         services.AddMemoryCache();
         foreach (var type in FieldTypeRegistry.BuiltIn())
@@ -45,5 +48,6 @@ public sealed class ListsModule : IModule
         ContentTypeEndpoints.Map(endpoints);
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
+        ItemHistoryEndpoints.Map(endpoints);
     }
 }
