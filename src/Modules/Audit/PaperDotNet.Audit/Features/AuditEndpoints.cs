@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Audit.Data;
 
@@ -12,7 +11,7 @@ public sealed record AuditEntryDto(Guid Id, string Action, Guid TargetId, Guid? 
 internal static class AuditEndpoints
 {
     public static void Map(IEndpointRouteBuilder app) =>
-        app.MapGet("/v1.0/audit", ListAsync).RequireScope(Scopes.AuditRead).WithTags("Audit").WithName("ListAuditEntries")
+        app.MapGet("/v1.0/audit", ListAsync).RequireScope(AuditScopes.Read).WithTags("Audit").WithName("ListAuditEntries")
             .WithDescription("Newest first. Filter by target with ?targetId=.");
 
     private static AuditEntryDto ToDto(AuditEntry e) => new(e.Id, e.Action, e.TargetId, e.ListId, e.UserId, e.Summary, e.OccurredAt);

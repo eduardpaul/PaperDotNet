@@ -29,16 +29,16 @@ public sealed record PreferenceValues(
         TimeZone != "UTC" && TimeZoneInfo.TryFindSystemTimeZoneById(TimeZone, out var zone) ? zone : TimeZoneInfo.Utc;
 }
 
-/// <summary>Reads effective preferences in the current tenant, for modules that format, schedule or process for a user.</summary>
+/// <summary>Reads effective preferences in a tenant, for modules that format, schedule or process for a user.</summary>
 public interface IUserPreferences
 {
-    Task<PreferenceValues> GetAsync(Guid userId, CancellationToken cancellationToken);
+    Task<PreferenceValues> GetAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken);
 
     /// <summary>Effective preferences of several users (every requested id is in the result).</summary>
-    Task<IReadOnlyDictionary<Guid, PreferenceValues>> GetAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
+    Task<IReadOnlyDictionary<Guid, PreferenceValues>> GetAsync(Guid tenantId, IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
 
     /// <summary>The organization's defaults (over the built-in defaults).</summary>
-    Task<PreferenceValues> GetDefaultsAsync(CancellationToken cancellationToken);
+    Task<PreferenceValues> GetDefaultsAsync(Guid tenantId, CancellationToken cancellationToken);
 }
 
 /// <summary>

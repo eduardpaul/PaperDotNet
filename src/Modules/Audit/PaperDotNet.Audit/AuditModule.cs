@@ -16,7 +16,8 @@ public sealed class AuditModule : IModule
 
     public IJsonTypeInfoResolver Json => AuditJson.Default;
 
-    public void AddServices(IServiceCollection services, IConfiguration configuration) => services.AddModuleDbContext<AuditDbContext>();
+    public void AddServices(IServiceCollection services, IConfiguration configuration) =>
+        services.AddModuleDbContext<AuditDbContext>().AddScopes(AuditScopes.All);
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => AuditEndpoints.Map(endpoints);
 }

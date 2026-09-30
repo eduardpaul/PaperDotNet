@@ -21,6 +21,7 @@
     <Project Path="src/Modules/Audit/PaperDotNet.Audit/PaperDotNet.Audit.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/PaperDotNet.Identity.Contracts/PaperDotNet.Identity.Contracts.csproj" />
     <Project Path="src/Modules/Identity/PaperDotNet.Identity/PaperDotNet.Identity.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Jobs/">

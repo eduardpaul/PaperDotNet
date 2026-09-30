@@ -33,11 +33,11 @@ internal static class ListEndpoints
     public static void Map(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/v1.0/lists").WithTags("Lists");
-        group.MapGet("/", ListAsync).RequireScope(Scopes.ListsRead).WithName("ListLists");
-        group.MapPost("/", CreateAsync).RequireScope(Scopes.ListsWrite).WithName("CreateList");
-        group.MapGet("/{listId:guid}", GetAsync).RequireScope(Scopes.ListsRead).WithName("GetList");
-        group.MapPatch("/{listId:guid}", UpdateAsync).RequireScope(Scopes.ListsWrite).WithName("UpdateList");
-        group.MapDelete("/{listId:guid}", DeleteAsync).RequireScope(Scopes.ListsWrite).WithName("DeleteList");
+        group.MapGet("/", ListAsync).RequireScope(ListScopes.Read).WithName("ListLists");
+        group.MapPost("/", CreateAsync).RequireScope(ListScopes.Write).WithName("CreateList");
+        group.MapGet("/{listId:guid}", GetAsync).RequireScope(ListScopes.Read).WithName("GetList");
+        group.MapPatch("/{listId:guid}", UpdateAsync).RequireScope(ListScopes.Write).WithName("UpdateList");
+        group.MapDelete("/{listId:guid}", DeleteAsync).RequireScope(ListScopes.Write).WithName("DeleteList");
     }
 
     public static ListDto ToDto(ListDefinition list) =>

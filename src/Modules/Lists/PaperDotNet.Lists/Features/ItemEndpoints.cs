@@ -2,7 +2,6 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Querying;
@@ -31,12 +30,12 @@ internal static class ItemEndpoints
     public static void Map(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/v1.0/lists/{listId:guid}/items").WithTags("Items");
-        group.MapGet("/", QueryAsync).RequireScope(Scopes.ListsRead).WithName("ListItems")
+        group.MapGet("/", QueryAsync).RequireScope(ListScopes.Read).WithName("ListItems")
             .WithDescription("OData query options: $filter, $orderby, $top, $skiptoken, $count.");
-        group.MapPost("/", CreateAsync).RequireScope(Scopes.ListsWrite).WithName("CreateItem");
-        group.MapGet("/{itemId:guid}", GetAsync).RequireScope(Scopes.ListsRead).WithName("GetItem");
-        group.MapPatch("/{itemId:guid}", UpdateAsync).RequireScope(Scopes.ListsWrite).WithName("UpdateItem");
-        group.MapDelete("/{itemId:guid}", DeleteAsync).RequireScope(Scopes.ListsWrite).WithName("DeleteItem");
+        group.MapPost("/", CreateAsync).RequireScope(ListScopes.Write).WithName("CreateItem");
+        group.MapGet("/{itemId:guid}", GetAsync).RequireScope(ListScopes.Read).WithName("GetItem");
+        group.MapPatch("/{itemId:guid}", UpdateAsync).RequireScope(ListScopes.Write).WithName("UpdateItem");
+        group.MapDelete("/{itemId:guid}", DeleteAsync).RequireScope(ListScopes.Write).WithName("DeleteItem");
     }
 
     private static ItemDto ToDto(ListItemData item) =>

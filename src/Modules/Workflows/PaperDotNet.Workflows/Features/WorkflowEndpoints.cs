@@ -54,15 +54,15 @@ internal static class WorkflowEndpoints
     public static void Map(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/v1.0").WithTags("Workflows");
-        group.MapGet("/workflows", ListAsync).RequireScope(Scopes.WorkflowsManage).WithName("ListWorkflows");
-        group.MapPost("/workflows", CreateAsync).RequireScope(Scopes.WorkflowsManage).WithName("CreateWorkflow");
-        group.MapGet("/workflows/activities", Activities).RequireScope(Scopes.WorkflowsManage).WithName("ListWorkflowActivities");
-        group.MapGet("/workflows/{workflowId:guid}", GetAsync).RequireScope(Scopes.WorkflowsManage).WithName("GetWorkflow");
-        group.MapPatch("/workflows/{workflowId:guid}", UpdateAsync).RequireScope(Scopes.WorkflowsManage).WithName("UpdateWorkflow");
-        group.MapDelete("/workflows/{workflowId:guid}", DeleteAsync).RequireScope(Scopes.WorkflowsManage).WithName("DeleteWorkflow");
-        group.MapPost("/workflows/{workflowId:guid}/runs", StartAsync).RequireScope(Scopes.WorkflowsManage).WithName("StartWorkflowRun");
-        group.MapGet("/workflows/{workflowId:guid}/runs", ListRunsAsync).RequireScope(Scopes.WorkflowsManage).WithName("ListWorkflowRuns");
-        group.MapGet("/workflow-runs/{runId:guid}", GetRunAsync).RequireScope(Scopes.WorkflowsManage).WithName("GetWorkflowRun");
+        group.MapGet("/workflows", ListAsync).RequireScope(WorkflowScopes.Read).WithName("ListWorkflows");
+        group.MapPost("/workflows", CreateAsync).RequireScope(WorkflowScopes.Write).WithName("CreateWorkflow");
+        group.MapGet("/workflows/activities", Activities).RequireScope(WorkflowScopes.Read).WithName("ListWorkflowActivities");
+        group.MapGet("/workflows/{workflowId:guid}", GetAsync).RequireScope(WorkflowScopes.Read).WithName("GetWorkflow");
+        group.MapPatch("/workflows/{workflowId:guid}", UpdateAsync).RequireScope(WorkflowScopes.Write).WithName("UpdateWorkflow");
+        group.MapDelete("/workflows/{workflowId:guid}", DeleteAsync).RequireScope(WorkflowScopes.Write).WithName("DeleteWorkflow");
+        group.MapPost("/workflows/{workflowId:guid}/runs", StartAsync).RequireScope(WorkflowScopes.Write).WithName("StartWorkflowRun");
+        group.MapGet("/workflows/{workflowId:guid}/runs", ListRunsAsync).RequireScope(WorkflowScopes.Read).WithName("ListWorkflowRuns");
+        group.MapGet("/workflow-runs/{runId:guid}", GetRunAsync).RequireScope(WorkflowScopes.Read).WithName("GetWorkflowRun");
     }
 
     private static WorkflowDto ToDto(WorkflowDefinition workflow, WorkflowVersion version) =>

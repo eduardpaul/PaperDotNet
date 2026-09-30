@@ -19,8 +19,8 @@ public sealed class BootstrapOptions
     public string AdminPassword { get; set; } = "";
 }
 
-/// <summary>Creates tenants with their first administrator.</summary>
-public sealed class TenantProvisioner(IdentityDbContext db, IPasswordHasher<User> hasher, TimeProvider time)
+/// <summary>Creates tenants with their built-in roles and first administrator.</summary>
+public sealed class TenantProvisioner(IdentityDbContext db, IPasswordHasher<User> hasher, IScopeCatalog catalog, TimeProvider time)
 {
     public async Task<Tenant?> FindAsync(string identifier, CancellationToken cancellationToken = default)
     {
@@ -37,11 +37,18 @@ public sealed class TenantProvisioner(IdentityDbContext db, IPasswordHasher<User
             throw new ArgumentException($"The administrator password needs at least {Users.MinPasswordLength} characters.", nameof(adminPassword));
         }
 
-        var tenant = new Tenant { Id = Ids.New(), Identifier = identifier, Name = name, CreatedAt = time.GetUtcNow() };
-        var admin = Users.New(tenant.Id, adminUserName, null, isAdmin: true);
+        var now = time.GetUtcNow();
+        var tenant = new Tenant { Id = Ids.New(), Identifier = identifier, Name = name, CreatedAt = now };
+        var admin = Users.New(tenant.Id, adminUserName, null, null, now);
         admin.PasswordHash = hasher.HashPassword(admin, adminPassword);
         db.Tenants.Add(tenant);
         db.Users.Add(admin);
+        var (administrator, member) = BuiltInRoles.Add(db, tenant.Id, catalog, now);
+        foreach (var role in new[] { administrator, member })
+        {
+            db.RoleAssignments.Add(new RoleAssignment { Id = Ids.New(), TenantId = tenant.Id, RoleId = role.Id, PrincipalId = admin.Id, PrincipalType = PrincipalTypes.User });
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         return (tenant, admin);
     }
@@ -51,7 +58,7 @@ public sealed class TenantProvisioner(IdentityDbContext db, IPasswordHasher<User
 /// The tenant directory (Tenancy.Contracts) over the Identity tables, until the Tenancy module is ported. Tenants have
 /// no host names yet: they are chosen by identifier when signing in.
 /// </summary>
-internal sealed class TenantDirectory(IdentityDbContext db, TimeProvider time) : ITenantDirectory
+internal sealed class TenantDirectory(IdentityDbContext db, IScopeCatalog catalog, TimeProvider time) : ITenantDirectory
 {
     public async Task<IReadOnlyList<TenantSummary>> ListAsync(CancellationToken cancellationToken)
     {
@@ -71,6 +78,7 @@ internal sealed class TenantDirectory(IdentityDbContext db, TimeProvider time) :
     {
         var tenant = new Tenant { Id = Ids.New(), Identifier = identifier, Name = name, CreatedAt = time.GetUtcNow() };
         db.Tenants.Add(tenant);
+        BuiltInRoles.Add(db, tenant.Id, catalog, tenant.CreatedAt);
         await db.SaveChangesAsync(cancellationToken);
         return Summary(tenant);
     }
@@ -112,16 +120,24 @@ internal sealed class TenantDirectory(IdentityDbContext db, TimeProvider time) :
 
 public static partial class Bootstrap
 {
-    /// <summary>Creates the configured tenant and administrator on first start.</summary>
+    /// <summary>
+    /// Gives every tenant its built-in roles (tenants from before roles existed), then creates the configured tenant
+    /// and administrator on first start.
+    /// </summary>
     public static async Task RunAsync(IServiceProvider services, CancellationToken cancellationToken = default)
     {
+        await using var scope = services.CreateAsyncScope();
+        await BuiltInRoles.EnsureAsync(
+            scope.ServiceProvider.GetRequiredService<IdentityDbContext>(),
+            scope.ServiceProvider.GetRequiredService<IScopeCatalog>(),
+            scope.ServiceProvider.GetRequiredService<TimeProvider>(),
+            cancellationToken);
         var options = services.GetRequiredService<IOptions<BootstrapOptions>>().Value;
         if (string.IsNullOrWhiteSpace(options.AdminUserName) || string.IsNullOrEmpty(options.AdminPassword))
         {
             return;
         }
 
-        await using var scope = services.CreateAsyncScope();
         var provisioner = scope.ServiceProvider.GetRequiredService<TenantProvisioner>();
         if (await provisioner.FindAsync(options.TenantIdentifier, cancellationToken) is not null)
         {

@@ -5,6 +5,7 @@
   -->
   <Import Project="..\..\AotModule.props" />
   <ItemGroup>
+    <ProjectReference Include="..\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Tenancy\PaperDotNet.Tenancy.Contracts\PaperDotNet.Tenancy.Contracts.csproj" />
   </ItemGroup>
 </Project>

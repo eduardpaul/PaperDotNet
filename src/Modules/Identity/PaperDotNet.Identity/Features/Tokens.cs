@@ -33,24 +33,47 @@ public sealed record TokenError(
 /// <summary>
 /// Issues access and refresh tokens as ASP.NET Core bearer tokens (Data Protection, validated by the BearerToken
 /// handler). OpenIddict is not AOT-compatible (ADR-0039); first-party clients keep the OAuth password and
-/// refresh-token grants on <c>/connect/token</c>.
+/// refresh-token grants on <c>/connect/token</c>. A token carries no scopes unless it was requested with some: its
+/// permissions are the user's effective scopes, checked on every request.
 /// </summary>
 internal sealed class TokenIssuer(IOptionsMonitor<BearerTokenOptions> bearer, TimeProvider time)
 {
     private const string RefreshPurpose = BearerTokenDefaults.AuthenticationScheme + ":RefreshToken";
 
-    public TokenResponse Issue(User user)
+    /// <summary>Scope values of OAuth clients that do not limit a token (the whole API, refresh tokens, OpenID).</summary>
+    private static readonly HashSet<string> Unlimiting = new(["api", "offline_access", "openid", "profile", "email"], StringComparer.Ordinal);
+
+    /// <summary>
+    /// The scopes a <c>scope</c> parameter limits a token to: null for none (the user's scopes), or an error for
+    /// unknown scopes.
+    /// </summary>
+    public static (IReadOnlyList<string>? Limit, string? Error) ParseScope(string? value, IScopeCatalog catalog)
+    {
+        var names = (value ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(n => !Unlimiting.Contains(n)).Distinct(StringComparer.Ordinal).ToList();
+        if (names.Count == 0)
+        {
+            return (null, null);
+        }
+
+        return names.Where(n => !catalog.Contains(n)).ToList() is { Count: > 0 } unknown
+            ? (null, $"Unknown scopes: {string.Join(", ", unknown)}.")
+            : (names, null);
+    }
+
+    public TokenResponse Issue(User user, IReadOnlyCollection<string>? limit, IReadOnlySet<string> effective)
     {
         var options = bearer.Get(BearerTokenDefaults.AuthenticationScheme);
-        var scope = Scopes.For(user.IsAdmin);
         var identity = new ClaimsIdentity(BearerTokenDefaults.AuthenticationScheme, PaperDotNetClaims.UserName, null);
         identity.AddClaim(new Claim(PaperDotNetClaims.UserId, user.Id.ToString()));
         identity.AddClaim(new Claim(PaperDotNetClaims.TenantId, user.TenantId.ToString()));
         identity.AddClaim(new Claim(PaperDotNetClaims.UserName, user.UserName));
-        identity.AddClaim(new Claim(PaperDotNetClaims.Scope, scope));
         identity.AddClaim(new Claim(PaperDotNetClaims.SecurityStamp, user.SecurityStamp));
-        var principal = new ClaimsPrincipal(identity);
+        if (limit is not null)
+        {
+            identity.AddClaim(new Claim(PaperDotNetClaims.Scope, ScopeList.Format(limit)));
+        }
 
+        var principal = new ClaimsPrincipal(identity);
         var now = time.GetUtcNow();
         var access = new AuthenticationTicket(principal, new AuthenticationProperties { ExpiresUtc = now + options.BearerTokenExpiration }, BearerTokenDefaults.AuthenticationScheme);
         var refresh = new AuthenticationTicket(principal, new AuthenticationProperties { ExpiresUtc = now + options.RefreshTokenExpiration }, RefreshPurpose);
@@ -59,11 +82,11 @@ internal sealed class TokenIssuer(IOptionsMonitor<BearerTokenOptions> bearer, Ti
             "Bearer",
             (long)options.BearerTokenExpiration.TotalSeconds,
             options.RefreshTokenProtector.Protect(refresh),
-            scope);
+            ScopeList.Format(limit is null ? effective : limit.Where(effective.Contains)));
     }
 
-    /// <summary>The user and tenant of a valid, unexpired refresh token, with the security stamp it was issued for.</summary>
-    public (Guid UserId, Guid TenantId, string Stamp)? ReadRefreshToken(string token)
+    /// <summary>The user and tenant of a valid, unexpired refresh token, with its security stamp and scope limit.</summary>
+    public (Guid UserId, Guid TenantId, string Stamp, IReadOnlyList<string>? Limit)? ReadRefreshToken(string token)
     {
         var options = bearer.Get(BearerTokenDefaults.AuthenticationScheme);
         var ticket = options.RefreshTokenProtector.Unprotect(token);
@@ -72,8 +95,9 @@ internal sealed class TokenIssuer(IOptionsMonitor<BearerTokenOptions> bearer, Ti
             return null;
         }
 
+        var limit = ticket.Principal.FindFirst(PaperDotNetClaims.Scope)?.Value is { } scopes ? ScopeList.Parse(scopes) : null;
         return ticket.Principal.FindGuid(PaperDotNetClaims.UserId) is { } userId && ticket.Principal.FindGuid(PaperDotNetClaims.TenantId) is { } tenantId
-            ? (userId, tenantId, ticket.Principal.FindFirst(PaperDotNetClaims.SecurityStamp)?.Value ?? "")
+            ? (userId, tenantId, ticket.Principal.FindFirst(PaperDotNetClaims.SecurityStamp)?.Value ?? "", limit)
             : null;
     }
 }
@@ -89,7 +113,8 @@ internal static class TokenEndpoint
             .WithSummary("OAuth 2.0 token endpoint: password and refresh_token grants (form encoded).");
 
     private static async Task<Results<Ok<TokenResponse>, BadRequest<TokenError>>> HandleAsync(
-        HttpRequest request, IdentityDbContext db, TokenIssuer issuer, IPasswordHasher<User> hasher, IOptions<TenancyOptions> tenancy, CancellationToken cancellationToken)
+        HttpRequest request, IdentityDbContext db, TokenIssuer issuer, IPasswordHasher<User> hasher, IEffectiveScopeProvider scopes,
+        IScopeCatalog catalog, IOptions<TenancyOptions> tenancy, TimeProvider time, CancellationToken cancellationToken)
     {
         if (!request.HasFormContentType)
         {
@@ -101,15 +126,21 @@ internal static class TokenEndpoint
         {
             case "password":
                 {
+                    var (limit, scopeError) = TokenIssuer.ParseScope(form["scope"].ToString(), catalog);
+                    if (scopeError is not null)
+                    {
+                        return Invalid("invalid_scope", scopeError);
+                    }
+
                     var identifier = form["tenant"].ToString() is { Length: > 0 } requested ? requested : tenancy.Value.DefaultTenant;
                     var user = await Users.FindForSignInAsync(db, identifier, form["username"].ToString(), cancellationToken);
-                    if (user is null || user.IsDisabled
-                        || hasher.VerifyHashedPassword(user, user.PasswordHash, form["password"].ToString()) == PasswordVerificationResult.Failed)
+                    if (user is null || !await SignInAsync(db, hasher, user, form["password"].ToString(), time.GetUtcNow(), cancellationToken))
                     {
                         return Invalid("invalid_grant", "The user name or password is not correct.");
                     }
 
-                    return TypedResults.Ok(issuer.Issue(user));
+                    var effective = await scopes.GetScopesAsync(user.TenantId, user.Id, cancellationToken) ?? new HashSet<string>();
+                    return TypedResults.Ok(issuer.Issue(user, limit, effective));
                 }
 
             case "refresh_token":
@@ -122,12 +153,53 @@ internal static class TokenEndpoint
                         return Invalid("invalid_grant", "The refresh token is not valid.");
                     }
 
-                    return TypedResults.Ok(issuer.Issue(user));
+                    var effective = await scopes.GetScopesAsync(user.TenantId, user.Id, cancellationToken) ?? new HashSet<string>();
+                    return TypedResults.Ok(issuer.Issue(user, refresh.Limit, effective));
                 }
 
             default:
                 return Invalid("unsupported_grant_type", "Use the password or refresh_token grant.");
         }
+    }
+
+    /// <summary>
+    /// Checks the password of an enabled user. After <see cref="Users.MaxFailedSignIns"/> failures in a row the
+    /// account is locked for <see cref="Users.LockoutDuration"/>, and even the right password fails until then.
+    /// </summary>
+    private static async Task<bool> SignInAsync(IdentityDbContext db, IPasswordHasher<User> hasher, User user, string password, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (user.IsDisabled || user.LockoutEnd > now)
+        {
+            return false;
+        }
+
+        var result = user.PasswordHash.Length == 0 ? PasswordVerificationResult.Failed : hasher.VerifyHashedPassword(user, user.PasswordHash, password);
+        if (result == PasswordVerificationResult.Failed)
+        {
+            user.AccessFailedCount++;
+            if (user.AccessFailedCount >= Users.MaxFailedSignIns)
+            {
+                user.AccessFailedCount = 0;
+                user.LockoutEnd = now + Users.LockoutDuration;
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+            return false;
+        }
+
+        if (result == PasswordVerificationResult.SuccessRehashNeeded || user.AccessFailedCount > 0 || user.LockoutEnd is not null)
+        {
+            if (result == PasswordVerificationResult.SuccessRehashNeeded)
+            {
+                user.PasswordHash = hasher.HashPassword(user, password);
+            }
+
+            user.AccessFailedCount = 0;
+            user.LockoutEnd = null;
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return true;
     }
 
     private static BadRequest<TokenError> Invalid(string error, string description) => TypedResults.BadRequest(new TokenError(error, description));

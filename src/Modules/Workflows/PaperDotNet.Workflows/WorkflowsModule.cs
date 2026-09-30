@@ -23,6 +23,7 @@ public sealed class WorkflowsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<WorkflowsDbContext>();
+        services.AddScopes(WorkflowScopes.All);
         services.Configure<WorkflowScriptOptions>(configuration.GetSection("Workflows:Scripts"));
         services.AddSingleton<TokenExpander>();
         services.AddScoped<ItemConditions>();

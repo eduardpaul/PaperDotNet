@@ -18,6 +18,7 @@ public sealed class ListsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<ListsDbContext>();
+        services.AddScopes(ListScopes.All);
         services.AddScoped<IItemQueries, SqliteItemQueries>();
         services.AddScoped<ListItemStore>();
         services.AddScoped<IListItemStore>(provider => provider.GetRequiredService<ListItemStore>());

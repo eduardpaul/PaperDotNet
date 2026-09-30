@@ -15,8 +15,6 @@ internal sealed class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentU
     public Guid? TenantId => Principal?.FindGuid(PaperDotNetClaims.TenantId);
 
     public bool IsAuthenticated => Principal is not null;
-
-    public bool HasScope(string scope) => Principal?.HasScope(scope) ?? false;
 }
 
 /// <summary>The authenticated caller of an endpoint (tenant and user are always present behind authorization).</summary>
@@ -38,6 +36,7 @@ public static class ApiServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
         services.AddScoped<Caller>();
+        services.AddScopeAuthorization();
         services.AddSingleton<ILiveEvents>(sp => new LiveEventHub(
             sp.GetRequiredService<ILogger<LiveEventHub>>(),
             sp.GetService<ILiveEventBackplane>()));
