@@ -8,7 +8,7 @@ using System;
 namespace PaperDotNet.Client.Models
 {
     /// <summary>
-    /// Create body: `{ &quot;contentTypeId&quot;?, &quot;parentId&quot;?, &quot;isFolder&quot;?, &quot;fields&quot;: { &quot;title&quot;: …, … } }`.
+    /// Create body: `{ &quot;id&quot;?, &quot;contentTypeId&quot;?, &quot;parentId&quot;?, &quot;isFolder&quot;?, &quot;fields&quot;: { &quot;title&quot;: …, … } }`. With `id` the client chooses the item&apos;s id, so repeating a create is safe (the item it made is returned unchanged, 200).
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class CreateItemRequest : IAdditionalDataHolder, IParsable
@@ -25,6 +25,8 @@ namespace PaperDotNet.Client.Models
 #else
         public global::PaperDotNet.Client.Models.JsonObject Fields { get; set; }
 #endif
+        /// <summary>The id property</summary>
+        public Guid? Id { get; set; }
         /// <summary>The isFolder property</summary>
         public bool? IsFolder { get; set; }
         /// <summary>The parentId property</summary>
@@ -56,6 +58,7 @@ namespace PaperDotNet.Client.Models
             {
                 { "contentTypeId", n => { ContentTypeId = n.GetGuidValue(); } },
                 { "fields", n => { Fields = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
+                { "id", n => { Id = n.GetGuidValue(); } },
                 { "isFolder", n => { IsFolder = n.GetBoolValue(); } },
                 { "parentId", n => { ParentId = n.GetGuidValue(); } },
             };
@@ -69,6 +72,7 @@ namespace PaperDotNet.Client.Models
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteGuidValue("contentTypeId", ContentTypeId);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("fields", Fields);
+            writer.WriteGuidValue("id", Id);
             writer.WriteBoolValue("isFolder", IsFolder);
             writer.WriteGuidValue("parentId", ParentId);
             writer.WriteAdditionalData(AdditionalData);

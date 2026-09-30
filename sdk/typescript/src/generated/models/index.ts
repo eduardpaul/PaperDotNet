@@ -1693,7 +1693,7 @@ export function createItemPageFromDiscriminatorValue(parseNode: ParseNode | unde
     return deserializeIntoItemPage;
 }
 /**
- * Create body: `{ "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }`.
+ * Create body: `{ "id"?, "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }`. With `id` the client chooses the item's id, so repeating a create is safe (the item it made is returned unchanged, 200).
  */
 export interface CreateItemRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -1704,6 +1704,10 @@ export interface CreateItemRequest extends AdditionalDataHolder, Parsable {
      * The fields property
      */
     fields?: JsonObject | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
     /**
      * The isFolder property
      */
@@ -3674,6 +3678,7 @@ export function deserializeIntoCreateItemRequest(createItemRequest: Partial<Crea
     return {
         "contentTypeId": n => { createItemRequest.contentTypeId = n.getGuidValue(); },
         "fields": n => { createItemRequest.fields = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "id": n => { createItemRequest.id = n.getGuidValue(); },
         "isFolder": n => { createItemRequest.isFolder = n.getBooleanValue(); },
         "parentId": n => { createItemRequest.parentId = n.getGuidValue(); },
     }
@@ -8821,6 +8826,7 @@ export function serializeCreateItemRequest(writer: SerializationWriter, createIt
     if (!createItemRequest || isSerializingDerivedType) { return; }
     writer.writeGuidValue("contentTypeId", createItemRequest.contentTypeId);
     writer.writeObjectValue<JsonObject>("fields", createItemRequest.fields, serializeJsonObject);
+    writer.writeGuidValue("id", createItemRequest.id);
     writer.writeBooleanValue("isFolder", createItemRequest.isFolder);
     writer.writeGuidValue("parentId", createItemRequest.parentId);
     writer.writeAdditionalData(createItemRequest.additionalData);

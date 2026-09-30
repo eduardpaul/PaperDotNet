@@ -101,12 +101,12 @@ public sealed class WorkflowScriptTests(PaperDotNetApiFactory factory)
                     {
                         code = new[]
                         {
-                            "for (const old of items.query('Lines', `fields/order eq ${item.id}`)) items.delete('Lines', old.id);",
-                            "const created = [1, 2, 3].map((q, i) => items.create('Lines', { title: 'L' + (i + 1), qty: q, price: q * 10, order: item.id }));",
-                            "items.update(item.list, item.id, { amount: 60 * vars.rate, status: 'priced' });",
+                            "for (const old of await items.query('Lines', { filter: `fields/order eq ${item.id}` })) await items.delete('Lines', old.id);",
+                            "const created = await Promise.all([1, 2, 3].map((q, i) => items.create('Lines', { title: 'L' + (i + 1), qty: q, price: q * 10, order: item.id })));",
+                            "await items.update(item.list, item.id, { amount: 60 * vars.rate, status: 'priced' });",
                             "vars.count = (vars.count || 0) + 1;",
                             "log(`priced ${created.length} lines of ${item.title}`);",
-                            "return { first: created[0], dotnet: typeof System, lists: items.query('Lines', `fields/order eq ${item.id}`).length };",
+                            "return { first: created[0], dotnet: typeof System, lists: (await items.query('Lines', { filter: `fields/order eq ${item.id}` })).length };",
                         },
                     },
                     next = new { done = "note" },
@@ -158,13 +158,14 @@ public sealed class WorkflowScriptTests(PaperDotNetApiFactory factory)
         }
 
         Assert.Contains("The script ran", await ErrorAsync("Forever", "while (true) {}"), StringComparison.Ordinal);
-        Assert.Contains("The list 'Nope' does not exist in the workspace. (line 2)", await ErrorAsync("Unknown list", "const a = 1;\nitems.query('Nope');"), StringComparison.Ordinal);
-        Assert.Contains("write 1 (create in Lines)", await ErrorAsync("Bad value", "items.create('Lines', { title: 'x', qty: 'many' });"), StringComparison.Ordinal);
+        Assert.Contains("The list 'Nope' does not exist in the workspace. (line 2)", await ErrorAsync("Unknown list", "const a = 1;\nawait items.query('Nope');"), StringComparison.Ordinal);
+        Assert.Contains("The list 'Nope' does not exist", await ErrorAsync("Not awaited", "items.get('Nope', 'x').catch(() => null);\nreturn 1;"), StringComparison.Ordinal);
+        Assert.Contains("write 1 (create in Lines)", await ErrorAsync("Bad value", "await items.create('Lines', { title: 'x', qty: 'many' });"), StringComparison.Ordinal);
 
         // Another workspace's lists are out of reach.
         var other = await s.Admin.CreateWorkspaceAsync("Other");
         await s.Admin.CreateListAsync(other, "Secret", await s.Admin.CreateContentTypeAsync("Secret thing", [new { name = "code", type = "text" }]));
-        Assert.Contains("'Secret' does not exist", await ErrorAsync("Other workspace", "items.query('Secret');"), StringComparison.Ordinal);
+        Assert.Contains("'Secret' does not exist", await ErrorAsync("Other workspace", "await items.query('Secret');"), StringComparison.Ordinal);
 
         // A script error continues on the error port, with the error as the node's output.
         await ManualAsync(s, "Caught", new

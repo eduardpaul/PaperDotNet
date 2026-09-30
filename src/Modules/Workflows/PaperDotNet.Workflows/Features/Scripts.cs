@@ -1,7 +1,9 @@
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Jint;
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Runtime;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Lists.Contracts;
@@ -42,20 +44,22 @@ internal sealed record ScriptOutcome(JsonNode? Result, JsonObject Variables, Jso
 /// data, and the workspace's lists through <c>items</c>. Reads happen right away; <c>create</c>, <c>update</c> and
 /// <c>delete</c> only add to a plan, which the interpreter saves with the run and then applies.
 /// </summary>
-internal sealed class ScriptRunner(IListItemStore items, IOptions<WorkflowScriptOptions> options)
+internal sealed partial class ScriptRunner(IListItemStore items, IOptions<WorkflowScriptOptions> options)
 {
-    // The script is the body of a function on the first line, so `return` works and line numbers stay the same.
-    private const string Prefix = "(function () {";
+    // The script is the body of an async function on the first line, so `return` and `await` work and line numbers stay
+    // the same. The same contract runs in Node on the SDK (@paperdotnet/client, runWorkflowScript).
+    private const string Prefix = "(async function () {";
     private const string Suffix = "\n})()";
+    private const string Source = "script";
 
-    // The items API: small functions over the host's, so scripts get plain JavaScript values and errors.
+    // The items API: async functions over the host's, so scripts `await` them as they do with the SDK in Node.
     private const string Prelude = """
         const items = Object.freeze({
-          get: (list, id) => __items_get(list, id),
-          query: (list, filter, top) => __items_query(list, filter, top),
-          create: (list, fields) => __items_write('create', list, null, fields),
-          update: (list, id, fields) => __items_write('update', list, id, fields),
-          delete: (list, id) => __items_write('delete', list, id, null),
+          get: async (list, id) => __items_get(list, id),
+          query: async (list, options) => __items_query(list, options === undefined ? null : options),
+          create: async (list, fields) => __items_write('create', list, null, fields),
+          update: async (list, id, fields) => __items_write('update', list, id, fields),
+          delete: async (list, id) => __items_write('delete', list, id, null),
         });
         const log = (text) => __log(text);
         """;
@@ -118,7 +122,14 @@ internal sealed class ScriptRunner(IListItemStore items, IOptions<WorkflowScript
             return json.IsString() ? JsonNode.Parse(json.AsString()) : null;
         }
 
-        JavaScriptException Error(string message) => new(engine.Intrinsics.Error, message);
+        // A failed items call fails the step even when the script does not await it or catches it: the plan would be
+        // incomplete.
+        string? failure = null;
+        JavaScriptException Error(string message)
+        {
+            failure ??= message;
+            return new(engine.Intrinsics.Error, message);
+        }
 
         ListData List(JsValue name)
         {
@@ -153,13 +164,25 @@ internal sealed class ScriptRunner(IListItemStore items, IOptions<WorkflowScript
             var found = store.GetAsync(workspaceId, target.Id, Id(id), ct).GetAwaiter().GetResult();
             return found is null ? JsValue.Null : ToJs(ItemJson(found, target.Name));
         }));
-        engine.SetValue("__items_query", new Func<JsValue, JsValue, JsValue, JsValue>((list, filter, top) =>
+        engine.SetValue("__items_query", new Func<JsValue, JsValue, JsValue>((list, options) =>
         {
             Read();
             var target = List(list);
-            var count = top.IsNumber() ? Math.Clamp((int)top.AsNumber(), 1, ListItemQuery.MaxTop) : 100;
-            var (found, error) = store.QueryAsync(workspaceId, target.Id,
-                new ListItemQuery(filter.IsString() ? filter.AsString() : null, Top: count), ct).GetAwaiter().GetResult();
+            var query = options.IsNull() ? new JsonObject() : FromJs(options) as JsonObject ?? throw Error("The query options must be an object.");
+            string? Text(string name) => query[name] switch
+            {
+                null => null,
+                JsonValue value when value.TryGetValue<string>(out var text) => text,
+                _ => throw Error($"{name} must be a string."),
+            };
+            var top = query["top"] switch
+            {
+                null => 100,
+                JsonValue value when value.TryGetValue<double>(out var number) => Math.Clamp((int)number, 1, ListItemQuery.MaxTop),
+                _ => throw Error("top must be a number."),
+            };
+            var (found, error) = store.QueryAsync(workspaceId, target.Id, new ListItemQuery(Text("filter"), Text("orderBy"), top), ct)
+                .GetAwaiter().GetResult();
             return error is not null ? throw Error(error) : ToJs(new JsonArray([.. found.Select(i => (JsonNode)ItemJson(i, target.Name))]));
         }));
         engine.SetValue("__items_write", new Func<JsValue, JsValue, JsValue, JsValue, JsValue>((kind, list, id, fields) =>
@@ -188,9 +211,18 @@ internal sealed class ScriptRunner(IListItemStore items, IOptions<WorkflowScript
         try
         {
             engine.Execute(Prelude);
-            var result = engine.Evaluate(Prefix + code + Suffix);
+            var result = engine.Evaluate(Prefix + code + Suffix, Source).UnwrapIfPromise(ct);
+            if (failure is not null)
+            {
+                return Failed(failure);
+            }
+
             var vars = FromJs(engine.GetValue("vars")) as JsonObject ?? [];
             return new ScriptOutcome(result.IsUndefined() ? null : FromJs(result), vars, plan, log, null);
+        }
+        catch (PromiseRejectedException ex)
+        {
+            return Failed(Describe(ex.RejectedValue));
         }
         catch (JavaScriptException ex)
         {
@@ -211,6 +243,23 @@ internal sealed class ScriptRunner(IListItemStore items, IOptions<WorkflowScript
 
         ScriptOutcome Failed(string error) => new(null, variables, [], log, error);
     }
+
+    /// <summary>A thrown value as an error message: an error's message and the script line it came from.</summary>
+    private static string Describe(JsValue error)
+    {
+        if (error is not ObjectInstance thrown || !thrown.HasProperty("message"))
+        {
+            return error.ToString();
+        }
+
+        var message = thrown.Get("message").ToString();
+        var stack = thrown.Get("stack");
+        var line = stack.IsString() ? ScriptLine().Match(stack.AsString()) : Match.Empty;
+        return line.Success ? $"{message} (line {line.Groups[1].Value})" : message;
+    }
+
+    [GeneratedRegex($@"\b{Source}:(\d+):")]
+    private static partial Regex ScriptLine();
 
     /// <summary>An item as scripts see it: its fields, <c>id</c> and <c>list</c> (the list's name).</summary>
     private static JsonObject ItemJson(ListItemData item, string? list)

@@ -94,6 +94,15 @@ an item fail there.
 Changing a workflow creates a new version. Running runs keep the version
 they started with.
 
+**Concurrency** (`concurrency`) decides what happens when the workflow starts
+on an item that it is still running on:
+- `parallel` (default): both runs go on.
+- `skip`: the new run does not start (a manual start answers 409).
+- `replace`: the running one is cancelled.
+
+It is checked when a run starts and again when it begins, so two runs started
+at the same moment still end up as one.
+
 ## Flows
 
 Instead of `steps`, a workflow can have a `flow` ([ADR-0036](adr/0036-workflows-as-the-core.md)):
@@ -140,7 +149,11 @@ kind of flow, so both run the same way.
     (an array, or one token such as `{step:read.json.lines}`) or the items a
     `query` finds (`list` by name, `filter` in OData with tokens; each element
     is the item's fields and its `id`). At most 500 elements. Then port `done`;
-    its output is `index` and `count`;
+    its output is `index` and `count`. A loop inside a loop starts again for
+    each element of the outer one, and nested loops need different `as`
+    names;
+  - `script` (`code`): JavaScript for the data work, see
+    [Scripts](#scripts): ports `done` and `error`;
   - `end` ends the run; `fail` (`message`) ends it as failed.
 - **Outputs and variables:** each node's result is its output (an action's
   output, an approval's `outcome`, `decidedBy` and `comment`, or `error` on the
@@ -150,27 +163,85 @@ kind of flow, so both run the same way.
   `error` port, and otherwise fails the run at that node.
 - **Checks:** the start and every next node must exist, ports must fit their
   activity, every node must be reachable from the start, and a flow has at
-  most 100 nodes. A run executes at most 1000 nodes.
+  most 100 nodes. A run executes at most 10,000 nodes. After 500 nodes in one
+  go it saves and continues in a new message, so long loops do not hold a
+  server.
 
-**Mapping data, without code.** An AI answer or any other node output can be
-written to lists with the JSON alone: `item.update` for the item's fields,
-`forEach` over an array, and `item.create` for one item per element. For a
-field that is not text, a value that is exactly one token keeps its type, so
-`"total": "{step:read.json.total}"` writes a number. The receipts package
-([samples/receipts-package](../samples/receipts-package/README.md)) does
-exactly that:
+**Mapping data.** Simple mappings need no code:
+- `item.update` sets the item's fields;
+- `forEach` goes over an array;
+- `item.create` makes one item per element.
 
-```json
-"save":      { "activity": "item.update", "inputs": { "fields": { "store": "{step:read.json.store}", "total": "{step:read.json.total}" } },
-               "next": { "done": "old lines" } },
-"old lines": { "activity": "forEach", "inputs": { "query": { "list": "Receipt lines", "filter": "fields/receipt eq {id}" }, "as": "old" },
-               "next": { "item": "remove", "done": "lines" } },
-"remove":    { "activity": "item.delete", "inputs": { "list": "Receipt lines", "id": "{var:old.id}" }, "next": { "done": "old lines" } },
-"lines":     { "activity": "forEach", "inputs": { "items": "{step:read.json.lines}", "as": "line" }, "next": { "item": "add" } },
-"add":       { "activity": "item.create", "inputs": { "list": "Receipt lines",
-               "fields": { "title": "{var:line.description}", "amount": "{var:line.amount}", "receipt": "{id}" } },
-               "next": { "done": "lines" } }
+For a field that is not text, a value that is exactly one token keeps its
+type, so `"total": "{step:read.json.total}"` writes a number. For more (several
+items, arithmetic, reshaping) use a script.
+
+### Scripts
+
+The graph orchestrates; a `script` node does the data work
+([ADR-0037](adr/0037-scripts-in-workflows.md)). It runs JavaScript (strict
+mode) in a sandbox on the server. The code is `code`, a string or an array of
+lines. It is checked for syntax when the workflow is saved, and it runs as the
+body of an async function: `await` the `items` calls, and `return` the node's
+`result`.
+
+The receipts package ([samples/receipts-package](../samples/receipts-package/README.md))
+saves the AI's answer with one script node:
+
+```js
+const receipt = steps.read.json;
+await items.update(item.list, item.id, { store: receipt.store, total: receipt.total, status: 'Read' });
+for (const old of await items.query('Receipt lines', { filter: `fields/receipt eq ${item.id}`, top: 1000 })) {
+  await items.delete('Receipt lines', old.id);
+}
+for (const line of receipt.lines) {
+  await items.create('Receipt lines', { title: line.description, amount: line.amount, receipt: item.id });
+}
+return { lines: receipt.lines.length };
 ```
+
+**What a script sees.** All values are JSON copies; scripts have no access to
+.NET, files, the network or timers.
+- `item`: the run's item (its fields, `id`, and `list`, the list's name), or null.
+- `vars`: the run's variables. Changes to its properties are kept.
+- `steps`: the outputs of earlier nodes, by node id.
+- `trigger`: the trigger's data.
+- `items`: the lists of the workspace, by name:
+  - `get(list, id)` gives the item, or null;
+  - `query(list, { filter, orderBy, top })` uses OData as in the items API
+    (default 100 items, at most 1000);
+  - `create(list, fields)` gives the new item's id;
+  - `update(list, id, fields)` merges the fields (null removes a value);
+  - `delete(list, id)` moves the item to the recycle bin.
+- `log(text)`: adds a line to the run's log.
+
+**Writes are planned, then applied.**
+- Reads happen right away. `create`, `update` and `delete` only add to a plan,
+  so a read does not see them.
+- When the script has returned, the plan is saved with the run and applied in
+  order through the normal write path (validation, events, search).
+- A crash or retry continues the saved plan and never runs the script twice.
+  Created items get ids derived from the step, so repeating a create creates
+  nothing.
+- A write that fails stops the node there; a retry continues from it.
+
+**Failures.** A failed `items` call fails the node even when the script does
+not await it or catches it: the plan would be incomplete. A failed script
+writes nothing and continues on the `error` port (its message has the script
+line, e.g. `boom (line 2)`).
+
+**Limits** (server settings `Workflows:Scripts`):
+- 2 seconds, 32 MB, 1,000,000 statements, recursion depth 100;
+- 200 reads and 1000 writes per run of the node;
+- 50,000 characters of code.
+
+**The same API in the SDK.** The TypeScript SDK (`@paperdotnet/client`)
+defines this API with its types (`ScriptGlobals`; `scriptDeclarations` for
+editors). `runWorkflowScript(client, { workspaceId, code, item, vars, apply })`
+runs a script in Node against a real server, as the caller and without a
+sandbox, to write and test it (`apply: false` only plans the writes). Shared
+contract tests (`sdk/typescript/test/scripts.test.mjs`) run every case on both
+and expect the same result, variables, log, errors and writes.
 
 The web editor edits steps; flows are edited in its JSON view for now.
 
@@ -225,7 +296,9 @@ The web editor edits steps; flows are edited in its JSON view for now.
 
 | Action | Inputs |
 |---|---|
-| `item.update` | `fields`: values to set; text may contain tokens (a single token keeps its type, see below) |
+| `item.update` | `fields`: values to set; text may contain tokens (a single token keeps its type, see below). With `list` and `id`, another item |
+| `item.get` | `list`, `id`: the item's fields (and `id`) as output |
+| `items.query` | `list`, `filter` (OData, with tokens), `top`: output `items` |
 | `item.create` | `list` (by name), `fields` (as `item.update`), `contentType`; output `itemId`. Safe to repeat: the item's id is the step's execution id |
 | `item.delete` | `list`, `id` (e.g. `{var:line.id}`): to the recycle bin; an item already gone is not an error |
 | `item.file` | `folder`: path template (each level becomes a folder; missing ones are created); `title`: new title |
@@ -240,6 +313,8 @@ The web editor edits steps; flows are edited in its JSON view for now.
 **Tokens** in text inputs:
 
 - `{title}`, `{fieldName}`, `{fieldName:format}` (dates and numbers);
+  `{item:fieldName}` is always the item's field, even one called `id` or
+  `list`;
 - `{created:yyyy}`, `{modified}`, `{today:yyyy-MM-dd}`;
 - `{list}`, `{id}`;
 - `{outcome:Step}` (approval outcomes);

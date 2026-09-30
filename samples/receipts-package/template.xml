@@ -4,7 +4,7 @@
   Upload a photo or a PDF of a receipt to the library "Receipts" and tag it "ticket" (or a tag below it, such as
   "Groceries"): the next batch reads the store, the date, the currency, the total and every line, and fills the receipt
   and the list "Receipt lines".
-  No code: the workflows map the AI's answer to the fields and the lines with item.update, forEach and item.create.
+  No code in the server: the workflows save the AI's answer with a script step (JavaScript in the workflow's JSON).
   Needs a chat model that reads images (AI:Chat), ideally with a batch API (AI:Batch). See README.md.
 -->
 <Template xmlns="urn:paperdotnet:template:1" SchemaVersion="1.0" Scope="Tenant" Name="Receipts">
@@ -62,6 +62,7 @@
               "Receipts/Tags/{parameter:Tag}"
             ]
           },
+          "concurrency": "replace",
           "flow": {
             "start": "read",
             "nodes": {
@@ -138,72 +139,23 @@
                 }
               },
               "save": {
-                "activity": "item.update",
+                "activity": "script",
                 "inputs": {
-                  "fields": {
-                    "store": "{step:read.json.store}",
-                    "purchaseDate": "{step:read.json.date}",
-                    "currency": "{step:read.json.currency}",
-                    "total": "{step:read.json.total}",
-                    "status": "Read"
-                  }
+                  "code": [
+                    "const receipt = steps.read.json;",
+                    "await items.update(item.list, item.id, { store: receipt.store, purchaseDate: receipt.date, currency: receipt.currency, total: receipt.total, status: 'Read' });",
+                    "// Reading again replaces the lines of an earlier reading.",
+                    "for (const old of await items.query('Receipt lines', { filter: `fields/receipt eq ${item.id}`, top: 1000 })) {",
+                    "  await items.delete('Receipt lines', old.id);",
+                    "}",
+                    "for (const line of receipt.lines) {",
+                    "  await items.create('Receipt lines', { title: line.description, quantity: line.quantity, unitPrice: line.unitPrice ?? null, amount: line.amount, receipt: item.id });",
+                    "}",
+                    "log(`${receipt.store}: ${receipt.lines.length} lines`);",
+                    "return { lines: receipt.lines.length };"
+                  ]
                 },
                 "next": {
-                  "done": "old lines",
-                  "error": "review"
-                }
-              },
-              "old lines": {
-                "activity": "forEach",
-                "inputs": {
-                  "query": {
-                    "list": "Receipt lines",
-                    "filter": "fields/receipt eq {id}"
-                  },
-                  "as": "old"
-                },
-                "next": {
-                  "item": "remove",
-                  "done": "lines",
-                  "error": "review"
-                }
-              },
-              "remove": {
-                "activity": "item.delete",
-                "inputs": {
-                  "list": "Receipt lines",
-                  "id": "{var:old.id}"
-                },
-                "next": {
-                  "done": "old lines",
-                  "error": "review"
-                }
-              },
-              "lines": {
-                "activity": "forEach",
-                "inputs": {
-                  "items": "{step:read.json.lines}",
-                  "as": "line"
-                },
-                "next": {
-                  "item": "add",
-                  "error": "review"
-                }
-              },
-              "add": {
-                "activity": "item.create",
-                "inputs": {
-                  "list": "Receipt lines",
-                  "fields": {
-                    "title": "{var:line.description}",
-                    "quantity": "{var:line.quantity}",
-                    "unitPrice": "{var:line.unitPrice}",
-                    "amount": "{var:line.amount}",
-                    "receipt": "{id}"
-                  }
-                },
-                "next": {
-                  "done": "lines",
                   "error": "review"
                 }
               },
@@ -226,6 +178,7 @@
               "Receipts/Tags/{parameter:Tag}"
             ]
           },
+          "concurrency": "replace",
           "flow": {
             "start": "read",
             "nodes": {
@@ -302,72 +255,23 @@
                 }
               },
               "save": {
-                "activity": "item.update",
+                "activity": "script",
                 "inputs": {
-                  "fields": {
-                    "store": "{step:read.json.store}",
-                    "purchaseDate": "{step:read.json.date}",
-                    "currency": "{step:read.json.currency}",
-                    "total": "{step:read.json.total}",
-                    "status": "Read"
-                  }
+                  "code": [
+                    "const receipt = steps.read.json;",
+                    "await items.update(item.list, item.id, { store: receipt.store, purchaseDate: receipt.date, currency: receipt.currency, total: receipt.total, status: 'Read' });",
+                    "// Reading again replaces the lines of an earlier reading.",
+                    "for (const old of await items.query('Receipt lines', { filter: `fields/receipt eq ${item.id}`, top: 1000 })) {",
+                    "  await items.delete('Receipt lines', old.id);",
+                    "}",
+                    "for (const line of receipt.lines) {",
+                    "  await items.create('Receipt lines', { title: line.description, quantity: line.quantity, unitPrice: line.unitPrice ?? null, amount: line.amount, receipt: item.id });",
+                    "}",
+                    "log(`${receipt.store}: ${receipt.lines.length} lines`);",
+                    "return { lines: receipt.lines.length };"
+                  ]
                 },
                 "next": {
-                  "done": "old lines",
-                  "error": "review"
-                }
-              },
-              "old lines": {
-                "activity": "forEach",
-                "inputs": {
-                  "query": {
-                    "list": "Receipt lines",
-                    "filter": "fields/receipt eq {id}"
-                  },
-                  "as": "old"
-                },
-                "next": {
-                  "item": "remove",
-                  "done": "lines",
-                  "error": "review"
-                }
-              },
-              "remove": {
-                "activity": "item.delete",
-                "inputs": {
-                  "list": "Receipt lines",
-                  "id": "{var:old.id}"
-                },
-                "next": {
-                  "done": "old lines",
-                  "error": "review"
-                }
-              },
-              "lines": {
-                "activity": "forEach",
-                "inputs": {
-                  "items": "{step:read.json.lines}",
-                  "as": "line"
-                },
-                "next": {
-                  "item": "add",
-                  "error": "review"
-                }
-              },
-              "add": {
-                "activity": "item.create",
-                "inputs": {
-                  "list": "Receipt lines",
-                  "fields": {
-                    "title": "{var:line.description}",
-                    "quantity": "{var:line.quantity}",
-                    "unitPrice": "{var:line.unitPrice}",
-                    "amount": "{var:line.amount}",
-                    "receipt": "{id}"
-                  }
-                },
-                "next": {
-                  "done": "lines",
                   "error": "review"
                 }
               },

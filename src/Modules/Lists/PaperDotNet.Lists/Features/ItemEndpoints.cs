@@ -5,15 +5,17 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Querying;
+using PaperDotNet.Persistence;
 using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
-/// <summary>Create body: <c>{ "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }</c>.</summary>
-public sealed record CreateItemRequest(Guid? ContentTypeId, Guid? ParentId, bool IsFolder, JsonObject? Fields);
+/// <summary>Create body: <c>{ "id"?, "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }</c>. With <c>id</c> the client chooses the item's id, so repeating a create is safe (the item it made is returned unchanged, 200).</summary>
+public sealed record CreateItemRequest(Guid? ContentTypeId, Guid? ParentId, bool IsFolder, JsonObject? Fields, Guid? Id = null);
 
 /// <summary>
 /// PATCH body (documented shape; the handler reads raw JSON to tell a missing <c>parentId</c> from null): <c>fields</c>
@@ -99,8 +101,8 @@ internal static class ItemEndpoints
         return TypedResults.Ok(ItemResponse.From(item));
     }
 
-    private static async Task<Results<Created<ItemResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
-        Guid workspaceId, Guid listId, CreateItemRequest request, ListSchemaLoader loader, ItemWriter writer,
+    private static async Task<Results<Created<ItemResponse>, Ok<ItemResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
+        Guid workspaceId, Guid listId, CreateItemRequest request, ListSchemaLoader loader, ListsDbContext db, ItemWriter writer,
         HttpResponse response, CancellationToken ct)
     {
         var schema = await loader.LoadAsync(workspaceId, listId, ct);
@@ -109,7 +111,39 @@ internal static class ItemEndpoints
             return ApiErrors.NotFound();
         }
 
-        var result = await writer.CreateAsync(schema, request.ContentTypeId, request.ParentId, request.IsFolder, request.Fields is null ? null : JsonSerializer.SerializeToElement(request.Fields), ct);
+        if (request.Id is { } id)
+        {
+            if (id == Guid.Empty)
+            {
+                return ApiErrors.Validation(new Dictionary<string, string[]> { ["id"] = ["The id cannot be empty."] });
+            }
+
+            // A repeated create answers with the item it made; any other item with this id (also a deleted one) is a conflict.
+            var existing = await db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete]).AsNoTracking().FirstOrDefaultAsync(i => i.Id == id, ct);
+            if (existing is not null)
+            {
+                if (existing.ListId != listId || existing.DeletedAt is not null || schema.Access.Level(existing.ScopeId) < WorkspaceAccessLevel.Read)
+                {
+                    return ApiErrors.Conflict("idTaken", "An item with this id exists in another list or was deleted.");
+                }
+
+                ETags.Set(response, existing.Version);
+                return TypedResults.Ok(ItemResponse.From(existing));
+            }
+        }
+
+        var values = request.Fields is null ? (JsonElement?)null : JsonSerializer.SerializeToElement(request.Fields);
+        ItemWriteResult result;
+        try
+        {
+            result = await writer.CreateAsync(schema, request.ContentTypeId, request.ParentId, request.IsFolder, values, request.Id ?? Ids.New(), ct);
+        }
+        catch (DbUpdateException) when (request.Id is not null)
+        {
+            // The id is used by an item this tenant cannot see.
+            return ApiErrors.Conflict("idTaken", "An item with this id exists in another list or was deleted.");
+        }
+
         if (result.Forbidden)
         {
             return ListEndpoints.Forbidden();

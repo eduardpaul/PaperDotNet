@@ -21,14 +21,9 @@ export, and change:
 - the workflows.
 
 The workflows cover the AI part too: the prompt, the JSON schema of the answer,
-batch execution and images. They also map the answer into the lists:
-- `item.update` writes the fields;
-- `forEach` with `item.create` makes the lines;
-- `forEach` over a query with `item.delete` removes the lines of an earlier
-  reading.
-
-A value such as `"total": "{step:read.json.total}"` keeps its type (a number
-for a number field), so no conversion code is needed.
+batch execution and images. A script node of about ten lines of JavaScript,
+inside the workflow's JSON, saves the answer into the lists. It runs in the
+server's sandbox, so the package needs no extension.
 
 ## What the template contains
 
@@ -53,17 +48,21 @@ Both reading workflows run the same flow:
    With `execution: batch` the step waits for the AI batch (the run holds no
    server while it waits). With `onDeadline: fail` it never falls back to an
    immediate call.
-2. `save` (`item.update`): writes the store, date, currency and total from
-   `{step:read.json.…}`, and sets the status to *Read*.
-3. `old lines` (`forEach` over a query of *Receipt lines* where `receipt` is
-   this receipt) with `remove` (`item.delete`): removes the lines of an
-   earlier reading. The receipt can be read again by tagging it again.
-4. `lines` (`forEach` over `{step:read.json.lines}` as `line`) with `add`
-   (`item.create`): one item per line, with `{var:line.description}`,
-   `{var:line.quantity}`, `{var:line.unitPrice}`, `{var:line.amount}`, and the
-   receipt as its lookup (`{id}`).
-5. On an error in any step, `review` (`item.update`) sets the status to
+2. `save` (`script`): reads the answer from `steps.read.json`, then:
+   - writes the store, date, currency and total, and sets the status to *Read*;
+   - removes the lines of an earlier reading (the receipt can be read again
+     by tagging it again);
+   - creates one item in *Receipt lines* per line, with the receipt as its
+     lookup.
+
+   The writes are applied after the script, safely: a retry never creates a
+   line twice.
+3. On an error in any step, `review` (`item.update`) sets the status to
    *Needs review*.
+
+With `"concurrency": "replace"`, tagging a receipt again while it waits for
+the batch replaces the waiting run. The script can be tried outside the
+workflow with `runWorkflowScript` from the TypeScript SDK.
 
 ## Try it
 
@@ -114,5 +113,8 @@ Both reading workflows run the same flow:
   - runs the batch window;
   - checks the fields, the lines and the images sent;
   - tags the receipt again, and checks that the lines are replaced.
+- The workflow script contract tests
+  ([scripts.test.mjs](../../sdk/typescript/test/scripts.test.mjs)) run the
+  same script API on the server and in the SDK.
 - [OpenAiBatchClientTests](../../tests/PaperDotNet.UnitTests/OpenAiBatchClientTests.cs)
   checks the requests the batch client sends and how it reads the answers.

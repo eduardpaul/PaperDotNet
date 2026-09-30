@@ -38,14 +38,14 @@ Trusted C# already has a place: extensions, compiled into the host (ADR-0014).
 A flow activity `script` runs JavaScript (ECMAScript 2023, strict mode) with Jint:
 
 - **Code:** `code`, a string or an array of lines. It is checked for syntax when the workflow is saved. It runs as
-  the body of a function, so `return` gives the node's `result`.
+  the body of an async function: `return` gives the node's `result`, and `items` calls are awaited, as with the SDK.
 - **What it sees** (JSON copies, no .NET objects):
   - `item`: the run's item (`id`, `list` and its fields), or null;
   - `vars`: the run's variables (changes are kept);
   - `steps`: the outputs of earlier nodes;
   - `trigger`: the trigger's data;
-  - `items`: the lists of the workspace, by name: `get(list, id)`, `query(list, filter, top)`,
-    `create(list, fields)`, `update(list, id, fields)` and `delete(list, id)`;
+  - `items`: the lists of the workspace, by name: `get(list, id)`, `query(list, { filter, orderBy, top })`,
+    `create(list, fields)`, `update(list, id, fields)` and `delete(list, id)`, each returning a promise;
   - `log(text)`: a line in the run's log.
 - **Writes are planned, then applied.**
   - Reads go to the database right away. `create`, `update` and `delete` only add to a plan, and `create` returns
@@ -56,10 +56,32 @@ A flow activity `script` runs JavaScript (ECMAScript 2023, strict mode) with Jin
     run the script again, so a script is never run twice for one execution.
   - Not all-or-nothing: Lists saves each item on its own. A failing write stops the step there (retry continues from
     it). A write batch in Lists can come later without changing scripts.
+  - A failed `items` call fails the step even when the script does not await it or catches it, because the plan would
+    be incomplete. A failed script writes nothing.
 - **Limits** (server settings `Workflows:Scripts`): 2 seconds, 32 MB, 1,000,000 statements, recursion depth 100,
   200 reads and 1000 writes per run of the step, and 50,000 characters of code. JavaScript has no access to .NET,
   files, the network or timers.
 - **Ports:** `done` and `error`. Output: `result`, and `created`, `updated` and `deleted`.
+
+### The contract lives in the SDK
+
+Script authors should learn one API, with types, and be able to run a script outside a workflow. Running the generated
+SDK inside the sandbox is not the way:
+- it is megabytes of code for every run;
+- it needs `fetch`, timers and a token;
+- it writes at once, which loses the plan.
+
+A full JavaScript engine (V8) would be a native dependency on every platform. So:
+
+- `@paperdotnet/client` defines the contract with the SDK's types: `ScriptGlobals`, `ScriptItems`, `ScriptWrite`,
+  `scriptLimits`, and `scriptDeclarations` (the globals as TypeScript declarations, for code editors).
+- `runWorkflowScript(client, options)` runs the same contract in Node on the real client: reads through the API, writes
+  planned and then applied by `applyScriptPlan`. It runs with the caller's rights and no sandbox; it is for writing and
+  testing scripts (`apply: false` is a dry run). Workflows run their scripts on the server.
+- Creates in a plan carry their id. The items API takes an optional `id` on create for this: repeating the create returns
+  the item it made (200), and an id used by another item is a conflict (409). Applying a plan again continues it.
+- The server keeps its Jint implementation of the contract. Shared contract tests (`sdk/typescript/test/scripts.test.mjs`)
+  run every case with both and expect the same result, variables, log, errors and writes.
 
 ### Fixes to the flow language
 
@@ -87,7 +109,9 @@ A flow activity `script` runs JavaScript (ECMAScript 2023, strict mode) with Jin
 
 ## Consequences
 
-- The receipts package reads a receipt with `ai.prompt` and saves it with one `script` node of about 10 lines.
+- The receipts package reads a receipt with `ai.prompt` and saves it with one `script` node of about 10 lines, with
+  `"concurrency": "replace"`.
+- The script API changes only together with the SDK, and the contract tests keep both implementations the same.
 - Jint (BSD-2-Clause) and its parser Acornima (BSD-3-Clause) are new dependencies, allowed with notice.
 - Scripts are data in the definition: they are versioned with the workflow, travel in templates and are checked in
   dry runs like the rest of the flow.

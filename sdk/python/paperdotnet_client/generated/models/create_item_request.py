@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 @dataclass
 class CreateItemRequest(AdditionalDataHolder, Parsable):
     """
-    Create body: `{ "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }`.
+    Create body: `{ "id"?, "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }`. With `id` the client chooses the item's id, so repeating a create is safe (the item it made is returned unchanged, 200).
     """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
@@ -20,6 +20,8 @@ class CreateItemRequest(AdditionalDataHolder, Parsable):
     content_type_id: Optional[UUID] = None
     # The fields property
     fields: Optional[JsonObject] = None
+    # The id property
+    id: Optional[UUID] = None
     # The isFolder property
     is_folder: Optional[bool] = None
     # The parentId property
@@ -48,6 +50,7 @@ class CreateItemRequest(AdditionalDataHolder, Parsable):
         fields: dict[str, Callable[[Any], None]] = {
             "contentTypeId": lambda n : setattr(self, 'content_type_id', n.get_uuid_value()),
             "fields": lambda n : setattr(self, 'fields', n.get_object_value(JsonObject)),
+            "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "isFolder": lambda n : setattr(self, 'is_folder', n.get_bool_value()),
             "parentId": lambda n : setattr(self, 'parent_id', n.get_uuid_value()),
         }
@@ -63,6 +66,7 @@ class CreateItemRequest(AdditionalDataHolder, Parsable):
             raise TypeError("writer cannot be null.")
         writer.write_uuid_value("contentTypeId", self.content_type_id)
         writer.write_object_value("fields", self.fields)
+        writer.write_uuid_value("id", self.id)
         writer.write_bool_value("isFolder", self.is_folder)
         writer.write_uuid_value("parentId", self.parent_id)
         writer.write_additional_data_value(self.additional_data)

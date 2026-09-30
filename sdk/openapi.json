@@ -5184,6 +5184,16 @@
               }
             }
           },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemResponse"
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad Request",
             "content": {
@@ -16701,9 +16711,16 @@
                 "$ref": "#/components/schemas/JsonObject"
               }
             ]
+          },
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         },
-        "description": "Create body: \u0060{ \u0022contentTypeId\u0022?, \u0022parentId\u0022?, \u0022isFolder\u0022?, \u0022fields\u0022: { \u0022title\u0022: \u2026, \u2026 } }\u0060."
+        "description": "Create body: \u0060{ \u0022id\u0022?, \u0022contentTypeId\u0022?, \u0022parentId\u0022?, \u0022isFolder\u0022?, \u0022fields\u0022: { \u0022title\u0022: \u2026, \u2026 } }\u0060. With \u0060id\u0060 the client chooses the item\u0027s id, so repeating a create is safe (the item it made is returned unchanged, 200)."
       },
       "CreateListRequest": {
         "required": [

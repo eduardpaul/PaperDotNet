@@ -125,6 +125,31 @@ subscription.close();
 const done = await waitForOperation(client, operationId, { onProgress: (o) => progress(o.percentComplete) });
 ```
 
+### Workflow scripts
+
+The API of a workflow's `script` node ([docs/workflows.md](../docs/workflows.md#scripts),
+ADR-0037) is part of this package: `ScriptGlobals` and `ScriptItems` type it,
+and `scriptDeclarations` gives editors its globals. `runWorkflowScript` runs a
+script against a real server, to write and test it before it goes into a
+workflow:
+
+```ts
+import { runWorkflowScript } from '@paperdotnet/client';
+
+const run = await runWorkflowScript(client, {
+  workspaceId,
+  item: { list: 'Receipts', id: receiptId },
+  steps: { read: { json: answer } },
+  code: await readFile('save-receipt.js', 'utf8'),
+  apply: false,                  // plan the writes only (a dry run)
+});
+console.log(run.result, run.plan, run.log);
+```
+
+It runs as the signed-in user, without the server's sandbox. Workflows run
+their scripts on the server, with the same API and limits. The contract tests
+in `test/scripts.test.mjs` run every case on both.
+
 ### Hosting the UI
 
 - **Recommended:** serve it from the same origin as the API, or use a
