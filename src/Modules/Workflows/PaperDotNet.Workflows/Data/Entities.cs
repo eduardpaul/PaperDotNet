@@ -12,6 +12,9 @@ public class WorkflowDefinition : ITenantOwned, IVersioned, IAuditable
 
     public Guid TenantId { get; set; }
 
+    /// <summary>The workspace whose lists the workflow reacts to and changes.</summary>
+    public Guid WorkspaceId { get; set; }
+
     public string Name { get; set; } = "";
 
     public string? Description { get; set; }
@@ -68,6 +71,8 @@ public class WorkflowRun : ITenantOwned, IVersioned
     public Guid Id { get; set; }
 
     public Guid TenantId { get; set; }
+
+    public Guid WorkspaceId { get; set; }
 
     public Guid WorkflowId { get; set; }
 

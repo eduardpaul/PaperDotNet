@@ -1,7 +1,7 @@
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using PaperDotNet.Abstractions;
 using PaperDotNet.Persistence.Sqlite;
 
 namespace PaperDotNet.Identity.Data;
@@ -45,7 +45,7 @@ public class IdentityDbContext : DbContext
         var tenants = ChangeTracker.Entries()
             .Where(e => e.Entity is User or Group or GroupMember or GroupNesting or Role or RoleAssignment or ApiToken
                         && e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
-            .Select(e => ((PaperDotNet.Abstractions.ITenantOwned)e.Entity).TenantId)
+            .Select(e => ((ITenantOwned)e.Entity).TenantId)
             .ToHashSet();
         await UpdateGroupClosureAsync(cancellationToken);
         var saved = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
@@ -75,8 +75,8 @@ public class IdentityDbContext : DbContext
         }
 
         var context = this;
-        var tenant = ((PaperDotNet.Abstractions.ITenantOwned)changes[0].Entity).TenantId;
-        if (tenant == Guid.Empty || changes.Any(c => ((PaperDotNet.Abstractions.ITenantOwned)c.Entity).TenantId != tenant))
+        var tenant = ((ITenantOwned)changes[0].Entity).TenantId;
+        if (tenant == Guid.Empty || changes.Any(c => ((ITenantOwned)c.Entity).TenantId != tenant))
         {
             throw new InvalidOperationException("Group changes must name their tenant, one tenant per save.");
         }
@@ -204,20 +204,6 @@ public class IdentityDbContext : DbContext
             preferences.Property(p => p.DocumentLanguages).HasMaxLength(100);
         });
     }
-}
-
-/// <summary>
-/// A counter per tenant that changes whenever users, groups, roles or tokens change: caches of what a user may do
-/// (effective scopes) include it in their keys, so a change applies to the next request on this server. Other
-/// servers catch up when their cache entries expire.
-/// </summary>
-public static class AccessGeneration
-{
-    private static readonly ConcurrentDictionary<Guid, long> Generations = new();
-
-    public static long Current(Guid tenantId) => Generations.GetValueOrDefault(tenantId);
-
-    public static void Next(Guid tenantId) => Generations.AddOrUpdate(tenantId, 1, (_, value) => value + 1);
 }
 
 /// <summary>For the EF Core tools: the compiled model, precompiled queries and migrations.</summary>

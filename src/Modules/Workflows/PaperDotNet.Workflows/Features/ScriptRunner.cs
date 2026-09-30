@@ -7,6 +7,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Microsoft.Extensions.Options;
+using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
 using JintJsonParser = Jint.Native.Json.JsonParser;
@@ -47,7 +48,7 @@ internal sealed record ScriptOutcome(JsonNode? Result, JsonObject Variables, Jso
 /// <see cref="JsValue"/>s and values cross as JSON, so none of Jint's reflection-based .NET interop is used.
 /// </para>
 /// </summary>
-public sealed partial class ScriptRunner(IListItemStore items, IOptions<WorkflowScriptOptions> options)
+public sealed partial class ScriptRunner(WorkflowItems items, IOptions<WorkflowScriptOptions> options)
 {
     // The script is the body of an async function on the first line, so `return` and `await` work and line numbers stay.
     private const string Prefix = "(async function () {";
@@ -97,9 +98,10 @@ public sealed partial class ScriptRunner(IListItemStore items, IOptions<Workflow
         }
     }
 
-    internal ScriptOutcome Run(string code, Guid tenantId, Guid executionId, ScopeItem? item, string? itemList, JsonObject outputs, JsonObject variables, JsonObject? data, CancellationToken ct)
+    internal ScriptOutcome Run(string code, Guid tenantId, Guid workspaceId, Guid executionId, ScopeItem? item, string? itemList, JsonObject outputs, JsonObject variables, JsonObject? data, CancellationToken ct)
     {
         var limits = options.Value;
+        var reader = new ChangeActor(tenantId, null);
         var lists = new Dictionary<string, ListData?>(StringComparer.Ordinal);
         var plan = new JsonArray();
         var log = new List<string>();
@@ -133,7 +135,7 @@ public sealed partial class ScriptRunner(IListItemStore items, IOptions<Workflow
             var listName = name.IsString() ? name.AsString() : throw Error("The list must be given by name.");
             if (!lists.TryGetValue(listName, out var list))
             {
-                list = items.FindListByNameAsync(tenantId, listName, ct).GetAwaiter().GetResult();
+                list = items.FindListByNameAsync(reader, workspaceId, listName, ct).GetAwaiter().GetResult();
                 lists[listName] = list;
             }
 
@@ -161,7 +163,7 @@ public sealed partial class ScriptRunner(IListItemStore items, IOptions<Workflow
         {
             Read();
             var target = List(Arg(arguments, 0));
-            var found = items.GetAsync(tenantId, target.Id, Id(Arg(arguments, 1)), ct).GetAwaiter().GetResult();
+            var found = items.GetAsync(reader, workspaceId, target.Id, Id(Arg(arguments, 1)), ct).GetAwaiter().GetResult();
             return found is null ? JsValue.Null : ToJs(ItemJson(found.Id, found.Fields, target.Name));
         });
         Function("__items_query", arguments =>
@@ -181,7 +183,7 @@ public sealed partial class ScriptRunner(IListItemStore items, IOptions<Workflow
                 JsonValue value when value.TryGetValue<double>(out var number) => Math.Clamp((int)number, 1, PageRequest.MaxTop),
                 _ => throw Error("top must be a number."),
             };
-            var (found, error) = items.QueryAsync(tenantId, target.Id, Text("filter"), Text("orderBy"), top, null, ct).GetAwaiter().GetResult();
+            var (found, error) = items.QueryAsync(reader, workspaceId, target.Id, Text("filter"), Text("orderBy"), top, null, ct).GetAwaiter().GetResult();
             return error is not null
                 ? throw Error(error)
                 : ToJs(new JsonArray([.. found.Select(i => (JsonNode)ItemJson(i.Id, i.Fields, target.Name))]));

@@ -57,13 +57,14 @@ public sealed class AuthTests : IAsyncLifetime
     [Fact]
     public async Task Tokens_requested_with_scopes_are_limited_to_them()
     {
+        var workspace = await Api.CreateWorkspaceAsync(await _host.SignInAsync(), "Scoped");
         var client = _host.CreateClient();
         var tokens = await TestHost.RequestTokenAsync(client, new() { ["grant_type"] = "password", ["username"] = "admin", ["password"] = TestHost.AdminPassword, ["scope"] = "list.read offline_access" });
         Assert.Equal("list.read", tokens.GetProperty("scope").GetString());
         client.DefaultRequestHeaders.Authorization = new("Bearer", tokens.GetProperty("access_token").GetString());
 
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/v1.0/lists")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/v1.0/lists", new { name = "No" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/v1.0/workspaces/{workspace}/lists")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/v1.0/workspaces", new { name = "No" })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/v1.0/users")).StatusCode);
 
         var renewed = await TestHost.RequestTokenAsync(client, new() { ["grant_type"] = "refresh_token", ["refresh_token"] = tokens.GetProperty("refresh_token").GetString()! });
@@ -96,18 +97,20 @@ public sealed class AuthTests : IAsyncLifetime
         var tokenId = body.GetProperty("token").Id();
         Assert.StartsWith("pdn_", secret);
 
+        var workspace = await Api.CreateWorkspaceAsync(admin, "Scripts");
+        var lists = $"/v1.0/workspaces/{workspace}/lists";
         var script = _host.CreateClient();
         script.DefaultRequestHeaders.Authorization = new("Bearer", secret);
-        Assert.Equal(HttpStatusCode.OK, (await script.GetAsync("/v1.0/lists")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await script.PostAsJsonAsync("/v1.0/lists", new { name = "Nope" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await script.GetAsync(lists)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await script.PostAsJsonAsync("/v1.0/workspaces", new { name = "Nope" })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await script.PostAsJsonAsync("/v1.0/me/apiTokens", new { name = "more", scopes = new[] { "list.read" } })).StatusCode);
         Assert.Single((await (await admin.GetAsync("/v1.0/me/apiTokens")).JsonAsync(HttpStatusCode.OK)).EnumerateArray());
 
         Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/v1.0/me/apiTokens/{tokenId}")).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await script.GetAsync("/v1.0/lists")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await script.GetAsync(lists)).StatusCode);
         var forged = _host.CreateClient();
         forged.DefaultRequestHeaders.Authorization = new("Bearer", "pdn_forged-token-value");
-        Assert.Equal(HttpStatusCode.Unauthorized, (await forged.GetAsync("/v1.0/lists")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await forged.GetAsync(lists)).StatusCode);
     }
 
     [Fact]
@@ -127,7 +130,7 @@ public sealed class AuthTests : IAsyncLifetime
     [Fact]
     public async Task Requests_without_a_token_are_rejected()
     {
-        using var response = await _host.CreateClient().GetAsync("/v1.0/lists");
+        using var response = await _host.CreateClient().GetAsync("/v1.0/workspaces");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -146,11 +149,11 @@ public sealed class AuthTests : IAsyncLifetime
         Assert.Contains("list.write", scopes);
         Assert.DoesNotContain("user.manage", scopes);
 
-        Assert.Equal(HttpStatusCode.OK, (await member.GetAsync("/v1.0/lists")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await member.GetAsync("/v1.0/workspaces")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await member.GetAsync("/v1.0/users")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await member.PostAsJsonAsync("/v1.0/users", new { userName = "x", password = "Member-Pass-2" })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync("/v1.0/roles")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync("/v1.0/audit")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await member.PostAsJsonAsync("/v1.0/workflows", new { name = "x" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.PostAsJsonAsync("/v1.0/contentTypes", new { name = "x" })).StatusCode);
     }
 }

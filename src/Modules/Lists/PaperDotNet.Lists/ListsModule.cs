@@ -3,12 +3,16 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
+using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
 using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Lists;
 
-/// <summary>Lists and items (ADR-0039 slice of the lists engine: typed fields, OData queries, events).</summary>
+/// <summary>
+/// The lists engine: content types with typed fields, lists and libraries in workspaces, items and folders with OData
+/// queries, permission scopes (ADR-0035), mutators and events. <see cref="IListItemStore"/> for other modules.
+/// </summary>
 public sealed class ListsModule : IModule
 {
     public string Name => "Lists";
@@ -19,13 +23,26 @@ public sealed class ListsModule : IModule
     {
         services.AddModuleDbContext<ListsDbContext>();
         services.AddScopes(ListScopes.All);
+        services.AddMemoryCache();
+        foreach (var type in FieldTypeRegistry.BuiltIn())
+        {
+            services.AddSingleton(type);
+        }
+
+        services.AddSingleton<FieldTypeRegistry>();
+        services.AddScoped<ItemAccess>();
+        services.AddScoped<IPrincipalSet>(sp => sp.GetRequiredService<ItemAccess>());
+        services.AddScoped<ListSchemaLoader>();
+        services.AddScoped<ItemWriter>();
         services.AddScoped<IItemQueries, SqliteItemQueries>();
+        services.AddScoped<ItemQueryRunner>();
         services.AddScoped<ListItemStore>();
-        services.AddScoped<IListItemStore>(provider => provider.GetRequiredService<ListItemStore>());
+        services.AddScoped<IListItemStore>(sp => sp.GetRequiredService<ListItemStore>());
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        ContentTypeEndpoints.Map(endpoints);
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
     }

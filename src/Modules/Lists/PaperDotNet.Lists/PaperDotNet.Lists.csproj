@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Lists engine: lists with typed fields, items, OData-style item queries translated to SQL (ADR-0039). -->
+  <!-- Lists engine: content types, lists and libraries in workspaces, items and folders, OData queries translated to SQL (ADR-0039). -->
   <Import Project="..\..\AotModule.props" />
   <ItemGroup>
     <ProjectReference Include="..\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
+    <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Only the URI parser for $filter/$orderby, not ASP.NET Core OData. -->

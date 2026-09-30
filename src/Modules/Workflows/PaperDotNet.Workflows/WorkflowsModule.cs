@@ -26,6 +26,7 @@ public sealed class WorkflowsModule : IModule
         services.AddScopes(WorkflowScopes.All);
         services.Configure<WorkflowScriptOptions>(configuration.GetSection("Workflows:Scripts"));
         services.AddSingleton<TokenExpander>();
+        services.AddScoped<WorkflowItems>();
         services.AddScoped<ItemConditions>();
         services.AddScoped<ScriptRunner>();
         services.AddScoped<WorkflowStarter>();

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace PaperDotNet.Abstractions;
@@ -37,4 +38,18 @@ public static class ScopeServiceCollectionExtensions
 
         return services;
     }
+}
+
+/// <summary>
+/// A counter per tenant that changes whenever what users may access changes (users, groups, roles, API tokens,
+/// workspace memberships): caches of access (effective scopes, principals) include it in their keys, so a change
+/// applies to the next request on this server. Other servers catch up when their cache entries expire (a minute).
+/// </summary>
+public static class AccessGeneration
+{
+    private static readonly ConcurrentDictionary<Guid, long> Generations = new();
+
+    public static long Current(Guid tenantId) => Generations.GetValueOrDefault(tenantId);
+
+    public static void Next(Guid tenantId) => Generations.AddOrUpdate(tenantId, 1, (_, value) => value + 1);
 }

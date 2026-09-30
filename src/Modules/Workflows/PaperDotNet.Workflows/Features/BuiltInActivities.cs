@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Workflows.Features;
@@ -21,15 +20,15 @@ internal sealed class ItemCreateActivity : IWorkflowActivity
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
-        var items = context.Services.GetRequiredService<IListItemStore>();
+        var items = context.Services.GetRequiredService<WorkflowItems>();
         var listName = await context.ExpandAsync(DefinitionValidator.Text(context.Inputs, "list")!, cancellationToken);
-        if (await items.FindListByNameAsync(context.TenantId, listName, cancellationToken) is not { } list)
+        if (await items.FindListByNameAsync(context.Actor, context.WorkspaceId, listName, cancellationToken) is not { } list)
         {
             return WorkflowActivityResult.Fail($"The list '{listName}' does not exist.");
         }
 
         var fields = await context.ResolveObjectAsync((JsonObject)context.Inputs["fields"]!, cancellationToken);
-        var result = await items.CreateAsync(context.Actor, list.Id, context.ExecutionId, fields, cancellationToken);
+        var result = await items.CreateAsync(context.Actor, context.WorkspaceId, list.Id, context.ExecutionId, fields, cancellationToken);
         return result.Succeeded
             ? WorkflowActivityResult.Ok(new JsonObject { ["id"] = result.Item!.Id.ToString() })
             : WorkflowActivityResult.Fail(result.Describe());
@@ -50,13 +49,13 @@ internal sealed class ItemUpdateActivity : IWorkflowActivity
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
-        var items = context.Services.GetRequiredService<IListItemStore>();
+        var items = context.Services.GetRequiredService<WorkflowItems>();
         Guid listId, itemId;
         if (DefinitionValidator.Text(context.Inputs, "list") is { } listTemplate)
         {
             var listName = await context.ExpandAsync(listTemplate, cancellationToken);
             var id = await context.ExpandAsync(DefinitionValidator.Text(context.Inputs, "id") ?? "", cancellationToken);
-            if (await items.FindListByNameAsync(context.TenantId, listName, cancellationToken) is not { } list || !Guid.TryParse(id, out itemId))
+            if (await items.FindListByNameAsync(context.Actor, context.WorkspaceId, listName, cancellationToken) is not { } list || !Guid.TryParse(id, out itemId))
             {
                 return WorkflowActivityResult.Fail($"No item '{id}' in the list '{listName}'.");
             }
@@ -73,7 +72,7 @@ internal sealed class ItemUpdateActivity : IWorkflowActivity
         }
 
         var fields = await context.ResolveObjectAsync((JsonObject)context.Inputs["fields"]!, cancellationToken);
-        var result = await items.UpdateAsync(context.Actor, listId, itemId, fields, null, cancellationToken);
+        var result = await items.UpdateAsync(context.Actor, context.WorkspaceId, listId, itemId, fields, cancellationToken);
         return result.Succeeded ? WorkflowActivityResult.Ok(new JsonObject { ["id"] = itemId.ToString() }) : WorkflowActivityResult.Fail(result.Describe());
     }
 }

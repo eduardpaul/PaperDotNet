@@ -4,24 +4,32 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OData.Edm;
 using Microsoft.OData.UriParser;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
-using PaperDotNet.Lists.Fields;
 
 namespace PaperDotNet.Lists.Querying;
 
 /// <summary>
 /// Item queries on SQLite: the parsed OData tree becomes a parameterized SQL <c>WHERE</c>/<c>ORDER BY</c> over
-/// <c>list_items</c> (field values through <c>json_extract</c>). Values are always parameters; column names come from a
-/// fixed map and JSON paths from validated field names. Text comparisons follow SQLite (LIKE is ASCII case-insensitive).
-/// Storage forms match EF Core's SQLite mappings: GUIDs as upper-case text, <see cref="DateTimeOffset"/> columns as
-/// <c>yyyy-MM-dd HH:mm:ss.FFFFFFFzzz</c> in UTC, date-time field values in round-trip format (ADR-0039).
+/// <c>list_items</c> (field values through <c>json_extract</c>, multiple values through <c>json_each</c>). Values are
+/// always parameters; column names come from a fixed map and JSON paths from validated field names. Text comparisons
+/// follow SQLite (LIKE is ASCII case-insensitive). Storage forms match EF Core's SQLite mappings: GUID columns as
+/// upper-case text, <see cref="DateTimeOffset"/> columns as <c>yyyy-MM-dd HH:mm:ss.FFFFFFFzzz</c> in UTC; field values
+/// as <see cref="FieldFormats"/> writes them (ADR-0039).
 /// </summary>
 internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
 {
-    private const string Columns = "\"i\".\"Id\", \"i\".\"ListId\", \"i\".\"Title\", \"i\".\"Fields\", \"i\".\"CreatedAt\", \"i\".\"CreatedBy\", \"i\".\"UpdatedAt\", \"i\".\"UpdatedBy\", \"i\".\"Version\"";
+    private const string Columns =
+        "\"i\".\"Id\", \"i\".\"ListId\", \"i\".\"ContentTypeId\", \"i\".\"ParentId\", \"i\".\"IsFolder\", \"i\".\"ScopeId\", \"i\".\"Title\", \"i\".\"Fields\", "
+        + "\"i\".\"CreatedAt\", \"i\".\"CreatedBy\", \"i\".\"UpdatedAt\", \"i\".\"UpdatedBy\", \"i\".\"Version\", \"i\".\"HasUniquePermissions\"";
 
     public async Task<ItemQueryResult> QueryAsync(ItemQuery query, CancellationToken cancellationToken)
     {
+        if (query.ListIds.Count == 0 || query.Scopes is { Count: 0 })
+        {
+            return new ItemQueryResult([], query.Count ? 0 : null, false);
+        }
+
         var connection = db.Database.GetDbConnection();
         await db.Database.OpenConnectionAsync(cancellationToken);
         try
@@ -29,15 +37,29 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
             await using var command = connection.CreateCommand();
             var translator = new Translator(command);
             var where = new StringBuilder("\"i\".\"TenantId\" = ").Append(translator.Parameter(GuidText(query.TenantId)))
-                .Append(" AND \"i\".\"ListId\" = ").Append(translator.Parameter(GuidText(query.ListId)));
+                .Append(" AND \"i\".\"DeletedAt\" IS NULL AND \"i\".\"ListId\" IN (")
+                .Append(string.Join(", ", query.ListIds.Select(id => translator.Parameter(GuidText(id))))).Append(')');
+            if (query.Scopes is { } scopes)
+            {
+                where.Append(" AND \"i\".\"ScopeId\" IN (").Append(string.Join(", ", scopes.Select(id => translator.Parameter(GuidText(id))))).Append(')');
+            }
+
+            where.Append(query.Folders switch
+            {
+                FolderMode.ItemsOnly => " AND \"i\".\"IsFolder\" = 0",
+                FolderMode.Children when query.ParentId is { } parent => $" AND \"i\".\"ParentId\" = {translator.Parameter(GuidText(parent))}",
+                FolderMode.Children => " AND \"i\".\"ParentId\" IS NULL",
+                _ => "",
+            });
             if (query.ItemId is { } itemId)
             {
                 where.Append(" AND \"i\".\"Id\" = ").Append(translator.Parameter(GuidText(itemId)));
             }
 
-            if (query.Filter is not null)
+            foreach (var (clause, aliases) in query.Parsed.Filters)
             {
-                where.Append(" AND (").Append(translator.Predicate(query.Filter.Expression)).Append(')');
+                translator.Aliases = aliases;
+                where.Append(" AND (").Append(translator.Predicate(clause.Expression)).Append(')');
             }
 
             long? count = null;
@@ -48,26 +70,27 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
             }
 
             var sql = new StringBuilder($"SELECT {Columns} FROM \"list_items\" AS \"i\" WHERE ").Append(where);
-            if (query.OrderBy is null)
+            if (query.Parsed.OrderBy is null)
             {
                 // Keyset paging on the time-ordered id.
-                if (query.Page.After is { } after)
+                if (query.Cursor.After is { } after)
                 {
                     sql.Append(" AND \"i\".\"Id\" > ").Append(translator.Parameter(GuidText(after)));
                 }
 
-                sql.Append(" ORDER BY \"i\".\"Id\" LIMIT ").Append(translator.Parameter(query.Page.Top + 1));
+                sql.Append(" ORDER BY \"i\".\"Id\" LIMIT ").Append(translator.Parameter(query.Top + 1));
             }
             else
             {
+                translator.Aliases = query.Parsed.OrderAliases;
                 sql.Append(" ORDER BY ");
-                for (var clause = query.OrderBy; clause is not null; clause = clause.ThenBy)
+                for (var clause = query.Parsed.OrderBy; clause is not null; clause = clause.ThenBy)
                 {
                     sql.Append(translator.Operand(clause.Expression).Sql).Append(clause.Direction == OrderByDirection.Descending ? " DESC, " : ", ");
                 }
 
-                sql.Append("\"i\".\"Id\" LIMIT ").Append(translator.Parameter(query.Page.Top + 1))
-                    .Append(" OFFSET ").Append(translator.Parameter(query.Page.Offset));
+                sql.Append("\"i\".\"Id\" LIMIT ").Append(translator.Parameter(query.Top + 1))
+                    .Append(" OFFSET ").Append(translator.Parameter(query.Cursor.Offset));
             }
 
             command.CommandText = sql.ToString();
@@ -75,10 +98,16 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
-                items.Add(Read(reader));
+                items.Add(Read(reader, query.TenantId));
             }
 
-            return new ItemQueryResult(items, count);
+            var hasMore = items.Count > query.Top;
+            if (hasMore)
+            {
+                items.RemoveAt(items.Count - 1);
+            }
+
+            return new ItemQueryResult(items, count, hasMore);
         }
         finally
         {
@@ -86,17 +115,23 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
         }
     }
 
-    private static ListItem Read(DbDataReader reader) => new()
+    private static ListItem Read(DbDataReader reader, Guid tenantId) => new()
     {
         Id = Guid.Parse(reader.GetString(0)),
+        TenantId = tenantId,
         ListId = Guid.Parse(reader.GetString(1)),
-        Title = reader.GetString(2),
-        Fields = reader.GetString(3),
-        CreatedAt = DateTimeOffset.Parse(reader.GetString(4), CultureInfo.InvariantCulture),
-        CreatedBy = reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
-        UpdatedAt = DateTimeOffset.Parse(reader.GetString(6), CultureInfo.InvariantCulture),
-        UpdatedBy = reader.IsDBNull(7) ? null : Guid.Parse(reader.GetString(7)),
-        Version = checked((uint)reader.GetInt64(8)),
+        ContentTypeId = Guid.Parse(reader.GetString(2)),
+        ParentId = reader.IsDBNull(3) ? null : Guid.Parse(reader.GetString(3)),
+        IsFolder = reader.GetInt64(4) != 0,
+        ScopeId = Guid.Parse(reader.GetString(5)),
+        Title = reader.GetString(6),
+        Fields = reader.GetString(7),
+        CreatedAt = DateTimeOffset.Parse(reader.GetString(8), CultureInfo.InvariantCulture),
+        CreatedBy = reader.IsDBNull(9) ? null : Guid.Parse(reader.GetString(9)),
+        UpdatedAt = DateTimeOffset.Parse(reader.GetString(10), CultureInfo.InvariantCulture),
+        UpdatedBy = reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)),
+        Version = checked((uint)reader.GetInt64(12)),
+        HasUniquePermissions = reader.GetInt64(13) != 0,
     };
 
     /// <summary>EF Core's SQLite form of a GUID.</summary>
@@ -113,7 +148,9 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
         Boolean,
         GuidColumn,
         TimestampColumn,
+        FieldDate,
         FieldDateTime,
+        FieldIdentifier,
     }
 
     private readonly record struct Operand(string Sql, OperandKind Kind);
@@ -123,11 +160,20 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
         private static readonly Dictionary<string, Operand> ItemColumns = new(StringComparer.Ordinal)
         {
             ["id"] = new("\"i\".\"Id\"", OperandKind.GuidColumn),
+            ["contentTypeId"] = new("\"i\".\"ContentTypeId\"", OperandKind.GuidColumn),
+            ["parentId"] = new("\"i\".\"ParentId\"", OperandKind.GuidColumn),
+            ["isFolder"] = new("\"i\".\"IsFolder\"", OperandKind.Boolean),
             ["createdAt"] = new("\"i\".\"CreatedAt\"", OperandKind.TimestampColumn),
             ["updatedAt"] = new("\"i\".\"UpdatedAt\"", OperandKind.TimestampColumn),
             ["createdBy"] = new("\"i\".\"CreatedBy\"", OperandKind.GuidColumn),
             ["updatedBy"] = new("\"i\".\"UpdatedBy\"", OperandKind.GuidColumn),
         };
+
+        private readonly Dictionary<RangeVariable, Operand> _ranges = [];
+        private int _eachCount;
+
+        /// <summary>The parameter aliases of the clause being translated (<c>@me</c>, <c>@today</c>, …).</summary>
+        public IDictionary<string, QueryNode>? Aliases { get; set; }
 
         public string Parameter(object? value)
         {
@@ -146,40 +192,44 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
             UnaryOperatorNode { OperatorKind: UnaryOperatorKind.Not } not => $"(NOT {Predicate(not.Operand)})",
             SingleValueFunctionCallNode function => Function(function),
             InNode inNode => In(inNode),
-            SingleValuePropertyAccessNode property when Operand(property) is { Kind: OperandKind.Boolean } boolean => $"({boolean.Sql} = 1)",
+            AnyNode any => Any(any),
             ConstantNode { Value: bool value } => value ? "1 = 1" : "1 = 0",
+            var other when Operand(other) is { Kind: OperandKind.Boolean } boolean => $"({boolean.Sql} = 1)",
             var other => throw Unsupported(other),
         };
 
         public Operand Operand(QueryNode node)
         {
             node = Unwrap(node);
-            if (node is not SingleValuePropertyAccessNode property)
+            switch (node)
             {
-                throw Unsupported(node);
+                case SingleValueFunctionCallNode { Name: "tolower" or "toupper" } call when call.Parameters.Count() == 1:
+                    var inner = Operand(call.Parameters.First());
+                    return new($"{(call.Name == "tolower" ? "lower" : "upper")}({inner.Sql})", inner.Kind);
+                case NonResourceRangeVariableReferenceNode reference when _ranges.TryGetValue(reference.RangeVariable, out var element):
+                    return element;
+                case SingleValuePropertyAccessNode { Source: SingleComplexNode } field:
+                    return field.Property.Name == "title"
+                        ? new("\"i\".\"Title\"", OperandKind.Text)
+                        : new($"json_extract(\"i\".\"Fields\", {Parameter("$." + field.Property.Name)})", KindOf(field.Property.Type));
+                case SingleValuePropertyAccessNode property when ItemColumns.TryGetValue(property.Property.Name, out var column):
+                    return column;
+                default:
+                    throw Unsupported(node);
             }
-
-            var name = property.Property.Name;
-            if (property.Source is SingleComplexNode)
-            {
-                if (name == FieldValues.Title)
-                {
-                    return new("\"i\".\"Title\"", OperandKind.Text);
-                }
-
-                // The name was checked against the list's fields by the parser and matches FieldValues' name pattern.
-                var kind = property.Property.Type.PrimitiveKind() switch
-                {
-                    EdmPrimitiveTypeKind.Double => OperandKind.Number,
-                    EdmPrimitiveTypeKind.Boolean => OperandKind.Boolean,
-                    EdmPrimitiveTypeKind.DateTimeOffset => OperandKind.FieldDateTime,
-                    _ => OperandKind.Text,
-                };
-                return new($"json_extract(\"i\".\"Fields\", {Parameter("$." + name)})", kind);
-            }
-
-            return ItemColumns.TryGetValue(name, out var column) ? column : throw Unsupported(node);
         }
+
+        /// <summary>How a field's values are stored in the item JSON, from its EDM type (see <c>ItemEdmModel</c>).</summary>
+        private static OperandKind KindOf(IEdmTypeReference type) =>
+            (type.IsCollection() ? type.AsCollection().ElementType() : type).PrimitiveKind() switch
+            {
+                EdmPrimitiveTypeKind.Decimal => OperandKind.Number,
+                EdmPrimitiveTypeKind.Boolean => OperandKind.Boolean,
+                EdmPrimitiveTypeKind.Date => OperandKind.FieldDate,
+                EdmPrimitiveTypeKind.DateTimeOffset => OperandKind.FieldDateTime,
+                EdmPrimitiveTypeKind.Guid => OperandKind.FieldIdentifier,
+                _ => OperandKind.Text,
+            };
 
         private string Comparison(BinaryOperatorNode node)
         {
@@ -251,29 +301,69 @@ internal sealed class SqliteItemQueries(ListsDbContext db) : IItemQueries
                 throw Unsupported(node);
             }
 
-            if (values.Items.Count == 0)
+            var items = values.Items.Select(Unwrap).ToList();
+            return items.Count == 0
+                ? "1 = 0"
+                : $"{operand.Sql} IN ({string.Join(", ", items.Select(v => Parameter(Value(operand.Kind, v is ConstantNode constant ? constant.Value : throw Unsupported(v)))))})";
+        }
+
+        /// <summary><c>fields/tags/any(t: …)</c>: some value of a multi-value field matches (no body: it has a value).</summary>
+        private string Any(AnyNode node)
+        {
+            if (Unwrap(node.Source) is not CollectionPropertyAccessNode { Source: SingleComplexNode } collection)
             {
-                return "1 = 0";
+                throw Unsupported(node);
             }
 
-            return $"{operand.Sql} IN ({string.Join(", ", values.Items.Select(v => Parameter(Value(operand.Kind, ((ConstantNode)v).Value))))})";
+            var alias = $"\"j{_eachCount++}\"";
+            var from = $"json_each(\"i\".\"Fields\", {Parameter("$." + collection.Property.Name)}) AS {alias}";
+            if (node.Body is ConstantNode { Value: true } || node.CurrentRangeVariable is null)
+            {
+                return $"EXISTS (SELECT 1 FROM {from})";
+            }
+
+            _ranges[node.CurrentRangeVariable] = new($"{alias}.\"value\"", KindOf(collection.Property.Type));
+            return $"EXISTS (SELECT 1 FROM {from} WHERE {Predicate(node.Body)})";
         }
 
         private static object? Value(OperandKind kind, object? value) => (kind, value) switch
         {
             (_, null) => null,
             (OperandKind.GuidColumn, Guid guid) => GuidText(guid),
+            (OperandKind.FieldIdentifier, Guid guid) => FieldFormats.Identifier(guid),
             (OperandKind.TimestampColumn, DateTimeOffset date) => TimestampText(date),
-            (OperandKind.FieldDateTime, DateTimeOffset date) => FieldValues.StorageDateTime(date),
+            (OperandKind.FieldDateTime, DateTimeOffset date) => FieldFormats.DateTime(date),
+            (OperandKind.FieldDate, DateOnly date) => FieldFormats.Date(date),
+            (OperandKind.FieldDate, DateTimeOffset date) => FieldFormats.Date(DateOnly.FromDateTime(date.UtcDateTime)),
             (OperandKind.Number, IConvertible number) => Convert.ToDouble(number, CultureInfo.InvariantCulture),
             (OperandKind.Boolean, bool boolean) => boolean ? 1 : 0,
             (OperandKind.Text, string text) => text,
             _ => throw new NotSupportedException($"The value '{value}' does not fit the property."),
         };
 
-        private static QueryNode Unwrap(QueryNode node) => node is ConvertNode convert ? Unwrap(convert.Source) : node;
+        private QueryNode Unwrap(QueryNode node) => node switch
+        {
+            ConvertNode convert => Unwrap(convert.Source),
+            ParameterAliasNode alias when Aliases is not null && Aliases.TryGetValue(alias.Alias, out var value) && value is not null => Unwrap(value),
+            BinaryOperatorNode { OperatorKind: BinaryOperatorKind.Add or BinaryOperatorKind.Subtract } arithmetic
+                when Unwrap(arithmetic.Left) is ConstantNode left && Unwrap(arithmetic.Right) is ConstantNode right =>
+                new ConstantNode(Arithmetic(arithmetic, left.Value, right.Value)),
+            _ => node,
+        };
+
+        /// <summary>Date arithmetic on constants, e.g. <c>@today add duration'P30D'</c>, computed before the query runs.</summary>
+        private static object Arithmetic(BinaryOperatorNode node, object? left, object? right)
+        {
+            var sign = node.OperatorKind == BinaryOperatorKind.Add ? 1 : -1;
+            return (left, right) switch
+            {
+                (DateOnly date, TimeSpan duration) => date.AddDays(sign * (int)duration.TotalDays),
+                (DateTimeOffset date, TimeSpan duration) => date + (sign * duration),
+                _ => throw Unsupported(node),
+            };
+        }
 
         private static NotSupportedException Unsupported(QueryNode node) =>
-            new($"This query is not supported: {node.Kind}. Use comparisons, and/or/not, in, contains, startswith and endswith on fields.");
+            new($"This query is not supported: {node.Kind}. Use comparisons, and/or/not, in, any, contains, startswith, endswith, tolower and toupper on fields.");
     }
 }

@@ -7,12 +7,16 @@ public sealed class ItemTests : IAsyncLifetime
 {
     private readonly TestHost _host = new();
     private HttpClient _client = null!;
+    private string _workspace = "";
     private string _listId = "";
+
+    private string ItemsUri => Api.Items(_workspace, _listId);
 
     public async ValueTask InitializeAsync()
     {
         _client = await _host.SignInAsync();
-        _listId = (await Api.CreateListAsync(_client, "Invoices", new object[]
+        _workspace = await Api.CreateWorkspaceAsync(_client, "Finance");
+        _listId = (await Api.CreateListAsync(_client, _workspace, "Invoices", new object[]
         {
             new { name = "amount", type = "number" },
             new { name = "paid", type = "boolean" },
@@ -22,7 +26,7 @@ public sealed class ItemTests : IAsyncLifetime
         })).Id();
         for (var n = 1; n <= 5; n++)
         {
-            await Api.CreateItemAsync(_client, _listId, new Dictionary<string, object>
+            await Api.CreateItemAsync(_client, _workspace, _listId, new Dictionary<string, object>
             {
                 ["title"] = $"Invoice {n}",
                 ["amount"] = n * 10,
@@ -37,7 +41,7 @@ public sealed class ItemTests : IAsyncLifetime
 
     private async Task<(List<string> Titles, JsonElement Page)> QueryAsync(string query)
     {
-        var page = await (await _client.GetAsync($"/v1.0/lists/{_listId}/items?{query}")).JsonAsync(HttpStatusCode.OK);
+        var page = await (await _client.GetAsync($"{ItemsUri}?{query}")).JsonAsync(HttpStatusCode.OK);
         return ([.. page.GetProperty("value").EnumerateArray().Select(i => i.GetProperty("fields").GetProperty("title").GetString()!)], page);
     }
 
@@ -80,14 +84,14 @@ public sealed class ItemTests : IAsyncLifetime
     [InlineData("fields/amount add 1 eq 2")]
     public async Task Invalid_queries_are_bad_requests(string filter)
     {
-        using var response = await _client.GetAsync($"/v1.0/lists/{_listId}/items?$filter={Uri.EscapeDataString(filter)}");
-        Assert.Equal("invalidQuery", (await response.JsonAsync(HttpStatusCode.BadRequest)).GetProperty("code").GetString());
+        using var response = await _client.GetAsync($"{ItemsUri}?$filter={Uri.EscapeDataString(filter)}");
+        Assert.True((await response.JsonAsync(HttpStatusCode.BadRequest)).GetProperty("errors").TryGetProperty("query", out _));
     }
 
     [Fact]
     public async Task Values_are_validated_and_normalized()
     {
-        using (var invalid = await _client.PostAsJsonAsync($"/v1.0/lists/{_listId}/items", new { fields = new { amount = "ten", status = "unknown", other = 1 } }))
+        using (var invalid = await _client.PostAsJsonAsync(ItemsUri, new { fields = new { amount = "ten", status = "unknown", other = 1 } }))
         {
             var errors = (await invalid.JsonAsync(HttpStatusCode.BadRequest)).GetProperty("errors");
             Assert.True(errors.TryGetProperty("fields.amount", out _));
@@ -96,16 +100,16 @@ public sealed class ItemTests : IAsyncLifetime
             Assert.True(errors.TryGetProperty("fields.title", out _));
         }
 
-        var item = await Api.CreateItemAsync(_client, _listId, new { title = "  Spaced  ", status = "open", due = "2026-01-01T01:00:00+01:00" });
+        var item = await Api.CreateItemAsync(_client, _workspace, _listId, new { title = "  Spaced  ", status = "open", due = "2026-01-01T01:00:00+01:00" });
         Assert.Equal("Spaced", item.GetProperty("fields").GetProperty("title").GetString());
-        Assert.Equal("2026-01-01T00:00:00.0000000+00:00", item.GetProperty("fields").GetProperty("due").GetString());
+        Assert.Equal("2026-01-01T00:00:00.0000000Z", item.GetProperty("fields").GetProperty("due").GetString());
     }
 
     [Fact]
     public async Task Items_change_with_etags_and_null_removes_a_value()
     {
-        var item = await Api.CreateItemAsync(_client, _listId, new { title = "Change me", status = "open", amount = 1 });
-        var uri = $"/v1.0/lists/{_listId}/items/{item.Id()}";
+        var item = await Api.CreateItemAsync(_client, _workspace, _listId, new { title = "Change me", status = "open", amount = 1 });
+        var uri = $"{ItemsUri}/{item.Id()}";
 
         using (var changed = await _client.SendAsync(Api.Patch(uri, new { fields = new Dictionary<string, object?> { ["amount"] = null, ["paid"] = true } }, item.ETag())))
         {
@@ -124,7 +128,12 @@ public sealed class ItemTests : IAsyncLifetime
             await stale.JsonAsync(HttpStatusCode.PreconditionFailed);
         }
 
-        using (var deleted = await _client.DeleteAsync(uri))
+        using (var noIfMatch = await _client.DeleteAsync(uri))
+        {
+            Assert.Equal(HttpStatusCode.PreconditionRequired, noIfMatch.StatusCode);
+        }
+
+        using (var deleted = await _client.SendAsync(Api.WithETag(HttpMethod.Delete, uri, null, "\"2\"")))
         {
             Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
         }
@@ -136,8 +145,8 @@ public sealed class ItemTests : IAsyncLifetime
     [Fact]
     public async Task Changes_reach_the_audit_log_through_the_outbox()
     {
-        var item = await Api.CreateItemAsync(_client, _listId, new { title = "Audited", status = "open" });
-        using (var changed = await _client.SendAsync(Api.Patch($"/v1.0/lists/{_listId}/items/{item.Id()}", new { fields = new { amount = 5 } }, item.ETag())))
+        var item = await Api.CreateItemAsync(_client, _workspace, _listId, new { title = "Audited", status = "open" });
+        using (var changed = await _client.SendAsync(Api.Patch($"{ItemsUri}/{item.Id()}", new { fields = new { amount = 5 } }, item.ETag())))
         {
             await changed.JsonAsync(HttpStatusCode.OK);
         }

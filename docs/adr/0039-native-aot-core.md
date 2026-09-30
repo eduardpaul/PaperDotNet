@@ -87,6 +87,9 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
   tree is translated to parameterized SQL (`IItemQueries`, `SqliteItemQueries` in the Lists module: the translator is
   specific to the item tables, so it stays with them). Values are always parameters; column names come from a fixed
   map, JSON paths from validated field names. Other modules query items through `IListItemStore` (Lists.Contracts).
+- **Lists live in workspaces** (`/v1.0/workspaces/{id}/lists/…`, workflows likewise). Access comes from the
+  workspace role through the list's `acl_entries` (role principals), checked per item scope; there is no
+  tenant-wide list any more.
 - **Schema:** each module's EF Core migrations live in `PaperDotNet.Migrations.Sqlite` (design time only).
   `eng/schema.sh` turns each one into SQL embedded in `PaperDotNet.Persistence.Sqlite` (`Schema/`), applied on start in
   order of migration id and recorded in `__EFMigrationsHistory` as EF Core would. The schema starts fresh: the ported
@@ -113,6 +116,10 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
   `JsonTypeInfo`), never `object` serialized by reflection.
 - **Soft delete is explicit too:** `ISoftDeletable` entities are moved to the recycle bin by `SaveChangesGuard` when
   removed (and purged when removed again); queries filter on `DeletedAt == null` like on the tenant.
+- **JSON options of a module's context do not apply over HTTP.** The host combines the modules' source-generated
+  contexts into the HTTP serializer options, and each type is serialized with those options, not the ones in the
+  context's `[JsonSourceGenerationOptions]`. Mark properties to omit when null with
+  `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]` (e.g. `@odata.nextLink`).
 - **Enums are not stored** as enums: EF Core's compiled model calls `Enum.GetValues(Type)` for them. Use string
   constants (e.g. `RunStatus`).
 - **`dotnet format` may add `[RequiresUnreferencedCode]`** as its fix for a trim warning. Never keep it: fix the call.
@@ -126,7 +133,7 @@ describes the .NET 10 API; it is regenerated from the new document when the web 
 ### Still to port
 
 Documents (upload, versions, OCR, page images), Search, Taxonomy, Tasks, Calendar, Notes, Notifications, item
-permissions (ADR-0035), Collaboration, Provisioning and templates, the extension host and SDK, MCP, AI workflows,
+versions and the recycle bin, item permissions (ADR-0035), indexed fields, views, list templates, smart folders, delta and bulk updates, Collaboration, Provisioning and templates, the extension host and SDK, MCP, AI workflows,
 sign-in in the browser (authorization-code flow, passkeys, OAuth client applications, reverse-proxy sign-in), the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
 schedules, the web UI and the SDKs. Each follows the rules above and brings its tests back from `ToPort`.
 

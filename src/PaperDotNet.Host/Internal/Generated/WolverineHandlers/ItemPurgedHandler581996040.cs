@@ -4,13 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Internal.Generated.WolverineHandlers
 {
-    // START: ItemCreated1491283257_AuditSubscriberHandler1397558633
+    // START: ItemPurgedHandler581996040
     [global::System.CodeDom.Compiler.GeneratedCode("JasperFx", "1.0.0")]
-    public sealed class ItemCreated1491283257_AuditSubscriberHandler1397558633 : Wolverine.Runtime.Handlers.MessageHandler
+    public sealed class ItemPurgedHandler581996040 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
 
-        public ItemCreated1491283257_AuditSubscriberHandler1397558633(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
+        public ItemPurgedHandler581996040(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
         {
             _serviceScopeFactory = serviceScopeFactory;
         }
@@ -24,19 +24,19 @@ namespace Internal.Generated.WolverineHandlers
             // This service has been marked as requiring service location independent of Wolverine's ability to use constructor injection of everything else
             var auditDbContext = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Audit.Data.AuditDbContext>(serviceScope.ServiceProvider);
             // The actual message body
-            var itemCreated = (PaperDotNet.Lists.Contracts.ItemCreated)context.Envelope.Message;
+            var itemPurged = (PaperDotNet.Lists.Contracts.ItemPurged)context.Envelope.Message;
 
             System.Diagnostics.Activity.Current?.SetTag("message.handler", "PaperDotNet.Audit.Features.AuditSubscriber");
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "PaperDotNet.Audit.Features.AuditSubscriber");
             
             // The actual message execution
-            await PaperDotNet.Audit.Features.AuditSubscriber.Handle(itemCreated, auditDbContext, cancellation).ConfigureAwait(false);
+            await PaperDotNet.Audit.Features.AuditSubscriber.Handle(itemPurged, auditDbContext, cancellation).ConfigureAwait(false);
 
         }
 
     }
 
-    // END: ItemCreated1491283257_AuditSubscriberHandler1397558633
+    // END: ItemPurgedHandler581996040
     
     
 }

@@ -8,26 +8,30 @@ public sealed class WorkflowTests : IAsyncLifetime
 {
     private readonly TestHost _host = new();
     private HttpClient _client = null!;
+    private string _workspace = "";
     private string _invoices = "";
     private string _tasks = "";
 
     public async ValueTask InitializeAsync()
     {
         _client = await _host.SignInAsync();
-        _invoices = (await Api.CreateListAsync(_client, "Invoices", new object[]
+        _workspace = await Api.CreateWorkspaceAsync(_client, "Accounting");
+        _invoices = (await Api.CreateListAsync(_client, _workspace, "Invoices", new object[]
         {
             new { name = "amount", type = "number" },
             new { name = "status", type = "choice", choices = new[] { "new", "big", "small" } },
             new { name = "touched", type = "number" },
         })).Id();
-        _tasks = (await Api.CreateListAsync(_client, "Tasks", new[] { new { name = "invoice", type = "text" } })).Id();
+        _tasks = (await Api.CreateListAsync(_client, _workspace, "Tasks", new[] { new { name = "invoice", type = "text" } })).Id();
     }
 
     public ValueTask DisposeAsync() => _host.DisposeAsync();
 
+    private string Workflows => $"/v1.0/workspaces/{_workspace}/workflows";
+
     private async Task<string> CreateWorkflowAsync(string name, string definition)
     {
-        using var response = await _client.PostAsJsonAsync("/v1.0/workflows", new { name, definition = JsonNode.Parse(definition) });
+        using var response = await _client.PostAsJsonAsync(Workflows, new { name, definition = JsonNode.Parse(definition) });
         return (await response.JsonAsync(HttpStatusCode.Created)).Id();
     }
 
@@ -37,7 +41,7 @@ public sealed class WorkflowTests : IAsyncLifetime
         List<JsonElement> runs = [];
         for (var attempt = 0; attempt < 150; attempt++)
         {
-            var page = await (await _client.GetAsync($"/v1.0/workflows/{workflowId}/runs")).JsonAsync(HttpStatusCode.OK);
+            var page = await (await _client.GetAsync($"{Workflows}/{workflowId}/runs")).JsonAsync(HttpStatusCode.OK);
             runs = [.. page.GetProperty("value").EnumerateArray()];
             if (runs.Count >= count && runs.All(r => r.GetProperty("status").GetString() != "running"))
             {
@@ -52,7 +56,7 @@ public sealed class WorkflowTests : IAsyncLifetime
     }
 
     private async Task<List<JsonElement>> ItemsAsync(string listId) =>
-        [.. (await (await _client.GetAsync($"/v1.0/lists/{listId}/items")).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray().Select(i => i.GetProperty("fields"))];
+        [.. (await (await _client.GetAsync(Api.Items(_workspace, listId))).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray().Select(i => i.GetProperty("fields"))];
 
     [Fact]
     public async Task Item_trigger_runs_the_flow_with_condition_tokens_actions_and_a_script()
@@ -77,9 +81,9 @@ public sealed class WorkflowTests : IAsyncLifetime
             }
             """);
 
-        await Api.CreateItemAsync(_client, _invoices, new { title = "INV-1", amount = 250, status = "new" });
-        await Api.CreateItemAsync(_client, _invoices, new { title = "INV-2", amount = 50, status = "new" });
-        await Api.CreateItemAsync(_client, _invoices, new { title = "INV-3", amount = 999, status = "small" });
+        await Api.CreateItemAsync(_client, _workspace, _invoices, new { title = "INV-1", amount = 250, status = "new" });
+        await Api.CreateItemAsync(_client, _workspace, _invoices, new { title = "INV-2", amount = 50, status = "new" });
+        await Api.CreateItemAsync(_client, _workspace, _invoices, new { title = "INV-3", amount = 999, status = "small" });
 
         var runs = await RunsAsync(workflow, 2);
         Assert.Equal(2, runs.Count);
@@ -115,7 +119,7 @@ public sealed class WorkflowTests : IAsyncLifetime
 
         foreach (var inputs in new object[] { new { n = 42 }, new { n = 1 }, new { mode = "throw" } })
         {
-            using var started = await _client.PostAsJsonAsync($"/v1.0/workflows/{workflow}/runs", new { inputs });
+            using var started = await _client.PostAsJsonAsync($"{Workflows}/{workflow}/runs", new { inputs });
             await started.JsonAsync(HttpStatusCode.Accepted);
         }
 
@@ -141,7 +145,7 @@ public sealed class WorkflowTests : IAsyncLifetime
             }
             """);
 
-        using (var started = await _client.PostAsJsonAsync($"/v1.0/workflows/{workflow}/runs", new { }))
+        using (var started = await _client.PostAsJsonAsync($"{Workflows}/{workflow}/runs", new { }))
         {
             await started.JsonAsync(HttpStatusCode.Accepted);
         }
@@ -163,8 +167,8 @@ public sealed class WorkflowTests : IAsyncLifetime
               } }
             }
             """);
-        var item = await Api.CreateItemAsync(_client, _invoices, new { title = "Loop", status = "new" });
-        using (var changed = await _client.SendAsync(Api.Patch($"/v1.0/lists/{_invoices}/items/{item.Id()}", new { fields = new { touched = 0 } }, item.ETag())))
+        var item = await Api.CreateItemAsync(_client, _workspace, _invoices, new { title = "Loop", status = "new" });
+        using (var changed = await _client.SendAsync(Api.Patch($"{Api.Items(_workspace, _invoices)}/{item.Id()}", new { fields = new { touched = 0 } }, item.ETag())))
         {
             await changed.JsonAsync(HttpStatusCode.OK);
         }
@@ -186,7 +190,7 @@ public sealed class WorkflowTests : IAsyncLifetime
     [InlineData("""{ "trigger": { "type": "manual" }, "flow": { "start": "a", "nodes": { "a": { "activity": "item.create", "inputs": {} } } } }""", "list is required")]
     public async Task Invalid_definitions_are_rejected(string definition, string expected)
     {
-        using var response = await _client.PostAsJsonAsync("/v1.0/workflows", new { name = "Bad", definition = JsonNode.Parse(definition) });
+        using var response = await _client.PostAsJsonAsync(Workflows, new { name = "Bad", definition = JsonNode.Parse(definition) });
         var problem = await response.JsonAsync(HttpStatusCode.BadRequest);
         Assert.Contains(problem.GetProperty("errors").GetProperty("definition").EnumerateArray(), e => e.GetString()!.Contains(expected, StringComparison.Ordinal));
     }
@@ -195,8 +199,8 @@ public sealed class WorkflowTests : IAsyncLifetime
     public async Task A_new_definition_is_a_new_version()
     {
         var workflow = await CreateWorkflowAsync("Versions", """{ "trigger": { "type": "manual" }, "flow": { "start": "a", "nodes": { "a": { "activity": "end" } } } }""");
-        var current = await (await _client.GetAsync($"/v1.0/workflows/{workflow}")).JsonAsync(HttpStatusCode.OK);
-        using var changed = await _client.SendAsync(Api.Patch($"/v1.0/workflows/{workflow}",
+        var current = await (await _client.GetAsync($"{Workflows}/{workflow}")).JsonAsync(HttpStatusCode.OK);
+        using var changed = await _client.SendAsync(Api.Patch($"{Workflows}/{workflow}",
             new { definition = JsonNode.Parse("""{ "trigger": { "type": "manual" }, "flow": { "start": "b", "nodes": { "b": { "activity": "end" } } } }""") }, current.ETag()));
         var updated = await changed.JsonAsync(HttpStatusCode.OK);
         Assert.Equal(2, updated.GetProperty("version").GetInt32());
@@ -211,12 +215,13 @@ public sealed class WorkflowTests : IAsyncLifetime
             """);
         var other = await _host.CreateTenantAsync("other");
 
-        Assert.Empty((await (await other.GetAsync("/v1.0/workflows")).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray());
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync(Workflows)).StatusCode);
         foreach (var response in new[]
         {
-            await other.GetAsync($"/v1.0/workflows/{workflow}"),
-            await other.PostAsJsonAsync($"/v1.0/workflows/{workflow}/runs", new { }),
-            await other.DeleteAsync($"/v1.0/workflows/{workflow}"),
+            await other.GetAsync($"{Workflows}/{workflow}"),
+            await other.GetAsync($"{Workflows}/{workflow}/runs"),
+            await other.PostAsJsonAsync($"{Workflows}/{workflow}/runs", new { }),
+            await other.DeleteAsync($"{Workflows}/{workflow}"),
         })
         {
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -224,11 +229,12 @@ public sealed class WorkflowTests : IAsyncLifetime
         }
 
         // An item added in the other tenant starts nothing here; one added here does.
-        var otherList = (await Api.CreateListAsync(other, "Notes")).Id();
-        await Api.CreateItemAsync(other, otherList, new { title = "Theirs" });
-        await Api.CreateItemAsync(_client, _tasks, new { title = "Ours" });
+        var otherWorkspace = await Api.CreateWorkspaceAsync(other, "Accounting");
+        var otherList = (await Api.CreateListAsync(other, otherWorkspace, "Notes")).Id();
+        await Api.CreateItemAsync(other, otherWorkspace, otherList, new { title = "Theirs" });
+        await Api.CreateItemAsync(_client, _workspace, _tasks, new { title = "Ours" });
         var run = Assert.Single(await RunsAsync(workflow, 1));
-        using var hidden = await other.GetAsync($"/v1.0/workflow-runs/{run.Id()}");
+        using var hidden = await other.GetAsync($"{Workflows}/runs/{run.Id()}");
         Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
     }
 }

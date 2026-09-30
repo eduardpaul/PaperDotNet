@@ -102,9 +102,9 @@ public sealed class IdentityTests : IAsyncLifetime
 
         // Disabled: tokens stop working and the password grant fails; enabled again, sign-in works.
         var bobClient = await _host.SignInAsync("bob", "bob-password-1");
-        Assert.Equal(HttpStatusCode.OK, (await bobClient.GetAsync("/v1.0/lists", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await bobClient.GetAsync("/v1.0/workspaces", Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await PatchAsync(_admin, $"/v1.0/users/{bob}", new { isDisabled = true })).StatusCode);
-        Assert.NotEqual(HttpStatusCode.OK, (await bobClient.GetAsync("/v1.0/lists", Ct)).StatusCode);
+        Assert.NotEqual(HttpStatusCode.OK, (await bobClient.GetAsync("/v1.0/workspaces", Ct)).StatusCode);
         Assert.False(await CanSignInAsync("bob", "bob-password-1"));
         Assert.Equal(HttpStatusCode.OK, (await PatchAsync(_admin, $"/v1.0/users/{bob}", new { isDisabled = false })).StatusCode);
 
@@ -114,7 +114,7 @@ public sealed class IdentityTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, (await _admin.PostAsJsonAsync($"/v1.0/users/{bob}/password", new { password = "short" }, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await _admin.PostAsJsonAsync($"/v1.0/users/{bob}/password", new { password = "bob-new-password-2" }, Ct)).StatusCode);
         Assert.False(await CanSignInAsync("bob", "bob-password-1"));
-        Assert.Equal(HttpStatusCode.Unauthorized, (await bobClient.GetAsync("/v1.0/lists", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await bobClient.GetAsync("/v1.0/workspaces", Ct)).StatusCode);
         using (var refresh = await _host.CreateClient().PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["grant_type"] = "refresh_token",
@@ -159,7 +159,7 @@ public sealed class IdentityTests : IAsyncLifetime
         var users = (await (await _admin.GetAsync("/v1.0/users", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray();
         Assert.DoesNotContain(users, u => Guid.Parse(u.Id()) == carol);
         Assert.Empty((await (await _admin.GetAsync($"/v1.0/groups/{group}/members", Ct)).JsonAsync(HttpStatusCode.OK)).EnumerateArray());
-        Assert.NotEqual(HttpStatusCode.OK, (await carolClient.GetAsync("/v1.0/lists", Ct)).StatusCode);
+        Assert.NotEqual(HttpStatusCode.OK, (await carolClient.GetAsync("/v1.0/workspaces", Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await _admin.DeleteAsync($"/v1.0/users/{carol}", Ct)).StatusCode);
 
         // The user name is free again.

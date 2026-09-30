@@ -19,7 +19,7 @@ public sealed partial class WorkflowInterpreter(
     IOutbox outbox,
     IServiceProvider services,
     IEnumerable<IWorkflowActivity> activities,
-    IListItemStore items,
+    WorkflowItems items,
     ItemConditions conditions,
     TokenExpander tokens,
     ScriptRunner scripts,
@@ -47,6 +47,7 @@ public sealed partial class WorkflowInterpreter(
         var log = JsonNode.Parse(run.Log) as JsonArray ?? [];
         var data = run.Data is { } json ? JsonNode.Parse(json) as JsonObject : null;
         var actor = new ChangeActor(run.TenantId, null, run.Depth + 1);
+        var reader = new ChangeActor(run.TenantId, null);
 
         void Log(string message)
         {
@@ -116,10 +117,10 @@ public sealed partial class WorkflowInterpreter(
             {
                 ScopeItem? item = null;
                 string? listName = null;
-                if (run.ListId is { } listId && await items.FindListAsync(run.TenantId, listId, ct) is { } list)
+                if (run.ListId is { } listId && await items.FindListAsync(reader, run.WorkspaceId, listId, ct) is { } list)
                 {
                     listName = list.Name;
-                    if (run.ItemId is { } itemId && await items.GetAsync(run.TenantId, listId, itemId, ct) is { } current)
+                    if (run.ItemId is { } itemId && await items.GetAsync(reader, run.WorkspaceId, listId, itemId, ct) is { } current)
                     {
                         item = new ScopeItem(current.Id, listId, current.Fields, current.CreatedAt, current.UpdatedAt);
                     }
@@ -136,7 +137,7 @@ public sealed partial class WorkflowInterpreter(
             if (outputs[id] is not JsonObject { } state || state["plan"] is not JsonArray)
             {
                 var current = await ScopeAsync();
-                var outcome = scripts.Run(ScriptRunner.Code(node.Inputs ?? [])!, run.TenantId, run.StepExecutionId!.Value, current.Item, current.ListName, outputs, variables, data, ct);
+                var outcome = scripts.Run(ScriptRunner.Code(node.Inputs ?? [])!, run.TenantId, run.WorkspaceId, run.StepExecutionId!.Value, current.Item, current.ListName, outputs, variables, data, ct);
                 foreach (var line in outcome.Log.Take(20))
                 {
                     Log($"{id}: {line}");
@@ -173,11 +174,11 @@ public sealed partial class WorkflowInterpreter(
                 {
                     var result = op switch
                     {
-                        "create" => await items.CreateAsync(actor, listId, target, (JsonObject)write["fields"]!.DeepClone(), ct),
-                        "update" => await items.UpdateAsync(actor, listId, target, (JsonObject)write["fields"]!.DeepClone(), null, ct),
-                        _ => await items.DeleteAsync(actor, listId, target, null, ct),
+                        "create" => await items.CreateAsync(actor, run.WorkspaceId, listId, target, (JsonObject)write["fields"]!.DeepClone(), ct),
+                        "update" => await items.UpdateAsync(actor, run.WorkspaceId, listId, target, (JsonObject)write["fields"]!.DeepClone(), ct),
+                        _ => await items.DeleteAsync(actor, run.WorkspaceId, listId, target, ct),
                     };
-                    if (!result.Succeeded && !(op == "delete" && result.Status == ItemWriteStatus.NotFound))
+                    if (!result.Succeeded && !(op == "delete" && result.Status == ListItemStatus.NotFound))
                     {
                         return await FailedAsync(id, node, $"write {index + 1} ({op} in {write["list"]}): {result.Describe()}");
                     }
@@ -273,7 +274,7 @@ public sealed partial class WorkflowInterpreter(
                             break;
                         }
 
-                        var (matches, error) = await conditions.MatchesAsync(run.TenantId, listId, itemId, tokens.Expand(filter, await ScopeAsync()), ct);
+                        var (matches, error) = await conditions.MatchesAsync(run.TenantId, run.WorkspaceId, listId, itemId, tokens.Expand(filter, await ScopeAsync()), ct);
                         if (error is not null)
                         {
                             running = await FailedAsync(id, node, error);
@@ -324,6 +325,7 @@ public sealed partial class WorkflowInterpreter(
             var context = new WorkflowActivityContext
             {
                 TenantId = run.TenantId,
+                WorkspaceId = run.WorkspaceId,
                 RunId = run.Id,
                 ListId = run.ListId,
                 ItemId = run.ItemId,

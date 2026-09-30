@@ -15,7 +15,7 @@ partial class WorkflowsDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20260930191919_Initial";
+    public override string LastMigrationId => "20260930211002_WorkspaceLists";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -67,11 +67,14 @@ partial class WorkflowsDbContextModelSnapshot : ModelSnapshot
                     .IsConcurrencyToken()
                     .HasColumnType("INTEGER");
 
+                b.Property<Guid>("WorkspaceId")
+                    .HasColumnType("TEXT");
+
                 b.HasKey("Id");
 
-                b.HasIndex("TenantId", "Enabled");
+                b.HasIndex("TenantId", "WorkspaceId", "Enabled");
 
-                b.HasIndex("TenantId", "Name")
+                b.HasIndex("TenantId", "WorkspaceId", "Name")
                     .IsUnique();
 
                 b.ToTable("workflows");
@@ -153,11 +156,16 @@ partial class WorkflowsDbContextModelSnapshot : ModelSnapshot
                 b.Property<int>("WorkflowVersion")
                     .HasColumnType("INTEGER");
 
+                b.Property<Guid>("WorkspaceId")
+                    .HasColumnType("TEXT");
+
                 b.HasKey("Id");
 
                 b.HasIndex("WorkflowId");
 
                 b.HasIndex("TenantId", "WorkflowId", "Id");
+
+                b.HasIndex("TenantId", "WorkspaceId", "Id");
 
                 b.ToTable("workflow_runs");
             });

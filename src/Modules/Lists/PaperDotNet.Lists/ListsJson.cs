@@ -1,29 +1,37 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Features;
-using PaperDotNet.Lists.Fields;
 
 namespace PaperDotNet.Lists;
 
-/// <summary>Every type the Lists API and its events serialize, with source-generated metadata (Native AOT, ADR-0039).</summary>
-[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
-[JsonSerializable(typeof(FieldDefinition))]
-[JsonSerializable(typeof(IReadOnlyList<FieldDefinition>))]
-[JsonSerializable(typeof(ListDto))]
-[JsonSerializable(typeof(Page<ListDto>))]
+/// <summary>Every type the Lists API, its events and its JSON columns serialize, with source-generated metadata (ADR-0039).</summary>
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(List<FieldDefinition>))]
+[JsonSerializable(typeof(List<Guid>))]
+[JsonSerializable(typeof(FieldDefinitionDto))]
+[JsonSerializable(typeof(ContentTypeResponse))]
+[JsonSerializable(typeof(List<ContentTypeResponse>))]
+[JsonSerializable(typeof(ContentTypeRequest))]
+[JsonSerializable(typeof(FieldTypeResponse))]
+[JsonSerializable(typeof(List<FieldTypeResponse>))]
+[JsonSerializable(typeof(ListSummary))]
+[JsonSerializable(typeof(List<ListSummary>))]
+[JsonSerializable(typeof(ListResponse))]
 [JsonSerializable(typeof(CreateListRequest))]
 [JsonSerializable(typeof(UpdateListRequest))]
-[JsonSerializable(typeof(ItemDto))]
-[JsonSerializable(typeof(Page<ItemDto>))]
+[JsonSerializable(typeof(AddListContentTypeRequest))]
+[JsonSerializable(typeof(ItemResponse))]
+[JsonSerializable(typeof(ItemPage))]
 [JsonSerializable(typeof(CreateItemRequest))]
-[JsonSerializable(typeof(UpdateItemRequest))]
 [JsonSerializable(typeof(JsonObject))]
+[JsonSerializable(typeof(JsonElement))]
 [JsonSerializable(typeof(ListCreated))]
 [JsonSerializable(typeof(ListDeleted))]
-[JsonSerializable(typeof(ItemCreated))]
+[JsonSerializable(typeof(ItemAdded))]
 [JsonSerializable(typeof(ItemUpdated))]
 [JsonSerializable(typeof(ItemDeleted))]
+[JsonSerializable(typeof(ItemRestored))]
+[JsonSerializable(typeof(ItemPurged))]
 internal sealed partial class ListsJson : JsonSerializerContext;

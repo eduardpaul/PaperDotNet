@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publishes the server as a Native AOT binary, runs it on a fresh SQLite database, exercises the API (token, lists,
+# Publishes the server as a Native AOT binary, runs it on a fresh SQLite database, exercises the API (token, workspaces, lists,
 # items with OData filters, events through the outbox to the audit log) and checks the memory budget (ADR-0039):
 # resident memory under IDLE_BUDGET_MB after start and under LOAD_BUDGET_MB during a burst of parallel writes/reads.
 #
@@ -39,43 +39,50 @@ curl -sf "$BASE/health" >/dev/null || fail "the host did not start"
 TOKEN=$(curl -sf -X POST "$BASE/connect/token" -d grant_type=password -d username=admin --data-urlencode "password=$PASSWORD" | json 'd["access_token"]') || fail "token"
 AUTH=(-H "Authorization: Bearer $TOKEN")
 sleep 2; IDLE=$(rss_mb)
-curl -sf "$BASE/openapi/v1.json" | json '"/v1.0/lists" in d["paths"]' | grep -q True || fail "OpenAPI document"
+JSON=(-H 'Content-Type: application/json')
+curl -sf "$BASE/openapi/v1.json" | json '"/v1.0/workspaces/{workspaceId}/lists/{listId}/items" in d["paths"]' | grep -q True || fail "OpenAPI document"
 
-LIST=$(curl -sf "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/lists" \
-  -d '{"name":"Invoices","fields":[{"name":"amount","type":"number"},{"name":"paid","type":"boolean"},{"name":"due","type":"dateTime"}]}' | json 'd["id"]') || fail "create list"
+# Lists in a workspace: a content type with fields, a list, items, OData queries, a folder with an item inside.
+WS=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces" -d '{"name":"Finance"}' | json 'd["id"]') || fail "create workspace"
+INVOICE=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/contentTypes" \
+  -d '{"name":"Invoice","fields":[{"name":"amount","type":"number"},{"name":"paid","type":"boolean"},{"name":"due","type":"dateTime"}]}' | json 'd["id"]') || fail "create content type"
+LIST=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d "{\"name\":\"Invoices\",\"allowFolders\":true,\"contentTypeIds\":[\"$INVOICE\"]}" | json 'd["id"]') || fail "create list"
+ITEMS="$BASE/v1.0/workspaces/$WS/lists/$LIST/items"
 for n in 1 2 3 4 5; do
-  curl -sf "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/lists/$LIST/items" -o /dev/null \
+  curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -o /dev/null \
     -d "{\"fields\":{\"title\":\"Invoice $n\",\"amount\":$((n * 10)),\"paid\":$([[ $n -gt 3 ]] && echo true || echo false),\"due\":\"2026-10-0${n}T00:00:00Z\"}}" || fail "create item $n"
 done
 
-TITLES=$(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/lists/$LIST/items" --data-urlencode '$filter=fields/amount gt 15 and fields/paid eq false' \
+TITLES=$(curl -sf "${AUTH[@]}" -G "$ITEMS" --data-urlencode '$filter=fields/amount gt 15 and fields/paid eq false' \
   --data-urlencode '$orderby=fields/amount desc' --data-urlencode '$count=true' | json '",".join(i["fields"]["title"] for i in d["value"]) + "|" + str(d["@odata.count"])') || fail "query items"
 [[ "$TITLES" == "Invoice 3,Invoice 2|2" ]] || fail "unexpected query result: $TITLES"
+FOLDER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -d '{"isFolder":true,"fields":{"title":"2026"}}' | json 'd["id"]') || fail "create folder"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -o /dev/null -d "{\"parentId\":\"$FOLDER\",\"fields\":{\"title\":\"Filed\",\"amount\":1}}" || fail "create item in folder"
+[[ $(curl -sf "${AUTH[@]}" "$ITEMS/$FOLDER/children" | json 'd["value"][0]["fields"]["title"]') == Filed ]] || fail "folder children"
 
 AUDITED=0
 for _ in $(seq 1 50); do
   AUDITED=$(curl -sf "${AUTH[@]}" "$BASE/v1.0/audit?\$top=100" | json 'len(d["value"])')
-  [[ "$AUDITED" -ge 6 ]] && break; sleep 0.2
+  [[ "$AUDITED" -ge 8 ]] && break; sleep 0.2
 done
-[[ "$AUDITED" -ge 6 ]] || fail "events did not reach the audit log ($AUDITED of 6)"
+[[ "$AUDITED" -ge 8 ]] || fail "events did not reach the audit log ($AUDITED of 8)"
 
 # Workflows (ADR-0036) with a Jint script step: an added invoice over 25 creates a task through a script.
-curl -sf "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/lists" -d '{"name":"Tasks"}' -o /dev/null || fail "create task list"
-WORKFLOW=$(curl -sf "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/workflows" -d '{"name":"Follow up","definition":{
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Tasks"}' -o /dev/null || fail "create task list"
+WORKFLOW=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/workflows" -d '{"name":"Follow up","definition":{
   "trigger":{"type":"itemAdded","list":"Invoices"},"condition":"fields/amount gt 25",
   "flow":{"start":"script","nodes":{
     "script":{"activity":"script","inputs":{"code":"const all = await items.query(\"Invoices\", { filter: \"fields/amount gt 25\" }); await items.create(\"Tasks\", { title: `Follow up ${item.title} (${all.length})` }); return all.length;"},"next":{"done":"mark"}},
     "mark":{"activity":"item.update","inputs":{"fields":{"paid":true}}}}}}}' | json 'd["id"]') || fail "create workflow"
-curl -sf "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/lists/$LIST/items" -o /dev/null -d '{"fields":{"title":"Invoice 6","amount":60}}' || fail "create item 6"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -o /dev/null -d '{"fields":{"title":"Invoice 6","amount":60}}' || fail "create item 6"
 RUN=""
 for _ in $(seq 1 50); do
-  RUN=$(curl -sf "${AUTH[@]}" "$BASE/v1.0/workflows/$WORKFLOW/runs" | json '",".join(r["status"] + ":" + str(r["outputs"].get("script", {}).get("result")) for r in d["value"])')
+  RUN=$(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/workflows/$WORKFLOW/runs" | json '",".join(r["status"] + ":" + str(r["outputs"].get("script", {}).get("result")) for r in d["value"])')
   [[ "$RUN" == completed:* ]] && break; sleep 0.2
 done
 [[ "$RUN" == "completed:4" ]] || fail "workflow run: $RUN"
 
 # Identity: a member in a group inside a group gets a role's scope; preferences; an API token limited to one scope.
-JSON=(-H 'Content-Type: application/json')
 MEMBER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/users" -d '{"userName":"member","password":"member-password-1"}' | json 'd["id"]') || fail "create user"
 OUTER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/groups" -d '{"name":"Outer"}' | json 'd["id"]') || fail "create group"
 INNER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/groups" -d '{"name":"Inner"}' | json 'd["id"]') || fail "create group"
@@ -87,13 +94,18 @@ MEMBER_TOKEN=$(curl -sf -X POST "$BASE/connect/token" -d grant_type=password -d 
 curl -sf -H "Authorization: Bearer $MEMBER_TOKEN" "$BASE/v1.0/roles" -o /dev/null || fail "role through nested groups"
 curl -sf -X PATCH -H "Authorization: Bearer $MEMBER_TOKEN" "${JSON[@]}" "$BASE/v1.0/me/preferences" -d '{"timeZone":"Europe/Berlin"}' -o /dev/null || fail "preferences"
 SECRET=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/me/apiTokens" -d '{"name":"smoke","scopes":["list.read"]}' | json 'd["secret"]') || fail "API token"
-curl -sf -H "Authorization: Bearer $SECRET" "$BASE/v1.0/lists" -o /dev/null || fail "API token read"
+curl -sf -H "Authorization: Bearer $SECRET" "$ITEMS" -o /dev/null || fail "API token read"
 [[ $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $SECRET" "$BASE/v1.0/users") == 403 ]] || fail "API token scope"
 
 # Workspaces: the member sees a workspace they were added to, with its access level.
 WORKSPACE=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces" -d '{"name":"Team"}' | json 'd["id"]') || fail "create workspace"
 curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WORKSPACE/members" -d "{\"userId\":\"$MEMBER\",\"role\":\"visitor\"}" || fail "add workspace member"
 [[ $(curl -sf -H "Authorization: Bearer $MEMBER_TOKEN" "$BASE/v1.0/workspaces" | json 'd["value"][0]["access"]') == read ]] || fail "workspace access"
+NOTES=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WORKSPACE/lists" -d '{"name":"Notes"}' | json 'd["id"]') || fail "create team list"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WORKSPACE/lists/$NOTES/items" -o /dev/null -d '{"fields":{"title":"Hello"}}' || fail "create team item"
+[[ $(curl -sf -H "Authorization: Bearer $MEMBER_TOKEN" "$BASE/v1.0/workspaces/$WORKSPACE/lists/$NOTES/items" | json 'len(d["value"])') == 1 ]] || fail "visitor reads items"
+[[ $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $MEMBER_TOKEN" "${JSON[@]}" "$BASE/v1.0/workspaces/$WORKSPACE/lists/$NOTES/items" -d '{"fields":{"title":"No"}}') == 403 ]] || fail "visitor cannot write"
+[[ $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $MEMBER_TOKEN" "$ITEMS") == 404 ]] || fail "other workspace hidden"
 
 # Jobs: live events stream (server-sent events), operations of nobody are not found.
 EVENTS=$(curl -sN --max-time 2 "${AUTH[@]}" "$BASE/v1.0/me/events" || true)  # the stream only ends at the timeout
@@ -101,10 +113,10 @@ grep -q '^event: connected' <<<"$EVENTS" || fail "live events stream: $EVENTS"
 [[ $(curl -s -o /dev/null -w '%{http_code}' "${AUTH[@]}" "$BASE/v1.0/operations/$(python3 -c 'import uuid; print(uuid.uuid4())')") == 404 ]] || fail "unknown operation"
 
 # Burst: parallel writes (each also queues an event and a workflow check) and filtered reads.
-seq 1 2000 | xargs -P 16 -I{} curl -sf -o /dev/null "${AUTH[@]}" -H 'Content-Type: application/json' "$BASE/v1.0/lists/$LIST/items" \
+seq 1 2000 | xargs -P 16 -I{} curl -sf -o /dev/null "${AUTH[@]}" "${JSON[@]}" "$ITEMS" \
   -d '{"fields":{"title":"Load {}","amount":{}}}' || fail "write burst"
 PEAK=$(rss_mb)
-seq 1 500 | xargs -P 16 -I{} curl -sf -o /dev/null "${AUTH[@]}" -G "$BASE/v1.0/lists/$LIST/items" \
+seq 1 500 | xargs -P 16 -I{} curl -sf -o /dev/null "${AUTH[@]}" -G "$ITEMS" \
   --data-urlencode '$filter=fields/amount gt {}' --data-urlencode '$top=50' || fail "read burst"
 PEAK=$(( $(rss_mb) > PEAK ? $(rss_mb) : PEAK ))
 sleep 3

@@ -14,8 +14,8 @@ public sealed class OpenApiTests : IAsyncLifetime
     public async Task The_document_describes_the_OData_query_options()
     {
         var document = await (await _host.CreateClient().GetAsync("/openapi/v1.json")).JsonAsync(HttpStatusCode.OK);
-        var parameters = document.GetProperty("paths").GetProperty("/v1.0/lists/{listId}/items").GetProperty("get").GetProperty("parameters")
+        var parameters = document.GetProperty("paths").GetProperty("/v1.0/workspaces/{workspaceId}/lists/{listId}/items").GetProperty("get").GetProperty("parameters")
             .EnumerateArray().Select(p => p.GetProperty("name").GetString()).ToList();
-        Assert.Equal(["listId", "$filter", "$orderby", "$top", "$skiptoken", "$count"], parameters);
+        Assert.Equal(["workspaceId", "listId", "$filter", "$orderby", "$top", "$skiptoken", "$count", "$select"], parameters);
     }
 }

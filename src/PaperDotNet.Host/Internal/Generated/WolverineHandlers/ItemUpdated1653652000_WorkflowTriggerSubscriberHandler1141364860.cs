@@ -26,12 +26,17 @@ namespace Internal.Generated.WolverineHandlers
             * Dependency: Descriptor: ServiceType: PaperDotNet.Messaging.IOutbox Lifetime: Scoped ImplementationType: PaperDotNet.Messaging.WolverineOutbox
             * Concrete type PaperDotNet.Messaging.WolverineOutbox is not public, so requires service location
             * 
-            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_0
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Features.WorkflowItems Lifetime: Scoped ImplementationType: PaperDotNet.Workflows.Features.WorkflowItems
+            * 
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_1
             * The service registration for PaperDotNet.Lists.Contracts.IListItemStore is an 'opaque' lambda factory with the Scoped lifetime and requires service location
+            * 
             * 
             * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Features.ItemConditions Lifetime: Scoped ImplementationType: PaperDotNet.Workflows.Features.ItemConditions
             * 
-            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_0
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Features.WorkflowItems Lifetime: Scoped ImplementationType: PaperDotNet.Workflows.Features.WorkflowItems
+            * 
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_1
             * The service registration for PaperDotNet.Lists.Contracts.IListItemStore is an 'opaque' lambda factory with the Scoped lifetime and requires service location
             */
             var workflowStarter = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Workflows.Features.WorkflowStarter>(serviceScope.ServiceProvider);

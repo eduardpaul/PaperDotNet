@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using PaperDotNet.Abstractions;
 using PaperDotNet.Persistence.Sqlite;
 
 namespace PaperDotNet.Workspaces.Data;
@@ -18,6 +19,22 @@ public class WorkspacesDbContext : DbContext
     public DbSet<Workspace> Workspaces { get; set; } = null!;
 
     public DbSet<WorkspaceMember> Members { get; set; } = null!;
+
+    /// <summary>Saves; a change of memberships or workspaces changes what users may access (<see cref="AccessGeneration"/>).</summary>
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        var tenants = ChangeTracker.Entries()
+            .Where(e => e.Entity is WorkspaceMember or Workspace && e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Select(e => ((ITenantOwned)e.Entity).TenantId)
+            .ToHashSet();
+        var saved = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        foreach (var tenant in tenants)
+        {
+            AccessGeneration.Next(tenant);
+        }
+
+        return saved;
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

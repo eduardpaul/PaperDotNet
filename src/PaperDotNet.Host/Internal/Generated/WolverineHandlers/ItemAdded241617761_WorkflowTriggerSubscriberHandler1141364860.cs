@@ -4,13 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Internal.Generated.WolverineHandlers
 {
-    // START: ItemCreated1491283257_WorkflowTriggerSubscriberHandler1141364860
+    // START: ItemAdded241617761_WorkflowTriggerSubscriberHandler1141364860
     [global::System.CodeDom.Compiler.GeneratedCode("JasperFx", "1.0.0")]
-    public sealed class ItemCreated1491283257_WorkflowTriggerSubscriberHandler1141364860 : Wolverine.Runtime.Handlers.MessageHandler
+    public sealed class ItemAdded241617761_WorkflowTriggerSubscriberHandler1141364860 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
 
-        public ItemCreated1491283257_WorkflowTriggerSubscriberHandler1141364860(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
+        public ItemAdded241617761_WorkflowTriggerSubscriberHandler1141364860(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
         {
             _serviceScopeFactory = serviceScopeFactory;
         }
@@ -26,29 +26,34 @@ namespace Internal.Generated.WolverineHandlers
             * Dependency: Descriptor: ServiceType: PaperDotNet.Messaging.IOutbox Lifetime: Scoped ImplementationType: PaperDotNet.Messaging.WolverineOutbox
             * Concrete type PaperDotNet.Messaging.WolverineOutbox is not public, so requires service location
             * 
-            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_0
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Features.WorkflowItems Lifetime: Scoped ImplementationType: PaperDotNet.Workflows.Features.WorkflowItems
+            * 
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_1
             * The service registration for PaperDotNet.Lists.Contracts.IListItemStore is an 'opaque' lambda factory with the Scoped lifetime and requires service location
+            * 
             * 
             * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Features.ItemConditions Lifetime: Scoped ImplementationType: PaperDotNet.Workflows.Features.ItemConditions
             * 
-            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_0
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Features.WorkflowItems Lifetime: Scoped ImplementationType: PaperDotNet.Workflows.Features.WorkflowItems
+            * 
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Lists.Contracts.IListItemStore Lifetime: Scoped ImplementationFactory: PaperDotNet.Lists.ListsModule+<>c.<AddServices>b__4_1
             * The service registration for PaperDotNet.Lists.Contracts.IListItemStore is an 'opaque' lambda factory with the Scoped lifetime and requires service location
             */
             var workflowStarter = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Workflows.Features.WorkflowStarter>(serviceScope.ServiceProvider);
             // The actual message body
-            var itemCreated = (PaperDotNet.Lists.Contracts.ItemCreated)context.Envelope.Message;
+            var itemAdded = (PaperDotNet.Lists.Contracts.ItemAdded)context.Envelope.Message;
 
             System.Diagnostics.Activity.Current?.SetTag("message.handler", "PaperDotNet.Workflows.Features.WorkflowTriggerSubscriber");
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "PaperDotNet.Workflows.Features.WorkflowTriggerSubscriber");
             
             // The actual message execution
-            await PaperDotNet.Workflows.Features.WorkflowTriggerSubscriber.Handle(itemCreated, workflowStarter, cancellation).ConfigureAwait(false);
+            await PaperDotNet.Workflows.Features.WorkflowTriggerSubscriber.Handle(itemAdded, workflowStarter, cancellation).ConfigureAwait(false);
 
         }
 
     }
 
-    // END: ItemCreated1491283257_WorkflowTriggerSubscriberHandler1141364860
+    // END: ItemAdded241617761_WorkflowTriggerSubscriberHandler1141364860
     
     
 }

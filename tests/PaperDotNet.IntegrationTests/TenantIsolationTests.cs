@@ -15,9 +15,11 @@ public sealed class TenantIsolationTests : IAsyncLifetime
     public async Task Another_tenant_sees_and_changes_nothing()
     {
         var owner = await _host.SignInAsync();
-        var list = await Api.CreateListAsync(owner, "Private", new[] { new { name = "amount", type = "number" } });
-        var item = await Api.CreateItemAsync(owner, list.Id(), new { title = "Secret", amount = 1 });
-        var listUri = $"/v1.0/lists/{list.Id()}";
+        var workspace = await Api.CreateWorkspaceAsync(owner, "Private");
+        var list = await Api.CreateListAsync(owner, workspace, "Private", new[] { new { name = "amount", type = "number" } });
+        var item = await Api.CreateItemAsync(owner, workspace, list.Id(), new { title = "Secret", amount = 1 });
+        var workspaceUri = $"/v1.0/workspaces/{workspace}";
+        var listUri = $"{workspaceUri}/lists/{list.Id()}";
         var itemUri = $"{listUri}/items/{item.Id()}";
 
         var other = await _host.CreateTenantAsync("other");
@@ -26,12 +28,17 @@ public sealed class TenantIsolationTests : IAsyncLifetime
         var me = await (await other.GetAsync("/v1.0/me")).JsonAsync(HttpStatusCode.OK);
         Assert.NotEqual((await (await owner.GetAsync("/v1.0/me")).JsonAsync(HttpStatusCode.OK)).GetProperty("tenantId"), me.GetProperty("tenantId"));
 
-        Assert.Empty((await (await other.GetAsync("/v1.0/lists")).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray());
+        Assert.Empty((await (await other.GetAsync("/v1.0/workspaces")).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray());
+        Assert.DoesNotContain((await (await other.GetAsync("/v1.0/contentTypes")).JsonAsync(HttpStatusCode.OK)).EnumerateArray(),
+            t => t.GetProperty("name").GetString() == "Private item");
         Assert.Single((await (await other.GetAsync("/v1.0/users")).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray());
         Assert.Empty((await (await other.GetAsync("/v1.0/audit")).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray());
 
         foreach (var response in new[]
         {
+            await other.GetAsync(workspaceUri),
+            await other.GetAsync($"{workspaceUri}/lists"),
+            await other.PostAsJsonAsync($"{workspaceUri}/lists", new { name = "Injected" }),
             await other.GetAsync(listUri),
             await other.SendAsync(Api.Patch(listUri, new { name = "Taken" }, list.ETag())),
             await other.GetAsync($"{listUri}/items"),

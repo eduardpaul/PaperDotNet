@@ -63,6 +63,29 @@
         }
       }
     },
+    "/v1.0/fieldTypes": {
+      "get": {
+        "tags": [
+          "Content types"
+        ],
+        "operationId": "ListFieldTypes",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FieldTypeResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/audit": {
       "get": {
         "tags": [
@@ -106,6 +129,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PageOfAuditEntryDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workflows/activities": {
+      "get": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "ListWorkflowActivities",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActivityDto"
+                  }
                 }
               }
             }
@@ -1346,40 +1392,22 @@
         }
       }
     },
-    "/v1.0/lists": {
+    "/v1.0/contentTypes": {
       "get": {
         "tags": [
-          "Lists"
+          "Content types"
         ],
-        "operationId": "ListLists",
-        "parameters": [
-          {
-            "name": "$top",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "$skiptoken",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "operationId": "ListContentTypes",
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfListDto"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContentTypeResponse"
+                  }
                 }
               }
             }
@@ -1388,14 +1416,14 @@
       },
       "post": {
         "tags": [
-          "Lists"
+          "Content types"
         ],
-        "operationId": "CreateList",
+        "operationId": "CreateContentType",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateListRequest"
+                "$ref": "#/components/schemas/ContentTypeRequest"
               }
             }
           },
@@ -1407,7 +1435,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListDto"
+                  "$ref": "#/components/schemas/ContentTypeResponse"
                 }
               }
             }
@@ -1425,13 +1453,185 @@
         }
       }
     },
-    "/v1.0/lists/{listId}": {
+    "/v1.0/contentTypes/{id}": {
+      "get": {
+        "tags": [
+          "Content types"
+        ],
+        "operationId": "GetContentType",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentTypeResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Content types"
+        ],
+        "operationId": "ReplaceContentType",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentTypeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentTypeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists": {
+      "get": {
+        "tags": [
+          "Lists"
+        ],
+        "operationId": "ListLists",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ListSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Lists"
+        ],
+        "operationId": "CreateList",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}": {
       "get": {
         "tags": [
           "Lists"
         ],
         "operationId": "GetList",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "listId",
             "in": "path",
@@ -1448,7 +1648,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListDto"
+                  "$ref": "#/components/schemas/ListResponse"
                 }
               }
             }
@@ -1461,6 +1661,15 @@
         ],
         "operationId": "UpdateList",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "listId",
             "in": "path",
@@ -1487,7 +1696,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListDto"
+                  "$ref": "#/components/schemas/ListResponse"
                 }
               }
             }
@@ -1511,6 +1720,15 @@
         "operationId": "DeleteList",
         "parameters": [
           {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
             "name": "listId",
             "in": "path",
             "required": true,
@@ -1527,14 +1745,115 @@
         }
       }
     },
-    "/v1.0/lists/{listId}/items": {
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/contentTypes": {
+      "post": {
+        "tags": [
+          "Lists"
+        ],
+        "operationId": "AddListContentType",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddListContentTypeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/contentTypes/{contentTypeId}": {
+      "delete": {
+        "tags": [
+          "Lists"
+        ],
+        "operationId": "RemoveListContentType",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "contentTypeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items": {
       "get": {
         "tags": [
           "Items"
         ],
-        "description": "OData query options: $filter, $orderby, $top, $skiptoken, $count.",
+        "description": "OData query options: $filter, $orderby, $top, $skiptoken, $count and $select (field names).",
         "operationId": "ListItems",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "listId",
             "in": "path",
@@ -1583,6 +1902,13 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "$select",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1591,7 +1917,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfItemDto"
+                  "$ref": "#/components/schemas/ItemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
                 }
               }
             }
@@ -1604,6 +1940,15 @@
         ],
         "operationId": "CreateItem",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "listId",
             "in": "path",
@@ -1625,12 +1970,22 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemResponse"
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ItemDto"
+                  "$ref": "#/components/schemas/ItemResponse"
                 }
               }
             }
@@ -1648,13 +2003,22 @@
         }
       }
     },
-    "/v1.0/lists/{listId}/items/{itemId}": {
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}": {
       "get": {
         "tags": [
           "Items"
         ],
         "operationId": "GetItem",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "listId",
             "in": "path",
@@ -1680,7 +2044,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ItemDto"
+                  "$ref": "#/components/schemas/ItemResponse"
                 }
               }
             }
@@ -1691,8 +2055,18 @@
         "tags": [
           "Items"
         ],
+        "description": "fields are merged (null removes a value); parentId moves the item (null: the list root); contentTypeId changes its content type. Requires If-Match.",
         "operationId": "UpdateItem",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "listId",
             "in": "path",
@@ -1716,7 +2090,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateItemRequest"
+                "$ref": "#/components/schemas/JsonElement"
               }
             }
           },
@@ -1728,7 +2102,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ItemDto"
+                  "$ref": "#/components/schemas/ItemResponse"
                 }
               }
             }
@@ -1751,6 +2125,15 @@
         ],
         "operationId": "DeleteItem",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "listId",
             "in": "path",
@@ -1777,13 +2160,128 @@
         }
       }
     },
-    "/v1.0/workflows": {
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/children": {
+      "get": {
+        "tags": [
+          "Items"
+        ],
+        "operationId": "ListFolderChildren",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "$filter",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "$orderby",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "$top",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "$skiptoken",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "$count",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "$select",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/workflows": {
       "get": {
         "tags": [
           "Workflows"
         ],
         "operationId": "ListWorkflows",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "$top",
             "in": "query",
@@ -1822,6 +2320,17 @@
           "Workflows"
         ],
         "operationId": "CreateWorkflow",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1856,36 +2365,22 @@
         }
       }
     },
-    "/v1.0/workflows/activities": {
-      "get": {
-        "tags": [
-          "Workflows"
-        ],
-        "operationId": "ListWorkflowActivities",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ActivityDto"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/workflows/{workflowId}": {
+    "/v1.0/workspaces/{workspaceId}/workflows/{workflowId}": {
       "get": {
         "tags": [
           "Workflows"
         ],
         "operationId": "GetWorkflow",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "workflowId",
             "in": "path",
@@ -1915,6 +2410,15 @@
         ],
         "operationId": "UpdateWorkflow",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "workflowId",
             "in": "path",
@@ -1965,6 +2469,15 @@
         "operationId": "DeleteWorkflow",
         "parameters": [
           {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
             "name": "workflowId",
             "in": "path",
             "required": true,
@@ -1981,13 +2494,22 @@
         }
       }
     },
-    "/v1.0/workflows/{workflowId}/runs": {
+    "/v1.0/workspaces/{workspaceId}/workflows/{workflowId}/runs": {
       "post": {
         "tags": [
           "Workflows"
         ],
         "operationId": "StartWorkflowRun",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "workflowId",
             "in": "path",
@@ -2038,6 +2560,15 @@
         "operationId": "ListWorkflowRuns",
         "parameters": [
           {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
             "name": "workflowId",
             "in": "path",
             "required": true,
@@ -2080,13 +2611,22 @@
         }
       }
     },
-    "/v1.0/workflow-runs/{runId}": {
+    "/v1.0/workspaces/{workspaceId}/workflows/runs/{runId}": {
       "get": {
         "tags": [
           "Workflows"
         ],
         "operationId": "GetWorkflowRun",
         "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "runId",
             "in": "path",
@@ -2438,6 +2978,18 @@
           }
         }
       },
+      "AddListContentTypeRequest": {
+        "required": [
+          "contentTypeId"
+        ],
+        "type": "object",
+        "properties": {
+          "contentTypeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "AddNestedGroupRequest": {
         "required": [
           "groupId"
@@ -2589,6 +3141,90 @@
           }
         }
       },
+      "ContentTypeRequest": {
+        "required": [
+          "name",
+          "description",
+          "fields"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fields": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/FieldDefinitionDto"
+            }
+          }
+        }
+      },
+      "ContentTypeResponse": {
+        "required": [
+          "id",
+          "name",
+          "description",
+          "isBuiltIn",
+          "key",
+          "extensionId",
+          "fields",
+          "@odata.etag"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isBuiltIn": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "extensionId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldDefinitionDto"
+            }
+          },
+          "@odata.etag": {
+            "type": "string"
+          }
+        },
+        "description": "A content type. `key` is set when it comes from a template; `extensionId` when an extension manages it (read-only)."
+      },
       "CreateApiTokenRequest": {
         "required": [
           "name",
@@ -2646,26 +3282,62 @@
       },
       "CreateItemRequest": {
         "required": [
+          "contentTypeId",
+          "parentId",
+          "isFolder",
           "fields"
         ],
         "type": "object",
         "properties": {
+          "contentTypeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "isFolder": {
+            "type": "boolean"
+          },
           "fields": {
-            "$ref": "#/components/schemas/JsonObject"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         },
-        "description": "New item: `fields` holds the title and the other field values."
+        "description": "Create body: `{ \"id\"?, \"contentTypeId\"?, \"parentId\"?, \"isFolder\"?, \"fields\": { \"title\": \u2026, \u2026 } }`. With\n`id` the client chooses the item's id, so repeating a create is safe (the item it made is returned unchanged, 200)."
       },
       "CreateListRequest": {
         "required": [
           "name",
-          "description",
-          "fields"
+          "description"
         ],
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "description": {
             "type": [
@@ -2673,16 +3345,49 @@
               "string"
             ]
           },
-          "fields": {
+          "kind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "allowFolders": {
+            "type": "boolean",
+            "default": true
+          },
+          "contentTypeIds": {
             "type": [
               "null",
               "array"
             ],
             "items": {
-              "$ref": "#/components/schemas/FieldDefinition"
+              "type": "string",
+              "format": "uuid"
             }
+          },
+          "versioning": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "maxVersions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 50
+          },
+          "templateKey": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
-        }
+        },
+        "description": "A new list: `kind` is `list` (default) or `library`; `versioning``off` or `major`."
       },
       "CreateRoleRequest": {
         "required": [
@@ -2816,9 +3521,10 @@
         },
         "description": "Returned once, at creation: the only time the secret is visible."
       },
-      "FieldDefinition": {
+      "FieldDefinitionDto": {
         "required": [
           "name",
+          "displayName",
           "type"
         ],
         "type": "object",
@@ -2826,12 +3532,55 @@
           "name": {
             "type": "string"
           },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "type": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "required": {
             "type": "boolean",
             "default": false
+          },
+          "allowMultiple": {
+            "type": "boolean",
+            "default": false
+          },
+          "maxLength": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "minimum": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "maximum": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           },
           "choices": {
             "type": [
@@ -2842,14 +3591,65 @@
               "type": "string"
             }
           },
-          "displayName": {
+          "lookupListId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "currencyCode": {
             "type": [
               "null",
               "string"
             ]
+          },
+          "defaultValue": {},
+          "termSetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "search": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FieldSearchWeight"
+              }
+            ]
+          },
+          "indexed": {
+            "type": "boolean",
+            "default": false
           }
-        },
-        "description": "A field of a list. string FieldDefinition.Name is the key in item `fields` and in `$filter` (`fields/name`)."
+        }
+      },
+      "FieldSearchWeight": {
+        "enum": [
+          "none",
+          "normal",
+          "high",
+          null
+        ]
+      },
+      "FieldTypeResponse": {
+        "required": [
+          "name",
+          "supportsMultiple"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "supportsMultiple": {
+            "type": "boolean"
+          }
+        }
       },
       "GroupResponse": {
         "required": [
@@ -2930,15 +3730,50 @@
           }
         }
       },
-      "ItemDto": {
+      "ItemPage": {
+        "required": [
+          "value",
+          "@odata.count",
+          "@odata.nextLink"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemResponse"
+            }
+          },
+          "@odata.count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "@odata.nextLink": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "A page of items in Graph/OData shape."
+      },
+      "ItemResponse": {
         "required": [
           "id",
           "listId",
-          "fields",
+          "contentTypeId",
+          "parentId",
+          "isFolder",
           "createdAt",
           "createdBy",
           "updatedAt",
           "updatedBy",
+          "fields",
           "@odata.etag"
         ],
         "type": "object",
@@ -2951,8 +3786,19 @@
             "type": "string",
             "format": "uuid"
           },
-          "fields": {
-            "$ref": "#/components/schemas/JsonObject"
+          "contentTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "isFolder": {
+            "type": "boolean"
           },
           "createdAt": {
             "type": "string",
@@ -2976,31 +3822,44 @@
             ],
             "format": "uuid"
           },
+          "fields": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
           "@odata.etag": {
             "type": "string"
           }
-        }
+        },
+        "description": "A list item as returned by the API. `fields` contains `title` and all field values."
       },
       "JsonElement": {},
       "JsonNode": {},
       "JsonObject": {
         "type": "object"
       },
-      "ListDto": {
+      "ListResponse": {
         "required": [
           "id",
+          "workspaceId",
           "name",
           "description",
-          "fields",
+          "kind",
+          "allowFolders",
+          "versioning",
+          "maxVersions",
+          "templateKey",
+          "contentTypes",
+          "columns",
           "createdAt",
-          "createdBy",
           "updatedAt",
-          "updatedBy",
           "@odata.etag"
         ],
         "type": "object",
         "properties": {
           "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
             "type": "string",
             "format": "uuid"
           },
@@ -3013,36 +3872,105 @@
               "string"
             ]
           },
-          "fields": {
+          "kind": {
+            "type": "string"
+          },
+          "allowFolders": {
+            "type": "boolean"
+          },
+          "versioning": {
+            "type": "string"
+          },
+          "maxVersions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "templateKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "contentTypes": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/FieldDefinition"
+              "$ref": "#/components/schemas/ContentTypeResponse"
+            }
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldDefinitionDto"
             }
           },
           "createdAt": {
             "type": "string",
             "format": "date-time"
           },
-          "createdBy": {
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "@odata.etag": {
+            "type": "string"
+          }
+        },
+        "description": "A list with its content types and effective columns."
+      },
+      "ListSummary": {
+        "required": [
+          "id",
+          "workspaceId",
+          "name",
+          "description",
+          "kind",
+          "allowFolders",
+          "createdAt",
+          "updatedAt",
+          "templateKey"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
             "type": [
               "null",
               "string"
-            ],
-            "format": "uuid"
+            ]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "allowFolders": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           },
           "updatedAt": {
             "type": "string",
             "format": "date-time"
           },
-          "updatedBy": {
+          "templateKey": {
             "type": [
               "null",
               "string"
-            ],
-            "format": "uuid"
-          },
-          "@odata.etag": {
-            "type": "string"
+            ]
           }
         }
       },
@@ -3219,68 +4147,6 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/GroupResponse"
-            }
-          },
-          "@odata.nextLink": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "@odata.count": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          }
-        },
-        "description": "A page of results in Graph/OData shape."
-      },
-      "PageOfItemDto": {
-        "required": [
-          "value",
-          "@odata.nextLink"
-        ],
-        "type": "object",
-        "properties": {
-          "value": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ItemDto"
-            }
-          },
-          "@odata.nextLink": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "@odata.count": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          }
-        },
-        "description": "A page of results in Graph/OData shape."
-      },
-      "PageOfListDto": {
-        "required": [
-          "value",
-          "@odata.nextLink"
-        ],
-        "type": "object",
-        "properties": {
-          "value": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ListDto"
             }
           },
           "@odata.nextLink": {
@@ -3811,23 +4677,11 @@
         },
         "description": "Changes to a group; an empty description removes it."
       },
-      "UpdateItemRequest": {
-        "required": [
-          "fields"
-        ],
-        "type": "object",
-        "properties": {
-          "fields": {
-            "$ref": "#/components/schemas/JsonObject"
-          }
-        },
-        "description": "Changed values; `null` removes a value."
-      },
       "UpdateListRequest": {
         "required": [
           "name",
           "description",
-          "fields"
+          "allowFolders"
         ],
         "type": "object",
         "properties": {
@@ -3843,14 +4697,26 @@
               "string"
             ]
           },
-          "fields": {
+          "allowFolders": {
             "type": [
               "null",
-              "array"
+              "boolean"
+            ]
+          },
+          "versioning": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "maxVersions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
             ],
-            "items": {
-              "$ref": "#/components/schemas/FieldDefinition"
-            }
+            "format": "int32"
           }
         }
       },
@@ -4159,6 +5025,9 @@
     },
     {
       "name": "Auth"
+    },
+    {
+      "name": "Content types"
     },
     {
       "name": "Groups"

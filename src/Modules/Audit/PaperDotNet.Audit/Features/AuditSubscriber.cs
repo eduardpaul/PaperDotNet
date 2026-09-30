@@ -17,14 +17,20 @@ public static class AuditSubscriber
     public static Task Handle(ListDeleted e, AuditDbContext db, CancellationToken cancellationToken) =>
         RecordAsync(db, e, "list.deleted", e.ListId, e.ListId, e.Name, cancellationToken);
 
-    public static Task Handle(ItemCreated e, AuditDbContext db, CancellationToken cancellationToken) =>
-        RecordAsync(db, e, "item.created", e.ItemId, e.ListId, e.Title, cancellationToken);
+    public static Task Handle(ItemAdded e, AuditDbContext db, CancellationToken cancellationToken) =>
+        RecordAsync(db, e, e.IsFolder ? "folder.created" : "item.created", e.ItemId, e.ListId, e.Title, cancellationToken);
 
     public static Task Handle(ItemUpdated e, AuditDbContext db, CancellationToken cancellationToken) =>
-        RecordAsync(db, e, "item.updated", e.ItemId, e.ListId, $"{e.Title} ({string.Join(", ", e.ChangedFields)})", cancellationToken);
+        RecordAsync(db, e, e.IsFolder ? "folder.updated" : "item.updated", e.ItemId, e.ListId, $"{e.Title} ({string.Join(", ", e.ChangedFields)})", cancellationToken);
 
     public static Task Handle(ItemDeleted e, AuditDbContext db, CancellationToken cancellationToken) =>
-        RecordAsync(db, e, "item.deleted", e.ItemId, e.ListId, e.Title, cancellationToken);
+        RecordAsync(db, e, e.IsFolder ? "folder.deleted" : "item.deleted", e.ItemId, e.ListId, e.Title, cancellationToken);
+
+    public static Task Handle(ItemRestored e, AuditDbContext db, CancellationToken cancellationToken) =>
+        RecordAsync(db, e, "item.restored", e.ItemId, e.ListId, e.Title, cancellationToken);
+
+    public static Task Handle(ItemPurged e, AuditDbContext db, CancellationToken cancellationToken) =>
+        RecordAsync(db, e, "item.purged", e.ItemId, e.ListId, e.Title, cancellationToken);
 
     private static async Task RecordAsync(AuditDbContext database, IntegrationEvent integrationEvent, string action, Guid targetId, Guid? listId, string? summary, CancellationToken cancellationToken)
     {

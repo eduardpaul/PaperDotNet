@@ -18,6 +18,9 @@ public sealed class WorkflowActivityContext
 {
     public required Guid TenantId { get; init; }
 
+    /// <summary>The workflow's workspace: the lists it works with are there.</summary>
+    public required Guid WorkspaceId { get; init; }
+
     public required Guid RunId { get; init; }
 
     /// <summary>The run's item, if any.</summary>

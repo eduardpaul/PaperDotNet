@@ -2,63 +2,27 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using PaperDotNet.Lists.Data;
+using PaperDotNet.Workflows.Data;
 
 #nullable disable
 
-namespace PaperDotNet.Migrations.Sqlite.Generated.Lists;
+namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows;
 
-[DbContext(typeof(ListsDbContext))]
-partial class ListsDbContextModelSnapshot : ModelSnapshot
+[DbContext(typeof(WorkflowsDbContext))]
+[Migration("20260930211002_WorkspaceLists")]
+partial class _20260930211002_WorkspaceLists
 {
-    // If you encounter a merge conflict in the line below, it means you need to
-    // discard one of the migration branches and recreate its migrations on top of
-    // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20260930210956_WorkspaceLists";
-
-    protected override void BuildModel(ModelBuilder modelBuilder)
+    /// <inheritdoc />
+    protected override void BuildTargetModel(ModelBuilder modelBuilder)
     {
 #pragma warning disable 612, 618
         modelBuilder
             .HasAnnotation("ProductVersion", "11.0.0-rc.1.26425.128")
             .HasAnnotation("WolverineEnabled", "true");
 
-        modelBuilder.Entity("PaperDotNet.Lists.Data.AclEntry", b =>
-            {
-                b.Property<Guid>("ScopeId")
-                    .HasColumnType("TEXT");
-
-                b.Property<Guid>("PrincipalId")
-                    .HasColumnType("TEXT");
-
-                b.Property<int>("Level")
-                    .HasColumnType("INTEGER");
-
-                b.Property<Guid>("ListId")
-                    .HasColumnType("TEXT");
-
-                b.Property<string>("PrincipalType")
-                    .IsRequired()
-                    .HasMaxLength(20)
-                    .HasColumnType("TEXT");
-
-                b.Property<Guid>("TenantId")
-                    .HasColumnType("TEXT");
-
-                b.Property<Guid>("WorkspaceId")
-                    .HasColumnType("TEXT");
-
-                b.HasKey("ScopeId", "PrincipalId");
-
-                b.HasIndex("TenantId", "ListId");
-
-                b.HasIndex("TenantId", "PrincipalId", "ListId");
-
-                b.ToTable("acl_entries");
-            });
-
-        modelBuilder.Entity("PaperDotNet.Lists.Data.ContentType", b =>
+        modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowDefinition", b =>
             {
                 b.Property<Guid>("Id")
                     .ValueGeneratedOnAdd()
@@ -70,23 +34,14 @@ partial class ListsDbContextModelSnapshot : ModelSnapshot
                 b.Property<Guid?>("CreatedBy")
                     .HasColumnType("TEXT");
 
+                b.Property<int>("CurrentVersion")
+                    .HasColumnType("INTEGER");
+
                 b.Property<string>("Description")
                     .HasColumnType("TEXT");
 
-                b.Property<string>("ExtensionId")
-                    .HasMaxLength(100)
-                    .HasColumnType("TEXT");
-
-                b.Property<string>("Fields")
-                    .IsRequired()
-                    .HasColumnType("TEXT");
-
-                b.Property<bool>("IsBuiltIn")
+                b.Property<bool>("Enabled")
                     .HasColumnType("INTEGER");
-
-                b.Property<string>("Key")
-                    .HasMaxLength(150)
-                    .HasColumnType("TEXT");
 
                 b.Property<string>("Name")
                     .IsRequired()
@@ -94,6 +49,10 @@ partial class ListsDbContextModelSnapshot : ModelSnapshot
                     .HasColumnType("TEXT");
 
                 b.Property<Guid>("TenantId")
+                    .HasColumnType("TEXT");
+
+                b.Property<string>("TriggerTypes")
+                    .IsRequired()
                     .HasColumnType("TEXT");
 
                 b.Property<DateTimeOffset>("UpdatedAt")
@@ -106,166 +65,139 @@ partial class ListsDbContextModelSnapshot : ModelSnapshot
                     .IsConcurrencyToken()
                     .HasColumnType("INTEGER");
 
+                b.Property<Guid>("WorkspaceId")
+                    .HasColumnType("TEXT");
+
                 b.HasKey("Id");
 
-                b.HasIndex("TenantId", "Key");
+                b.HasIndex("TenantId", "WorkspaceId", "Enabled");
 
-                b.HasIndex("TenantId", "Name")
+                b.HasIndex("TenantId", "WorkspaceId", "Name")
                     .IsUnique();
 
-                b.ToTable("content_types");
+                b.ToTable("workflows");
             });
 
-        modelBuilder.Entity("PaperDotNet.Lists.Data.ListDefinition", b =>
+        modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowRun", b =>
             {
                 b.Property<Guid>("Id")
                     .ValueGeneratedOnAdd()
                     .HasColumnType("TEXT");
 
-                b.Property<bool>("AllowFolders")
+                b.Property<DateTimeOffset?>("CompletedAt")
+                    .HasColumnType("TEXT");
+
+                b.Property<string>("Data")
+                    .HasColumnType("TEXT");
+
+                b.Property<int>("Depth")
                     .HasColumnType("INTEGER");
 
-                b.Property<string>("ContentTypeIds")
+                b.Property<string>("Error")
+                    .HasColumnType("TEXT");
+
+                b.Property<string>("FailedNode")
+                    .HasColumnType("TEXT");
+
+                b.Property<Guid?>("ItemId")
+                    .HasColumnType("TEXT");
+
+                b.Property<Guid?>("ListId")
+                    .HasColumnType("TEXT");
+
+                b.Property<string>("Log")
                     .IsRequired()
                     .HasColumnType("TEXT");
 
-                b.Property<DateTimeOffset>("CreatedAt")
+                b.Property<string>("Node")
                     .HasColumnType("TEXT");
 
-                b.Property<Guid?>("CreatedBy")
-                    .HasColumnType("TEXT");
-
-                b.Property<DateTimeOffset?>("DeletedAt")
-                    .HasColumnType("TEXT");
-
-                b.Property<Guid?>("DeletedBy")
-                    .HasColumnType("TEXT");
-
-                b.Property<string>("Description")
-                    .HasMaxLength(2000)
-                    .HasColumnType("TEXT");
-
-                b.Property<bool>("HasUniquePermissions")
+                b.Property<int>("NodesRun")
                     .HasColumnType("INTEGER");
 
-                b.Property<string>("Kind")
+                b.Property<string>("Outputs")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
+
+                b.Property<DateTimeOffset>("StartedAt")
+                    .HasColumnType("TEXT");
+
+                b.Property<Guid?>("StartedBy")
+                    .HasColumnType("TEXT");
+
+                b.Property<string>("Status")
                     .IsRequired()
                     .HasMaxLength(16)
                     .HasColumnType("TEXT");
 
-                b.Property<int>("MaxVersions")
-                    .HasColumnType("INTEGER");
-
-                b.Property<string>("Name")
-                    .IsRequired()
-                    .HasMaxLength(200)
-                    .HasColumnType("TEXT");
-
-                b.Property<string>("SystemKey")
-                    .HasMaxLength(64)
-                    .HasColumnType("TEXT");
-
-                b.Property<string>("TemplateKey")
-                    .HasMaxLength(150)
+                b.Property<Guid?>("StepExecutionId")
                     .HasColumnType("TEXT");
 
                 b.Property<Guid>("TenantId")
                     .HasColumnType("TEXT");
 
-                b.Property<DateTimeOffset>("UpdatedAt")
+                b.Property<string>("Trigger")
+                    .IsRequired()
                     .HasColumnType("TEXT");
 
-                b.Property<Guid?>("UpdatedBy")
+                b.Property<string>("Variables")
+                    .IsRequired()
                     .HasColumnType("TEXT");
 
                 b.Property<uint>("Version")
                     .IsConcurrencyToken()
                     .HasColumnType("INTEGER");
 
-                b.Property<string>("Versioning")
-                    .IsRequired()
-                    .HasMaxLength(16)
+                b.Property<Guid>("WorkflowId")
                     .HasColumnType("TEXT");
+
+                b.Property<int>("WorkflowVersion")
+                    .HasColumnType("INTEGER");
 
                 b.Property<Guid>("WorkspaceId")
                     .HasColumnType("TEXT");
 
                 b.HasKey("Id");
 
-                b.HasIndex("TenantId", "WorkspaceId");
+                b.HasIndex("WorkflowId");
 
-                b.ToTable("lists");
+                b.HasIndex("TenantId", "WorkflowId", "Id");
+
+                b.HasIndex("TenantId", "WorkspaceId", "Id");
+
+                b.ToTable("workflow_runs");
             });
 
-        modelBuilder.Entity("PaperDotNet.Lists.Data.ListItem", b =>
+        modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowVersion", b =>
             {
                 b.Property<Guid>("Id")
                     .ValueGeneratedOnAdd()
                     .HasColumnType("TEXT");
 
-                b.Property<Guid>("ContentTypeId")
-                    .HasColumnType("TEXT");
-
                 b.Property<DateTimeOffset>("CreatedAt")
                     .HasColumnType("TEXT");
 
-                b.Property<Guid?>("CreatedBy")
-                    .HasColumnType("TEXT");
-
-                b.Property<DateTimeOffset?>("DeletedAt")
-                    .HasColumnType("TEXT");
-
-                b.Property<Guid?>("DeletedBy")
-                    .HasColumnType("TEXT");
-
-                b.Property<string>("Fields")
+                b.Property<string>("Definition")
                     .IsRequired()
                     .HasColumnType("TEXT");
 
-                b.Property<bool>("HasUniquePermissions")
+                b.Property<int>("Number")
                     .HasColumnType("INTEGER");
-
-                b.Property<bool>("IsFolder")
-                    .HasColumnType("INTEGER");
-
-                b.Property<Guid>("ListId")
-                    .HasColumnType("TEXT");
-
-                b.Property<Guid?>("ParentId")
-                    .HasColumnType("TEXT");
-
-                b.Property<Guid>("ScopeId")
-                    .HasColumnType("TEXT");
 
                 b.Property<Guid>("TenantId")
                     .HasColumnType("TEXT");
 
-                b.Property<string>("Title")
-                    .IsRequired()
-                    .HasMaxLength(1024)
+                b.Property<Guid>("WorkflowId")
                     .HasColumnType("TEXT");
-
-                b.Property<DateTimeOffset>("UpdatedAt")
-                    .HasColumnType("TEXT");
-
-                b.Property<Guid?>("UpdatedBy")
-                    .HasColumnType("TEXT");
-
-                b.Property<uint>("Version")
-                    .IsConcurrencyToken()
-                    .HasColumnType("INTEGER");
 
                 b.HasKey("Id");
 
-                b.HasIndex("ListId");
+                b.HasIndex("WorkflowId");
 
-                b.HasIndex("TenantId", "ScopeId");
+                b.HasIndex("TenantId", "WorkflowId", "Number")
+                    .IsUnique();
 
-                b.HasIndex("TenantId", "ListId", "Id");
-
-                b.HasIndex("TenantId", "ListId", "ParentId", "IsFolder", "Title");
-
-                b.ToTable("list_items");
+                b.ToTable("workflow_versions");
             });
 
         modelBuilder.Entity("Wolverine.EntityFrameworkCore.Internals.IncomingMessage", b =>
@@ -360,11 +292,20 @@ partial class ListsDbContextModelSnapshot : ModelSnapshot
                     });
             });
 
-        modelBuilder.Entity("PaperDotNet.Lists.Data.ListItem", b =>
+        modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowRun", b =>
             {
-                b.HasOne("PaperDotNet.Lists.Data.ListDefinition", null)
+                b.HasOne("PaperDotNet.Workflows.Data.WorkflowDefinition", null)
                     .WithMany()
-                    .HasForeignKey("ListId")
+                    .HasForeignKey("WorkflowId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+            });
+
+        modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowVersion", b =>
+            {
+                b.HasOne("PaperDotNet.Workflows.Data.WorkflowDefinition", null)
+                    .WithMany()
+                    .HasForeignKey("WorkflowId")
                     .OnDelete(DeleteBehavior.Cascade)
                     .IsRequired();
             });

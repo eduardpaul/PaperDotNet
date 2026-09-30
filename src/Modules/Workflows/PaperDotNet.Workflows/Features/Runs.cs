@@ -18,37 +18,41 @@ public static class WorkflowRunSubscriber
         interpreter.RunAsync(message.TenantId, message.RunId, cancellationToken);
 }
 
-/// <summary>Starts the workflows whose item triggers match an item event (Wolverine handler, one queue per event type).</summary>
+/// <summary>
+/// Starts the workflows whose item triggers match an item event (Wolverine handler, one queue per event type). Folders
+/// start no workflows.
+/// </summary>
 public static class WorkflowTriggerSubscriber
 {
-    public static Task Handle(ItemCreated e, WorkflowStarter starter, CancellationToken cancellationToken) =>
-        starter.OnItemEventAsync(WorkflowTriggers.ItemAdded, e, e.ListId, e.ItemId, [], null, cancellationToken);
+    public static Task Handle(ItemAdded e, WorkflowStarter starter, CancellationToken cancellationToken) =>
+        e.IsFolder ? Task.CompletedTask : starter.OnItemEventAsync(WorkflowTriggers.ItemAdded, e, [], null, cancellationToken);
 
     public static Task Handle(ItemUpdated e, WorkflowStarter starter, CancellationToken cancellationToken) =>
-        starter.OnItemEventAsync(WorkflowTriggers.ItemUpdated, e, e.ListId, e.ItemId, e.ChangedFields, null, cancellationToken);
+        e.IsFolder ? Task.CompletedTask : starter.OnItemEventAsync(WorkflowTriggers.ItemUpdated, e, e.ChangedFields, null, cancellationToken);
 
     public static Task Handle(ItemDeleted e, WorkflowStarter starter, CancellationToken cancellationToken) =>
-        starter.OnItemEventAsync(WorkflowTriggers.ItemDeleted, e, e.ListId, e.ItemId, [], new JsonObject { ["title"] = e.Title }, cancellationToken);
+        e.IsFolder ? Task.CompletedTask : starter.OnItemEventAsync(WorkflowTriggers.ItemDeleted, e, [], new JsonObject { ["title"] = e.Title }, cancellationToken);
 }
 
 /// <summary>Whether an item matches an OData filter (workflow conditions and <c>if</c> nodes).</summary>
-public sealed class ItemConditions(IListItemStore items)
+public sealed class ItemConditions(WorkflowItems items)
 {
-    public async Task<(bool Matches, string? Error)> MatchesAsync(Guid tenantId, Guid listId, Guid itemId, string filter, CancellationToken cancellationToken)
+    public async Task<(bool Matches, string? Error)> MatchesAsync(Guid tenantId, Guid workspaceId, Guid listId, Guid itemId, string filter, CancellationToken cancellationToken)
     {
-        var (found, error) = await items.QueryAsync(tenantId, listId, filter, null, 1, itemId, cancellationToken);
+        var (found, error) = await items.QueryAsync(new ChangeActor(tenantId, null), workspaceId, listId, filter, null, 1, itemId, cancellationToken);
         return (found.Count > 0, error);
     }
 }
 
 /// <summary>Creates runs and sends them to the interpreter. Queries copy their arguments into locals (ADR-0039).</summary>
-public sealed partial class WorkflowStarter(WorkflowsDbContext db, IOutbox outbox, IListItemStore items, ItemConditions conditions, TimeProvider time, ILogger<WorkflowStarter> logger)
+public sealed partial class WorkflowStarter(WorkflowsDbContext db, IOutbox outbox, WorkflowItems items, ItemConditions conditions, TimeProvider time, ILogger<WorkflowStarter> logger)
 {
     /// <summary>Changes caused by this many workflow reactions in a row start no more workflows (loop protection).</summary>
     public const int MaxDepth = 8;
 
-    public async Task OnItemEventAsync(string trigger, IntegrationEvent cause, Guid listId, Guid itemId, IReadOnlyList<string> changedFields, JsonObject? data, CancellationToken cancellationToken)
+    public async Task OnItemEventAsync(string trigger, ItemEvent cause, IReadOnlyList<string> changedFields, JsonObject? data, CancellationToken cancellationToken)
     {
+        var (workspaceId, listId, itemId) = (cause.WorkspaceId, cause.ListId, cause.ItemId);
         if (cause.Depth >= MaxDepth)
         {
             LogTooDeep(trigger, itemId, cause.Depth);
@@ -56,9 +60,16 @@ public sealed partial class WorkflowStarter(WorkflowsDbContext db, IOutbox outbo
         }
 
         var tenant = cause.TenantId;
-        var listName = (await items.FindListAsync(tenant, listId, cancellationToken))?.Name;
+        var enabled = await EnabledAsync(tenant, workspaceId, trigger, cancellationToken);
+        if (enabled.Count == 0)
+        {
+            return;
+        }
+
+        // A deleted item's list is found too while the list itself is not deleted.
+        var listName = (await items.FindListAsync(new ChangeActor(tenant, null), workspaceId, listId, cancellationToken))?.Name;
         var runs = new List<WorkflowRun>();
-        foreach (var (workflow, spec) in await EnabledAsync(tenant, trigger, cancellationToken))
+        foreach (var (workflow, spec) in enabled)
         {
             var matching = spec.AllTriggers.Any(t => t.Type == trigger
                 && (t.List is null || t.List == listName)
@@ -70,7 +81,7 @@ public sealed partial class WorkflowStarter(WorkflowsDbContext db, IOutbox outbo
 
             if (spec.Condition is { Length: > 0 } condition && trigger != WorkflowTriggers.ItemDeleted)
             {
-                var (matches, error) = await conditions.MatchesAsync(tenant, listId, itemId, condition, cancellationToken);
+                var (matches, error) = await conditions.MatchesAsync(tenant, workspaceId, listId, itemId, condition, cancellationToken);
                 if (error is not null)
                 {
                     LogConditionFailed(workflow.Name, error);
@@ -129,6 +140,7 @@ public sealed partial class WorkflowStarter(WorkflowsDbContext db, IOutbox outbo
     {
         Id = id,
         TenantId = workflow.TenantId,
+        WorkspaceId = workflow.WorkspaceId,
         WorkflowId = workflow.Id,
         WorkflowVersion = workflow.CurrentVersion,
         Status = RunStatus.Running,
@@ -142,13 +154,14 @@ public sealed partial class WorkflowStarter(WorkflowsDbContext db, IOutbox outbo
         StartedAt = time.GetUtcNow(),
     };
 
-    private async Task<List<(WorkflowDefinition Workflow, WorkflowSpec Spec)>> EnabledAsync(Guid tenantId, string trigger, CancellationToken cancellationToken)
+    private async Task<List<(WorkflowDefinition Workflow, WorkflowSpec Spec)>> EnabledAsync(Guid tenantId, Guid workspaceId, string trigger, CancellationToken cancellationToken)
     {
         var context = db;
         var tenant = tenantId;
+        var workspace = workspaceId;
         var pattern = $",{trigger},";
         var ct = cancellationToken;
-        var workflows = await context.Workflows.Where(w => w.TenantId == tenant && w.Enabled && w.TriggerTypes.Contains(pattern)).ToListAsync(ct);
+        var workflows = await context.Workflows.Where(w => w.TenantId == tenant && w.WorkspaceId == workspace && w.Enabled && w.TriggerTypes.Contains(pattern)).ToListAsync(ct);
         var result = new List<(WorkflowDefinition, WorkflowSpec)>();
         foreach (var workflow in workflows)
         {
