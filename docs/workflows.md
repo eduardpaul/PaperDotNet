@@ -61,6 +61,10 @@ groups **by name**, so they are portable in templates.
   narrow it down. `terms` (term paths `Group/Set/Term`) needs the item to
   have one of these terms, or a term below one, in any field. Folders never
   trigger workflows.
+- `terms`, `contentType` and the condition are checked against the item's
+  values when the workflow starts (moments after the change), not as they were
+  at the change. Two quick changes can therefore both see the second one's
+  values.
 - **Timed triggers** start once per occurrence (`schedule`) or once per item
   and date value (`date`), checked every minute. Only moments after the
   workflow was saved or turned on count: a new workflow does not run for

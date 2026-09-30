@@ -166,12 +166,11 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
         Assert.All(saved, f => Assert.Equal(receipt.ToString(), f.GetProperty("receipt").GetString()));
 
         // Tagged again, with a tag below "ticket": read again in the next batch (its values changed, so the question did too),
-        // and the lines are replaced, not added.
-        foreach (var tags in new[] { Array.Empty<string>(), ["Groceries"] })
-        {
-            var retag = await admin.SendWithEtagAsync(HttpMethod.Patch, item, (await admin.GetAsync(item, Ct)).Headers.ETag!.Tag, new { fields = new { tags } });
-            Assert.True(retag.IsSuccessStatusCode, await retag.Content.ReadAsStringAsync(Ct));
-        }
+        // and the lines are replaced, not added. One change: trigger filters see the item as it is when the event is handled,
+        // so two quick changes could both start a run.
+        var retag = await admin.SendWithEtagAsync(HttpMethod.Patch, item, (await admin.GetAsync(item, Ct)).Headers.ETag!.Tag,
+            new { fields = new { tags = new[] { "Groceries" } } });
+        Assert.True(retag.IsSuccessStatusCode, await retag.Content.ReadAsStringAsync(Ct));
 
         await Eventually.WaitForAsync(async () =>
         {
