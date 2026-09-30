@@ -52,7 +52,7 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
    because it exists. **Modules still to port stay in `src/Modules` but out of the build** (not in `PaperDotNet.slnx`,
    not referenced by the host), and so do their tests (`tests/PaperDotNet.IntegrationTests/ToPort`), the unit,
    architecture and performance tests, the tools and the PostgreSQL projects. The web UI CI job is paused.
-2. **Budget:** under 100 MB resident when idle and under 300 MB under load, checked on every push by
+2. **Budget:** under 150 MB resident when idle and under 300 MB under load, checked on every push by
    `eng/aot-smoke.sh`, which publishes the binary and runs it.
 3. **Plain defaults over tuning.** Default GC and runtime settings. Memory tricks (GC knobs, heap limits, request
    throttling) only when the budget needs them.
@@ -95,8 +95,11 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
   with `eng/codegen.sh` into `src/PaperDotNet.Host/Internal/Generated` and committed. Each subscriber gets its own message (`MultipleHandlerBehavior.Separated`). Publish with
   `IOutbox.SaveChangesAsync(db, events)`.
 - **Authentication:** first-party clients keep the OAuth 2.0 password and refresh-token grants on `/connect/token`.
-  Tokens are ASP.NET Core bearer tokens (Data Protection). Permissions are scopes in the token. Tenants live in the
-  Identity module for now (the Tenancy module is still to port).
+  Tokens are ASP.NET Core bearer tokens (Data Protection), valid while the user's security stamp is current; personal
+  access tokens (`pdn_…`) are looked up by hash. One authentication scheme (`PaperDotNet`) handles both. Permissions
+  are the user's effective scopes (roles assigned to the user or its groups), checked on every request; a token
+  carries scopes only when it is limited to them. Tenants live in the Identity module for now (the Tenancy module is
+  still to port).
 - **Workflows** (flow form; the activity contract is `PaperDotNet.Workflows.Contracts`): triggers `manual`, `itemAdded`, `itemUpdated`,
   `itemDeleted` (with an OData `condition`); activities `if`, `setVariable`, `script` (Jint), `end`, `fail`, and the
   actions `item.create` and `item.update` (`IWorkflowActivity`, registered with `AddWorkflowActivity<T>()`). Runs are
@@ -136,8 +139,9 @@ schedules, the web UI and the SDKs. Each follows the rules above and brings its 
   time), so query shapes that do not precompile only show up in the AOT job. `eng/aot-smoke.sh` runs locally too.
 - Queries lose the safety net of global filters. Isolation tests per endpoint and the save interceptor replace it.
   PostgreSQL row-level security (ADR-0013) will be a second layer again in the PostgreSQL build.
-- The idle budget has little room left (94–96 MB of 100 with workflows). The next modules either fit in it, or the
-  budget is revisited on purpose; memory tuning stays the last resort.
+- The idle budget started at 100 MB. With Jobs and Identity ported the server idled at 104 MB; the standard GC
+  settings saved at most 6 MB (gen0 size), because most idle memory is code and runtime structures that grow with each
+  module. We raised the idle budget to 150 MB and kept plain defaults, rather than tune the GC or make modules opt-in.
 - OpenIddict (authorization code flow, passkeys) and ASP.NET Core OData are not used any more. Other dependencies are
   not checked under AOT yet (the MCP SDK, the extension host, PDF and OCR libraries). Each
   is tested when its module is ported, with the same best-effort rule: keep it if it works, otherwise find a standard

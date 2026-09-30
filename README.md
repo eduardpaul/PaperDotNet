@@ -7,7 +7,7 @@ Self-hosted with just **one container** (SQLite built in; PostgreSQL optional).
 
 > **Status:** the server is being rebuilt as **one Native AOT binary on .NET 11**
 > ([ADR-0039](docs/adr/0039-native-aot-core.md)): the .NET 10 server used 500 MB and more of memory; the AOT
-> server has a budget of 100 MB idle and 300 MB under load, checked on every push. Modules move over one at a time;
+> server has a budget of 150 MB idle and 300 MB under load, checked on every push. Modules move over one at a time;
 > the ones still to port stay in `src/Modules` out of the build. See the [roadmap](docs/features.md#roadmap).
 
 ## What runs today (Native AOT server)

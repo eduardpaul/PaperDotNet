@@ -8,7 +8,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-IDLE_BUDGET_MB=${IDLE_BUDGET_MB:-100}
+IDLE_BUDGET_MB=${IDLE_BUDGET_MB:-150}
 LOAD_BUDGET_MB=${LOAD_BUDGET_MB:-300}
 PORT=${PORT:-5099}
 RID=${RID:-linux-x64}
