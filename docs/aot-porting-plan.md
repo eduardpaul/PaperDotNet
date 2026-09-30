@@ -13,7 +13,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T05 | M | Workspaces with members and roles | done (workspace templates come with T13) |
 | T06 | L | Lists parity 1: workspace-scoped API, content types, all field types, folders | done: lists and libraries in workspaces (access from workspace roles through `acl_entries`), content types, field types except `managedMetadata`/`keywords` (T12), folders, OData queries with `any()`, aliases and date arithmetic. List templates and `templateKey` come with T08, the Home libraries with T15, moving a folder into another permission scope with T08 |
 | T07 | L | Lists parity 2: versions and history, recycle bin, item mutators, full item events | done: item versions (list, get, restore), the recycle bin (list, restore, purge) with a daily cleanup job, mutators (`IItemMutator` in DI), restored and purged events in the audit log. The audit log across modules (`/v1.0/auditLog` by entity type) comes with T16 |
-| T08 | XL | Lists parity 3: permissions (ADR-0035), indexed fields, views, templates, smart folders, delta, bulk | |
+| T08 | XL | Lists parity 3: permissions (ADR-0035), indexed fields, views, templates, smart folders, delta, bulk | in progress (steps below) |
 | T09 | M | Extension SDK, extension host and generator | |
 | T10 | S-M | Notes, Collaboration, Notifications | |
 | T11 | M | Tasks and Calendar | |
@@ -23,5 +23,20 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T15 | XL | Documents (PDF libraries, page images, OCR) | |
 | T16 | M | MCP, admin CLI, backup and restore, Papermerge import, the audit log across modules | |
 | T17 | XL | PostgreSQL build, SDK regeneration, web UI (with the authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in) | |
+
+Status values: empty = not started; "in progress"; "done" (with what moved to a later task).
+
+### T08 steps (in order)
+
+| Step | Task | Status |
+|---|---|---|
+| T08a | Item permissions: break/reset inheritance, grants for lists and items, folder contents follow scope changes (`ScopeMover`, `CompleteFolderScopeChange`) | done (AOT smoke run pending) |
+| T08b | Views (`/views`, `?viewId=` on item queries) | in progress |
+| T08c | Item counts (per list, per folder, grouped) | |
+| T08d | Bulk update as an operation (`/items/bulkUpdate`) | |
+| T08e | Delta (change log, `/items/delta`, scope changes for delta) | |
+| T08f | List templates and `templateKey` | |
+| T08g | Smart folders | |
+| T08h | Indexed fields (item columns and value table, backfill; no reflection over columns under AOT) | |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).
