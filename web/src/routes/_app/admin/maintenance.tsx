@@ -118,7 +118,7 @@ function Templates({ canApply }: { canApply: boolean }) {
   return (
     <SettingsSection
       title="Templates"
-      description="Workspaces, lists, fields, views, automations and terms as a portable file."
+      description="Workspaces, lists, fields, views, workflows and terms as a portable file."
     >
       <div className="divide-y">
         <SettingRow id="tpl-workspace" label="Save as a template">

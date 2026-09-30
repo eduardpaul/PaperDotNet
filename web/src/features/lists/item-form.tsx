@@ -55,7 +55,7 @@ export function ItemForm({
     ...(item ? {} : initialValues),
     ...original,
   }));
-  // A newer version from elsewhere (live update, automation, smart folder) replaces the values unless the user has
+  // A newer version from elsewhere (live update, workflow, smart folder) replaces the values unless the user has
   // edited them; then the edits stay on the version they started from and the save's If-Match catches the conflict.
   // Adjusted during render, as React recommends for prop changes.
   const [seen, setSeen] = useState(item);

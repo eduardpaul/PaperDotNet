@@ -96,7 +96,7 @@ function General() {
       {canManage && !workspace.isPersonal && (
         <SettingsSection
           title="Delete workspace"
-          description="Deletes the workspace with all its lists, items, documents and automations. This cannot be undone."
+          description="Deletes the workspace with all its lists, items, documents and workflows. This cannot be undone."
           actions={
             <Button variant="danger" onClick={() => setDeleting(true)}>
               Delete workspace

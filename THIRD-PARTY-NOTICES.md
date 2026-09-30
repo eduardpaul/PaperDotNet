@@ -45,6 +45,13 @@ FreeType (FreeType License), libjpeg-turbo (IJG / BSD-3-Clause / zlib),
 OpenJPEG (BSD-2-Clause), Little CMS (MIT) and zlib (zlib License); see
 https://github.com/bblanchon/pdfium-binaries for the notices shipped with the binaries.
 
+## Jint and Acornima
+
+Jint: BSD 2-Clause License. Copyright (c) 2013, Sebastien Ros.
+Acornima: BSD 3-Clause License. Copyright (c) Adam Simon.
+See https://github.com/sebastienros/jint/blob/main/LICENSE.txt and
+https://github.com/adams85/acornima/blob/master/LICENSE for the full texts.
+
 ## Skia (via SkiaSharp)
 
 BSD 3-Clause License. Copyright (c) 2011 Google Inc.

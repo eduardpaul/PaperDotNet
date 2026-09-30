@@ -111,6 +111,35 @@ public sealed class ListsTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task Items_created_with_their_id_can_be_created_again_safely()
+    {
+        var (client, ws, list, _) = await SetupAsync("items-create-id");
+        var id = Guid.NewGuid();
+        var first = await client.PostItemAsync(ws, list, new { id, fields = new { title = "INV-9", amount = 5 } });
+        var again = await client.PostItemAsync(ws, list, new { id, fields = new { title = "Changed", amount = 6 } });
+
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(id, (await first.ReadJsonAsync()).GetProperty("id").GetGuid());
+        Assert.Equal(HttpStatusCode.OK, again.StatusCode); // the item it made, unchanged
+        Assert.Equal("INV-9", (await again.ReadJsonAsync()).GetProperty("fields").GetProperty("title").GetString());
+        Assert.Equal(first.Headers.ETag, again.Headers.ETag);
+
+        // The id of an item in another list, of a deleted item, or of another tenant's item is a conflict.
+        var memos = await client.CreateListAsync(ws, "Memos", await client.CreateContentTypeAsync("Memo", []));
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostItemAsync(ws, memos, new { id, fields = new { title = "Memo" } })).StatusCode);
+        var deleted = (await client.CreateItemAsync(ws, list, new { fields = new { title = "Gone", amount = 1 } })).GetProperty("id").GetGuid();
+        var url = $"/v1.0/workspaces/{ws}/lists/{list}/items/{deleted}";
+        (await client.SendWithEtagAsync(HttpMethod.Delete, url, (await client.GetAsync(url, Ct)).Headers.ETag!.Tag)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostItemAsync(ws, list, new { id = deleted, fields = new { title = "Back", amount = 1 } })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostItemAsync(ws, list, new { id = Guid.Empty, fields = new { title = "Empty", amount = 1 } })).StatusCode);
+
+        var (clientB, wsB, listB, _) = await SetupAsync("items-create-id-b");
+        var taken = await clientB.PostItemAsync(wsB, listB, new { id, fields = new { title = "Mine", amount = 1 } });
+        Assert.Equal(HttpStatusCode.Conflict, taken.StatusCode);
+        Assert.DoesNotContain("INV-9", await taken.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Items_can_be_queried_with_odata_options()
     {
         var (client, ws, list, _) = await SetupAsync("items-query");

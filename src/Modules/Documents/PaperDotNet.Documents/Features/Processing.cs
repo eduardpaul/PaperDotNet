@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using CliWrap;
 using CliWrap.Buffered;
@@ -13,37 +15,84 @@ using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
+using PaperDotNet.Workflows.Contracts;
 using SkiaSharp;
 using UglyToad.PdfPig;
 
 namespace PaperDotNet.Documents.Features;
 
-/// <summary>Payload of the <c>documents.processFile</c> operation.</summary>
-public sealed record ProcessFile(Guid VersionId, bool ForceOcr = false, string? Languages = null);
-
-/// <summary>Starts processing of file versions as operations (DOC-09: status on the version and the operation).</summary>
-internal sealed partial class ProcessingScheduler(DocumentsDbContext db, IOperations operations)
+/// <summary>
+/// Announces files to workflows (ADR-0038): an upload, a new version or an imported current version only stores the file
+/// and raises <c>document.added</c>. Text, thumbnails, page images and OCR are the library's workflows on it.
+/// </summary>
+internal sealed class DocumentEvents(IWorkflowTriggers triggers)
 {
-    /// <summary>Marks <paramref name="version"/> as scheduled and starts its processing.</summary>
-    public async Task<Guid> ScheduleAsync(FileVersion version, bool forceOcr, string? languages, CancellationToken ct)
+    public Task AddedAsync(FileVersion version, bool newDocument, CancellationToken ct) =>
+        triggers.RaiseAsync(WorkflowTriggers.DocumentAdded, version.WorkspaceId, new WorkflowItem(version.WorkspaceId, version.ListId, version.ItemId),
+            new JsonObject
+            {
+                ["version"] = version.Number,
+                ["mediaType"] = version.MediaType,
+                ["fileName"] = version.FileName,
+                ["newDocument"] = newDocument,
+            },
+            AddedEventId(version.Id), ct);
+
+    /// <summary>The event id of <c>document.added</c> for a version: announcing it again starts nothing twice.</summary>
+    internal static Guid AddedEventId(Guid versionId)
     {
-        var operationId = await operations.StartAsync(DocumentProcessor.OperationType, new ProcessFile(version.Id, forceOcr, languages), ct);
-        version.ProcessingStatus = ProcessingStatus.Scheduled;
-        version.ProcessingError = null;
-        version.OperationId = operationId;
+        Span<byte> input = stackalloc byte[17];
+        versionId.TryWriteBytes(input);
+        input[16] = (byte)'a';
+        var bytes = SHA256.HashData(input)[..16];
+        bytes[7] = (byte)((bytes[7] & 0x0F) | 0x80); // Version 8 (name-based, custom).
+        bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80); // RFC 4122 variant.
+        return new Guid(bytes);
+    }
+}
+
+/// <summary>Whether a file has text, the languages to read it in, and its page texts.</summary>
+internal static partial class DocumentText
+{
+    /// <summary>Below this many characters per page a PDF counts as a scan.</summary>
+    public const int MinTextPerPage = 20;
+
+    /// <summary>Whether page texts are enough to count as text (not a scan).</summary>
+    public static bool Enough(IReadOnlyCollection<string> pages) =>
+        pages.Count > 0 && pages.Sum(p => p.Trim().Length) >= MinTextPerPage * pages.Count;
+
+    /// <summary>The saved page texts of a stored file, in order.</summary>
+    public static Task<List<string>> PagesAsync(DocumentsDbContext db, Guid storedFileId, CancellationToken ct) =>
+        db.Pages.AsNoTracking().Where(p => p.StoredFileId == storedFileId).OrderBy(p => p.PageNumber).Select(p => p.Text).ToListAsync(ct);
+
+    /// <summary>Whether the version has text: an OCR result, or enough saved page texts.</summary>
+    public static async Task<bool> HasTextAsync(DocumentsDbContext db, FileVersion version, CancellationToken ct) =>
+        version.Source == "ocr" || Enough(await PagesAsync(db, version.StoredFileId, ct));
+
+    /// <summary>Stores page texts once per content (identical files share them).</summary>
+    public static async Task SavePagesAsync(DocumentsDbContext db, Guid storedFileId, IReadOnlyList<string> pages, CancellationToken ct)
+    {
+        if (pages.Count == 0 || await db.Pages.AnyAsync(p => p.StoredFileId == storedFileId, ct))
+        {
+            return;
+        }
+
+        db.Pages.AddRange(pages.Select((text, i) => new StoredFilePage { StoredFileId = storedFileId, PageNumber = i + 1, Text = text.Trim() }));
         await db.SaveChangesAsync(ct);
-        return operationId;
     }
 
-    /// <summary>Schedules automatic processing when the library has it on.</summary>
-    public async Task ScheduleIfAutomaticAsync(FileVersion version, CancellationToken ct)
+    /// <summary>DOC-17: the request, the file, the library, then the uploader's (or the organization's) document languages.</summary>
+    public static async Task<string> LanguagesAsync(
+        DocumentsDbContext db, IUserPreferences preferences, FileVersion version, string? requested, CancellationToken ct)
     {
         var settings = await db.LibrarySettings.AsNoTracking().FirstOrDefaultAsync(s => s.ListId == version.ListId, ct);
-        if (settings?.AutoProcess ?? true)
-        {
-            await ScheduleAsync(version, forceOcr: false, languages: null, ct);
-        }
+        return requested ?? version.Languages ?? settings?.OcrLanguages
+            ?? (version.CreatedBy is { } uploader
+                ? (await preferences.GetAsync(uploader, ct)).DocumentLanguages
+                : (await preferences.GetDefaultsAsync(ct)).DocumentLanguages);
     }
+
+    public static string FirstLanguage(string languages) => languages.Split('+')[0];
 
     /// <summary>Tesseract language list: codes of letters and underscores joined with <c>+</c>.</summary>
     public static bool IsValidLanguageList(string value) => LanguageList().IsMatch(value);
@@ -53,11 +102,17 @@ internal sealed partial class ProcessingScheduler(DocumentsDbContext db, IOperat
 }
 
 /// <summary>
-/// Processes a file version (DOC-04, DOC-07, DOC-08): extracts the text layer of PDFs; runs OCR for
-/// images and PDFs without usable text and stores the result as a new, searchable PDF version (the
-/// original stays); saves page texts for search, renders the thumbnail and re-indexes the item.
+/// Payload of the <c>documents.ocrFile</c> operation: <c>Force</c> runs OCR even when the file has text; <c>WaitKey</c> is
+/// the wait of the step that started it.
 /// </summary>
-internal sealed partial class DocumentProcessor(
+public sealed record OcrFile(Guid VersionId, bool Force = false, string? Languages = null, string? WaitKey = null);
+
+/// <summary>
+/// OCR of a file version (DOC-07, ADR-0038): images and PDFs without usable text are recognized and the result is stored
+/// as a new, searchable PDF version (the original stays), with page texts for search. Started by <c>document.ocr</c>
+/// steps (the built-in "Recognize text", or any workflow); completes the steps' waits when it finishes.
+/// </summary>
+internal sealed partial class DocumentOcr(
     DocumentsDbContext db,
     IBlobStore blobs,
     FileIntake intake,
@@ -66,18 +121,20 @@ internal sealed partial class DocumentProcessor(
     IListItemStore items,
     ILiveEvents live,
     IUserPreferences preferences,
+    IWorkflowBookmarks bookmarks,
+    DocumentEvents events,
     ITenantContext tenant,
     ICurrentUser user,
-    ILogger<DocumentProcessor> logger) : OperationHandler<ProcessFile>
+    ILogger<DocumentOcr> logger) : OperationHandler<OcrFile>
 {
-    public const string OperationType = "documents.processFile";
+    public const string OperationType = "documents.ocrFile";
 
-    /// <summary>Below this many characters per page a PDF counts as a scan.</summary>
-    private const int MinTextPerPage = 20;
+    /// <summary>The waits of <c>document.ocr</c> steps for this operation's version (data: <c>version</c>).</summary>
+    public const string WaitKind = "document.ocr";
 
     public override string Type => OperationType;
 
-    protected override async Task<object?> ExecuteAsync(ProcessFile payload, IOperationProgress progress, CancellationToken ct)
+    protected override async Task<object?> ExecuteAsync(OcrFile payload, IOperationProgress progress, CancellationToken ct)
     {
         var version = await db.FileVersions.FirstOrDefaultAsync(v => v.Id == payload.VersionId, ct);
         if (version is null)
@@ -85,37 +142,65 @@ internal sealed partial class DocumentProcessor(
             return null; // The item was purged meanwhile.
         }
 
-        await SetStatusAsync(version, ProcessingStatus.Running, null, ct);
+        if (!version.IsCurrent || (!payload.Force && await DocumentText.HasTextAsync(db, version, ct)))
+        {
+            // A newer version came, or the file has text: nothing to recognize.
+            await CompleteWaitsAsync(version, payload.WaitKey, new JsonObject { ["ocr"] = false }, ct);
+            return new OcrResult(version.Number, version.PageCount, false);
+        }
+
+        OcrResult result;
         try
         {
-            var result = await ProcessAsync(version, payload, progress, ct);
-            await SetStatusAsync(version, ProcessingStatus.Succeeded, null, ct);
-            return result;
+            result = await RecognizeAsync(version, payload, progress, ct);
         }
-#pragma warning disable CA1031 // Any failure is recorded on the version; the operation fails too.
+#pragma warning disable CA1031 // Any failure goes to the waiting steps; the operation fails too.
         catch (Exception ex) when (ex is not OperationCanceledException)
 #pragma warning restore CA1031
         {
-            LogProcessingFailed(ex, version.Id);
+            LogOcrFailed(ex, version.Id);
             db.ChangeTracker.Clear();
-            var failed = await db.FileVersions.FirstAsync(v => v.Id == version.Id, ct);
-            await SetStatusAsync(failed, ProcessingStatus.Failed, ex.Message, ct);
+            await CompleteWaitsAsync(version, payload.WaitKey, new JsonObject { ["error"] = ex.Message.Length > 1000 ? ex.Message[..1000] : ex.Message }, ct);
             throw;
+        }
+
+        await CompleteWaitsAsync(version, payload.WaitKey, new JsonObject { ["ocr"] = true, ["version"] = result.Number }, ct);
+        live.Publish(DocumentLiveEvents.Changed(tenant, user, version, "ocr"));
+        return result;
+    }
+
+    /// <summary>
+    /// Completes the wait of the step that started it (kept when the step has not saved it yet), and those of other
+    /// <c>document.ocr</c> steps waiting for the version.
+    /// </summary>
+    private async Task CompleteWaitsAsync(FileVersion version, string? waitKey, JsonObject payload, CancellationToken ct)
+    {
+        var id = version.Id.ToString();
+        var keys = waitKey is null ? new List<string>() : [waitKey];
+        for (var skip = 0; ; skip += 100)
+        {
+            var page = await bookmarks.ListOpenAsync(WaitKind, version.WorkspaceId, skip, 100, ct);
+            keys.AddRange(page.Where(w => w.Data?["version"]?.GetValue<string>() == id).Select(w => w.Key));
+            if (page.Count < 100)
+            {
+                break;
+            }
+        }
+
+        foreach (var key in keys.Distinct())
+        {
+            await bookmarks.CompleteAsync(WaitKind, key, payload.DeepClone().AsObject(), ct);
         }
     }
 
-    private async Task<object> ProcessAsync(FileVersion version, ProcessFile payload, IOperationProgress progress, CancellationToken ct)
+    /// <summary>The operation's result: the current version (the OCR result), its pages and whether OCR ran.</summary>
+    private sealed record OcrResult(int Number, int? PageCount, bool Ocr);
+
+    private async Task<OcrResult> RecognizeAsync(FileVersion version, OcrFile payload, IOperationProgress progress, CancellationToken ct)
     {
         var stored = await db.StoredFiles.FirstAsync(f => f.Id == version.StoredFileId, ct);
-        var settings = await db.LibrarySettings.AsNoTracking().FirstOrDefaultAsync(s => s.ListId == version.ListId, ct);
-        // DOC-17: the request, the file, the library, then the uploader's (or the organization's) document languages.
-        var languages = payload.Languages ?? version.Languages ?? settings?.OcrLanguages
-            ?? (version.CreatedBy is { } uploader
-                ? (await preferences.GetAsync(uploader, ct)).DocumentLanguages
-                : (await preferences.GetDefaultsAsync(ct)).DocumentLanguages);
-        var ocrMode = settings?.OcrMode ?? OcrMode.Auto;
-
-        var work = Directory.CreateTempSubdirectory("pdn_process_");
+        var languages = await DocumentText.LanguagesAsync(db, preferences, version, payload.Languages, ct);
+        var work = Directory.CreateTempSubdirectory("pdn_ocr_");
         try
         {
             var source = Path.Combine(work.FullName, "source");
@@ -125,41 +210,25 @@ internal sealed partial class DocumentProcessor(
                 await content.CopyToAsync(file, ct);
             }
 
-            List<string>? pages = null;
+            var input = source;
             if (version.MediaType == FileTypes.Pdf)
             {
-                pages = TextExtractor.PdfPages(source);
-                version.PageCount = pages.Count;
+                input = await renderer.RenderForOcrAsync(source, TextExtractor.PdfPages(source).Count, work.FullName, ct);
             }
 
-            var needsOcr = payload.ForceOcr
-                || (ocrMode == OcrMode.Auto && (pages is null || pages.Sum(p => p.Trim().Length) < MinTextPerPage * Math.Max(1, pages.Count)));
             await progress.ReportAsync(10, ct);
-
-            var current = version;
-            if (needsOcr)
-            {
-                var input = source;
-                if (version.MediaType == FileTypes.Pdf)
-                {
-                    input = await renderer.RenderForOcrAsync(source, pages!.Count, work.FullName, ct);
-                }
-
-                var (pdf, text) = await ocr.RecognizeAsync(input, languages, Path.Combine(work.FullName, "ocr"), ct);
-                await progress.ReportAsync(80, ct);
-                current = await AddOcrVersionAsync(version, pdf, text, languages, ct) ?? version;
-            }
-            else
-            {
-                await SavePagesAsync(stored.Id, pages ?? [], ct);
-                version.TextLanguage = FirstLanguage(languages);
-                version.PageCount ??= 1;
-            }
-
+            var (pdf, text) = await ocr.RecognizeAsync(input, languages, Path.Combine(work.FullName, "ocr"), ct);
+            await progress.ReportAsync(80, ct);
+            var current = await AddOcrVersionAsync(version, pdf, text, languages, ct);
             await db.SaveChangesAsync(ct);
             await items.ReindexAsync(version.ItemId, ct);
-            await renderer.WarmThumbnailAsync(current, ct);
-            return new { current.Number, current.PageCount, Ocr = needsOcr };
+            if (current is not null)
+            {
+                // A new version like any other: the library's workflows make its thumbnail and pages, and read its text.
+                await events.AddedAsync(current, newDocument: false, ct);
+            }
+
+            return new OcrResult((current ?? version).Number, (current ?? version).PageCount, true);
         }
         finally
         {
@@ -175,9 +244,9 @@ internal sealed partial class DocumentProcessor(
     {
         await using var spooled = await SpoolFileAsync(pdfPath, ct);
         var stored = await intake.StoreAsync(spooled, ct);
-        await SavePagesAsync(stored.Id, pages, ct);
+        await DocumentText.SavePagesAsync(db, stored.Id, pages, ct);
         version.PageCount ??= pages.Count;
-        version.TextLanguage = FirstLanguage(languages);
+        version.TextLanguage = DocumentText.FirstLanguage(languages);
         if (!version.IsCurrent)
         {
             return null;
@@ -199,9 +268,8 @@ internal sealed partial class DocumentProcessor(
             MediaType = stored.MediaType,
             FileName = Path.GetFileNameWithoutExtension(version.FileName) + ".pdf",
             Source = "ocr",
-            ProcessingStatus = ProcessingStatus.Succeeded,
             PageCount = pages.Count,
-            TextLanguage = FirstLanguage(languages),
+            TextLanguage = DocumentText.FirstLanguage(languages),
             Languages = version.Languages,
         };
         db.FileVersions.Add(ocrVersion);
@@ -214,38 +282,22 @@ internal sealed partial class DocumentProcessor(
         return await FileIntake.SpoolAsync(content, long.MaxValue, ct);
     }
 
-    /// <summary>Stores page texts once per content (identical files share them).</summary>
-    private async Task SavePagesAsync(Guid storedFileId, IReadOnlyList<string> pages, CancellationToken ct)
-    {
-        if (await db.Pages.AnyAsync(p => p.StoredFileId == storedFileId, ct))
-        {
-            return;
-        }
+    [LoggerMessage(Level = LogLevel.Warning, Message = "OCR of file version {VersionId} failed.")]
+    private partial void LogOcrFailed(Exception exception, Guid versionId);
+}
 
-        db.Pages.AddRange(pages.Select((text, i) => new StoredFilePage { StoredFileId = storedFileId, PageNumber = i + 1, Text = text.Trim() }));
-        await db.SaveChangesAsync(ct);
-    }
-
-    private async Task SetStatusAsync(FileVersion version, ProcessingStatus status, string? error, CancellationToken ct)
-    {
-        version.ProcessingStatus = status;
-        version.ProcessingError = error is null ? null : error.Length > 1000 ? error[..1000] : error;
-        await db.SaveChangesAsync(ct);
-        live.Publish(new LiveEvent("document.processing", tenant.TenantId!.Value, user.UserId, new
+/// <summary>The live event <c>document.changed</c>: a document workflow step made something new for the file (text, thumbnail, pages, OCR).</summary>
+internal static class DocumentLiveEvents
+{
+    public static LiveEvent Changed(ITenantContext tenant, ICurrentUser user, FileVersion version, string what) =>
+        new("document.changed", tenant.TenantId!.Value, user.UserId, new
         {
             version.WorkspaceId,
             version.ListId,
             version.ItemId,
             Version = version.Number,
-            Status = status,
-            Error = version.ProcessingError,
-        }));
-    }
-
-    private static string FirstLanguage(string languages) => languages.Split('+')[0];
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Processing of file version {VersionId} failed.")]
-    private partial void LogProcessingFailed(Exception exception, Guid versionId);
+            What = what,
+        });
 }
 
 /// <summary>Text layer of PDFs, page by page (PdfPig), as words separated by spaces.</summary>
@@ -315,13 +367,17 @@ internal sealed class OcrEngine(IOptions<DocumentsOptions> options, IHttpClientF
 }
 
 /// <summary>
-/// Page images (DOC-04): renders PDF pages with PDFium (PDFtoImage) and resizes JPEG/PNG with
-/// SkiaSharp. Results are cached in the blob store per content, page and width.
+/// Page images (DOC-04): renders PDF pages with PDFium (PDFtoImage) and resizes JPEG/PNG with SkiaSharp. What the
+/// document workflows render (thumbnails, page previews; ADR-0038) is stored per content, page and width, and only that
+/// is served; AI steps render pages without storing them.
 /// </summary>
 internal sealed class PageRenderer(DocumentsDbContext db, IBlobStore blobs, IOptions<DocumentsOptions> options)
 {
-    /// <summary>Widths served (thumbnail, preview, large); requests are rounded up to one of them.</summary>
+    /// <summary>Widths rendered (thumbnail, preview, large); requests are rounded up to one of them.</summary>
     public static readonly int[] Widths = [200, 800, 1600];
+
+    /// <summary>The widths of page previews (<c>document.renderPages</c>); thumbnails are the first width.</summary>
+    public static readonly int[] PageWidths = [800, 1600];
 
     // PDFium is not thread-safe.
     private static readonly SemaphoreSlim PdfiumLock = new(1, 1);
@@ -334,14 +390,31 @@ internal sealed class PageRenderer(DocumentsDbContext db, IBlobStore blobs, IOpt
 
     public static int WidthFor(int? requested) => Widths.FirstOrDefault(w => w >= (requested ?? Widths[0]), Widths[^1]);
 
-    /// <summary>A JPEG of the page, or null when the page does not exist or the type cannot be rendered (TIFF before OCR).</summary>
-    public async Task<Stream?> RenderAsync(FileVersion version, int page, int width, CancellationToken ct)
+    /// <summary>The stored JPEG of the page at the width, or null when no document workflow rendered it.</summary>
+    public async Task<Stream?> OpenStoredAsync(FileVersion version, int page, int width, CancellationToken ct)
     {
         var stored = await db.StoredFiles.AsNoTracking().FirstAsync(f => f.Id == version.StoredFileId, ct);
-        var key = $"{stored.TenantId:N}/renders/{stored.Sha256[..2]}/{stored.Sha256}/p{page}-w{width}";
+        return await blobs.OpenReadAsync(Key(stored, page, width), ct);
+    }
+
+    private static string Key(StoredFile stored, int page, int width) => $"{stored.TenantId:N}/renders/{stored.Sha256[..2]}/{stored.Sha256}/p{page}-w{width}";
+
+    /// <summary>
+    /// A JPEG of the page, or null when the page does not exist or the type cannot be rendered (TIFF before OCR). With
+    /// <paramref name="store"/> (document workflows) it is stored, so it is served; a stored one is reused.
+    /// </summary>
+    public async Task<byte[]?> RenderAsync(FileVersion version, int page, int width, bool store, CancellationToken ct)
+    {
+        var stored = await db.StoredFiles.AsNoTracking().FirstAsync(f => f.Id == version.StoredFileId, ct);
+        var key = Key(stored, page, width);
         if (await blobs.OpenReadAsync(key, ct) is { } cached)
         {
-            return cached;
+            await using (cached)
+            {
+                using var copy = new MemoryStream();
+                await cached.CopyToAsync(copy, ct);
+                return copy.ToArray();
+            }
         }
 
         byte[]? jpeg;
@@ -360,19 +433,12 @@ internal sealed class PageRenderer(DocumentsDbContext db, IBlobStore blobs, IOpt
             };
         }
 
-        if (jpeg is null)
+        if (jpeg is not null && store)
         {
-            return null;
+            await blobs.WriteAsync(key, new MemoryStream(jpeg), ct);
         }
 
-        await blobs.WriteAsync(key, new MemoryStream(jpeg), ct);
-        return new MemoryStream(jpeg);
-    }
-
-    /// <summary>Renders the thumbnail ahead of time so lists of documents load fast (best effort).</summary>
-    public async Task WarmThumbnailAsync(FileVersion version, CancellationToken ct)
-    {
-        await using var _ = await RenderAsync(version, 1, Widths[0], ct);
+        return jpeg;
     }
 
     /// <summary>Renders every page for OCR and writes a list file Tesseract reads (one image path per line).</summary>
@@ -449,6 +515,29 @@ internal sealed class PageRenderer(DocumentsDbContext db, IBlobStore blobs, IOpt
         using var image = SKImage.FromBitmap(resized ?? original);
         using var data = image.Encode(SKEncodedImageFormat.Jpeg, 85);
         return data.ToArray();
+    }
+}
+
+/// <summary>The pages of an item's current file as JPEGs for AI that reads images (1600 pixels wide, cached like previews).</summary>
+internal sealed class DocumentPageImages(DocumentsDbContext db, PageRenderer renderer) : IItemPageImageSource
+{
+    public async Task<IReadOnlyList<ItemPageImage>> GetPageImagesAsync(Guid itemId, int maxPages, CancellationToken cancellationToken)
+    {
+        var version = await db.FileVersions.AsNoTracking().FirstOrDefaultAsync(v => v.ItemId == itemId && v.IsCurrent, cancellationToken);
+        var images = new List<ItemPageImage>();
+        for (var page = 1; version is not null && page <= maxPages; page++)
+        {
+            // Rendered for the step, not stored: a library without page previews can still send its pages to a model.
+            var image = await renderer.RenderAsync(version, page, PageRenderer.Widths[^1], store: false, cancellationToken);
+            if (image is null)
+            {
+                break;
+            }
+
+            images.Add(new ItemPageImage(page, "image/jpeg", image));
+        }
+
+        return images;
     }
 }
 

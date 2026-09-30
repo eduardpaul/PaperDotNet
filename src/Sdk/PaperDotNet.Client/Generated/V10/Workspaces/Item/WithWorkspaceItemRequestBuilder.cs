@@ -4,9 +4,9 @@ using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
-using PaperDotNet.Client.V10.Workspaces.Item.Automations;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists;
 using PaperDotNet.Client.V10.Workspaces.Item.Members;
+using PaperDotNet.Client.V10.Workspaces.Item.Workflows;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -20,11 +20,6 @@ namespace PaperDotNet.Client.V10.Workspaces.Item
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WithWorkspaceItemRequestBuilder : BaseRequestBuilder
     {
-        /// <summary>The automations property</summary>
-        public global::PaperDotNet.Client.V10.Workspaces.Item.Automations.AutomationsRequestBuilder Automations
-        {
-            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Automations.AutomationsRequestBuilder(PathParameters, RequestAdapter);
-        }
         /// <summary>The lists property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.ListsRequestBuilder Lists
         {
@@ -34,6 +29,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Members.MembersRequestBuilder Members
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Members.MembersRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The workflows property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.WorkflowsRequestBuilder Workflows
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.WorkflowsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Workspaces.Item.WithWorkspaceItemRequestBuilder"/> and sets the default values.

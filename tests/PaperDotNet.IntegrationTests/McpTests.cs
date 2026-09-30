@@ -227,8 +227,11 @@ public sealed class McpTests(PaperDotNetApiFactory factory)
         var file = await CallAsync(mcp, "get_file", new() { ["workspaceId"] = ws.ToString(), ["listId"] = library.ToString(), ["itemId"] = itemId.ToString() });
         Assert.Equal(sha, file.GetProperty("file").GetProperty("sha256").GetString());
 
+        // The file is only a marker, not a readable PDF: the library's workflows find no text, and the tool says so.
+        await DocumentWorkflowRuns.WaitAsync(admin, ws, itemId, 3);
         var text = await CallAsync(mcp, "read_document", new() { ["workspaceId"] = ws.ToString(), ["listId"] = library.ToString(), ["itemId"] = itemId.ToString() });
-        Assert.False(string.IsNullOrEmpty(text.GetProperty("processingStatus").GetString()));
+        Assert.Equal(0, text.GetProperty("pages").GetArrayLength());
+        Assert.StartsWith("No text is stored", text.GetProperty("message").GetString(), StringComparison.Ordinal);
 
         var stale = await mcp.CallToolAsync("replace_document", new Dictionary<string, object?>
         {

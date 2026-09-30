@@ -7,7 +7,7 @@ public static class NotificationTypes
     public const string ItemChanged = "itemChanged";
     public const string Digest = "digest";
     public const string System = "system";
-    public const string Automation = "automation";
+    public const string Workflow = "workflow";
     public const string Mention = "mention";
 }
 

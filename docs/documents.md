@@ -1,20 +1,56 @@
-# Documents: pages, languages and inboxes
+# Documents: workflows, pages, languages and inboxes
 
-This guide covers what slice 7f added to document libraries:
+This guide covers document libraries:
+- what happens to uploaded files: the library's workflows ([ADR-0038](adr/0038-documents-composed-from-workflows.md));
 - page operations (DOC-05, DOC-06);
 - languages per file (DOC-17);
 - group inboxes (DOC-16);
 - values on folders (LST-19).
 
-Uploads, versions and processing are described in [features.md](features.md)
-(phase 3). Library uploads also accept `folderId`, which places the new
-document in a folder of the library.
+Uploads and versions are also described in [features.md](features.md)
+(phase 3). Library uploads accept `folderId`, which places the new document in
+a folder of the library.
+
+## What happens to an uploaded file
+
+An upload only stores the file (and a new version of a file is only stored). It
+raises the workflow trigger `document.added` with `version`, `mediaType`,
+`fileName` and `newDocument`. Everything else is a workflow of the library.
+Each one can be turned on or off per library (library settings → Workflows, or
+`PUT …/lists/{listId}/workflows/builtIns/{key}` with `{ "enabled" }`):
+
+| Workflow | Key | Default | What it does |
+|---|---|---|---|
+| Read the text | `documents.text` | on | The PDF's text layer as page texts, the page count and search. Raises `wf.documents.text.hasText` or `wf.documents.text.noText` (scans and photos). |
+| Make thumbnails | `documents.thumbnail` | on | The thumbnail of the first page. |
+| Render pages | `documents.pages` | on | Every page as an image at 800 and 1600 pixels, for viewing. |
+| Recognize text | `documents.ocr` | off | After `noText`: OCR into a new, searchable PDF version (the original stays). Parameter `languages`. |
+
+- **Only what the workflows made exists.** Without "Render pages" a library
+  shows no page images (`…/pages/{n}/image` is 404); without "Make thumbnails"
+  no thumbnails; without "Read the text" and OCR its files have no text in
+  search.
+- **An OCR result is a new version.** It is announced like an upload, so the
+  library's workflows read its text and make its images.
+- **Running one again:** every document workflow has a manual trigger. Start it
+  on a document (`POST …/items/{id}/workflows` `{ "workflow": "Recognize text
+  (Documents)" }`, or "Run again" in the document's panel). OCR started by hand
+  takes `{ "inputs": { "force": true } }` to recognize a file that has text.
+- **Status:** the document's workflow runs (`GET …/workflows/runs?itemId=…`)
+  show what ran and what failed; the live event `document.changed` tells
+  clients that text, a thumbnail, pages or an OCR version was made.
+- **AI with images** (`includeImages`) renders the pages it sends itself, so a
+  library without page images can still send them to a model.
+- **Your own workflows** can follow these, e.g. on
+  `wf.documents.text.hasText`, or replace them: turn one off and copy it
+  (`…/workflows/builtIns/{key}/copy`) to change it.
 
 ## Page operations
 
 Page operations work on the current file when it is a PDF. Images get a PDF
-when they are processed. Every change is **a new file version**, so the
-earlier versions stay and can be restored.
+when they are recognized (OCR). Every change is **a new file version**, so the
+earlier versions stay and can be restored, and the library's workflows make its
+images again.
 
 **Page texts are carried over:** search keeps finding the pages, with page
 hits, and nothing is OCRed again. You need Contribute on every document
@@ -57,15 +93,13 @@ replacements accept a form field `languages`: Tesseract codes such as
 `fra+eng`.
 
 - **New versions** keep the file's languages.
-- **`POST …/file/process`** with `languages` processes the file again and
-  keeps the new languages.
 - **Versions** show `languages` (chosen) and `textLanguage` (used for search
   stemming).
 
-**Order used for OCR:**
-1. the process request;
+**Order used for reading and OCR:**
+1. the `languages` of the OCR step (the "Recognize text" parameter);
 2. the file;
-3. the library (`…/documentSettings`);
+3. the library (`…/documentSettings`, `ocrLanguages`);
 4. the uploader's document languages (`/v1.0/me/preferences`);
 5. the organization's default.
 

@@ -7,40 +7,52 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
 if TYPE_CHECKING:
+    from .json_object import JsonObject
     from .run_response_outcomes import RunResponse_outcomes
     from .run_status import RunStatus
 
 @dataclass
 class RunResponse(AdditionalDataHolder, Parsable):
+    """
+    A run: its `node` (next or waited on), the approval `outcomes` by node, the `outputs` of the nodes thatran, its `variables`, a log, and for failed runs the error and the `failedNode` it can be retried from.
+    """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
-    # The automation property
-    automation: Optional[str] = None
-    # The automationId property
-    automation_id: Optional[UUID] = None
-    # The automationVersion property
-    automation_version: Optional[int] = None
     # The completedAt property
     completed_at: Optional[datetime.datetime] = None
     # The error property
     error: Optional[str] = None
     # The eventId property
     event_id: Optional[UUID] = None
+    # The failedNode property
+    failed_node: Optional[str] = None
     # The id property
     id: Optional[UUID] = None
     # The itemId property
     item_id: Optional[UUID] = None
     # The listId property
     list_id: Optional[UUID] = None
+    # The node property
+    node: Optional[str] = None
     # The outcomes property
     outcomes: Optional[RunResponse_outcomes] = None
+    # The outputs property
+    outputs: Optional[JsonObject] = None
     # The startedAt property
     started_at: Optional[datetime.datetime] = None
     # The startedBy property
     started_by: Optional[UUID] = None
     # The status property
     status: Optional[RunStatus] = None
+    # The variables property
+    variables: Optional[JsonObject] = None
+    # The workflow property
+    workflow: Optional[str] = None
+    # The workflowId property
+    workflow_id: Optional[UUID] = None
+    # The workflowVersion property
+    workflow_version: Optional[int] = None
     # The workspaceId property
     workspace_id: Optional[UUID] = None
     
@@ -60,26 +72,32 @@ class RunResponse(AdditionalDataHolder, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .json_object import JsonObject
         from .run_response_outcomes import RunResponse_outcomes
         from .run_status import RunStatus
 
+        from .json_object import JsonObject
         from .run_response_outcomes import RunResponse_outcomes
         from .run_status import RunStatus
 
         fields: dict[str, Callable[[Any], None]] = {
-            "automation": lambda n : setattr(self, 'automation', n.get_str_value()),
-            "automationId": lambda n : setattr(self, 'automation_id', n.get_uuid_value()),
-            "automationVersion": lambda n : setattr(self, 'automation_version', n.get_int_value()),
             "completedAt": lambda n : setattr(self, 'completed_at', n.get_datetime_value()),
             "error": lambda n : setattr(self, 'error', n.get_str_value()),
             "eventId": lambda n : setattr(self, 'event_id', n.get_uuid_value()),
+            "failedNode": lambda n : setattr(self, 'failed_node', n.get_str_value()),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "itemId": lambda n : setattr(self, 'item_id', n.get_uuid_value()),
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
+            "node": lambda n : setattr(self, 'node', n.get_str_value()),
             "outcomes": lambda n : setattr(self, 'outcomes', n.get_object_value(RunResponse_outcomes)),
+            "outputs": lambda n : setattr(self, 'outputs', n.get_object_value(JsonObject)),
             "startedAt": lambda n : setattr(self, 'started_at', n.get_datetime_value()),
             "startedBy": lambda n : setattr(self, 'started_by', n.get_uuid_value()),
             "status": lambda n : setattr(self, 'status', n.get_enum_value(RunStatus)),
+            "variables": lambda n : setattr(self, 'variables', n.get_object_value(JsonObject)),
+            "workflow": lambda n : setattr(self, 'workflow', n.get_str_value()),
+            "workflowId": lambda n : setattr(self, 'workflow_id', n.get_uuid_value()),
+            "workflowVersion": lambda n : setattr(self, 'workflow_version', n.get_int_value()),
             "workspaceId": lambda n : setattr(self, 'workspace_id', n.get_uuid_value()),
         }
         return fields
@@ -92,19 +110,23 @@ class RunResponse(AdditionalDataHolder, Parsable):
         """
         if writer is None:
             raise TypeError("writer cannot be null.")
-        writer.write_str_value("automation", self.automation)
-        writer.write_uuid_value("automationId", self.automation_id)
-        writer.write_int_value("automationVersion", self.automation_version)
         writer.write_datetime_value("completedAt", self.completed_at)
         writer.write_str_value("error", self.error)
         writer.write_uuid_value("eventId", self.event_id)
+        writer.write_str_value("failedNode", self.failed_node)
         writer.write_uuid_value("id", self.id)
         writer.write_uuid_value("itemId", self.item_id)
         writer.write_uuid_value("listId", self.list_id)
+        writer.write_str_value("node", self.node)
         writer.write_object_value("outcomes", self.outcomes)
+        writer.write_object_value("outputs", self.outputs)
         writer.write_datetime_value("startedAt", self.started_at)
         writer.write_uuid_value("startedBy", self.started_by)
         writer.write_enum_value("status", self.status)
+        writer.write_object_value("variables", self.variables)
+        writer.write_str_value("workflow", self.workflow)
+        writer.write_uuid_value("workflowId", self.workflow_id)
+        writer.write_int_value("workflowVersion", self.workflow_version)
         writer.write_uuid_value("workspaceId", self.workspace_id)
         writer.write_additional_data_value(self.additional_data)
     

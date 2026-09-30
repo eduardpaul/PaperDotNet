@@ -5,6 +5,35 @@
 import { createUntypedNodeFromDiscriminatorValue, type AdditionalDataHolder, type ApiError, type DateOnly, type Guid, type Parsable, type ParseNode, type SerializationWriter, type TimeOnly, type UntypedNode } from '@microsoft/kiota-abstractions';
 
 export type AclPrincipalType = (typeof AclPrincipalTypeObject)[keyof typeof AclPrincipalTypeObject];
+/**
+ * An activity in the catalog: `kind` is `flow` (run by the engine) or `action`.
+ */
+export interface ActivityDescriptor extends AdditionalDataHolder, Parsable {
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The inputSchema property
+     */
+    inputSchema?: JsonObject | null;
+    /**
+     * The key property
+     */
+    key?: string | null;
+    /**
+     * The kind property
+     */
+    kind?: string | null;
+    /**
+     * The outputSchema property
+     */
+    outputSchema?: JsonObject | null;
+    /**
+     * The ports property
+     */
+    ports?: string[] | null;
+}
 export interface ActivityResponse extends AdditionalDataHolder, Parsable {
     /**
      * The actorId property
@@ -315,167 +344,6 @@ export interface AuditPage extends AdditionalDataHolder, Parsable {
      */
     value?: AuditEntryResponse[] | null;
 }
-export interface AutomationRequest extends AdditionalDataHolder, Parsable {
-    /**
-     * The condition property
-     */
-    condition?: string | null;
-    /**
-     * The description property
-     */
-    description?: string | null;
-    /**
-     * The enabled property
-     */
-    enabled?: boolean | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * The steps property
-     */
-    steps?: AutomationStep[] | null;
-    /**
-     * The trigger property
-     */
-    trigger?: AutomationTrigger | null;
-}
-/**
- * An automation with the definition of its current `version` (runs keep the version they started with).
- */
-export interface AutomationResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The condition property
-     */
-    condition?: string | null;
-    /**
-     * The createdAt property
-     */
-    createdAt?: Date | null;
-    /**
-     * The description property
-     */
-    description?: string | null;
-    /**
-     * The enabled property
-     */
-    enabled?: boolean | null;
-    /**
-     * The id property
-     */
-    id?: Guid | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * The ETag for `If-Match` on changes (the same as the `ETag` header).
-     */
-    odataEtag?: string | null;
-    /**
-     * The steps property
-     */
-    steps?: AutomationStep[] | null;
-    /**
-     * When an automation runs: `type` is `manual` (started on an item by a person), `itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored` or an extension trigger; `list` and`contentType` narrow it by name; `changedFields` (updates) needs one of them to change.
-     */
-    trigger?: AutomationTrigger | null;
-    /**
-     * The updatedAt property
-     */
-    updatedAt?: Date | null;
-    /**
-     * The version property
-     */
-    version?: number | null;
-    /**
-     * The workspaceId property
-     */
-    workspaceId?: Guid | null;
-}
-/**
- * A step of an automation (EVT-07, EVT-08). Assignees and recipients are user names, `group:Name`,`field:fieldName` (a person field of the item) or `creator`.
- */
-export interface AutomationStep extends AdditionalDataHolder, Parsable {
-    /**
-     * The action property
-     */
-    action?: string | null;
-    /**
-     * The assignees property
-     */
-    assignees?: string[] | null;
-    /**
-     * The dueInHours property
-     */
-    dueInHours?: number | null;
-    /**
-     * The else property
-     */
-    elseEscaped?: AutomationStep[] | null;
-    /**
-     * The escalateTo property
-     */
-    escalateTo?: string[] | null;
-    /**
-     * The filter property
-     */
-    filter?: string | null;
-    /**
-     * The hours property
-     */
-    hours?: number | null;
-    /**
-     * The inputs property
-     */
-    inputs?: JsonObject | null;
-    /**
-     * The is property
-     */
-    is?: string | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * The step property
-     */
-    step?: string | null;
-    /**
-     * The then property
-     */
-    then?: AutomationStep[] | null;
-    /**
-     * The title property
-     */
-    title?: string | null;
-    /**
-     * The type property
-     */
-    type?: string | null;
-}
-/**
- * When an automation runs: `type` is `manual` (started on an item by a person), `itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored` or an extension trigger; `list` and`contentType` narrow it by name; `changedFields` (updates) needs one of them to change.
- */
-export interface AutomationTrigger extends AdditionalDataHolder, Parsable {
-    /**
-     * The changedFields property
-     */
-    changedFields?: string[] | null;
-    /**
-     * The contentType property
-     */
-    contentType?: string | null;
-    /**
-     * The list property
-     */
-    list?: string | null;
-    /**
-     * The type property
-     */
-    type?: string | null;
-}
 export interface BacklinksResponse extends AdditionalDataHolder, Parsable {
     /**
      * The value property
@@ -550,6 +418,73 @@ export interface BreakInheritanceRequest extends AdditionalDataHolder, Parsable 
      * The copyGrants property
      */
     copyGrants?: boolean | null;
+}
+export type BuiltInScope = (typeof BuiltInScopeObject)[keyof typeof BuiltInScopeObject];
+/**
+ * Turns a built-in workflow on or off in the workspace; `parameters` (default: the ones it had) fill in its definition.
+ */
+export interface BuiltInSettingsRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The enabled property
+     */
+    enabled?: boolean | null;
+    /**
+     * The parameters property
+     */
+    parameters?: JsonObject | null;
+}
+/**
+ * A built-in workflow (EVT-12) and its state in the workspace: its `parameters` (JSON Schema), whether the serverhas what it needs (`available`), and when it was turned on, the `workflowId` it runs as and its `values`.
+ */
+export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The available property
+     */
+    available?: boolean | null;
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The enabled property
+     */
+    enabled?: boolean | null;
+    /**
+     * The enabledByDefault property
+     */
+    enabledByDefault?: boolean | null;
+    /**
+     * The key property
+     */
+    key?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * Once it was turned on in the workspace: the ETag for `If-Match` on changes (the workflow's; the same as the`ETag` header).
+     */
+    odataEtag?: string | null;
+    /**
+     * The parameters property
+     */
+    parameters?: JsonObject | null;
+    /**
+     * The requires property
+     */
+    requires?: string | null;
+    /**
+     * The scope property
+     */
+    scope?: BuiltInScope | null;
+    /**
+     * The values property
+     */
+    values?: JsonObject | null;
+    /**
+     * The workflowId property
+     */
+    workflowId?: Guid | null;
 }
 /**
  * Bulk update body: an OData filter (optional: all items) and field values to merge.
@@ -881,6 +816,19 @@ export interface ContentTypeResponse extends AdditionalDataHolder, Parsable {
      */
     odataEtag?: string | null;
 }
+/**
+ * Copies a built-in workflow into a workflow of the workspace named `name`, to change it.
+ */
+export interface CopyBuiltInRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The parameters property
+     */
+    parameters?: JsonObject | null;
+}
 export interface Counters extends AdditionalDataHolder, Parsable {
     /**
      * The itemsAdded property
@@ -894,6 +842,15 @@ export interface Counters extends AdditionalDataHolder, Parsable {
      * The reminderRuns property
      */
     reminderRuns?: number | null;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ActivityDescriptor}
+ */
+// @ts-ignore
+export function createActivityDescriptorFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoActivityDescriptor;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1076,42 +1033,6 @@ export function createAuditPageFromDiscriminatorValue(parseNode: ParseNode | und
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AutomationRequest}
- */
-// @ts-ignore
-export function createAutomationRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAutomationRequest;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AutomationResponse}
- */
-// @ts-ignore
-export function createAutomationResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAutomationResponse;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AutomationStep}
- */
-// @ts-ignore
-export function createAutomationStepFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAutomationStep;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AutomationTrigger}
- */
-// @ts-ignore
-export function createAutomationTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAutomationTrigger;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {BacklinksResponse}
  */
 // @ts-ignore
@@ -1180,6 +1101,24 @@ export function createBatchResponseItemFromDiscriminatorValue(parseNode: ParseNo
 // @ts-ignore
 export function createBreakInheritanceRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoBreakInheritanceRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BuiltInSettingsRequest}
+ */
+// @ts-ignore
+export function createBuiltInSettingsRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBuiltInSettingsRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BuiltInWorkflowResponse}
+ */
+// @ts-ignore
+export function createBuiltInWorkflowResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBuiltInWorkflowResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1315,6 +1254,15 @@ export function createContentTypeRequestFromDiscriminatorValue(parseNode: ParseN
 // @ts-ignore
 export function createContentTypeResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoContentTypeResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CopyBuiltInRequest}
+ */
+// @ts-ignore
+export function createCopyBuiltInRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCopyBuiltInRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1647,6 +1595,24 @@ export function createFileVersionResponseFromDiscriminatorValue(parseNode: Parse
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {FlowDefinition_nodes}
+ */
+// @ts-ignore
+export function createFlowDefinition_nodesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoFlowDefinition_nodes;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {FlowDefinition}
+ */
+// @ts-ignore
+export function createFlowDefinitionFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoFlowDefinition;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {GroupInboxRequest}
  */
 // @ts-ignore
@@ -1736,7 +1702,7 @@ export function createItemPageFromDiscriminatorValue(parseNode: ParseNode | unde
     return deserializeIntoItemPage;
 }
 /**
- * Create body: `{ "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }`.
+ * Create body: `{ "id"?, "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }`. With `id` the client chooses the item's id, so repeating a create is safe (the item it made is returned unchanged, 200).
  */
 export interface CreateItemRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -1747,6 +1713,10 @@ export interface CreateItemRequest extends AdditionalDataHolder, Parsable {
      * The fields property
      */
     fields?: JsonObject | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
     /**
      * The isFolder property
      */
@@ -2288,24 +2258,6 @@ export function createPreferencesResponseFromDiscriminatorValue(parseNode: Parse
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {ProcessRequest}
- */
-// @ts-ignore
-export function createProcessRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoProcessRequest;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {ProcessResponse}
- */
-// @ts-ignore
-export function createProcessResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoProcessResponse;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PromoteKeywordRequest}
  */
 // @ts-ignore
@@ -2581,11 +2533,20 @@ export function createSmartFolderResponseFromDiscriminatorValue(parseNode: Parse
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {StartAutomationRequest}
+ * @returns {StartRunsRequest}
  */
 // @ts-ignore
-export function createStartAutomationRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoStartAutomationRequest;
+export function createStartRunsRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStartRunsRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StartWorkflowRequest}
+ */
+// @ts-ignore
+export function createStartWorkflowRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStartWorkflowRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2899,6 +2860,42 @@ export function createViewResponseFromDiscriminatorValue(parseNode: ParseNode | 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {WorkflowRequest}
+ */
+// @ts-ignore
+export function createWorkflowRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoWorkflowRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {WorkflowResponse}
+ */
+// @ts-ignore
+export function createWorkflowResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoWorkflowResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {WorkflowStep}
+ */
+// @ts-ignore
+export function createWorkflowStepFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoWorkflowStep;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {WorkflowTrigger}
+ */
+// @ts-ignore
+export function createWorkflowTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoWorkflowTrigger;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {WorkspaceMemberResponse}
  */
 // @ts-ignore
@@ -3005,6 +3002,22 @@ export interface DeltaRemoved extends AdditionalDataHolder, Parsable {
      * The reason property
      */
     reason?: string | null;
+}
+/**
+ * The deserialization information for the current model
+ * @param ActivityDescriptor The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoActivityDescriptor(activityDescriptor: Partial<ActivityDescriptor> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "description": n => { activityDescriptor.description = n.getStringValue(); },
+        "inputSchema": n => { activityDescriptor.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "key": n => { activityDescriptor.key = n.getStringValue(); },
+        "kind": n => { activityDescriptor.kind = n.getStringValue(); },
+        "outputSchema": n => { activityDescriptor.outputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "ports": n => { activityDescriptor.ports = n.getCollectionOfPrimitiveValues<string>("string"); },
+    }
 }
 /**
  * The deserialization information for the current model
@@ -3225,82 +3238,6 @@ export function deserializeIntoAuditPage(auditPage: Partial<AuditPage> | undefin
 }
 /**
  * The deserialization information for the current model
- * @param AutomationRequest The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoAutomationRequest(automationRequest: Partial<AutomationRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "condition": n => { automationRequest.condition = n.getStringValue(); },
-        "description": n => { automationRequest.description = n.getStringValue(); },
-        "enabled": n => { automationRequest.enabled = n.getBooleanValue() ?? true; },
-        "name": n => { automationRequest.name = n.getStringValue(); },
-        "steps": n => { automationRequest.steps = n.getCollectionOfObjectValues<AutomationStep>(createAutomationStepFromDiscriminatorValue); },
-        "trigger": n => { automationRequest.trigger = n.getObjectValue<AutomationTrigger>(createAutomationTriggerFromDiscriminatorValue); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param AutomationResponse The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoAutomationResponse(automationResponse: Partial<AutomationResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "condition": n => { automationResponse.condition = n.getStringValue(); },
-        "createdAt": n => { automationResponse.createdAt = n.getDateValue(); },
-        "description": n => { automationResponse.description = n.getStringValue(); },
-        "enabled": n => { automationResponse.enabled = n.getBooleanValue(); },
-        "id": n => { automationResponse.id = n.getGuidValue(); },
-        "name": n => { automationResponse.name = n.getStringValue(); },
-        "@odata.etag": n => { automationResponse.odataEtag = n.getStringValue(); },
-        "steps": n => { automationResponse.steps = n.getCollectionOfObjectValues<AutomationStep>(createAutomationStepFromDiscriminatorValue); },
-        "trigger": n => { automationResponse.trigger = n.getObjectValue<AutomationTrigger>(createAutomationTriggerFromDiscriminatorValue); },
-        "updatedAt": n => { automationResponse.updatedAt = n.getDateValue(); },
-        "version": n => { automationResponse.version = n.getNumberValue(); },
-        "workspaceId": n => { automationResponse.workspaceId = n.getGuidValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param AutomationStep The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoAutomationStep(automationStep: Partial<AutomationStep> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "action": n => { automationStep.action = n.getStringValue(); },
-        "assignees": n => { automationStep.assignees = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "dueInHours": n => { automationStep.dueInHours = n.getNumberValue(); },
-        "else": n => { automationStep.elseEscaped = n.getCollectionOfObjectValues<AutomationStep>(createAutomationStepFromDiscriminatorValue); },
-        "escalateTo": n => { automationStep.escalateTo = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "filter": n => { automationStep.filter = n.getStringValue(); },
-        "hours": n => { automationStep.hours = n.getNumberValue(); },
-        "inputs": n => { automationStep.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
-        "is": n => { automationStep.is = n.getStringValue(); },
-        "name": n => { automationStep.name = n.getStringValue(); },
-        "step": n => { automationStep.step = n.getStringValue(); },
-        "then": n => { automationStep.then = n.getCollectionOfObjectValues<AutomationStep>(createAutomationStepFromDiscriminatorValue); },
-        "title": n => { automationStep.title = n.getStringValue(); },
-        "type": n => { automationStep.type = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param AutomationTrigger The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoAutomationTrigger(automationTrigger: Partial<AutomationTrigger> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "changedFields": n => { automationTrigger.changedFields = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "contentType": n => { automationTrigger.contentType = n.getStringValue(); },
-        "list": n => { automationTrigger.list = n.getStringValue(); },
-        "type": n => { automationTrigger.type = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
  * @param BacklinksResponse The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -3391,6 +3328,40 @@ export function deserializeIntoBatchResponseItem_headers(batchResponseItem_heade
 export function deserializeIntoBreakInheritanceRequest(breakInheritanceRequest: Partial<BreakInheritanceRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "copyGrants": n => { breakInheritanceRequest.copyGrants = n.getBooleanValue() ?? true; },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param BuiltInSettingsRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBuiltInSettingsRequest(builtInSettingsRequest: Partial<BuiltInSettingsRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "enabled": n => { builtInSettingsRequest.enabled = n.getBooleanValue(); },
+        "parameters": n => { builtInSettingsRequest.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param BuiltInWorkflowResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBuiltInWorkflowResponse(builtInWorkflowResponse: Partial<BuiltInWorkflowResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "available": n => { builtInWorkflowResponse.available = n.getBooleanValue(); },
+        "description": n => { builtInWorkflowResponse.description = n.getStringValue(); },
+        "enabled": n => { builtInWorkflowResponse.enabled = n.getBooleanValue(); },
+        "enabledByDefault": n => { builtInWorkflowResponse.enabledByDefault = n.getBooleanValue() ?? false; },
+        "key": n => { builtInWorkflowResponse.key = n.getStringValue(); },
+        "name": n => { builtInWorkflowResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { builtInWorkflowResponse.odataEtag = n.getStringValue(); },
+        "parameters": n => { builtInWorkflowResponse.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "requires": n => { builtInWorkflowResponse.requires = n.getStringValue(); },
+        "scope": n => { builtInWorkflowResponse.scope = n.getEnumValue<BuiltInScope>(BuiltInScopeObject) ?? BuiltInScopeObject.Workspace; },
+        "values": n => { builtInWorkflowResponse.values = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "workflowId": n => { builtInWorkflowResponse.workflowId = n.getGuidValue(); },
     }
 }
 /**
@@ -3614,6 +3585,18 @@ export function deserializeIntoContentTypeResponse(contentTypeResponse: Partial<
 }
 /**
  * The deserialization information for the current model
+ * @param CopyBuiltInRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCopyBuiltInRequest(copyBuiltInRequest: Partial<CopyBuiltInRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "name": n => { copyBuiltInRequest.name = n.getStringValue(); },
+        "parameters": n => { copyBuiltInRequest.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param Counters The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -3688,6 +3671,7 @@ export function deserializeIntoCreateItemRequest(createItemRequest: Partial<Crea
     return {
         "contentTypeId": n => { createItemRequest.contentTypeId = n.getGuidValue(); },
         "fields": n => { createItemRequest.fields = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "id": n => { createItemRequest.id = n.getGuidValue(); },
         "isFolder": n => { createItemRequest.isFolder = n.getBooleanValue(); },
         "parentId": n => { createItemRequest.parentId = n.getGuidValue(); },
     }
@@ -3942,8 +3926,6 @@ export function deserializeIntoExportResponse(exportResponse: Partial<ExportResp
 // @ts-ignore
 export function deserializeIntoExtensionContributions(extensionContributions: Partial<ExtensionContributions> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "automationActions": n => { extensionContributions.automationActions = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "automationTriggers": n => { extensionContributions.automationTriggers = n.getCollectionOfPrimitiveValues<string>("string"); },
         "contentTypes": n => { extensionContributions.contentTypes = n.getCollectionOfPrimitiveValues<string>("string"); },
         "dbContext": n => { extensionContributions.dbContext = n.getStringValue(); },
         "endpoints": n => { extensionContributions.endpoints = n.getBooleanValue(); },
@@ -3955,6 +3937,9 @@ export function deserializeIntoExtensionContributions(extensionContributions: Pa
         "mcpTools": n => { extensionContributions.mcpTools = n.getCollectionOfPrimitiveValues<string>("string"); },
         "templateHandlers": n => { extensionContributions.templateHandlers = n.getCollectionOfPrimitiveValues<string>("string"); },
         "termSets": n => { extensionContributions.termSets = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "workflowActivities": n => { extensionContributions.workflowActivities = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "workflows": n => { extensionContributions.workflows = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "workflowTriggers": n => { extensionContributions.workflowTriggers = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
 /**
@@ -4127,14 +4112,33 @@ export function deserializeIntoFileVersionResponse(fileVersionResponse: Partial<
         "languages": n => { fileVersionResponse.languages = n.getStringValue(); },
         "mediaType": n => { fileVersionResponse.mediaType = n.getStringValue(); },
         "number": n => { fileVersionResponse.number = n.getNumberValue(); },
-        "operationId": n => { fileVersionResponse.operationId = n.getGuidValue(); },
         "pageCount": n => { fileVersionResponse.pageCount = n.getNumberValue(); },
-        "processingError": n => { fileVersionResponse.processingError = n.getStringValue(); },
-        "processingStatus": n => { fileVersionResponse.processingStatus = n.getEnumValue<ProcessingStatus>(ProcessingStatusObject); },
         "sha256": n => { fileVersionResponse.sha256 = n.getStringValue(); },
         "size": n => { fileVersionResponse.size = n.getNumberValue(); },
         "source": n => { fileVersionResponse.source = n.getStringValue(); },
         "textLanguage": n => { fileVersionResponse.textLanguage = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param FlowDefinition The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoFlowDefinition(flowDefinition: Partial<FlowDefinition> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "nodes": n => { flowDefinition.nodes = n.getObjectValue<FlowDefinition_nodes>(createFlowDefinition_nodesFromDiscriminatorValue); },
+        "start": n => { flowDefinition.start = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param FlowDefinition_nodes The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoFlowDefinition_nodes(flowDefinition_nodes: Partial<FlowDefinition_nodes> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -4333,10 +4337,8 @@ export function deserializeIntoKeywordRequest(keywordRequest: Partial<KeywordReq
 // @ts-ignore
 export function deserializeIntoLibrarySettingsRequest(librarySettingsRequest: Partial<LibrarySettingsRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "autoProcess": n => { librarySettingsRequest.autoProcess = n.getBooleanValue(); },
         "duplicatePolicy": n => { librarySettingsRequest.duplicatePolicy = n.getEnumValue<DuplicatePolicy>(DuplicatePolicyObject); },
         "ocrLanguages": n => { librarySettingsRequest.ocrLanguages = n.getStringValue(); },
-        "ocrMode": n => { librarySettingsRequest.ocrMode = n.getEnumValue<OcrMode>(OcrModeObject); },
     }
 }
 /**
@@ -4347,12 +4349,10 @@ export function deserializeIntoLibrarySettingsRequest(librarySettingsRequest: Pa
 // @ts-ignore
 export function deserializeIntoLibrarySettingsResponse(librarySettingsResponse: Partial<LibrarySettingsResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "autoProcess": n => { librarySettingsResponse.autoProcess = n.getBooleanValue(); },
         "duplicatePolicy": n => { librarySettingsResponse.duplicatePolicy = n.getEnumValue<DuplicatePolicy>(DuplicatePolicyObject); },
         "listId": n => { librarySettingsResponse.listId = n.getGuidValue(); },
         "ocrLanguages": n => { librarySettingsResponse.ocrLanguages = n.getStringValue(); },
         "ocrLanguagesInherited": n => { librarySettingsResponse.ocrLanguagesInherited = n.getBooleanValue(); },
-        "ocrMode": n => { librarySettingsResponse.ocrMode = n.getEnumValue<OcrMode>(OcrModeObject); },
         "@odata.etag": n => { librarySettingsResponse.odataEtag = n.getStringValue(); },
     }
 }
@@ -5026,29 +5026,6 @@ export function deserializeIntoPreferencesResponse(preferencesResponse: Partial<
 }
 /**
  * The deserialization information for the current model
- * @param ProcessRequest The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoProcessRequest(processRequest: Partial<ProcessRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "forceOcr": n => { processRequest.forceOcr = n.getBooleanValue(); },
-        "languages": n => { processRequest.languages = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param ProcessResponse The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoProcessResponse(processResponse: Partial<ProcessResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "operationId": n => { processResponse.operationId = n.getGuidValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
  * @param PromoteKeywordRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -5183,20 +5160,24 @@ export function deserializeIntoRoleResponse(roleResponse: Partial<RoleResponse> 
 // @ts-ignore
 export function deserializeIntoRunResponse(runResponse: Partial<RunResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "automation": n => { runResponse.automation = n.getStringValue(); },
-        "automationId": n => { runResponse.automationId = n.getGuidValue(); },
-        "automationVersion": n => { runResponse.automationVersion = n.getNumberValue(); },
         "completedAt": n => { runResponse.completedAt = n.getDateValue(); },
         "error": n => { runResponse.errorEscaped = n.getStringValue(); },
         "eventId": n => { runResponse.eventId = n.getGuidValue(); },
+        "failedNode": n => { runResponse.failedNode = n.getStringValue(); },
         "id": n => { runResponse.id = n.getGuidValue(); },
         "itemId": n => { runResponse.itemId = n.getGuidValue(); },
         "listId": n => { runResponse.listId = n.getGuidValue(); },
         "log": n => { runResponse.log = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+        "node": n => { runResponse.node = n.getStringValue(); },
         "outcomes": n => { runResponse.outcomes = n.getObjectValue<RunResponse_outcomes>(createRunResponse_outcomesFromDiscriminatorValue); },
+        "outputs": n => { runResponse.outputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "startedAt": n => { runResponse.startedAt = n.getDateValue(); },
         "startedBy": n => { runResponse.startedBy = n.getGuidValue(); },
         "status": n => { runResponse.status = n.getEnumValue<RunStatus>(RunStatusObject); },
+        "variables": n => { runResponse.variables = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "workflow": n => { runResponse.workflow = n.getStringValue(); },
+        "workflowId": n => { runResponse.workflowId = n.getGuidValue(); },
+        "workflowVersion": n => { runResponse.workflowVersion = n.getNumberValue(); },
         "workspaceId": n => { runResponse.workspaceId = n.getGuidValue(); },
     }
 }
@@ -5457,13 +5438,27 @@ export function deserializeIntoSmartFolderResponse(smartFolderResponse: Partial<
 }
 /**
  * The deserialization information for the current model
- * @param StartAutomationRequest The instance to deserialize into.
+ * @param StartRunsRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoStartAutomationRequest(startAutomationRequest: Partial<StartAutomationRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoStartRunsRequest(startRunsRequest: Partial<StartRunsRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "automation": n => { startAutomationRequest.automation = n.getStringValue(); },
+        "inputs": n => { startRunsRequest.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "itemIds": n => { startRunsRequest.itemIds = n.getCollectionOfPrimitiveValues<Guid>("string"); },
+        "listId": n => { startRunsRequest.listId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param StartWorkflowRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStartWorkflowRequest(startWorkflowRequest: Partial<StartWorkflowRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "inputs": n => { startWorkflowRequest.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "workflow": n => { startWorkflowRequest.workflow = n.getStringValue(); },
     }
 }
 /**
@@ -5860,6 +5855,102 @@ export function deserializeIntoViewResponse(viewResponse: Partial<ViewResponse> 
 }
 /**
  * The deserialization information for the current model
+ * @param WorkflowRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoWorkflowRequest(workflowRequest: Partial<WorkflowRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "concurrency": n => { workflowRequest.concurrency = n.getStringValue(); },
+        "condition": n => { workflowRequest.condition = n.getStringValue(); },
+        "description": n => { workflowRequest.description = n.getStringValue(); },
+        "enabled": n => { workflowRequest.enabled = n.getBooleanValue() ?? true; },
+        "flow": n => { workflowRequest.flow = n.getObjectValue<FlowDefinition>(createFlowDefinitionFromDiscriminatorValue); },
+        "key": n => { workflowRequest.key = n.getStringValue(); },
+        "name": n => { workflowRequest.name = n.getStringValue(); },
+        "steps": n => { workflowRequest.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
+        "trigger": n => { workflowRequest.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
+        "triggers": n => { workflowRequest.triggers = n.getCollectionOfObjectValues<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
+        "variables": n => { workflowRequest.variables = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param WorkflowResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoWorkflowResponse(workflowResponse: Partial<WorkflowResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "builtIn": n => { workflowResponse.builtIn = n.getStringValue(); },
+        "concurrency": n => { workflowResponse.concurrency = n.getStringValue(); },
+        "condition": n => { workflowResponse.condition = n.getStringValue(); },
+        "copiedFrom": n => { workflowResponse.copiedFrom = n.getStringValue(); },
+        "createdAt": n => { workflowResponse.createdAt = n.getDateValue(); },
+        "description": n => { workflowResponse.description = n.getStringValue(); },
+        "enabled": n => { workflowResponse.enabled = n.getBooleanValue(); },
+        "flow": n => { workflowResponse.flow = n.getObjectValue<FlowDefinition>(createFlowDefinitionFromDiscriminatorValue); },
+        "id": n => { workflowResponse.id = n.getGuidValue(); },
+        "key": n => { workflowResponse.key = n.getStringValue(); },
+        "listId": n => { workflowResponse.listId = n.getGuidValue(); },
+        "name": n => { workflowResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { workflowResponse.odataEtag = n.getStringValue(); },
+        "steps": n => { workflowResponse.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
+        "trigger": n => { workflowResponse.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
+        "triggers": n => { workflowResponse.triggers = n.getCollectionOfObjectValues<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
+        "updatedAt": n => { workflowResponse.updatedAt = n.getDateValue(); },
+        "variables": n => { workflowResponse.variables = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "version": n => { workflowResponse.version = n.getNumberValue(); },
+        "workspaceId": n => { workflowResponse.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param WorkflowStep The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoWorkflowStep(workflowStep: Partial<WorkflowStep> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "action": n => { workflowStep.action = n.getStringValue(); },
+        "assignees": n => { workflowStep.assignees = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "dueInHours": n => { workflowStep.dueInHours = n.getNumberValue(); },
+        "else": n => { workflowStep.elseEscaped = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
+        "escalateTo": n => { workflowStep.escalateTo = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "filter": n => { workflowStep.filter = n.getStringValue(); },
+        "hours": n => { workflowStep.hours = n.getNumberValue(); },
+        "inputs": n => { workflowStep.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "is": n => { workflowStep.is = n.getStringValue(); },
+        "name": n => { workflowStep.name = n.getStringValue(); },
+        "step": n => { workflowStep.step = n.getStringValue(); },
+        "then": n => { workflowStep.then = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
+        "title": n => { workflowStep.title = n.getStringValue(); },
+        "type": n => { workflowStep.type = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param WorkflowTrigger The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoWorkflowTrigger(workflowTrigger: Partial<WorkflowTrigger> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "changedFields": n => { workflowTrigger.changedFields = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "contentType": n => { workflowTrigger.contentType = n.getStringValue(); },
+        "cron": n => { workflowTrigger.cron = n.getStringValue(); },
+        "data": n => { workflowTrigger.data = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "field": n => { workflowTrigger.field = n.getStringValue(); },
+        "inputs": n => { workflowTrigger.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "list": n => { workflowTrigger.list = n.getStringValue(); },
+        "offsetHours": n => { workflowTrigger.offsetHours = n.getNumberValue(); },
+        "terms": n => { workflowTrigger.terms = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "timeZone": n => { workflowTrigger.timeZone = n.getStringValue(); },
+        "type": n => { workflowTrigger.type = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param WorkspaceMemberResponse The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -5901,7 +5992,7 @@ export interface DocumentResponse extends AdditionalDataHolder, Parsable {
      */
     fields?: JsonObject | null;
     /**
-     * The file property
+     * A version of a document's file. `pageCount` and `textLanguage` are set by the library's workflows (reading the text, OCR).
      */
     file?: FileVersionResponse | null;
     /**
@@ -6025,14 +6116,6 @@ export interface ExportResponse extends AdditionalDataHolder, Parsable {
  */
 export interface ExtensionContributions extends AdditionalDataHolder, Parsable {
     /**
-     * The automationActions property
-     */
-    automationActions?: string[] | null;
-    /**
-     * The automationTriggers property
-     */
-    automationTriggers?: string[] | null;
-    /**
      * The contentTypes property
      */
     contentTypes?: string[] | null;
@@ -6076,6 +6159,18 @@ export interface ExtensionContributions extends AdditionalDataHolder, Parsable {
      * The termSets property
      */
     termSets?: string[] | null;
+    /**
+     * The workflowActivities property
+     */
+    workflowActivities?: string[] | null;
+    /**
+     * The workflows property
+     */
+    workflows?: string[] | null;
+    /**
+     * The workflowTriggers property
+     */
+    workflowTriggers?: string[] | null;
 }
 export interface ExtensionResponse extends AdditionalDataHolder, Parsable {
     /**
@@ -6328,6 +6423,9 @@ export interface FileVersionList extends AdditionalDataHolder, Parsable {
      */
     value?: FileVersionResponse[] | null;
 }
+/**
+ * A version of a document's file. `pageCount` and `textLanguage` are set by the library's workflows (reading the text, OCR).
+ */
 export interface FileVersionResponse extends AdditionalDataHolder, Parsable {
     /**
      * The createdAt property
@@ -6358,21 +6456,9 @@ export interface FileVersionResponse extends AdditionalDataHolder, Parsable {
      */
     number?: number | null;
     /**
-     * The operationId property
-     */
-    operationId?: Guid | null;
-    /**
      * The pageCount property
      */
     pageCount?: number | null;
-    /**
-     * The processingError property
-     */
-    processingError?: string | null;
-    /**
-     * Processing of a file version (DOC-09): text extraction, OCR, thumbnails.
-     */
-    processingStatus?: ProcessingStatus | null;
     /**
      * The sha256 property
      */
@@ -6389,6 +6475,21 @@ export interface FileVersionResponse extends AdditionalDataHolder, Parsable {
      * The textLanguage property
      */
     textLanguage?: string | null;
+}
+/**
+ * A workflow's flow (ADR-0036): the `start` node and the nodes by id. A node runs an activity and continues withthe node its outcome port names in `next` (`done` when the outcome's own port is not connected); a nodewithout a next node ends the run.
+ */
+export interface FlowDefinition extends AdditionalDataHolder, Parsable {
+    /**
+     * The nodes property
+     */
+    nodes?: FlowDefinition_nodes | null;
+    /**
+     * The start property
+     */
+    start?: string | null;
+}
+export interface FlowDefinition_nodes extends AdditionalDataHolder, Parsable {
 }
 export interface GroupInboxRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -6668,10 +6769,6 @@ export interface KeywordRequest extends AdditionalDataHolder, Parsable {
  */
 export interface LibrarySettingsRequest extends AdditionalDataHolder, Parsable {
     /**
-     * The autoProcess property
-     */
-    autoProcess?: boolean | null;
-    /**
      * The duplicatePolicy property
      */
     duplicatePolicy?: DuplicatePolicy | null;
@@ -6679,19 +6776,11 @@ export interface LibrarySettingsRequest extends AdditionalDataHolder, Parsable {
      * The ocrLanguages property
      */
     ocrLanguages?: string | null;
-    /**
-     * The ocrMode property
-     */
-    ocrMode?: OcrMode | null;
 }
 /**
  * Library settings; `ocrLanguagesInherited` means the organization's default document languages apply.
  */
 export interface LibrarySettingsResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The autoProcess property
-     */
-    autoProcess?: boolean | null;
     /**
      * What happens when an upload has the same content as an existing document (DOC-10).
      */
@@ -6708,10 +6797,6 @@ export interface LibrarySettingsResponse extends AdditionalDataHolder, Parsable 
      * The ocrLanguagesInherited property
      */
     ocrLanguagesInherited?: boolean | null;
-    /**
-     * When a library runs OCR.
-     */
-    ocrMode?: OcrMode | null;
     /**
      * The ETag for `If-Match` on changes (the same as the `ETag` header).
      */
@@ -7118,7 +7203,6 @@ export interface OccurrenceRequest extends AdditionalDataHolder, Parsable {
      */
     fields?: JsonObject | null;
 }
-export type OcrMode = (typeof OcrModeObject)[keyof typeof OcrModeObject];
 export interface OperationAcceptedResponse extends AdditionalDataHolder, Parsable {
     /**
      * The id property
@@ -7622,26 +7706,6 @@ export interface PreferencesResponse extends AdditionalDataHolder, Parsable {
     timeZone?: string | null;
 }
 export type PrincipalType = (typeof PrincipalTypeObject)[keyof typeof PrincipalTypeObject];
-export type ProcessingStatus = (typeof ProcessingStatusObject)[keyof typeof ProcessingStatusObject];
-/**
- * On-demand processing: `forceOcr` runs OCR even when the PDF has text; `languages` like `deu+eng`.
- */
-export interface ProcessRequest extends AdditionalDataHolder, Parsable {
-    /**
-     * The forceOcr property
-     */
-    forceOcr?: boolean | null;
-    /**
-     * The languages property
-     */
-    languages?: string | null;
-}
-export interface ProcessResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The operationId property
-     */
-    operationId?: Guid | null;
-}
 /**
  * Promotes a keyword into `termSetId` (under `parentId`, optional).
  */
@@ -7780,19 +7844,10 @@ export interface RoleResponse extends AdditionalDataHolder, Parsable {
      */
     scopes?: string[] | null;
 }
+/**
+ * A run: its `node` (next or waited on), the approval `outcomes` by node, the `outputs` of the nodes thatran, its `variables`, a log, and for failed runs the error and the `failedNode` it can be retried from.
+ */
 export interface RunResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The automation property
-     */
-    automation?: string | null;
-    /**
-     * The automationId property
-     */
-    automationId?: Guid | null;
-    /**
-     * The automationVersion property
-     */
-    automationVersion?: number | null;
     /**
      * The completedAt property
      */
@@ -7805,6 +7860,10 @@ export interface RunResponse extends AdditionalDataHolder, Parsable {
      * The eventId property
      */
     eventId?: Guid | null;
+    /**
+     * The failedNode property
+     */
+    failedNode?: string | null;
     /**
      * The id property
      */
@@ -7822,9 +7881,17 @@ export interface RunResponse extends AdditionalDataHolder, Parsable {
      */
     log?: UntypedNode | null;
     /**
+     * The node property
+     */
+    node?: string | null;
+    /**
      * The outcomes property
      */
     outcomes?: RunResponse_outcomes | null;
+    /**
+     * The outputs property
+     */
+    outputs?: JsonObject | null;
     /**
      * The startedAt property
      */
@@ -7837,6 +7904,22 @@ export interface RunResponse extends AdditionalDataHolder, Parsable {
      * The status property
      */
     status?: RunStatus | null;
+    /**
+     * The variables property
+     */
+    variables?: JsonObject | null;
+    /**
+     * The workflow property
+     */
+    workflow?: string | null;
+    /**
+     * The workflowId property
+     */
+    workflowId?: Guid | null;
+    /**
+     * The workflowVersion property
+     */
+    workflowVersion?: number | null;
     /**
      * The workspaceId property
      */
@@ -7951,6 +8034,23 @@ export interface SearchResponse extends AdditionalDataHolder, Parsable {
      * The value property
      */
     value?: SearchHit[] | null;
+}
+/**
+ * Serializes information the current object
+ * @param ActivityDescriptor The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeActivityDescriptor(writer: SerializationWriter, activityDescriptor: Partial<ActivityDescriptor> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!activityDescriptor || isSerializingDerivedType) { return; }
+    writer.writeStringValue("description", activityDescriptor.description);
+    writer.writeObjectValue<JsonObject>("inputSchema", activityDescriptor.inputSchema, serializeJsonObject);
+    writer.writeStringValue("key", activityDescriptor.key);
+    writer.writeStringValue("kind", activityDescriptor.kind);
+    writer.writeObjectValue<JsonObject>("outputSchema", activityDescriptor.outputSchema, serializeJsonObject);
+    writer.writeCollectionOfPrimitiveValues<string>("ports", activityDescriptor.ports);
+    writer.writeAdditionalData(activityDescriptor.additionalData);
 }
 /**
  * Serializes information the current object
@@ -8186,86 +8286,6 @@ export function serializeAuditPage(writer: SerializationWriter, auditPage: Parti
 }
 /**
  * Serializes information the current object
- * @param AutomationRequest The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeAutomationRequest(writer: SerializationWriter, automationRequest: Partial<AutomationRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!automationRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("condition", automationRequest.condition);
-    writer.writeStringValue("description", automationRequest.description);
-    writer.writeBooleanValue("enabled", automationRequest.enabled ?? true);
-    writer.writeStringValue("name", automationRequest.name);
-    writer.writeCollectionOfObjectValues<AutomationStep>("steps", automationRequest.steps, serializeAutomationStep);
-    writer.writeObjectValue<AutomationTrigger>("trigger", automationRequest.trigger, serializeAutomationTrigger);
-    writer.writeAdditionalData(automationRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param AutomationResponse The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeAutomationResponse(writer: SerializationWriter, automationResponse: Partial<AutomationResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!automationResponse || isSerializingDerivedType) { return; }
-    writer.writeStringValue("condition", automationResponse.condition);
-    writer.writeDateValue("createdAt", automationResponse.createdAt);
-    writer.writeStringValue("description", automationResponse.description);
-    writer.writeBooleanValue("enabled", automationResponse.enabled);
-    writer.writeGuidValue("id", automationResponse.id);
-    writer.writeStringValue("name", automationResponse.name);
-    writer.writeStringValue("@odata.etag", automationResponse.odataEtag);
-    writer.writeCollectionOfObjectValues<AutomationStep>("steps", automationResponse.steps, serializeAutomationStep);
-    writer.writeObjectValue<AutomationTrigger>("trigger", automationResponse.trigger, serializeAutomationTrigger);
-    writer.writeDateValue("updatedAt", automationResponse.updatedAt);
-    writer.writeNumberValue("version", automationResponse.version);
-    writer.writeGuidValue("workspaceId", automationResponse.workspaceId);
-    writer.writeAdditionalData(automationResponse.additionalData);
-}
-/**
- * Serializes information the current object
- * @param AutomationStep The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeAutomationStep(writer: SerializationWriter, automationStep: Partial<AutomationStep> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!automationStep || isSerializingDerivedType) { return; }
-    writer.writeStringValue("action", automationStep.action);
-    writer.writeCollectionOfPrimitiveValues<string>("assignees", automationStep.assignees);
-    writer.writeNumberValue("dueInHours", automationStep.dueInHours);
-    writer.writeCollectionOfObjectValues<AutomationStep>("else", automationStep.elseEscaped, serializeAutomationStep);
-    writer.writeCollectionOfPrimitiveValues<string>("escalateTo", automationStep.escalateTo);
-    writer.writeStringValue("filter", automationStep.filter);
-    writer.writeNumberValue("hours", automationStep.hours);
-    writer.writeObjectValue<JsonObject>("inputs", automationStep.inputs, serializeJsonObject);
-    writer.writeStringValue("is", automationStep.is);
-    writer.writeStringValue("name", automationStep.name);
-    writer.writeStringValue("step", automationStep.step);
-    writer.writeCollectionOfObjectValues<AutomationStep>("then", automationStep.then, serializeAutomationStep);
-    writer.writeStringValue("title", automationStep.title);
-    writer.writeStringValue("type", automationStep.type);
-    writer.writeAdditionalData(automationStep.additionalData);
-}
-/**
- * Serializes information the current object
- * @param AutomationTrigger The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeAutomationTrigger(writer: SerializationWriter, automationTrigger: Partial<AutomationTrigger> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!automationTrigger || isSerializingDerivedType) { return; }
-    writer.writeCollectionOfPrimitiveValues<string>("changedFields", automationTrigger.changedFields);
-    writer.writeStringValue("contentType", automationTrigger.contentType);
-    writer.writeStringValue("list", automationTrigger.list);
-    writer.writeStringValue("type", automationTrigger.type);
-    writer.writeAdditionalData(automationTrigger.additionalData);
-}
-/**
- * Serializes information the current object
  * @param BacklinksResponse The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -8365,6 +8385,42 @@ export function serializeBreakInheritanceRequest(writer: SerializationWriter, br
     if (!breakInheritanceRequest || isSerializingDerivedType) { return; }
     writer.writeBooleanValue("copyGrants", breakInheritanceRequest.copyGrants ?? true);
     writer.writeAdditionalData(breakInheritanceRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param BuiltInSettingsRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBuiltInSettingsRequest(writer: SerializationWriter, builtInSettingsRequest: Partial<BuiltInSettingsRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!builtInSettingsRequest || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("enabled", builtInSettingsRequest.enabled);
+    writer.writeObjectValue<JsonObject>("parameters", builtInSettingsRequest.parameters, serializeJsonObject);
+    writer.writeAdditionalData(builtInSettingsRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param BuiltInWorkflowResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBuiltInWorkflowResponse(writer: SerializationWriter, builtInWorkflowResponse: Partial<BuiltInWorkflowResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!builtInWorkflowResponse || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("available", builtInWorkflowResponse.available);
+    writer.writeStringValue("description", builtInWorkflowResponse.description);
+    writer.writeBooleanValue("enabled", builtInWorkflowResponse.enabled);
+    writer.writeBooleanValue("enabledByDefault", builtInWorkflowResponse.enabledByDefault ?? false);
+    writer.writeStringValue("key", builtInWorkflowResponse.key);
+    writer.writeStringValue("name", builtInWorkflowResponse.name);
+    writer.writeStringValue("@odata.etag", builtInWorkflowResponse.odataEtag);
+    writer.writeObjectValue<JsonObject>("parameters", builtInWorkflowResponse.parameters, serializeJsonObject);
+    writer.writeStringValue("requires", builtInWorkflowResponse.requires);
+    writer.writeEnumValue<BuiltInScope>("scope", builtInWorkflowResponse.scope ?? BuiltInScopeObject.Workspace);
+    writer.writeObjectValue<JsonObject>("values", builtInWorkflowResponse.values, serializeJsonObject);
+    writer.writeGuidValue("workflowId", builtInWorkflowResponse.workflowId);
+    writer.writeAdditionalData(builtInWorkflowResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -8602,6 +8658,19 @@ export function serializeContentTypeResponse(writer: SerializationWriter, conten
 }
 /**
  * Serializes information the current object
+ * @param CopyBuiltInRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCopyBuiltInRequest(writer: SerializationWriter, copyBuiltInRequest: Partial<CopyBuiltInRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!copyBuiltInRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("name", copyBuiltInRequest.name);
+    writer.writeObjectValue<JsonObject>("parameters", copyBuiltInRequest.parameters, serializeJsonObject);
+    writer.writeAdditionalData(copyBuiltInRequest.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param Counters The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -8682,6 +8751,7 @@ export function serializeCreateItemRequest(writer: SerializationWriter, createIt
     if (!createItemRequest || isSerializingDerivedType) { return; }
     writer.writeGuidValue("contentTypeId", createItemRequest.contentTypeId);
     writer.writeObjectValue<JsonObject>("fields", createItemRequest.fields, serializeJsonObject);
+    writer.writeGuidValue("id", createItemRequest.id);
     writer.writeBooleanValue("isFolder", createItemRequest.isFolder);
     writer.writeGuidValue("parentId", createItemRequest.parentId);
     writer.writeAdditionalData(createItemRequest.additionalData);
@@ -8954,8 +9024,6 @@ export function serializeExportResponse(writer: SerializationWriter, exportRespo
 // @ts-ignore
 export function serializeExtensionContributions(writer: SerializationWriter, extensionContributions: Partial<ExtensionContributions> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!extensionContributions || isSerializingDerivedType) { return; }
-    writer.writeCollectionOfPrimitiveValues<string>("automationActions", extensionContributions.automationActions);
-    writer.writeCollectionOfPrimitiveValues<string>("automationTriggers", extensionContributions.automationTriggers);
     writer.writeCollectionOfPrimitiveValues<string>("contentTypes", extensionContributions.contentTypes);
     writer.writeStringValue("dbContext", extensionContributions.dbContext);
     writer.writeBooleanValue("endpoints", extensionContributions.endpoints);
@@ -8967,6 +9035,9 @@ export function serializeExtensionContributions(writer: SerializationWriter, ext
     writer.writeCollectionOfPrimitiveValues<string>("mcpTools", extensionContributions.mcpTools);
     writer.writeCollectionOfPrimitiveValues<string>("templateHandlers", extensionContributions.templateHandlers);
     writer.writeCollectionOfPrimitiveValues<string>("termSets", extensionContributions.termSets);
+    writer.writeCollectionOfPrimitiveValues<string>("workflowActivities", extensionContributions.workflowActivities);
+    writer.writeCollectionOfPrimitiveValues<string>("workflows", extensionContributions.workflows);
+    writer.writeCollectionOfPrimitiveValues<string>("workflowTriggers", extensionContributions.workflowTriggers);
     writer.writeAdditionalData(extensionContributions.additionalData);
 }
 /**
@@ -9150,15 +9221,36 @@ export function serializeFileVersionResponse(writer: SerializationWriter, fileVe
     writer.writeStringValue("languages", fileVersionResponse.languages);
     writer.writeStringValue("mediaType", fileVersionResponse.mediaType);
     writer.writeNumberValue("number", fileVersionResponse.number);
-    writer.writeGuidValue("operationId", fileVersionResponse.operationId);
     writer.writeNumberValue("pageCount", fileVersionResponse.pageCount);
-    writer.writeStringValue("processingError", fileVersionResponse.processingError);
-    writer.writeEnumValue<ProcessingStatus>("processingStatus", fileVersionResponse.processingStatus);
     writer.writeStringValue("sha256", fileVersionResponse.sha256);
     writer.writeNumberValue("size", fileVersionResponse.size);
     writer.writeStringValue("source", fileVersionResponse.source);
     writer.writeStringValue("textLanguage", fileVersionResponse.textLanguage);
     writer.writeAdditionalData(fileVersionResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param FlowDefinition The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeFlowDefinition(writer: SerializationWriter, flowDefinition: Partial<FlowDefinition> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!flowDefinition || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<FlowDefinition_nodes>("nodes", flowDefinition.nodes, serializeFlowDefinition_nodes);
+    writer.writeStringValue("start", flowDefinition.start);
+    writer.writeAdditionalData(flowDefinition.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param FlowDefinition_nodes The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeFlowDefinition_nodes(writer: SerializationWriter, flowDefinition_nodes: Partial<FlowDefinition_nodes> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!flowDefinition_nodes || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(flowDefinition_nodes.additionalData);
 }
 /**
  * Serializes information the current object
@@ -9370,10 +9462,8 @@ export function serializeKeywordRequest(writer: SerializationWriter, keywordRequ
 // @ts-ignore
 export function serializeLibrarySettingsRequest(writer: SerializationWriter, librarySettingsRequest: Partial<LibrarySettingsRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!librarySettingsRequest || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("autoProcess", librarySettingsRequest.autoProcess);
     writer.writeEnumValue<DuplicatePolicy>("duplicatePolicy", librarySettingsRequest.duplicatePolicy);
     writer.writeStringValue("ocrLanguages", librarySettingsRequest.ocrLanguages);
-    writer.writeEnumValue<OcrMode>("ocrMode", librarySettingsRequest.ocrMode);
     writer.writeAdditionalData(librarySettingsRequest.additionalData);
 }
 /**
@@ -9385,12 +9475,10 @@ export function serializeLibrarySettingsRequest(writer: SerializationWriter, lib
 // @ts-ignore
 export function serializeLibrarySettingsResponse(writer: SerializationWriter, librarySettingsResponse: Partial<LibrarySettingsResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!librarySettingsResponse || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("autoProcess", librarySettingsResponse.autoProcess);
     writer.writeEnumValue<DuplicatePolicy>("duplicatePolicy", librarySettingsResponse.duplicatePolicy);
     writer.writeGuidValue("listId", librarySettingsResponse.listId);
     writer.writeStringValue("ocrLanguages", librarySettingsResponse.ocrLanguages);
     writer.writeBooleanValue("ocrLanguagesInherited", librarySettingsResponse.ocrLanguagesInherited);
-    writer.writeEnumValue<OcrMode>("ocrMode", librarySettingsResponse.ocrMode);
     writer.writeStringValue("@odata.etag", librarySettingsResponse.odataEtag);
     writer.writeAdditionalData(librarySettingsResponse.additionalData);
 }
@@ -10114,31 +10202,6 @@ export function serializePreferencesResponse(writer: SerializationWriter, prefer
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param ProcessRequest The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeProcessRequest(writer: SerializationWriter, processRequest: Partial<ProcessRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!processRequest || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("forceOcr", processRequest.forceOcr);
-    writer.writeStringValue("languages", processRequest.languages);
-    writer.writeAdditionalData(processRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param ProcessResponse The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeProcessResponse(writer: SerializationWriter, processResponse: Partial<ProcessResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!processResponse || isSerializingDerivedType) { return; }
-    writer.writeGuidValue("operationId", processResponse.operationId);
-    writer.writeAdditionalData(processResponse.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PromoteKeywordRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -10283,20 +10346,24 @@ export function serializeRoleResponse(writer: SerializationWriter, roleResponse:
 // @ts-ignore
 export function serializeRunResponse(writer: SerializationWriter, runResponse: Partial<RunResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!runResponse || isSerializingDerivedType) { return; }
-    writer.writeStringValue("automation", runResponse.automation);
-    writer.writeGuidValue("automationId", runResponse.automationId);
-    writer.writeNumberValue("automationVersion", runResponse.automationVersion);
     writer.writeDateValue("completedAt", runResponse.completedAt);
     writer.writeStringValue("error", runResponse.errorEscaped);
     writer.writeGuidValue("eventId", runResponse.eventId);
+    writer.writeStringValue("failedNode", runResponse.failedNode);
     writer.writeGuidValue("id", runResponse.id);
     writer.writeGuidValue("itemId", runResponse.itemId);
     writer.writeGuidValue("listId", runResponse.listId);
     writer.writeObjectValue("log", runResponse.log);
+    writer.writeStringValue("node", runResponse.node);
     writer.writeObjectValue<RunResponse_outcomes>("outcomes", runResponse.outcomes, serializeRunResponse_outcomes);
+    writer.writeObjectValue<JsonObject>("outputs", runResponse.outputs, serializeJsonObject);
     writer.writeDateValue("startedAt", runResponse.startedAt);
     writer.writeGuidValue("startedBy", runResponse.startedBy);
     writer.writeEnumValue<RunStatus>("status", runResponse.status);
+    writer.writeObjectValue<JsonObject>("variables", runResponse.variables, serializeJsonObject);
+    writer.writeStringValue("workflow", runResponse.workflow);
+    writer.writeGuidValue("workflowId", runResponse.workflowId);
+    writer.writeNumberValue("workflowVersion", runResponse.workflowVersion);
     writer.writeGuidValue("workspaceId", runResponse.workspaceId);
     writer.writeAdditionalData(runResponse.additionalData);
 }
@@ -10576,14 +10643,29 @@ export function serializeSmartFolderResponse(writer: SerializationWriter, smartF
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param StartAutomationRequest The instance to serialize from.
+ * @param StartRunsRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeStartAutomationRequest(writer: SerializationWriter, startAutomationRequest: Partial<StartAutomationRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!startAutomationRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("automation", startAutomationRequest.automation);
-    writer.writeAdditionalData(startAutomationRequest.additionalData);
+export function serializeStartRunsRequest(writer: SerializationWriter, startRunsRequest: Partial<StartRunsRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!startRunsRequest || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<JsonObject>("inputs", startRunsRequest.inputs, serializeJsonObject);
+    writer.writeCollectionOfPrimitiveValues<Guid>("itemIds", startRunsRequest.itemIds);
+    writer.writeGuidValue("listId", startRunsRequest.listId);
+    writer.writeAdditionalData(startRunsRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StartWorkflowRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStartWorkflowRequest(writer: SerializationWriter, startWorkflowRequest: Partial<StartWorkflowRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!startWorkflowRequest || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<JsonObject>("inputs", startWorkflowRequest.inputs, serializeJsonObject);
+    writer.writeStringValue("workflow", startWorkflowRequest.workflow);
+    writer.writeAdditionalData(startWorkflowRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -11007,6 +11089,106 @@ export function serializeViewResponse(writer: SerializationWriter, viewResponse:
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param WorkflowRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeWorkflowRequest(writer: SerializationWriter, workflowRequest: Partial<WorkflowRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!workflowRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("concurrency", workflowRequest.concurrency);
+    writer.writeStringValue("condition", workflowRequest.condition);
+    writer.writeStringValue("description", workflowRequest.description);
+    writer.writeBooleanValue("enabled", workflowRequest.enabled ?? true);
+    writer.writeObjectValue<FlowDefinition>("flow", workflowRequest.flow, serializeFlowDefinition);
+    writer.writeStringValue("key", workflowRequest.key);
+    writer.writeStringValue("name", workflowRequest.name);
+    writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowRequest.steps, serializeWorkflowStep);
+    writer.writeObjectValue<WorkflowTrigger>("trigger", workflowRequest.trigger, serializeWorkflowTrigger);
+    writer.writeCollectionOfObjectValues<WorkflowTrigger>("triggers", workflowRequest.triggers, serializeWorkflowTrigger);
+    writer.writeObjectValue<JsonObject>("variables", workflowRequest.variables, serializeJsonObject);
+    writer.writeAdditionalData(workflowRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param WorkflowResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeWorkflowResponse(writer: SerializationWriter, workflowResponse: Partial<WorkflowResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!workflowResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("builtIn", workflowResponse.builtIn);
+    writer.writeStringValue("concurrency", workflowResponse.concurrency);
+    writer.writeStringValue("condition", workflowResponse.condition);
+    writer.writeStringValue("copiedFrom", workflowResponse.copiedFrom);
+    writer.writeDateValue("createdAt", workflowResponse.createdAt);
+    writer.writeStringValue("description", workflowResponse.description);
+    writer.writeBooleanValue("enabled", workflowResponse.enabled);
+    writer.writeObjectValue<FlowDefinition>("flow", workflowResponse.flow, serializeFlowDefinition);
+    writer.writeGuidValue("id", workflowResponse.id);
+    writer.writeStringValue("key", workflowResponse.key);
+    writer.writeGuidValue("listId", workflowResponse.listId);
+    writer.writeStringValue("name", workflowResponse.name);
+    writer.writeStringValue("@odata.etag", workflowResponse.odataEtag);
+    writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowResponse.steps, serializeWorkflowStep);
+    writer.writeObjectValue<WorkflowTrigger>("trigger", workflowResponse.trigger, serializeWorkflowTrigger);
+    writer.writeCollectionOfObjectValues<WorkflowTrigger>("triggers", workflowResponse.triggers, serializeWorkflowTrigger);
+    writer.writeDateValue("updatedAt", workflowResponse.updatedAt);
+    writer.writeObjectValue<JsonObject>("variables", workflowResponse.variables, serializeJsonObject);
+    writer.writeNumberValue("version", workflowResponse.version);
+    writer.writeGuidValue("workspaceId", workflowResponse.workspaceId);
+    writer.writeAdditionalData(workflowResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param WorkflowStep The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeWorkflowStep(writer: SerializationWriter, workflowStep: Partial<WorkflowStep> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!workflowStep || isSerializingDerivedType) { return; }
+    writer.writeStringValue("action", workflowStep.action);
+    writer.writeCollectionOfPrimitiveValues<string>("assignees", workflowStep.assignees);
+    writer.writeNumberValue("dueInHours", workflowStep.dueInHours);
+    writer.writeCollectionOfObjectValues<WorkflowStep>("else", workflowStep.elseEscaped, serializeWorkflowStep);
+    writer.writeCollectionOfPrimitiveValues<string>("escalateTo", workflowStep.escalateTo);
+    writer.writeStringValue("filter", workflowStep.filter);
+    writer.writeNumberValue("hours", workflowStep.hours);
+    writer.writeObjectValue<JsonObject>("inputs", workflowStep.inputs, serializeJsonObject);
+    writer.writeStringValue("is", workflowStep.is);
+    writer.writeStringValue("name", workflowStep.name);
+    writer.writeStringValue("step", workflowStep.step);
+    writer.writeCollectionOfObjectValues<WorkflowStep>("then", workflowStep.then, serializeWorkflowStep);
+    writer.writeStringValue("title", workflowStep.title);
+    writer.writeStringValue("type", workflowStep.type);
+    writer.writeAdditionalData(workflowStep.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param WorkflowTrigger The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeWorkflowTrigger(writer: SerializationWriter, workflowTrigger: Partial<WorkflowTrigger> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!workflowTrigger || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("changedFields", workflowTrigger.changedFields);
+    writer.writeStringValue("contentType", workflowTrigger.contentType);
+    writer.writeStringValue("cron", workflowTrigger.cron);
+    writer.writeObjectValue<JsonObject>("data", workflowTrigger.data, serializeJsonObject);
+    writer.writeStringValue("field", workflowTrigger.field);
+    writer.writeObjectValue<JsonObject>("inputs", workflowTrigger.inputs, serializeJsonObject);
+    writer.writeStringValue("list", workflowTrigger.list);
+    writer.writeNumberValue("offsetHours", workflowTrigger.offsetHours);
+    writer.writeCollectionOfPrimitiveValues<string>("terms", workflowTrigger.terms);
+    writer.writeStringValue("timeZone", workflowTrigger.timeZone);
+    writer.writeStringValue("type", workflowTrigger.type);
+    writer.writeAdditionalData(workflowTrigger.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param WorkspaceMemberResponse The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -11291,11 +11473,35 @@ export interface SmartFolderResponse extends AdditionalDataHolder, Parsable {
      */
     workspaceId?: Guid | null;
 }
-export interface StartAutomationRequest extends AdditionalDataHolder, Parsable {
+/**
+ * Starts a `manual` workflow: once per item of `itemIds` (in `listId`, at most 100), or once without anitem when there are none (for workflows whose trigger has no list). `inputs` become run variables.
+ */
+export interface StartRunsRequest extends AdditionalDataHolder, Parsable {
     /**
-     * The automation property
+     * The inputs property
      */
-    automation?: string | null;
+    inputs?: JsonObject | null;
+    /**
+     * The itemIds property
+     */
+    itemIds?: Guid[] | null;
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
+}
+/**
+ * Starts a `manual` workflow on an item, by name; `inputs` become run variables (checked against the trigger's `inputs`).
+ */
+export interface StartWorkflowRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The inputs property
+     */
+    inputs?: JsonObject | null;
+    /**
+     * The workflow property
+     */
+    workflow?: string | null;
 }
 export interface SubscriptionRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -11866,6 +12072,250 @@ export interface ViewResponse extends AdditionalDataHolder, Parsable {
      */
     orderBy?: string | null;
 }
+/**
+ * A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).
+ */
+export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The concurrency property
+     */
+    concurrency?: string | null;
+    /**
+     * The condition property
+     */
+    condition?: string | null;
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The enabled property
+     */
+    enabled?: boolean | null;
+    /**
+     * The flow property
+     */
+    flow?: FlowDefinition | null;
+    /**
+     * The key property
+     */
+    key?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The steps property
+     */
+    steps?: WorkflowStep[] | null;
+    /**
+     * The trigger property
+     */
+    trigger?: WorkflowTrigger | null;
+    /**
+     * The triggers property
+     */
+    triggers?: WorkflowTrigger[] | null;
+    /**
+     * The variables property
+     */
+    variables?: JsonObject | null;
+}
+/**
+ * A workflow with the definition of its current `version` (runs keep the version they started with): its `trigger` or `triggers` (as it was defined), `steps` or a `flow`, the initial `variables`, and `concurrency` (runs on the same item: `parallel`, `skip` or `replace`).
+ */
+export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The builtIn property
+     */
+    builtIn?: string | null;
+    /**
+     * The concurrency property
+     */
+    concurrency?: string | null;
+    /**
+     * The condition property
+     */
+    condition?: string | null;
+    /**
+     * The copiedFrom property
+     */
+    copiedFrom?: string | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The enabled property
+     */
+    enabled?: boolean | null;
+    /**
+     * The flow property
+     */
+    flow?: FlowDefinition | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The key property
+     */
+    key?: string | null;
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The ETag for `If-Match` on changes (the same as the `ETag` header).
+     */
+    odataEtag?: string | null;
+    /**
+     * The steps property
+     */
+    steps?: WorkflowStep[] | null;
+    /**
+     * The trigger property
+     */
+    trigger?: WorkflowTrigger | null;
+    /**
+     * The triggers property
+     */
+    triggers?: WorkflowTrigger[] | null;
+    /**
+     * The updatedAt property
+     */
+    updatedAt?: Date | null;
+    /**
+     * The variables property
+     */
+    variables?: JsonObject | null;
+    /**
+     * The version property
+     */
+    version?: number | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+}
+/**
+ * A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, `group:Name`,`field:fieldName` (a person field of the item) or `creator`.
+ */
+export interface WorkflowStep extends AdditionalDataHolder, Parsable {
+    /**
+     * The action property
+     */
+    action?: string | null;
+    /**
+     * The assignees property
+     */
+    assignees?: string[] | null;
+    /**
+     * The dueInHours property
+     */
+    dueInHours?: number | null;
+    /**
+     * The else property
+     */
+    elseEscaped?: WorkflowStep[] | null;
+    /**
+     * The escalateTo property
+     */
+    escalateTo?: string[] | null;
+    /**
+     * The filter property
+     */
+    filter?: string | null;
+    /**
+     * The hours property
+     */
+    hours?: number | null;
+    /**
+     * The inputs property
+     */
+    inputs?: JsonObject | null;
+    /**
+     * The is property
+     */
+    is?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The step property
+     */
+    step?: string | null;
+    /**
+     * The then property
+     */
+    then?: WorkflowStep[] | null;
+    /**
+     * The title property
+     */
+    title?: string | null;
+    /**
+     * The type property
+     */
+    type?: string | null;
+}
+/**
+ * When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization's). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).`data` (module and extension triggers) needs the trigger's data to have these values, e.g. `{ "hasText": false }`.
+ */
+export interface WorkflowTrigger extends AdditionalDataHolder, Parsable {
+    /**
+     * The changedFields property
+     */
+    changedFields?: string[] | null;
+    /**
+     * The contentType property
+     */
+    contentType?: string | null;
+    /**
+     * The cron property
+     */
+    cron?: string | null;
+    /**
+     * The data property
+     */
+    data?: JsonObject | null;
+    /**
+     * The field property
+     */
+    field?: string | null;
+    /**
+     * The inputs property
+     */
+    inputs?: JsonObject | null;
+    /**
+     * The list property
+     */
+    list?: string | null;
+    /**
+     * The offsetHours property
+     */
+    offsetHours?: number | null;
+    /**
+     * The terms property
+     */
+    terms?: string[] | null;
+    /**
+     * The timeZone property
+     */
+    timeZone?: string | null;
+    /**
+     * The type property
+     */
+    type?: string | null;
+}
 export type WorkspaceAccessLevel = (typeof WorkspaceAccessLevelObject)[keyof typeof WorkspaceAccessLevelObject];
 export interface WorkspaceMemberResponse extends AdditionalDataHolder, Parsable {
     /**
@@ -11939,6 +12389,10 @@ export const AuditActionObject = {
     Restored: "restored",
     Purged: "purged",
 } as const;
+export const BuiltInScopeObject = {
+    Workspace: "workspace",
+    Library: "library",
+} as const;
 /**
  * What happens when an upload has the same content as an existing document (DOC-10).
  */
@@ -11970,13 +12424,6 @@ export const ListVersioningObject = {
     Off: "off",
     Major: "major",
 } as const;
-/**
- * When a library runs OCR.
- */
-export const OcrModeObject = {
-    Auto: "auto",
-    Off: "off",
-} as const;
 export const OperationStatusObject = {
     NotStarted: "notStarted",
     Running: "running",
@@ -11986,16 +12433,6 @@ export const OperationStatusObject = {
 export const PrincipalTypeObject = {
     User: "user",
     Group: "group",
-} as const;
-/**
- * Processing of a file version (DOC-09): text extraction, OCR, thumbnails.
- */
-export const ProcessingStatusObject = {
-    None: "none",
-    Scheduled: "scheduled",
-    Running: "running",
-    Succeeded: "succeeded",
-    Failed: "failed",
 } as const;
 export const RunStatusObject = {
     Running: "running",

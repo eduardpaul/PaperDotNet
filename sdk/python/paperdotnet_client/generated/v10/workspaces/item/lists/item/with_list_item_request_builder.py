@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from .permissions.permissions_request_builder import PermissionsRequestBuilder
     from .recycle_bin.recycle_bin_request_builder import RecycleBinRequestBuilder
     from .views.views_request_builder import ViewsRequestBuilder
+    from .workflows.workflows_request_builder import WorkflowsRequestBuilder
 
 class WithListItemRequestBuilder(BaseRequestBuilder):
     """
@@ -223,6 +224,15 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .views.views_request_builder import ViewsRequestBuilder
 
         return ViewsRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def workflows(self) -> WorkflowsRequestBuilder:
+        """
+        The workflows property
+        """
+        from .workflows.workflows_request_builder import WorkflowsRequestBuilder
+
+        return WorkflowsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @dataclass
     class WithListItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):

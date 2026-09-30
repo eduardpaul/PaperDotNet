@@ -103,6 +103,7 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Bootstrap:AdminPassword", AdminPassword);
         builder.UseSetting("Jobs:SchedulerInterval", "00:00:01");
         builder.UseSetting("Lists:DeltaSafetyWindow", "00:00:00");
+        builder.UseSetting("AI:Chat:DailyTokens", "1000000");
 
         // Semantic search with a deterministic model; tests ask for it explicitly (mode=semantic|hybrid).
         builder.UseSetting("Search:DefaultMode", "Keyword");
@@ -113,6 +114,11 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         {
             services.AddScoped<IItemMutator, TestMutator>();
             services.AddSingleton<Microsoft.Extensions.AI.IEmbeddingGenerator<string, Microsoft.Extensions.AI.Embedding<float>>>(ConceptEmbeddingGenerator.Instance);
+            services.AddSingleton<Microsoft.Extensions.AI.IChatClient>(ReadingChatClient.Instance);
+
+            // A batch API only for the tenants of the batch API tests (null elsewhere: batches use the chat model).
+            services.AddScoped<PaperDotNet.Workflows.Contracts.IAiBatchClient>(sp =>
+                FakeBatchClient.For(sp.GetRequiredService<PaperDotNet.Abstractions.ITenantContext>().TenantIdentifier)!);
             services.AddEventSubscriber<ItemAdded, TestSubscriber>();
             services.AddEventSubscriber<ItemUpdated, TestSubscriber>();
             services.AddEventSubscriber<ItemAdded, FailingSubscriber>();

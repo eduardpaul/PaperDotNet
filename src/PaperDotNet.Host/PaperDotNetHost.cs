@@ -5,9 +5,9 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using PaperDotNet.Abstractions;
 using PaperDotNet.AI;
+using PaperDotNet.AiWorkflows;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
-using PaperDotNet.Automation;
 using PaperDotNet.Calendar;
 using PaperDotNet.Collaboration;
 using PaperDotNet.Documents;
@@ -33,6 +33,7 @@ using PaperDotNet.Storage;
 using PaperDotNet.Tasks;
 using PaperDotNet.Taxonomy;
 using PaperDotNet.Tenancy;
+using PaperDotNet.Workflows;
 using PaperDotNet.Workspaces;
 using Wolverine;
 using Wolverine.Postgresql;
@@ -63,7 +64,8 @@ public static class PaperDotNetHost
         new CollaborationModule(),
         new McpModule(),
         new ProvisioningModule(),
-        new AutomationModule(),
+        new WorkflowsModule(),
+        new AiWorkflowsModule(),
         new AuditModule(),
         new ExtensionHostModule(),
     ];

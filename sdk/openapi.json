@@ -5184,6 +5184,16 @@
               }
             }
           },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemResponse"
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad Request",
             "content": {
@@ -8704,101 +8714,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FileVersionResponse"
-                }
-              }
-            }
-          },
-          "4XX": {
-            "description": "Client error",
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "5XX": {
-            "description": "Server error",
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/process": {
-      "post": {
-        "tags": [
-          "Documents"
-        ],
-        "operationId": "ProcessFile",
-        "parameters": [
-          {
-            "name": "workspaceId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "listId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "itemId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/ProcessRequest"
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": "Accepted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProcessResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
                 }
               }
             }
@@ -13326,12 +13241,12 @@
         }
       }
     },
-    "/v1.0/workspaces/{workspaceId}/automations": {
+    "/v1.0/workspaces/{workspaceId}/workflows": {
       "get": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
-        "operationId": "ListAutomations",
+        "operationId": "ListWorkflows",
         "parameters": [
           {
             "name": "workspaceId",
@@ -13351,7 +13266,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/AutomationResponse"
+                    "$ref": "#/components/schemas/WorkflowResponse"
                   }
                 }
               }
@@ -13381,9 +13296,9 @@
       },
       "post": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
-        "operationId": "CreateAutomation",
+        "operationId": "CreateWorkflow",
         "parameters": [
           {
             "name": "workspaceId",
@@ -13399,7 +13314,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AutomationRequest"
+                "$ref": "#/components/schemas/WorkflowRequest"
               }
             }
           },
@@ -13411,7 +13326,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AutomationResponse"
+                  "$ref": "#/components/schemas/WorkflowResponse"
                 }
               }
             }
@@ -13449,12 +13364,12 @@
         }
       }
     },
-    "/v1.0/workspaces/{workspaceId}/automations/{id}": {
+    "/v1.0/workspaces/{workspaceId}/workflows/{id}": {
       "get": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
-        "operationId": "GetAutomation",
+        "operationId": "GetWorkflow",
         "parameters": [
           {
             "name": "workspaceId",
@@ -13481,7 +13396,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AutomationResponse"
+                  "$ref": "#/components/schemas/WorkflowResponse"
                 }
               }
             }
@@ -13510,9 +13425,9 @@
       },
       "put": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
-        "operationId": "ReplaceAutomation",
+        "operationId": "ReplaceWorkflow",
         "parameters": [
           {
             "name": "workspaceId",
@@ -13537,7 +13452,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AutomationRequest"
+                "$ref": "#/components/schemas/WorkflowRequest"
               }
             }
           },
@@ -13549,7 +13464,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AutomationResponse"
+                  "$ref": "#/components/schemas/WorkflowResponse"
                 }
               }
             }
@@ -13588,9 +13503,9 @@
       },
       "delete": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
-        "operationId": "DeleteAutomation",
+        "operationId": "DeleteWorkflow",
         "parameters": [
           {
             "name": "workspaceId",
@@ -13638,12 +13553,66 @@
         }
       }
     },
-    "/v1.0/workspaces/{workspaceId}/automations/runs": {
+    "/v1.0/workspaces/{workspaceId}/workflows/builtIns": {
       "get": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
-        "operationId": "ListAutomationRuns",
+        "operationId": "ListBuiltInWorkflows",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BuiltInWorkflowResponse"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/workflows/builtIns/{key}": {
+      "put": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "SetBuiltInWorkflow",
         "parameters": [
           {
             "name": "workspaceId",
@@ -13655,7 +13624,165 @@
             }
           },
           {
-            "name": "automationId",
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuiltInSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuiltInWorkflowResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/workflows/builtIns/{key}/copy": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "CopyBuiltInWorkflow",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyBuiltInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/workflows/runs": {
+      "get": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "ListWorkflowRuns",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "workflowId",
             "in": "query",
             "schema": {
               "type": "string",
@@ -13738,12 +13865,12 @@
         }
       }
     },
-    "/v1.0/workspaces/{workspaceId}/automations/runs/{id}": {
+    "/v1.0/workspaces/{workspaceId}/workflows/runs/{id}": {
       "get": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
-        "operationId": "GetAutomationRun",
+        "operationId": "GetWorkflowRun",
         "parameters": [
           {
             "name": "workspaceId",
@@ -13798,12 +13925,12 @@
         }
       }
     },
-    "/v1.0/workspaces/{workspaceId}/automations/runs/{id}/cancel": {
+    "/v1.0/workspaces/{workspaceId}/workflows/runs/{id}/cancel": {
       "post": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
-        "operationId": "CancelAutomationRun",
+        "operationId": "CancelWorkflowRun",
         "parameters": [
           {
             "name": "workspaceId",
@@ -13858,12 +13985,155 @@
         }
       }
     },
-    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/automations": {
+    "/v1.0/workspaces/{workspaceId}/workflows/runs/{id}/retry": {
       "post": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
-        "operationId": "StartAutomation",
+        "operationId": "RetryWorkflowRun",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/workflows/{id}/runs": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "StartWorkflowRuns",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRunsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/workflows": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "StartWorkflow",
         "parameters": [
           {
             "name": "workspaceId",
@@ -13897,7 +14167,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StartAutomationRequest"
+                "$ref": "#/components/schemas/StartWorkflowRequest"
               }
             }
           },
@@ -13947,10 +14217,161 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns": {
+      "get": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "ListLibraryBuiltInWorkflows",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BuiltInWorkflowResponse"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns/{key}": {
+      "put": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "SetLibraryBuiltInWorkflow",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuiltInSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuiltInWorkflowResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/me/approvals": {
       "get": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
         "operationId": "ListMyApprovals",
         "parameters": [
@@ -14025,7 +14446,7 @@
     "/v1.0/me/approvals/{id}/decision": {
       "post": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
         "operationId": "DecideApproval",
         "parameters": [
@@ -14093,12 +14514,12 @@
         }
       }
     },
-    "/v1.0/automation/triggers": {
+    "/v1.0/workflows/triggers": {
       "get": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
-        "operationId": "ListAutomationTriggers",
+        "operationId": "ListWorkflowTriggers",
         "responses": {
           "200": {
             "description": "OK",
@@ -14136,12 +14557,12 @@
         }
       }
     },
-    "/v1.0/automation/actions": {
+    "/v1.0/workflows/activities": {
       "get": {
         "tags": [
-          "Automation"
+          "Workflows"
         ],
-        "operationId": "ListAutomationActions",
+        "operationId": "ListWorkflowActivities",
         "responses": {
           "200": {
             "description": "OK",
@@ -14150,7 +14571,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/CatalogEntry"
+                    "$ref": "#/components/schemas/ActivityDescriptor"
                   }
                 }
               }
@@ -14785,6 +15206,55 @@
         ],
         "description": "Who a permission entry gives access to: a user, a group, or a role of the list\u0027s workspace."
       },
+      "ActivityDescriptor": {
+        "required": [
+          "key",
+          "description",
+          "kind",
+          "ports",
+          "inputSchema",
+          "outputSchema"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "ports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inputSchema": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "outputSchema": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          }
+        },
+        "description": "An activity in the catalog: \u0060kind\u0060 is \u0060flow\u0060 (run by the engine) or \u0060action\u0060."
+      },
       "ActivityResponse": {
         "required": [
           "id",
@@ -15308,276 +15778,6 @@
           }
         }
       },
-      "AutomationRequest": {
-        "required": [
-          "name",
-          "description",
-          "trigger",
-          "condition",
-          "steps"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "type": "string"
-          },
-          "description": {
-            "maxLength": 2000,
-            "minLength": 0,
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "trigger": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/AutomationTrigger"
-              }
-            ]
-          },
-          "condition": {
-            "maxLength": 4000,
-            "minLength": 0,
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "steps": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/AutomationStep"
-            }
-          },
-          "enabled": {
-            "type": "boolean",
-            "default": true
-          }
-        }
-      },
-      "AutomationResponse": {
-        "required": [
-          "id",
-          "workspaceId",
-          "name",
-          "description",
-          "enabled",
-          "version",
-          "trigger",
-          "condition",
-          "steps",
-          "createdAt",
-          "updatedAt"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workspaceId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "version": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "trigger": {
-            "$ref": "#/components/schemas/AutomationTrigger"
-          },
-          "condition": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "steps": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AutomationStep"
-            }
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "@odata.etag": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "description": "The ETag for \u0060If-Match\u0060 on changes (the same as the \u0060ETag\u0060 header)."
-          }
-        },
-        "description": "An automation with the definition of its current \u0060version\u0060 (runs keep the version they started with)."
-      },
-      "AutomationStep": {
-        "required": [
-          "type"
-        ],
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string"
-          },
-          "name": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "action": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "inputs": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/JsonObject"
-              }
-            ]
-          },
-          "assignees": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            }
-          },
-          "title": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "dueInHours": {
-            "type": [
-              "null",
-              "number"
-            ],
-            "format": "double"
-          },
-          "escalateTo": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            }
-          },
-          "hours": {
-            "type": [
-              "null",
-              "number"
-            ],
-            "format": "double"
-          },
-          "step": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "is": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "filter": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "then": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/AutomationStep"
-            }
-          },
-          "else": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/AutomationStep"
-            }
-          }
-        },
-        "description": "A step of an automation (EVT-07, EVT-08). Assignees and recipients are user names, \u0060group:Name\u0060,\n\u0060field:fieldName\u0060 (a person field of the item) or \u0060creator\u0060."
-      },
-      "AutomationTrigger": {
-        "required": [
-          "type"
-        ],
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string"
-          },
-          "list": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "contentType": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "changedFields": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "description": "When an automation runs: \u0060type\u0060 is \u0060manual\u0060 (started on an item by a person), \u0060itemAdded\u0060,\n\u0060itemUpdated\u0060, \u0060itemDeleted\u0060, \u0060itemRestored\u0060 or an extension trigger; \u0060list\u0060 and\n\u0060contentType\u0060 narrow it by name; \u0060changedFields\u0060 (updates) needs one of them to change."
-      },
       "BacklinksResponse": {
         "required": [
           "value"
@@ -15707,6 +15907,114 @@
             "default": true
           }
         }
+      },
+      "BuiltInScope": {
+        "enum": [
+          "workspace",
+          "library"
+        ],
+        "default": "workspace"
+      },
+      "BuiltInSettingsRequest": {
+        "required": [
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "parameters": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          }
+        },
+        "description": "Turns a built-in workflow on or off in the workspace; \u0060parameters\u0060 (default: the ones it had) fill in its definition."
+      },
+      "BuiltInWorkflowResponse": {
+        "required": [
+          "key",
+          "name",
+          "description",
+          "parameters",
+          "requires",
+          "available",
+          "enabled",
+          "workflowId",
+          "values"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "parameters": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "requires": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "workflowId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "values": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "scope": {
+            "$ref": "#/components/schemas/BuiltInScope"
+          },
+          "enabledByDefault": {
+            "type": "boolean",
+            "default": false
+          },
+          "@odata.etag": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Once it was turned on in the workspace: the ETag for \u0060If-Match\u0060 on changes (the workflow\u0027s; the same as the\n\u0060ETag\u0060 header)."
+          }
+        },
+        "description": "A built-in workflow (EVT-12) and its state in the workspace: its \u0060parameters\u0060 (JSON Schema), whether the server\nhas what it needs (\u0060available\u0060), and when it was turned on, the \u0060workflowId\u0060 it runs as and its \u0060values\u0060."
       },
       "BulkUpdateRequest": {
         "required": [
@@ -16272,6 +16580,30 @@
         },
         "description": "A content type. \u0060key\u0060 is set when it comes from a template; \u0060extensionId\u0060 when an extension manages it (read-only)."
       },
+      "CopyBuiltInRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "parameters": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          }
+        },
+        "description": "Copies a built-in workflow into a workflow of the workspace named \u0060name\u0060, to change it."
+      },
       "Counters": {
         "type": "object",
         "properties": {
@@ -16449,9 +16781,16 @@
                 "$ref": "#/components/schemas/JsonObject"
               }
             ]
+          },
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         },
-        "description": "Create body: \u0060{ \u0022contentTypeId\u0022?, \u0022parentId\u0022?, \u0022isFolder\u0022?, \u0022fields\u0022: { \u0022title\u0022: \u2026, \u2026 } }\u0060."
+        "description": "Create body: \u0060{ \u0022id\u0022?, \u0022contentTypeId\u0022?, \u0022parentId\u0022?, \u0022isFolder\u0022?, \u0022fields\u0022: { \u0022title\u0022: \u2026, \u2026 } }\u0060. With \u0060id\u0060 the client chooses the item\u0027s id, so repeating a create is safe (the item it made is returned unchanged, 200)."
       },
       "CreateListRequest": {
         "required": [
@@ -17135,7 +17474,7 @@
               "type": "string"
             }
           },
-          "automationActions": {
+          "workflowActivities": {
             "type": [
               "null",
               "array"
@@ -17144,7 +17483,16 @@
               "type": "string"
             }
           },
-          "automationTriggers": {
+          "workflowTriggers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "workflows": {
             "type": [
               "null",
               "array"
@@ -17592,9 +17940,6 @@
           "source",
           "createdAt",
           "createdBy",
-          "processingStatus",
-          "processingError",
-          "operationId",
           "pageCount",
           "textLanguage",
           "languages"
@@ -17635,22 +17980,6 @@
             ],
             "format": "uuid"
           },
-          "processingStatus": {
-            "$ref": "#/components/schemas/ProcessingStatus"
-          },
-          "processingError": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "operationId": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          },
           "pageCount": {
             "type": [
               "null",
@@ -17670,7 +17999,68 @@
               "string"
             ]
           }
-        }
+        },
+        "description": "A version of a document\u0027s file. \u0060pageCount\u0060 and \u0060textLanguage\u0060 are set by the library\u0027s workflows (reading the text, OCR)."
+      },
+      "FlowDefinition": {
+        "required": [
+          "start",
+          "nodes"
+        ],
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string"
+          },
+          "nodes": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FlowNode"
+            }
+          }
+        },
+        "description": "A workflow\u0027s flow (ADR-0036): the \u0060start\u0060 node and the nodes by id. A node runs an activity and continues with\nthe node its outcome port names in \u0060next\u0060 (\u0060done\u0060 when the outcome\u0027s own port is not connected); a node\nwithout a next node ends the run."
+      },
+      "FlowNode": {
+        "required": [
+          "activity"
+        ],
+        "type": "object",
+        "properties": {
+          "activity": {
+            "type": "string"
+          },
+          "inputs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "next": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "retry": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RetryPolicy"
+              }
+            ]
+          }
+        },
+        "description": "A node of a flow: an \u0060activity\u0060 (an action such as \u0060item.update\u0060, or one of the flow activities\n\u0060approval\u0060, \u0060delay\u0060, \u0060if\u0060, \u0060setVariable\u0060, \u0060end\u0060, \u0060fail\u0060), its \u0060inputs\u0060, the next\nnode per outcome port (\u0060done\u0060, \u0060error\u0060, \u0060approved\u0060, \u0060rejected\u0060, \u0060true\u0060, \u0060false\u0060)\nand an optional \u0060retry\u0060 policy for failures."
       },
       "GroupInboxRequest": {
         "required": [
@@ -18099,8 +18489,6 @@
       "LibrarySettingsRequest": {
         "required": [
           "duplicatePolicy",
-          "autoProcess",
-          "ocrMode",
           "ocrLanguages"
         ],
         "type": "object",
@@ -18112,22 +18500,6 @@
               },
               {
                 "$ref": "#/components/schemas/DuplicatePolicy"
-              }
-            ]
-          },
-          "autoProcess": {
-            "type": [
-              "null",
-              "boolean"
-            ]
-          },
-          "ocrMode": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/OcrMode"
               }
             ]
           },
@@ -18144,8 +18516,6 @@
         "required": [
           "listId",
           "duplicatePolicy",
-          "autoProcess",
-          "ocrMode",
           "ocrLanguages",
           "ocrLanguagesInherited"
         ],
@@ -18157,12 +18527,6 @@
           },
           "duplicatePolicy": {
             "$ref": "#/components/schemas/DuplicatePolicy"
-          },
-          "autoProcess": {
-            "type": "boolean"
-          },
-          "ocrMode": {
-            "$ref": "#/components/schemas/OcrMode"
           },
           "ocrLanguages": {
             "type": "string"
@@ -18818,13 +19182,6 @@
           }
         },
         "description": "Changes for one occurrence: \u0060fields\u0060 are merged over the series\u0027 values (e.g. a new \u0060start\u0060)."
-      },
-      "OcrMode": {
-        "enum": [
-          "auto",
-          "off"
-        ],
-        "description": "When a library runs OCR."
       },
       "OperationAcceptedResponse": {
         "required": [
@@ -19636,47 +19993,6 @@
           "group"
         ]
       },
-      "ProcessingStatus": {
-        "enum": [
-          "none",
-          "scheduled",
-          "running",
-          "succeeded",
-          "failed"
-        ],
-        "description": "Processing of a file version (DOC-09): text extraction, OCR, thumbnails."
-      },
-      "ProcessRequest": {
-        "required": [
-          "forceOcr",
-          "languages"
-        ],
-        "type": "object",
-        "properties": {
-          "forceOcr": {
-            "type": "boolean"
-          },
-          "languages": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        },
-        "description": "On-demand processing: \u0060forceOcr\u0060 runs OCR even when the PDF has text; \u0060languages\u0060 like \u0060deu\u002Beng\u0060."
-      },
-      "ProcessResponse": {
-        "required": [
-          "operationId"
-        ],
-        "type": "object",
-        "properties": {
-          "operationId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
       "PromoteKeywordRequest": {
         "required": [
           "termSetId",
@@ -19808,6 +20124,26 @@
           }
         }
       },
+      "RetryPolicy": {
+        "required": [
+          "attempts"
+        ],
+        "type": "object",
+        "properties": {
+          "attempts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delayMinutes": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        },
+        "description": "How often a failing activity is tried again (\u0060attempts\u0060, at most 10) and how long to wait in between (\u0060delayMinutes\u0060, default 1)."
+      },
       "RoleAssignmentRequest": {
         "required": [
           "principalId",
@@ -19898,9 +20234,9 @@
       "RunResponse": {
         "required": [
           "id",
-          "automationId",
-          "automation",
-          "automationVersion",
+          "workflowId",
+          "workflow",
+          "workflowVersion",
           "workspaceId",
           "listId",
           "itemId",
@@ -19911,7 +20247,11 @@
           "error",
           "startedBy",
           "startedAt",
-          "completedAt"
+          "completedAt",
+          "node",
+          "failedNode",
+          "outputs",
+          "variables"
         ],
         "type": "object",
         "properties": {
@@ -19919,17 +20259,17 @@
             "type": "string",
             "format": "uuid"
           },
-          "automationId": {
+          "workflowId": {
             "type": "string",
             "format": "uuid"
           },
-          "automation": {
+          "workflow": {
             "type": [
               "null",
               "string"
             ]
           },
-          "automationVersion": {
+          "workflowVersion": {
             "type": "integer",
             "format": "int32"
           },
@@ -19993,8 +20333,27 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "node": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failedNode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "outputs": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "variables": {
+            "$ref": "#/components/schemas/JsonObject"
           }
-        }
+        },
+        "description": "A run: its \u0060node\u0060 (next or waited on), the approval \u0060outcomes\u0060 by node, the \u0060outputs\u0060 of the nodes that\nran, its \u0060variables\u0060, a log, and for failed runs the error and the \u0060failedNode\u0060 it can be retried from."
       },
       "RunStatus": {
         "enum": [
@@ -20610,16 +20969,60 @@
           }
         }
       },
-      "StartAutomationRequest": {
+      "StartRunsRequest": {
+        "type": "object",
+        "properties": {
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "itemIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "inputs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          }
+        },
+        "description": "Starts a \u0060manual\u0060 workflow: once per item of \u0060itemIds\u0060 (in \u0060listId\u0060, at most 100), or once without an\nitem when there are none (for workflows whose trigger has no list). \u0060inputs\u0060 become run variables."
+      },
+      "StartWorkflowRequest": {
         "required": [
-          "automation"
+          "workflow"
         ],
         "type": "object",
         "properties": {
-          "automation": {
+          "workflow": {
             "type": "string"
+          },
+          "inputs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
           }
-        }
+        },
+        "description": "Starts a \u0060manual\u0060 workflow on an item, by name; \u0060inputs\u0060 become run variables (checked against the trigger\u0027s \u0060inputs\u0060)."
       },
       "SubscriptionRequest": {
         "required": [
@@ -21635,6 +22038,446 @@
           }
         }
       },
+      "WorkflowRequest": {
+        "required": [
+          "name",
+          "description",
+          "trigger",
+          "condition",
+          "steps"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "trigger": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowTrigger"
+              }
+            ]
+          },
+          "condition": {
+            "maxLength": 4000,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "steps": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStep"
+            }
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "flow": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FlowDefinition"
+              }
+            ]
+          },
+          "variables": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "concurrency": {
+            "maxLength": 20,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "triggers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowTrigger"
+            }
+          },
+          "key": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "A workflow: \u0060trigger\u0060, or several \u0060triggers\u0060 (any of them starts a run), and its definition. \u0060key\u0060 names its events (\u0060wf.{key}.completed\u0060; default: made from the name when it is created)."
+      },
+      "WorkflowResponse": {
+        "required": [
+          "id",
+          "workspaceId",
+          "name",
+          "description",
+          "enabled",
+          "version",
+          "trigger",
+          "condition",
+          "steps",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "trigger": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowTrigger"
+              }
+            ]
+          },
+          "condition": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "steps": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStep"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "flow": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FlowDefinition"
+              }
+            ]
+          },
+          "variables": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "builtIn": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "copiedFrom": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "concurrency": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "triggers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowTrigger"
+            }
+          },
+          "key": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "@odata.etag": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The ETag for \u0060If-Match\u0060 on changes (the same as the \u0060ETag\u0060 header)."
+          }
+        },
+        "description": "A workflow with the definition of its current \u0060version\u0060 (runs keep the version they started with): its \u0060trigger\u0060 or \u0060triggers\u0060 (as it was defined), \u0060steps\u0060 or a \u0060flow\u0060, the initial \u0060variables\u0060, and \u0060concurrency\u0060 (runs on the same item: \u0060parallel\u0060, \u0060skip\u0060 or \u0060replace\u0060)."
+      },
+      "WorkflowStep": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "action": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inputs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "assignees": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dueInHours": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "escalateTo": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "hours": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "step": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "is": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "filter": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "then": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStep"
+            }
+          },
+          "else": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStep"
+            }
+          }
+        },
+        "description": "A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, \u0060group:Name\u0060,\n\u0060field:fieldName\u0060 (a person field of the item) or \u0060creator\u0060."
+      },
+      "WorkflowTrigger": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "list": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "contentType": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "changedFields": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "terms": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "cron": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "field": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "offsetHours": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "inputs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          }
+        },
+        "description": "When a workflow runs: \u0060type\u0060 is \u0060manual\u0060 (started by a person), an item event (\u0060itemAdded\u0060,\n\u0060itemUpdated\u0060, \u0060itemDeleted\u0060, \u0060itemRestored\u0060), \u0060schedule\u0060, \u0060date\u0060, a module trigger\n(\u0060document.processed\u0060, \u0060approval.decided\u0060, \u0060task.completed\u0060, \u0060comment.added\u0060) or an extension\ntrigger. \u0060list\u0060 and \u0060contentType\u0060 narrow it by name; \u0060changedFields\u0060 (updates) needs one of them to\nchange; \u0060terms\u0060 (term paths \u0060Group/Set/Term\u0060) needs the item to have one of them or a term below.\n\u0060schedule\u0060 runs on \u0060cron\u0060 (5 fields) in \u0060timeZone\u0060 (default: the organization\u0027s). \u0060date\u0060 runs for\neach item of \u0060list\u0060 when its date \u0060field\u0060 plus \u0060offsetHours\u0060 (negative: before) is reached. \u0060manual\u0060\nmay describe the \u0060inputs\u0060 a person gives when starting it (a JSON Schema object; they become run variables).\n\u0060data\u0060 (module and extension triggers) needs the trigger\u0027s data to have these values, e.g. \u0060{ \u0022hasText\u0022: false }\u0060."
+      },
       "WorkspaceAccessLevel": {
         "enum": [
           "none",
@@ -21818,7 +22661,7 @@
       "name": "Portability"
     },
     {
-      "name": "Automation"
+      "name": "Workflows"
     },
     {
       "name": "Audit log"

@@ -31,7 +31,7 @@ namespace PaperDotNet.Client.Models
 #else
         public global::PaperDotNet.Client.Models.JsonObject Fields { get; set; }
 #endif
-        /// <summary>The file property</summary>
+        /// <summary>A version of a document&apos;s file. `pageCount` and `textLanguage` are set by the library&apos;s workflows (reading the text, OCR).</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public global::PaperDotNet.Client.Models.FileVersionResponse? File { get; set; }

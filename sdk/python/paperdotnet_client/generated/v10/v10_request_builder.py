@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     from .applications.applications_request_builder import ApplicationsRequestBuilder
     from .audit_log.audit_log_request_builder import AuditLogRequestBuilder
     from .auth.auth_request_builder import AuthRequestBuilder
-    from .automation.automation_request_builder import AutomationRequestBuilder
     from .batch.batch_request_builder import BatchRequestBuilder
     from .calendar_feeds.calendar_feeds_request_builder import CalendarFeedsRequestBuilder
     from .change_subscriptions.change_subscriptions_request_builder import ChangeSubscriptionsRequestBuilder
@@ -30,6 +29,7 @@ if TYPE_CHECKING:
     from .smart_folders.smart_folders_request_builder import SmartFoldersRequestBuilder
     from .term_store.term_store_request_builder import TermStoreRequestBuilder
     from .users.users_request_builder import UsersRequestBuilder
+    from .workflows.workflows_request_builder import WorkflowsRequestBuilder
     from .workspaces.workspaces_request_builder import WorkspacesRequestBuilder
 
 class V10RequestBuilder(BaseRequestBuilder):
@@ -71,15 +71,6 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .auth.auth_request_builder import AuthRequestBuilder
 
         return AuthRequestBuilder(self.request_adapter, self.path_parameters)
-    
-    @property
-    def automation(self) -> AutomationRequestBuilder:
-        """
-        The automation property
-        """
-        from .automation.automation_request_builder import AutomationRequestBuilder
-
-        return AutomationRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def batch(self) -> BatchRequestBuilder:
@@ -260,6 +251,15 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .users.users_request_builder import UsersRequestBuilder
 
         return UsersRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def workflows(self) -> WorkflowsRequestBuilder:
+        """
+        The workflows property
+        """
+        from .workflows.workflows_request_builder import WorkflowsRequestBuilder
+
+        return WorkflowsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def workspaces(self) -> WorkspacesRequestBuilder:

@@ -12,9 +12,9 @@ using UglyToad.PdfPig.Writer;
 namespace PaperDotNet.IntegrationTests;
 
 /// <summary>
-/// Documents, slice 3b: text extraction, OCR into a searchable PDF version, page images, processing
-/// status, live events and language-aware search (DOC-04, DOC-07…09, API-07, SRC-05). OCR runs the
-/// real Tesseract CLI, like the container image.
+/// Documents composed from workflows (ADR-0038; DOC-04, DOC-07…09, API-07, SRC-05): an upload only stores the file; the
+/// library's built-in workflows read the text, make thumbnails and page images, and (when turned on) OCR scans into a
+/// searchable PDF version. OCR runs the real Tesseract CLI, like the container image.
 /// </summary>
 public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
 {
@@ -51,10 +51,10 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
         return builder.Build();
     }
 
-    private static async Task<(Guid Workspace, Guid Library)> LibraryAsync(HttpClient client)
+    private static async Task<(Guid Workspace, Guid Library)> LibraryAsync(HttpClient client, string name = "Documents", Guid? workspace = null)
     {
-        var ws = await client.CreateWorkspaceAsync("Archive");
-        var response = await client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name = "Documents", templateKey = "documents" }, Ct);
+        var ws = workspace ?? await client.CreateWorkspaceAsync("Archive");
+        var response = await client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name, templateKey = "documents" }, Ct);
         return (ws, (await response.ReadJsonAsync()).GetProperty("id").GetGuid());
     }
 
@@ -66,18 +66,28 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
         return (await response.ReadJsonAsync()).GetProperty("itemId").GetGuid();
     }
 
-    /// <summary>Waits until the item's current file is processed; returns the versions, newest first.</summary>
-    private static async Task<List<JsonElement>> ProcessedAsync(HttpClient client, Guid ws, Guid list, Guid item)
+    /// <summary>The library's document workflows, by key.</summary>
+    private static async Task<Dictionary<string, JsonElement>> WorkflowsAsync(HttpClient client, Guid ws, Guid list) =>
+        (await (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{list}/workflows/builtIns", Ct)).ReadJsonAsync())
+            .EnumerateArray().ToDictionary(w => w.GetProperty("key").GetString()!);
+
+    /// <summary>Turns a document workflow of the library on or off.</summary>
+    private static async Task<JsonElement> SetAsync(HttpClient client, Guid ws, Guid list, string key, bool enabled, object? parameters = null)
     {
-        List<JsonElement> versions = [];
-        await Eventually.WaitForAsync<bool>(async () =>
-        {
-            var body = await (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file/versions", Ct)).ReadJsonAsync();
-            versions = body.GetProperty("value").EnumerateArray().ToList();
-            return versions.All(v => v.GetProperty("processingStatus").GetString() is "succeeded" or "failed") ? true : null;
-        }, TimeSpan.FromSeconds(90));
-        return versions;
+        var etag = (await WorkflowsAsync(client, ws, list))[key].TryGetProperty("@odata.etag", out var tag) && tag.ValueKind == JsonValueKind.String ? tag.GetString() : null;
+        var url = $"/v1.0/workspaces/{ws}/lists/{list}/workflows/builtIns/{key}";
+        var response = etag is null
+            ? await client.PutAsJsonAsync(url, new { enabled, parameters }, Ct)
+            : await client.SendWithEtagAsync(HttpMethod.Put, url, etag, new { enabled, parameters });
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync(Ct));
+        return await response.ReadJsonAsync();
     }
+
+    private static Task<List<JsonElement>> RunsAsync(HttpClient client, Guid ws, Guid item, int count) => DocumentWorkflowRuns.WaitAsync(client, ws, item, count);
+
+    private static async Task<List<JsonElement>> VersionsAsync(HttpClient client, Guid ws, Guid list, Guid item) =>
+        (await (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file/versions", Ct)).ReadJsonAsync())
+            .GetProperty("value").EnumerateArray().ToList();
 
     private static async Task<List<Guid>> SearchAsync(HttpClient client, string query)
     {
@@ -86,16 +96,29 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
-    public async Task Pdfs_with_text_are_indexed_without_ocr_and_stemmed()
+    public async Task Uploads_only_store_the_file_and_the_library_workflows_do_the_rest()
     {
         await factory.CreateTenantAsync("proc-text");
         var client = await ApiClient.CreateAsync(factory, "proc-text");
         var (ws, list) = await LibraryAsync(client);
+        var file = (Guid item) => $"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file";
+
+        // A library has text, thumbnails and pages on, OCR off.
+        var workflows = await WorkflowsAsync(client, ws, list);
+        Assert.Equal(["documents.ocr", "documents.pages", "documents.text", "documents.thumbnail"], workflows.Keys.Order(StringComparer.Ordinal));
+        Assert.True(workflows["documents.text"].GetProperty("enabled").GetBoolean());
+        Assert.True(workflows["documents.thumbnail"].GetProperty("enabled").GetBoolean());
+        Assert.True(workflows["documents.pages"].GetProperty("enabled").GetBoolean());
+        Assert.False(workflows["documents.ocr"].GetProperty("enabled").GetBoolean());
+        Assert.Equal("library", workflows["documents.text"].GetProperty("scope").GetString());
 
         var item = await UploadAsync(client, ws, list, TextPdf("Quarterly report", "Paperclips were ordered"), "report.pdf");
-        var version = Assert.Single(await ProcessedAsync(client, ws, list, item));
+        var runs = await RunsAsync(client, ws, item, 3);
+        Assert.Equal(["Make thumbnails (Documents)", "Read the text (Documents)", "Render pages (Documents)"],
+            runs.Select(r => r.GetProperty("workflow").GetString()).Order(StringComparer.Ordinal));
+        Assert.All(runs, r => Assert.Equal("completed", r.GetProperty("status").GetString()));
 
-        Assert.Equal("succeeded", version.GetProperty("processingStatus").GetString());
+        var version = Assert.Single(await VersionsAsync(client, ws, list, item));
         Assert.Equal("upload", version.GetProperty("source").GetString());
         Assert.Equal(1, version.GetProperty("pageCount").GetInt32());
         Assert.Equal("eng", version.GetProperty("textLanguage").GetString());
@@ -104,19 +127,57 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
         // SRC-05: English stemming ("order" finds "ordered") on both providers.
         Assert.Contains(item, await SearchAsync(client, "order"));
         Assert.DoesNotContain(item, await SearchAsync(client, "invoice"));
+
+        // DOC-04: what the workflows made is served as JPEG; a page they did not make is 404.
+        var thumbnail = await client.GetAsync($"{file(item)}/thumbnail", Ct);
+        Assert.Equal("image/jpeg", thumbnail.Content.Headers.ContentType!.MediaType);
+        Assert.Equal([0xFF, 0xD8], (await thumbnail.Content.ReadAsByteArrayAsync(Ct))[..2]);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"{file(item)}/pages/1/image?width=1600", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"{file(item)}/pages/2/image", Ct)).StatusCode);
     }
 
     [Fact]
-    public async Task Scans_are_ocred_into_a_searchable_pdf_version()
+    public async Task A_library_without_its_workflows_keeps_files_as_uploaded()
+    {
+        await factory.CreateTenantAsync("proc-off");
+        var client = await ApiClient.CreateAsync(factory, "proc-off");
+        var (ws, plain) = await LibraryAsync(client, "Plain");
+        var (_, full) = await LibraryAsync(client, "Full", ws);
+        foreach (var key in new[] { "documents.text", "documents.thumbnail", "documents.pages" })
+        {
+            Assert.False((await SetAsync(client, ws, plain, key, enabled: false)).GetProperty("enabled").GetBoolean());
+        }
+
+        var stored = await UploadAsync(client, ws, plain, TextPdf("Unread walrus"), "stored.pdf");
+        var read = await UploadAsync(client, ws, full, TextPdf("Read walrus"), "read.pdf");
+        await RunsAsync(client, ws, read, 3);
+
+        Assert.Empty(await RunsAsync(client, ws, stored, 0));
+        var file = $"/v1.0/workspaces/{ws}/lists/{plain}/items/{stored}/file";
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"{file}/thumbnail", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"{file}/pages/1/image", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(file, Ct)).StatusCode); // the file itself is there
+        await Eventually.WaitForAsync<bool>(async () => (await SearchAsync(client, "walrus")).Contains(read) ? true : null);
+        Assert.DoesNotContain(stored, await SearchAsync(client, "walrus"));
+
+        // Turned off stays off: the library's defaults are not created again.
+        Assert.False((await WorkflowsAsync(client, ws, plain))["documents.text"].GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Scans_are_ocred_when_the_library_turns_ocr_on()
     {
         await factory.CreateTenantAsync("proc-ocr");
         var client = await ApiClient.CreateAsync(factory, "proc-ocr");
         var (ws, list) = await LibraryAsync(client);
-        var scan = ScanPng("INVOICE 4711", "Stapler delivery");
+        await SetAsync(client, ws, list, "documents.ocr", enabled: true);
 
-        var item = await UploadAsync(client, ws, list, scan, "scan.png");
-        var versions = await ProcessedAsync(client, ws, list, item);
+        var item = await UploadAsync(client, ws, list, ScanPng("INVOICE 4711", "Stapler delivery"), "scan.png");
 
+        // Read the text (no text) → Recognize text → the OCR version is read (has text) and gets its images: 7 runs.
+        var runs = await RunsAsync(client, ws, item, 7);
+        Assert.All(runs, r => Assert.Equal("completed", r.GetProperty("status").GetString()));
+        var versions = await VersionsAsync(client, ws, list, item);
         Assert.Equal(["ocr", "upload"], versions.Select(v => v.GetProperty("source").GetString()));
         Assert.Equal("application/pdf", versions[0].GetProperty("mediaType").GetString());
         Assert.Equal("scan.pdf", versions[0].GetProperty("fileName").GetString());
@@ -124,7 +185,8 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
         Assert.Equal("image/png", versions[1].GetProperty("mediaType").GetString()); // the original stays
 
         // DOC-08: the current file is a PDF with a text layer.
-        var pdf = await client.GetByteArrayAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file", Ct);
+        var file = $"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file";
+        var pdf = await client.GetByteArrayAsync(file, Ct);
         using (var document = PdfDocument.Open(pdf))
         {
             Assert.Contains("4711", document.GetPage(1).Text, StringComparison.Ordinal);
@@ -132,68 +194,49 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
 
         await Eventually.WaitForAsync<bool>(async () => (await SearchAsync(client, "4711")).Contains(item) ? true : null);
         Assert.Contains(item, await SearchAsync(client, "stapler"));
-
-        // DOC-04: thumbnails and page images as JPEG; a missing page is 404.
-        var thumbnail = await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file/thumbnail", Ct);
-        Assert.Equal("image/jpeg", thumbnail.Content.Headers.ContentType!.MediaType);
-        Assert.Equal([0xFF, 0xD8], (await thumbnail.Content.ReadAsByteArrayAsync(Ct))[..2]);
-        var original = await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file/pages/1/image?width=500&version=1", Ct);
-        Assert.Equal(HttpStatusCode.OK, original.StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file/pages/2/image", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"{file}/pages/1/image", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"{file}/pages/1/image?version=1", Ct)).StatusCode); // the original's page
     }
 
     [Fact]
-    public async Task Scanned_pdfs_are_ocred_and_ocr_can_be_forced()
+    public async Task Ocr_is_run_again_by_hand_and_its_failures_fail_the_run()
     {
         await factory.CreateTenantAsync("proc-scanpdf");
         var client = await ApiClient.CreateAsync(factory, "proc-scanpdf");
         var (ws, list) = await LibraryAsync(client);
+        await SetAsync(client, ws, list, "documents.ocr", enabled: true);
 
+        // A scanned PDF (an image only) is recognized.
         var scanned = await UploadAsync(client, ws, list, ImagePdf(ScanPng("Receipt 9182")), "receipt.pdf");
-        var versions = await ProcessedAsync(client, ws, list, scanned);
-        Assert.Equal(["ocr", "upload"], versions.Select(v => v.GetProperty("source").GetString()));
+        await RunsAsync(client, ws, scanned, 7);
+        Assert.Equal(["ocr", "upload"], (await VersionsAsync(client, ws, list, scanned)).Select(v => v.GetProperty("source").GetString()));
 
+        // A PDF with text is not, until someone starts OCR by hand with force.
         var text = await UploadAsync(client, ws, list, TextPdf("Contract between two parties"), "contract.pdf");
-        Assert.Single(await ProcessedAsync(client, ws, list, text));
-        var process = await client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{text}/file/process", new { forceOcr = true }, Ct);
-        Assert.Equal(HttpStatusCode.Accepted, process.StatusCode);
-        var operation = process.Headers.Location!.ToString();
-        await Eventually.WaitForAsync<bool>(async () =>
-            (await (await client.GetAsync(operation, Ct)).ReadJsonAsync()).GetProperty("status").GetString() == "succeeded" ? true : null,
-            TimeSpan.FromSeconds(90));
-        Assert.Equal("ocr", (await ProcessedAsync(client, ws, list, text))[0].GetProperty("source").GetString());
-    }
+        await RunsAsync(client, ws, text, 3);
+        Assert.Single(await VersionsAsync(client, ws, list, text));
+        var start = await client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{text}/workflows",
+            new { workflow = "Recognize text (Documents)", inputs = new { force = true } }, Ct);
+        Assert.True(start.IsSuccessStatusCode, await start.Content.ReadAsStringAsync(Ct));
+        await RunsAsync(client, ws, text, 7);
+        Assert.Equal("ocr", (await VersionsAsync(client, ws, list, text))[0].GetProperty("source").GetString());
 
-    [Fact]
-    public async Task Processing_follows_the_library_settings_and_reports_failures()
-    {
-        await factory.CreateTenantAsync("proc-settings");
-        var client = await ApiClient.CreateAsync(factory, "proc-settings");
-        var (ws, list) = await LibraryAsync(client);
-        var settingsUrl = $"/v1.0/workspaces/{ws}/lists/{list}/documentSettings";
+        // A language Tesseract does not have: the OCR run fails with the error.
+        await SetAsync(client, ws, list, "documents.ocr", enabled: true, new { languages = "xyz" });
+        var failing = await UploadAsync(client, ws, list, ScanPng("Manual"), "manual.png");
+        var runs = await RunsAsync(client, ws, failing, 4);
+        var ocr = Assert.Single(runs, r => r.GetProperty("workflow").GetString() == "Recognize text (Documents)");
+        Assert.Equal("failed", ocr.GetProperty("status").GetString());
+        Assert.Contains("OCR failed", ocr.GetProperty("error").GetString(), StringComparison.Ordinal);
+        Assert.Single(await VersionsAsync(client, ws, list, failing));
 
-        var invalid = await client.PutAsJsonAsync(settingsUrl, new { ocrLanguages = "../etc" }, Ct);
+        // Settings: OCR languages are checked.
+        var invalid = await client.PutAsJsonAsync($"/v1.0/workspaces/{ws}/lists/{list}/documentSettings", new { ocrLanguages = "../etc" }, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
-        var saved = await (await client.PutAsJsonAsync(settingsUrl, new { autoProcess = false }, Ct)).ReadJsonAsync();
-        Assert.False(saved.GetProperty("autoProcess").GetBoolean());
-        Assert.Equal("eng", saved.GetProperty("ocrLanguages").GetString());
-
-        var item = await UploadAsync(client, ws, list, ScanPng("Manual"), "manual.png");
-        var versions = await (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file/versions", Ct)).ReadJsonAsync();
-        Assert.Equal("none", versions.GetProperty("value")[0].GetProperty("processingStatus").GetString());
-
-        // A language Tesseract does not have: the version and the operation report the failure.
-        var process = await client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file/process", new { languages = "xyz" }, Ct);
-        Assert.Equal(HttpStatusCode.Accepted, process.StatusCode);
-        var failed = Assert.Single(await ProcessedAsync(client, ws, list, item));
-        Assert.Equal("failed", failed.GetProperty("processingStatus").GetString());
-        Assert.False(string.IsNullOrEmpty(failed.GetProperty("processingError").GetString()));
-        var operation = await (await client.GetAsync(process.Headers.Location, Ct)).ReadJsonAsync();
-        Assert.Equal("failed", operation.GetProperty("status").GetString());
     }
 
     [Fact]
-    public async Task Live_events_report_processing()
+    public async Task Live_events_report_what_the_workflows_made()
     {
         await factory.CreateTenantAsync("proc-live");
         var client = await ApiClient.CreateAsync(factory, "proc-live");
@@ -208,35 +251,29 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
         var item = await UploadAsync(client, ws, list, TextPdf("Live"), "live.pdf");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(Ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(60));
-        var seen = new List<string>();
+        var seen = new HashSet<string>();
         string? eventType = null;
-        while (!seen.Contains("document.processing:succeeded") && await reader.ReadLineAsync(timeout.Token) is { } line)
+        while (seen.Count < 3 && await reader.ReadLineAsync(timeout.Token) is { } line)
         {
             if (line.StartsWith("event: ", StringComparison.Ordinal))
             {
                 eventType = line[7..];
             }
-            else if (line.StartsWith("data: ", StringComparison.Ordinal) && eventType is not null)
+            else if (line.StartsWith("data: ", StringComparison.Ordinal) && eventType == "document.changed")
             {
                 var data = JsonDocument.Parse(line[6..]).RootElement;
-                if (eventType == "document.processing" && data.GetProperty("itemId").GetGuid() == item)
+                if (data.GetProperty("itemId").GetGuid() == item)
                 {
-                    seen.Add($"{eventType}:{data.GetProperty("status").GetString()}");
-                }
-                else if (eventType == "operation")
-                {
-                    seen.Add($"operation:{data.GetProperty("status").GetString()}");
+                    seen.Add(data.GetProperty("what").GetString()!);
                 }
             }
         }
 
-        Assert.Contains("document.processing:running", seen);
-        Assert.Contains("document.processing:succeeded", seen);
-        Assert.Contains("operation:running", seen);
+        Assert.Equal(["pages", "text", "thumbnail"], seen.Order(StringComparer.Ordinal));
     }
 
     [Fact]
-    public async Task Processing_endpoints_respect_tenants()
+    public async Task Document_workflows_and_files_respect_tenants()
     {
         await factory.CreateTenantAsync("proc-iso-a");
         await factory.CreateTenantAsync("proc-iso-b");
@@ -244,11 +281,13 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
         var b = await ApiClient.CreateAsync(factory, "proc-iso-b");
         var (ws, list) = await LibraryAsync(a);
         var item = await UploadAsync(a, ws, list, TextPdf("Private"), "private.pdf");
-        await ProcessedAsync(a, ws, list, item);
+        await RunsAsync(a, ws, item, 3);
         var file = $"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file";
 
         Assert.Equal(HttpStatusCode.NotFound, (await b.GetAsync($"{file}/thumbnail", Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await b.PostAsJsonAsync($"{file}/process", new { }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await b.GetAsync($"/v1.0/workspaces/{ws}/lists/{list}/workflows/builtIns", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await b.PutAsJsonAsync($"/v1.0/workspaces/{ws}/lists/{list}/workflows/builtIns/documents.ocr", new { enabled = true }, Ct)).StatusCode);
         Assert.DoesNotContain(item, await SearchAsync(b, "private"));
     }
 }

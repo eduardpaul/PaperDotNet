@@ -31,7 +31,7 @@ export const Route = createFileRoute('/_app/approvals')({
   component: Approvals,
 });
 
-/** Approval steps of automations (EVT-08) assigned to the user, and the ones they decided. */
+/** Approval steps of workflows (EVT-08) assigned to the user, and the ones they decided. */
 function Approvals() {
   const { status = 'pending' } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -42,7 +42,7 @@ function Approvals() {
 
   return (
     <Page className="max-w-4xl">
-      <PageHeader icon={Stamp} title="Approvals" description="Decisions automations are waiting for." />
+      <PageHeader icon={Stamp} title="Approvals" description="Decisions workflows are waiting for." />
       <div role="tablist" aria-label="Approvals" className="mb-4 inline-flex rounded-md bg-surface-muted p-0.5">
         {tabs.map((t) => (
           <button

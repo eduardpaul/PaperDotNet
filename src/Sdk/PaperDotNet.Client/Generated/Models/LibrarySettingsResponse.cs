@@ -15,8 +15,6 @@ namespace PaperDotNet.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The autoProcess property</summary>
-        public bool? AutoProcess { get; set; }
         /// <summary>What happens when an upload has the same content as an existing document (DOC-10).</summary>
         public global::PaperDotNet.Client.Models.DuplicatePolicy? DuplicatePolicy { get; set; }
         /// <summary>The listId property</summary>
@@ -31,8 +29,6 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The ocrLanguagesInherited property</summary>
         public bool? OcrLanguagesInherited { get; set; }
-        /// <summary>When a library runs OCR.</summary>
-        public global::PaperDotNet.Client.Models.OcrMode? OcrMode { get; set; }
         /// <summary>The ETag for `If-Match` on changes (the same as the `ETag` header).</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -66,12 +62,10 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
-                { "autoProcess", n => { AutoProcess = n.GetBoolValue(); } },
                 { "duplicatePolicy", n => { DuplicatePolicy = n.GetEnumValue<global::PaperDotNet.Client.Models.DuplicatePolicy>(); } },
                 { "listId", n => { ListId = n.GetGuidValue(); } },
                 { "ocrLanguages", n => { OcrLanguages = n.GetStringValue(); } },
                 { "ocrLanguagesInherited", n => { OcrLanguagesInherited = n.GetBoolValue(); } },
-                { "ocrMode", n => { OcrMode = n.GetEnumValue<global::PaperDotNet.Client.Models.OcrMode>(); } },
                 { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
             };
         }
@@ -82,12 +76,10 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
-            writer.WriteBoolValue("autoProcess", AutoProcess);
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.DuplicatePolicy>("duplicatePolicy", DuplicatePolicy);
             writer.WriteGuidValue("listId", ListId);
             writer.WriteStringValue("ocrLanguages", OcrLanguages);
             writer.WriteBoolValue("ocrLanguagesInherited", OcrLanguagesInherited);
-            writer.WriteEnumValue<global::PaperDotNet.Client.Models.OcrMode>("ocrMode", OcrMode);
             writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteAdditionalData(AdditionalData);
         }

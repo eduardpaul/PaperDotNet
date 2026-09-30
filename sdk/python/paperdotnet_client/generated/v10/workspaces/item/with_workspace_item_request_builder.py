@@ -17,9 +17,9 @@ if TYPE_CHECKING:
     from ....models.api_problem import ApiProblem
     from ....models.update_workspace_request import UpdateWorkspaceRequest
     from ....models.workspace_response import WorkspaceResponse
-    from .automations.automations_request_builder import AutomationsRequestBuilder
     from .lists.lists_request_builder import ListsRequestBuilder
     from .members.members_request_builder import MembersRequestBuilder
+    from .workflows.workflows_request_builder import WorkflowsRequestBuilder
 
 class WithWorkspaceItemRequestBuilder(BaseRequestBuilder):
     """
@@ -138,15 +138,6 @@ class WithWorkspaceItemRequestBuilder(BaseRequestBuilder):
         return WithWorkspaceItemRequestBuilder(self.request_adapter, raw_url)
     
     @property
-    def automations(self) -> AutomationsRequestBuilder:
-        """
-        The automations property
-        """
-        from .automations.automations_request_builder import AutomationsRequestBuilder
-
-        return AutomationsRequestBuilder(self.request_adapter, self.path_parameters)
-    
-    @property
     def lists(self) -> ListsRequestBuilder:
         """
         The lists property
@@ -163,6 +154,15 @@ class WithWorkspaceItemRequestBuilder(BaseRequestBuilder):
         from .members.members_request_builder import MembersRequestBuilder
 
         return MembersRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def workflows(self) -> WorkflowsRequestBuilder:
+        """
+        The workflows property
+        """
+        from .workflows.workflows_request_builder import WorkflowsRequestBuilder
+
+        return WorkflowsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @dataclass
     class WithWorkspaceItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):

@@ -87,7 +87,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items
             return await RequestAdapter.SendAsync<global::PaperDotNet.Client.Models.ItemPage>(requestInfo, global::PaperDotNet.Client.Models.ItemPage.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <returns>A <see cref="global::PaperDotNet.Client.Models.ItemResponse"/></returns>
-        /// <param name="body">Create body: `{ &quot;contentTypeId&quot;?, &quot;parentId&quot;?, &quot;isFolder&quot;?, &quot;fields&quot;: { &quot;title&quot;: …, … } }`.</param>
+        /// <param name="body">Create body: `{ &quot;id&quot;?, &quot;contentTypeId&quot;?, &quot;parentId&quot;?, &quot;isFolder&quot;?, &quot;fields&quot;: { &quot;title&quot;: …, … } }`. With `id` the client chooses the item&apos;s id, so repeating a create is safe (the item it made is returned unchanged, 200).</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
         /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 400 status code</exception>
@@ -127,7 +127,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items
             return requestInfo;
         }
         /// <returns>A <see cref="RequestInformation"/></returns>
-        /// <param name="body">Create body: `{ &quot;contentTypeId&quot;?, &quot;parentId&quot;?, &quot;isFolder&quot;?, &quot;fields&quot;: { &quot;title&quot;: …, … } }`.</param>
+        /// <param name="body">Create body: `{ &quot;id&quot;?, &quot;contentTypeId&quot;?, &quot;parentId&quot;?, &quot;isFolder&quot;?, &quot;fields&quot;: { &quot;title&quot;: …, … } }`. With `id` the client chooses the item&apos;s id, so repeating a create is safe (the item it made is returned unchanged, 200).</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable

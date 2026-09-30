@@ -12,10 +12,6 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
-    # The automationActions property
-    automation_actions: Optional[list[str]] = None
-    # The automationTriggers property
-    automation_triggers: Optional[list[str]] = None
     # The contentTypes property
     content_types: Optional[list[str]] = None
     # The extension's own DbContext (EXT-07), if any.
@@ -38,6 +34,12 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
     template_handlers: Optional[list[str]] = None
     # The termSets property
     term_sets: Optional[list[str]] = None
+    # The workflowActivities property
+    workflow_activities: Optional[list[str]] = None
+    # The workflowTriggers property
+    workflow_triggers: Optional[list[str]] = None
+    # The workflows property
+    workflows: Optional[list[str]] = None
     
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> ExtensionContributions:
@@ -56,8 +58,6 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
         Returns: dict[str, Callable[[ParseNode], None]]
         """
         fields: dict[str, Callable[[Any], None]] = {
-            "automationActions": lambda n : setattr(self, 'automation_actions', n.get_collection_of_primitive_values(str)),
-            "automationTriggers": lambda n : setattr(self, 'automation_triggers', n.get_collection_of_primitive_values(str)),
             "contentTypes": lambda n : setattr(self, 'content_types', n.get_collection_of_primitive_values(str)),
             "dbContext": lambda n : setattr(self, 'db_context', n.get_str_value()),
             "endpoints": lambda n : setattr(self, 'endpoints', n.get_bool_value()),
@@ -69,6 +69,9 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
             "mcpTools": lambda n : setattr(self, 'mcp_tools', n.get_collection_of_primitive_values(str)),
             "templateHandlers": lambda n : setattr(self, 'template_handlers', n.get_collection_of_primitive_values(str)),
             "termSets": lambda n : setattr(self, 'term_sets', n.get_collection_of_primitive_values(str)),
+            "workflowActivities": lambda n : setattr(self, 'workflow_activities', n.get_collection_of_primitive_values(str)),
+            "workflowTriggers": lambda n : setattr(self, 'workflow_triggers', n.get_collection_of_primitive_values(str)),
+            "workflows": lambda n : setattr(self, 'workflows', n.get_collection_of_primitive_values(str)),
         }
         return fields
     
@@ -80,8 +83,6 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
         """
         if writer is None:
             raise TypeError("writer cannot be null.")
-        writer.write_collection_of_primitive_values("automationActions", self.automation_actions)
-        writer.write_collection_of_primitive_values("automationTriggers", self.automation_triggers)
         writer.write_collection_of_primitive_values("contentTypes", self.content_types)
         writer.write_str_value("dbContext", self.db_context)
         writer.write_bool_value("endpoints", self.endpoints)
@@ -93,6 +94,9 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
         writer.write_collection_of_primitive_values("mcpTools", self.mcp_tools)
         writer.write_collection_of_primitive_values("templateHandlers", self.template_handlers)
         writer.write_collection_of_primitive_values("termSets", self.term_sets)
+        writer.write_collection_of_primitive_values("workflowActivities", self.workflow_activities)
+        writer.write_collection_of_primitive_values("workflowTriggers", self.workflow_triggers)
+        writer.write_collection_of_primitive_values("workflows", self.workflows)
         writer.write_additional_data_value(self.additional_data)
     
 

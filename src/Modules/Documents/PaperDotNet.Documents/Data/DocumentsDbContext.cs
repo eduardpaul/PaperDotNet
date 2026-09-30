@@ -17,26 +17,6 @@ public enum DuplicatePolicy
     Block = 2,
 }
 
-/// <summary>Processing of a file version (DOC-09): text extraction, OCR, thumbnails.</summary>
-public enum ProcessingStatus
-{
-    /// <summary>Not processed (e.g. automatic processing is off).</summary>
-    None = 0,
-    Scheduled = 1,
-    Running = 2,
-    Succeeded = 3,
-    Failed = 4,
-}
-
-/// <summary>When a library runs OCR.</summary>
-public enum OcrMode
-{
-    /// <summary>For images and PDFs without a usable text layer (default).</summary>
-    Auto = 0,
-
-    /// <summary>Only on demand (<c>POST …/file/process</c> with <c>forceOcr</c>).</summary>
-    Off = 1,
-}
 
 /// <summary>
 /// A stored file, content-addressed by SHA-256 per tenant (DOC-11): identical content is stored once.
@@ -93,15 +73,8 @@ public sealed class FileVersion : ITenantOwned, IAuditable
 
     public required string FileName { get; set; }
 
-    /// <summary>What created the version: <c>upload</c>, <c>restore</c>, <c>ocr</c> (later: <c>pages</c>).</summary>
+    /// <summary>What created the version: <c>upload</c>, <c>restore</c>, <c>ocr</c>, <c>pages</c>, <c>import</c>.</summary>
     public required string Source { get; set; }
-
-    public ProcessingStatus ProcessingStatus { get; set; }
-
-    public string? ProcessingError { get; set; }
-
-    /// <summary>The operation processing this version (<c>/v1.0/operations/{id}</c>).</summary>
-    public Guid? OperationId { get; set; }
 
     public int? PageCount { get; set; }
 
@@ -147,13 +120,8 @@ public sealed class LibrarySettings : ITenantOwned, IAuditable, IVersioned
 
     public DuplicatePolicy DuplicatePolicy { get; set; } = DuplicatePolicy.Warn;
 
-    /// <summary>Process new file versions automatically (text, OCR, thumbnails).</summary>
-    public bool AutoProcess { get; set; } = true;
-
-    public OcrMode OcrMode { get; set; } = OcrMode.Auto;
-
     /// <summary>
-    /// Tesseract languages, e.g. <c>eng</c> or <c>deu+eng</c> (the first one is used for stemming); null uses the
+    /// The default languages of OCR (<c>document.ocr</c>, ADR-0038): Tesseract languages, e.g. <c>eng</c> or <c>deu+eng</c> (the first one is used for stemming); null uses the
     /// organization's default document languages (PLT-18).
     /// </summary>
     public string? OcrLanguages { get; set; }
@@ -221,8 +189,6 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
             b.Property(v => v.MediaType).HasMaxLength(100);
             b.Property(v => v.FileName).HasMaxLength(255);
             b.Property(v => v.Source).HasMaxLength(20);
-            b.Property(v => v.ProcessingStatus).HasConversion<string>().HasMaxLength(20);
-            b.Property(v => v.ProcessingError).HasMaxLength(1000);
             b.Property(v => v.TextLanguage).HasMaxLength(20);
             b.Property(v => v.Languages).HasMaxLength(100);
             b.HasIndex(v => new { v.ItemId, v.Number }).IsUnique();
@@ -238,7 +204,6 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
         {
             b.ToTable("library_settings");
             b.Property(s => s.DuplicatePolicy).HasConversion<string>().HasMaxLength(20);
-            b.Property(s => s.OcrMode).HasConversion<string>().HasMaxLength(20);
             b.Property(s => s.OcrLanguages).HasMaxLength(100);
             b.HasIndex(s => new { s.TenantId, s.ListId }).IsUnique();
         });

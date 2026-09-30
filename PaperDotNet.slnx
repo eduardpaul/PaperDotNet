@@ -48,9 +48,9 @@
     <Project Path="src/Modules/Lists/PaperDotNet.Lists.Contracts/PaperDotNet.Lists.Contracts.csproj" />
     <Project Path="src/Modules/Lists/PaperDotNet.Lists/PaperDotNet.Lists.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/Automation/">
-    <Project Path="src/Modules/Automation/PaperDotNet.Automation.Contracts/PaperDotNet.Automation.Contracts.csproj" />
-    <Project Path="src/Modules/Automation/PaperDotNet.Automation/PaperDotNet.Automation.csproj" />
+  <Folder Name="/src/Modules/Workflow/">
+    <Project Path="src/Modules/Workflows/PaperDotNet.Workflows.Contracts/PaperDotNet.Workflows.Contracts.csproj" />
+    <Project Path="src/Modules/Workflows/PaperDotNet.Workflows/PaperDotNet.Workflows.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Provisioning/">
     <Project Path="src/Modules/Provisioning/PaperDotNet.Provisioning.Contracts/PaperDotNet.Provisioning.Contracts.csproj" />
@@ -81,6 +81,9 @@
   </Folder>
   <Folder Name="/src/Modules/Notes/">
     <Project Path="src/Modules/Notes/PaperDotNet.Notes/PaperDotNet.Notes.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/AiWorkflows/">
+    <Project Path="src/Modules/AiWorkflows/PaperDotNet.AiWorkflows/PaperDotNet.AiWorkflows.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Tasks/">
     <Project Path="src/Modules/Tasks/PaperDotNet.Tasks/PaperDotNet.Tasks.csproj" />

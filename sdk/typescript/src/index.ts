@@ -11,6 +11,7 @@ export * from './runtime/events.js';
 export * from './runtime/fields.js';
 export * from './runtime/operations.js';
 export * from './runtime/paging.js';
+export * from './runtime/scripts.js';
 export * from './runtime/uploads.js';
 
 // Value types the models use (e.g. quiet hours are TimeOnly), so apps need no direct Kiota dependency.

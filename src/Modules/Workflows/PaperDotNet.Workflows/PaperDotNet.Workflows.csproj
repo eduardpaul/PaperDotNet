@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Workflows (ADR-0036; before: automation, phase 5b): flows resumed through Wolverine messages, approvals,
+    waits, schedules and date triggers, activities and triggers from modules and extensions, path templates
+    (EVT-07…11, DOC-14).
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Cronos" />
+    <!-- Script steps (ADR-0037): sandboxed JavaScript. -->
+    <PackageReference Include="Jint" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+    <ProjectReference Include="..\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
+    <ProjectReference Include="..\..\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
+    <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
+    <ProjectReference Include="..\..\Taxonomy\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
+    <ProjectReference Include="..\..\Workspaces\PaperDotNet.Workspaces.Contracts\PaperDotNet.Workspaces.Contracts.csproj" />
+    <ProjectReference Include="..\..\Notifications\PaperDotNet.Notifications.Contracts\PaperDotNet.Notifications.Contracts.csproj" />
+    <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
+    <ProjectReference Include="..\..\Collaboration\PaperDotNet.Collaboration.Contracts\PaperDotNet.Collaboration.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Messaging\PaperDotNet.Messaging.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+  </ItemGroup>
+</Project>

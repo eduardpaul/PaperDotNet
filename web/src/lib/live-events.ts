@@ -21,9 +21,13 @@ export function useLiveEvents() {
         void queryClient.invalidateQueries({ queryKey: keys.notifications });
         toast(notification.title, { description: notification.body ?? undefined });
       },
-      'document.processing': (event) => {
+      'document.changed': (event) => {
+        // A library workflow made text, a thumbnail, pages or an OCR version (ADR-0038): the item, its list and its images.
         void queryClient.invalidateQueries({ queryKey: keys.item(event.workspaceId, event.listId, event.itemId) });
         void queryClient.invalidateQueries({ queryKey: keys.items(event.workspaceId, event.listId), exact: false });
+        void queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] === 'blob' && String(query.queryKey[1]).includes(event.itemId),
+        });
       },
       'item.changed': (event) => {
         void queryClient.invalidateQueries({ queryKey: keys.item(event.workspaceId, event.listId, event.itemId) });

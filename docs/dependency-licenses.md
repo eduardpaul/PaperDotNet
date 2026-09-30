@@ -132,6 +132,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | libmagic (bundled by `Mime`) | BSD-2-Clause | Only if `Mime` is used; our own sniffer avoids it |
 | `LibTiff.Net` | BSD-3-Clause | Multi-page TIFF. Could be avoided by letting Tesseract read TIFFs directly |
 | `Markdig` | BSD-2-Clause | Markdown parsing (idea 0007), the de-facto .NET standard |
+| `Jint`, with its parser `Acornima` | BSD-2-Clause (Jint), BSD-3-Clause (Acornima) | Script steps of workflows (ADR-0037): the JavaScript interpreter for .NET built for untrusted code (limits on time, memory, statements; no .NET access). No MIT/Apache interpreter with a sandbox exists; Roslyn scripting has none |
 | Valkey | BSD-3-Clause | Alternative to Garnet as a cache server (optional) |
 | `lucide-react` | ISC | Icons of the web UI; the de-facto icon set of the React ecosystem (ISC is MIT-equivalent) |
 | `tslib` (via Radix's `aria-hidden`) | 0BSD | TypeScript helpers; 0BSD has no conditions at all |
@@ -164,6 +165,9 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 
 ## Decisions
 
+- **2026-09-29:** Elsa re-checked for [ADR-0036](adr/0036-workflows-as-the-core.md): 3.8.4 (latest) still
+  depends on JsonSchema.Net 9.4.0 (with JsonPointer.Net and Json.More.Net, OSMF EULA) from `Elsa.Workflows.Core`.
+  Still rejected; Elsa is used as a design reference only.
 - **2026-09-25:** no workflow engine dependency. Elsa was rejected because its current versions
   depend on a package whose binaries carry a revenue-dependent maintenance fee (ADR-0018).
   WorkflowCore was tried and then replaced by Wolverine messages we already use (ADR-0019).

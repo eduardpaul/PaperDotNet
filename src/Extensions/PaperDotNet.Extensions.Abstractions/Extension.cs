@@ -4,10 +4,10 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Automation.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Provisioning.Contracts;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Extensions;
 
@@ -100,12 +100,19 @@ public interface IExtensionBuilder
     IExtensionBuilder AddTemplateHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
         where THandler : class, ITemplateHandler;
 
-    /// <summary>An action for automation steps (EVT-09; key starts with <c>{extension id}.</c>).</summary>
-    IExtensionBuilder AddAutomationAction<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
-        where TAction : class, IAutomationAction;
+    /// <summary>An action for workflow steps (EVT-09; key starts with <c>{extension id}.</c>).</summary>
+    IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
+        where TAction : class, IWorkflowActivity;
 
-    /// <summary>A trigger for automations (EVT-09; key starts with <c>{extension id}.</c>); raise it with <see cref="IAutomationTriggers"/>.</summary>
-    IExtensionBuilder AddAutomationTrigger(AutomationTriggerDefinition trigger);
+    /// <summary>A trigger for workflows (EVT-09; key starts with <c>{extension id}.</c>); raise it with <see cref="IWorkflowTriggers"/>.</summary>
+    IExtensionBuilder AddWorkflowTrigger(WorkflowTriggerDefinition trigger);
+
+    /// <summary>
+    /// A workflow the extension ships (EVT-12; key starts with <c>{extension id}.</c>), like the built-in ones: workspaces
+    /// turn it on with its parameters or copy it to change it. Offered only in organizations that enabled the extension;
+    /// turning the extension off turns it off.
+    /// </summary>
+    IExtensionBuilder AddWorkflow(BuiltInWorkflow workflow);
 
     /// <summary>
     /// A tool for AI assistants on the MCP endpoint (API-09). The name must start with the extension id

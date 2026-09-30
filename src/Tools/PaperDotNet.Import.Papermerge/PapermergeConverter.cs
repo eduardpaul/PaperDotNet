@@ -164,7 +164,7 @@ public static partial class PapermergeConverter
 
             foreach (var type in source.DocumentTypes.Values.Where(t => !string.IsNullOrWhiteSpace(t.PathTemplate)))
             {
-                _warnings.Add($"Document type '{type.Name}' has the path template '{type.PathTemplate}'; set up an automation with the item.file action for it.");
+                _warnings.Add($"Document type '{type.Name}' has the path template '{type.PathTemplate}'; set up a workflow with the item.file action for it.");
             }
 
             foreach (var user in Users.Where(u => u.WasSuperuser))

@@ -24,7 +24,8 @@ Self-hosted with just **one container** (SQLite built in; PostgreSQL optional).
   list templates, taxonomy (managed metadata and keywords), audit log.
 - **Documents:** upload into libraries or your Inbox, type detection by
   content, file versions, deduplicated storage, OCR (Tesseract, or optional
-  GLM-OCR) into searchable PDFs, thumbnails and page images, processing status.
+  GLM-OCR) into searchable PDFs, thumbnails and page images, each a workflow a
+  library turns on or off.
 - **Search:** full-text across items and document text, stemming, facets,
   security trimming.
 - **Events & jobs:** before/after item receivers, integration events with a

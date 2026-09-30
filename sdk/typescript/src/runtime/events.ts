@@ -2,7 +2,7 @@
 // with Last-Event-ID. Kiota does not generate event streams, so this uses the `eventsource` package (MIT), which
 // accepts a custom fetch (browsers' EventSource cannot send an Authorization header).
 import { EventSource } from 'eventsource';
-import type { OperationStatus, ProcessingStatus } from '../generated/models/index.js';
+import type { OperationStatus } from '../generated/models/index.js';
 import type { PaperDotNetClient } from './client.js';
 
 /** `connected`: the stream is live (sent first on every connection). */
@@ -20,14 +20,13 @@ export interface OperationEvent {
   error?: string | null;
 }
 
-/** `document.processing`: text extraction, OCR and previews of a document version. */
-export interface DocumentProcessingEvent {
+/** `document.changed`: a document workflow made something for a file version (ADR-0038): its text, thumbnail, pages or an OCR version. */
+export interface DocumentChangedEvent {
   workspaceId: string;
   listId: string;
   itemId: string;
   version: number;
-  status: ProcessingStatus;
-  error?: string | null;
+  what: 'text' | 'thumbnail' | 'pages' | 'ocr';
 }
 
 /** `notification`: a new notification in the user's inbox (same shape as the notifications endpoint, as JSON). */
@@ -55,7 +54,7 @@ export interface ItemChangedEvent {
 export interface LiveEventMap {
   connected: ConnectedEvent;
   operation: OperationEvent;
-  'document.processing': DocumentProcessingEvent;
+  'document.changed': DocumentChangedEvent;
   notification: NotificationEvent;
   'item.changed': ItemChangedEvent;
 }
@@ -72,7 +71,7 @@ export interface LiveEventSubscription {
   close(): void;
 }
 
-const KnownTypes = ['connected', 'operation', 'document.processing', 'notification', 'item.changed'] as const;
+const KnownTypes = ['connected', 'operation', 'document.changed', 'notification', 'item.changed'] as const;
 
 /**
  * Subscribes to the signed-in user's live events:

@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
 export const adminUser = 'admin';
 export const adminPassword = process.env.PAPERDOTNET_ADMIN_PASSWORD ?? 'admin-password-e2e';
@@ -82,4 +82,17 @@ export async function createUser(request: APIRequestContext, userName: string, d
   });
   expect(response.status()).toBe(201);
   return (await response.json()).id as string;
+}
+
+/**
+ * Waits in a document's panel until the library's "Read the text" workflow ran (ADR-0038: uploads only store the file;
+ * the text, thumbnails and pages come from the library's workflows).
+ */
+export async function expectTextRead(panel: Locator) {
+  await expect(
+    panel
+      .getByRole('region', { name: 'Workflows' })
+      .getByRole('listitem')
+      .filter({ hasText: /^Read the text/ }),
+  ).toContainText('Done', { timeout: 30_000 });
 }

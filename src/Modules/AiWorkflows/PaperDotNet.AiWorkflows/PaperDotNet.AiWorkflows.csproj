@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    AI in workflows (AI-02…08, ADR-0036): the ai.* activities, batched AI (ai.batch and the "AI batch" workflow) and the
+    record of AI calls. Built on the public extension SDK only (EXT-06), like an extension would be.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Abstractions\PaperDotNet.Extensions.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+  </ItemGroup>
+</Project>

@@ -31,7 +31,7 @@ public sealed class InvoicesExtension : IExtension
         builder.AddContentType(new ContentTypeTemplate($"{Id}.invoice", "Invoice", "An invoice with amount, approval status and IBAN.",
         [
             new FieldDefinition { Name = "amount", DisplayName = "Amount", Type = "number", Required = true },
-            new FieldDefinition { Name = "status", DisplayName = "Status", Type = "choice", Choices = ["draft", "pendingApproval", "approved"], DefaultValue = "\"draft\"" },
+            new FieldDefinition { Name = "status", DisplayName = "Status", Type = "choice", Choices = ["draft", "pendingApproval", "approved", "paid"], DefaultValue = "\"draft\"" },
             new FieldDefinition { Name = "iban", DisplayName = "IBAN", Type = $"{Id}.iban", Search = FieldSearchWeight.High },
             new FieldDefinition { Name = "internalNote", DisplayName = "Internal note", Type = "note", Search = FieldSearchWeight.None },
         ]));
@@ -57,8 +57,11 @@ public sealed class InvoicesExtension : IExtension
             o.ContentTypes.Add("Invoice");
         });
         builder.AddEventSubscriber<ItemAdded, InvoiceCounter>();
-        builder.AddAutomationTrigger(new(ApprovalNeededTrigger.Key, "An invoice above the approval threshold was added (data: amount)."));
-        builder.AddAutomationAction<ApproveInvoiceAction>();
+        builder.AddWorkflowTrigger(new(ApprovalNeededTrigger.Key, "An invoice above the approval threshold was added (data: amount)."));
+        builder.AddWorkflowActivity<ApproveInvoiceAction>();
+        builder.AddWorkflowActivity<AwaitPaymentActivity>();
+        builder.AddWorkflow(InvoiceWorkflows.ApproveAndCollect);
+        builder.AddEventSubscriber<ItemUpdated, PaymentReceived>();
         builder.AddMcpTool<PendingInvoicesTool>();
         builder.AddEventSubscriber<ItemAdded, ApprovalNeededTrigger>();
         builder.AddRecurringJob<ReminderJob>($"{Id}.reminders", "* * * * * *");
@@ -113,7 +116,7 @@ public sealed class ApprovalMutator(IExtensionState state) : IItemMutator
             return;
         }
 
-        if (amount.GetValue<decimal>() > settings["approvalThreshold"]!.GetValue<decimal>() && context.After["status"]?.GetValue<string>() != "approved")
+        if (amount.GetValue<decimal>() > settings["approvalThreshold"]!.GetValue<decimal>() && context.After["status"]?.GetValue<string>() is not ("approved" or "paid"))
         {
             context.After["status"] = "pendingApproval";
         }

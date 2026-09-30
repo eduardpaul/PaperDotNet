@@ -1,5 +1,5 @@
-import type { FileVersionResponse } from '@paperdotnet/client';
-import { downloadFile, uploadBody } from '@paperdotnet/client';
+import type { FileVersionResponse, RunResponse } from '@paperdotnet/client';
+import { downloadFile, fields as jsonObject, uploadBody } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 
@@ -11,7 +11,6 @@ import {
   RefreshCw,
   RotateCcw,
   RotateCw,
-  ScanText,
   Scissors,
   Trash2,
   Upload,
@@ -25,8 +24,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, EmptyState, Skeleton, Spinner } from '@/components/ui/feedback';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { Input, Label } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/select';
 import type { ItemPanelContext } from '@/extensibility/item-panels';
 import { useItemAccess } from '@/features/list-settings/queries';
@@ -39,7 +36,7 @@ import { cn } from '@/lib/utils';
 import { FilePickerButton } from './drop-zone';
 import { MovePagesDialog } from './move-pages-dialog';
 import { acceptedTypes, filePath, pageImagePath } from './paths';
-import { fileVersionsQuery } from './queries';
+import { documentRunsQuery, fileVersionsQuery } from './queries';
 
 interface PageState {
   /** The page number in the current file. */
@@ -47,7 +44,10 @@ interface PageState {
   rotate: number;
 }
 
-/** The file of a document: status, downloads, pages with tools (DOC-05/06) and its versions (DOC-03). */
+/**
+ * The file of a document: downloads, pages with tools (DOC-05/06), what the library's workflows did with it (ADR-0038)
+ * and its versions (DOC-03).
+ */
 export function PreviewTab({ workspaceId, list, item }: ItemPanelContext) {
   const { canContribute } = useItemAccess(workspaceId, list.id!, item.id!);
   const { data: versions, isPending } = useQuery(fileVersionsQuery(workspaceId, list.id!, item.id!));
@@ -71,6 +71,7 @@ export function PreviewTab({ workspaceId, list, item }: ItemPanelContext) {
         file={current}
         canWrite={canContribute}
       />
+      <DocumentWorkflows workspaceId={workspaceId} listId={list.id!} itemId={item.id!} canWrite={canContribute} />
       <Pages
         key={`${current.number}-${current.pageCount}`}
         workspaceId={workspaceId}
@@ -90,27 +91,85 @@ export function PreviewTab({ workspaceId, list, item }: ItemPanelContext) {
   );
 }
 
-function StatusBadge({ file }: { file: FileVersionResponse }) {
-  switch (file.processingStatus) {
-    case 'scheduled':
-    case 'running':
+function RunBadge({ run }: { run: RunResponse }) {
+  switch (run.status) {
+    case 'completed':
+      return <Badge tone="success">Done</Badge>;
+    case 'failed':
+      return <Badge tone="danger">Failed</Badge>;
+    case 'cancelled':
+      return <Badge>Cancelled</Badge>;
+    default:
       return (
         <Badge tone="accent">
-          <Spinner className="size-3 text-current" />{' '}
-          {file.processingStatus === 'running' ? 'Processing…' : 'Waiting to process'}
+          <Spinner className="size-3 text-current" /> {run.status === 'waiting' ? 'Waiting' : 'Running'}
         </Badge>
       );
-    case 'failed':
-      return <Badge tone="danger">Processing failed</Badge>;
-    case 'succeeded':
-      return (
-        <Badge tone="success">
-          <ScanText className="size-3" /> Searchable
-        </Badge>
-      );
-    default:
-      return <Badge>Not processed</Badge>;
   }
+}
+
+/**
+ * What the library's workflows did with the document (ADR-0038: reading the text, thumbnails, pages, OCR, and any
+ * other workflow on it): the latest run of each, its error, and running it again.
+ */
+function DocumentWorkflows({
+  workspaceId,
+  listId,
+  itemId,
+  canWrite,
+}: {
+  workspaceId: string;
+  listId: string;
+  itemId: string;
+  canWrite: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const { data: runs } = useQuery(documentRunsQuery(workspaceId, listId, itemId));
+  const latest = [...new Map((runs ?? []).map((r) => [r.workflowId!, r] as const)).values()].reverse();
+  const runAgain = useMutation({
+    // OCR run by hand recognizes the text even when the file has some.
+    mutationFn: (workflow: string) =>
+      listBuilder(workspaceId, listId)
+        .items.byItemId(itemId)
+        .workflows.post({
+          workflow,
+          inputs: workflow.startsWith('Recognize text') ? jsonObject({ force: true }) : undefined,
+        }),
+    onSuccess: async (_, workflow) => {
+      toast.success(`${workflow} started.`);
+      await queryClient.invalidateQueries({ queryKey: keys.item(workspaceId, listId, itemId) });
+    },
+    onError: (error) => toast.error(problemMessage(error)),
+  });
+
+  if (!latest.length) return null;
+  return (
+    <section className="flex flex-col gap-2" aria-label="Workflows">
+      <h3 className="text-[13px] font-semibold">Workflows</h3>
+      <ul className="flex flex-col divide-y rounded-lg border">
+        {latest.map((run) => (
+          <li key={run.workflowId} className="flex flex-col gap-1 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-[13px]">{run.workflow ?? 'Deleted workflow'}</span>
+              <RunBadge run={run} />
+              {canWrite && run.workflow && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Run ${run.workflow} again`}
+                  disabled={runAgain.isPending || run.status === 'running' || run.status === 'waiting'}
+                  onClick={() => runAgain.mutate(run.workflow!)}
+                >
+                  <RefreshCw /> Run again
+                </Button>
+              )}
+            </div>
+            {run.status === 'failed' && run.errorEscaped && <p className="text-xs text-danger">{run.errorEscaped}</p>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 function FileHeader({
@@ -151,33 +210,17 @@ function FileHeader({
       await refresh();
     },
   });
-  const [languages, setLanguages] = useState(file.languages ?? '');
-  const [ocrOpen, setOcrOpen] = useState(false);
-  const reprocess = useMutation({
-    mutationFn: () =>
-      listBuilder(workspaceId, listId)
-        .items.byItemId(itemId)
-        .file.process.post({ forceOcr: true, languages: languages.trim() || undefined }),
-    onSuccess: async () => {
-      setOcrOpen(false);
-      toast.success('Processing started. The text will be searchable when it is done.');
-      await refresh();
-    },
-  });
-
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h3 className="min-w-0 flex-1 truncate text-[13px] font-semibold">{file.fileName}</h3>
-        <StatusBadge file={file} />
       </div>
       <p className="text-xs text-muted">
         {format.fileSize(file.size)} · {file.pageCount ?? '?'} {file.pageCount === 1 ? 'page' : 'pages'} ·{' '}
         {file.mediaType}
-        {file.languages && <> · OCR {file.languages}</>}
+        {file.languages && <> · languages {file.languages}</>}
         {file.textLanguage && <> · text in {file.textLanguage}</>}
       </p>
-      {file.processingStatus === 'failed' && file.processingError && <Alert>{file.processingError}</Alert>}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" disabled={download.isPending} onClick={() => download.mutate()}>
           {download.isPending ? <Spinner /> : <Download />} Download
@@ -192,41 +235,6 @@ function FileHeader({
           >
             {replace.isPending ? <Spinner /> : <Upload />} Replace file
           </FilePickerButton>
-        )}
-        {canWrite && (
-          <Popover open={ocrOpen} onOpenChange={setOcrOpen}>
-            <PopoverTrigger asChild>
-              <Button size="sm" disabled={file.processingStatus === 'running' || file.processingStatus === 'scheduled'}>
-                <RefreshCw /> Run OCR again
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-72 p-4">
-              <form
-                className="flex flex-col gap-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  reprocess.mutate();
-                }}
-              >
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="ocr-languages">Languages of this file</Label>
-                  <Input
-                    id="ocr-languages"
-                    placeholder="e.g. deu+eng"
-                    value={languages}
-                    onChange={(e) => setLanguages(e.target.value)}
-                  />
-                  <p className="text-xs text-muted">
-                    Tesseract codes joined with +; kept for this file (DOC-17). Empty: the library’s.
-                  </p>
-                </div>
-                {reprocess.isError && <Alert>{problemMessage(reprocess.error)}</Alert>}
-                <Button type="submit" size="sm" variant="primary" disabled={reprocess.isPending}>
-                  {reprocess.isPending && <Spinner className="text-current" />} Run OCR
-                </Button>
-              </form>
-            </PopoverContent>
-          </Popover>
         )}
       </div>
     </section>

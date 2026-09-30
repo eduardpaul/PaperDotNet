@@ -5,7 +5,6 @@ using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.V10.Applications;
 using PaperDotNet.Client.V10.AuditLog;
 using PaperDotNet.Client.V10.Auth;
-using PaperDotNet.Client.V10.Automation;
 using PaperDotNet.Client.V10.Batch;
 using PaperDotNet.Client.V10.CalendarFeeds;
 using PaperDotNet.Client.V10.ChangeSubscriptions;
@@ -26,6 +25,7 @@ using PaperDotNet.Client.V10.Search;
 using PaperDotNet.Client.V10.SmartFolders;
 using PaperDotNet.Client.V10.TermStore;
 using PaperDotNet.Client.V10.Users;
+using PaperDotNet.Client.V10.Workflows;
 using PaperDotNet.Client.V10.Workspaces;
 using System.Collections.Generic;
 using System.IO;
@@ -53,11 +53,6 @@ namespace PaperDotNet.Client.V10
         public global::PaperDotNet.Client.V10.Auth.AuthRequestBuilder Auth
         {
             get => new global::PaperDotNet.Client.V10.Auth.AuthRequestBuilder(PathParameters, RequestAdapter);
-        }
-        /// <summary>The automation property</summary>
-        public global::PaperDotNet.Client.V10.Automation.AutomationRequestBuilder Automation
-        {
-            get => new global::PaperDotNet.Client.V10.Automation.AutomationRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The Batch property</summary>
         public global::PaperDotNet.Client.V10.Batch.BatchRequestBuilder Batch
@@ -158,6 +153,11 @@ namespace PaperDotNet.Client.V10
         public global::PaperDotNet.Client.V10.Users.UsersRequestBuilder Users
         {
             get => new global::PaperDotNet.Client.V10.Users.UsersRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The workflows property</summary>
+        public global::PaperDotNet.Client.V10.Workflows.WorkflowsRequestBuilder Workflows
+        {
+            get => new global::PaperDotNet.Client.V10.Workflows.WorkflowsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The workspaces property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.WorkspacesRequestBuilder Workspaces

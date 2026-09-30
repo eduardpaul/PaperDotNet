@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Automation.Data;
+using PaperDotNet.AiWorkflows.Data;
 using PaperDotNet.Calendar.Data;
 using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Documents.Data;
@@ -17,6 +17,7 @@ using PaperDotNet.Search.Data;
 using PaperDotNet.Tasks.Data;
 using PaperDotNet.Taxonomy.Data;
 using PaperDotNet.Tenancy.Data;
+using PaperDotNet.Workflows.Data;
 using PaperDotNet.Workspaces.Data;
 
 namespace PaperDotNet.Migrations.PostgreSql;
@@ -139,14 +140,20 @@ internal sealed class NotificationsDesignTimeFactory : IDesignTimeDbContextFacto
         new(DesignTime.Options<NotificationsDbContext>(NotificationsDbContext.Schema), DesignTime.NoTenant);
 }
 
-internal sealed class AutomationDesignTimeFactory : IDesignTimeDbContextFactory<AutomationDbContext>
+internal sealed class WorkflowsDesignTimeFactory : IDesignTimeDbContextFactory<WorkflowsDbContext>
 {
-    public AutomationDbContext CreateDbContext(string[] args) =>
-        new(DesignTime.Options<AutomationDbContext>(AutomationDbContext.Schema), DesignTime.NoTenant);
+    public WorkflowsDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<WorkflowsDbContext>(WorkflowsDbContext.Schema), DesignTime.NoTenant);
 }
 
 internal sealed class CollaborationDesignTimeFactory : IDesignTimeDbContextFactory<CollaborationDbContext>
 {
     public CollaborationDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<CollaborationDbContext>(CollaborationDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class AiWorkflowsDesignTimeFactory : IDesignTimeDbContextFactory<AiWorkflowsDbContext>
+{
+    public AiWorkflowsDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<AiWorkflowsDbContext>(AiWorkflowsDbContext.Schema), DesignTime.NoTenant);
 }

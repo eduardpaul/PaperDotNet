@@ -57,7 +57,7 @@ Users are Visitors of the workspace, so each sees only their own folders and
 what was shared with them.
 
 **Not carried over** (reported where it applies):
-- **Path templates:** set them up as automations with the `item.file` action.
+- **Path templates:** set them up as workflows with the `item.file` action.
 - **Deleted nodes and inactive users.**
 - **Missing files:** files that are missing in `media_root`. For S3, copy the
   bucket to a folder first.

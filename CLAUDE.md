@@ -113,14 +113,28 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `PaperDotNet.Extensions.Testing` (`ExtensionTestHost`).
 - Documents, Tasks, Calendar and Notifications are built on the SDK only (ADR-0015, ADR-0016): add
   missing pieces to the SDK/contracts, never reference module implementations.
+  An upload only stores the file and raises `document.added`; text, thumbnails, page images and OCR are built-in
+  workflows per library (ADR-0038), so new document work is a workflow activity, never code in the upload.
   Binary content goes through `IBlobStore`; extra item text for search through
   `IItemSearchContributor`; client notifications through `ILiveEvents`
   (`/v1.0/me/events`, SSE; across servers via LISTEN/NOTIFY on PostgreSQL, ADR-0026); user notifications (inbox, webhook) through
   `INotificationSender` (Notifications.Contracts) with a deduplication key.
-- Automation (ADR-0019, ADR-0024): one model, automations (trigger + condition + steps); actions
-  implement `IAutomationAction` (safe to repeat with `ExecutionKey`) and triggers are raised with
-  `IAutomationTriggers` (Automation.Contracts); runs are started and resumed with `ResumeRun`
-  messages through the outbox (no workflow engine). Code that reacts to an event
+- Workflows (ADR-0036, before: automation, ADR-0019/0024): one model, workflows (trigger + condition + steps or a
+  flow of nodes connected by outcome ports); activities implement `IWorkflowActivity` (safe to repeat with
+  `ExecutionKey`, described by `InputSchema`/`OutputSchema`/`Outcomes`) and triggers are raised with
+  `IWorkflowTriggers` (Workflows.Contracts); long waits are bookmarks: return `WorkflowActivityResult.Wait(kind, key)`
+  and complete with `IWorkflowBookmarks.CompleteAsync`; runs are started and resumed with `ResumeRun`
+  messages through the outbox (no workflow engine or durable execution framework). Product processes people should
+  see or vary ship as built-in workflows (EVT-12), not hidden code. Workflow content lives in the module that owns the
+  domain and uses only the SDK, the same extension points as extensions: `services.AddWorkflowActivity<T>()`,
+  `AddWorkflowTrigger(…)`, `AddWorkflow(…)` (extensions: the same on `IExtensionBuilder`; `Scope = Library` for built-ins
+  turned on per library); the engine only runs workflows. Workflows follow each other by events: `wf.{key}.completed`,
+  `wf.{key}.failed` and `event.raise` (`wf.{key}.{event}`), never by code that calls another workflow. Build workflow features
+  from workflow parts (waits with JSON data, run-again activities, built-in workflows), not tables or jobs of their own
+  (e.g. batched AI: `ai.batch` waits + the "AI batch" workflow). Mapping data into lists is workflow JSON, not a new
+  action: `item.update`/`item.create` with typed single tokens (`"total": "{step:read.json.total}"`) and `forEach`, or a
+  `script` node (JavaScript in a sandbox, ADR-0037; samples/receipts-package). The script API is a contract of
+  `@paperdotnet/client` (`runWorkflowScript`): change it in both, with a case in `sdk/typescript/test/scripts.test.mjs`. Code that reacts to an event
   and changes data should set `EventCausation.Depth` to the event's depth + 1 (loop protection).
 - Group membership → `IUserDirectory` (`GetGroupIdsAsync`, `GetGroupMembersAsync`), which includes
   groups inside groups (ADR-0035); inside Identity, go through `GroupClosures`, never `GroupMembers` alone.

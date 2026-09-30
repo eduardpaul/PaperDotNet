@@ -1,4 +1,4 @@
-import type { DuplicatePolicy, OcrMode } from '@paperdotnet/client';
+import type { BuiltInWorkflowResponse, DuplicatePolicy } from '@paperdotnet/client';
 import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, Skeleton } from '@/components/ui/feedback';
 import { Input } from '@/components/ui/input';
 import { Checkbox, Select } from '@/components/ui/select';
+import { libraryWorkflowsQuery } from '@/features/documents/queries';
 import { documentSettingsQuery, useCanManageList } from '@/features/list-settings/queries';
 import { listBuilder } from '@/features/lists/queries';
 import { SettingRow, SettingsSection } from '@/features/settings/section';
@@ -17,13 +18,24 @@ export const Route = createFileRoute('/_app/w/$workspaceId/l/$listId/settings/do
 
 interface Form {
   duplicatePolicy: DuplicatePolicy;
-  autoProcess: boolean;
-  ocrMode: OcrMode;
   ocrLanguages: string;
 }
 
-/** How the library handles new files: duplicates (DOC-10), processing and OCR (DOC-07, DOC-17). */
+/**
+ * How the library handles new files: duplicates (DOC-10), OCR languages (DOC-17), and its document workflows
+ * (ADR-0038): uploads only store files; reading the text, thumbnails, pages and OCR are workflows turned on here.
+ */
 function Documents() {
+  const { workspaceId, listId } = Route.useParams();
+  return (
+    <div className="flex flex-col gap-6">
+      <DocumentSettings />
+      <LibraryWorkflows workspaceId={workspaceId} listId={listId} />
+    </div>
+  );
+}
+
+function DocumentSettings() {
   const { workspaceId, listId } = Route.useParams();
   const queryClient = useQueryClient();
   const { data: settings } = useQuery(documentSettingsQuery(workspaceId, listId));
@@ -34,8 +46,6 @@ function Documents() {
     setBaseline(settings.odataEtag ?? undefined);
     setForm({
       duplicatePolicy: settings.duplicatePolicy ?? 'warn',
-      autoProcess: settings.autoProcess ?? true,
-      ocrMode: settings.ocrMode ?? 'auto',
       ocrLanguages: settings.ocrLanguagesInherited ? '' : (settings.ocrLanguages ?? ''),
     });
   }
@@ -85,37 +95,9 @@ function Documents() {
             </Select>
           </SettingRow>
           <SettingRow
-            id="doc-process"
-            label="Processing"
-            hint="Reads the text, makes thumbnails and page images for search and preview."
-          >
-            <label className="flex items-center gap-2 pt-2 text-[13px]">
-              <Checkbox
-                id="doc-process"
-                checked={form.autoProcess}
-                onChange={(e) => setForm({ ...form, autoProcess: e.target.checked })}
-              />
-              Process new files right away
-            </label>
-          </SettingRow>
-          <SettingRow
-            id="doc-ocr"
-            label="OCR"
-            hint="Recognizes the text of scans and photos; PDFs with text need none."
-          >
-            <Select
-              id="doc-ocr"
-              value={form.ocrMode}
-              onChange={(e) => setForm({ ...form, ocrMode: e.target.value as OcrMode })}
-            >
-              <option value="auto">When a file has no text</option>
-              <option value="off">Never</option>
-            </Select>
-          </SettingRow>
-          <SettingRow
             id="doc-languages"
             label="OCR languages"
-            hint="Tesseract codes joined with +, e.g. deu+eng. Empty uses the organization's default."
+            hint="For the Recognize text workflow: Tesseract codes joined with +, e.g. deu+eng. Empty uses the organization's default."
           >
             <Input
               id="doc-languages"
@@ -128,5 +110,77 @@ function Documents() {
         {save.isError && <Alert className="mt-3">{problemMessage(save.error)}</Alert>}
       </SettingsSection>
     </form>
+  );
+}
+
+/** The library's document workflows, each on or off here (a library without them only stores files). */
+function LibraryWorkflows({ workspaceId, listId }: { workspaceId: string; listId: string }) {
+  const queryClient = useQueryClient();
+  const canManage = useCanManageList(workspaceId, listId);
+  const { data: workflows } = useQuery(libraryWorkflowsQuery(workspaceId, listId));
+  const toggle = useMutation({
+    mutationFn: ({ workflow, enabled }: { workflow: BuiltInWorkflowResponse; enabled: boolean }) =>
+      listBuilder(workspaceId, listId).workflows.builtIns.byKey(workflow.key!).put({ enabled }, ifMatch(workflow)),
+    onSuccess: async (_, { workflow, enabled }) => {
+      toast.success(`${workflow.name} is ${enabled ? 'on' : 'off'} for this library.`);
+      await queryClient.invalidateQueries({ queryKey: libraryWorkflowsQuery(workspaceId, listId).queryKey });
+    },
+    onError: (error) => toast.error(problemMessage(error)),
+  });
+
+  if (!workflows) return <Skeleton className="h-40" />;
+  return (
+    <SettingsSection
+      title="Workflows"
+      description="Uploads only store the file. These workflows read its text, make its images and recognize scans; turn off what this library does not need."
+    >
+      <ul className="divide-y">
+        {workflows.map((workflow) => (
+          <WorkflowSwitch
+            key={`${workflow.key}-${workflow.odataEtag ?? ''}`}
+            workflow={workflow}
+            disabled={!canManage || !workflow.available}
+            onToggle={(enabled) => toggle.mutateAsync({ workflow, enabled })}
+          />
+        ))}
+      </ul>
+    </SettingsSection>
+  );
+}
+
+/** A document workflow on or off: shown at once, and back as it was when saving fails. */
+function WorkflowSwitch({
+  workflow,
+  disabled,
+  onToggle,
+}: {
+  workflow: BuiltInWorkflowResponse;
+  disabled: boolean;
+  onToggle: (enabled: boolean) => Promise<unknown>;
+}) {
+  const [enabled, setEnabled] = useState(!!workflow.enabled);
+  const [saving, setSaving] = useState(false);
+  const id = `workflow-${workflow.key}`;
+  return (
+    <li className="flex items-start gap-3 py-3">
+      <Checkbox
+        id={id}
+        className="mt-0.5"
+        checked={enabled}
+        disabled={disabled || saving}
+        onChange={(e) => {
+          const next = e.target.checked;
+          setEnabled(next);
+          setSaving(true);
+          onToggle(next)
+            .catch(() => setEnabled(!next))
+            .finally(() => setSaving(false));
+        }}
+      />
+      <label htmlFor={id} className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-[13px] font-medium">{workflow.name}</span>
+        <span className="text-xs text-muted">{workflow.description}</span>
+      </label>
+    </li>
   );
 }

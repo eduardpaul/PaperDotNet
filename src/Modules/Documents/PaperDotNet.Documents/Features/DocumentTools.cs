@@ -83,15 +83,7 @@ internal static class DocumentTools
         file.Size,
         file.Sha256,
         file.PageCount,
-        processingStatus = Status(file.ProcessingStatus),
-        file.ProcessingError,
     };
-
-    public static string Status(ProcessingStatus status)
-    {
-        var name = status.ToString();
-        return char.ToLowerInvariant(name[0]) + name[1..];
-    }
 }
 
 internal sealed class UploadDocumentTool(DocumentService documents, IOptions<DocumentsOptions> options) : IMcpTool
@@ -229,7 +221,7 @@ internal sealed class ReadDocumentTool(IListItemStore items, DocumentsDbContext 
 
     public string Description =>
         "Reads the extracted text of a document, one page at a time. " +
-        "When processingStatus is not succeeded, the text is not ready; call again later. " +
+        "The text comes from the library's workflows (reading the text layer, OCR); a file they have not read yet has no pages, so call again later. " +
         $"fromPage starts at 1. At most maxPages pages ({DefaultPages} by default, up to {MaxPages}) and maxCharacters characters are returned. " +
         "When nextPage is present, call again with fromPage set to it. A single page longer than maxCharacters is cut off.";
 
@@ -261,19 +253,6 @@ internal sealed class ReadDocumentTool(IListItemStore items, DocumentsDbContext 
         var fromPage = Math.Max(1, arguments.GetInt32("fromPage") ?? 1);
         var maxPages = Math.Clamp(arguments.GetInt32("maxPages") ?? DefaultPages, 1, MaxPages);
         var maxCharacters = Math.Clamp(arguments.GetInt32("maxCharacters") ?? DefaultCharacters, 1, MaxCharacters);
-        if (file.ProcessingStatus != ProcessingStatus.Succeeded)
-        {
-            return McpToolResult.FromJson(new
-            {
-                file.FileName,
-                processingStatus = DocumentTools.Status(file.ProcessingStatus),
-                file.ProcessingError,
-                file.PageCount,
-                pages = Array.Empty<object>(),
-                message = "The file text is not ready yet. Call read_document again when processingStatus is succeeded.",
-            });
-        }
-
         var stored = await db.Pages.AsNoTracking()
             .Where(page => page.StoredFileId == file.StoredFileId && page.PageNumber >= fromPage)
             .OrderBy(page => page.PageNumber)
@@ -316,12 +295,13 @@ internal sealed class ReadDocumentTool(IListItemStore items, DocumentsDbContext 
         return McpToolResult.FromJson(new
         {
             file.FileName,
-            processingStatus = DocumentTools.Status(file.ProcessingStatus),
             file.PageCount,
             pages,
             nextPage,
             truncated,
-            message = pages.Count == 0 ? "No page text is stored for this file." : null,
+            message = pages.Count == 0
+                ? "No text is stored for this file yet: the library's workflows (\"Read the text\", OCR) have not read it, or are off."
+                : null,
         });
     }
 }

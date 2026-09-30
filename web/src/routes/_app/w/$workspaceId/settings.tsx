@@ -11,7 +11,7 @@ export const Route = createFileRoute('/_app/w/$workspaceId/settings')({
   component: WorkspaceSettings,
 });
 
-/** A workspace's settings (PLT-07, EVT-07, EVT-08): general, members, automations and their runs. */
+/** A workspace's settings (PLT-07, EVT-07, EVT-08): general, members, workflows and their runs. */
 function WorkspaceSettings() {
   const { workspaceId } = Route.useParams();
   const { data: workspace } = useQuery(workspaceQuery(workspaceId));
@@ -35,8 +35,8 @@ function WorkspaceSettings() {
             <SubNavLink to="/w/$workspaceId/settings/members" params={params}>
               <Users /> Members
             </SubNavLink>
-            <SubNavLink to="/w/$workspaceId/settings/automations" params={params}>
-              <Bot /> Automations
+            <SubNavLink to="/w/$workspaceId/settings/workflows" params={params}>
+              <Bot /> Workflows
             </SubNavLink>
             <SubNavLink to="/w/$workspaceId/settings/runs" params={params}>
               <History /> Runs

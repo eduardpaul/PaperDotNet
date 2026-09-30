@@ -36,8 +36,6 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db, IUse
 
         return new XElement(Element)
             .With("DuplicatePolicy", settings?.DuplicatePolicy)
-            .With("AutoProcess", settings?.AutoProcess)
-            .With("OcrMode", settings?.OcrMode)
             .With("OcrLanguages", settings?.OcrLanguages)
             .With("GroupInbox", group);
     }
@@ -45,7 +43,7 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db, IUse
     public async Task ApplyAsync(XElement section, TemplateContext context, CancellationToken cancellationToken)
     {
         var languages = section.Attr("OcrLanguages");
-        if (languages is not null && !ProcessingScheduler.IsValidLanguageList(languages))
+        if (languages is not null && !DocumentText.IsValidLanguageList(languages))
         {
             throw new TemplateException("OcrLanguages: Tesseract language codes joined with '+', e.g. 'deu+eng'.", section);
         }
@@ -56,8 +54,6 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db, IUse
             Id = Ids.New(),
             ListId = context.ListId!.Value,
             DuplicatePolicy = section.EnumAttr("DuplicatePolicy", DuplicatePolicy.Warn),
-            AutoProcess = section.BoolAttr("AutoProcess", true),
-            OcrMode = section.EnumAttr("OcrMode", OcrMode.Auto),
             OcrLanguages = languages,
         };
         var name = $"{context.WorkspaceName}/{context.ListName}";
@@ -69,13 +65,10 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db, IUse
                 db.LibrarySettings.Add(wanted);
             }
         }
-        else if (settings.DuplicatePolicy != wanted.DuplicatePolicy || settings.AutoProcess != wanted.AutoProcess
-            || settings.OcrMode != wanted.OcrMode || settings.OcrLanguages != wanted.OcrLanguages)
+        else if (settings.DuplicatePolicy != wanted.DuplicatePolicy || settings.OcrLanguages != wanted.OcrLanguages)
         {
             context.Updated(TemplateKinds.Settings, $"{name}: library settings");
             settings.DuplicatePolicy = wanted.DuplicatePolicy;
-            settings.AutoProcess = wanted.AutoProcess;
-            settings.OcrMode = wanted.OcrMode;
             settings.OcrLanguages = wanted.OcrLanguages;
         }
 
@@ -125,14 +118,14 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db, IUse
 
 /// <summary>What a package says about one file version (PLT-13/15).</summary>
 internal sealed record ImportedVersion(
-    string? Source, string? Languages, string? TextLanguage, IReadOnlyList<string>? Pages, AuditStamp? Stamp, bool Processed = false);
+    string? Source, string? Languages, string? TextLanguage, IReadOnlyList<string>? Pages, AuditStamp? Stamp);
 
 /// <summary>
 /// List section <c>Files</c> in <c>urn:paperdotnet:documents:1</c> (PRV-04): the current file of each document, in the
 /// template package (content stored once) with a JSON document mapping item keys to files. Apply gives the items created
-/// from the package's <c>Items</c> section their file, unless they have one; files are checked and processed like uploads.
+/// from the package's <c>Items</c> section their file, unless they have one; files are checked like uploads.
 /// Each entry also lists all <c>versions</c>, oldest first, with source, languages, stamps and page texts (a JSON array of
-/// strings stored as a package file): versions with texts are not processed again.
+/// strings stored as a package file): the current version is announced to the library's workflows (ADR-0038).
 /// </summary>
 internal sealed class DocumentFilesTemplateHandler(
     DocumentsDbContext db, IBlobStore blobs, IListItemStore items, DocumentService documents, IUserDirectory directory) : ITemplateHandler
@@ -202,7 +195,6 @@ internal sealed class DocumentFilesTemplateHandler(
                     ["languages"] = version.Languages,
                     ["textLanguage"] = version.TextLanguage,
                     ["pages"] = pages,
-                    ["processed"] = version.ProcessingStatus == ProcessingStatus.Succeeded ? true : null,
                     ["current"] = version.IsCurrent ? true : null,
                 });
             }
@@ -333,11 +325,10 @@ internal sealed class DocumentFilesTemplateHandler(
                 var textLanguage = version["textLanguage"]?.ToString();
                 var imported = new ImportedVersion(
                     version["source"]?.ToString(),
-                    languages is not null && ProcessingScheduler.IsValidLanguageList(languages) ? languages : null,
+                    languages is not null && DocumentText.IsValidLanguageList(languages) ? languages : null,
                     textLanguage is { Length: > 0 and <= 20 } ? textLanguage : null,
                     pages,
-                    await StampAsync(version, ct),
-                    version["processed"] is JsonValue processed && processed.TryGetValue<bool>(out var done) && done);
+                    await StampAsync(version, ct));
                 if (await documents.ImportVersionAsync(item, content, version["name"]?.ToString() ?? "document", imported, index == versions.Count - 1, ct) is { } error)
                 {
                     return $"version {index + 1}: {error}";

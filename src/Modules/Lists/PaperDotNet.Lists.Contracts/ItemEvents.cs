@@ -55,7 +55,7 @@ public sealed class ItemMutationContext
 /// An item mutator (ADR-0023): runs synchronously inside an item write, before it is saved, and can
 /// change the values or cancel the write. Mutators must be stateless and fast; they run on the server
 /// handling the request. Everything that reacts to a saved change is an <see cref="IEventSubscriber{TEvent}"/>
-/// of <see cref="ItemAdded"/>, <see cref="ItemUpdated"/>, <see cref="ItemDeleted"/> (or an automation).
+/// of <see cref="ItemAdded"/>, <see cref="ItemUpdated"/>, <see cref="ItemDeleted"/> (or a workflow).
 /// </summary>
 public interface IItemMutator
 {

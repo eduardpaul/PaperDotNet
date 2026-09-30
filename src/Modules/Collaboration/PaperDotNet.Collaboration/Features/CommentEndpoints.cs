@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -11,6 +12,7 @@ using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Notifications.Contracts;
+using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Collaboration.Features;
@@ -92,7 +94,7 @@ internal static class CommentEndpoints
 
     private static async Task<Results<Created<CommentResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
         Guid workspaceId, Guid listId, Guid itemId, CommentRequest request, IListItemStore items, CollaborationDbContext db,
-        CommentMentions mentions, ICurrentUser user, TimeProvider time, HttpResponse response, CancellationToken ct)
+        CommentMentions mentions, IWorkflowTriggers triggers, ICurrentUser user, TimeProvider time, HttpResponse response, CancellationToken ct)
     {
         var item = await items.GetAsync(workspaceId, listId, itemId, ct);
         if (item is null)
@@ -133,6 +135,11 @@ internal static class CommentEndpoints
 
         await mentions.NotifyAsync(item, comment, comment.Mentions, ct);
         await items.ReindexAsync(itemId, ct);
+
+        // Workflows can react to comments (comment.added); the comment's id makes a second raise start nothing.
+        await triggers.RaiseAsync(WorkflowTriggers.CommentAdded, workspaceId, new WorkflowItem(workspaceId, listId, itemId),
+            new JsonObject { ["commentId"] = comment.Id.ToString(), ["text"] = comment.Text, ["author"] = user.UserId?.ToString(), ["reply"] = comment.ParentId is not null },
+            comment.Id, ct);
         ETags.Set(response, comment.Version);
         return TypedResults.Created($"/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/comments/{comment.Id}", CommentResponse.From(comment));
     }

@@ -73,7 +73,7 @@ class ItemsRequestBuilder(BaseRequestBuilder):
     
     async def post(self,body: CreateItemRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ItemResponse]:
         """
-        param body: Create body: `{ "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }`.
+        param body: Create body: `{ "id"?, "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }`. With `id` the client chooses the item's id, so repeating a create is safe (the item it made is returned unchanged, 200).
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[ItemResponse]
         """
@@ -106,7 +106,7 @@ class ItemsRequestBuilder(BaseRequestBuilder):
     
     def to_post_request_information(self,body: CreateItemRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        param body: Create body: `{ "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }`.
+        param body: Create body: `{ "id"?, "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }`. With `id` the client chooses the item's id, so repeating a create is safe (the item it made is returned unchanged, 200).
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """

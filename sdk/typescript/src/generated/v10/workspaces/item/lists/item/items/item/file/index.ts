@@ -6,8 +6,6 @@ import { createApiProblemFromDiscriminatorValue, createDocumentResponseFromDiscr
 // @ts-ignore
 import { PagesRequestBuilderNavigationMetadata, PagesRequestBuilderRequestsMetadata, type PagesRequestBuilder } from './pages/index.js';
 // @ts-ignore
-import { ProcessRequestBuilderRequestsMetadata, type ProcessRequestBuilder } from './process/index.js';
-// @ts-ignore
 import { ThumbnailRequestBuilderRequestsMetadata, type ThumbnailRequestBuilder } from './thumbnail/index.js';
 // @ts-ignore
 import { type VersionsRequestBuilder, VersionsRequestBuilderNavigationMetadata, VersionsRequestBuilderRequestsMetadata } from './versions/index.js';
@@ -22,10 +20,6 @@ export interface FileRequestBuilder extends BaseRequestBuilder<FileRequestBuilde
      * The pages property
      */
     get pages(): PagesRequestBuilder;
-    /**
-     * The process property
-     */
-    get process(): ProcessRequestBuilder;
     /**
      * The thumbnail property
      */
@@ -71,9 +65,6 @@ export const FileRequestBuilderNavigationMetadata: Record<Exclude<keyof FileRequ
     pages: {
         requestsMetadata: PagesRequestBuilderRequestsMetadata,
         navigationMetadata: PagesRequestBuilderNavigationMetadata,
-    },
-    process: {
-        requestsMetadata: ProcessRequestBuilderRequestsMetadata,
     },
     thumbnail: {
         requestsMetadata: ThumbnailRequestBuilderRequestsMetadata,
