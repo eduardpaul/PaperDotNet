@@ -1,3 +1,4 @@
+# NOT PORTED YET (ADR-0039, docs/aot-porting-plan.md T15): uses Dockerfile.glm, which builds the .NET 10 server.
 # Optional image: GLM-OCR instead of Tesseract (ADR-0034).
 #   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.glm.yml up -d --build
 # A GPU is used when Docker is started with one (for example `docker run --gpus all`).

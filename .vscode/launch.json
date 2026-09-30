@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/PaperDotNet.Host/bin/Debug/net10.0/paperdotnet.dll",
+            "program": "${workspaceFolder}/src/PaperDotNet.Host/bin/Debug/net11.0/paperdotnet.dll",
             "cwd": "${workspaceFolder}/src/PaperDotNet.Host",
             "console": "integratedTerminal",
             "stopAtEntry": false,

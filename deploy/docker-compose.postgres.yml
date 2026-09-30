@@ -1,3 +1,4 @@
+# NOT PORTED YET (ADR-0039, docs/aot-porting-plan.md T17): the AOT server has no PostgreSQL build yet.
 # Optional: run PaperDotNet on PostgreSQL instead of SQLite.
 #   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.postgres.yml up -d
 services:
