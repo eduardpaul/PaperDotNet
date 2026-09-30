@@ -35,6 +35,19 @@ describe('workflow model', () => {
     expect(draft.variables).toEqual({ limit: 100 });
   });
 
+  it('keeps concurrency from the API through the JSON view to a request', () => {
+    const response = {
+      name: 'Once per item',
+      trigger: { type: 'itemUpdated' },
+      steps: [],
+      concurrency: 'skip',
+    } as unknown as WorkflowResponse;
+    const draft = draftFrom(response);
+    expect(toPlain(draft).concurrency).toBe('skip');
+    expect(requestFrom(draft).concurrency).toBe('skip');
+    expect(toPlain(fromPlain({ name: 'Default', trigger: { type: 'manual' } }))).not.toHaveProperty('concurrency');
+  });
+
   it('sends steps when there is no flow', () => {
     const draft = fromPlain({ name: 'Notify', trigger: { type: 'itemAdded' }, steps: [{ type: 'delay', hours: 2 }] });
     const request = requestFrom(draft);

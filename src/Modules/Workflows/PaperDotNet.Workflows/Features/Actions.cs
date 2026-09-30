@@ -60,6 +60,33 @@ internal static class ItemFieldValues
         return values;
     }
 
+    /// <summary>An item as JSON for outputs: its fields and <c>id</c>.</summary>
+    public static JsonObject Json(ListItemData item)
+    {
+        var json = item.Fields.DeepClone().AsObject();
+        json["id"] = item.Id.ToString();
+        return json;
+    }
+
+    /// <summary>The item an action works on: <c>list</c> and <c>id</c> when given, else the run's item; or why not.</summary>
+    public static async Task<(WorkflowItem? Item, string? Error)> TargetAsync(IListItemStore items, WorkflowActivityContext context, CancellationToken ct)
+    {
+        if (ActivityInputs.Text(context.Inputs, "list") is null)
+        {
+            return context.Item is { } item ? (item, null) : (null, "The trigger has no item; give list and id.");
+        }
+
+        var (list, error) = await ListAsync(items, context, ct);
+        if (list is null)
+        {
+            return (null, error);
+        }
+
+        return Guid.TryParse(await context.ExpandAsync(ActivityInputs.Text(context.Inputs, "id") ?? string.Empty, ct), out var id)
+            ? (new WorkflowItem(context.WorkspaceId, list.Id, id), null)
+            : (null, "id must be the id of an item.");
+    }
+
     /// <summary>A list of the workspace by name (a template), or why not.</summary>
     public static async Task<(ListData? List, string? Error)> ListAsync(IListItemStore items, WorkflowActivityContext context, CancellationToken ct)
     {
@@ -69,28 +96,106 @@ internal static class ItemFieldValues
     }
 }
 
-/// <summary><c>item.update</c>: sets field values of the item (<c>fields</c>; text values may contain tokens).</summary>
+/// <summary>
+/// <c>item.update</c>: sets field values (<c>fields</c>; text values may contain tokens) of the run's item, or of another
+/// item of the workspace (<c>list</c> and <c>id</c>).
+/// </summary>
 internal sealed class ItemUpdateAction(IListItemStore items) : IWorkflowActivity
 {
     public string Key => "item.update";
 
-    public string Description => "Sets field values of the item: { \"fields\": { \"status\": \"Approved\", \"total\": \"{step:read.json.total}\" } }.";
+    public string Description => "Sets field values of the item, or of another one (list, id): { \"fields\": { \"status\": \"Approved\", \"total\": \"{step:read.json.total}\" } }.";
 
-    public IEnumerable<string> Validate(JsonObject inputs) =>
-        inputs["fields"] is JsonObject { Count: > 0 } ? [] : ["fields must be an object with at least one value."];
+    public IEnumerable<string> Validate(JsonObject inputs)
+    {
+        if (inputs["fields"] is not JsonObject { Count: > 0 })
+        {
+            yield return "fields must be an object with at least one value.";
+        }
 
-    public JsonObject? InputSchema => ActivitySchemas.Of(["fields"], ("fields", ActivitySchemas.Values(ItemFieldValues.Description)));
+        if ((ActivityInputs.Text(inputs, "list") is null) != (ActivityInputs.Text(inputs, "id") is null))
+        {
+            yield return "list and id go together.";
+        }
+    }
+
+    public JsonObject? InputSchema => ActivitySchemas.Of(["fields"],
+        ("fields", ActivitySchemas.Values(ItemFieldValues.Description)),
+        ("list", ActivitySchemas.Text("Another item's list, by name (template); default: the run's item.")),
+        ("id", ActivitySchemas.Text("Another item's id (template), e.g. {step:find.items.0.id}.")));
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
-        if (context.Item is not { } item)
+        var (target, problem) = await ItemFieldValues.TargetAsync(items, context, cancellationToken);
+        if (target is null)
         {
-            return WorkflowActivityResult.Fail("The trigger has no item.");
+            return WorkflowActivityResult.Fail(problem!);
         }
 
-        var fields = await ItemFieldValues.ResolveAsync((JsonObject)context.Inputs["fields"]!, context, items, item.ListId, cancellationToken);
-        var result = await items.AsSystem().UpdateAsync(item.WorkspaceId, item.ListId, item.ItemId, fields, null, cancellationToken);
+        var fields = await ItemFieldValues.ResolveAsync((JsonObject)context.Inputs["fields"]!, context, items, target.ListId, cancellationToken);
+        var result = await items.AsSystem().UpdateAsync(target.WorkspaceId, target.ListId, target.ItemId, fields, null, cancellationToken);
         return result.Succeeded ? WorkflowActivityResult.Ok() : WorkflowActivityResult.Fail(result.Describe());
+    }
+}
+
+/// <summary><c>item.get</c>: reads an item of the workspace (<c>list</c>, <c>id</c>); its fields and <c>id</c> are the output.</summary>
+internal sealed class ItemGetAction(IListItemStore items) : IWorkflowActivity
+{
+    public string Key => "item.get";
+
+    public string Description => "Reads an item: { \"list\": \"Vendors\", \"id\": \"{vendor}\" }; later nodes use {step:node.fieldName}.";
+
+    public IEnumerable<string> Validate(JsonObject inputs) => ActivityInputs.Required(inputs, "list", "id");
+
+    public JsonObject? InputSchema => ActivitySchemas.Of(["list", "id"],
+        ("list", ActivitySchemas.Text("The item's list, by name (template).")), ("id", ActivitySchemas.Text("The item's id (template).")));
+
+    public JsonObject? OutputSchema => ActivitySchemas.Of([], ("id", ActivitySchemas.Text("The item's id; its fields are next to it.")));
+
+    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
+    {
+        var (target, problem) = await ItemFieldValues.TargetAsync(items, context, cancellationToken);
+        if (target is null)
+        {
+            return WorkflowActivityResult.Fail(problem!);
+        }
+
+        var found = await items.AsSystem().GetAsync(target.WorkspaceId, target.ListId, target.ItemId, cancellationToken);
+        return found is null ? WorkflowActivityResult.Fail("The item does not exist.") : WorkflowActivityResult.Ok(ItemFieldValues.Json(found));
+    }
+}
+
+/// <summary><c>items.query</c>: finds items of a list of the workspace (<c>list</c>, <c>filter</c> in OData, <c>top</c>).</summary>
+internal sealed class ItemsQueryAction(IListItemStore items) : IWorkflowActivity
+{
+    public string Key => "items.query";
+
+    public string Description => "Finds items: { \"list\": \"Receipt lines\", \"filter\": \"fields/receipt eq {id}\" }; output items (fields and id) and count.";
+
+    public IEnumerable<string> Validate(JsonObject inputs) => ActivityInputs.Required(inputs, "list")
+        .Concat(inputs["top"] is null || ActivityInputs.Number(inputs, "top") is >= 1 and <= ListItemQuery.MaxTop ? [] : [$"top must be from 1 to {ListItemQuery.MaxTop}."]);
+
+    public JsonObject? InputSchema => ActivitySchemas.Of(["list"],
+        ("list", ActivitySchemas.Text("A list of the workspace, by name (template).")),
+        ("filter", ActivitySchemas.Text("OData filter (template), e.g. fields/status eq 'open'.")),
+        ("top", ActivitySchemas.Number($"Most items (default 100, at most {ListItemQuery.MaxTop}).")));
+
+    public JsonObject? OutputSchema => ActivitySchemas.Of([], ("items", ActivitySchemas.Any("The items: their fields and id.")), ("count", ActivitySchemas.Number("How many.")));
+
+    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
+    {
+        var (list, error) = await ItemFieldValues.ListAsync(items, context, cancellationToken);
+        if (list is null)
+        {
+            return WorkflowActivityResult.Fail(error!);
+        }
+
+        var filter = ActivityInputs.Text(context.Inputs, "filter") is { } text ? await context.ExpandAsync(text, cancellationToken) : null;
+        var (found, problem) = await items.AsSystem().QueryAsync(context.WorkspaceId, list.Id,
+            new ListItemQuery(filter, Top: (int)(ActivityInputs.Number(context.Inputs, "top") ?? 100)), cancellationToken);
+        return problem is not null
+            ? WorkflowActivityResult.Fail(problem)
+            : WorkflowActivityResult.Ok(new JsonObject { ["items"] = new JsonArray([.. found.Select(i => (JsonNode)ItemFieldValues.Json(i))]), ["count"] = found.Count });
     }
 }
 
@@ -343,6 +448,11 @@ internal static class FlowActivityDescriptors
                 ("query", ActivitySchemas.Values("list (by name) and filter (OData, tokens allowed): each element is an item's fields with its id.")),
                 ("as", ActivitySchemas.Text("The variable that holds the element (default item): {var:item.name}."))),
             ActivitySchemas.Of([], ("index", ActivitySchemas.Number("The element's position (from 0).")), ("count", ActivitySchemas.Number("How many elements.")))),
+        new(FlowActivities.Script, "Runs JavaScript that reads the workspace's lists and changes them: item, vars, steps, trigger, items.get/query/create/update/delete, log.",
+            ActivityDescriptor.FlowKind, ["done", "error"],
+            ActivitySchemas.Of(["code"], ("code", ActivitySchemas.Any("The script: a string or an array of lines. `return` gives the result."))),
+            ActivitySchemas.Of([], ("result", ActivitySchemas.Any("What the script returned.")), ("created", ActivitySchemas.Any("Ids of the items it created.")),
+                ("updated", ActivitySchemas.Number("Items it updated.")), ("deleted", ActivitySchemas.Number("Items it deleted.")))),
         new(FlowActivities.End, "Ends the run as completed.", ActivityDescriptor.FlowKind, [], null, null),
         new(FlowActivities.Fail, "Ends the run as failed.", ActivityDescriptor.FlowKind, [],
             ActivitySchemas.Of([], ("message", ActivitySchemas.Text("The error (template)."))), null),

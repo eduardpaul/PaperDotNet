@@ -15,13 +15,15 @@ if TYPE_CHECKING:
 @dataclass
 class WorkflowResponse(AdditionalDataHolder, Parsable):
     """
-    A workflow with the definition of its current `version` (runs keep the version they started with): `steps`or a `flow`, and the initial `variables`.
+    A workflow with the definition of its current `version` (runs keep the version they started with): `steps`or a `flow`, the initial `variables`, and `concurrency` (runs on the same item: `parallel`,`skip` or `replace`).
     """
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
     # The builtIn property
     built_in: Optional[str] = None
+    # The concurrency property
+    concurrency: Optional[str] = None
     # The condition property
     condition: Optional[str] = None
     # The copiedFrom property
@@ -81,6 +83,7 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
 
         fields: dict[str, Callable[[Any], None]] = {
             "builtIn": lambda n : setattr(self, 'built_in', n.get_str_value()),
+            "concurrency": lambda n : setattr(self, 'concurrency', n.get_str_value()),
             "condition": lambda n : setattr(self, 'condition', n.get_str_value()),
             "copiedFrom": lambda n : setattr(self, 'copied_from', n.get_str_value()),
             "createdAt": lambda n : setattr(self, 'created_at', n.get_datetime_value()),
@@ -108,6 +111,7 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
         if writer is None:
             raise TypeError("writer cannot be null.")
         writer.write_str_value("builtIn", self.built_in)
+        writer.write_str_value("concurrency", self.concurrency)
         writer.write_str_value("condition", self.condition)
         writer.write_str_value("copiedFrom", self.copied_from)
         writer.write_datetime_value("createdAt", self.created_at)

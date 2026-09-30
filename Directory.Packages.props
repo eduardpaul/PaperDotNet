@@ -50,6 +50,7 @@
     <PackageVersion Include="WolverineFx.Sqlite" Version="6.40.0" />
     <PackageVersion Include="WolverineFx.Postgresql" Version="6.40.0" />
     <PackageVersion Include="Cronos" Version="0.13.0" />
+    <PackageVersion Include="Jint" Version="4.16.4" />
   </ItemGroup>
   <ItemGroup Label="Observability and resilience">
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />

@@ -116,16 +116,20 @@ internal sealed class TokenExpander(ITermStore terms, IUserDirectory users, Time
             var token = template[1..^1];
             var colon = token.IndexOf(':', StringComparison.Ordinal);
             var (name, reference) = colon < 0 ? (token.Trim(), null) : (token[..colon].Trim(), token[(colon + 1)..].Trim());
+            // As plain JSON: an activity's output made in memory holds .NET values (an int count) that field types do not read.
+            static JsonNode? Json(JsonNode? value) => value is null ? null : JsonNode.Parse(value.ToJsonString());
             switch (name, reference)
             {
                 case ("step", { } path):
-                    return scope.Step(path)?.DeepClone();
+                    return Json(scope.Step(path));
                 case ("var", { } path):
-                    return scope.Variable(path)?.DeepClone();
+                    return Json(scope.Variable(path));
                 case ("data" or "trigger", { } path):
-                    return scope.Trigger(path)?.DeepClone();
+                    return Json(scope.Trigger(path));
+                case ("item", { } field) when !field.Contains(':', StringComparison.Ordinal):
+                    return Json(scope.Item?.Fields[field]);
                 case (not ("id" or "list" or "created" or "modified" or "today" or "outcome"), null):
-                    return scope.Item?.Fields[name]?.DeepClone();
+                    return Json(scope.Item?.Fields[name]);
             }
         }
 
@@ -155,6 +159,12 @@ internal sealed class TokenExpander(ITermStore terms, IUserDirectory users, Time
                 return format is not null && scope.Variable(format.Trim()) is { } variable ? await ValueAsync(variable, null, ct) : string.Empty;
             case "step":
                 return format is not null && scope.Step(format.Trim()) is { } output ? await ValueAsync(output, null, ct) : string.Empty;
+            case "item":
+                // {item:name} is always the item's field, whatever it is called ({item:name:format} with a format).
+                var field = format?.Split(':', 2);
+                return field is { Length: > 0 } && item?.Fields[field[0].Trim()] is { } fieldValue
+                    ? await ValueAsync(fieldValue, field.Length > 1 ? field[1] : null, ct)
+                    : string.Empty;
         }
 
         return item?.Fields[name] is { } value ? await ValueAsync(value, format, ct) : string.Empty;
@@ -180,8 +190,10 @@ internal sealed class TokenExpander(ITermStore terms, IUserDirectory users, Time
 
         if (scalar.GetValueKind() == JsonValueKind.Number)
         {
-            var number = scalar.GetValue<decimal>();
-            return number.ToString(format, CultureInfo.InvariantCulture);
+            // Read from the JSON text: an output made in memory holds an int or a double, which GetValue<decimal> refuses.
+            return decimal.TryParse(scalar.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+                ? number.ToString(format, CultureInfo.InvariantCulture)
+                : scalar.ToJsonString();
         }
 
         if (scalar.GetValueKind() != JsonValueKind.String)

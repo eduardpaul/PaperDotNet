@@ -8,7 +8,7 @@ using System;
 namespace PaperDotNet.Client.Models
 {
     /// <summary>
-    /// A workflow with the definition of its current `version` (runs keep the version they started with): `steps`or a `flow`, and the initial `variables`.
+    /// A workflow with the definition of its current `version` (runs keep the version they started with): `steps`or a `flow`, the initial `variables`, and `concurrency` (runs on the same item: `parallel`,`skip` or `replace`).
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WorkflowResponse : IAdditionalDataHolder, IParsable
@@ -22,6 +22,14 @@ namespace PaperDotNet.Client.Models
 #nullable restore
 #else
         public string BuiltIn { get; set; }
+#endif
+        /// <summary>The concurrency property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Concurrency { get; set; }
+#nullable restore
+#else
+        public string Concurrency { get; set; }
 #endif
         /// <summary>The condition property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -133,6 +141,7 @@ namespace PaperDotNet.Client.Models
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "builtIn", n => { BuiltIn = n.GetStringValue(); } },
+                { "concurrency", n => { Concurrency = n.GetStringValue(); } },
                 { "condition", n => { Condition = n.GetStringValue(); } },
                 { "copiedFrom", n => { CopiedFrom = n.GetStringValue(); } },
                 { "createdAt", n => { CreatedAt = n.GetDateTimeOffsetValue(); } },
@@ -158,6 +167,7 @@ namespace PaperDotNet.Client.Models
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteStringValue("builtIn", BuiltIn);
+            writer.WriteStringValue("concurrency", Concurrency);
             writer.WriteStringValue("condition", Condition);
             writer.WriteStringValue("copiedFrom", CopiedFrom);
             writer.WriteDateTimeOffsetValue("createdAt", CreatedAt);

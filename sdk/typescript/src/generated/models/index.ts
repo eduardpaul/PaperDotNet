@@ -5893,6 +5893,7 @@ export function deserializeIntoViewResponse(viewResponse: Partial<ViewResponse> 
 // @ts-ignore
 export function deserializeIntoWorkflowRequest(workflowRequest: Partial<WorkflowRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "concurrency": n => { workflowRequest.concurrency = n.getStringValue(); },
         "condition": n => { workflowRequest.condition = n.getStringValue(); },
         "description": n => { workflowRequest.description = n.getStringValue(); },
         "enabled": n => { workflowRequest.enabled = n.getBooleanValue() ?? true; },
@@ -5912,6 +5913,7 @@ export function deserializeIntoWorkflowRequest(workflowRequest: Partial<Workflow
 export function deserializeIntoWorkflowResponse(workflowResponse: Partial<WorkflowResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "builtIn": n => { workflowResponse.builtIn = n.getStringValue(); },
+        "concurrency": n => { workflowResponse.concurrency = n.getStringValue(); },
         "condition": n => { workflowResponse.condition = n.getStringValue(); },
         "copiedFrom": n => { workflowResponse.copiedFrom = n.getStringValue(); },
         "createdAt": n => { workflowResponse.createdAt = n.getDateValue(); },
@@ -11194,6 +11196,7 @@ export function serializeViewResponse(writer: SerializationWriter, viewResponse:
 // @ts-ignore
 export function serializeWorkflowRequest(writer: SerializationWriter, workflowRequest: Partial<WorkflowRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!workflowRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("concurrency", workflowRequest.concurrency);
     writer.writeStringValue("condition", workflowRequest.condition);
     writer.writeStringValue("description", workflowRequest.description);
     writer.writeBooleanValue("enabled", workflowRequest.enabled ?? true);
@@ -11214,6 +11217,7 @@ export function serializeWorkflowRequest(writer: SerializationWriter, workflowRe
 export function serializeWorkflowResponse(writer: SerializationWriter, workflowResponse: Partial<WorkflowResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!workflowResponse || isSerializingDerivedType) { return; }
     writer.writeStringValue("builtIn", workflowResponse.builtIn);
+    writer.writeStringValue("concurrency", workflowResponse.concurrency);
     writer.writeStringValue("condition", workflowResponse.condition);
     writer.writeStringValue("copiedFrom", workflowResponse.copiedFrom);
     writer.writeDateValue("createdAt", workflowResponse.createdAt);
@@ -12165,6 +12169,10 @@ export interface ViewResponse extends AdditionalDataHolder, Parsable {
 }
 export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
     /**
+     * The concurrency property
+     */
+    concurrency?: string | null;
+    /**
      * The condition property
      */
     condition?: string | null;
@@ -12198,13 +12206,17 @@ export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
     variables?: JsonObject | null;
 }
 /**
- * A workflow with the definition of its current `version` (runs keep the version they started with): `steps`or a `flow`, and the initial `variables`.
+ * A workflow with the definition of its current `version` (runs keep the version they started with): `steps`or a `flow`, the initial `variables`, and `concurrency` (runs on the same item: `parallel`,`skip` or `replace`).
  */
 export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
     /**
      * The builtIn property
      */
     builtIn?: string | null;
+    /**
+     * The concurrency property
+     */
+    concurrency?: string | null;
     /**
      * The condition property
      */

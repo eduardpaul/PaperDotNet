@@ -39,7 +39,7 @@ internal sealed record WorkflowStart(
 
 /// <summary>Starts runs of a workspace's workflows.</summary>
 internal sealed class WorkflowStarter(
-    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time)
+    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time, RunService runService)
 {
     /// <summary>Whether the item matches an OData condition; an error when the condition cannot be checked.</summary>
     public async Task<(bool Matches, string? Error)> CheckConditionAsync(WorkflowItem item, string condition, CancellationToken ct)
@@ -60,8 +60,39 @@ internal sealed class WorkflowStarter(
         var now = time.GetUtcNow();
         var runs = new List<WorkflowRun>();
         var messages = new List<ITenantMessage>();
+        var concurrency = new Dictionary<Guid, string>();
+        var starting = new HashSet<(Guid, Guid)>();
         foreach (var start in starts)
         {
+            // One workflow on one item (ADR-0037): skip the new run, or cancel the one going.
+            if (start.Item is { } target && start.Error is null)
+            {
+                if (!concurrency.TryGetValue(start.Workflow.Id, out var mode))
+                {
+                    var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == start.Workflow.Id && v.Number == start.Workflow.CurrentVersion, ct);
+                    mode = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition).Concurrency ?? RunConcurrency.Parallel;
+                    concurrency[start.Workflow.Id] = mode;
+                }
+
+                if (mode != RunConcurrency.Parallel)
+                {
+                    var going = await db.Runs
+                        .Where(r => r.WorkflowId == start.Workflow.Id && r.ItemId == target.ItemId && (r.Status == RunStatus.Running || r.Status == RunStatus.Waiting))
+                        .ToListAsync(ct);
+                    if (mode == RunConcurrency.Skip && (going.Count > 0 || starting.Contains((start.Workflow.Id, target.ItemId))))
+                    {
+                        continue;
+                    }
+
+                    foreach (var previous in going)
+                    {
+                        await runService.CancelAsync(previous, ct);
+                    }
+                }
+
+                starting.Add((start.Workflow.Id, target.ItemId));
+            }
+
             var run = new WorkflowRun
             {
                 Id = Ids.New(),
@@ -309,6 +340,8 @@ public static class NotifyApprovalHandler
 internal sealed partial class WorkflowInterpreter(
     WorkflowsDbContext db,
     ActionExecutor executor,
+    ScriptRunner scripts,
+    RunService runService,
     IListItemStore items,
     RecipientResolver recipients,
     TokenExpander tokens,
@@ -320,8 +353,12 @@ internal sealed partial class WorkflowInterpreter(
 {
     public const int MaxAttempts = 10;
     public static readonly TimeSpan Lease = TimeSpan.FromMinutes(5);
+    /// <summary>Nodes one execution runs before it saves and continues in a new message (so it does not hold a server long).</summary>
     private const int MaxNodesPerExecution = 500;
-    private const int MaxNodesPerRun = 1000;
+    private const int MaxNodesPerRun = 10_000;
+
+    /// <summary>How often a script step's applied writes are saved (they are safe to repeat, so this only limits repeats).</summary>
+    private const int ScriptSaveEvery = 25;
     private const int MaxLogEntries = 100;
     private const int MaxStateLength = 256 * 1024;
 
@@ -389,15 +426,15 @@ internal sealed partial class WorkflowInterpreter(
             }
         }
 
-        // Saves progress and extends the lease; releases it when the run stops (finished or waiting).
-        Task SaveAsync(IReadOnlyCollection<ITenantMessage>? messages = null)
+        // Saves progress and extends the lease; releases it when the run stops (finished or waiting) or pauses.
+        Task SaveAsync(IReadOnlyCollection<ITenantMessage>? messages = null, bool pause = false)
         {
             var now = time.GetUtcNow();
             run.LastActivityAt = now;
             run.Log = log.ToJsonString();
             run.Outputs = outputs.ToJsonString();
             run.Variables = variables.ToJsonString();
-            var stopped = run.Status != RunStatus.Running;
+            var stopped = run.Status != RunStatus.Running || pause;
             run.LeaseId = stopped ? null : lease;
             run.LeaseUntil = stopped ? null : now + Lease;
             return messages is { Count: > 0 } ? outbox.SaveChangesAsync(db, [], messages, ct) : db.SaveChangesAsync(ct);
@@ -486,6 +523,13 @@ internal sealed partial class WorkflowInterpreter(
             return await tokens.ExpandAsync(template, scope, ct);
         }
 
+        // An order of loop events in this run (one more than any loop recorded): tells which loops started in a pass.
+        long LoopStamp() => 1 + flow.Nodes.Where(n => n.Value.Activity == FlowActivities.ForEach)
+            .Select(n => outputs[n.Key] as JsonObject)
+            .SelectMany(o => new[] { o?["started"], o?["pass"] })
+            .Select(v => v is JsonValue value && value.TryGetValue<long>(out var number) ? number : 0)
+            .DefaultIfEmpty(0).Max();
+
         // The elements a forEach goes through: its items (an array or one token), or the items its query finds.
         async Task<(JsonArray? Elements, string? Error)> ElementsAsync(JsonObject inputs)
         {
@@ -532,6 +576,99 @@ internal sealed partial class WorkflowInterpreter(
             };
         }
 
+        // A script step: runs the script once and saves its planned writes, then applies them (again after a crash or a
+        // retry, without running the script again). False when the run stopped.
+        async Task<bool> ScriptAsync(string id, FlowNode node)
+        {
+            if (run.StepExecutionId is null)
+            {
+                run.StepExecutionId = Ids.New();
+                await SaveAsync();
+            }
+
+            if (outputs[id] is not JsonObject { } state || state["plan"] is not JsonArray)
+            {
+                scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct);
+                var outcome = scripts.Run(ScriptRunner.Code(node.Inputs ?? [])!, run.WorkspaceId, run.StepExecutionId.Value, scope.Item, scope.ListName,
+                    outputs, variables, data, ct);
+                foreach (var line in outcome.Log.Take(20))
+                {
+                    Log($"{id}: {Truncate(line)}");
+                }
+
+                if (outcome.Error is { } failure)
+                {
+                    return await FailedAsync(id, node, failure);
+                }
+
+                variables = outcome.Variables;
+                state = new JsonObject { ["plan"] = outcome.Plan, ["applied"] = 0, ["result"] = outcome.Result };
+                outputs[id] = state;
+                if (outputs.ToJsonString().Length > MaxStateLength || variables.ToJsonString().Length > MaxStateLength)
+                {
+                    await FailAsync($"{id}: the script's result, variables or planned writes are too large.", id);
+                    return false;
+                }
+
+                await SaveAsync();
+            }
+
+            var plan = (JsonArray)state["plan"]!;
+            var store = items.AsSystem();
+            var created = new JsonArray();
+            int updated = 0, deleted = 0;
+            for (var index = 0; index < plan.Count; index++)
+            {
+                var write = (JsonObject)plan[index]!;
+                var op = write["op"]!.GetValue<string>();
+                var listId = Guid.Parse(write["listId"]!.GetValue<string>());
+                var target = Guid.Parse(write["id"]!.GetValue<string>());
+                if (index < state["applied"]!.GetValue<int>())
+                {
+                    Count();
+                    continue;
+                }
+
+                var result = op switch
+                {
+                    "create" => await store.CreateAsync(run.WorkspaceId, listId, target, (JsonObject)write["fields"]!.DeepClone(), null, ct),
+                    "update" => await store.UpdateAsync(run.WorkspaceId, listId, target, (JsonObject)write["fields"]!.DeepClone(), null, ct),
+                    _ => await store.DeleteAsync(run.WorkspaceId, listId, target, null, ct),
+                };
+                if (!result.Succeeded && !(op == "delete" && result.Status == ListItemStatus.NotFound))
+                {
+                    return await FailedAsync(id, node, $"write {index + 1} ({op} in {write["list"]}): {result.Describe()}");
+                }
+
+                Count();
+                state["applied"] = index + 1;
+                if ((index + 1) % ScriptSaveEvery == 0)
+                {
+                    await SaveAsync();
+                }
+
+                void Count()
+                {
+                    switch (op)
+                    {
+                        case "create":
+                            created.Add(target.ToString());
+                            break;
+                        case "update":
+                            updated++;
+                            break;
+                        default:
+                            deleted++;
+                            break;
+                    }
+                }
+            }
+
+            outputs[id] = new JsonObject { ["result"] = state["result"]?.DeepClone(), ["created"] = created, ["updated"] = updated, ["deleted"] = deleted };
+            Log($"{id}: script done ({plan.Count} write(s))");
+            return await ContinueAsync(id, "done");
+        }
+
         if (run.Attempts > MaxAttempts)
         {
             await FailAsync($"The run stopped after {MaxAttempts} attempts without progress (see the server log).", run.Node);
@@ -540,6 +677,29 @@ internal sealed partial class WorkflowInterpreter(
 
         if (run.Node is null)
         {
+            // Runs of this workflow on the item that started at the same moment did not see each other: the earlier one
+            // wins (skip) or the later one does (replace).
+            if (spec.Concurrency is RunConcurrency.Skip or RunConcurrency.Replace && run.ItemId is { } runItem)
+            {
+                var others = await db.Runs
+                    .Where(r => r.WorkflowId == run.WorkflowId && r.ItemId == runItem && r.Id != run.Id && (r.Status == RunStatus.Running || r.Status == RunStatus.Waiting))
+                    .ToListAsync(ct);
+                var earlier = others.Where(r => r.StartedAt < run.StartedAt || (r.StartedAt == run.StartedAt && r.Id.CompareTo(run.Id) < 0)).ToList();
+                if (spec.Concurrency == RunConcurrency.Skip && earlier.Count > 0)
+                {
+                    Log("Skipped: another run of this workflow on the item is going (concurrency: skip).");
+                    run.Status = RunStatus.Cancelled;
+                    run.CompletedAt = time.GetUtcNow();
+                    await SaveAsync();
+                    return;
+                }
+
+                foreach (var older in spec.Concurrency == RunConcurrency.Replace ? earlier : [])
+                {
+                    await runService.CancelAsync(older, ct);
+                }
+            }
+
             run.Node = flow.Start;
 
             // The definition's initial variables, overridden by the inputs of a manual start.
@@ -600,9 +760,16 @@ internal sealed partial class WorkflowInterpreter(
 
         for (var executed = 0; ; executed++)
         {
-            if (executed >= MaxNodesPerExecution || run.Executed >= MaxNodesPerRun)
+            if (run.Executed >= MaxNodesPerRun)
             {
-                await FailAsync("The workflow ran too many steps.", run.Node);
+                await FailAsync($"The workflow ran more than {MaxNodesPerRun} steps.", run.Node);
+                return;
+            }
+
+            if (executed >= MaxNodesPerExecution)
+            {
+                // Long runs (loops) continue in a new message instead of holding this server.
+                await SaveAsync([new ResumeRun(run.Id, null, tenant.TenantId!.Value, tenant.TenantIdentifier!)], pause: true);
                 return;
             }
 
@@ -663,15 +830,38 @@ internal sealed partial class WorkflowInterpreter(
                     {
                         if (active)
                         {
-                            loop!["index"] = position;
+                            // Loops that started during the previous element's pass are inside this loop: they start again
+                            // for this element, also when that pass left them early. (By time, not by shape: an early exit
+                            // makes loops reach each other both ways.)
+                            var pass = loop!["pass"]?.GetValue<long>() ?? 0;
+                            foreach (var inner in Definitions.LoopBody(flow, id).Where(n => flow.Nodes[n].Activity == FlowActivities.ForEach))
+                            {
+                                if (outputs[inner] is JsonObject innerLoop && (innerLoop["started"]?.GetValue<long>() ?? 0) >= pass)
+                                {
+                                    innerLoop["active"] = false;
+                                }
+                            }
+
+                            loop["index"] = position;
+                            loop["pass"] = LoopStamp();
                         }
                         else
                         {
                             Log($"{id}: {elements.Count} element(s)");
-                            outputs[id] = new JsonObject { ["active"] = true, ["index"] = position, ["count"] = elements.Count, ["items"] = elements };
+                            var stamp = LoopStamp();
+                            outputs[id] = new JsonObject
+                            {
+                                ["active"] = true,
+                                ["index"] = position,
+                                ["count"] = elements.Count,
+                                ["started"] = stamp,
+                                ["pass"] = stamp,
+                                ["items"] = elements,
+                            };
                         }
 
                         variables[element] = elements[position]?.DeepClone();
+
                         if (outputs.ToJsonString().Length > MaxStateLength)
                         {
                             await FailAsync($"{id}: the elements are too large.", id);
@@ -691,6 +881,13 @@ internal sealed partial class WorkflowInterpreter(
                         {
                             return;
                         }
+                    }
+
+                    break;
+                case FlowActivities.Script:
+                    if (!await ScriptAsync(id, node))
+                    {
+                        return;
                     }
 
                     break;

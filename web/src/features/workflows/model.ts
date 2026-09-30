@@ -39,6 +39,8 @@ export interface WorkflowDraft {
   /** A flow (nodes connected by outcome ports) instead of steps; kept as the API's JSON. */
   flow?: PlainFlow;
   variables?: Record<string, unknown>;
+  /** Runs on the same item: parallel (default), skip or replace; kept as the API has it. */
+  concurrency?: string;
 }
 
 /** The trigger in the form: text inputs as strings; terms and manual inputs are kept as the API's JSON. */
@@ -104,6 +106,7 @@ export interface PlainWorkflow {
   steps?: PlainStep[];
   flow?: PlainFlow;
   variables?: Record<string, unknown>;
+  concurrency?: string | null;
 }
 
 let counter = 0;
@@ -197,6 +200,7 @@ export function fromPlain(plain: PlainWorkflow): WorkflowDraft {
     steps: (plain.steps ?? []).map(stepFromPlain),
     ...(plain.flow ? { flow: plain.flow } : {}),
     ...(plain.variables ? { variables: plain.variables } : {}),
+    ...(plain.concurrency ? { concurrency: plain.concurrency } : {}),
   };
 }
 
@@ -239,6 +243,7 @@ export function toPlain(draft: WorkflowDraft): PlainWorkflow {
     condition: orUndefined(draft.condition) ?? null,
     ...(draft.flow ? { flow: draft.flow } : { steps: draft.steps.map(stepToPlain) }),
     ...(draft.variables ? { variables: draft.variables } : {}),
+    ...(draft.concurrency ? { concurrency: draft.concurrency } : {}),
   };
 }
 
@@ -299,6 +304,7 @@ export function draftFrom(workflow: WorkflowResponse): WorkflowDraft {
       ? { flow: { start: workflow.flow.start ?? '', nodes: { ...(workflow.flow.nodes?.additionalData ?? {}) } } }
       : {}),
     ...(workflow.variables ? { variables: { ...fieldsOf({ fields: workflow.variables }) } } : {}),
+    concurrency: workflow.concurrency,
   } as PlainWorkflow);
 }
 

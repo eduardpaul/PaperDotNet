@@ -7,6 +7,8 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Cronos" />
+    <!-- Script steps (ADR-0037): sandboxed JavaScript. -->
+    <PackageReference Include="Jint" />
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
     <ProjectReference Include="..\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
     <ProjectReference Include="..\..\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />

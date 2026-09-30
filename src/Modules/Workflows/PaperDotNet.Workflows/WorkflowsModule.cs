@@ -47,6 +47,8 @@ public sealed class WorkflowsModule : IModule
         services.AddWorkflowActivity<ItemFileAction>();
         services.AddWorkflowActivity<ItemCreateAction>();
         services.AddWorkflowActivity<ItemDeleteAction>();
+        services.AddWorkflowActivity<ItemGetAction>();
+        services.AddWorkflowActivity<ItemsQueryAction>();
 
         services.AddIntegrationEvent<WorkflowTriggerRaised>();
         services.AddScoped<IWorkflowTriggers, WorkflowTriggerPublisher>();
@@ -59,6 +61,8 @@ public sealed class WorkflowsModule : IModule
         services.Configure<WorkflowOptions>(configuration.GetSection("Workflows"));
         services.AddScoped<WorkflowStarter>();
         services.AddScoped<WorkflowInterpreter>();
+        services.AddScoped<ScriptRunner>();
+        services.Configure<WorkflowScriptOptions>(configuration.GetSection(WorkflowScriptOptions.Section));
         services.AddScoped<RunService>();
         services.AddScoped<IWorkflowBookmarks, WorkflowBookmarks>();
         services.AddScoped<IWorkflowDirectory, WorkflowDirectory>();

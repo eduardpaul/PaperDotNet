@@ -33,10 +33,27 @@ public sealed record ActionDefinition(string Type, JsonObject? Inputs = null);
 /// <summary>
 /// What a workflow does (a version of it): its trigger, an OData condition on the item checked when the trigger
 /// fires (optional), and its body: either <c>steps</c> (a sequence with if/else) or a <c>flow</c> (nodes connected by
-/// outcome ports, ADR-0036). <c>variables</c> are the initial values of the run's variables.
+/// outcome ports, ADR-0036). <c>variables</c> are the initial values of the run's variables. <c>concurrency</c> says what
+/// happens when a run on an item starts while another run of the workflow on that item is going (<see cref="RunConcurrency"/>).
 /// </summary>
 public sealed record WorkflowSpec(
-    WorkflowTrigger Trigger, string? Condition, IReadOnlyList<WorkflowStep>? Steps, FlowDefinition? Flow = null, JsonObject? Variables = null);
+    WorkflowTrigger Trigger, string? Condition, IReadOnlyList<WorkflowStep>? Steps, FlowDefinition? Flow = null, JsonObject? Variables = null,
+    string? Concurrency = null);
+
+/// <summary>Runs of one workflow on the same item (ADR-0037).</summary>
+public static class RunConcurrency
+{
+    /// <summary>Both run (the default).</summary>
+    public const string Parallel = "parallel";
+
+    /// <summary>The new run does not start.</summary>
+    public const string Skip = "skip";
+
+    /// <summary>The running one is cancelled, the new one starts.</summary>
+    public const string Replace = "replace";
+
+    public static readonly string[] All = [Parallel, Skip, Replace];
+}
 
 /// <summary>
 /// A workflow's flow (ADR-0036): the <c>start</c> node and the nodes by id. A node runs an activity and continues with
@@ -99,6 +116,13 @@ public static class FlowActivities
     /// </summary>
     public const string ForEach = "forEach";
 
+    /// <summary>
+    /// Runs JavaScript (<c>code</c>, ADR-0037) that reads the workspace's lists and plans writes to them (<c>items</c>);
+    /// the plan is saved with the run and then applied. Output: <c>result</c> (what the script returned),
+    /// <c>created</c>, <c>updated</c>, <c>deleted</c>.
+    /// </summary>
+    public const string Script = "script";
+
     /// <summary>Most elements a <see cref="ForEach"/> goes through.</summary>
     public const int MaxForEachItems = 500;
 
@@ -108,7 +132,7 @@ public static class FlowActivities
     /// <summary>Ends the run as failed with <c>message</c>.</summary>
     public const string Fail = "fail";
 
-    public static readonly string[] All = [Approval, Delay, If, SetVariable, ForEach, End, Fail];
+    public static readonly string[] All = [Approval, Delay, If, SetVariable, ForEach, Script, End, Fail];
 
     /// <summary>The outcome ports each activity has; actions have <c>done</c> and <c>error</c>.</summary>
     public static IReadOnlySet<string> Ports(string activity) => activity switch
@@ -118,6 +142,7 @@ public static class FlowActivities
         If => new HashSet<string>(["true", "false", "error"], StringComparer.Ordinal),
         SetVariable => new HashSet<string>(["done"], StringComparer.Ordinal),
         ForEach => new HashSet<string>(["item", "done", "error"], StringComparer.Ordinal),
+        Script => new HashSet<string>(["done", "error"], StringComparer.Ordinal),
         End or Fail => new HashSet<string>(StringComparer.Ordinal),
         _ => new HashSet<string>(["done", "error"], StringComparer.Ordinal),
     };
@@ -240,6 +265,11 @@ internal static class Definitions
         }
 
         errors.AddRange(ValidateTrigger(trigger));
+
+        if (spec.Concurrency is { } concurrency && !RunConcurrency.All.Contains(concurrency))
+        {
+            errors.Add($"concurrency must be one of {string.Join(", ", RunConcurrency.All)}.");
+        }
 
         if (spec.Flow is not null && spec.Steps is { Count: > 0 })
         {
@@ -520,6 +550,13 @@ internal static class Definitions
                     }
 
                     break;
+                case FlowActivities.Script:
+                    if (ScriptRunner.Check(ScriptRunner.Code(inputs)) is { } problem)
+                    {
+                        errors.Add($"{at}: {problem}");
+                    }
+
+                    break;
                 case FlowActivities.End or FlowActivities.Fail:
                     break;
                 default:
@@ -566,9 +603,47 @@ internal static class Definitions
             }
 
             errors.AddRange(flow.Nodes.Keys.Where(id => !reached.Contains(id)).Select(id => $"flow.nodes['{id}']: the node cannot be reached from the start."));
+
+            // A loop inside a loop needs its own variable, or it would overwrite the outer loop's element.
+            static string Variable(FlowNode node) => ActivityInputs.Text(node.Inputs ?? [], "as") ?? "item";
+            foreach (var (id, node) in flow.Nodes.Where(n => n.Value.Activity == FlowActivities.ForEach))
+            {
+                errors.AddRange(LoopBody(flow, id)
+                    .Where(b => flow.Nodes[b].Activity == FlowActivities.ForEach && Variable(flow.Nodes[b]) == Variable(node))
+                    .Select(inner => $"flow.nodes['{inner}']: a loop inside the loop '{id}' needs its own variable (as), not '{Variable(node)}'."));
+            }
         }
 
         return errors;
+    }
+
+    /// <summary>
+    /// The nodes a <c>forEach</c> runs for each element: those reached from its <c>item</c> port without passing through it
+    /// (loops inside it start again for each of its elements).
+    /// </summary>
+    public static HashSet<string> LoopBody(FlowDefinition flow, string forEach)
+    {
+        var body = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>();
+        if (flow.Nodes.GetValueOrDefault(forEach)?.Next?.GetValueOrDefault("item") is { } first)
+        {
+            pending.Push(first);
+        }
+
+        while (pending.TryPop(out var id))
+        {
+            if (id == forEach || !body.Add(id) || !flow.Nodes.TryGetValue(id, out var node))
+            {
+                continue;
+            }
+
+            foreach (var next in node.Next?.Values ?? [])
+            {
+                pending.Push(next);
+            }
+        }
+
+        return body;
     }
 
     private static IEnumerable<string> ValidateApproval(IReadOnlyList<string>? assignees, double? dueInHours)

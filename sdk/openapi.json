@@ -22116,6 +22116,14 @@
                 "$ref": "#/components/schemas/JsonObject"
               }
             ]
+          },
+          "concurrency": {
+            "maxLength": 20,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -22217,6 +22225,12 @@
               "string"
             ]
           },
+          "concurrency": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "@odata.etag": {
             "type": [
               "null",
@@ -22225,7 +22239,7 @@
             "description": "The ETag for \u0060If-Match\u0060 on changes (the same as the \u0060ETag\u0060 header)."
           }
         },
-        "description": "A workflow with the definition of its current \u0060version\u0060 (runs keep the version they started with): \u0060steps\u0060\nor a \u0060flow\u0060, and the initial \u0060variables\u0060."
+        "description": "A workflow with the definition of its current \u0060version\u0060 (runs keep the version they started with): \u0060steps\u0060\nor a \u0060flow\u0060, the initial \u0060variables\u0060, and \u0060concurrency\u0060 (runs on the same item: \u0060parallel\u0060,\n\u0060skip\u0060 or \u0060replace\u0060)."
       },
       "WorkflowStep": {
         "required": [

@@ -23,16 +23,18 @@ public sealed record WorkflowRequest(
     IReadOnlyList<WorkflowStep>? Steps,
     bool Enabled = true,
     FlowDefinition? Flow = null,
-    JsonObject? Variables = null);
+    JsonObject? Variables = null,
+    [property: StringLength(20)] string? Concurrency = null);
 
 /// <summary>
 /// A workflow with the definition of its current <c>version</c> (runs keep the version they started with): <c>steps</c>
-/// or a <c>flow</c>, and the initial <c>variables</c>.
+/// or a <c>flow</c>, the initial <c>variables</c>, and <c>concurrency</c> (runs on the same item: <c>parallel</c>,
+/// <c>skip</c> or <c>replace</c>).
 /// </summary>
 public sealed record WorkflowResponse(
     Guid Id, Guid WorkspaceId, string Name, string? Description, bool Enabled, int Version, WorkflowTrigger Trigger, string? Condition,
     IReadOnlyList<WorkflowStep>? Steps, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, FlowDefinition? Flow = null, JsonObject? Variables = null,
-    string? BuiltIn = null, string? CopiedFrom = null)
+    string? BuiltIn = null, string? CopiedFrom = null, string? Concurrency = null)
 {
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
     [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
@@ -283,7 +285,8 @@ internal static class WorkflowEndpoints
 
         var spec = new WorkflowSpec(
             request.Trigger!, string.IsNullOrWhiteSpace(request.Condition) ? null : request.Condition.Trim(),
-            request.Flow is null ? request.Steps ?? [] : request.Steps is { Count: > 0 } ? request.Steps : null, request.Flow, request.Variables);
+            request.Flow is null ? request.Steps ?? [] : request.Steps is { Count: > 0 } ? request.Steps : null, request.Flow, request.Variables,
+            string.IsNullOrWhiteSpace(request.Concurrency) ? null : request.Concurrency);
         var errors = await validator.ValidateAsync(workspaceId, spec, ct);
         return errors.Count == 0 ? (spec, null) : (null, ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [.. errors] }));
     }
@@ -294,7 +297,7 @@ internal static class WorkflowEndpoints
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
         return new WorkflowResponse(workflow.Id, workflow.WorkspaceId, workflow.Name, workflow.Description, workflow.Enabled,
             workflow.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, workflow.CreatedAt, workflow.UpdatedAt, spec.Flow, spec.Variables,
-            workflow.BuiltInKey, workflow.CopiedFrom)
+            workflow.BuiltInKey, workflow.CopiedFrom, spec.Concurrency)
         { ETag = ETags.From(workflow.Version) };
     }
 
@@ -437,6 +440,11 @@ internal static class WorkflowEndpoints
         if (error is not null)
         {
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [error] });
+        }
+
+        if (runs.Count == 0)
+        {
+            return ApiErrors.Conflict("runGoing", $"A run of '{workflow.Name}' on this item is still going (concurrency: skip).");
         }
 
         return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/workflows/runs/{runs[0].Id}", await ToResponseAsync(db, runs[0], ct));

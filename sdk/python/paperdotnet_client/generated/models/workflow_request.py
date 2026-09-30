@@ -17,6 +17,8 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
 
     # The enabled property
     enabled: Optional[bool] = True
+    # The concurrency property
+    concurrency: Optional[str] = None
     # The condition property
     condition: Optional[str] = None
     # The description property
@@ -59,6 +61,7 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
         from .workflow_trigger import WorkflowTrigger
 
         fields: dict[str, Callable[[Any], None]] = {
+            "concurrency": lambda n : setattr(self, 'concurrency', n.get_str_value()),
             "condition": lambda n : setattr(self, 'condition', n.get_str_value()),
             "description": lambda n : setattr(self, 'description', n.get_str_value()),
             "enabled": lambda n : setattr(self, 'enabled', n.get_bool_value()),
@@ -78,6 +81,7 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
         """
         if writer is None:
             raise TypeError("writer cannot be null.")
+        writer.write_str_value("concurrency", self.concurrency)
         writer.write_str_value("condition", self.condition)
         writer.write_str_value("description", self.description)
         writer.write_bool_value("enabled", self.enabled)
