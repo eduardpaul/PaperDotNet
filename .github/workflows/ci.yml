@@ -13,13 +13,9 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
+  # The Native AOT server (ADR-0039) on .NET 11: build, tests, schema, and the published binary with its memory budget.
   build-test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # Everything must work on both databases (ADR-0009).
-        provider: [sqlite, postgresql]
     steps:
       - uses: actions/checkout@v4
 
@@ -39,66 +35,18 @@ jobs:
         run: dotnet build PaperDotNet.slnx -c Release --no-restore
 
       - name: Migrations match the model
-        run: |
-          for project in PostgreSql Sqlite; do
-            for context in TenancyDbContext IdentityDbContext WorkspacesDbContext ListsDbContext JobsDbContext TaxonomyDbContext SearchDbContext ExtensionsDbContext; do
-              dotnet ef migrations has-pending-model-changes \
-                -p "src/Migrations/PaperDotNet.Migrations.$project" -c "$context" --configuration Release --no-build
-            done
-          done
-
-      # OCR (DOC-07) as in the Dockerfile; backups (PLT-12) need pg_dump at least as new as the server (postgres:17).
-      - name: Install Tesseract and PostgreSQL client tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu
-          if [ "${{ matrix.provider }}" = "postgresql" ]; then
-            sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-            sudo apt-get install -y --no-install-recommends postgresql-client-17
-            echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
-          fi
-
-      # PostgreSQL runs in Testcontainers (Docker is available on the runner); SQLite uses a temp file.
-      - name: Test (${{ matrix.provider }})
-        env:
-          PAPERDOTNET_TEST_PROVIDER: ${{ matrix.provider }}
-        run: dotnet test --solution PaperDotNet.slnx -c Release --no-build
-
-  # The Native AOT core (ADR-0039) on .NET 11: its own solution, tests, and the published binary with its memory budget.
-  core-aot:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: core
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: core/global.json
-
-      - name: Restore
-        run: |
-          dotnet restore PaperDotNet.Core.slnx
-          dotnet tool restore
-
-      - name: Format
-        run: dotnet format PaperDotNet.Core.slnx --verify-no-changes --no-restore
-
-      - name: Build
-        run: dotnet build PaperDotNet.Core.slnx -c Release --no-restore
-
-      - name: Schema scripts match the model
         run: eng/schema.sh check
 
       - name: Test
-        run: dotnet test --solution PaperDotNet.Core.slnx -c Release --no-build
+        run: dotnet test --solution PaperDotNet.slnx -c Release --no-build
 
       - name: Native AOT publish and smoke test (memory budget)
         run: eng/aot-smoke.sh
 
-  # The web UI and the TypeScript SDK (ADR-0032, ADR-0033), against a real host on SQLite.
+  # The web UI and the TypeScript SDK (ADR-0032, ADR-0033). Paused: they still target the .NET 10 API, and move to the
+  # AOT server (ADR-0039) with their regenerated SDK.
   web:
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

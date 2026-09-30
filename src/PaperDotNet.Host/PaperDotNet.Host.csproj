@@ -1,54 +1,47 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
+  <!--
+    The PaperDotNet server as one Native AOT binary (ADR-0039). SQLite for now: EF Core precompiles every query to the
+    SQL of one provider, so each database is its own build.
+
+    - Wolverine handlers are generated ahead of time (eng/codegen.sh) and committed under Internal/Generated.
+    - EF Core builds each module's compiled model and query interceptors during publish (Microsoft.EntityFrameworkCore.Tasks).
+    - Schema changes: eng/schema.sh. Publish and check the memory budget: eng/aot-smoke.sh.
+  -->
   <PropertyGroup>
     <AssemblyName>paperdotnet</AssemblyName>
     <RootNamespace>PaperDotNet.Host</RootNamespace>
     <UserSecretsId>paperdotnet-host</UserSecretsId>
+    <PublishAot>true</PublishAot>
     <!--
-      Published images are framework-dependent ReadyToRun (Dockerfile passes -r linux-x64).
-      Native AOT and trimming do not fit: Wolverine, the EF JSON translators and the event
-      dispatcher bind handlers with reflection, and both database providers ship in one binary.
-      The Minimal API request-delegate generator is left off: for several Results signatures
-      in this API it emits code that does not compile.
+      PublishAot also turns dynamic code off in JIT builds, where EF Core then refuses to build its model. Development
+      and test runs keep it (runtime model, LINQ compiled at run time); the published binary has the compiled model
+      and precompiled queries, checked by eng/aot-smoke.sh.
     -->
-    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+    <DynamicCodeSupport Condition="'$(_IsPublishing)' != 'true'">true</DynamicCodeSupport>
+    <!--
+      Our code is held to the trim and AOT analyzers (warnings are errors at build). EF Core, the OData parser, Jint's
+      .NET interop and Weasel report trim warnings of their own (one line per assembly); those stay warnings, and the
+      published binary is checked by eng/aot-smoke.sh.
+    -->
+    <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
+    <!--
+      Microsoft.EntityFrameworkCore.Tasks here starts the compiled model and query generation of every module when
+      publishing with AOT; the host has no DbContext of its own to generate.
+    -->
+    <EFScaffoldModelStage>none</EFScaffoldModelStage>
+    <EFPrecompileQueriesStage>none</EFPrecompileQueriesStage>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\PaperDotNet.ServiceDefaults\PaperDotNet.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Persistence.PostgreSql\PaperDotNet.Persistence.PostgreSql.csproj" />
     <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Persistence.Sqlite\PaperDotNet.Persistence.Sqlite.csproj" />
-    <ProjectReference Include="..\BuildingBlocks\PaperDotNet.AI\PaperDotNet.AI.csproj" />
-    <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Storage\PaperDotNet.Storage.csproj" />
-    <ProjectReference Include="..\Migrations\PaperDotNet.Migrations.PostgreSql\PaperDotNet.Migrations.PostgreSql.csproj" />
-    <ProjectReference Include="..\Migrations\PaperDotNet.Migrations.Sqlite\PaperDotNet.Migrations.Sqlite.csproj" />
-    <ProjectReference Include="..\Modules\Tenancy\PaperDotNet.Tenancy\PaperDotNet.Tenancy.csproj" />
     <ProjectReference Include="..\Modules\Identity\PaperDotNet.Identity\PaperDotNet.Identity.csproj" />
-    <ProjectReference Include="..\Modules\Workspaces\PaperDotNet.Workspaces\PaperDotNet.Workspaces.csproj" />
     <ProjectReference Include="..\Modules\Lists\PaperDotNet.Lists\PaperDotNet.Lists.csproj" />
-    <ProjectReference Include="..\Modules\Jobs\PaperDotNet.Jobs\PaperDotNet.Jobs.csproj" />
     <ProjectReference Include="..\Modules\Audit\PaperDotNet.Audit\PaperDotNet.Audit.csproj" />
-    <ProjectReference Include="..\Modules\Taxonomy\PaperDotNet.Taxonomy\PaperDotNet.Taxonomy.csproj" />
-    <ProjectReference Include="..\Modules\Search\PaperDotNet.Search\PaperDotNet.Search.csproj" />
-    <ProjectReference Include="..\Modules\Documents\PaperDotNet.Documents\PaperDotNet.Documents.csproj" />
-    <ProjectReference Include="..\Modules\Tasks\PaperDotNet.Tasks\PaperDotNet.Tasks.csproj" />
-    <ProjectReference Include="..\Modules\AiWorkflows\PaperDotNet.AiWorkflows\PaperDotNet.AiWorkflows.csproj" />
-    <ProjectReference Include="..\Modules\Notes\PaperDotNet.Notes\PaperDotNet.Notes.csproj" />
-    <ProjectReference Include="..\Modules\Calendar\PaperDotNet.Calendar\PaperDotNet.Calendar.csproj" />
-    <ProjectReference Include="..\Modules\Notifications\PaperDotNet.Notifications\PaperDotNet.Notifications.csproj" />
-    <ProjectReference Include="..\Modules\Collaboration\PaperDotNet.Collaboration\PaperDotNet.Collaboration.csproj" />
-    <ProjectReference Include="..\Modules\Mcp\PaperDotNet.Mcp\PaperDotNet.Mcp.csproj" />
-    <ProjectReference Include="..\Modules\Provisioning\PaperDotNet.Provisioning\PaperDotNet.Provisioning.csproj" />
-    <ProjectReference Include="..\Tools\PaperDotNet.Import.Papermerge\PaperDotNet.Import.Papermerge.csproj" />
     <ProjectReference Include="..\Modules\Workflows\PaperDotNet.Workflows\PaperDotNet.Workflows.csproj" />
-    <ProjectReference Include="..\Modules\ExtensionHost\PaperDotNet.ExtensionHost\PaperDotNet.ExtensionHost.csproj" />
-    <!-- Finds referenced extensions at compile time (ADR-0014). Add extensions as package/project references. -->
-    <ProjectReference Include="..\Extensions\PaperDotNet.Extensions.Generator\PaperDotNet.Extensions.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Messaging\PaperDotNet.Messaging.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
-    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" PrivateAssets="all" />
     <PackageReference Include="WolverineFx.Sqlite" />
-    <PackageReference Include="WolverineFx.Postgresql" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />

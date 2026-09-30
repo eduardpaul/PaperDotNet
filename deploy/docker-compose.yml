@@ -1,8 +1,8 @@
 # Minimal self-hosted PaperDotNet: ONE container, data in SQLite on a volume.
 #   cp deploy/.env.example deploy/.env   # then set the secrets
 #   docker compose -f deploy/docker-compose.yml up -d
-# To use PostgreSQL instead, add the override file:
-#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.postgres.yml up -d
+# The server is one Native AOT binary (ADR-0039). PostgreSQL (docker-compose.postgres.yml) needs its own build of the
+# server and comes back when that build exists.
 name: paperdotnet
 
 services:
@@ -15,16 +15,12 @@ services:
     ports:
       - "${PAPERDOTNET_PORT:-8080}:8080"
     environment:
-      # OAuth over plain HTTP is refused unless TLS ends at a proxy that forwards the scheme (BEHIND_PROXY) or you allow it here.
-      PAPERDOTNET__Auth__RequireHttps: ${REQUIRE_HTTPS:-true}
+      # The first administrator (user name admin) is created with this password on first start.
       PAPERDOTNET__Bootstrap__AdminPassword: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       PAPERDOTNET__Tenancy__DefaultTenant: ${DEFAULT_TENANT:-default}
-      # The web UI is served at PUBLIC_URL; its sign-in returns to /callback.
-      PAPERDOTNET__Auth__FirstPartyRedirectUris__0: ${PUBLIC_URL:-http://localhost:8080}/callback
-      # Set to true when running behind a reverse proxy (Traefik, Caddy, nginx).
-      PAPERDOTNET__ForwardedHeaders__Enabled: ${BEHIND_PROXY:-false}
+      PAPERDOTNET__Bootstrap__TenantIdentifier: ${DEFAULT_TENANT:-default}
     volumes:
-      # SQLite database and stored files (back up with `paperdotnet backup`).
+      # SQLite database and Data Protection keys.
       - paperdotnet-data:/data
 
 volumes:

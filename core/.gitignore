@@ -1,6 +1,0 @@
-# Local data of the core host (SQLite database, Data Protection keys) and design-time databases.
-data/
-*.db
-*.db-shm
-*.db-wal
-artifacts/

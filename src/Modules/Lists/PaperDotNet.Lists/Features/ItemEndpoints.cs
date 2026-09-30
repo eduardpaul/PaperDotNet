@@ -1,294 +1,156 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
-using PaperDotNet.Lists.Data;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Querying;
-using PaperDotNet.Persistence;
-using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
-/// <summary>Create body: <c>{ "id"?, "contentTypeId"?, "parentId"?, "isFolder"?, "fields": { "title": …, … } }</c>. With <c>id</c> the client chooses the item's id, so repeating a create is safe (the item it made is returned unchanged, 200).</summary>
-public sealed record CreateItemRequest(Guid? ContentTypeId, Guid? ParentId, bool IsFolder, JsonObject? Fields, Guid? Id = null);
+public sealed record ItemDto(
+    Guid Id,
+    Guid ListId,
+    JsonObject Fields,
+    DateTimeOffset CreatedAt,
+    Guid? CreatedBy,
+    DateTimeOffset UpdatedAt,
+    Guid? UpdatedBy,
+    [property: JsonPropertyName("@odata.etag")] string ETag);
 
-/// <summary>
-/// PATCH body (documented shape; the handler reads raw JSON to tell a missing <c>parentId</c> from null): <c>fields</c>
-/// are merged (null removes a value), <c>parentId</c> moves the item (null: the list root).
-/// </summary>
-public sealed record UpdateItemRequest(Guid? ContentTypeId, Guid? ParentId, JsonObject? Fields);
+/// <summary>New item: <c>fields</c> holds the title and the other field values.</summary>
+public sealed record CreateItemRequest(JsonObject Fields);
 
+/// <summary>Changed values; <c>null</c> removes a value.</summary>
+public sealed record UpdateItemRequest(JsonObject Fields);
+
+/// <summary>List items (Graph-shaped: values under <c>fields</c>), written through <see cref="ListItemStore"/>.</summary>
 internal static class ItemEndpoints
 {
-    public static void Map(IEndpointRouteBuilder endpoints)
+    public static void Map(IEndpointRouteBuilder app)
     {
-        var group = endpoints.MapV1Group($"{ListEndpoints.Route}/{{listId:guid}}/items", "Items");
-        group.MapGet("", QueryAsync).RequireScope(ListScopes.Read).WithName("ListItems").WithQueryOptions(QueryOptions.Items);
-        group.MapPost("", CreateAsync).RequireScope(ListScopes.Write).WithName("CreateItem");
-        group.MapGet("/{itemId:guid}", GetAsync).RequireScope(ListScopes.Read).WithName("GetItem");
-        group.MapGet("/{itemId:guid}/children", ChildrenAsync).RequireScope(ListScopes.Read).WithName("ListFolderChildren").WithQueryOptions(QueryOptions.Items);
-        group.MapPatch("/{itemId:guid}", UpdateAsync).RequireScope(ListScopes.Write).WithName("UpdateItem").WithRequestBodySchema<UpdateItemRequest>();
-        group.MapDelete("/{itemId:guid}", DeleteAsync).RequireScope(ListScopes.Write).WithName("DeleteItem");
+        var group = app.MapGroup("/v1.0/lists/{listId:guid}/items").WithTags("Items");
+        group.MapGet("/", QueryAsync).RequireScope(Scopes.ListsRead).WithName("ListItems")
+            .WithDescription("OData query options: $filter, $orderby, $top, $skiptoken, $count.");
+        group.MapPost("/", CreateAsync).RequireScope(Scopes.ListsWrite).WithName("CreateItem");
+        group.MapGet("/{itemId:guid}", GetAsync).RequireScope(Scopes.ListsRead).WithName("GetItem");
+        group.MapPatch("/{itemId:guid}", UpdateAsync).RequireScope(Scopes.ListsWrite).WithName("UpdateItem");
+        group.MapDelete("/{itemId:guid}", DeleteAsync).RequireScope(Scopes.ListsWrite).WithName("DeleteItem");
     }
 
-    /// <summary>
-    /// Items of the list. Supports <c>$filter</c>, <c>$orderby</c>, <c>$top</c>, <c>$skiptoken</c>,
-    /// <c>$count</c>, <c>$select</c> (field names) and <c>viewId</c>.
-    /// </summary>
-    private static async Task<Results<Ok<ItemPage>, ValidationProblem, ProblemHttpResult>> QueryAsync(
-        Guid workspaceId, Guid listId, Guid? viewId, ListSchemaLoader loader, ItemQueryRunner runner, ListsDbContext db,
-        HttpRequest http, CancellationToken ct)
+    private static ItemDto ToDto(ListItemData item) =>
+        new(item.Id, item.ListId, item.Fields, item.CreatedAt, item.CreatedBy, item.UpdatedAt, item.UpdatedBy, ETags.From(item.Version));
+
+    private static async Task<Results<Ok<Page<ItemDto>>, ProblemHttpResult>> QueryAsync(
+        Guid listId,
+        [FromQuery(Name = "$filter")] string? filter,
+        [FromQuery(Name = "$orderby")] string? orderBy,
+        [FromQuery(Name = "$top")] int? top,
+        [FromQuery(Name = "$skiptoken")] string? skipToken,
+        [FromQuery(Name = "$count")] bool? count,
+        HttpRequest request,
+        Caller caller,
+        ListItemStore items,
+        IItemQueries queries,
+        CancellationToken cancellationToken)
     {
-        var schema = await loader.LoadAsync(workspaceId, listId, ct);
-        if (schema is null)
+        if (await items.FindListEntityAsync(caller.TenantId, listId, cancellationToken) is not { } list)
         {
             return ApiErrors.NotFound();
         }
 
-        ListView? view = null;
-        if (viewId is { } id)
+        var fields = ListItemStore.FieldsOf(list);
+        var (filterClause, orderByClause, error) = ItemQueryParser.Parse(filter, orderBy, fields);
+        if (error is not null)
         {
-            view = await db.Views.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id && v.ListId == listId, ct);
-            if (view is null)
-            {
-                return ApiErrors.NotFound("The view was not found.");
-            }
+            return ApiErrors.BadRequest("invalidQuery", error);
         }
 
-        return await RunAsync(schema, view, null, runner, http, ct);
-    }
-
-    private static async Task<Results<Ok<ItemPage>, ValidationProblem, ProblemHttpResult>> ChildrenAsync(
-        Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ItemQueryRunner runner, ListsDbContext db,
-        HttpRequest http, CancellationToken ct)
-    {
-        var schema = await loader.LoadAsync(workspaceId, listId, ct);
-        var folder = schema is null ? null : await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId && i.ListId == listId && i.IsFolder, ct);
-        if (folder is null || schema!.Access.Level(folder.ScopeId) < WorkspaceAccessLevel.Read)
+        var page = PageRequest.Create(top, skipToken);
+        ItemQueryResult result;
+        try
         {
-            return ApiErrors.NotFound();
+            result = await queries.QueryAsync(new ItemQuery(caller.TenantId, listId, filterClause, orderByClause, page, count ?? false), cancellationToken);
+        }
+        catch (NotSupportedException exception)
+        {
+            return ApiErrors.BadRequest("invalidQuery", exception.Message);
         }
 
-        return await RunAsync(schema, null, i => i.ParentId == itemId, runner, http, ct);
+        var dtos = result.Items.Select(i => ToDto(ListItemStore.ToData(i, fields))).ToList();
+        return TypedResults.Ok(orderByClause is null
+            ? Page.Create(dtos, page, request, i => i.Id, result.Count)
+            : Page.CreateAtOffset(dtos, page, request, result.Count));
     }
 
-    private static async Task<Results<Ok<ItemPage>, ValidationProblem, ProblemHttpResult>> RunAsync(
-        ListSchema schema, ListView? view, System.Linq.Expressions.Expression<Func<ListItem, bool>>? scope,
-        ItemQueryRunner runner, HttpRequest http, CancellationToken ct)
+    private static async Task<Results<Created<ItemDto>, ValidationProblem, ProblemHttpResult>> CreateAsync(
+        Guid listId, CreateItemRequest body, Caller caller, ListItemStore items, CancellationToken cancellationToken)
     {
-        var (page, error) = await runner.RunAsync(schema, ItemQueryOptions.From(http), view, scope, http, ct);
-        return page is null
-            ? ApiErrors.Validation(new Dictionary<string, string[]> { ["query"] = [error!] })
-            : TypedResults.Ok(page);
+        var result = await items.CreateAsync(caller.Actor, listId, null, body.Fields ?? [], cancellationToken);
+        return result.Status switch
+        {
+            ItemWriteStatus.Ok => TypedResults.Created($"/v1.0/lists/{listId}/items/{result.Item!.Id}", ToDto(result.Item)),
+            ItemWriteStatus.Invalid => ApiErrors.Validation(result.Errors!.ToDictionary()),
+            _ => ApiErrors.NotFound(),
+        };
     }
 
-    private static async Task<Results<Ok<ItemResponse>, ProblemHttpResult>> GetAsync(
-        Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, HttpResponse response, CancellationToken ct)
+    private static async Task<Results<Ok<ItemDto>, ProblemHttpResult>> GetAsync(
+        Guid listId, Guid itemId, HttpResponse response, Caller caller, ListItemStore items, CancellationToken cancellationToken)
     {
-        var schema = await loader.LoadAsync(workspaceId, listId, ct);
-        var item = schema is null ? null : await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId && i.ListId == listId, ct);
-        if (item is null || schema!.Access.Level(item.ScopeId) < WorkspaceAccessLevel.Read)
+        if (await items.GetAsync(caller.TenantId, listId, itemId, cancellationToken) is not { } item)
         {
             return ApiErrors.NotFound();
         }
 
         ETags.Set(response, item.Version);
-        return TypedResults.Ok(ItemResponse.From(item));
+        return TypedResults.Ok(ToDto(item));
     }
 
-    private static async Task<Results<Created<ItemResponse>, Ok<ItemResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
-        Guid workspaceId, Guid listId, CreateItemRequest request, ListSchemaLoader loader, ListsDbContext db, ItemWriter writer,
-        HttpResponse response, CancellationToken ct)
+    private static async Task<Results<Ok<ItemDto>, ValidationProblem, ProblemHttpResult>> UpdateAsync(
+        Guid listId, Guid itemId, UpdateItemRequest body, HttpContext http, Caller caller, ListItemStore items, CancellationToken cancellationToken)
     {
-        var schema = await loader.LoadAsync(workspaceId, listId, ct);
-        if (schema is null)
+        if (!ETags.TryGetIfMatch(http.Request, out var version))
         {
-            return ApiErrors.NotFound();
+            return ApiErrors.PreconditionRequired();
         }
 
-        if (request.Id is { } id)
+        var result = await items.UpdateAsync(caller.Actor, listId, itemId, body.Fields ?? [], version, cancellationToken);
+        switch (result.Status)
         {
-            if (id == Guid.Empty)
-            {
-                return ApiErrors.Validation(new Dictionary<string, string[]> { ["id"] = ["The id cannot be empty."] });
-            }
-
-            // A repeated create answers with the item it made; any other item with this id (also a deleted one) is a conflict.
-            var existing = await db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete]).AsNoTracking().FirstOrDefaultAsync(i => i.Id == id, ct);
-            if (existing is not null)
-            {
-                if (existing.ListId != listId || existing.DeletedAt is not null || schema.Access.Level(existing.ScopeId) < WorkspaceAccessLevel.Read)
-                {
-                    return ApiErrors.Conflict("idTaken", "An item with this id exists in another list or was deleted.");
-                }
-
-                ETags.Set(response, existing.Version);
-                return TypedResults.Ok(ItemResponse.From(existing));
-            }
-        }
-
-        var values = request.Fields is null ? (JsonElement?)null : JsonSerializer.SerializeToElement(request.Fields);
-        ItemWriteResult result;
-        try
-        {
-            result = await writer.CreateAsync(schema, request.ContentTypeId, request.ParentId, request.IsFolder, values, request.Id ?? Ids.New(), ct);
-        }
-        catch (DbUpdateException) when (request.Id is not null)
-        {
-            // The id is used by an item this tenant cannot see.
-            return ApiErrors.Conflict("idTaken", "An item with this id exists in another list or was deleted.");
-        }
-
-        if (result.Forbidden)
-        {
-            return ListEndpoints.Forbidden();
-        }
-
-        if (result.Errors is not null)
-        {
-            return ApiErrors.Validation(result.Errors);
-        }
-
-        if (result.Cancelled is not null)
-        {
-            return CancelledByMutator(result.Cancelled);
-        }
-
-        ETags.Set(response, result.Item!.Version);
-        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/lists/{listId}/items/{result.Item.Id}", ItemResponse.From(result.Item));
-    }
-
-    /// <summary>
-    /// PATCH: <c>fields</c> are merged (null removes a value); <c>parentId</c> moves the item
-    /// (null = list root); <c>contentTypeId</c> changes its content type. Requires <c>If-Match</c>.
-    /// </summary>
-    private static async Task<Results<Ok<ItemResponse>, ValidationProblem, ProblemHttpResult>> UpdateAsync(
-        Guid workspaceId, Guid listId, Guid itemId, JsonElement body, ListSchemaLoader loader, ListsDbContext db, ItemWriter writer,
-        HttpRequest http, HttpResponse response, CancellationToken ct)
-    {
-        if (body.ValueKind != JsonValueKind.Object)
-        {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["body"] = ["A JSON object is expected."] });
-        }
-
-        var (schema, item, problem) = await LoadForChangeAsync(workspaceId, listId, itemId, loader, db, http, ct);
-        if (problem is not null)
-        {
-            return problem;
-        }
-
-        Guid? contentTypeId = null;
-        var parentId = Optional<Guid?>.None;
-        JsonElement? fields = null;
-        foreach (var property in body.EnumerateObject())
-        {
-            switch (property.Name)
-            {
-                case "fields":
-                    fields = property.Value;
-                    break;
-                case "contentTypeId" when property.Value.TryGetGuid(out var ctId):
-                    contentTypeId = ctId;
-                    break;
-                case "parentId" when property.Value.ValueKind == JsonValueKind.Null:
-                    parentId = Optional<Guid?>.Of(null);
-                    break;
-                case "parentId" when property.Value.TryGetGuid(out var pId):
-                    parentId = Optional<Guid?>.Of(pId);
-                    break;
-                default:
-                    return ApiErrors.Validation(new Dictionary<string, string[]> { [property.Name] = ["Unknown or invalid property."] });
-            }
-        }
-
-        try
-        {
-            var result = await writer.UpdateAsync(schema!, item!, contentTypeId, parentId, fields, ct);
-            if (result.Forbidden)
-            {
-                return ListEndpoints.Forbidden();
-            }
-
-            if (result.Errors is not null)
-            {
-                return ApiErrors.Validation(result.Errors);
-            }
-
-            if (result.Cancelled is not null)
-            {
-                return CancelledByMutator(result.Cancelled);
-            }
-
-            ETags.Set(response, result.Item!.Version);
-            return TypedResults.Ok(ItemResponse.From(result.Item));
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return ApiErrors.PreconditionFailed();
+            case ItemWriteStatus.Ok:
+                ETags.Set(http.Response, result.Item!.Version);
+                return TypedResults.Ok(ToDto(result.Item));
+            case ItemWriteStatus.Invalid:
+                return ApiErrors.Validation(result.Errors!.ToDictionary());
+            case ItemWriteStatus.PreconditionFailed:
+                return ApiErrors.PreconditionFailed();
+            default:
+                return ApiErrors.NotFound();
         }
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteAsync(
-        Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, ItemWriter writer,
-        HttpRequest http, CancellationToken ct)
+        Guid listId, Guid itemId, HttpRequest request, Caller caller, ListItemStore items, CancellationToken cancellationToken)
     {
-        var (schema, item, problem) = await LoadForChangeAsync(workspaceId, listId, itemId, loader, db, http, ct);
-        if (problem is not null)
+        uint? ifMatch = null;
+        if (ETags.HasIfMatch(request))
         {
-            return problem;
-        }
-
-        try
-        {
-            var result = await writer.DeleteAsync(schema!, item!, ct);
-            return result switch
+            if (!ETags.TryGetIfMatch(request, out var version))
             {
-                { Conflict: { } conflict } => ApiErrors.Conflict("folderNotEmpty", conflict),
-                { Cancelled: { } message } => CancelledByMutator(message),
-                _ => TypedResults.NoContent(),
-            };
+                return ApiErrors.PreconditionFailed();
+            }
+
+            ifMatch = version;
         }
-        catch (DbUpdateConcurrencyException)
+
+        var result = await items.DeleteAsync(caller.Actor, listId, itemId, ifMatch, cancellationToken);
+        return result.Status switch
         {
-            return ApiErrors.PreconditionFailed();
-        }
-    }
-
-    internal static ProblemHttpResult CancelledByMutator(string message) =>
-        ApiErrors.Conflict("cancelledByMutator", message);
-
-    internal static async Task<(ListSchema? Schema, ListItem? Item, ProblemHttpResult? Problem)> LoadForChangeAsync(
-        Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, HttpRequest http, CancellationToken ct)
-    {
-        var schema = await loader.LoadAsync(workspaceId, listId, ct);
-        var item = schema is null ? null : await db.Items.FirstOrDefaultAsync(i => i.Id == itemId && i.ListId == listId, ct);
-        var level = item is null ? WorkspaceAccessLevel.None : schema!.Access.Level(item.ScopeId);
-        if (level == WorkspaceAccessLevel.None)
-        {
-            return (null, null, ApiErrors.NotFound());
-        }
-
-        if (level < WorkspaceAccessLevel.Contribute)
-        {
-            return (null, null, ListEndpoints.Forbidden());
-        }
-
-        if (!ETags.TryGetIfMatch(http, out var version))
-        {
-            return (null, null, ApiErrors.PreconditionRequired());
-        }
-
-        if (version != item!.Version)
-        {
-            return (null, null, ApiErrors.PreconditionFailed());
-        }
-
-        db.Entry(item).Property(i => i.Version).OriginalValue = version;
-        return (schema, item, null);
+            ItemWriteStatus.Ok => TypedResults.NoContent(),
+            ItemWriteStatus.PreconditionFailed => ApiErrors.PreconditionFailed(),
+            _ => ApiErrors.NotFound(),
+        };
     }
 }

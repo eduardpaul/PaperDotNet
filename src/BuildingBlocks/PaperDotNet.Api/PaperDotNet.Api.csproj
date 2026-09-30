@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Shared HTTP API conventions: Graph-style paging, errors, ETags, scope authorization. -->
+  <!-- Shared HTTP API conventions: Graph-style paging, errors, ETags, scope authorization, the caller. -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />

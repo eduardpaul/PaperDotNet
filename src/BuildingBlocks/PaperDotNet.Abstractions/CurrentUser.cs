@@ -1,39 +1,49 @@
+using System.Security.Claims;
+
 namespace PaperDotNet.Abstractions;
 
-/// <summary>The authenticated principal of the current operation.</summary>
+/// <summary>Claim types in PaperDotNet access tokens.</summary>
+public static class PaperDotNetClaims
+{
+    public const string UserId = "sub";
+    public const string TenantId = "tid";
+    public const string UserName = "name";
+    public const string Scope = "scope";
+
+    /// <summary>Changes when the password changes or the user is disabled; refresh tokens with an old stamp fail.</summary>
+    public const string SecurityStamp = "stamp";
+}
+
+/// <summary>The caller of the current request (or nobody, in background work).</summary>
 public interface ICurrentUser
 {
     Guid? UserId { get; }
 
-    bool IsAuthenticated => UserId is not null;
+    Guid? TenantId { get; }
+
+    bool IsAuthenticated { get; }
+
+    bool HasScope(string scope);
 }
 
-/// <summary>Lets background work act as a user (e.g. the user who started an operation).</summary>
-public interface ICurrentUserOverride
+public static class ClaimsPrincipalExtensions
 {
-    void ActAs(Guid userId);
-}
+    public static Guid? FindGuid(this ClaimsPrincipal principal, string type) =>
+        Guid.TryParse(principal.FindFirst(type)?.Value, out var value) ? value : null;
 
-/// <summary>Claim types issued by PaperDotNet.</summary>
-public static class PaperDotNetClaims
-{
-    public const string UserId = "sub";
-    public const string TenantId = "tenant_id";
-    public const string TenantIdentifier = "tenant";
-    public const string Name = "name";
+    public static bool HasScope(this ClaimsPrincipal principal, string scope)
+    {
+        foreach (var claim in principal.FindAll(PaperDotNetClaims.Scope))
+        {
+            foreach (var range in claim.Value.AsSpan().Split(' '))
+            {
+                if (claim.Value.AsSpan()[range].Equals(scope, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
 
-    /// <summary>Present only for API tokens: the scopes the token was limited to.</summary>
-    public const string TokenScope = "token_scope";
-
-    public const string TokenId = "token_id";
-
-    /// <summary>Present on OAuth tokens granted without the <c>api</c> scope: limited to their <see cref="TokenScope"/> claims.</summary>
-    public const string ScopeLimited = "scope_limited";
-}
-
-/// <summary>Authentication scheme names shared across modules.</summary>
-public static class AuthenticationSchemeNames
-{
-    /// <summary>Personal API tokens (<c>pdn_…</c>); can authenticate before the tenant is resolved.</summary>
-    public const string ApiToken = "ApiToken";
+        return false;
+    }
 }

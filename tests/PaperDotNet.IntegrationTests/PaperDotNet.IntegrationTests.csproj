@@ -1,20 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The server against a real host on SQLite (JIT build). The published Native AOT binary is checked by eng/aot-smoke.sh.
+    ToPort/ holds the tests of features still to port (ADR-0039); they are not compiled.
+  -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="xunit.v3.mtp-v2" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
-    <PackageReference Include="System.Formats.Cbor" />
-    <PackageReference Include="Testcontainers.PostgreSql" />
+    <Compile Remove="ToPort/**" />
+    <None Include="ToPort/**" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Tools\PaperDotNet.Cli\PaperDotNet.Cli.csproj" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\PaperDotNet.Host\PaperDotNet.Host.csproj" />
-    <ProjectReference Include="..\..\src\Sdk\PaperDotNet.Client\PaperDotNet.Client.csproj" />
-    <ProjectReference Include="..\..\samples\PaperDotNet.Samples.Invoices\PaperDotNet.Samples.Invoices.csproj" />
-    <ProjectReference Include="..\..\samples\PaperDotNet.Samples.Invoices.Migrations.Sqlite\PaperDotNet.Samples.Invoices.Migrations.Sqlite.csproj" />
-    <ProjectReference Include="..\..\samples\PaperDotNet.Samples.Invoices.Migrations.PostgreSql\PaperDotNet.Samples.Invoices.Migrations.PostgreSql.csproj" />
   </ItemGroup>
 </Project>

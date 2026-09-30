@@ -1,26 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
-    <ProjectReference Include="..\..\Tenancy\PaperDotNet.Tenancy.Contracts\PaperDotNet.Tenancy.Contracts.csproj" />
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="..\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Messaging\PaperDotNet.Messaging.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
-    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
-    <PackageReference Include="OpenIddict.Server.AspNetCore" />
-    <PackageReference Include="OpenIddict.Server.DataProtection" />
-    <PackageReference Include="OpenIddict.Validation.AspNetCore" />
-    <PackageReference Include="OpenIddict.Validation.DataProtection" />
-    <PackageReference Include="OpenIddict.Validation.ServerIntegration" />
-    <PackageReference Include="OpenIddict.EntityFrameworkCore" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
-  </ItemGroup>
-  <ItemGroup>
-    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
-    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
-  </ItemGroup>
+  <!--
+    Tenants, users and sign-in (ADR-0039 slice): OAuth 2.0 password and refresh-token grants on /connect/token with
+    ASP.NET Core bearer tokens (OpenIddict is not AOT-compatible), users and their scopes, first-start bootstrap.
+  -->
+  <Import Project="..\..\AotModule.props" />
 </Project>

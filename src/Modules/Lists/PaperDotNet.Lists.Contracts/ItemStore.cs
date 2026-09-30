@@ -1,211 +1,62 @@
 using System.Text.Json.Nodes;
-using PaperDotNet.Workspaces.Contracts;
+using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Lists.Contracts;
 
-/// <summary>A list, as seen by <see cref="IListItemStore"/>.</summary>
-public sealed record ListData(Guid Id, Guid WorkspaceId, string Name, string? TemplateKey)
-{
-    /// <summary>A document library (items carry files).</summary>
-    public bool IsLibrary { get; init; }
+/// <summary>A list, by id and name.</summary>
+public sealed record ListData(Guid Id, string Name);
 
-    /// <summary>The caller's access to the list (set by <see cref="IListItemStore.GetListAsync"/>).</summary>
-    public WorkspaceAccessLevel? Access { get; init; }
-
-    /// <summary>Template keys of the list's content types (e.g. <c>task</c>); custom content types have none.</summary>
-    public IReadOnlyList<string> ContentTypeKeys { get; init; } = [];
-
-    /// <summary>The list's content types (the first is the default).</summary>
-    public IReadOnlyList<ListContentType> ContentTypes { get; init; } = [];
-}
-
-/// <summary>A content type of a list: its name, and its template key for built-in and extension ones.</summary>
-public sealed record ListContentType(Guid Id, string Name, string? Key);
-
-/// <summary>The caller's personal workspace with its Documents and Inbox libraries (LST-07).</summary>
-public sealed record HomeData(Guid WorkspaceId, Guid DocumentsListId, Guid InboxListId);
-
-/// <summary>A column of a list, as returned by <see cref="IListItemStore.DescribeListAsync"/>.</summary>
-public sealed record ListFieldInfo(
-    string Name,
-    string DisplayName,
-    string Type,
-    bool Required,
-    bool AllowMultiple,
-    string? Description = null,
-    int? MaxLength = null,
-    decimal? Minimum = null,
-    decimal? Maximum = null,
-    IReadOnlyList<string>? Choices = null);
-
-/// <summary>A content type of a list, with its columns. The list's first content type is the default.</summary>
-public sealed record ListContentTypeInfo(Guid Id, string Name, string? Key, string? Description, IReadOnlyList<ListFieldInfo> Fields);
-
-/// <summary>A list the caller can read, including its columns.</summary>
-public sealed record ListDescription(
-    Guid Id,
-    Guid WorkspaceId,
-    string Name,
-    string? Description,
-    string? TemplateKey,
-    bool IsLibrary,
-    bool AllowFolders,
-    WorkspaceAccessLevel Access,
-    IReadOnlyList<ListContentTypeInfo> ContentTypes);
-
-/// <summary>One page of a query. <see cref="NextCursor"/> is null on the last page; pass it back as <see cref="ListItemQuery.SkipToken"/>.</summary>
-public sealed record ListItemPage(IReadOnlyList<ListItemData> Items, string? NextCursor);
-
-/// <summary>An item: <see cref="Fields"/> holds every value, including <c>title</c>.</summary>
+/// <summary>An item as the API shows it: <see cref="Fields"/> holds the title and the values of the list's fields.</summary>
 public sealed record ListItemData(
-    Guid Id,
-    Guid WorkspaceId,
-    Guid ListId,
-    Guid ContentTypeId,
-    Guid? ParentId,
-    bool IsFolder,
-    uint Version,
-    DateTimeOffset CreatedAt,
-    Guid? CreatedBy,
-    DateTimeOffset UpdatedAt,
-    Guid? UpdatedBy,
-    JsonObject Fields)
-{
-    /// <summary>The caller's access to the item (Read or more; Contribute allows changes).</summary>
-    public WorkspaceAccessLevel Access { get; init; } = WorkspaceAccessLevel.Read;
-}
+    Guid Id, Guid ListId, JsonObject Fields, DateTimeOffset CreatedAt, Guid? CreatedBy, DateTimeOffset UpdatedAt, Guid? UpdatedBy, uint Version);
 
-/// <summary>
-/// An item query: OData <c>$filter</c>/<c>$orderby</c> over the list's fields (as in the items API).
-/// <see cref="SkipToken"/> continues a previous page. <see cref="Top"/> is clamped to <see cref="MaxTop"/>.
-/// </summary>
-public sealed record ListItemQuery(string? Filter = null, string? OrderBy = null, int Top = 100, string? SkipToken = null)
-{
-    /// <summary>Most items one call returns.</summary>
-    public const int MaxTop = 1000;
-}
-
-/// <summary>One list's page from a query run against several lists.</summary>
-public sealed record ListQueryResult(ListData List, IReadOnlyList<ListItemData> Items);
-
-public enum ListItemStatus
+public enum ItemWriteStatus
 {
     Ok,
-
-    /// <summary>The list or item does not exist or is not visible.</summary>
     NotFound,
-
-    /// <summary>Visible, but the caller may not change it.</summary>
-    Forbidden,
-
-    /// <summary>Invalid values or query (<see cref="ListItemResult.Errors"/>).</summary>
     Invalid,
+    PreconditionFailed,
 
-    /// <summary>The expected version did not match (someone else changed the item).</summary>
-    VersionMismatch,
-
-    /// <summary>A mutator cancelled the change, or the change conflicts (e.g. a non-empty folder).</summary>
-    Rejected,
+    /// <summary>An item with the requested id exists already (a repeated create).</summary>
+    Exists,
 }
 
-/// <summary>Outcome of a store operation.</summary>
-public sealed record ListItemResult(ListItemStatus Status, ListItemData? Item = null, IReadOnlyDictionary<string, string[]>? Errors = null, string? Message = null)
+/// <summary>The outcome of a write: the item when it succeeded (or existed), else the reason.</summary>
+public sealed record ItemWriteResult(ItemWriteStatus Status, ListItemData? Item = null, IReadOnlyDictionary<string, string[]>? Errors = null)
 {
-    public bool Succeeded => Status == ListItemStatus.Ok;
+    public bool Succeeded => Status is ItemWriteStatus.Ok or ItemWriteStatus.Exists;
 
-    /// <summary>What went wrong, as a sentence (e.g. for a failed workflow activity); the status when it succeeded.</summary>
     public string Describe() => Status switch
     {
-        ListItemStatus.Invalid => "Invalid values: " + string.Join(" ", Errors?.SelectMany(e => e.Value.Select(v => $"{e.Key}: {v}")) ?? []),
-        ListItemStatus.Rejected => Message ?? "The change was rejected.",
-        ListItemStatus.NotFound => "The item no longer exists.",
+        ItemWriteStatus.Invalid => string.Join(" ", Errors?.Select(e => $"{e.Key}: {string.Join(" ", e.Value)}") ?? []),
+        ItemWriteStatus.NotFound => "The list or item was not found.",
+        ItemWriteStatus.PreconditionFailed => "The item was changed by someone else.",
         _ => Status.ToString(),
     };
 }
 
 /// <summary>
-/// Reads and writes list items from code (extensions, jobs). Writes go through the same
-/// pipeline as the API: field validation, mutators, versions, events, search.
-/// By default the store acts as the current user with their permissions (ADR-0011); use
-/// <see cref="AsSystem"/> for background work that acts on behalf of the organization.
+/// Items of the tenant's lists, for other modules (workflows) and the Lists API alike: values are checked against the
+/// list's fields, and every change is saved with its event (<see cref="ItemCreated"/>, <see cref="ItemUpdated"/>,
+/// <see cref="ItemDeleted"/>) through the outbox, with the actor's causation depth.
 /// </summary>
 public interface IListItemStore
 {
-    /// <summary>
-    /// A store with full control over every list of the current tenant: permissions of the caller are
-    /// not checked (events still name the current user, if any).
-    /// </summary>
-    IListItemStore AsSystem();
+    Task<ListData?> FindListAsync(Guid tenantId, Guid listId, CancellationToken cancellationToken);
 
-    /// <summary>Lists the caller can see, optionally in one workspace and created from one template.</summary>
-    Task<IReadOnlyList<ListData>> GetListsAsync(Guid? workspaceId, string? templateKey, CancellationToken cancellationToken);
+    Task<ListData?> FindListByNameAsync(Guid tenantId, string name, CancellationToken cancellationToken);
 
-    /// <summary>One list with the caller's access, or null when it is not visible.</summary>
-    Task<ListData?> GetListAsync(Guid workspaceId, Guid listId, CancellationToken cancellationToken);
+    Task<ListItemData?> GetAsync(Guid tenantId, Guid listId, Guid itemId, CancellationToken cancellationToken);
 
-    /// <summary>The list's content types and columns, or null when it is not visible.</summary>
-    Task<ListDescription?> DescribeListAsync(Guid workspaceId, Guid listId, CancellationToken cancellationToken);
+    /// <summary>Items matching an OData <c>$filter</c> and <c>$orderby</c> (optionally only <paramref name="itemId"/>); or the reason the query is invalid.</summary>
+    Task<(IReadOnlyList<ListItemData> Items, string? Error)> QueryAsync(
+        Guid tenantId, Guid listId, string? filter, string? orderBy, int top, Guid? itemId, CancellationToken cancellationToken);
 
-    /// <summary>The caller's Home workspace and libraries, created on first use (needs a user).</summary>
-    Task<HomeData> EnsureHomeAsync(CancellationToken cancellationToken);
+    /// <summary>Creates an item; with <paramref name="itemId"/> (e.g. a workflow's execution id) a repeat finds the item it created.</summary>
+    Task<ItemWriteResult> CreateAsync(ChangeActor actor, Guid listId, Guid? itemId, JsonObject values, CancellationToken cancellationToken);
 
-    Task<ListItemData?> GetAsync(Guid workspaceId, Guid listId, Guid itemId, CancellationToken cancellationToken);
+    /// <summary>Changes values (<c>null</c> removes one); <paramref name="ifMatch"/> is the version the caller saw, if any.</summary>
+    Task<ItemWriteResult> UpdateAsync(ChangeActor actor, Guid listId, Guid itemId, JsonObject values, uint? ifMatch, CancellationToken cancellationToken);
 
-    /// <summary>Items matching the query (up to <see cref="ListItemQuery.Top"/>, at most <see cref="ListItemQuery.MaxTop"/>); folders are excluded.</summary>
-    Task<(IReadOnlyList<ListItemData> Items, string? Error)> QueryAsync(Guid workspaceId, Guid listId, ListItemQuery query, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// As <see cref="QueryAsync(Guid, Guid, ListItemQuery, CancellationToken)"/>, plus a cursor for the next page.
-    /// The cursor is only valid with the same filter and order. Folders are excluded.
-    /// </summary>
-    Task<(ListItemPage? Page, string? Error)> QueryPageAsync(Guid workspaceId, Guid listId, ListItemQuery query, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Folders and items directly inside <paramref name="folderId"/> (null: the list root), with the same paging as
-    /// <see cref="QueryPageAsync"/>.
-    /// </summary>
-    Task<(ListItemPage? Page, string? Error)> ListChildrenAsync(Guid workspaceId, Guid listId, Guid? folderId, ListItemQuery query, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Runs <paramref name="query"/> over the lists: lists with the same fields run as one query (ADR-0035), so the
-    /// cost does not grow with the number of lists. Each such group returns at most <see cref="ListItemQuery.Top"/>
-    /// items in the query's order; the caller merges the results. Lists the caller cannot read are left out; an error
-    /// stops the rest.
-    /// </summary>
-    Task<(IReadOnlyList<ListQueryResult> Results, string? Error)> QueryAsync(IReadOnlyList<ListData> lists, ListItemQuery query, CancellationToken cancellationToken);
-
-    Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken);
-
-    /// <summary>Creates the item in <paramref name="parentId"/> (null: the list root). The parent must be a folder of the list.</summary>
-    Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, Guid? parentId, CancellationToken cancellationToken);
-
-    /// <summary>Creates a folder with <paramref name="title"/> in <paramref name="parentId"/> (null: the list root).</summary>
-    Task<ListItemResult> CreateFolderAsync(Guid workspaceId, Guid listId, string title, Guid? parentId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Creates the item with <paramref name="itemId"/> (e.g. a stable id of an operation that may be repeated). When that
-    /// item already exists in the list it is returned unchanged, so repeating the call creates nothing.
-    /// </summary>
-    Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken);
-
-    /// <summary>As <see cref="CreateAsync(Guid, Guid, Guid, JsonObject, Guid?, CancellationToken)"/>, placed in <paramref name="parentId"/>.</summary>
-    Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, Guid? contentTypeId, Guid? parentId, CancellationToken cancellationToken);
-
-    /// <summary>Merges <paramref name="fields"/> into the item (null removes a value); checks <paramref name="expectedVersion"/> when given.</summary>
-    Task<ListItemResult> UpdateAsync(Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, uint? expectedVersion, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// The folder at <paramref name="path"/> (folder titles from the list root), created where missing;
-    /// null for an empty path (the list root). Fails when the list does not allow folders.
-    /// </summary>
-    Task<(Guid? FolderId, ListItemResult? Problem)> EnsureFolderAsync(Guid workspaceId, Guid listId, IReadOnlyList<string> path, CancellationToken cancellationToken);
-
-    /// <summary>Moves the item (or folder) into <paramref name="folderId"/> (null: the list root) in the same list.</summary>
-    Task<ListItemResult> MoveAsync(Guid workspaceId, Guid listId, Guid itemId, Guid? folderId, CancellationToken cancellationToken);
-
-    /// <summary>Indexes the item again for search (e.g. after its <see cref="IItemSearchContributor"/> content changed).</summary>
-    Task ReindexAsync(Guid itemId, CancellationToken cancellationToken);
-
-    /// <summary>Moves the item to the recycle bin.</summary>
-    Task<ListItemResult> DeleteAsync(Guid workspaceId, Guid listId, Guid itemId, uint? expectedVersion, CancellationToken cancellationToken);
+    Task<ItemWriteResult> DeleteAsync(ChangeActor actor, Guid listId, Guid itemId, uint? ifMatch, CancellationToken cancellationToken);
 }

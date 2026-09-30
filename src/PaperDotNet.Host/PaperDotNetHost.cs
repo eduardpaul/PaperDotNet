@@ -1,253 +1,75 @@
-using System.Reflection;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.HttpOverrides;
+using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
-using PaperDotNet.AI;
-using PaperDotNet.AiWorkflows;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
-using PaperDotNet.Calendar;
-using PaperDotNet.Collaboration;
-using PaperDotNet.Documents;
-using PaperDotNet.ExtensionHost;
-using PaperDotNet.ExtensionHost.Runtime;
-using PaperDotNet.Extensions;
-using PaperDotNet.Extensions.Generated;
-using PaperDotNet.Host.Bootstrap;
 using PaperDotNet.Identity;
-using PaperDotNet.Jobs;
 using PaperDotNet.Lists;
-using PaperDotNet.Mcp;
 using PaperDotNet.Messaging;
-using PaperDotNet.Notes;
-using PaperDotNet.Notifications;
 using PaperDotNet.Persistence;
-using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.Persistence.Sqlite;
-using PaperDotNet.Provisioning;
-using PaperDotNet.Search;
-using PaperDotNet.ServiceDefaults;
-using PaperDotNet.Storage;
-using PaperDotNet.Tasks;
-using PaperDotNet.Taxonomy;
-using PaperDotNet.Tenancy;
 using PaperDotNet.Workflows;
-using PaperDotNet.Workspaces;
 using Wolverine;
-using Wolverine.Postgresql;
 using Wolverine.Sqlite;
 
 namespace PaperDotNet.Host;
 
-/// <summary>Composition root: modules, persistence, security and the HTTP pipeline.</summary>
-public static class PaperDotNetHost
+/// <summary>
+/// Composes the modules into the Native AOT server (ADR-0039). Modules still to port (Documents, Tasks, Calendar,
+/// Search, Taxonomy, Notifications, …) stay in src/Modules out of the build until they follow the AOT rules.
+/// </summary>
+internal static class PaperDotNetHost
 {
-    public const string EnvironmentPrefix = "PAPERDOTNET__";
+    private static readonly IModule[] Modules = [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule()];
 
-    /// <summary>Built-in modules, in dependency order.</summary>
-    public static IReadOnlyList<IModule> Modules { get; } =
-    [
-        new TenancyModule(),
-        new IdentityModule(),
-        new WorkspacesModule(),
-        new TaxonomyModule(),
-        new ListsModule(),
-        new JobsModule(),
-        new SearchModule(),
-        new DocumentsModule(),
-        new TasksModule(),
-        new CalendarModule(),
-        new NotesModule(),
-        new NotificationsModule(),
-        new CollaborationModule(),
-        new McpModule(),
-        new ProvisioningModule(),
-        new WorkflowsModule(),
-        new AiWorkflowsModule(),
-        new AuditModule(),
-        new ExtensionHostModule(),
-    ];
-
-    /// <summary>
-    /// Extensions registered in addition to the ones referenced by this build (found by the
-    /// source generator). For tests and custom hosts; set before the host is built.
-    /// </summary>
-    public static List<IExtension> AdditionalExtensions { get; } = [];
-
-    /// <summary>All extensions of this host: referenced at build time plus <see cref="AdditionalExtensions"/>.</summary>
-    public static IReadOnlyList<IExtension> Extensions() => [.. ReferencedExtensions.Create(), .. AdditionalExtensions];
-
-    public static WebApplicationBuilder AddPaperDotNet(this WebApplicationBuilder builder, bool runBootstrap)
+    public static WebApplicationBuilder AddPaperDotNet(this WebApplicationBuilder builder, bool generatingCode)
     {
-        builder.Configuration.AddEnvironmentVariables(EnvironmentPrefix);
-        builder.AddServiceDefaults();
-
         var services = builder.Services;
-        services.AddSingleton(TimeProvider.System);
-        services.AddHttpContextAccessor();
-        services.AddScoped<HttpCurrentUser>();
-        services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<HttpCurrentUser>());
-        services.AddScoped<ICurrentUserOverride>(sp => sp.GetRequiredService<HttpCurrentUser>());
-        services.AddScoped<EventCausation>();
-        services.AddHybridCache();
-        services.AddPaperDotNetDatabase(builder.Configuration);
-        services.AddPaperDotNetStorage(builder.Configuration);
-        services.AddPaperDotNetAI(builder.Configuration);
-        services.AddSingleton<ILiveEvents>(sp => new LiveEventHub(
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>>(),
-            sp.GetRequiredService<ILogger<LiveEventHub>>(),
-            sp.GetService<ILiveEventBackplane>()));
-        services.AddSingleton<DatabaseMigrator>();
-        services.AddScoped<PaperDotNet.Host.Backup.BackupService>();
-        services.AddScopeAuthorization();
+        var configuration = builder.Configuration;
+        var dataPath = Path.GetFullPath(configuration["Storage:DataPath"] is { Length: > 0 } path ? path : "data");
+        var connectionString = services.AddSqliteDatabase(configuration, dataPath);
 
-        // Registered first: hosted services start in order, so migrations run before
-        // Wolverine and the job scheduler touch the database.
-        services.AddOptions<BootstrapOptions>().BindConfiguration(BootstrapOptions.Section);
-        services.AddOptions<DatabaseOptions>().BindConfiguration(DatabaseOptions.Section);
-        services.AddScoped<TenantBootstrapper>();
-        if (runBootstrap)
-        {
-            services.AddHostedService<StartupBootstrapService>();
-        }
-
+        services.AddPaperDotNetApi();
+        services.AddPaperDotNetPersistence();
+        services.AddPaperDotNetMessaging();
         foreach (var module in Modules)
         {
-            module.AddServices(services, builder.Configuration);
+            module.AddServices(services, configuration);
         }
 
-        services.AddPaperDotNetExtensions(builder.Configuration, Extensions());
-
-        services.AddPaperDotNetMessaging(
-            options => ConfigureMessageStorage(options, builder.Configuration),
-            Modules.Select(m => m.GetType().Assembly).Distinct());
-
+        // Source-generated JSON of every module, for the API and the message queue.
+        var json = JsonTypeInfoResolver.Combine([.. Modules.Select(m => m.Json).OfType<IJsonTypeInfoResolver>()]);
+        services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, json));
         services.AddProblemDetails();
-        services.ConfigureHttpJsonOptions(o =>
-        {
-            o.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
-            o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-        });
-        // A web UI on another origin (e.g. a dev server): Cors:Origins lists the allowed origins. Off by default.
-        var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [];
-        if (corsOrigins.Length > 0)
-        {
-            services.AddCors(o => o.AddDefaultPolicy(policy => policy
-                .WithOrigins(corsOrigins)
-                .AllowAnyMethod()
-                .WithHeaders("Authorization", "Content-Type", "If-Match", "X-Tenant", "Last-Event-ID", "Accept")
-                .WithExposedHeaders("ETag", "Location", "Content-Disposition", "Retry-After")
-                .AllowCredentials()));
-        }
+        services.AddHealthChecks();
+        services.AddOpenApi();
 
-        WebUi.AddServices(services, builder.Configuration, builder.Environment);
-
-        services.AddOpenApi("v1", o =>
+        builder.Host.UseWolverine(options =>
         {
-            o.CreateSchemaReferenceId = SchemaNames.Unique;
-            o.AddDocumentTransformer<BearerSecurityTransformer>();
-            o.AddOperationTransformer<SdkOperationTransformer>();
-            o.AddSchemaTransformer<SdkSchemaTransformer>();
-            o.AddDocumentTransformer<SdkDocumentTransformer>();
+            options.PersistMessagesWithSqlite(connectionString);
+            options.UsePaperDotNetDefaults(json, generatingCode);
+            foreach (var module in Modules)
+            {
+                options.Discovery.IncludeAssembly(module.GetType().Assembly);
+            }
         });
-        // Requests per minute per user (or address); RateLimit:PermitPerMinute raises it, e.g. for load tests.
-        var permitPerMinute = builder.Configuration.GetValue("RateLimit:PermitPerMinute", 1200);
-        services.AddRateLimiter(o =>
-        {
-            o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    $"{ctx.Request.Host.Host}|{ctx.User.FindFirst(PaperDotNetClaims.UserId)?.Value ?? ctx.Connection.RemoteIpAddress?.ToString()}",
-                    _ => new FixedWindowRateLimiterOptions { PermitLimit = permitPerMinute, Window = TimeSpan.FromMinutes(1) }));
-        });
-        // Behind a reverse proxy, set ForwardedHeaders:Enabled=true. Off by default: forwarded
-        // headers influence scheme and host (and therefore host-based tenant resolution).
-        services.Configure<ForwardedHeadersOptions>(o =>
-        {
-            o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
-            o.KnownIPNetworks.Clear();
-            o.KnownProxies.Clear();
-        });
-
-
         return builder;
     }
 
     public static WebApplication UsePaperDotNet(this WebApplication app)
     {
-        // The direct peer, before forwarded headers can change it (trusted-proxy checks, IAM-15).
-        app.Use((context, next) =>
-        {
-            PeerAddress.Capture(context);
-            return next(context);
-        });
-        if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
-        {
-            app.UseForwardedHeaders();
-        }
         app.UseExceptionHandler();
         app.UseStatusCodePages();
-
-        if (app.Configuration.GetSection("Cors:Origins").Get<string[]>() is { Length: > 0 })
-        {
-            app.UseCors();
-        }
-
-        WebUi.UseStaticFiles(app);
-        app.UsePaperDotNetTenantResolution();
         app.UseAuthentication();
-        app.UsePaperDotNetTenantGuard();
         app.UseAuthorization();
         app.UseRateLimiter();
 
-        app.MapDefaultEndpoints();
-        app.MapOpenApi("/openapi/{documentName}.json").AllowAnonymous();
-        app.MapGet("/version", () => TypedResults.Ok(new { version = Version })).AllowAnonymous().ExcludeFromDescription();
         foreach (var module in Modules)
         {
             module.MapEndpoints(app);
         }
 
-        app.MapPaperDotNetExtensions();
-        Batch.Map(app);
-        WebUi.MapFallback(app);
-
+        app.MapHealthChecks("/health");
+        app.MapOpenApi();
         return app;
     }
-
-    /// <summary>Registers the configured database provider (<c>Database:Provider</c>): SQLite by default, or PostgreSQL.</summary>
-    public static IServiceCollection AddPaperDotNetDatabase(this IServiceCollection services, IConfiguration configuration)
-    {
-        var provider = configuration[$"{DatabaseOptions.Section}:Provider"] is { Length: > 0 } name ? name : "Sqlite";
-        return provider.ToUpperInvariant() switch
-        {
-            "SQLITE" => services.AddPaperDotNetSqlite(configuration),
-            "POSTGRESQL" or "POSTGRES" => services.AddPaperDotNetPostgreSql(configuration),
-            _ => throw new InvalidOperationException($"Unknown Database:Provider '{provider}'. Use Sqlite or PostgreSql."),
-        };
-    }
-
-    /// <summary>Wolverine message storage in the same database as the data (no broker needed).</summary>
-    private static void ConfigureMessageStorage(WolverineOptions options, IConfiguration configuration)
-    {
-        if (IsPostgreSql(configuration))
-        {
-            options.PersistMessagesWithPostgresql(configuration.GetConnectionString(PostgreSqlServiceCollectionExtensions.ConnectionStringName)!, "wolverine");
-        }
-        else
-        {
-            options.PersistMessagesWithSqlite(Persistence.Sqlite.SqliteServiceCollectionExtensions.ResolveConnectionString(configuration));
-
-            // SQLite serves a single app instance.
-            options.Durability.Mode = DurabilityMode.Solo;
-        }
-    }
-
-    private static bool IsPostgreSql(IConfiguration configuration) =>
-        configuration[$"{DatabaseOptions.Section}:Provider"]?.ToUpperInvariant() is "POSTGRESQL" or "POSTGRES";
-
-    public static string Version { get; } =
-        typeof(PaperDotNetHost).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
 }

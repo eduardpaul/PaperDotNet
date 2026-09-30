@@ -165,7 +165,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 
 ## Decisions
 
-- **2026-09-30:** the Native AOT core ([ADR-0039](adr/0039-native-aot-core.md), `core/`) adds no new license: .NET 11
+- **2026-09-30:** the Native AOT server ([ADR-0039](adr/0039-native-aot-core.md)) adds no new license: .NET 11
   (MIT), EF Core 11 with `Microsoft.EntityFrameworkCore.Tasks` (MIT, build time), `Microsoft.OData.Core`/`.Edm` alone
   without `Microsoft.AspNetCore.OData` (MIT), Wolverine without `.RuntimeCompilation` (MIT, so no Roslyn at run time),
   and the ASP.NET Core bearer-token handler instead of OpenIddict (shared framework). Workflows add `Jint` (BSD-2-Clause,

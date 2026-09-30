@@ -1,0 +1,40 @@
+<Project>
+  <!--
+    Imported by every module that runs in the Native AOT server (ADR-0039); modules still to port do not import it.
+    - Trim and AOT analyzers on (warnings are errors).
+    - Minimal API endpoints compiled at build time (the Web SDK does this only for the host project).
+    - EF Core builds the compiled model and precompiles this module's queries when the host is published with AOT.
+  -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.EntityFrameworkCore.GeneratedInterceptors</InterceptorsNamespaces>
+    <EFScaffoldModelStage>publish</EFScaffoldModelStage>
+    <EFPrecompileQueriesStage>publish</EFPrecompileQueriesStage>
+    <!-- EF Core runs the module assembly to create its DbContext: a library needs a runtimeconfig for that. -->
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <!-- CS8669: EF Core's generated interceptors use nullable annotations without #nullable. -->
+    <NoWarn>$(NoWarn);CS8669</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" PrivateAssets="all" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\BuildingBlocks\PaperDotNet.Messaging\PaperDotNet.Messaging.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
+    <!-- Design time only (compiled model, precompiled SQL, migrations): the build's database, ADR-0039. -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\BuildingBlocks\PaperDotNet.Persistence.Sqlite\PaperDotNet.Persistence.Sqlite.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The implicit usings of the Web SDK. -->
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+  </ItemGroup>
+</Project>

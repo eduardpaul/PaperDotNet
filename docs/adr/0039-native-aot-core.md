@@ -1,10 +1,10 @@
-# ADR-0039: A Native AOT core on .NET 11
+# ADR-0039: The server as one Native AOT binary on .NET 11
 
-- **Status:** Accepted (first slice implemented in `core/`)
+- **Status:** Accepted (Identity, Lists, Audit and Workflows ported; the other modules still to port)
 - **Date:** 2026-09-30
 - **Changes:** [ADR-0007](0007-odata-for-item-queries.md) (OData stays as the query syntax, without ASP.NET Core OData),
   [ADR-0008](0008-wolverine-for-reliable-events.md) (Wolverine with code generated ahead of time),
-  [ADR-0003](0003-tenant-resolution-and-isolation.md) / [ADR-0013](0013-openiddict-passkeys-rls.md) (no global query filters, no OpenIddict in the core)
+  [ADR-0003](0003-tenant-resolution-and-isolation.md) / [ADR-0013](0013-openiddict-passkeys-rls.md) (no global query filters, no OpenIddict)
 
 ## Context
 
@@ -46,21 +46,30 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
 
 ## Decision
 
-1. **A new core in `core/`**, on .NET 11, published as one Native AOT binary. It has its own solution, `global.json`,
-   packages and CI job, so the .NET 10 application keeps building while features move over. Modules are ported one at a
-   time onto the rules below. Nothing is copied from `src/` just because it exists there.
+1. **The server in `src/` becomes one Native AOT binary on .NET 11**, changed in place: the building blocks, the host
+   and each module keep their projects. Modules are ported one at a time onto the rules below; nothing is kept just
+   because it exists. **Modules still to port stay in `src/Modules` but out of the build** (not in `PaperDotNet.slnx`,
+   not referenced by the host), and so do their tests (`tests/PaperDotNet.IntegrationTests/ToPort`), the unit,
+   architecture and performance tests, the tools and the PostgreSQL projects. The web UI CI job is paused.
 2. **Budget:** under 100 MB resident when idle and under 300 MB under load, checked on every push by
-   `core/eng/aot-smoke.sh`, which publishes the binary and runs it.
+   `eng/aot-smoke.sh`, which publishes the binary and runs it.
 3. **Plain defaults over tuning.** Default GC and runtime settings. Memory tricks (GC knobs, heap limits, request
    throttling) only when the budget needs them.
 4. **SQLite first.** Because the SQL is precompiled per provider, PostgreSQL will be a separate build of the same code
    (its own compiled model, interceptors and schema scripts), not an option read at start.
 
-### Rules for code in the core
+### Rules for ported code
 
-- **Trim and AOT analyzers are on** (`IsAotCompatible` for libraries, `PublishAot` for the host), and warnings are
-  errors. Third-party trim warnings (EF Core, OData, Weasel) are reported at publish but do not fail it.
-- **JSON only through `CoreJson`** (source generation): requests, responses, events and OpenAPI parameter types.
+- **A ported module imports `src/Modules/AotModule.props`:** trim and AOT analyzers (`IsAotCompatible`), the Minimal API
+  request delegate generator (in a class library `MapGet` otherwise falls back to reflection), and EF Core's
+  compiled-model and query generation at publish (`Microsoft.EntityFrameworkCore.Tasks`; a library also needs a
+  runtimeconfig for it). Building blocks set `IsAotCompatible`; the host sets `PublishAot`. Warnings are errors.
+  Third-party trim warnings (EF Core, OData, Jint's .NET interop, Weasel) are reported at publish but do not fail it.
+- **Each module keeps its own DbContext** with an `IDesignTimeDbContextFactory` (for EF Core's generation at publish)
+  and registers it with `AddModuleDbContext<T>()`; the build's database (SQLite) comes from `IDatabaseProvider`.
+  Modules reference `PaperDotNet.Persistence.Sqlite` for the design-time options: a build has one database.
+- **JSON only through source generation:** each module exposes its `JsonSerializerContext` as `IModule.Json`
+  (requests, responses, events, OpenAPI parameter types); the host combines them for HTTP and Wolverine.
 - **EF Core queries must precompile:**
   - one LINQ expression from a `DbSet` property to the terminal operator, never composed over several statements
     (write two static queries instead of an `if`);
@@ -68,23 +77,26 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
     primary-constructor parameters, dotnet/efcore#35887);
   - entity classes are not `sealed` (the generated materializer tests for `IInjectableService`);
   - no `DateTimeOffset` in `ORDER BY` on SQLite (order by the time-ordered id);
-  - entity namespaces are global usings of the host (the generated interceptors do not import them).
+  - entities live in the DbContext's namespace (the generated interceptors import only that one).
 - **Tenant isolation without query filters:** every query on a tenant-owned set filters on `TenantId` explicitly.
-  `CoreSaveChangesInterceptor` sets the tenant on new rows and refuses writes into another tenant. Every endpoint gets a
+  `SaveChangesGuard` (PaperDotNet.Persistence) sets the tenant on new rows and refuses writes into another tenant. Every endpoint gets a
   tenant-isolation test.
 - **Dynamic queries go to SQL, not LINQ.** List item filters keep the **OData syntax** (`$filter`, `$orderby`, `$top`,
   `$skiptoken`, `$count`), parsed by Microsoft.OData.Core against a model built from the list's fields. The parsed
-  tree is translated to parameterized SQL by the provider (`IItemQueries`, `SqliteItemQueries`). Values are always
-  parameters; column names come from a fixed map, JSON paths from validated field names.
-- **Schema:** EF Core migrations live in a design-time project (`PaperDotNet.Core.Migrations.Sqlite`).
-  `eng/schema.sh` turns each one into SQL that the host embeds and applies on start, recorded in
-  `__EFMigrationsHistory` as EF Core would.
-- **Events:** subscribers are Wolverine handlers named `*Subscriber`, generated ahead of time with `eng/codegen.sh`
-  and committed. Each subscriber gets its own message (`MultipleHandlerBehavior.Separated`). Publish with
+  tree is translated to parameterized SQL (`IItemQueries`, `SqliteItemQueries` in the Lists module: the translator is
+  specific to the item tables, so it stays with them). Values are always parameters; column names come from a fixed
+  map, JSON paths from validated field names. Other modules query items through `IListItemStore` (Lists.Contracts).
+- **Schema:** each module's EF Core migrations live in `PaperDotNet.Migrations.Sqlite` (design time only).
+  `eng/schema.sh` turns each one into SQL embedded in `PaperDotNet.Persistence.Sqlite` (`Schema/`), applied on start in
+  order of migration id and recorded in `__EFMigrationsHistory` as EF Core would. The schema starts fresh: the ported
+  modules have new migrations; databases of the .NET 10 server are not upgraded.
+- **Events:** subscribers are Wolverine handlers named `*Subscriber` in a module's assembly, generated ahead of time
+  with `eng/codegen.sh` into `src/PaperDotNet.Host/Internal/Generated` and committed. Each subscriber gets its own message (`MultipleHandlerBehavior.Separated`). Publish with
   `IOutbox.SaveChangesAsync(db, events)`.
 - **Authentication:** first-party clients keep the OAuth 2.0 password and refresh-token grants on `/connect/token`.
-  Tokens are ASP.NET Core bearer tokens (Data Protection). Permissions are scopes in the token.
-- **Workflows** (ported from `src/Modules/Workflows`, flow form): triggers `manual`, `itemAdded`, `itemUpdated`,
+  Tokens are ASP.NET Core bearer tokens (Data Protection). Permissions are scopes in the token. Tenants live in the
+  Identity module for now (the Tenancy module is still to port).
+- **Workflows** (flow form; the activity contract is `PaperDotNet.Workflows.Contracts`): triggers `manual`, `itemAdded`, `itemUpdated`,
   `itemDeleted` (with an OData `condition`); activities `if`, `setVariable`, `script` (Jint), `end`, `fail`, and the
   actions `item.create` and `item.update` (`IWorkflowActivity`, registered with `AddWorkflowActivity<T>()`). Runs are
   driven by `ResumeRun` messages through the outbox; a run's own changes are one causation level deeper and stop
@@ -94,13 +106,19 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
 - **Enums are not stored** as enums: EF Core's compiled model calls `Enum.GetValues(Type)` for them. Use string
   constants (e.g. `RunStatus`).
 - **`dotnet format` may add `[RequiresUnreferencedCode]`** as its fix for a trim warning. Never keep it: fix the call.
-- **One DbContext** (`CoreDb`) for the core, with entity configuration per module. SQLite has no schemas, and one
-  compiled model keeps publishing simple.
 
 ### SDKs
 
-Kiota stays: its C# runtime is AOT-clean, and the TypeScript SDK does not run in the server. The core writes its OpenAPI
-document to `core/sdk/openapi.json` (`eng/openapi.sh`). The SDKs are generated from it when the web UI moves to the core.
+Kiota stays: its C# runtime is AOT-clean, and the TypeScript SDK does not run in the server. The server's OpenAPI
+document is `src/PaperDotNet.Host/openapi.json` (`eng/openapi.sh`). `sdk/` (C#, TypeScript and Python SDKs) still
+describes the .NET 10 API; it is regenerated from the new document when the web UI moves to the AOT server.
+
+### Still to port
+
+Documents (upload, versions, OCR, page images), Search, Taxonomy, Tasks, Calendar, Notes, Notifications, Workspaces and
+item permissions (ADR-0035), Collaboration, Provisioning and templates, the extension host and SDK, MCP, AI workflows,
+Jobs and operations, the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
+schedules, the web UI and the SDKs. Each follows the rules above and brings its tests back from `ToPort`.
 
 ## Consequences
 
@@ -115,8 +133,9 @@ document to `core/sdk/openapi.json` (`eng/openapi.sh`). The SDKs are generated f
   PostgreSQL row-level security (ADR-0013) will be a second layer again in the PostgreSQL build.
 - The idle budget has little room left (94–96 MB of 100 with workflows). The next modules either fit in it, or the
   budget is revisited on purpose; memory tuning stays the last resort.
-- OpenIddict (authorization code flow, passkeys) and ASP.NET Core OData stay out of the core. Other dependencies are
+- OpenIddict (authorization code flow, passkeys) and ASP.NET Core OData are not used any more. Other dependencies are
   not checked under AOT yet (the MCP SDK, the extension host, PDF and OCR libraries). Each
   is tested when its module is ported, with the same best-effort rule: keep it if it works, otherwise find a standard
   that does, otherwise write the plain version.
-- The web UI and the SDKs still target the .NET 10 API until the core covers enough of it.
+- Until modules are ported, the product does less than the .NET 10 server did: the list under "Still to port" is the
+  plan, and the web UI waits for it.

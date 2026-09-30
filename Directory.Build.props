@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -13,9 +13,11 @@
     <Deterministic>true</Deterministic>
     <!-- Compile configuration binding instead of reflecting over options types. -->
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+    <!-- The server is one Native AOT binary (ADR-0039): no culture data needed. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
     <Authors>Eduard Paul</Authors>
     <Copyright>Copyright 2026 Eduard Paul</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
   </PropertyGroup>
 </Project>

@@ -1,4 +1,6 @@
-using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
+using JasperFx.CodeGeneration;
+using JasperFx.CodeGeneration.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
@@ -9,19 +11,11 @@ using Wolverine.Runtime;
 
 namespace PaperDotNet.Messaging;
 
-/// <summary>Wolverine handler for event envelopes (discovered by convention).</summary>
-public static class EventEnvelopeHandler
+internal sealed class WolverineOutbox(IDbContextOutbox outbox, TimeProvider time) : IOutbox
 {
-    public static Task Handle(EventEnvelope envelope, EventDispatcher dispatcher, CancellationToken cancellationToken) =>
-        dispatcher.DispatchAsync(envelope, cancellationToken);
-}
-
-internal sealed class WolverineOutbox(IDbContextOutbox outbox, EventSubscriberRegistry subscribers, TimeProvider time) : IOutbox
-{
-    public async Task SaveChangesAsync(
-        DbContext db, IReadOnlyCollection<IntegrationEvent> events, IReadOnlyCollection<ITenantMessage>? messages = null, CancellationToken cancellationToken = default)
+    public async Task SaveChangesAsync(DbContext db, IReadOnlyCollection<IntegrationEvent> events, IReadOnlyCollection<object> messages, CancellationToken cancellationToken = default)
     {
-        if (events.Count == 0 && (messages is null || messages.Count == 0))
+        if (events.Count == 0 && messages.Count == 0)
         {
             await db.SaveChangesAsync(cancellationToken);
             return;
@@ -29,26 +23,19 @@ internal sealed class WolverineOutbox(IDbContextOutbox outbox, EventSubscriberRe
 
         outbox.Enroll(db);
 
-        // One request may save several times (e.g. create an item, then start an operation). By default
-        // Wolverine flushes a context only once and silently drops later messages.
+        // One request may save several times; by default Wolverine flushes a context only once.
         if (outbox is MessageContext context)
         {
             context.MultiFlushMode = MultiFlushMode.AllowMultiples;
         }
 
-        // One message per subscriber: each is retried and dead-lettered on its own.
+        var now = time.GetUtcNow();
         foreach (var integrationEvent in events)
         {
-            var stamped = integrationEvent.OccurredAt == default ? integrationEvent with { OccurredAt = time.GetUtcNow() } : integrationEvent;
-            var type = EventTypeRegistry.NameOf(stamped.GetType());
-            var payload = JsonSerializer.Serialize(stamped, stamped.GetType(), MessagingJson.Options);
-            foreach (var subscriber in subscribers.For(stamped.GetType()))
-            {
-                await outbox.PublishAsync(new EventEnvelope(type, payload, stamped.TenantId, stamped.TenantIdentifier, subscriber));
-            }
+            await outbox.PublishAsync(integrationEvent.OccurredAt == default ? integrationEvent with { OccurredAt = now } : integrationEvent);
         }
 
-        foreach (var message in messages ?? [])
+        foreach (var message in messages)
         {
             await outbox.PublishAsync(message);
         }
@@ -57,53 +44,39 @@ internal sealed class WolverineOutbox(IDbContextOutbox outbox, EventSubscriberRe
     }
 }
 
-internal sealed class WolverineMessageScheduler(IMessageBus bus) : IMessageScheduler
+public static class MessagingExtensions
 {
-    public async Task ScheduleAsync(ITenantMessage message, TimeSpan delay, CancellationToken cancellationToken = default) =>
-        await bus.ScheduleAsync(message, delay);
-}
-
-public static class MessagingServiceCollectionExtensions
-{
-    /// <summary>
-    /// Adds reliable messaging: Wolverine with durable local queues, the EF Core
-    /// transactional outbox, retries and dead-lettering. <paramref name="configureStorage"/>
-    /// picks the message storage matching the database provider.
-    /// </summary>
-    public static IServiceCollection AddPaperDotNetMessaging(
-        this IServiceCollection services, Action<WolverineOptions> configureStorage, IEnumerable<System.Reflection.Assembly> handlerAssemblies)
+    public static IServiceCollection AddPaperDotNetMessaging(this IServiceCollection services)
     {
-        services.AddSingleton<EventTypeRegistry>();
-        services.AddSingleton<EventSubscriberRegistry>();
-        services.AddSingleton<EventDispatcher>();
         services.AddScoped<IOutbox, WolverineOutbox>();
-        services.AddScoped<IMessageScheduler, WolverineMessageScheduler>();
-
-        services.AddWolverine(options =>
-        {
-            configureStorage(options);
-            options.UseEntityFrameworkCoreTransactions();
-            options.Policies.UseDurableLocalQueues();
-            options.Discovery.IncludeAssembly(typeof(EventEnvelopeHandler).Assembly);
-            foreach (var assembly in handlerAssemblies)
-            {
-                options.Discovery.IncludeAssembly(assembly);
-            }
-
-            // Quick retries for transient failures, then delayed retries, then the dead-letter queue.
-            options.Policies.OnAnyException()
-                .RetryWithCooldown(TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(2))
-                .Then.ScheduleRetry(TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5))
-                .Then.MoveToErrorQueue();
-        });
         return services;
     }
 
-    /// <summary>Registers an integration event type so it can be delivered to subscribers.</summary>
-    public static IServiceCollection AddIntegrationEvent<TEvent>(this IServiceCollection services)
-        where TEvent : IntegrationEvent
+    /// <summary>
+    /// Messaging rules (ADR-0008, ADR-0039): durable local queues, the EF Core outbox, one queue per subscriber, retries
+    /// then dead-lettering, JSON through source-generated metadata, and handlers loaded from code generated ahead of time
+    /// (<c>eng/codegen.sh</c>) so nothing is compiled at run time.
+    /// </summary>
+    public static WolverineOptions UsePaperDotNetDefaults(this WolverineOptions options, IJsonTypeInfoResolver json, bool generatingCode)
     {
-        services.AddSingleton(new EventTypeRegistration(EventTypeRegistry.NameOf(typeof(TEvent)), typeof(TEvent)));
-        return services;
+        options.UseEntityFrameworkCoreTransactions();
+        options.Policies.UseDurableLocalQueues();
+
+        // Each subscriber of an event gets its own message and queue, retried and dead-lettered on its own.
+        options.MultipleHandlerBehavior = MultipleHandlerBehavior.Separated;
+        options.UseSystemTextJsonForSerialization(serializer => serializer.TypeInfoResolverChain.Insert(0, json));
+        options.CodeGeneration.TypeLoadMode = generatingCode ? TypeLoadMode.Dynamic : TypeLoadMode.Static;
+
+        // Handlers resolve internal services from the scope (plain GetRequiredService in the generated code, fine under AOT).
+        options.ServiceLocationPolicy = ServiceLocationPolicy.AlwaysAllowed;
+
+        // Subscribers are classes named *Subscriber with Handle methods.
+        options.Discovery.CustomizeHandlerDiscovery(query => query.Includes.WithNameSuffix("Subscriber"));
+
+        options.Policies.OnAnyException()
+            .RetryWithCooldown(TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(2))
+            .Then.ScheduleRetry(TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5))
+            .Then.MoveToErrorQueue();
+        return options;
     }
 }

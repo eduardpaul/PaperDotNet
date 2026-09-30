@@ -27,25 +27,26 @@ inspired by Papermerge and SharePoint lists/libraries.
 
 ## Current scope
 
-**Native AOT core (ADR-0039, `core/`)**: the server is being rebuilt as one Native AOT binary on .NET 11 (budget:
-under 100 MB idle, under 300 MB under load). New server work goes to `core/` and follows its rules (below and
-`core/README.md`); modules move from `src/` one at a time, best effort: keep a dependency if it works under AOT,
-otherwise use a standard that does, otherwise a plain REST implementation.
+**Native AOT server (ADR-0039)**: the server in `src/` is one Native AOT binary on .NET 11 (budget: under 100 MB
+idle, under 300 MB under load, checked by `eng/aot-smoke.sh`). Work happens in place in `src/`. Ported: Identity,
+Lists, Audit, Workflows. Modules still to port stay in `src/Modules` out of the build (not in `PaperDotNet.slnx`);
+port them one at a time, best effort: keep a dependency if it works under AOT, otherwise use a standard that does,
+otherwise a plain REST implementation. Their tests wait in `tests/PaperDotNet.IntegrationTests/ToPort`.
 
 **Web UI (Phase 8)** on the TypeScript SDK with React, TanStack and Tailwind
-(ADR-0033, plan and screen map in `docs/frontend.md`). The UI is an SDK
-consumer: gaps are fixed in the API and regenerated, never worked around in
-`web/`. No mobile app until the user says so.
+(ADR-0033, plan and screen map in `docs/frontend.md`) is paused until it moves to the AOT API (its CI job is off;
+`sdk/` still describes the .NET 10 API). The UI is an SDK consumer: gaps are fixed in the API and regenerated, never
+worked around in `web/`. No mobile app until the user says so.
 
 ## Decided
 
-- Multitenancy from the start: shared DB, `TenantId` on every tenant-owned row,
-  enforced via EF Core global query filters (+ PostgreSQL RLS when used).
-- Databases: **SQLite by default, PostgreSQL optional; everything must work on
-  both** (ADR-0009). All data access through EF Core. No raw SQL or provider
-  packages outside `Persistence.Sqlite` / `Persistence.PostgreSql`;
-  provider-specific features (JSON queries, full-text search, RLS, special
-  indexes) go behind abstractions with an implementation per provider.
+- Multitenancy from the start: shared DB, `TenantId` on every tenant-owned row. Under Native AOT there are no global
+  query filters: every query filters on `TenantId`, and `SaveChangesGuard` refuses cross-tenant writes (+ PostgreSQL
+  RLS when that build exists).
+- Databases: **SQLite by default, PostgreSQL optional** (ADR-0009); under AOT each database is its own build, because
+  EF Core precompiles SQL for one provider (ADR-0039: SQLite first). All data access through EF Core; provider packages
+  only in `Persistence.Sqlite` / `Persistence.PostgreSql`; SQL of dynamic queries behind an abstraction with an
+  implementation per provider (e.g. `IItemQueries`/`SqliteItemQueries`).
 - Extensions run in-process first; remote extensions come later.
 - Dependencies: MIT or Apache-2.0; BSD/PostgreSQL License/ISC allowed with
   notice (THIRD-PARTY-NOTICES). No GPL/AGPL/LGPL/MPL/SSPL/commercial.
@@ -54,58 +55,52 @@ consumer: gaps are fixed in the API and regenerated, never worked around in
 ## Build & test
 
 ```bash
-export PATH=$HOME/.dotnet:$PATH DOTNET_ROOT=$HOME/.dotnet   # if the SDK was installed locally
-dotnet build PaperDotNet.slnx                               # warnings are errors
+export PATH=$HOME/.dotnet:$PATH DOTNET_ROOT=$HOME/.dotnet   # if the SDK was installed locally (.NET 11, global.json)
+dotnet build PaperDotNet.slnx                               # warnings (incl. trim/AOT analyzers) are errors
 dotnet format PaperDotNet.slnx --verify-no-changes
-dotnet test --solution PaperDotNet.slnx                     # SQLite (default)
-PAPERDOTNET_TEST_PROVIDER=postgresql dotnet test --solution PaperDotNet.slnx   # Testcontainers PostgreSQL
-PAPERDOTNET_TEST_PROVIDER=postgresql PAPERDOTNET_TEST_POSTGRES="Host=localhost;Username=postgres;Password=postgres" dotnet test --solution PaperDotNet.slnx
-# Web UI and TypeScript SDK (npm workspaces at the repository root):
-npm install
-npm run check -w web                                        # typecheck, lint, format check, unit tests
-npm run test:e2e -w web                                     # Playwright against a real host
-npm run test:e2e -w @paperdotnet/client                     # SDK end-to-end tests
-# Every model change needs a migration for BOTH providers:
-dotnet tool restore
-dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Sqlite -c <Module>DbContext -o Generated/<Module>
-dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.PostgreSql -c <Module>DbContext -o Generated/<Module>
+dotnet test --solution PaperDotNet.slnx                     # SQLite, JIT build
+eng/aot-smoke.sh                                            # Native AOT publish, run, behavior and memory budget
+eng/schema.sh add <Name>                                    # model change: migrations + their SQL (Persistence.Sqlite/Schema)
+eng/codegen.sh                                              # subscriber/message change: Wolverine handlers (Host/Internal/Generated)
+eng/openapi.sh                                              # endpoint change: src/PaperDotNet.Host/openapi.json
 ```
 
-## Native AOT core (`core/`, ADR-0039)
+## Native AOT rules (ADR-0039)
 
-Build from `core/` (own `global.json`, .NET 11): `dotnet build PaperDotNet.Core.slnx`, `dotnet test --solution
-PaperDotNet.Core.slnx`, `eng/aot-smoke.sh` (publishes, runs, checks the memory budget).
-- Trim/AOT analyzers are on and warnings are errors; JSON only through `CoreJson` (source generation).
+- A ported module imports `src/Modules/AotModule.props` (AOT analyzers, request delegate generator, EF Core
+  compiled model and precompiled queries at publish), has its own DbContext with an `IDesignTimeDbContextFactory`
+  (and one in `PaperDotNet.Migrations.Sqlite`), registers it with `AddModuleDbContext<T>()`, and exposes its
+  source-generated `JsonSerializerContext` as `IModule.Json`. The host lists it in `PaperDotNetHost.Modules`.
 - EF Core queries must precompile: one expression from a `DbSet` to the terminal operator, DbContext and captured
-  values copied into locals first, entities not `sealed`. No global query filters: filter on `TenantId` in every query.
-- Dynamic queries (item filters) are OData syntax translated to SQL by `IItemQueries` per provider, never dynamic LINQ.
-- Model change → `eng/schema.sh add <Name>`; subscriber change → `eng/codegen.sh`; endpoint change → `eng/openapi.sh`.
-- Workflows: activities implement `IWorkflowActivity` (`AddWorkflowActivity<T>()`); Jint host functions are `ClrFunction`s
-  over JSON values only. No enums in entities (string constants). Never keep `[RequiresUnreferencedCode]` added by `dotnet format`.
+  values copied into locals first, entities not `sealed` and in the DbContext's namespace, no enums stored (string
+  constants), explicit `TenantId` in every query. Dynamic queries (item filters) are OData syntax translated to SQL by
+  `IItemQueries` per provider, never dynamic LINQ; other modules use `IListItemStore` (Lists.Contracts).
+- Workflows: activities implement `IWorkflowActivity` (Workflows.Contracts, `AddWorkflowActivity<T>()`); Jint host
+  functions are `ClrFunction`s over JSON values only.
+- Never keep `[RequiresUnreferencedCode]`/`[RequiresDynamicCode]` that `dotnet format` adds as a "fix": fix the call.
 - Prefer plain defaults over memory tuning; only tune when `eng/aot-smoke.sh` is over budget.
 
 ## Code conventions
 
-The conventions below describe the .NET 10 application in `src/`; in `core/` the AOT rules above win.
+Ported modules follow the AOT rules above. The conventions below describe the full design; where they name things
+that are not ported yet (item permissions, search, taxonomy, operations, extensions, live events, waits, …), they apply
+when that part is ported.
 
 - Modules live in `src/Modules/<Name>` with an `IModule`, a DbContext in its own
   schema, feature folders (endpoints + handlers together), and a `.Contracts`
   project only when other modules need it. Modules reference each other only
   via contracts; never reference database provider packages in modules.
-- Tenant-owned entities implement `ITenantOwned`; never disable the `Tenant`
-  query filter. Every new endpoint gets a tenant-isolation test. On PostgreSQL,
-  RLS policies are generated for them automatically (ADR-0013); only touch
-  tenant-owned tables inside a tenant scope.
-- Auth: callers use OAuth access tokens (`/connect/token`) or API tokens; tests
-  get tokens with `ApiClient` (first-party password grant).
+- Tenant-owned entities implement `ITenantOwned`; every query filters on `TenantId` (no global query filters under
+  AOT). Every new endpoint gets a tenant-isolation test.
+- Auth: callers use OAuth access tokens (`/connect/token`, password and refresh-token grants); tests get tokens with
+  `TestHost.SignInAsync`.
 - Endpoints: Minimal APIs under `/v1.0`, `TypedResults`, `RequireScope(...)`,
   `ApiErrors` for problems, `Page.Create` for lists, ETags for mutable resources.
 - IDs via `Ids.New()` (UUIDv7); time via `TimeProvider`.
-- Events: changing or rejecting an item write → `IItemMutator` (Lists.Contracts, runs
-  before the save, ADR-0023); every reaction to a saved change → `IntegrationEvent` +
-  `IEventSubscriber<T>` (idempotent, registered with `services.AddEventSubscriber<TEvent, TSubscriber>()`,
-  one message per subscriber), published with `IOutbox.SaveChangesAsync(db, events)`. Only `PaperDotNet.Messaging`
-  references Wolverine.
+- Events: every reaction to a saved change → `IntegrationEvent` + a Wolverine handler class named `*Subscriber`
+  (idempotent, one message per subscriber, code generated ahead of time with `eng/codegen.sh`), published with
+  `IOutbox.SaveChangesAsync(db, events)`. Changes made in reaction to an event carry its `Depth` + 1 (`ChangeActor`).
+  Changing or rejecting an item write before the save (`IItemMutator`, ADR-0023) is not ported yet.
 - Item access (ADR-0035): check `schema.Access.Level(item.ScopeId)` (404 below Read) and
   filter queries with `schema.Access.Filter(level)`; other modules use `IItemAccess`
   (Lists.Contracts). Permissions are `acl_entries` per scope (the list, or an item with unique

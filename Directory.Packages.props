@@ -2,6 +2,9 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+    <!-- .NET 11 (ADR-0039). Packages below that only modules still to port use keep their earlier versions. -->
+    <DotNetVersion>11.0.0-rc.1.26425.128</DotNetVersion>
+    <WolverineVersion>6.43.0</WolverineVersion>
   </PropertyGroup>
   <!-- Every package must pass docs/dependency-licenses.md. -->
   <ItemGroup Label="Tasks and calendar">
@@ -14,15 +17,17 @@
     <PackageVersion Include="CliWrap" Version="3.10.5" />
   </ItemGroup>
   <ItemGroup Label="Data">
-    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(DotNetVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(DotNetVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(DotNetVersion)" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="$(DotNetVersion)" />
+    <!-- Compiled model and precompiled queries at publish (ADR-0039); build time only. -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Tasks" Version="$(DotNetVersion)" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
   </ItemGroup>
   <ItemGroup Label="Web and security">
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="$(DotNetVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.12" />
     <PackageVersion Include="OpenIddict.Server.AspNetCore" Version="7.7.1" />
@@ -37,18 +42,20 @@
     <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.10.0" />
     <PackageVersion Include="System.Numerics.Tensors" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
     <PackageVersion Include="System.CommandLine" Version="2.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.OData" Version="9.5.0" />
+    <!-- Only the URI parser ($filter/$orderby), translated to SQL (ADR-0039); ASP.NET Core OData is not AOT-compatible. -->
+    <PackageVersion Include="Microsoft.OData.Core" Version="9.0.0" />
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
     <PackageVersion Include="Microsoft.Kiota.Bundle" Version="2.1.2" />
   </ItemGroup>
   <ItemGroup Label="Messaging and jobs">
-    <PackageVersion Include="WolverineFx" Version="6.40.0" />
-    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.40.0" />
-    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.40.0" />
-    <PackageVersion Include="WolverineFx.Sqlite" Version="6.40.0" />
-    <PackageVersion Include="WolverineFx.Postgresql" Version="6.40.0" />
+    <PackageVersion Include="WolverineFx" Version="$(WolverineVersion)" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="$(WolverineVersion)" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="$(WolverineVersion)" />
+    <PackageVersion Include="WolverineFx.Sqlite" Version="$(WolverineVersion)" />
+    <PackageVersion Include="WolverineFx.Postgresql" Version="$(WolverineVersion)" />
     <PackageVersion Include="Cronos" Version="0.13.0" />
     <PackageVersion Include="Jint" Version="4.16.4" />
   </ItemGroup>
@@ -63,7 +70,7 @@
   </ItemGroup>
   <ItemGroup Label="Tests">
     <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.1" />
-    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(DotNetVersion)" />
     <PackageVersion Include="System.Formats.Cbor" Version="10.0.12" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />

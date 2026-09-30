@@ -5,129 +5,68 @@ documents (DMS), tasks and calendar on a SharePoint-style lists engine,
 inspired by [Papermerge](https://github.com/papermerge/papermerge-core).
 Self-hosted with just **one container** (SQLite built in; PostgreSQL optional).
 
-> **Status:** the backend (phases 0–7) is done; the web UI (phase 8) is being
-> built on the generated TypeScript SDK. See the [roadmap](docs/features.md#roadmap)
-> and the [frontend plan](docs/frontend.md).
+> **Status:** the server is being rebuilt as **one Native AOT binary on .NET 11**
+> ([ADR-0039](docs/adr/0039-native-aot-core.md)): the .NET 10 server used 500 MB and more of memory; the AOT
+> server has a budget of 100 MB idle and 300 MB under load, checked on every push. Modules move over one at a time;
+> the ones still to port stay in `src/Modules` out of the build. See the [roadmap](docs/features.md#roadmap).
 
-## What works today
+## What runs today (Native AOT server)
 
-- **Web UI:** React app served by the same container: sign-in (password,
-  passkey), Home with today's tasks, agenda and approvals, workspaces,
-  notifications, command palette (⌘K), light and dark themes
-  ([frontend.md](docs/frontend.md)).
-- **Platform:** multi-tenant from the start (EF Core filters, PostgreSQL
-  row-level security), SQLite by default or PostgreSQL, one container.
-- **Identity:** OAuth 2.0 / OpenID Connect (OpenIddict), passkeys, API tokens,
-  users, groups, roles made of scopes, workspaces with members.
-- **Lists engine:** content types and field types, lists and libraries, items,
-  folders, views, OData queries, versions, recycle bin, permission inheritance,
-  list templates, taxonomy (managed metadata and keywords), audit log.
-- **Documents:** upload into libraries or your Inbox, type detection by
-  content, file versions, deduplicated storage, OCR (Tesseract, or optional
-  GLM-OCR) into searchable PDFs, thumbnails and page images, each a workflow a
-  library turns on or off.
-- **Search:** full-text across items and document text, stemming, facets,
-  security trimming.
-- **Events & jobs:** before/after item receivers, integration events with a
-  transactional outbox, recurring jobs, long-running operations, live events
-  (server-sent events).
-- **Extensions:** compiled-in extensions with a public SDK, analyzers and a
-  test host ([guide](docs/extensions.md)).
-- **Operations:** Graph-style REST API (`/v1.0/...`, OpenAPI at
-  `/openapi/v1.json`), health endpoints, OpenTelemetry, and an admin CLI in the
-  same binary: `migrate`, `bootstrap`, `tenant`, `user`, `backup`, `restore`,
-  `reindex`, `export`, `import` (see `docs/export-and-import.md`).
+- **Platform:** multi-tenant (a `TenantId` on every row, checked on every query and save), SQLite, one container,
+  events through a transactional outbox (Wolverine), OpenAPI at `/openapi/v1.json`, `/health`.
+- **Identity:** tenants, users, OAuth 2.0 password and refresh-token grants on `/connect/token`, scopes.
+- **Lists:** lists with typed fields (text, note, number, boolean, date-time, choice), items, OData queries
+  (`$filter`, `$orderby`, `$top`, `$skiptoken`, `$count`), ETags, audit log.
+- **Workflows:** flows of nodes on item and manual triggers with conditions, tokens, `item.create`/`item.update`,
+  and JavaScript script steps in a sandbox.
+
+Memory (linux-x64, default settings): a 54 MB binary, about 95 MB idle, about 150 MB during a burst of 2,000
+parallel writes and 500 filtered reads.
+
+**Still to port** (code in the repository, not in the build): documents and OCR, search, taxonomy, tasks, calendar,
+notes, notifications, workspaces and permissions, collaboration, provisioning and templates, extensions, MCP, the
+admin CLI and backups, PostgreSQL, the web UI and the generated SDKs (`sdk/`, which still describe the .NET 10 API).
 
 ## Quick start (Docker)
 
 ```bash
-cp deploy/.env.example deploy/.env      # set the admin password (REQUIRE_HTTPS=false to try it over plain HTTP)
+cp deploy/.env.example deploy/.env      # set the admin password
 docker compose -f deploy/docker-compose.yml up -d --build
-# or with PostgreSQL:
-# docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.postgres.yml up -d --build
-# or with GLM-OCR instead of Tesseract (optional image, needs a GPU or several GB of RAM):
-# docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.glm.yml up -d --build
-# Open PUBLIC_URL (default http://localhost:8080) and sign in as admin.
-# API access token (first-party client, password grant); apps use authorization code + PKCE or client credentials.
-curl -s localhost:8080/connect/token \
-  -d grant_type=password -d client_id=paperdotnet -d scope="api offline_access" \
-  -d username=admin -d password='<ADMIN_PASSWORD>'
+# API access token (password grant):
+curl -s localhost:8080/connect/token -d grant_type=password -d username=admin -d password='<ADMIN_PASSWORD>'
 ```
-
-Admin commands run in the same image:
-
-```bash
-docker compose -f deploy/docker-compose.yml exec paperdotnet dotnet paperdotnet.dll tenant list
-docker compose -f deploy/docker-compose.yml exec paperdotnet dotnet paperdotnet.dll tenant create --identifier acme --name "Acme" --host dms.acme.com
-```
-
-Backup and restore (database and stored files in one archive; backups are safe
-while the server runs, restores need it stopped):
-
-```bash
-docker compose -f deploy/docker-compose.yml exec paperdotnet dotnet paperdotnet.dll backup -o /data/backups/latest.tar.gz
-docker compose -f deploy/docker-compose.yml stop paperdotnet
-docker compose -f deploy/docker-compose.yml run --rm paperdotnet restore /data/backups/latest.tar.gz --force
-docker compose -f deploy/docker-compose.yml start paperdotnet
-```
-
-Keep backups outside the data volume (copy them off, or mount a backup volume).
 
 ## Development
 
-Requirements:
-- .NET 10 SDK
-- Node.js 22+ for the web UI and the TypeScript SDK
-- Optional: PostgreSQL 16+ (or Docker) to run against PostgreSQL
+Requirements: the .NET 11 SDK (see `global.json`); for publishing with Native AOT on Linux, `clang` and `zlib1g-dev`.
 
 ```bash
-dotnet build PaperDotNet.slnx
-dotnet run --project src/PaperDotNet.Host          # Development: SQLite in ./data, admin / admin-password-dev
-dotnet test --solution PaperDotNet.slnx            # SQLite
-PAPERDOTNET_TEST_PROVIDER=postgresql dotnet test --solution PaperDotNet.slnx   # PostgreSQL via Testcontainers
-
-npm install                                        # web UI + TypeScript SDK (npm workspaces)
-npm run dev -w web                                 # UI on http://localhost:5173, proxied to the API on :5080
-npm run check -w web                               # typecheck, lint, format, unit tests
-npm run test:e2e -w web                            # Playwright against a real host
+dotnet build PaperDotNet.slnx                       # warnings (including the trim and AOT analyzers) are errors
+dotnet run --project src/PaperDotNet.Host           # Development: SQLite in ./data, admin / ChangeMe!123
+dotnet test --solution PaperDotNet.slnx
+eng/aot-smoke.sh                                    # publish with Native AOT, run it, check behavior and memory
 ```
 
-Performance (not part of `dotnet test`). One process, the real API, a fresh database per provider. It seeds a list and a list of folders with unique permissions, then ramps concurrency on create, read, filtered query, a member's page of the shared list, a member's tasks across 20 task lists and search until p95 passes 1000 ms or any request fails. That concurrency is the limit for the budget.
+| When you change… | Then |
+|---|---|
+| An entity or a module's DbContext | `eng/schema.sh add <Name>` (migrations and their SQL); commit both |
+| A `*Subscriber` or a message it handles | `eng/codegen.sh` (Wolverine handlers); commit `src/PaperDotNet.Host/Internal/Generated` |
+| An endpoint | `eng/openapi.sh`; add a tenant-isolation test |
 
-```bash
-dotnet run --project tests/PaperDotNet.Performance -c Release -- sqlite
-dotnet run --project tests/PaperDotNet.Performance -c Release -- postgresql   # Docker, or PAPERDOTNET_TEST_POSTGRES
-dotnet run --project tests/PaperDotNet.Performance -c Release -- both
-dotnet run --project tests/PaperDotNet.Performance -- --smoke sqlite          # 20 items, 1 s, one caller
-```
-
-`PERF_ITEMS` (200), `PERF_SECONDS` (3 per concurrency step), `PERF_MAX_CONCURRENCY` (16), `PERF_P95_MS` (1000) and `PERF_OUTPUT` (`perf-results.json`) override the run. Use Release for numbers you keep.
-
-Configuration comes from environment variables `PAPERDOTNET__Section__Key`.
-Semantic search needs an embedding model (optional; see `docs/search.md`).
-PostgreSQL: `PAPERDOTNET__Database__Provider=PostgreSql` and
-`PAPERDOTNET__ConnectionStrings__PaperDotNet=Host=…;Database=…;Username=…;Password=…`.
-See `src/PaperDotNet.Host/appsettings.json` for all settings.
-
-Add a migration:
-
-```bash
-dotnet tool restore
-dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Sqlite -c <Module>DbContext -o Generated/<Module>
-dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.PostgreSql -c <Module>DbContext -o Generated/<Module>
-```
+Configuration comes from environment variables `PAPERDOTNET__Section__Key`; see
+`src/PaperDotNet.Host/appsettings.json` for the settings.
 
 ## Repository layout
 
 ```
 src/
-  PaperDotNet.Host/             composition root, CLI, Dockerfile entry point
-  PaperDotNet.ServiceDefaults/  telemetry, health, resilience
-  BuildingBlocks/               Abstractions, Api conventions, Persistence, Persistence.Sqlite, Persistence.PostgreSql
-  Modules/                      Tenancy, Identity, Workspaces (+ Contracts)
-  Migrations/                   SQLite and PostgreSQL migrations of all modules
-tests/                          unit, architecture and integration tests
-deploy/                         docker-compose (single container; PostgreSQL override)
+  PaperDotNet.Host/             the Native AOT server: composition, generated Wolverine handlers, openapi.json
+  BuildingBlocks/               Abstractions, Api, Messaging, Persistence, Persistence.Sqlite (schema scripts)
+  Modules/                      Identity, Lists, Audit, Workflows (ported; AotModule.props) and modules still to port
+  Migrations/                   SQLite migrations of the ported modules (design time)
+tests/                          integration tests (ToPort/: tests of features still to port)
+eng/                            schema.sh, codegen.sh, openapi.sh, aot-smoke.sh
+deploy/                         docker-compose (single container)
 docs/                           vision, features, technical approach, ADRs, licenses
 ideas/                          raw ideas, mapped to features
 ```

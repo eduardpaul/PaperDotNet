@@ -1,81 +1,60 @@
+using System.Text.Json.Serialization.Metadata;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication.BearerToken;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Identity.Authentication;
-using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Identity.Features;
-using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
-using PaperDotNet.Provisioning.Contracts;
 
 namespace PaperDotNet.Identity;
 
+/// <summary>
+/// Tenants, users and sign-in (ADR-0039 slice of Identity and Tenancy): bearer tokens protected with Data Protection
+/// (keys in <c>{Storage:DataPath}/keys</c>), password hashing from ASP.NET Core Identity, a rate limit on sign-in.
+/// </summary>
 public sealed class IdentityModule : IModule
 {
     public string Name => "Identity";
 
+    public IJsonTypeInfoResolver Json => IdentityJson.Default;
+
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddOptions<AuthOptions>().BindConfiguration(AuthOptions.Section).ValidateDataAnnotations()
-            .Validate(o => ReverseProxySignIn.IsValid(o.ReverseProxy),
-                "Auth:ReverseProxy needs TrustedProxies (addresses or CIDR networks) and a UserHeader when it is enabled.")
-            .ValidateOnStart();
-        services.AddHttpContextAccessor();
-        services.AddModuleDbContext<IdentityDbContext>(IdentityDbContext.Schema);
+        services.Configure<AuthOptions>(configuration.GetSection("Auth"));
+        services.Configure<TenancyOptions>(configuration.GetSection("Tenancy"));
+        services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
+        var auth = configuration.GetSection("Auth").Get<AuthOptions>() ?? new AuthOptions();
+        var dataPath = Path.GetFullPath(configuration["Storage:DataPath"] is { Length: > 0 } path ? path : "data");
 
-        services.AddIdentityCore<User>(o =>
+        services.AddModuleDbContext<IdentityDbContext>();
+        services.AddScoped<TenantProvisioner>();
+        services.AddSingleton<TokenIssuer>();
+        services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+
+        services.AddDataProtection()
+            .SetApplicationName("PaperDotNet")
+            .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataPath, "keys")));
+        services.AddAuthentication(BearerTokenDefaults.AuthenticationScheme)
+            .AddBearerToken(options =>
             {
-                o.User.RequireUniqueEmail = false;
-                // Length over composition rules (NIST SP 800-63B).
-                o.Password.RequiredLength = 10;
-                o.Password.RequireNonAlphanumeric = false;
-                o.Password.RequireDigit = false;
-                o.Password.RequireUppercase = false;
-                o.Password.RequireLowercase = false;
-                o.Lockout.AllowedForNewUsers = true;
-                o.Lockout.MaxFailedAccessAttempts = 10;
-                o.Stores.SchemaVersion = IdentitySchemaVersions.Version3; // passkeys
-            })
-            .AddEntityFrameworkStores<IdentityDbContext>();
-
-        services.AddScoped<IPasskeyHandler<User>, PasskeyHandler<User>>();
-        services.AddOptions<IdentityPasskeyOptions>().Configure<Microsoft.Extensions.Options.IOptions<AuthOptions>>((passkeys, auth) =>
+                options.BearerTokenExpiration = auth.AccessTokenLifetime;
+                options.RefreshTokenExpiration = auth.RefreshTokenLifetime;
+            });
+        services.AddAuthorization();
+        services.AddRateLimiter(options =>
         {
-            passkeys.ServerDomain = auth.Value.PasskeyServerDomain;
-            if (auth.Value.PasskeyOrigins.Count > 0)
-            {
-                var origins = auth.Value.PasskeyOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase);
-                passkeys.ValidateOrigin = context => ValueTask.FromResult(!context.CrossOrigin && origins.Contains(context.Origin));
-            }
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy(RateLimits.SignIn, http => RateLimitPartition.GetFixedWindowLimiter(
+                http.Connection.RemoteIpAddress?.ToString() ?? "",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
         });
-        services.AddSingleton<PasskeyState>();
-
-        services.AddPaperDotNetAuthentication();
-        services.AddHostedService<FirstPartyClientSync>();
-        services.AddScoped<IEffectiveScopeProvider, EffectiveScopeProvider>();
-        services.AddScoped<IUserDirectory, UserDirectory>();
-        services.AddScoped<IUserPreferences, UserPreferences>();
-        services.AddScoped<AccountSessions>();
-        services.AddScoped<ReverseProxySignIn>();
-        services.AddIntegrationEvent<PrincipalDeleted>();
-        services.AddScoped<IRoleProvisioning, RoleProvisioning>();
-        services.AddScoped<ITenantInitializer, IdentityTenantInitializer>();
-        services.AddScoped<ITemplateHandler, GroupTemplateHandler>();
-        services.AddScoped<ITemplateHandler, RoleTemplateHandler>();
-        services.AddScopes(IdentityScopes.All);
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        AuthEndpoints.Map(endpoints);
-        OAuthEndpoints.Map(endpoints);
-        ApplicationEndpoints.Map(endpoints);
-        MeEndpoints.Map(endpoints);
-        DirectoryEndpoints.Map(endpoints);
-        AccountEndpoints.Map(endpoints);
-        PreferencesEndpoints.Map(endpoints);
+        TokenEndpoint.Map(endpoints);
+        Users.Map(endpoints);
     }
 }

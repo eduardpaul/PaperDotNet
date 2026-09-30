@@ -1,68 +1,51 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PaperDotNet.Persistence.Sqlite;
 
-internal sealed class SqliteDatabaseProvider(SqliteDatabaseSettings settings) : IDatabaseProvider
+/// <summary>SQLite for every module DbContext (the default and, for now, only build, ADR-0039).</summary>
+internal sealed class SqliteDatabaseProvider(SqliteDatabaseOptions options) : IDatabaseProvider
 {
-    public const string ProviderName = "Sqlite";
+    public void Configure(DbContextOptionsBuilder builder) => builder.UseSqlite(options.ConnectionString);
+}
 
-    /// <summary>Assembly holding the SQLite migrations of every module.</summary>
-    public const string MigrationsAssembly = "PaperDotNet.Migrations.Sqlite";
+public sealed record SqliteDatabaseOptions(string ConnectionString);
 
-    public string Name => ProviderName;
-
-    public void Configure(DbContextOptionsBuilder options, string schema, string? migrationsAssembly = null) =>
-        Configure(options, settings.ConnectionString, schema, migrationsAssembly);
-
-    public static void Configure(DbContextOptionsBuilder options, string connectionString, string schema, string? migrationsAssembly = null)
+public static class SqliteServiceCollectionExtensions
+{
+    /// <summary>
+    /// Registers SQLite as the database: <c>ConnectionStrings:PaperDotNet</c>, or <c>paperdotnet.db</c> in
+    /// <paramref name="dataPath"/>. Returns the connection string (Wolverine's message storage uses it too).
+    /// </summary>
+    public static string AddSqliteDatabase(this IServiceCollection services, IConfiguration configuration, string dataPath)
     {
-        options
-            .UseModuleSchema(schema)
-            .UseSqlite(connectionString, sqlite => sqlite
-                .MigrationsAssembly(migrationsAssembly ?? MigrationsAssembly)
-                .MigrationsHistoryTable($"__ef_migrations_history_{schema}"))
-            .UseSnakeCaseNamingConvention()
-            .AddMethodTranslator<SqliteJsonTranslatorPlugin>()
-            .AddInterceptors(SqliteConnectionSetup.Instance)
-            .ReplaceService<IModelCustomizer, SqliteModelCustomizer>();
+        var connectionString = configuration.GetConnectionString("PaperDotNet") is { Length: > 0 } configured
+            ? configured
+            : new SqliteConnectionStringBuilder
+            {
+                DataSource = Path.Combine(Directory.CreateDirectory(dataPath).FullName, "paperdotnet.db"),
+                DefaultTimeout = 30,
+                Pooling = true,
+            }.ToString();
+        services.AddSingleton(new SqliteDatabaseOptions(connectionString));
+        services.AddSingleton<IDatabaseProvider, SqliteDatabaseProvider>();
+        return connectionString;
     }
 }
 
 /// <summary>
-/// SQLite adjustments of the provider-neutral model:
-/// - no schemas: module tables get the schema as prefix (<c>lists_items</c>);
-/// - <see cref="DateTimeOffset"/> stored as sortable integers (UTC ticks), so
-///   dates can be compared and ordered;
-/// - JSON containment indexes are dropped (no GIN equivalent).
+/// Options for the EF Core tools (<c>IDesignTimeDbContextFactory</c> of each module): the compiled model and the
+/// precompiled queries are generated for SQLite, and migrations live in PaperDotNet.Migrations.Sqlite.
 /// </summary>
-internal sealed class SqliteModelCustomizer(ModelCustomizerDependencies dependencies) : RelationalModelCustomizer(dependencies)
+public static class SqliteDesignTime
 {
-    public override void Customize(ModelBuilder modelBuilder, DbContext context)
-    {
-        base.Customize(modelBuilder, context);
-        var schema = modelBuilder.Model.GetDefaultSchema();
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes().Where(t => !t.IsOwned()).ToList())
-        {
-            if (entityType.GetTableName() is { } table && (entityType.GetSchema() ?? schema) is { } entitySchema)
-            {
-                entityType.SetTableName($"{entitySchema}_{table}");
-                entityType.SetSchema(null);
-            }
+    public const string MigrationsAssembly = "PaperDotNet.Migrations.Sqlite";
 
-            foreach (var property in entityType.GetProperties().Where(p => p.ClrType == typeof(DateTimeOffset) || p.ClrType == typeof(DateTimeOffset?)))
-            {
-                property.SetValueConverter(new DateTimeOffsetToBinaryConverter());
-            }
-
-            foreach (var index in entityType.GetIndexes().Where(i => i.FindAnnotation(JsonDocumentExtensions.ContainmentIndexAnnotation) is not null).ToList())
-            {
-                entityType.RemoveIndex(index);
-            }
-        }
-
-        modelBuilder.Model.SetDefaultSchema(null);
-    }
+    public static DbContextOptions<TContext> Options<TContext>()
+        where TContext : DbContext =>
+        new DbContextOptionsBuilder<TContext>()
+            .UseSqlite("Data Source=design-time.db", sqlite => sqlite.MigrationsAssembly(MigrationsAssembly))
+            .Options;
 }

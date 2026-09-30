@@ -1,421 +1,216 @@
-using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
-using PaperDotNet.Lists.Querying;
-using PaperDotNet.Lists.Templates;
+using PaperDotNet.Lists.Fields;
 using PaperDotNet.Messaging;
-using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
-public sealed record ListSummary(Guid Id, Guid WorkspaceId, string Name, string? Description, ListKind Kind, bool AllowFolders, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, string? TemplateKey);
-
-/// <summary>A list with its content types and effective columns.</summary>
-public sealed record ListResponse(
+public sealed record ListDto(
     Guid Id,
-    Guid WorkspaceId,
     string Name,
     string? Description,
-    ListKind Kind,
-    bool AllowFolders,
-    ListVersioning Versioning,
-    int MaxVersions,
-    string? TemplateKey,
-    IReadOnlyList<ContentTypeResponse> ContentTypes,
-    IReadOnlyList<FieldDefinitionDto> Columns,
+    IReadOnlyList<FieldDefinition> Fields,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt)
-{
-    /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
-    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
-    public string? ETag { get; init; }
-}
+    Guid? CreatedBy,
+    DateTimeOffset UpdatedAt,
+    Guid? UpdatedBy,
+    [property: JsonPropertyName("@odata.etag")] string ETag);
 
-public sealed record CreateListRequest(
-    [property: Required, StringLength(200, MinimumLength = 1)] string Name,
-    [property: StringLength(2000)] string? Description,
-    ListKind Kind = ListKind.List,
-    bool AllowFolders = true,
-    IReadOnlyList<Guid>? ContentTypeIds = null,
-    ListVersioning? Versioning = null,
-    [property: Range(1, ListDefinition.MaxVersionsLimit)] int MaxVersions = ListDefinition.DefaultMaxVersions,
-    [property: StringLength(150)] string? TemplateKey = null);
+public sealed record CreateListRequest(string Name, string? Description, IReadOnlyList<FieldDefinition>? Fields);
 
-public sealed record UpdateListRequest(
-    [property: StringLength(200, MinimumLength = 1)] string? Name,
-    [property: StringLength(2000)] string? Description,
-    bool? AllowFolders,
-    ListVersioning? Versioning = null,
-    [property: Range(1, ListDefinition.MaxVersionsLimit)] int? MaxVersions = null);
+public sealed record UpdateListRequest(string? Name, string? Description, IReadOnlyList<FieldDefinition>? Fields);
 
-public sealed record AddListContentTypeRequest([property: Required] Guid ContentTypeId);
-
+/// <summary>Lists: create, read, change and delete. Queries copy their arguments into locals (ADR-0039).</summary>
 internal static class ListEndpoints
 {
-    public const string Route = "workspaces/{workspaceId:guid}/lists";
-
-    public static void Map(IEndpointRouteBuilder endpoints)
+    public static void Map(IEndpointRouteBuilder app)
     {
-        var group = endpoints.MapV1Group(Route, "Lists");
-        group.MapGet("", ListAsync).RequireScope(ListScopes.Read).WithName("ListLists");
-        group.MapPost("", CreateAsync).RequireScope(ListScopes.Read).WithName("CreateList");
-        group.MapGet("/{listId:guid}", GetAsync).RequireScope(ListScopes.Read).WithName("GetList");
-        group.MapPatch("/{listId:guid}", UpdateAsync).RequireScope(ListScopes.Read).WithName("UpdateList");
-        group.MapDelete("/{listId:guid}", DeleteAsync).RequireScope(ListScopes.Read).WithName("DeleteList");
-        group.MapPost("/{listId:guid}/contentTypes", AddContentTypeAsync).RequireScope(ListScopes.Read).WithName("AddListContentType");
-        group.MapDelete("/{listId:guid}/contentTypes/{contentTypeId:guid}", RemoveContentTypeAsync).RequireScope(ListScopes.Read).WithName("RemoveListContentType");
+        var group = app.MapGroup("/v1.0/lists").WithTags("Lists");
+        group.MapGet("/", ListAsync).RequireScope(Scopes.ListsRead).WithName("ListLists");
+        group.MapPost("/", CreateAsync).RequireScope(Scopes.ListsWrite).WithName("CreateList");
+        group.MapGet("/{listId:guid}", GetAsync).RequireScope(Scopes.ListsRead).WithName("GetList");
+        group.MapPatch("/{listId:guid}", UpdateAsync).RequireScope(Scopes.ListsWrite).WithName("UpdateList");
+        group.MapDelete("/{listId:guid}", DeleteAsync).RequireScope(Scopes.ListsWrite).WithName("DeleteList");
     }
 
-    private static async Task<Results<Ok<List<ListSummary>>, ProblemHttpResult>> ListAsync(
-        Guid workspaceId, IWorkspaceAccess workspaces, ListSchemaLoader loader, CancellationToken ct)
-    {
-        var level = await workspaces.GetPermissionAsync(workspaceId, ct);
-        if (level == WorkspaceAccessLevel.None)
-        {
-            return ApiErrors.NotFound();
-        }
+    public static ListDto ToDto(ListDefinition list) =>
+        new(list.Id, list.Name, list.Description, ListItemStore.FieldsOf(list), list.CreatedAt, list.CreatedBy, list.UpdatedAt, list.UpdatedBy, ETags.From(list.Version));
 
-        var lists = (await loader.VisibleListsAsync(workspaceId, level, ct))
-            .Select(l => new ListSummary(l.Id, l.WorkspaceId, l.Name, l.Description, l.Kind, l.AllowFolders, l.CreatedAt, l.UpdatedAt, l.TemplateKey))
-            .ToList();
-        return TypedResults.Ok(lists);
+    public static Task<ListDefinition?> FindAsync(ListsDbContext database, Guid tenantId, Guid listId, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = tenantId;
+        var id = listId;
+        var ct = cancellationToken;
+        return db.Lists.Where(l => l.TenantId == tenant && l.Id == id).FirstOrDefaultAsync(ct);
     }
 
-    /// <summary>
-    /// Creates a list from content types, or from a template (<c>templateKey</c>, LST-16), which
-    /// provisions its content types and creates its views.
-    /// </summary>
-    private static async Task<Results<Created<ListResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
-        Guid workspaceId, CreateListRequest request, IWorkspaceAccess workspaces, ListsDbContext db, ListTemplateRegistry templates,
-        ContentTypeProvisioner provisioner, IExtensionAvailability extensions, ItemQueryRunner runner, HttpResponse response, CancellationToken ct)
+    private static Task<bool> NameTakenAsync(ListsDbContext database, Guid tenantId, string listName, Guid exceptId, CancellationToken cancellationToken)
     {
-        var permission = await workspaces.GetPermissionAsync(workspaceId, ct);
-        if (permission == WorkspaceAccessLevel.None)
+        var db = database;
+        var tenant = tenantId;
+        var name = listName;
+        var except = exceptId;
+        var ct = cancellationToken;
+        return db.Lists.AnyAsync(l => l.TenantId == tenant && l.Name == name && l.Id != except, ct);
+    }
+
+    private static async Task<Ok<Page<ListDto>>> ListAsync(HttpRequest request, [FromQuery(Name = "$top")] int? top, [FromQuery(Name = "$skiptoken")] string? skipToken, Caller caller, ListsDbContext database, CancellationToken cancellationToken)
+    {
+        var page = PageRequest.Create(top, skipToken);
+        var db = database;
+        var tenant = caller.TenantId;
+        var take = page.Top + 1;
+        var ct = cancellationToken;
+        List<ListDefinition> lists;
+        if (page.After is { } after)
         {
-            return ApiErrors.NotFound();
+            lists = await db.Lists.Where(l => l.TenantId == tenant && l.Id.CompareTo(after) > 0).OrderBy(l => l.Id).Take(take).ToListAsync(ct);
+        }
+        else
+        {
+            lists = await db.Lists.Where(l => l.TenantId == tenant).OrderBy(l => l.Id).Take(take).ToListAsync(ct);
         }
 
-        if (permission < WorkspaceAccessLevel.Manage)
+        return TypedResults.Ok(Page.Create([.. lists.Select(ToDto)], page, request, l => l.Id));
+    }
+
+    private static async Task<Results<Created<ListDto>, ValidationProblem, ProblemHttpResult>> CreateAsync(
+        CreateListRequest body, Caller caller, ListsDbContext db, IOutbox outbox, CancellationToken cancellationToken)
+    {
+        var name = body.Name?.Trim() ?? "";
+        if (name.Length is 0 or > 255)
         {
-            return Forbidden();
+            return ApiErrors.Validation("name", "A name of 1 to 255 characters is required.");
         }
 
-        if (RequestValidation.Validate(request) is { } invalid)
+        var fields = body.Fields ?? [];
+        if (FieldValues.Validate(fields) is { Count: > 0 } errors)
         {
-            return invalid;
+            return ApiErrors.Validation(errors);
         }
 
-        ListTemplateDefinition? template = null;
-        if (request.TemplateKey is { } templateKey)
+        if (await NameTakenAsync(db, caller.TenantId, name, Guid.Empty, cancellationToken))
         {
-            template = templates.FindList(templateKey);
-            if (template is null || (template.ExtensionId is { } owner && !await extensions.IsEnabledAsync(owner, ct)))
-            {
-                return ApiErrors.Validation(new Dictionary<string, string[]> { ["templateKey"] = ["Unknown list template."] });
-            }
-
-            if (request.ContentTypeIds is { Count: > 0 })
-            {
-                return ApiErrors.Validation(new Dictionary<string, string[]> { ["contentTypeIds"] = ["Use either a template or content types."] });
-            }
-        }
-
-        var contentTypeIds = request.ContentTypeIds?.Distinct().ToList() ?? [];
-        foreach (var key in template?.ContentTypeKeys ?? [])
-        {
-            contentTypeIds.Add((await provisioner.EnsureAsync(templates.FindContentType(key)!, ct)).Id);
-        }
-
-        if (contentTypeIds.Count == 0)
-        {
-            contentTypeIds.Add(await EnsureItemContentTypeAsync(db, ct));
-        }
-
-        var contentTypes = await db.ContentTypes.AsNoTracking().Where(c => contentTypeIds.Contains(c.Id)).ToListAsync(ct);
-        if (contentTypes.Count != contentTypeIds.Count)
-        {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["contentTypeIds"] = ["Unknown content type."] });
-        }
-
-        var fields = new List<FieldDefinition>();
-        foreach (var contentType in contentTypeIds.Select(id => contentTypes.First(c => c.Id == id)))
-        {
-            if (ListSchema.FindConflict(fields, contentType) is { } conflict)
-            {
-                return ApiErrors.Conflict("fieldConflict", conflict);
-            }
-
-            fields.AddRange(contentType.Fields);
+            return ApiErrors.Conflict("nameTaken", "A list with this name exists.");
         }
 
         var list = new ListDefinition
         {
             Id = Ids.New(),
-            WorkspaceId = workspaceId,
-            Name = request.Name.Trim(),
-            Description = request.Description,
-            Kind = template is null ? request.Kind : template.IsLibrary ? ListKind.Library : ListKind.List,
-            AllowFolders = template?.AllowFolders ?? request.AllowFolders,
-            ContentTypeIds = contentTypeIds,
-            TemplateKey = template?.Key,
-            MaxVersions = request.MaxVersions,
+            TenantId = caller.TenantId,
+            Name = name,
+            Description = body.Description,
+            Fields = JsonSerializer.Serialize(fields, ListsJson.Default.IReadOnlyListFieldDefinition),
         };
-
-        // Libraries keep versions by default (like SharePoint document libraries).
-        list.Versioning = request.Versioning
-            ?? (template?.Versioning == true || list.Kind == ListKind.Library ? ListVersioning.Major : ListVersioning.Off);
         db.Lists.Add(list);
-        await db.SaveChangesAsync(ct);
-        if (template is not null)
-        {
-            await CreateViewsAsync(db, runner, new ListSchema(list, contentTypes, ListAccess.Full(list.Id)), template, ct);
-        }
-        ETags.Set(response, list.Version);
-        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/lists/{list.Id}", ToResponse(new ListSchema(list, contentTypes, ListAccess.Full(list.Id))));
+        await outbox.SaveChangesAsync(db, [new ListCreated(list.Id, list.Name) { TenantId = caller.TenantId, UserId = caller.UserId }], cancellationToken);
+        return TypedResults.Created($"/v1.0/lists/{list.Id}", ToDto(list));
     }
 
-    private static async Task<Results<Ok<ListResponse>, ProblemHttpResult>> GetAsync(
-        Guid workspaceId, Guid listId, ListSchemaLoader loader, HttpResponse response, CancellationToken ct)
+    private static async Task<Results<Ok<ListDto>, ProblemHttpResult>> GetAsync(Guid listId, HttpResponse response, Caller caller, ListsDbContext db, CancellationToken cancellationToken)
     {
-        var schema = await loader.LoadAsync(workspaceId, listId, ct);
-        if (schema is null)
+        if (await FindAsync(db, caller.TenantId, listId, cancellationToken) is not { } list)
         {
             return ApiErrors.NotFound();
         }
 
-        ETags.Set(response, schema.List.Version);
-        return TypedResults.Ok(ToResponse(schema));
+        ETags.Set(response, list.Version);
+        return TypedResults.Ok(ToDto(list));
     }
 
-    private static async Task<Results<Ok<ListResponse>, ValidationProblem, ProblemHttpResult>> UpdateAsync(
-        Guid workspaceId, Guid listId, UpdateListRequest request, ListSchemaLoader loader, ListsDbContext db,
-        HttpRequest http, HttpResponse response, CancellationToken ct)
+    private static async Task<Results<Ok<ListDto>, ValidationProblem, ProblemHttpResult>> UpdateAsync(
+        Guid listId, UpdateListRequest body, HttpContext http, Caller caller, ListsDbContext db, CancellationToken cancellationToken)
     {
-        if (RequestValidation.Validate(request) is { } invalid)
+        if (!ETags.TryGetIfMatch(http.Request, out var version))
         {
-            return invalid;
+            return ApiErrors.PreconditionRequired();
         }
 
-        var (schema, problem) = await LoadForChangeAsync(workspaceId, listId, loader, db, http, ct);
-        if (problem is not null)
+        if (await FindAsync(db, caller.TenantId, listId, cancellationToken) is not { } list)
         {
-            return problem;
+            return ApiErrors.NotFound();
         }
 
-        var list = schema!.List;
-        list.Name = request.Name?.Trim() ?? list.Name;
-        list.Description = request.Description ?? list.Description;
-        list.AllowFolders = request.AllowFolders ?? list.AllowFolders;
-        list.Versioning = request.Versioning ?? list.Versioning;
-        list.MaxVersions = request.MaxVersions ?? list.MaxVersions;
-        if (await SaveAsync(db, ct) is { } conflict)
+        if (list.Version != version)
         {
-            return conflict;
+            return ApiErrors.PreconditionFailed();
         }
 
-        ETags.Set(response, list.Version);
-        return TypedResults.Ok(ToResponse(schema));
+        if (body.Name is not null)
+        {
+            var name = body.Name.Trim();
+            if (name.Length is 0 or > 255)
+            {
+                return ApiErrors.Validation("name", "A name of 1 to 255 characters is required.");
+            }
+
+            if (await NameTakenAsync(db, caller.TenantId, name, list.Id, cancellationToken))
+            {
+                return ApiErrors.Conflict("nameTaken", "A list with this name exists.");
+            }
+
+            list.Name = name;
+        }
+
+        if (body.Description is not null)
+        {
+            list.Description = body.Description.Length == 0 ? null : body.Description;
+        }
+
+        if (body.Fields is { } fields)
+        {
+            if (FieldValues.Validate(fields) is { Count: > 0 } errors)
+            {
+                return ApiErrors.Validation(errors);
+            }
+
+            // Stored values keep their form: a field keeps its type once created.
+            var current = ListItemStore.FieldsOf(list).ToDictionary(f => f.Name, StringComparer.Ordinal);
+            if (fields.FirstOrDefault(f => current.TryGetValue(f.Name, out var old) && old.Type != f.Type) is { } changed)
+            {
+                return ApiErrors.Validation("fields", $"The type of the field '{changed.Name}' cannot change.");
+            }
+
+            list.Fields = JsonSerializer.Serialize(fields, ListsJson.Default.IReadOnlyListFieldDefinition);
+        }
+
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return ApiErrors.PreconditionFailed();
+        }
+
+        ETags.Set(http.Response, list.Version);
+        return TypedResults.Ok(ToDto(list));
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteAsync(
-        Guid workspaceId, Guid listId, ListSchemaLoader loader, ListsDbContext db, IOutbox outbox, ITenantContext tenant, ICurrentUser user,
-        HttpRequest http, CancellationToken ct)
+        Guid listId, HttpRequest request, Caller caller, ListsDbContext db, IOutbox outbox, CancellationToken cancellationToken)
     {
-        var (schema, problem) = await LoadForChangeAsync(workspaceId, listId, loader, db, http, ct);
-        if (problem is not null)
+        if (await FindAsync(db, caller.TenantId, listId, cancellationToken) is not { } list)
         {
-            return problem;
+            return ApiErrors.NotFound();
         }
 
-        if (schema!.List.SystemKey is not null)
-        {
-            return ApiErrors.Conflict("systemList", "This list is part of the system and cannot be deleted.");
-        }
-
-        db.Lists.Remove(schema.List);
-        try
-        {
-            await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, listId)], cancellationToken: ct);
-            return TypedResults.NoContent();
-        }
-        catch (DbUpdateConcurrencyException)
+        if (ETags.HasIfMatch(request) && (!ETags.TryGetIfMatch(request, out var version) || version != list.Version))
         {
             return ApiErrors.PreconditionFailed();
         }
-    }
 
-    private static async Task<Results<Ok<ListResponse>, ProblemHttpResult>> AddContentTypeAsync(
-        Guid workspaceId, Guid listId, AddListContentTypeRequest request, ListSchemaLoader loader, ListsDbContext db,
-        HttpResponse response, CancellationToken ct)
-    {
-        var schema = await loader.LoadAsync(workspaceId, listId, ct, tracking: true);
-        if (schema is null)
-        {
-            return ApiErrors.NotFound();
-        }
-
-        if (schema.Permission < WorkspaceAccessLevel.Manage)
-        {
-            return Forbidden();
-        }
-
-        var contentType = await db.ContentTypes.AsNoTracking().FirstOrDefaultAsync(c => c.Id == request.ContentTypeId, ct);
-        if (contentType is null)
-        {
-            return ApiErrors.NotFound("The content type was not found.");
-        }
-
-        if (!schema.List.ContentTypeIds.Contains(contentType.Id))
-        {
-            if (ListSchema.FindConflict(schema.Fields.Values, contentType) is { } conflict)
-            {
-                return ApiErrors.Conflict("fieldConflict", conflict);
-            }
-
-            schema.List.ContentTypeIds = [.. schema.List.ContentTypeIds, contentType.Id];
-            await db.SaveChangesAsync(ct);
-        }
-
-        var updated = await loader.LoadAsync(workspaceId, listId, ct);
-        ETags.Set(response, updated!.List.Version);
-        return TypedResults.Ok(ToResponse(updated));
-    }
-
-    private static async Task<Results<NoContent, ProblemHttpResult>> RemoveContentTypeAsync(
-        Guid workspaceId, Guid listId, Guid contentTypeId, ListSchemaLoader loader, ListsDbContext db, CancellationToken ct)
-    {
-        var schema = await loader.LoadAsync(workspaceId, listId, ct, tracking: true);
-        if (schema is null || !schema.List.ContentTypeIds.Contains(contentTypeId))
-        {
-            return ApiErrors.NotFound();
-        }
-
-        if (schema.Permission < WorkspaceAccessLevel.Manage)
-        {
-            return Forbidden();
-        }
-
-        if (schema.List.ContentTypeIds.Count == 1)
-        {
-            return ApiErrors.Conflict("lastContentType", "A list needs at least one content type.");
-        }
-
-        if (await db.Items.AnyAsync(i => i.ListId == listId && i.ContentTypeId == contentTypeId, ct))
-        {
-            return ApiErrors.Conflict("contentTypeInUse", "Items in this list still use the content type.");
-        }
-
-        schema.List.ContentTypeIds = schema.List.ContentTypeIds.Where(id => id != contentTypeId).ToList();
-        await db.SaveChangesAsync(ct);
+        // Items go with the list (foreign key cascade).
+        db.Lists.Remove(list);
+        await outbox.SaveChangesAsync(db, [new ListDeleted(list.Id, list.Name) { TenantId = caller.TenantId, UserId = caller.UserId }], cancellationToken);
         return TypedResults.NoContent();
     }
-
-    /// <summary>Loads a list the caller may restructure, enforcing <c>If-Match</c>.</summary>
-    private static async Task<(ListSchema? Schema, ProblemHttpResult? Problem)> LoadForChangeAsync(
-        Guid workspaceId, Guid listId, ListSchemaLoader loader, ListsDbContext db, HttpRequest http, CancellationToken ct)
-    {
-        var schema = await loader.LoadAsync(workspaceId, listId, ct, tracking: true);
-        if (schema is null)
-        {
-            return (null, ApiErrors.NotFound());
-        }
-
-        if (schema.Permission < WorkspaceAccessLevel.Manage)
-        {
-            return (null, Forbidden());
-        }
-
-        if (!ETags.TryGetIfMatch(http, out var version))
-        {
-            return (null, ApiErrors.PreconditionRequired());
-        }
-
-        if (version != schema.List.Version)
-        {
-            return (null, ApiErrors.PreconditionFailed());
-        }
-
-        db.Entry(schema.List).Property(l => l.Version).OriginalValue = version;
-        return (schema, null);
-    }
-
-    private static async Task<ProblemHttpResult?> SaveAsync(ListsDbContext db, CancellationToken ct)
-    {
-        try
-        {
-            await db.SaveChangesAsync(ct);
-            return null;
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return ApiErrors.PreconditionFailed();
-        }
-    }
-
-    /// <summary>The built-in Item content type (created on demand for tenants that predate the Lists module).</summary>
-    internal static async Task<Guid> EnsureItemContentTypeAsync(ListsDbContext db, CancellationToken ct)
-    {
-        var id = await db.ContentTypes.Where(c => c.IsBuiltIn && c.Name == ContentType.ItemName).Select(c => (Guid?)c.Id).FirstOrDefaultAsync(ct);
-        if (id is { } existing)
-        {
-            return existing;
-        }
-
-        var item = new ContentType { Id = Ids.New(), Name = ContentType.ItemName, Description = "A generic item with a title.", IsBuiltIn = true };
-        db.ContentTypes.Add(item);
-        await db.SaveChangesAsync(ct);
-        return item.Id;
-    }
-
-    private static async Task CreateViewsAsync(ListsDbContext db, ItemQueryRunner runner, ListSchema schema, ListTemplateDefinition template, CancellationToken ct)
-    {
-        foreach (var view in template.Views)
-        {
-            if (runner.Validate(schema, view.Filter, view.OrderBy) is { } error)
-            {
-                throw new InvalidOperationException($"List template '{template.Key}', view '{view.Name}': {error}");
-            }
-
-            db.Views.Add(new ListView
-            {
-                Id = Ids.New(),
-                ListId = schema.List.Id,
-                Name = view.Name,
-                Columns = [.. view.Columns],
-                Filter = view.Filter,
-                OrderBy = view.OrderBy,
-                GroupBy = view.GroupBy,
-                Layout = Enum.Parse<ViewLayout>(view.Layout, ignoreCase: true),
-                IsDefault = view.IsDefault,
-            });
-        }
-
-        await db.SaveChangesAsync(ct);
-    }
-
-    internal static ProblemHttpResult Forbidden() =>
-        ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "You do not have permission for this action in the workspace.");
-
-    private static ListResponse ToResponse(ListSchema schema) => new(
-        schema.List.Id,
-        schema.List.WorkspaceId,
-        schema.List.Name,
-        schema.List.Description,
-        schema.List.Kind,
-        schema.List.AllowFolders,
-        schema.List.Versioning,
-        schema.List.MaxVersions,
-        schema.List.TemplateKey,
-        schema.ContentTypes.Select(ContentTypeEndpoints.ToResponse).ToList(),
-        [new FieldDefinitionDto("title", "Title", "text", Required: true, MaxLength: ItemWriter.TitleMaxLength), .. schema.Fields.Values.Select(FieldDefinitionDto.From)],
-        schema.List.CreatedAt,
-        schema.List.UpdatedAt)
-    { ETag = ETags.From(schema.List.Version) };
 }

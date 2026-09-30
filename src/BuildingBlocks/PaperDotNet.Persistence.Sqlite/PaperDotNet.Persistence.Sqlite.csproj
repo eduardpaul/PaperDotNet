@@ -1,14 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- SQLite database provider (the default). The ONLY project allowed to reference SQLite packages. -->
+  <!--
+    SQLite database provider (the default and, under Native AOT, the database of this build: ADR-0039). The only project
+    allowed to reference SQLite packages. Schema/ holds the SQL of every module's migrations (eng/schema.sh).
+  -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
-    <PackageReference Include="EFCore.NamingConventions" />
   </ItemGroup>
   <ItemGroup>
-    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+    <EmbeddedResource Include="Schema\*.sql" LogicalName="Schema.%(Filename).sql" />
   </ItemGroup>
 </Project>

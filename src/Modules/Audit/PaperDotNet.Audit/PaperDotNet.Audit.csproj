@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Audit log API over the audit_log tables of all modules (LST-14). -->
+  <!-- Audit log (LST-14, ADR-0039 slice): list and item events recorded by a subscriber, read through /v1.0/audit. -->
+  <Import Project="..\..\AotModule.props" />
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
+    <ProjectReference Include="..\..\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
   </ItemGroup>
 </Project>

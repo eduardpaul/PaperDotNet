@@ -3,9 +3,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace PaperDotNet.Api;
 
-/// <summary>
-/// RFC 9457 problem responses with a Graph-style machine-readable <c>code</c>.
-/// </summary>
+/// <summary>Problem details with a stable <c>code</c>, as in the rest of the API.</summary>
 public static class ApiErrors
 {
     public static ProblemHttpResult Problem(int status, string code, string detail) =>
@@ -20,6 +18,9 @@ public static class ApiErrors
     public static ProblemHttpResult Conflict(string code, string detail) =>
         Problem(StatusCodes.Status409Conflict, code, detail);
 
+    public static ProblemHttpResult BadRequest(string code, string detail) =>
+        Problem(StatusCodes.Status400BadRequest, code, detail);
+
     public static ProblemHttpResult PreconditionRequired() =>
         Problem(StatusCodes.Status428PreconditionRequired, "preconditionRequired", "An If-Match header with the current ETag is required.");
 
@@ -28,4 +29,7 @@ public static class ApiErrors
 
     public static ValidationProblem Validation(IDictionary<string, string[]> errors) =>
         TypedResults.ValidationProblem(errors, extensions: new Dictionary<string, object?> { ["code"] = "invalidRequest" });
+
+    public static ValidationProblem Validation(string field, string error) =>
+        Validation(new Dictionary<string, string[]> { [field] = [error] });
 }

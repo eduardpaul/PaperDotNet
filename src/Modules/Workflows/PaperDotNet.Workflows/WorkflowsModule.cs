@@ -1,83 +1,50 @@
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Jobs.Contracts;
-using PaperDotNet.Lists.Contracts;
-using PaperDotNet.Messaging;
+using PaperDotNet.Api;
 using PaperDotNet.Persistence;
-using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workflows.Data;
 using PaperDotNet.Workflows.Features;
 
 namespace PaperDotNet.Workflows;
 
-public static class WorkflowScopes
-{
-    public const string Read = "workflow.read";
-    public const string Write = "workflow.write";
-
-    public static readonly ScopeDefinition[] All =
-    [
-        new(Read, "See workflows, their runs and your approvals.", GrantedToMembers: true),
-        new(Write, "Decide approvals, start workflows on items and (as workspace manager) change workflows.", GrantedToMembers: true),
-    ];
-}
-
 /// <summary>
-/// Workflows (ADR-0036; before: automation, ADR-0018/0019/0024): workflows started by item events, extension triggers
-/// or people, with actions, approvals, delays and conditions (runs resumed through durable messages), built-in and
-/// extension activities, path templates.
+/// Workflows (ADR-0036): the engine, its built-in activities (<c>item.create</c>, <c>item.update</c>) and the API.
+/// Subscribers: <see cref="WorkflowTriggerSubscriber"/> (item events) and <see cref="WorkflowRunSubscriber"/> (runs).
 /// </summary>
 public sealed class WorkflowsModule : IModule
 {
     public string Name => "Workflows";
 
+    public IJsonTypeInfoResolver Json => WorkflowsJson.Default;
+
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddModuleDbContext<WorkflowsDbContext>(WorkflowsDbContext.Schema);
-        services.AddScoped<TokenExpander>();
-        services.AddScoped<RecipientResolver>();
-        services.AddScoped<ActionCatalog>();
-        services.AddScoped<TriggerCatalog>();
-        services.AddScoped<ActionExecutor>();
-        services.AddScoped<WorkflowValidator>();
-        services.AddWorkflowActivity<ItemUpdateAction>();
-        services.AddWorkflowActivity<ItemFileAction>();
-        services.AddWorkflowActivity<ItemCreateAction>();
-        services.AddWorkflowActivity<ItemDeleteAction>();
-        services.AddWorkflowActivity<ItemGetAction>();
-        services.AddWorkflowActivity<ItemsQueryAction>();
-
-        services.AddIntegrationEvent<WorkflowTriggerRaised>();
-        services.AddScoped<IWorkflowTriggers, WorkflowTriggerPublisher>();
-        services.AddEventSubscriber<ItemAdded, WorkflowTriggerHandler>();
-        services.AddEventSubscriber<ItemUpdated, WorkflowTriggerHandler>();
-        services.AddEventSubscriber<ItemDeleted, WorkflowTriggerHandler>();
-        services.AddEventSubscriber<ItemRestored, WorkflowTriggerHandler>();
-        services.AddEventSubscriber<WorkflowTriggerRaised, WorkflowTriggerHandler>();
-
-        services.Configure<WorkflowOptions>(configuration.GetSection("Workflows"));
+        services.AddModuleDbContext<WorkflowsDbContext>();
+        services.Configure<WorkflowScriptOptions>(configuration.GetSection("Workflows:Scripts"));
+        services.AddSingleton<TokenExpander>();
+        services.AddScoped<ItemConditions>();
+        services.AddScoped<ScriptRunner>();
         services.AddScoped<WorkflowStarter>();
         services.AddScoped<WorkflowInterpreter>();
-        services.AddScoped<ScriptRunner>();
-        services.Configure<WorkflowScriptOptions>(configuration.GetSection(WorkflowScriptOptions.Section));
-        services.AddScoped<RunService>();
-        services.AddScoped<IWorkflowBookmarks, WorkflowBookmarks>();
-        services.AddScoped<IWorkflowDirectory, WorkflowDirectory>();
-        services.AddScoped<IWorkflowRecipients, WorkflowRecipientResolver>();
-        services.AddScoped<BuiltInWorkflows>();
-        services.AddWorkflow(WorkflowBuiltIns.ApproveItemsWorkflow);
-        services.AddTenantRecurringJob<BuiltInSyncJob>(BuiltInSyncJob.Name, BuiltInSyncJob.Schedule);
-        services.AddTenantRecurringJob<WorkflowTimerJob>(WorkflowTimerJob.Name, WorkflowTimerJob.Schedule);
-        services.AddTenantRecurringJob<WorkflowScheduleJob>(WorkflowScheduleJob.Name, WorkflowScheduleJob.Schedule);
-        services.AddTenantRecurringJob<WorkflowRunCleanupJob>(WorkflowRunCleanupJob.Name, WorkflowRunCleanupJob.Schedule);
-
-        services.AddScoped<ITemplateHandler, WorkflowTemplateHandler>();
-        services.AddScoped<ITemplateHandler, LegacyAutomationTemplateHandler>();
-        services.AddScopes(WorkflowScopes.All);
+        services.AddWorkflowActivity<ItemCreateActivity>();
+        services.AddWorkflowActivity<ItemUpdateActivity>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => WorkflowEndpoints.Map(endpoints);
 }
+
+/// <summary>Every type the Workflows API and its messages serialize (Native AOT, ADR-0039).</summary>
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(WorkflowDto))]
+[JsonSerializable(typeof(Page<WorkflowDto>))]
+[JsonSerializable(typeof(CreateWorkflowRequest))]
+[JsonSerializable(typeof(UpdateWorkflowRequest))]
+[JsonSerializable(typeof(StartRunRequest))]
+[JsonSerializable(typeof(RunDto))]
+[JsonSerializable(typeof(Page<RunDto>))]
+[JsonSerializable(typeof(IReadOnlyList<ActivityDto>))]
+[JsonSerializable(typeof(ResumeRun))]
+internal sealed partial class WorkflowsJson : JsonSerializerContext;

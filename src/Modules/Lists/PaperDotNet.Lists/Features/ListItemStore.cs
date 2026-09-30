@@ -1,368 +1,167 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using PaperDotNet.Abstractions;
+using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
+using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
-using PaperDotNet.Lists.Templates;
-using PaperDotNet.Persistence;
-using PaperDotNet.Workspaces.Contracts;
+using PaperDotNet.Messaging;
 
 namespace PaperDotNet.Lists.Features;
 
 /// <summary>
-/// <see cref="IListItemStore"/> over the same loader, query runner and writer as the items API,
-/// so code gets the API's validation, mutators, versions and events.
+/// Reads and writes list items for the API and for other modules (<see cref="IListItemStore"/>). Queries copy their
+/// arguments into locals (precompiled queries, ADR-0039).
 /// </summary>
-internal sealed class ListItemStore(
-    ListsDbContext db, ListSchemaLoader loader, ItemQueryRunner runner, ItemWriter writer, IWorkspaceAccess workspaces,
-    ListItemSearchDocuments search, ContentTypeProvisioner contentTypes, ListTemplateRegistry templates, bool system = false)
-    : IListItemStore
+internal sealed class ListItemStore(ListsDbContext db, IOutbox outbox, IItemQueries queries) : IListItemStore
 {
-    public IListItemStore AsSystem() => system ? this : new ListItemStore(db, loader, runner, writer, workspaces, search, contentTypes, templates, system: true);
+    public static IReadOnlyList<FieldDefinition> FieldsOf(ListDefinition list) =>
+        JsonSerializer.Deserialize(list.Fields, ListsJson.Default.IReadOnlyListFieldDefinition) ?? [];
 
-    public Task ReindexAsync(Guid itemId, CancellationToken cancellationToken) => search.IndexItemAsync(itemId, cancellationToken);
+    public static ListItemData ToData(ListItem item, IReadOnlyList<FieldDefinition> fields) =>
+        new(item.Id, item.ListId, FieldValues.ForApi(fields, item.Title, item.Fields), item.CreatedAt, item.CreatedBy, item.UpdatedAt, item.UpdatedBy, item.Version);
 
-    public async Task<IReadOnlyList<ListData>> GetListsAsync(Guid? workspaceId, string? templateKey, CancellationToken cancellationToken)
+    public Task<ListDefinition?> FindListEntityAsync(Guid tenantId, Guid listId, CancellationToken cancellationToken)
     {
-        List<ListDefinition> lists;
-        if (system)
-        {
-            var query = db.Lists.AsNoTracking();
-            if (workspaceId is { } id)
-            {
-                query = query.Where(l => l.WorkspaceId == id);
-            }
-
-            lists = await query.OrderBy(l => l.Name).ToListAsync(cancellationToken);
-        }
-        else
-        {
-            var memberships = workspaceId is { } id
-                ? [new WorkspaceMembership(id, await workspaces.GetPermissionAsync(id, cancellationToken))]
-                : await workspaces.GetMyWorkspacesAsync(cancellationToken);
-            lists = await loader.VisibleListsAsync(memberships, cancellationToken);
-        }
-
-        lists = lists.Where(l => templateKey is null || l.TemplateKey == templateKey).ToList();
-        var contentTypeIds = lists.SelectMany(l => l.ContentTypeIds).Distinct().ToList();
-        var contentTypes = await db.ContentTypes.AsNoTracking()
-            .Where(c => contentTypeIds.Contains(c.Id))
-            .ToDictionaryAsync(c => c.Id, c => new ListContentType(c.Id, c.Name, c.Key), cancellationToken);
-        return lists
-            .Select(l => new ListData(l.Id, l.WorkspaceId, l.Name, l.TemplateKey)
-            {
-                IsLibrary = l.Kind == ListKind.Library,
-                ContentTypeKeys = [.. l.ContentTypeIds.Select(contentTypes.GetValueOrDefault).OfType<ListContentType>().Select(c => c.Key).OfType<string>()],
-                ContentTypes = [.. l.ContentTypeIds.Select(contentTypes.GetValueOrDefault).OfType<ListContentType>()],
-            })
-            .ToList();
+        var context = db;
+        var tenant = tenantId;
+        var id = listId;
+        var ct = cancellationToken;
+        return context.Lists.Where(l => l.TenantId == tenant && l.Id == id).FirstOrDefaultAsync(ct);
     }
 
-    public async Task<ListData?> GetListAsync(Guid workspaceId, Guid listId, CancellationToken cancellationToken)
+    private Task<ListItem?> FindItemAsync(Guid tenantId, Guid listId, Guid itemId, CancellationToken cancellationToken)
     {
-        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
-        return schema is null
-            ? null
-            : new ListData(schema.List.Id, schema.List.WorkspaceId, schema.List.Name, schema.List.TemplateKey)
-            {
-                IsLibrary = schema.List.Kind == ListKind.Library,
-                Access = schema.Access.ListLevel,
-                ContentTypeKeys = [.. schema.ContentTypes.Where(c => c.Key is not null).Select(c => c.Key!)],
-                ContentTypes = [.. schema.ContentTypes.Select(c => new ListContentType(c.Id, c.Name, c.Key))],
-            };
+        var context = db;
+        var tenant = tenantId;
+        var list = listId;
+        var id = itemId;
+        var ct = cancellationToken;
+        return context.Items.Where(i => i.TenantId == tenant && i.ListId == list && i.Id == id).FirstOrDefaultAsync(ct);
     }
 
-    public async Task<ListDescription?> DescribeListAsync(Guid workspaceId, Guid listId, CancellationToken cancellationToken)
+    public async Task<ListData?> FindListAsync(Guid tenantId, Guid listId, CancellationToken cancellationToken) =>
+        await FindListEntityAsync(tenantId, listId, cancellationToken) is { } list ? new ListData(list.Id, list.Name) : null;
+
+    public async Task<ListData?> FindListByNameAsync(Guid tenantId, string name, CancellationToken cancellationToken)
     {
-        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
-        return schema is null
-            ? null
-            : new ListDescription(
-                schema.List.Id, schema.List.WorkspaceId, schema.List.Name, schema.List.Description, schema.List.TemplateKey,
-                schema.List.Kind == ListKind.Library, schema.List.AllowFolders, schema.Access.ListLevel,
-                schema.ContentTypes.Select(c => new ListContentTypeInfo(c.Id, c.Name, c.Key, c.Description, c.Fields.Select(FieldInfo).ToList())).ToList());
+        var context = db;
+        var tenant = tenantId;
+        var listName = name;
+        var ct = cancellationToken;
+        return await context.Lists.Where(l => l.TenantId == tenant && l.Name == listName).FirstOrDefaultAsync(ct) is { } list ? new ListData(list.Id, list.Name) : null;
     }
 
-    public async Task<HomeData> EnsureHomeAsync(CancellationToken cancellationToken)
-    {
-        var home = await HomeEndpoints.EnsureHomeAsync(workspaces, db, contentTypes, templates, cancellationToken);
-        return new HomeData(home.WorkspaceId, home.DocumentsListId, home.InboxListId);
-    }
-
-    public async Task<ListItemData?> GetAsync(Guid workspaceId, Guid listId, Guid itemId, CancellationToken cancellationToken)
-    {
-        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
-        var item = schema is null ? null : await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId && i.ListId == listId, cancellationToken);
-        return item is null || schema!.Access.Level(item.ScopeId) < WorkspaceAccessLevel.Read ? null : ToData(schema, item);
-    }
+    public async Task<ListItemData?> GetAsync(Guid tenantId, Guid listId, Guid itemId, CancellationToken cancellationToken) =>
+        await FindListEntityAsync(tenantId, listId, cancellationToken) is { } list && await FindItemAsync(tenantId, listId, itemId, cancellationToken) is { } item
+            ? ToData(item, FieldsOf(list))
+            : null;
 
     public async Task<(IReadOnlyList<ListItemData> Items, string? Error)> QueryAsync(
-        Guid workspaceId, Guid listId, ListItemQuery query, CancellationToken cancellationToken)
+        Guid tenantId, Guid listId, string? filter, string? orderBy, int top, Guid? itemId, CancellationToken cancellationToken)
     {
-        var (page, error) = await QueryPageAsync(workspaceId, listId, query, cancellationToken);
-        return (page?.Items ?? [], error);
-    }
-
-    public async Task<(ListItemPage? Page, string? Error)> QueryPageAsync(
-        Guid workspaceId, Guid listId, ListItemQuery query, CancellationToken cancellationToken)
-    {
-        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
-        if (schema is null)
+        if (await FindListEntityAsync(tenantId, listId, cancellationToken) is not { } list)
         {
-            return (null, "The list was not found.");
+            return ([], "The list does not exist.");
         }
 
-        var (items, next, error) = await runner.ListPageAsync(schema, query.Filter, query.OrderBy, query.Top, query.SkipToken, null, false, cancellationToken);
-        return error is not null ? (null, error) : (new ListItemPage(items!.Select(i => ToData(schema, i)).ToList(), next), null);
-    }
-
-    public async Task<(ListItemPage? Page, string? Error)> ListChildrenAsync(
-        Guid workspaceId, Guid listId, Guid? folderId, ListItemQuery query, CancellationToken cancellationToken)
-    {
-        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
-        if (schema is null)
+        var fields = FieldsOf(list);
+        var (filterClause, orderByClause, error) = ItemQueryParser.Parse(filter, orderBy, fields);
+        if (error is not null)
         {
-            return (null, "The list was not found.");
-        }
-
-        if (folderId is { } id && await GetAsync(workspaceId, listId, id, cancellationToken) is not { IsFolder: true })
-        {
-            return (null, "The folder was not found (or you cannot read it).");
-        }
-
-        var (items, next, error) = await runner.ListPageAsync(schema, query.Filter, query.OrderBy, query.Top, query.SkipToken, folderId, true, cancellationToken);
-        return error is not null ? (null, error) : (new ListItemPage(items!.Select(i => ToData(schema, i)).ToList(), next), null);
-    }
-
-    public async Task<(IReadOnlyList<ListQueryResult> Results, string? Error)> QueryAsync(
-        IReadOnlyList<ListData> lists, ListItemQuery query, CancellationToken cancellationToken)
-    {
-        // One pass for every list's schema and access, then one query per group of lists that translate the same way
-        // (lists from one template are one group), instead of all of it per list (ADR-0035, issue 0009).
-        var schemas = await loader.LoadManyAsync([.. lists.Select(l => l.Id)], system, cancellationToken);
-        var byId = schemas.ToDictionary(s => s.List.Id);
-        var found = lists.ToDictionary(l => l.Id, _ => new List<ListItemData>());
-        var top = Math.Clamp(query.Top, 1, ListItemQuery.MaxTop);
-        foreach (var group in schemas.GroupBy(ItemQueryRunner.QueryShape))
-        {
-            var (items, translator, order, error) = await runner.MatchingManyAsync([.. group], query.Filter, query.OrderBy, i => !i.IsFolder, cancellationToken);
-            if (error is not null)
-            {
-                return ([], error);
-            }
-
-            var ordered = order is null ? items!.OrderBy(i => i.Id) : translator!.OrderBy(items!, order);
-            foreach (var item in await ordered.Take(top).ToListAsync(cancellationToken))
-            {
-                found[item.ListId].Add(ToData(byId[item.ListId], item));
-            }
-        }
-
-        return ([.. lists.Where(l => byId.ContainsKey(l.Id)).Select(l => new ListQueryResult(l, found[l.Id]))], null);
-    }
-
-    public Task<ListItemResult> CreateAsync(Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken) =>
-        CreateAsync(workspaceId, listId, fields, contentTypeId, null, cancellationToken);
-
-    public async Task<ListItemResult> CreateAsync(
-        Guid workspaceId, Guid listId, JsonObject fields, Guid? contentTypeId, Guid? parentId, CancellationToken cancellationToken)
-    {
-        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
-        if (schema is null)
-        {
-            return new ListItemResult(ListItemStatus.NotFound);
-        }
-
-        return ToResult(schema, await writer.CreateAsync(schema, contentTypeId, parentId, isFolder: false, Element(fields), cancellationToken));
-    }
-
-    public async Task<ListItemResult> CreateFolderAsync(
-        Guid workspaceId, Guid listId, string title, Guid? parentId, CancellationToken cancellationToken)
-    {
-        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
-        if (schema is null)
-        {
-            return new ListItemResult(ListItemStatus.NotFound);
-        }
-
-        return ToResult(schema, await writer.CreateAsync(schema, null, parentId, isFolder: true, Element(new JsonObject { ["title"] = title }), cancellationToken));
-    }
-
-    public Task<ListItemResult> CreateAsync(
-        Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, Guid? contentTypeId, CancellationToken cancellationToken) =>
-        CreateAsync(workspaceId, listId, itemId, fields, contentTypeId, null, cancellationToken);
-
-    public async Task<ListItemResult> CreateAsync(
-        Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, Guid? contentTypeId, Guid? parentId, CancellationToken cancellationToken)
-    {
-        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
-        if (schema is null)
-        {
-            return new ListItemResult(ListItemStatus.NotFound);
-        }
-
-        var existing = await db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete]).AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
-        if (existing is not null)
-        {
-            return existing.ListId == listId && existing.DeletedAt is null
-                ? new ListItemResult(ListItemStatus.Ok, ToData(schema, existing))
-                : new ListItemResult(ListItemStatus.Rejected, Message: "An item with this id exists in another list or was deleted.");
-        }
-
-        return ToResult(schema, await writer.CreateAsync(schema, contentTypeId, parentId, isFolder: false, Element(fields), itemId, cancellationToken));
-    }
-
-    public async Task<ListItemResult> UpdateAsync(
-        Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, uint? expectedVersion, CancellationToken cancellationToken)
-    {
-        var (schema, item, problem) = await LoadForChangeAsync(workspaceId, listId, itemId, expectedVersion, cancellationToken);
-        if (problem is not null)
-        {
-            return problem;
+            return ([], error);
         }
 
         try
         {
-            return ToResult(schema!, await writer.UpdateAsync(schema!, item!, null, Optional<Guid?>.None, Element(fields), cancellationToken));
+            var found = await queries.QueryAsync(new ItemQuery(tenantId, listId, filterClause, orderByClause, new PageRequest(top, null, 0), false, itemId), cancellationToken);
+            return ([.. found.Items.Take(top).Select(i => ToData(i, fields))], null);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (NotSupportedException exception)
         {
-            return new ListItemResult(ListItemStatus.VersionMismatch);
+            return ([], exception.Message);
         }
     }
 
-    public async Task<(Guid? FolderId, ListItemResult? Problem)> EnsureFolderAsync(
-        Guid workspaceId, Guid listId, IReadOnlyList<string> path, CancellationToken cancellationToken)
+    public async Task<ItemWriteResult> CreateAsync(ChangeActor actor, Guid listId, Guid? itemId, JsonObject values, CancellationToken cancellationToken)
     {
-        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
-        if (schema is null)
+        if (await FindListEntityAsync(actor.TenantId, listId, cancellationToken) is not { } list)
         {
-            return (null, new ListItemResult(ListItemStatus.NotFound));
+            return new(ItemWriteStatus.NotFound);
         }
 
-        Guid? parentId = null;
-        foreach (var segment in path.Select(p => p.Trim()).Where(p => p.Length > 0))
+        var fields = FieldsOf(list);
+        if (itemId is { } requested && await FindItemAsync(actor.TenantId, listId, requested, cancellationToken) is { } existing)
         {
-            var parent = parentId;
-            var existing = await db.Items.AsNoTracking()
-                .Where(i => i.ListId == listId && i.IsFolder && i.ParentId == parent && i.Title == segment)
-                .OrderBy(i => i.CreatedAt).FirstOrDefaultAsync(cancellationToken);
-            if (existing is not null)
-            {
-                if (schema.Access.Level(existing.ScopeId) < WorkspaceAccessLevel.Read)
-                {
-                    return (null, new ListItemResult(ListItemStatus.Forbidden));
-                }
-
-                parentId = existing.Id;
-                continue;
-            }
-
-            var created = await writer.CreateAsync(schema, null, parentId, isFolder: true, Element(new JsonObject { ["title"] = segment }), cancellationToken);
-            if (created.Item is null)
-            {
-                return (null, ToResult(schema, created));
-            }
-
-            parentId = created.Item.Id;
+            return new(ItemWriteStatus.Exists, ToData(existing, fields));
         }
 
-        return (parentId, null);
+        var stored = new JsonObject();
+        var title = "";
+        if (FieldValues.Merge(fields, values, stored, ref title) is { Count: > 0 } errors)
+        {
+            return new(ItemWriteStatus.Invalid, Errors: errors);
+        }
+
+        var item = new ListItem { Id = itemId ?? Ids.New(), TenantId = actor.TenantId, ListId = list.Id, Title = title, Fields = stored.ToJsonString(), CreatedBy = actor.UserId };
+        db.Items.Add(item);
+        await outbox.SaveChangesAsync(db, [new ItemCreated(list.Id, item.Id, title) { TenantId = actor.TenantId, UserId = actor.UserId, Depth = actor.Depth }], cancellationToken);
+        return new(ItemWriteStatus.Ok, ToData(item, fields));
     }
 
-    public async Task<ListItemResult> MoveAsync(Guid workspaceId, Guid listId, Guid itemId, Guid? folderId, CancellationToken cancellationToken)
+    public async Task<ItemWriteResult> UpdateAsync(ChangeActor actor, Guid listId, Guid itemId, JsonObject values, uint? ifMatch, CancellationToken cancellationToken)
     {
-        var (schema, item, problem) = await LoadForChangeAsync(workspaceId, listId, itemId, null, cancellationToken);
-        if (problem is not null)
+        if (await FindListEntityAsync(actor.TenantId, listId, cancellationToken) is not { } list
+            || await FindItemAsync(actor.TenantId, listId, itemId, cancellationToken) is not { } item)
         {
-            return problem;
+            return new(ItemWriteStatus.NotFound);
         }
 
-        if (item!.ParentId == folderId)
+        if (ifMatch is { } version && item.Version != version)
         {
-            return new ListItemResult(ListItemStatus.Ok, ToData(schema!, item));
+            return new(ItemWriteStatus.PreconditionFailed);
         }
 
+        var fields = FieldsOf(list);
+        var stored = JsonNode.Parse(item.Fields)?.AsObject() ?? [];
+        var title = item.Title;
+        if (FieldValues.Merge(fields, values, stored, ref title) is { Count: > 0 } errors)
+        {
+            return new(ItemWriteStatus.Invalid, Errors: errors);
+        }
+
+        item.Title = title;
+        item.Fields = stored.ToJsonString();
+        item.UpdatedBy = actor.UserId;
         try
         {
-            return ToResult(schema!, await writer.UpdateAsync(schema!, item, null, Optional<Guid?>.Of(folderId), null, cancellationToken));
+            await outbox.SaveChangesAsync(db, [new ItemUpdated(list.Id, item.Id, title, [.. values.Select(p => p.Key)]) { TenantId = actor.TenantId, UserId = actor.UserId, Depth = actor.Depth }], cancellationToken);
         }
         catch (DbUpdateConcurrencyException)
         {
-            return new ListItemResult(ListItemStatus.VersionMismatch);
+            db.Entry(item).State = EntityState.Detached;
+            return new(ItemWriteStatus.PreconditionFailed);
         }
+
+        return new(ItemWriteStatus.Ok, ToData(item, fields));
     }
 
-    public async Task<ListItemResult> DeleteAsync(Guid workspaceId, Guid listId, Guid itemId, uint? expectedVersion, CancellationToken cancellationToken)
+    public async Task<ItemWriteResult> DeleteAsync(ChangeActor actor, Guid listId, Guid itemId, uint? ifMatch, CancellationToken cancellationToken)
     {
-        var (schema, item, problem) = await LoadForChangeAsync(workspaceId, listId, itemId, expectedVersion, cancellationToken);
-        if (problem is not null)
+        if (await FindItemAsync(actor.TenantId, listId, itemId, cancellationToken) is not { } item)
         {
-            return problem;
+            return new(ItemWriteStatus.NotFound);
         }
 
-        try
+        if (ifMatch is { } version && item.Version != version)
         {
-            return ToResult(schema!, await writer.DeleteAsync(schema!, item!, cancellationToken));
+            return new(ItemWriteStatus.PreconditionFailed);
         }
-        catch (DbUpdateConcurrencyException)
-        {
-            return new ListItemResult(ListItemStatus.VersionMismatch);
-        }
+
+        db.Items.Remove(item);
+        await outbox.SaveChangesAsync(db, [new ItemDeleted(listId, item.Id, item.Title) { TenantId = actor.TenantId, UserId = actor.UserId, Depth = actor.Depth }], cancellationToken);
+        return new(ItemWriteStatus.Ok);
     }
-
-    private Task<ListSchema?> LoadAsync(Guid workspaceId, Guid listId, CancellationToken ct) =>
-        system ? loader.LoadAsSystemAsync(workspaceId, listId, ct) : loader.LoadAsync(workspaceId, listId, ct);
-
-    private async Task<(ListSchema? Schema, ListItem? Item, ListItemResult? Problem)> LoadForChangeAsync(
-        Guid workspaceId, Guid listId, Guid itemId, uint? expectedVersion, CancellationToken ct)
-    {
-        var schema = await LoadAsync(workspaceId, listId, ct);
-        var item = schema is null ? null : await db.Items.FirstOrDefaultAsync(i => i.Id == itemId && i.ListId == listId, ct);
-        var level = item is null ? WorkspaceAccessLevel.None : schema!.Access.Level(item.ScopeId);
-        if (level == WorkspaceAccessLevel.None)
-        {
-            return (null, null, new ListItemResult(ListItemStatus.NotFound));
-        }
-
-        if (level < WorkspaceAccessLevel.Contribute)
-        {
-            return (null, null, new ListItemResult(ListItemStatus.Forbidden));
-        }
-
-        if (expectedVersion is { } version)
-        {
-            if (version != item!.Version)
-            {
-                return (null, null, new ListItemResult(ListItemStatus.VersionMismatch));
-            }
-
-            db.Entry(item).Property(i => i.Version).OriginalValue = version;
-        }
-
-        return (schema, item, null);
-    }
-
-    private static ListFieldInfo FieldInfo(FieldDefinition field) => new(
-        field.Name, field.DisplayName, field.Type, field.Required, field.AllowMultiple, field.Description,
-        field.MaxLength, field.Minimum, field.Maximum, field.Choices.Count > 0 ? field.Choices : null);
-
-    private static JsonElement Element(JsonObject fields) => JsonSerializer.SerializeToElement(fields);
-
-    private static ListItemResult ToResult(ListSchema schema, ItemWriteResult result) => result switch
-    {
-        { Forbidden: true } => new ListItemResult(ListItemStatus.Forbidden),
-        { Errors: { } errors } => new ListItemResult(ListItemStatus.Invalid, Errors: errors),
-        { Cancelled: { } message } => new ListItemResult(ListItemStatus.Rejected, Message: message),
-        { Conflict: { } message } => new ListItemResult(ListItemStatus.Rejected, Message: message),
-        _ => new ListItemResult(ListItemStatus.Ok, ToData(schema, result.Item!)),
-    };
-
-    private static ListItemData ToData(ListSchema schema, ListItem item) => new(
-        item.Id, schema.List.WorkspaceId, item.ListId, item.ContentTypeId, item.ParentId, item.IsFolder, item.Version,
-        item.CreatedAt, item.CreatedBy, item.UpdatedAt, item.UpdatedBy, ItemWriter.Values(item))
-    {
-        Access = schema.Access.Level(item.ScopeId),
-    };
 }

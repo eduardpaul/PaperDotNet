@@ -27,4 +27,7 @@ public static class ETags
             && value[^1] == '"'
             && uint.TryParse(value.AsSpan(1, value.Length - 2), NumberStyles.None, CultureInfo.InvariantCulture, out version);
     }
+
+    /// <summary>Whether the request carries an <c>If-Match</c> header at all.</summary>
+    public static bool HasIfMatch(HttpRequest request) => request.Headers.ContainsKey(HeaderNames.IfMatch);
 }

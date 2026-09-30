@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Public contract for workflow actions and triggers (EVT-07…09); part of the extension SDK. -->
+  <!-- Public contract for workflow activities (EVT-07…09, ADR-0036): modules and extensions add activities with it. -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
   </ItemGroup>
 </Project>

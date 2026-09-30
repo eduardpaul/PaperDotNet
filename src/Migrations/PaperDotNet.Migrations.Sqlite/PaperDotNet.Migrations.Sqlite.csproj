@@ -1,26 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    SQLite migrations of every module, one folder per module (ADR-0004, ADR-0009).
-    Add a migration:  dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Sqlite -c <Module>DbContext -o Generated/<Module>
+    SQLite migrations of every ported module, one folder per module (ADR-0004, ADR-0039). Design time only: the host
+    cannot run migrations under Native AOT, so eng/schema.sh turns each migration into SQL embedded in
+    PaperDotNet.Persistence.Sqlite (Schema/), which the host applies on start.
   -->
+  <PropertyGroup>
+    <!-- Generated migrations: our style rules do not apply to them. -->
+    <AnalysisLevel>none</AnalysisLevel>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Persistence.Sqlite\PaperDotNet.Persistence.Sqlite.csproj" />
-    <ProjectReference Include="..\..\Modules\Tenancy\PaperDotNet.Tenancy\PaperDotNet.Tenancy.csproj" />
     <ProjectReference Include="..\..\Modules\Identity\PaperDotNet.Identity\PaperDotNet.Identity.csproj" />
-    <ProjectReference Include="..\..\Modules\Workspaces\PaperDotNet.Workspaces\PaperDotNet.Workspaces.csproj" />
     <ProjectReference Include="..\..\Modules\Lists\PaperDotNet.Lists\PaperDotNet.Lists.csproj" />
-    <ProjectReference Include="..\..\Modules\Jobs\PaperDotNet.Jobs\PaperDotNet.Jobs.csproj" />
-    <ProjectReference Include="..\..\Modules\Taxonomy\PaperDotNet.Taxonomy\PaperDotNet.Taxonomy.csproj" />
-    <ProjectReference Include="..\..\Modules\Search\PaperDotNet.Search\PaperDotNet.Search.csproj" />
-    <ProjectReference Include="..\..\Modules\ExtensionHost\PaperDotNet.ExtensionHost\PaperDotNet.ExtensionHost.csproj" />
-    <ProjectReference Include="..\..\Modules\Documents\PaperDotNet.Documents\PaperDotNet.Documents.csproj" />
-    <ProjectReference Include="..\..\Modules\Tasks\PaperDotNet.Tasks\PaperDotNet.Tasks.csproj" />
-    <ProjectReference Include="..\..\Modules\AiWorkflows\PaperDotNet.AiWorkflows\PaperDotNet.AiWorkflows.csproj" />
-    <ProjectReference Include="..\..\Modules\Notes\PaperDotNet.Notes\PaperDotNet.Notes.csproj" />
-    <ProjectReference Include="..\..\Modules\Provisioning\PaperDotNet.Provisioning\PaperDotNet.Provisioning.csproj" />
-    <ProjectReference Include="..\..\Modules\Collaboration\PaperDotNet.Collaboration\PaperDotNet.Collaboration.csproj" />
-    <ProjectReference Include="..\..\Modules\Calendar\PaperDotNet.Calendar\PaperDotNet.Calendar.csproj" />
-    <ProjectReference Include="..\..\Modules\Notifications\PaperDotNet.Notifications\PaperDotNet.Notifications.csproj" />
+    <ProjectReference Include="..\..\Modules\Audit\PaperDotNet.Audit\PaperDotNet.Audit.csproj" />
     <ProjectReference Include="..\..\Modules\Workflows\PaperDotNet.Workflows\PaperDotNet.Workflows.csproj" />
   </ItemGroup>
   <ItemGroup>

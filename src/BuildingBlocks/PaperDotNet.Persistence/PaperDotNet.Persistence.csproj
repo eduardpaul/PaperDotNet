@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Provider-agnostic EF Core conventions: tenant/soft-delete filters, auditing, module DbContext registration. -->
+  <!-- Provider-agnostic EF Core conventions: tenant guard, versions and stamps on save, module DbContext registration. -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
   </ItemGroup>

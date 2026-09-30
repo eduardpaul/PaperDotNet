@@ -1,115 +1,36 @@
 <Solution>
+  <!--
+    The Native AOT server (ADR-0039). Modules, tools and tests still to port stay in the repository but out of the build
+    until they follow the AOT rules (see docs/adr/0039-native-aot-core.md, "Still to port").
+  -->
   <Folder Name="/src/">
     <Project Path="src/PaperDotNet.Host/PaperDotNet.Host.csproj" />
-    <Project Path="src/PaperDotNet.ServiceDefaults/PaperDotNet.ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/PaperDotNet.Abstractions/PaperDotNet.Abstractions.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Api/PaperDotNet.Api.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Messaging/PaperDotNet.Messaging.csproj" />
-    <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.PostgreSql/PaperDotNet.Persistence.PostgreSql.csproj" />
-    <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.Sqlite/PaperDotNet.Persistence.Sqlite.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence/PaperDotNet.Persistence.csproj" />
-    <Project Path="src/BuildingBlocks/PaperDotNet.AI/PaperDotNet.AI.csproj" />
-    <Project Path="src/BuildingBlocks/PaperDotNet.Storage/PaperDotNet.Storage.csproj" />
-  </Folder>
-  <Folder Name="/src/Extensions/">
-    <Project Path="src/Extensions/PaperDotNet.Extensions.Abstractions/PaperDotNet.Extensions.Abstractions.csproj" />
-    <Project Path="src/Extensions/PaperDotNet.Extensions.Analyzers/PaperDotNet.Extensions.Analyzers.csproj" />
-    <Project Path="src/Extensions/PaperDotNet.Extensions.Generator/PaperDotNet.Extensions.Generator.csproj" />
-    <Project Path="src/Extensions/PaperDotNet.Extensions.Testing/PaperDotNet.Extensions.Testing.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.Sqlite/PaperDotNet.Persistence.Sqlite.csproj" />
   </Folder>
   <Folder Name="/src/Migrations/">
-    <Project Path="src/Migrations/PaperDotNet.Migrations.PostgreSql/PaperDotNet.Migrations.PostgreSql.csproj" />
     <Project Path="src/Migrations/PaperDotNet.Migrations.Sqlite/PaperDotNet.Migrations.Sqlite.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Audit/">
     <Project Path="src/Modules/Audit/PaperDotNet.Audit/PaperDotNet.Audit.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/Calendar/">
-    <Project Path="src/Modules/Calendar/PaperDotNet.Calendar/PaperDotNet.Calendar.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Documents/">
-    <Project Path="src/Modules/Documents/PaperDotNet.Documents/PaperDotNet.Documents.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/ExtensionHost/">
-    <Project Path="src/Modules/ExtensionHost/PaperDotNet.ExtensionHost/PaperDotNet.ExtensionHost.csproj" />
-  </Folder>
   <Folder Name="/src/Modules/Identity/">
-    <Project Path="src/Modules/Identity/PaperDotNet.Identity.Contracts/PaperDotNet.Identity.Contracts.csproj" />
     <Project Path="src/Modules/Identity/PaperDotNet.Identity/PaperDotNet.Identity.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Jobs/">
-    <Project Path="src/Modules/Jobs/PaperDotNet.Jobs.Contracts/PaperDotNet.Jobs.Contracts.csproj" />
-    <Project Path="src/Modules/Jobs/PaperDotNet.Jobs/PaperDotNet.Jobs.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Lists/">
     <Project Path="src/Modules/Lists/PaperDotNet.Lists.Contracts/PaperDotNet.Lists.Contracts.csproj" />
     <Project Path="src/Modules/Lists/PaperDotNet.Lists/PaperDotNet.Lists.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/Workflow/">
+  <Folder Name="/src/Modules/Workflows/">
     <Project Path="src/Modules/Workflows/PaperDotNet.Workflows.Contracts/PaperDotNet.Workflows.Contracts.csproj" />
     <Project Path="src/Modules/Workflows/PaperDotNet.Workflows/PaperDotNet.Workflows.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/Provisioning/">
-    <Project Path="src/Modules/Provisioning/PaperDotNet.Provisioning.Contracts/PaperDotNet.Provisioning.Contracts.csproj" />
-    <Project Path="src/Modules/Provisioning/PaperDotNet.Provisioning/PaperDotNet.Provisioning.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Collaboration/">
-    <Project Path="src/Modules/Collaboration/PaperDotNet.Collaboration.Contracts/PaperDotNet.Collaboration.Contracts.csproj" />
-    <Project Path="src/Modules/Collaboration/PaperDotNet.Collaboration/PaperDotNet.Collaboration.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Mcp/">
-    <Project Path="src/Modules/Mcp/PaperDotNet.Mcp.Contracts/PaperDotNet.Mcp.Contracts.csproj" />
-    <Project Path="src/Modules/Mcp/PaperDotNet.Mcp/PaperDotNet.Mcp.csproj" />
-  </Folder>
-  <Folder Name="/src/Sdk/">
-    <Project Path="src/Sdk/PaperDotNet.Client/PaperDotNet.Client.csproj" />
-  </Folder>
-  <Folder Name="/src/Tools/">
-    <Project Path="src/Tools/PaperDotNet.Cli/PaperDotNet.Cli.csproj" />
-    <Project Path="src/Tools/PaperDotNet.Import.Papermerge/PaperDotNet.Import.Papermerge.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Notifications/">
-    <Project Path="src/Modules/Notifications/PaperDotNet.Notifications.Contracts/PaperDotNet.Notifications.Contracts.csproj" />
-    <Project Path="src/Modules/Notifications/PaperDotNet.Notifications/PaperDotNet.Notifications.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Search/">
-    <Project Path="src/Modules/Search/PaperDotNet.Search.Contracts/PaperDotNet.Search.Contracts.csproj" />
-    <Project Path="src/Modules/Search/PaperDotNet.Search/PaperDotNet.Search.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Notes/">
-    <Project Path="src/Modules/Notes/PaperDotNet.Notes/PaperDotNet.Notes.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/AiWorkflows/">
-    <Project Path="src/Modules/AiWorkflows/PaperDotNet.AiWorkflows/PaperDotNet.AiWorkflows.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Tasks/">
-    <Project Path="src/Modules/Tasks/PaperDotNet.Tasks/PaperDotNet.Tasks.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Taxonomy/">
-    <Project Path="src/Modules/Taxonomy/PaperDotNet.Taxonomy.Contracts/PaperDotNet.Taxonomy.Contracts.csproj" />
-    <Project Path="src/Modules/Taxonomy/PaperDotNet.Taxonomy/PaperDotNet.Taxonomy.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Tenancy/">
-    <Project Path="src/Modules/Tenancy/PaperDotNet.Tenancy.Contracts/PaperDotNet.Tenancy.Contracts.csproj" />
-    <Project Path="src/Modules/Tenancy/PaperDotNet.Tenancy/PaperDotNet.Tenancy.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Workspaces/">
-    <Project Path="src/Modules/Workspaces/PaperDotNet.Workspaces.Contracts/PaperDotNet.Workspaces.Contracts.csproj" />
-    <Project Path="src/Modules/Workspaces/PaperDotNet.Workspaces/PaperDotNet.Workspaces.csproj" />
-  </Folder>
-  <Folder Name="/samples/">
-    <Project Path="samples/PaperDotNet.Samples.Invoices/PaperDotNet.Samples.Invoices.csproj" />
-    <Project Path="samples/PaperDotNet.Samples.Invoices.Migrations.PostgreSql/PaperDotNet.Samples.Invoices.Migrations.PostgreSql.csproj" />
-    <Project Path="samples/PaperDotNet.Samples.Invoices.Migrations.Sqlite/PaperDotNet.Samples.Invoices.Migrations.Sqlite.csproj" />
-    <Project Path="samples/PaperDotNet.Samples.Invoices.Tests/PaperDotNet.Samples.Invoices.Tests.csproj" />
-  </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/PaperDotNet.ArchitectureTests/PaperDotNet.ArchitectureTests.csproj" />
     <Project Path="tests/PaperDotNet.IntegrationTests/PaperDotNet.IntegrationTests.csproj" />
-    <Project Path="tests/PaperDotNet.UnitTests/PaperDotNet.UnitTests.csproj" />
-    <Project Path="tests/PaperDotNet.Performance/PaperDotNet.Performance.csproj" />
   </Folder>
 </Solution>
