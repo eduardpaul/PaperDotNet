@@ -52,5 +52,6 @@ public sealed class ListsModule : IModule
         ItemEndpoints.Map(endpoints);
         ItemHistoryEndpoints.Map(endpoints);
         PermissionEndpoints.Map(endpoints);
+        ViewEndpoints.Map(endpoints);
     }
 }

@@ -69,7 +69,7 @@ internal static class ItemEndpoints
     {
         var group = app.MapGroup($"{ListEndpoints.Route}/{{listId:guid}}/items").WithTags("Items");
         group.MapGet("", QueryAsync).RequireScope(ListScopes.Read).WithName("ListItems")
-            .WithDescription("OData query options: $filter, $orderby, $top, $skiptoken, $count and $select (field names).");
+            .WithDescription("OData query options: $filter, $orderby, $top, $skiptoken, $count and $select (field names); viewId reads through a saved view.");
         group.MapPost("", CreateAsync).RequireScope(ListScopes.Write).WithName("CreateItem");
         group.MapGet("/{itemId:guid}", GetAsync).RequireScope(ListScopes.Read).WithName("GetItem");
         group.MapGet("/{itemId:guid}/children", ChildrenAsync).RequireScope(ListScopes.Read).WithName("ListFolderChildren");
@@ -82,7 +82,7 @@ internal static class ItemEndpoints
         Guid workspaceId, Guid listId, HttpRequest request,
         [FromQuery(Name = "$filter")] string? filter, [FromQuery(Name = "$orderby")] string? orderBy, [FromQuery(Name = "$top")] int? top,
         [FromQuery(Name = "$skiptoken")] string? skipToken, [FromQuery(Name = "$count")] bool? count, [FromQuery(Name = "$select")] string? select,
-        Caller caller, ListSchemaLoader loader, ItemQueryRunner runner, CancellationToken cancellationToken)
+        Guid? viewId, Caller caller, ListSchemaLoader loader, ItemQueryRunner runner, ListsDbContext db, CancellationToken cancellationToken)
     {
         var listCaller = ListEndpoints.CallerOf(caller);
         if (await loader.LoadAsync(listCaller, workspaceId, listId, cancellationToken) is not { } schema)
@@ -90,7 +90,21 @@ internal static class ItemEndpoints
             return ApiErrors.NotFound();
         }
 
-        return await RunAsync(listCaller, schema, request, filter, orderBy, top, skipToken, count, select, FolderMode.All, null, runner, cancellationToken);
+        if (viewId is not { } id)
+        {
+            return await RunAsync(listCaller, schema, request, [filter], orderBy, top, skipToken, count, select, FolderMode.All, null, runner, cancellationToken);
+        }
+
+        // A view adds its filter to the request's; its order and columns apply unless the request names its own.
+        if (await ViewEndpoints.FindAsync(db, caller.TenantId, listId, id, tracking: false, cancellationToken) is not { } view)
+        {
+            return ApiErrors.NotFound("The view was not found.");
+        }
+
+        var columns = ViewEndpoints.Columns(view);
+        return await RunAsync(
+            listCaller, schema, request, [view.Filter, filter], orderBy ?? view.OrderBy, top, skipToken, count,
+            select ?? (columns.Count > 0 ? string.Join(',', columns) : null), FolderMode.All, null, runner, cancellationToken);
     }
 
     private static async Task<Results<Ok<ItemPage>, ValidationProblem, ProblemHttpResult>> ChildrenAsync(
@@ -107,15 +121,15 @@ internal static class ItemEndpoints
             return ApiErrors.NotFound();
         }
 
-        return await RunAsync(listCaller, schema, request, filter, orderBy, top, skipToken, count, select, FolderMode.Children, itemId, runner, cancellationToken);
+        return await RunAsync(listCaller, schema, request, [filter], orderBy, top, skipToken, count, select, FolderMode.Children, itemId, runner, cancellationToken);
     }
 
     private static async Task<Results<Ok<ItemPage>, ValidationProblem, ProblemHttpResult>> RunAsync(
-        ListCaller caller, ListSchema schema, HttpRequest request, string? filter, string? orderBy, int? top, string? skipToken, bool? count, string? select,
-        FolderMode folders, Guid? parentId, ItemQueryRunner runner, CancellationToken cancellationToken)
+        ListCaller caller, ListSchema schema, HttpRequest request, IReadOnlyList<string?> filters, string? orderBy, int? top, string? skipToken, bool? count,
+        string? select, FolderMode folders, Guid? parentId, ItemQueryRunner runner, CancellationToken cancellationToken)
     {
         var (result, error) = await runner.RunAsync(
-            caller, schema, [filter], orderBy, top ?? DefaultTop, skipToken, count == true, folders, parentId, cancellationToken);
+            caller, schema, filters, orderBy, top ?? DefaultTop, skipToken, count == true, folders, parentId, cancellationToken);
         if (result is null)
         {
             return ApiErrors.Validation("query", error!);

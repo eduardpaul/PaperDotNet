@@ -32,6 +32,8 @@ public class ListsDbContext : DbContext
 
     public DbSet<ItemVersion> ItemVersions { get; set; } = null!;
 
+    public DbSet<ListView> Views { get; set; } = null!;
+
     /// <summary>Saves; a new list gets the permission entries of the workspace roles unless the save brings its own.</summary>
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
@@ -96,6 +98,18 @@ public class ListsDbContext : DbContext
             version.ToTable("item_versions");
             version.Property(v => v.Title).HasMaxLength(1024);
             version.HasIndex(v => new { v.TenantId, v.ItemId, v.Number }).IsUnique();
+        });
+
+        modelBuilder.Entity<ListView>(view =>
+        {
+            view.ToTable("list_views");
+            view.Property(v => v.Name).HasMaxLength(200);
+            view.Property(v => v.Filter).HasMaxLength(4000);
+            view.Property(v => v.OrderBy).HasMaxLength(1000);
+            view.Property(v => v.GroupBy).HasMaxLength(100);
+            view.Property(v => v.Layout).HasMaxLength(16);
+            view.HasIndex(v => new { v.TenantId, v.ListId });
+            view.HasOne<ListDefinition>().WithMany().HasForeignKey(v => v.ListId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

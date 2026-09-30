@@ -16,6 +16,6 @@ public sealed class OpenApiTests : IAsyncLifetime
         var document = await (await _host.CreateClient().GetAsync("/openapi/v1.json")).JsonAsync(HttpStatusCode.OK);
         var parameters = document.GetProperty("paths").GetProperty("/v1.0/workspaces/{workspaceId}/lists/{listId}/items").GetProperty("get").GetProperty("parameters")
             .EnumerateArray().Select(p => p.GetProperty("name").GetString()).ToList();
-        Assert.Equal(["workspaceId", "listId", "$filter", "$orderby", "$top", "$skiptoken", "$count", "$select"], parameters);
+        Assert.Equal(["workspaceId", "listId", "$filter", "$orderby", "$top", "$skiptoken", "$count", "$select", "viewId"], parameters);
     }
 }

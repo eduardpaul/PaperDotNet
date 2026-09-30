@@ -56,6 +56,8 @@ done
 TITLES=$(curl -sf "${AUTH[@]}" -G "$ITEMS" --data-urlencode '$filter=fields/amount gt 15 and fields/paid eq false' \
   --data-urlencode '$orderby=fields/amount desc' --data-urlencode '$count=true' | json '",".join(i["fields"]["title"] for i in d["value"]) + "|" + str(d["@odata.count"])') || fail "query items"
 [[ "$TITLES" == "Invoice 3,Invoice 2|2" ]] || fail "unexpected query result: $TITLES"
+VIEW=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$LIST/views" -d '{"name":"Unpaid","filter":"fields/paid eq false","orderBy":"fields/amount desc","columns":["title"]}' | json 'd["id"]') || fail "create view"
+[[ $(curl -sf "${AUTH[@]}" "$ITEMS?viewId=$VIEW" | json '",".join(i["fields"]["title"] for i in d["value"])') == "Invoice 3,Invoice 2,Invoice 1" ]] || fail "items through a view"
 FOLDER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -d '{"isFolder":true,"fields":{"title":"2026"}}' | json 'd["id"]') || fail "create folder"
 curl -sf "${AUTH[@]}" "${JSON[@]}" "$ITEMS" -o /dev/null -d "{\"parentId\":\"$FOLDER\",\"fields\":{\"title\":\"Filed\",\"amount\":1}}" || fail "create item in folder"
 [[ $(curl -sf "${AUTH[@]}" "$ITEMS/$FOLDER/children" | json 'd["value"][0]["fields"]["title"]') == Filed ]] || fail "folder children"

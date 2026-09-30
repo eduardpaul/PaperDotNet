@@ -202,6 +202,57 @@ public class ItemVersion : ITenantOwned
     public Guid? CreatedBy { get; set; }
 }
 
+/// <summary>Values of <see cref="ListView.Layout"/>.</summary>
+public static class ViewLayouts
+{
+    public const string Table = "table";
+    public const string Board = "board";
+    public const string Calendar = "calendar";
+    public const string Gallery = "gallery";
+
+    public static bool IsValid(string? layout) => layout is Table or Board or Calendar or Gallery;
+}
+
+/// <summary>A saved way to look at a list (LST-09): columns, filter, order, grouping and layout.</summary>
+public class ListView : ITenantOwned, IAuditable, IVersioned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid ListId { get; set; }
+
+    public string Name { get; set; } = "";
+
+    /// <summary>Field names shown, as a JSON array (empty: all).</summary>
+    public string Columns { get; set; } = "[]";
+
+    /// <summary>OData <c>$filter</c> expression.</summary>
+    public string? Filter { get; set; }
+
+    /// <summary>OData <c>$orderby</c> expression.</summary>
+    public string? OrderBy { get; set; }
+
+    /// <summary>Field to group by (board columns, calendar date, …).</summary>
+    public string? GroupBy { get; set; }
+
+    /// <summary>A <see cref="ViewLayouts"/> value.</summary>
+    public string Layout { get; set; } = ViewLayouts.Table;
+
+    public bool IsDefault { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Guid? CreatedBy { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public Guid? UpdatedBy { get; set; }
+
+    [ConcurrencyCheck]
+    public uint Version { get; set; }
+}
+
 /// <summary>A deleted item's id and time of deletion (a query projection).</summary>
 public sealed record DeletedItem(Guid Id, DateTimeOffset? DeletedAt);
 

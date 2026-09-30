@@ -42,6 +42,8 @@ internal static class ListsJsonText
     public static List<Guid> Ids(string json) => JsonSerializer.Deserialize(json, ListsJson.Default.ListGuid) ?? [];
 
     public static string Ids(IEnumerable<Guid> ids) => JsonSerializer.Serialize(ids.ToList(), ListsJson.Default.ListGuid);
+
+    public static IReadOnlyList<string> Strings(string json) => JsonSerializer.Deserialize(json, ListsJson.Default.IReadOnlyListString) ?? [];
 }
 
 /// <summary>A list with its content types and the effective set of fields (union, by name).</summary>
