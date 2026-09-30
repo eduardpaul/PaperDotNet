@@ -54,7 +54,7 @@ internal static class ItemCountEndpoints
         }
 
         var query = new ItemQuery(
-            caller.TenantId, [schema.List.Id], parsed, schema.Access.Scopes(WorkspaceAccessLevel.Read), FolderMode.ItemsOnly, null, default, MaxValues, false);
+            caller.TenantId, [schema.List.Id], parsed, schema.Access.Scopes(WorkspaceAccessLevel.Read), FolderMode.ItemsOnly, null, default, MaxValues, false, null, FieldIndex.Ready(schema.List));
         try
         {
             var counts = await queries.CountValuesAsync(query, field, definition.AllowMultiple, cancellationToken);

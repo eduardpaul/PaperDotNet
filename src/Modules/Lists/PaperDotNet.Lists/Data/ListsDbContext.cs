@@ -1,6 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Options;
+using PaperDotNet.Lists.Fields;
 using PaperDotNet.Persistence.Sqlite;
 using Wolverine.EntityFrameworkCore;
 
@@ -16,13 +18,18 @@ namespace PaperDotNet.Lists.Data;
 public class ListsDbContext : DbContext
 {
     private readonly TimeProvider _time;
+    private readonly FieldTypeRegistry? _fieldTypes;
+    private readonly IOptions<Features.ListsOptions>? _listsOptions;
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
-    public ListsDbContext(DbContextOptions<ListsDbContext> options, TimeProvider? time = null)
+    public ListsDbContext(
+        DbContextOptions<ListsDbContext> options, TimeProvider? time = null, FieldTypeRegistry? fieldTypes = null, IOptions<Features.ListsOptions>? listsOptions = null)
         : base(options)
     {
         _time = time ?? TimeProvider.System;
+        _fieldTypes = fieldTypes;
+        _listsOptions = listsOptions;
     }
 
     public DbSet<ContentType> ContentTypes { get; set; } = null!;
@@ -39,11 +46,13 @@ public class ListsDbContext : DbContext
 
     public DbSet<ItemChange> ItemChanges { get; set; } = null!;
 
+    public DbSet<ItemValue> ItemValues { get; set; } = null!;
+
     /// <summary>
     /// Saves. A new list gets the permission entries of the workspace roles unless the save brings its own; the change
     /// log for delta sync (API-05) is written from the tracked changes, so every write path is covered.
     /// </summary>
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         var newLists = ChangeTracker.Entries<ListDefinition>().Where(e => e.State == EntityState.Added).Select(e => e.Entity).ToList();
         if (newLists.Count > 0)
@@ -52,8 +61,156 @@ public class ListsDbContext : DbContext
             AclEntries.AddRange(newLists.Where(l => !withEntries.Contains(l.Id)).SelectMany(Features.Acl.RoleEntries));
         }
 
+        await IndexFieldsAsync(cancellationToken);
         RecordChanges(newLists);
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>
+    /// Keeps indexed fields current (ADR-0035), whichever path saved: lists that are new or whose content types changed
+    /// get their columns planned, and saved items get their columns and value rows written.
+    /// </summary>
+    private async Task IndexFieldsAsync(CancellationToken cancellationToken)
+    {
+        if (_fieldTypes is null)
+        {
+            return; // Design time (migrations).
+        }
+
+        await PlanListsAsync(cancellationToken);
+
+        foreach (var purged in ChangeTracker.Entries<ListItem>().Where(e => e.State == EntityState.Deleted).Select(e => e.Entity).ToList())
+        {
+            ItemValues.RemoveRange(await ValuesOfAsync(purged.TenantId, purged.Id, cancellationToken));
+        }
+
+        var saved = ChangeTracker.Entries<ListItem>()
+            .Where(e => e.State == EntityState.Added || (e.State == EntityState.Modified && e.Property(nameof(ListItem.Fields)).IsModified))
+            .ToList();
+        var lists = ChangeTracker.Entries<ListDefinition>().Select(e => e.Entity).ToDictionary(l => l.Id);
+        foreach (var entry in saved)
+        {
+            var item = entry.Entity;
+            if (!lists.TryGetValue(item.ListId, out var list))
+            {
+                list = await FindListAsync(item.TenantId, item.ListId, cancellationToken);
+                if (list is null)
+                {
+                    continue;
+                }
+
+                lists[list.Id] = list;
+            }
+
+            var (columns, values) = Features.FieldIndex.Compute(item.Fields, Features.FieldIndex.Read(list));
+            foreach (var (column, value) in columns)
+            {
+                entry.Property(column).CurrentValue = value;
+            }
+
+            var current = entry.State == EntityState.Added ? [] : await ValuesOfAsync(item.TenantId, item.Id, cancellationToken);
+            SyncValues(item, current, values);
+        }
+    }
+
+    /// <summary>Adds and removes <see cref="ItemValue"/> rows so they match the item's values.</summary>
+    internal void SyncValues(ListItem item, IReadOnlyCollection<ItemValue> current, Dictionary<short, HashSet<Guid>> values)
+    {
+        ItemValues.RemoveRange(current.Where(v => !values.TryGetValue(v.Field, out var set) || !set.Contains(v.Value)));
+        foreach (var (field, set) in values)
+        {
+            ItemValues.AddRange(set.Where(value => !current.Any(v => v.Field == field && v.Value == value))
+                .Select(value => new ItemValue { TenantId = item.TenantId, ListId = item.ListId, ItemId = item.Id, Field = field, Value = value }));
+        }
+    }
+
+    internal Task<List<ItemValue>> ValuesOfAsync(Guid tenantId, Guid itemId, CancellationToken cancellationToken)
+    {
+        var tenant = tenantId;
+        var id = itemId;
+        var ct = cancellationToken;
+        return ItemValues.Where(v => v.TenantId == tenant && v.ItemId == id).ToListAsync(ct);
+    }
+
+    /// <summary>A list of the tenant (tracked), also in the recycle bin.</summary>
+    private Task<ListDefinition?> FindListAsync(Guid tenantId, Guid listId, CancellationToken cancellationToken)
+    {
+        var tenant = tenantId;
+        var id = listId;
+        var ct = cancellationToken;
+        return Lists.Where(l => l.TenantId == tenant && l.Id == id).FirstOrDefaultAsync(ct);
+    }
+
+    /// <summary>Plans the indexed fields of new lists, lists whose content types changed, and lists using a changed content type.</summary>
+    private async Task PlanListsAsync(CancellationToken cancellationToken)
+    {
+        var plan = new Dictionary<Guid, (ListDefinition List, bool IsNew)>();
+        foreach (var entry in ChangeTracker.Entries<ListDefinition>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                plan[entry.Entity.Id] = (entry.Entity, true);
+            }
+            else if (entry.State == EntityState.Modified && entry.Property(nameof(ListDefinition.ContentTypeIds)).IsModified)
+            {
+                plan[entry.Entity.Id] = (entry.Entity, false);
+            }
+        }
+
+        var types = ChangeTracker.Entries<ContentType>().Select(e => e.Entity).ToDictionary(c => c.Id);
+        foreach (var changed in ChangeTracker.Entries<ContentType>().Where(e => e.State == EntityState.Modified).Select(e => e.Entity).ToList())
+        {
+            foreach (var list in await ListsOfTenantAsync(changed.TenantId, cancellationToken))
+            {
+                if (Features.ListsJsonText.Ids(list.ContentTypeIds).Contains(changed.Id))
+                {
+                    plan.TryAdd(list.Id, (list, false));
+                }
+            }
+        }
+
+        if (plan.Count == 0)
+        {
+            return;
+        }
+
+        var limits = _listsOptions?.Value.IndexedFields ?? new Features.IndexedFieldLimits();
+        foreach (var (list, isNew) in plan.Values)
+        {
+            var fields = new List<Contracts.FieldDefinition>();
+            foreach (var id in Features.ListsJsonText.Ids(list.ContentTypeIds))
+            {
+                if (!types.TryGetValue(id, out var type))
+                {
+                    type = await FindContentTypeAsync(list.TenantId, id, cancellationToken);
+                    if (type is null)
+                    {
+                        continue;
+                    }
+
+                    types[id] = type;
+                }
+
+                fields.AddRange(Features.ListsJsonText.Fields(type.Fields));
+            }
+
+            Features.FieldIndex.Plan(list, fields, _fieldTypes!, limits, isNew);
+        }
+    }
+
+    private Task<List<ListDefinition>> ListsOfTenantAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var tenant = tenantId;
+        var ct = cancellationToken;
+        return Lists.Where(l => l.TenantId == tenant && l.DeletedAt == null).ToListAsync(ct);
+    }
+
+    private Task<ContentType?> FindContentTypeAsync(Guid tenantId, Guid contentTypeId, CancellationToken cancellationToken)
+    {
+        var tenant = tenantId;
+        var id = contentTypeId;
+        var ct = cancellationToken;
+        return ContentTypes.AsNoTracking().Where(c => c.TenantId == tenant && c.Id == id).FirstOrDefaultAsync(ct);
     }
 
     /// <summary>
@@ -141,6 +298,17 @@ public class ListsDbContext : DbContext
             item.HasIndex(i => new { i.TenantId, i.ListId, i.ParentId, i.IsFolder, i.Title });
             item.HasIndex(i => new { i.TenantId, i.ScopeId });
             item.HasOne<ListDefinition>().WithMany().HasForeignKey(i => i.ListId).OnDelete(DeleteBehavior.Cascade);
+
+            // Indexed fields (ADR-0035): one partial index per column, so a list pays only for the columns it fills.
+            foreach (var column in Features.FieldIndex.Columns)
+            {
+                if (!column.StartsWith(IndexKinds.Number, StringComparison.Ordinal))
+                {
+                    item.Property<string>(column).HasMaxLength(column.StartsWith(IndexKinds.Text, StringComparison.Ordinal) ? Features.FieldIndex.MaxTextLength : 40);
+                }
+
+                item.HasIndex(nameof(ListItem.TenantId), nameof(ListItem.ListId), column, nameof(ListItem.Id)).HasFilter($"\"{column}\" IS NOT NULL");
+            }
         });
 
         modelBuilder.Entity<AclEntry>(entry =>
@@ -157,6 +325,13 @@ public class ListsDbContext : DbContext
             version.ToTable("item_versions");
             version.Property(v => v.Title).HasMaxLength(1024);
             version.HasIndex(v => new { v.TenantId, v.ItemId, v.Number }).IsUnique();
+        });
+
+        modelBuilder.Entity<ItemValue>(value =>
+        {
+            value.ToTable("item_values");
+            value.HasKey(v => new { v.ItemId, v.Field, v.Value });
+            value.HasIndex(v => new { v.TenantId, v.ListId, v.Field, v.Value, v.ItemId });
         });
 
         modelBuilder.Entity<ItemChange>(change =>

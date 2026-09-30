@@ -145,7 +145,7 @@ internal sealed class BulkUpdateOperation(
         while (true)
         {
             var page = await queries.QueryAsync(
-                new ItemQuery(caller.TenantId, [schema.List.Id], parsed, schema.Access.Scopes(WorkspaceAccessLevel.Read), FolderMode.ItemsOnly, null, cursor, PageSize, false),
+                new ItemQuery(caller.TenantId, [schema.List.Id], parsed, schema.Access.Scopes(WorkspaceAccessLevel.Read), FolderMode.ItemsOnly, null, cursor, PageSize, false, null, FieldIndex.Ready(schema.List)),
                 cancellationToken);
             ids.AddRange(page.Items.Select(i => i.Id));
             if (!page.HasMore)

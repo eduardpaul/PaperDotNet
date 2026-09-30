@@ -29,6 +29,7 @@ public sealed class ListsModule : IModule
         services.Configure<ListsOptions>(configuration.GetSection(ListsOptions.Section));
         services.AddTenantRecurringJob<RecycleBinCleanupJob>(RecycleBinCleanupJob.Name, RecycleBinCleanupJob.Schedule);
         services.AddTenantRecurringJob<ItemChangeCleanupJob>(ItemChangeCleanupJob.Name, ItemChangeCleanupJob.Schedule);
+        services.AddTenantRecurringJob<IndexedFieldBackfillJob>(IndexedFieldBackfillJob.Name, IndexedFieldBackfillJob.Schedule);
         services.AddScopes(ListScopes.All);
         services.AddMemoryCache();
         foreach (var type in FieldTypeRegistry.BuiltIn())

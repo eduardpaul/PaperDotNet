@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
 
 namespace PaperDotNet.Lists;
@@ -11,6 +12,7 @@ namespace PaperDotNet.Lists;
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(List<FieldDefinition>))]
 [JsonSerializable(typeof(List<Guid>))]
+[JsonSerializable(typeof(List<IndexedField>))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
 [JsonSerializable(typeof(ItemVersionResponse))]
 [JsonSerializable(typeof(Page<ItemVersionResponse>))]

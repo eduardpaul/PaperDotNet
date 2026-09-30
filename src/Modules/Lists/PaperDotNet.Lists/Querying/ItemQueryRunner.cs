@@ -40,7 +40,7 @@ internal sealed class ItemQueryRunner(IItemQueries queries, FieldTypeRegistry fi
         var take = Math.Clamp(top, 1, ListItemQuery.MaxTop);
         var query = new ItemQuery(
             caller.TenantId, [schema.List.Id], parsed, schema.Access.Scopes(WorkspaceAccessLevel.Read), folders, parentId, cursor, take,
-            count && skipToken is null, itemId);
+            count && skipToken is null, itemId, FieldIndex.Ready(schema.List));
         try
         {
             var result = await queries.QueryAsync(query, cancellationToken);

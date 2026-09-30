@@ -37,6 +37,6 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | T08e | Delta (change log, `/items/delta`, scope changes for delta) | done |
 | T08f | List templates and `templateKey` (`/listTemplates`; the document keywords field comes with T12) | done |
 | T08g | Smart folders | moved to T12: they filter by and assign Taxonomy terms |
-| T08h | Indexed fields (item columns and value table, backfill; no reflection over columns under AOT) | in progress |
+| T08h | Indexed fields (item columns and value table, backfill; no reflection over columns under AOT) | done (AOT smoke run pending) |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

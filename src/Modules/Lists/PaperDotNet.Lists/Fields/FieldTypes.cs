@@ -296,6 +296,12 @@ public sealed partial class FieldTypeRegistry(IEnumerable<IFieldType> types)
         {
             yield return $"Field '{field.Name}': {error}";
         }
+
+        if (field.Indexed && Features.FieldIndex.KindOf(field, type) is null)
+        {
+            yield return $"Field '{field.Name}': a {field.Type} field cannot be indexed"
+                         + (type.ValueKind == FieldValueKind.Text ? $" (text longer than {Features.FieldIndex.MaxTextLength} characters)." : ".");
+        }
     }
 
     /// <summary>The built-in field types (managed metadata and keywords come with the Taxonomy module).</summary>

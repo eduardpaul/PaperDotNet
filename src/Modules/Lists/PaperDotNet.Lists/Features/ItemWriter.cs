@@ -468,6 +468,15 @@ internal sealed class ItemWriter(
             errors.TryAdd($"fields.{definition.Name}", ["This field is required."]);
         }
 
+        // Indexed multi-value fields take at most FieldIndex.MaxValuesPerItem values (ADR-0035).
+        foreach (var definition in definitions.Where(d => d.Indexed && d.AllowMultiple))
+        {
+            if (result[definition.Name] is JsonArray array && array.Count > FieldIndex.MaxValuesPerItem)
+            {
+                errors.TryAdd($"fields.{definition.Name}", [$"An indexed field takes at most {FieldIndex.MaxValuesPerItem} values."]);
+            }
+        }
+
         return result;
     }
 

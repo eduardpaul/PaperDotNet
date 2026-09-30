@@ -297,6 +297,9 @@ public sealed class ListsOptions
     /// more items than this answers 410 (resync) instead (ADR-0035).
     /// </summary>
     public int DeltaScopeLimit { get; set; } = 1000;
+
+    /// <summary>Item columns a list may use for indexed fields, per kind (<c>Lists:IndexedFields:Text</c>, …; at most 10).</summary>
+    public IndexedFieldLimits IndexedFields { get; set; } = new();
 }
 
 /// <summary>Permanently deletes recycle-bin items older than the retention period (daily at 03:30 UTC).</summary>

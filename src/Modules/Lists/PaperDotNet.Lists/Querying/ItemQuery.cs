@@ -39,7 +39,8 @@ internal sealed record ItemQuery(
     ItemCursor Cursor,
     int Top,
     bool Count,
-    Guid? ItemId = null);
+    Guid? ItemId = null,
+    IReadOnlyDictionary<string, Data.IndexedField>? Indexed = null);
 
 internal sealed record ItemQueryResult(IReadOnlyList<Data.ListItem> Items, long? Count, bool HasMore);
 
@@ -61,6 +62,12 @@ internal interface IItemQueries
     /// per value, and items without a value are one more entry with a null value.
     /// </summary>
     Task<IReadOnlyList<Features.ValueCount>> CountValuesAsync(ItemQuery query, string field, bool multiple, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes indexed columns of one item (ADR-0035) directly, without changing its version, audit or delta: for the
+    /// backfill of newly indexed fields. Column names come from <c>FieldIndex.Columns</c>.
+    /// </summary>
+    Task WriteIndexColumnsAsync(Guid tenantId, Guid itemId, IReadOnlyDictionary<string, object?> columns, CancellationToken cancellationToken);
 }
 
 /// <summary>Parsed <c>$filter</c> clauses and <c>$orderby</c> with the aliases they refer to.</summary>

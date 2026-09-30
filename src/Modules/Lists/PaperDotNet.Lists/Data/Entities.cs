@@ -111,6 +111,15 @@ public class ListDefinition : ITenantOwned, IAuditable, ISoftDeletable, IVersion
     /// <summary>Versions kept per item; older ones are removed.</summary>
     public int MaxVersions { get; set; } = DefaultMaxVersions;
 
+    /// <summary>Where each indexed field of the list is kept (ADR-0035), as a JSON array of <see cref="IndexedField"/>.</summary>
+    public string IndexedFields { get; set; } = "[]";
+
+    /// <summary>The next free value-table field number of the list.</summary>
+    public short NextValueField { get; set; } = IndexedField.FirstCustomValueField;
+
+    /// <summary>Some indexed fields are not filled yet for the existing items (the backfill job fills them).</summary>
+    public bool IndexPending { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
@@ -172,6 +181,68 @@ public class ListItem : ITenantOwned, IAuditable, ISoftDeletable, IVersioned
 
     [ConcurrencyCheck]
     public uint Version { get; set; }
+
+    // Indexed single values (ADR-0035): which field uses which column is in ListDefinition.IndexedFields. Text columns
+    // hold text, choice and boolean values, number columns numbers, date columns dates and times as stored.
+    public string? Text1 { get; set; }
+
+    public string? Text2 { get; set; }
+
+    public string? Text3 { get; set; }
+
+    public string? Text4 { get; set; }
+
+    public string? Text5 { get; set; }
+
+    public string? Text6 { get; set; }
+
+    public string? Text7 { get; set; }
+
+    public string? Text8 { get; set; }
+
+    public string? Text9 { get; set; }
+
+    public string? Text10 { get; set; }
+
+    public double? Number1 { get; set; }
+
+    public double? Number2 { get; set; }
+
+    public double? Number3 { get; set; }
+
+    public double? Number4 { get; set; }
+
+    public double? Number5 { get; set; }
+
+    public double? Number6 { get; set; }
+
+    public double? Number7 { get; set; }
+
+    public double? Number8 { get; set; }
+
+    public double? Number9 { get; set; }
+
+    public double? Number10 { get; set; }
+
+    public string? Date1 { get; set; }
+
+    public string? Date2 { get; set; }
+
+    public string? Date3 { get; set; }
+
+    public string? Date4 { get; set; }
+
+    public string? Date5 { get; set; }
+
+    public string? Date6 { get; set; }
+
+    public string? Date7 { get; set; }
+
+    public string? Date8 { get; set; }
+
+    public string? Date9 { get; set; }
+
+    public string? Date10 { get; set; }
 }
 
 /// <summary>A saved version of an item (LST-11): its values after one change, kept while the list has versioning on.</summary>
@@ -200,6 +271,52 @@ public class ItemVersion : ITenantOwned
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
+}
+
+/// <summary>Values of <see cref="IndexedField.Kind"/>: how an indexed field is kept.</summary>
+public static class IndexKinds
+{
+    public const string Text = "Text";
+    public const string Number = "Number";
+    public const string Date = "Date";
+
+    /// <summary>Multiple values and references (people, lookups, terms): rows in <c>item_values</c>.</summary>
+    public const string Values = "Values";
+}
+
+/// <summary>Where one indexed field of a list is kept: an item column, or a field number in the value table.</summary>
+public sealed record IndexedField
+{
+    /// <summary>Value-table field numbers below this are for the well-known fields.</summary>
+    public const short FirstCustomValueField = 16;
+
+    public required string Field { get; init; }
+
+    /// <summary>An <see cref="IndexKinds"/> value.</summary>
+    public required string Kind { get; init; }
+
+    /// <summary>The item column (<c>Text3</c>, <c>Number1</c>, <c>Date2</c>) for single values.</summary>
+    public string? Column { get; init; }
+
+    /// <summary>The field number in <c>item_values</c> for <see cref="IndexKinds.Values"/>.</summary>
+    public short? ValueField { get; init; }
+
+    /// <summary>Filled for every item: queries use it (until then they read the JSON).</summary>
+    public bool Ready { get; init; }
+}
+
+/// <summary>One value of an indexed multi-value or reference field of an item (ADR-0035): a GUID, or a name-based id of a text value.</summary>
+public class ItemValue : ITenantOwned
+{
+    public Guid TenantId { get; set; }
+
+    public Guid ListId { get; set; }
+
+    public Guid ItemId { get; set; }
+
+    public short Field { get; set; }
+
+    public Guid Value { get; set; }
 }
 
 /// <summary>Values of <see cref="ListView.Layout"/>.</summary>
@@ -299,6 +416,9 @@ public class ItemChange : ITenantOwned
     /// <summary>When, in Unix milliseconds (UTC): SQLite compares numbers in SQL, not <see cref="DateTimeOffset"/> (ADR-0039).</summary>
     public long At { get; set; }
 }
+
+/// <summary>An item's id and field values (a query projection, for the index backfill).</summary>
+public sealed record ItemFields(Guid Id, string Fields);
 
 /// <summary>A deleted item's id and time of deletion (a query projection).</summary>
 public sealed record DeletedItem(Guid Id, DateTimeOffset? DeletedAt);

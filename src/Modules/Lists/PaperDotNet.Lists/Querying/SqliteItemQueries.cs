@@ -63,6 +63,32 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
         }
     }
 
+    public async Task WriteIndexColumnsAsync(Guid tenantId, Guid itemId, IReadOnlyDictionary<string, object?> columns, CancellationToken cancellationToken)
+    {
+        if (columns.Count == 0)
+        {
+            return;
+        }
+
+        var connection = db.Database.GetDbConnection();
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            var translator = new Translator(command);
+            var sets = columns.Select(c => FieldIndex.Columns.Contains(c.Key)
+                ? $"\"{c.Key}\" = {translator.Parameter(c.Value)}"
+                : throw new ArgumentException($"'{c.Key}' is not an indexed column.", nameof(columns)));
+            command.CommandText = $"UPDATE \"list_items\" SET {string.Join(", ", sets)} "
+                + $"WHERE \"TenantId\" = {translator.Parameter(GuidText(tenantId))} AND \"Id\" = {translator.Parameter(GuidText(itemId))}";
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
+    }
+
     public async Task<ItemQueryResult> QueryAsync(ItemQuery query, CancellationToken cancellationToken)
     {
         if (query.ListIds.Count == 0 || query.Scopes is { Count: 0 })
@@ -154,6 +180,7 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
             where.Append(" AND \"i\".\"Id\" = ").Append(translator.Parameter(GuidText(itemId)));
         }
 
+        translator.Indexed = query.Indexed;
         foreach (var (clause, aliases) in query.Parsed.Filters)
         {
             translator.Aliases = aliases;
@@ -286,6 +313,9 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
         /// <summary>The parameter aliases of the clause being translated (<c>@me</c>, <c>@today</c>, …).</summary>
         public IDictionary<string, QueryNode>? Aliases { get; set; }
 
+        /// <summary>Indexed fields ready to use (ADR-0035): their item column or value-table rows instead of the JSON.</summary>
+        public IReadOnlyDictionary<string, IndexedField>? Indexed { get; set; }
+
         public string Parameter(object? value)
         {
             var parameter = command.CreateParameter();
@@ -319,10 +349,15 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
                     return new($"{(call.Name == "tolower" ? "lower" : "upper")}({inner.Sql})", inner.Kind);
                 case NonResourceRangeVariableReferenceNode reference when _ranges.TryGetValue(reference.RangeVariable, out var element):
                     return element;
+                case SingleValuePropertyAccessNode { Source: SingleComplexNode } field when field.Property.Name == "title":
+                    return new("\"i\".\"Title\"", OperandKind.Text);
                 case SingleValuePropertyAccessNode { Source: SingleComplexNode } field:
-                    return field.Property.Name == "title"
-                        ? new("\"i\".\"Title\"", OperandKind.Text)
-                        : new($"json_extract(\"i\".\"Fields\", {Parameter("$." + field.Property.Name)})", KindOf(field.Property.Type));
+                    // An indexed column holds the value as stored in the JSON (booleans as text: those stay on the JSON).
+                    var kind = KindOf(field.Property.Type);
+                    return Indexed?.GetValueOrDefault(field.Property.Name) is { Column: { } indexColumn } && FieldIndex.Columns.Contains(indexColumn)
+                        && kind != OperandKind.Boolean
+                        ? new($"\"i\".\"{indexColumn}\"", kind)
+                        : new($"json_extract(\"i\".\"Fields\", {Parameter("$." + field.Property.Name)})", kind);
                 case SingleValuePropertyAccessNode property when ItemColumns.TryGetValue(property.Property.Name, out var column):
                     return column;
                 default:
@@ -426,6 +461,11 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
                 throw Unsupported(node);
             }
 
+            if (Indexed?.GetValueOrDefault(collection.Property.Name) is { Kind: IndexKinds.Values, ValueField: { } valueField } && ValueTableMatch(node, collection) is { } match)
+            {
+                return match(valueField);
+            }
+
             var alias = $"\"j{_eachCount++}\"";
             var from = $"json_each(\"i\".\"Fields\", {Parameter("$." + collection.Property.Name)}) AS {alias}";
             if (node.Body is ConstantNode { Value: true } || node.CurrentRangeVariable is null)
@@ -435,6 +475,41 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
 
             _ranges[node.CurrentRangeVariable] = new($"{alias}.\"value\"", KindOf(collection.Property.Type));
             return $"EXISTS (SELECT 1 FROM {from} WHERE {Predicate(node.Body)})";
+        }
+
+        /// <summary>
+        /// <c>any()</c> and <c>any(x: x eq value)</c> on an indexed multi-value field, as a lookup in the value table;
+        /// null for other bodies (they read the JSON).
+        /// </summary>
+        private Func<short, string>? ValueTableMatch(AnyNode node, CollectionPropertyAccessNode collection)
+        {
+            const string rows = "SELECT 1 FROM \"item_values\" AS \"v\" WHERE \"v\".\"ItemId\" = \"i\".\"Id\" AND \"v\".\"Field\" = ";
+            if (node.Body is ConstantNode { Value: true } || node.CurrentRangeVariable is null)
+            {
+                return field => $"EXISTS ({rows}{Parameter(field)})";
+            }
+
+            if (Unwrap(node.Body) is not BinaryOperatorNode { OperatorKind: BinaryOperatorKind.Equal } equal)
+            {
+                return null;
+            }
+
+            var (left, right) = (Unwrap(equal.Left), Unwrap(equal.Right));
+            var constant = left as ConstantNode ?? right as ConstantNode;
+            var reference = (left as NonResourceRangeVariableReferenceNode ?? right as NonResourceRangeVariableReferenceNode)?.RangeVariable;
+            var text = constant?.Value switch
+            {
+                string value => value,
+                Guid value => value.ToString(),
+                _ => null,
+            };
+            if (text is null || reference != node.CurrentRangeVariable)
+            {
+                return null;
+            }
+
+            var id = GuidText(FieldIndex.ValueId(collection.Property.Name, text));
+            return field => $"EXISTS ({rows}{Parameter(field)} AND \"v\".\"Value\" = {Parameter(id)})";
         }
 
         private static object? Value(OperandKind kind, object? value) => (kind, value) switch

@@ -45,7 +45,7 @@ curl -sf "$BASE/openapi/v1.json" | json '"/v1.0/workspaces/{workspaceId}/lists/{
 # Lists in a workspace: a content type with fields, a list, items, OData queries, a folder with an item inside.
 WS=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces" -d '{"name":"Finance"}' | json 'd["id"]') || fail "create workspace"
 INVOICE=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/contentTypes" \
-  -d '{"name":"Invoice","fields":[{"name":"amount","type":"number"},{"name":"paid","type":"boolean"},{"name":"due","type":"dateTime"}]}' | json 'd["id"]') || fail "create content type"
+  -d '{"name":"Invoice","fields":[{"name":"amount","type":"number","indexed":true},{"name":"paid","type":"boolean"},{"name":"due","type":"dateTime"}]}' | json 'd["id"]') || fail "create content type"
 LIST=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d "{\"name\":\"Invoices\",\"versioning\":\"major\",\"contentTypeIds\":[\"$INVOICE\"]}" | json 'd["id"]') || fail "create list"
 ITEMS="$BASE/v1.0/workspaces/$WS/lists/$LIST/items"
 for n in 1 2 3 4 5; do
