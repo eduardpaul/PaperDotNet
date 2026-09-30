@@ -17,5 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\PaperDotNet.Host\PaperDotNet.Host.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\PaperDotNet.Storage\PaperDotNet.Storage.csproj" />
   </ItemGroup>
 </Project>

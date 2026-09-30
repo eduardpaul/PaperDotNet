@@ -7,6 +7,7 @@ using PaperDotNet.Lists;
 using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.Sqlite;
+using PaperDotNet.Storage;
 using PaperDotNet.Workflows;
 using Wolverine;
 using Wolverine.Sqlite;
@@ -31,6 +32,7 @@ internal static class PaperDotNetHost
         services.AddPaperDotNetApi();
         services.AddPaperDotNetPersistence();
         services.AddPaperDotNetMessaging();
+        services.AddPaperDotNetStorage(configuration);
         foreach (var module in Modules)
         {
             module.AddServices(services, configuration);

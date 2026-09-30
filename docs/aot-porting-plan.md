@@ -7,7 +7,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | # | Size | Task | Status |
 |---|---|---|---|
 | T01 | S | Housekeeping: dev launch settings, GLM image, compose overrides, samples | done (samples come with T09) |
-| T02 | S | Storage building block (`IBlobStore`, local disk) | |
+| T02 | S | Storage building block (`IBlobStore`, local disk) | done |
 | T03 | S/M | Jobs: recurring tenant jobs (Cronos) and operations (202 + `/operations/{id}`) | |
 | T04 | M | Identity parity: tenants admin, user lifecycle, groups (nested), directory, preferences, API tokens | |
 | T05 | M | Workspaces with members and roles | |

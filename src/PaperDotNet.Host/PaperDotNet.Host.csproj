@@ -33,6 +33,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Persistence.Sqlite\PaperDotNet.Persistence.Sqlite.csproj" />
+    <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Storage\PaperDotNet.Storage.csproj" />
     <ProjectReference Include="..\Modules\Identity\PaperDotNet.Identity\PaperDotNet.Identity.csproj" />
     <ProjectReference Include="..\Modules\Lists\PaperDotNet.Lists\PaperDotNet.Lists.csproj" />
     <ProjectReference Include="..\Modules\Audit\PaperDotNet.Audit\PaperDotNet.Audit.csproj" />

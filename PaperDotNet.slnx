@@ -12,6 +12,7 @@
     <Project Path="src/BuildingBlocks/PaperDotNet.Messaging/PaperDotNet.Messaging.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence/PaperDotNet.Persistence.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence.Sqlite/PaperDotNet.Persistence.Sqlite.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.Storage/PaperDotNet.Storage.csproj" />
   </Folder>
   <Folder Name="/src/Migrations/">
     <Project Path="src/Migrations/PaperDotNet.Migrations.Sqlite/PaperDotNet.Migrations.Sqlite.csproj" />
