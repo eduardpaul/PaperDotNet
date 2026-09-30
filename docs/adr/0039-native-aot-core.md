@@ -89,6 +89,9 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
   tree is translated to parameterized SQL (`IItemQueries`, `SqliteItemQueries` in the Lists module: the translator is
   specific to the item tables, so it stays with them). Values are always parameters; column names come from a fixed
   map, JSON paths from validated field names. Other modules query items through `IListItemStore` (Lists.Contracts).
+- **Indexed fields** keep their typed columns (`Text1..10`, `Number1..10`, `Date1..10`) and the value table; column
+  values are set by name through the EF model (no reflection), and the backfill writes columns with SQL in
+  `IItemQueries` like other bulk writes.
 - **Lists live in workspaces** (`/v1.0/workspaces/{id}/lists/…`, workflows likewise). Access comes from the
   workspace role through the list's `acl_entries` (role principals), checked per item scope; there is no
   tenant-wide list any more.
@@ -134,8 +137,8 @@ describes the .NET 10 API; it is regenerated from the new document when the web 
 
 ### Still to port
 
-Documents (upload, versions, OCR, page images), Search, Taxonomy, Tasks, Calendar, Notes, Notifications, item
-permissions (ADR-0035), indexed fields, views, list templates, smart folders, delta and bulk updates, Collaboration, Provisioning and templates, the extension host and SDK, MCP, AI workflows,
+Documents (upload, versions, OCR, page images), Search, Taxonomy, Tasks, Calendar, Notes, Notifications, smart
+folders, Collaboration, Provisioning and templates, the extension host and SDK, MCP, AI workflows,
 sign-in in the browser (authorization-code flow, passkeys, OAuth client applications, reverse-proxy sign-in), the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
 schedules, the web UI and the SDKs. Each follows the rules above and brings its tests back from `ToPort`.
 

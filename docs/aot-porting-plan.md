@@ -13,8 +13,8 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T05 | M | Workspaces with members and roles | done (workspace templates come with T13) |
 | T06 | L | Lists parity 1: workspace-scoped API, content types, all field types, folders | done: lists and libraries in workspaces (access from workspace roles through `acl_entries`), content types, field types except `managedMetadata`/`keywords` (T12), folders, OData queries with `any()`, aliases and date arithmetic. List templates and `templateKey` come with T08, the Home libraries with T15, moving a folder into another permission scope with T08 |
 | T07 | L | Lists parity 2: versions and history, recycle bin, item mutators, full item events | done: item versions (list, get, restore), the recycle bin (list, restore, purge) with a daily cleanup job, mutators (`IItemMutator` in DI), restored and purged events in the audit log. The audit log across modules (`/v1.0/auditLog` by entity type) comes with T16 |
-| T08 | XL | Lists parity 3: permissions (ADR-0035), indexed fields, views, templates, smart folders, delta, bulk | in progress (steps below) |
-| T09 | M | Extension SDK, extension host and generator | |
+| T08 | XL | Lists parity 3: permissions (ADR-0035), indexed fields, views, templates, smart folders, delta, bulk | done (steps below; smart folders moved to T12) |
+| T09 | M | Extension SDK, extension host and generator | in progress: the SDK for ported modules first; term sets, template sections, shipped workflows and MCP tools come with T12, T13, T14 and T16 |
 | T10 | S-M | Notes, Collaboration, Notifications | |
 | T11 | M | Tasks and Calendar | |
 | T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g) | |
@@ -37,6 +37,6 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | T08e | Delta (change log, `/items/delta`, scope changes for delta) | done |
 | T08f | List templates and `templateKey` (`/listTemplates`; the document keywords field comes with T12) | done |
 | T08g | Smart folders | moved to T12: they filter by and assign Taxonomy terms |
-| T08h | Indexed fields (item columns and value table, backfill; no reflection over columns under AOT) | done (AOT smoke run pending) |
+| T08h | Indexed fields (item columns and value table, backfill; no reflection over columns under AOT) | done |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).
