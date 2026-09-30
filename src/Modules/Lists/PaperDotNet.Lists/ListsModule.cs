@@ -1,14 +1,14 @@
 using System.Text.Json.Serialization.Metadata;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Lists.Templates;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
+using PaperDotNet.Lists.Templates;
 using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Lists;
