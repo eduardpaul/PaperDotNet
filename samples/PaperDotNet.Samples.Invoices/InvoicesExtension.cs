@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,14 +25,15 @@ public sealed class InvoicesExtension : IExtension
     public void Configure(IExtensionBuilder builder)
     {
         builder.Services.AddSingleton<InvoiceStats>();
+        builder.AddJson(InvoicesJson.Default);
         builder.AddDbContext<InvoicesDbContext>();
         builder.AddFieldType(new IbanFieldType());
 
         // Provisioned into a tenant when it enables the extension; managed by the extension.
         builder.AddContentType(new ContentTypeTemplate($"{Id}.invoice", "Invoice", "An invoice with amount, approval status and IBAN.",
         [
-            new FieldDefinition { Name = "amount", DisplayName = "Amount", Type = "number", Required = true },
-            new FieldDefinition { Name = "status", DisplayName = "Status", Type = "choice", Choices = ["draft", "pendingApproval", "approved", "paid"], DefaultValue = "\"draft\"" },
+            new FieldDefinition { Name = "amount", DisplayName = "Amount", Type = "number", Required = true, Indexed = true },
+            new FieldDefinition { Name = "status", DisplayName = "Status", Type = "choice", Choices = ["draft", "pendingApproval", "approved", "paid"], DefaultValue = "\"draft\"", Indexed = true },
             new FieldDefinition { Name = "iban", DisplayName = "IBAN", Type = $"{Id}.iban", Search = FieldSearchWeight.High },
             new FieldDefinition { Name = "internalNote", DisplayName = "Internal note", Type = "note", Search = FieldSearchWeight.None },
         ]));
@@ -43,31 +45,20 @@ public sealed class InvoicesExtension : IExtension
         {
             Versioning = true,
         });
-        builder.AddTermSet(new Taxonomy.Contracts.TermSetTemplate("Invoices", "Cost centers",
-        [
-            new("Operations", Children: [new("Facilities"), new("IT", ["Information technology"])]),
-            new("Sales", Children: [new("Marketing")]),
-        ], "Cost centers for invoices.")
-        {
-            Key = $"{Id}.costCenters",
-        });
         builder.AddItemMutator<ApprovalMutator>(o =>
         {
             o.Sequence = 100;
-            o.ContentTypes.Add("Invoice");
+            o.ContentTypes.Add($"{Id}.invoice");
         });
         builder.AddEventSubscriber<ItemAdded, InvoiceCounter>();
-        builder.AddWorkflowTrigger(new(ApprovalNeededTrigger.Key, "An invoice above the approval threshold was added (data: amount)."));
         builder.AddWorkflowActivity<ApproveInvoiceAction>();
-        builder.AddWorkflowActivity<AwaitPaymentActivity>();
-        builder.AddWorkflow(InvoiceWorkflows.ApproveAndCollect);
-        builder.AddEventSubscriber<ItemUpdated, PaymentReceived>();
-        builder.AddMcpTool<PendingInvoicesTool>();
-        builder.AddEventSubscriber<ItemAdded, ApprovalNeededTrigger>();
         builder.AddRecurringJob<ReminderJob>($"{Id}.reminders", "* * * * * *");
-        builder.MapEndpoints(api => api.MapGet("/stats", (InvoiceStats stats, ITenantContext tenant) => TypedResults.Ok(stats.For(tenant.TenantId!.Value)))
+        builder.MapEndpoints(api => api.MapGet("/stats", (InvoiceStats stats, Caller caller) => TypedResults.Ok(stats.For(caller.TenantId).Snapshot()))
             .RequireScope($"{Id}.read"));
         builder.MapEndpoints(ApprovalEndpoints.Map);
+
+        // Term sets (cost centers) come back with Taxonomy (T12); the approval workflow with its trigger, payment wait
+        // and built-in workflow with workflow parity (T14); the MCP tool with MCP (T16): docs/aot-porting-plan.md.
     }
 }
 
@@ -102,15 +93,13 @@ public sealed class IbanFieldType : FieldType
 /// <summary>Item mutator: invoices above the tenant's threshold get the status <c>pendingApproval</c>.</summary>
 public sealed class ApprovalMutator(IExtensionState state) : IItemMutator
 {
-    public int Sequence => 100;
-
     public ValueTask ItemAddingAsync(ItemMutationContext context, CancellationToken cancellationToken) => ApplyAsync(context, cancellationToken);
 
     public ValueTask ItemUpdatingAsync(ItemMutationContext context, CancellationToken cancellationToken) => ApplyAsync(context, cancellationToken);
 
     private async ValueTask ApplyAsync(ItemMutationContext context, CancellationToken ct)
     {
-        var settings = await state.GetSettingsAsync(InvoicesExtension.Id, ct);
+        var settings = await state.GetSettingsAsync(context.TenantId, InvoicesExtension.Id, ct);
         if (settings["requireApproval"]?.GetValue<bool>() != true || context.After?["amount"] is not JsonValue amount)
         {
             return;
@@ -143,6 +132,8 @@ public sealed class InvoiceStats
         /// <summary>Invoices waiting for approval in all invoice lists, as of the last reminder run.</summary>
         public int PendingApprovals => _pendingApprovals;
 
+        public InvoiceStatsResponse Snapshot() => new(ItemsAdded, ReminderRuns, PendingApprovals);
+
         internal void ItemAdded() => Interlocked.Increment(ref _itemsAdded);
 
         internal void ReminderRan(int pendingApprovals)
@@ -164,21 +155,30 @@ public sealed class InvoiceCounter(InvoiceStats stats) : IEventSubscriber<ItemAd
 }
 
 /// <summary>
-/// Recurring job (every second in this sample): counts invoices waiting for approval in every
-/// invoice list of the tenant. Jobs run without a user, so it reads as the system.
+/// Recurring job (every second in this sample): counts invoices waiting for approval in every invoice list of the
+/// tenant. Jobs run without a user, so it reads as the organization (<see cref="IListItemStore.AsSystem(ChangeActor)"/>).
 /// </summary>
-public sealed class ReminderJob(InvoiceStats stats, ITenantContext tenant, IListItemStore items) : ITenantRecurringJob
+public sealed class ReminderJob(InvoiceStats stats, IListItemStore items) : ITenantRecurringJob
 {
-    public async Task RunAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(Guid tenantId, CancellationToken cancellationToken)
     {
-        var system = items.AsSystem();
+        var system = items.AsSystem(new ChangeActor(tenantId, null));
         var pending = 0;
         foreach (var list in await system.GetListsAsync(null, $"{InvoicesExtension.Id}.invoices", cancellationToken))
         {
-            var (found, _) = await system.QueryAsync(list.WorkspaceId, list.Id, new ListItemQuery("fields/status eq 'pendingApproval'", Top: 1000), cancellationToken);
+            var (found, _) = await system.QueryAsync(list.WorkspaceId, list.Id, new ListItemQuery("fields/status eq 'pendingApproval'", Top: ListItemQuery.MaxTop), cancellationToken);
             pending += found.Count;
         }
 
-        stats.For(tenant.TenantId!.Value).ReminderRan(pending);
+        stats.For(tenantId).ReminderRan(pending);
     }
 }
+
+public sealed record InvoiceStatsResponse(int ItemsAdded, int ReminderRuns, int PendingApprovals);
+
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(InvoiceStatsResponse))]
+[JsonSerializable(typeof(ApproveRequest))]
+[JsonSerializable(typeof(InvoiceApprovalResponse))]
+[JsonSerializable(typeof(List<InvoiceApprovalResponse>))]
+internal sealed partial class InvoicesJson : JsonSerializerContext;

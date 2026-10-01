@@ -29,7 +29,8 @@ inspired by Papermerge and SharePoint lists/libraries.
 
 **Native AOT server (ADR-0039)**: the server in `src/` is one Native AOT binary on .NET 11 (budget: under 150 MB
 idle, under 300 MB under load, checked by `eng/aot-smoke.sh`). Work happens in place in `src/`. Ported: Identity,
-Lists, Audit, Workflows, Jobs (operations, recurring jobs, live events), Workspaces. Modules still to port stay in `src/Modules` out of the build (not in `PaperDotNet.slnx`);
+Lists, Audit, Workflows, Jobs (operations, recurring jobs, live events), Workspaces, the extension host and SDK
+(`src/Extensions/Extension.props`; sample `samples/PaperDotNet.Samples.Invoices`). Modules still to port stay in `src/Modules` out of the build (not in `PaperDotNet.slnx`);
 port them one at a time, best effort: keep a dependency if it works under AOT, otherwise use a standard that does,
 otherwise a plain REST implementation. Their tests wait in `tests/PaperDotNet.IntegrationTests/ToPort`.
 
@@ -60,7 +61,7 @@ dotnet build PaperDotNet.slnx                               # warnings (incl. tr
 dotnet format PaperDotNet.slnx --verify-no-changes
 dotnet test --solution PaperDotNet.slnx                     # SQLite, JIT build
 eng/aot-smoke.sh                                            # Native AOT publish, run, behavior and memory budget
-eng/schema.sh add <Name>                                    # model change: migrations + their SQL (Persistence.Sqlite/Schema)
+eng/schema.sh add <Name>                                    # model change: migrations + their SQL (Persistence.Sqlite/Schema, extensions' Schema/)
 eng/codegen.sh                                              # subscriber/message change: Wolverine handlers (Host/Internal/Generated)
 eng/openapi.sh                                              # endpoint change: src/PaperDotNet.Host/openapi.json
 ```

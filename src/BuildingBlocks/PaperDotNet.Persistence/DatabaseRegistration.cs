@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -13,6 +14,13 @@ public interface IDatabaseProvider
 {
     void Configure(DbContextOptionsBuilder options);
 }
+
+/// <summary>
+/// SQL scripts of tables outside the modules (an extension's, EXT-07), embedded in <paramref name="Assembly"/> as
+/// <c>Schema.{Provider}.{migration id}.sql</c> (e.g. <c>Schema.Sqlite.20261001120000_Initial.sql</c>). The host applies
+/// them after the modules' scripts, in order of their migration ids.
+/// </summary>
+public sealed record SchemaScripts(string Owner, Assembly Assembly);
 
 public static class DatabaseRegistration
 {

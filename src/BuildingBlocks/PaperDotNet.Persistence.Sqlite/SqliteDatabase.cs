@@ -14,14 +14,20 @@ public static partial class SqliteDatabase
 {
     private const string ResourcePrefix = "Schema.";
 
-    /// <summary>Migration id and SQL of every embedded script, in order.</summary>
-    public static IReadOnlyList<(string Id, string Sql)> Scripts()
+    /// <summary>The prefix of the SQLite scripts of tables outside the modules (<see cref="SchemaScripts"/>).</summary>
+    public const string ExtensionResourcePrefix = "Schema.Sqlite.";
+
+    /// <summary>Migration id and SQL of every embedded script of the modules, in order.</summary>
+    public static IReadOnlyList<(string Id, string Sql)> Scripts() => Scripts(typeof(SqliteDatabase).Assembly, ResourcePrefix);
+
+    /// <summary>Migration id and SQL of the scripts in <paramref name="assembly"/> whose resource names start with <paramref name="prefix"/>, in order.</summary>
+    public static IReadOnlyList<(string Id, string Sql)> Scripts(Assembly assembly, string prefix)
     {
-        var assembly = typeof(SqliteDatabase).Assembly;
+        ArgumentNullException.ThrowIfNull(assembly);
         return [.. assembly.GetManifestResourceNames()
-            .Where(n => n.StartsWith(ResourcePrefix, StringComparison.Ordinal) && n.EndsWith(".sql", StringComparison.Ordinal))
+            .Where(n => n.StartsWith(prefix, StringComparison.Ordinal) && n.EndsWith(".sql", StringComparison.Ordinal))
             .Order(StringComparer.Ordinal)
-            .Select(n => (n[ResourcePrefix.Length..^".sql".Length], Read(assembly, n)))];
+            .Select(n => (n[prefix.Length..^".sql".Length], Read(assembly, n)))];
     }
 
     public static async Task MigrateAsync(IServiceProvider services, CancellationToken cancellationToken = default)
@@ -50,7 +56,12 @@ public static partial class SqliteDatabase
             }
         }
 
-        foreach (var (id, sql) in Scripts())
+        // The modules first, then the tables of extensions (which only reference their own tables).
+        var scripts = Scripts().Concat(services.GetServices<SchemaScripts>()
+            .DistinctBy(s => s.Assembly)
+            .OrderBy(s => s.Owner, StringComparer.Ordinal)
+            .SelectMany(s => Scripts(s.Assembly, ExtensionResourcePrefix)));
+        foreach (var (id, sql) in scripts)
         {
             if (applied.Contains(id))
             {

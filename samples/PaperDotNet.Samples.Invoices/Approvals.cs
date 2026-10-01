@@ -4,15 +4,19 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Extensions;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Persistence.Sqlite;
 
 namespace PaperDotNet.Samples.Invoices;
 
+#pragma warning disable CA1852 // Entities stay unsealed: EF Core's precompiled queries cannot use sealed entity types (ADR-0039).
+
 /// <summary>Who approved which invoice (the extension's own table, EXT-07).</summary>
-public sealed class ApprovalRecord : ITenantOwned, IAuditable
+public class ApprovalRecord : ITenantOwned, IAuditable
 {
     public Guid Id { get; set; }
 
@@ -37,10 +41,14 @@ public sealed class ApprovalRecord : ITenantOwned, IAuditable
     public Guid? UpdatedBy { get; set; }
 }
 
-/// <summary>The sample's tables, in the schema <c>ext_samples_invoices</c>.</summary>
-public sealed class InvoicesDbContext(DbContextOptions<InvoicesDbContext> options, ITenantContext tenant) : ExtensionDbContext(options, tenant)
+#pragma warning restore CA1852
+
+/// <summary>The sample's tables (<c>ext_samples_invoices_*</c>).</summary>
+public class InvoicesDbContext(DbContextOptions<InvoicesDbContext> options) : ExtensionDbContext(options)
 {
-    public DbSet<ApprovalRecord> Approvals => Set<ApprovalRecord>();
+    public DbSet<ApprovalRecord> Approvals { get; set; } = null!;
+
+    protected override string ExtensionId => InvoicesExtension.Id;
 
     protected override void ConfigureModel(ModelBuilder modelBuilder) =>
         modelBuilder.Entity<ApprovalRecord>(b =>
@@ -48,8 +56,14 @@ public sealed class InvoicesDbContext(DbContextOptions<InvoicesDbContext> option
             b.ToTable("approvals");
             b.Property(a => a.Amount).HasPrecision(18, 2);
             b.Property(a => a.Comment).HasMaxLength(500);
-            b.HasIndex(a => a.ItemId);
+            b.HasIndex(a => new { a.TenantId, a.ItemId });
         });
+}
+
+/// <summary>For the EF Core tools: the compiled model and precompiled queries of the extension (built at publish).</summary>
+internal sealed class InvoicesDesignTimeFactory : IDesignTimeDbContextFactory<InvoicesDbContext>
+{
+    public InvoicesDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<InvoicesDbContext>("PaperDotNet.Samples.Invoices.Migrations.Sqlite"));
 }
 
 public sealed record ApproveRequest(string? Comment);
@@ -70,7 +84,7 @@ internal static class ApprovalEndpoints
     }
 
     private static async Task<Results<Ok<InvoiceApprovalResponse>, ProblemHttpResult, ValidationProblem>> ApproveAsync(
-        Guid workspaceId, Guid listId, Guid itemId, ApproveRequest? request, IListItemStore items, InvoicesDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, ApproveRequest? request, Caller caller, IListItemStore items, InvoicesDbContext db, CancellationToken ct)
     {
         var item = await items.GetAsync(workspaceId, listId, itemId, ct);
         if (item is null)
@@ -104,6 +118,7 @@ internal static class ApprovalEndpoints
         var record = new ApprovalRecord
         {
             Id = Ids.New(),
+            TenantId = caller.TenantId,
             WorkspaceId = workspaceId,
             ListId = listId,
             ItemId = itemId,
@@ -115,8 +130,14 @@ internal static class ApprovalEndpoints
         return TypedResults.Ok(InvoiceApprovalResponse.From(record));
     }
 
-    private static async Task<Ok<List<InvoiceApprovalResponse>>> ListAsync(InvoicesDbContext db, CancellationToken ct) =>
-        TypedResults.Ok((await db.Approvals.AsNoTracking().OrderByDescending(a => a.CreatedAt).Take(100).ToListAsync(ct))
-            .Select(InvoiceApprovalResponse.From)
-            .ToList());
+    private static async Task<Ok<List<InvoiceApprovalResponse>>> ListAsync(Caller caller, InvoicesDbContext db, CancellationToken cancellationToken)
+    {
+        // Query rules of the AOT server: the DbContext and every captured value in locals, one expression, the tenant
+        // named. Ids are UUIDv7: newest first.
+        var context = db;
+        var tenantId = caller.TenantId;
+        var ct = cancellationToken;
+        var approvals = await context.Approvals.AsNoTracking().Where(a => a.TenantId == tenantId).OrderByDescending(a => a.Id).Take(100).ToListAsync(ct);
+        return TypedResults.Ok(approvals.Select(InvoiceApprovalResponse.From).ToList());
+    }
 }

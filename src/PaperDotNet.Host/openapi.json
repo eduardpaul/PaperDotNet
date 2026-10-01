@@ -5134,6 +5134,12 @@
               "type": "string"
             }
           },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "endpoints": {
             "type": "boolean"
           }

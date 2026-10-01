@@ -1,55 +1,63 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Extensions;
 
 /// <summary>
-/// Base class of an extension's own tables (EXT-07), registered with
-/// <see cref="IExtensionBuilder.AddDbContext{TContext}"/>. The host places them in the schema
-/// <c>ext_{id}</c> and applies the platform conventions: every entity must implement
-/// <see cref="ITenantOwned"/> (tenant filter, PostgreSQL row-level security), and
-/// <see cref="ISoftDeletable"/>, <see cref="IVersioned"/> and <see cref="IAuditable"/> work as in modules.
-/// Migrations live in companion assemblies <c>{extension assembly}.Migrations.Sqlite</c> and
-/// <c>.PostgreSql</c>, which the host references next to the extension.
+/// Base class of an extension's own tables (EXT-07), registered with <see cref="IExtensionBuilder.AddDbContext{TContext}"/>.
+/// Tables get the prefix <c>ext_{id}_</c> and every entity must implement <see cref="ITenantOwned"/>. The rules of the
+/// Native AOT server apply as in modules (ADR-0039): queries name the tenant explicitly (<c>TenantId</c> passed in, no
+/// ambient tenant) and precompile (DbContext and captured values in locals, one expression to the terminal operator,
+/// entities not sealed and in the DbContext's namespace); the save guard stamps <see cref="IAuditable"/> and
+/// <see cref="IVersioned"/> and refuses writes to another tenant. The extension project builds its compiled model and
+/// precompiled queries at publish (<c>src/Extensions/Extension.props</c>) and embeds the SQL of its migrations as
+/// <c>Schema.Sqlite.{migration}.sql</c>; the host applies them on start.
 /// </summary>
-public abstract class ExtensionDbContext : DbContext, ITenantScopedDbContext
+public abstract class ExtensionDbContext : DbContext
 {
-    private readonly DbContextOptions _options;
-    private readonly ITenantContext _tenant;
-
-    protected ExtensionDbContext(DbContextOptions options, ITenantContext tenant)
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
+    protected ExtensionDbContext(DbContextOptions options)
         : base(options)
     {
-        _options = options;
-        _tenant = tenant;
     }
 
-    public Guid? CurrentTenantId => _tenant.TenantId;
+    /// <summary>The extension's id (its manifest's <c>id</c>): table names start with <see cref="TablePrefix"/> of it.</summary>
+    protected abstract string ExtensionId { get; }
 
-    /// <summary>The schema of an extension's tables: <c>ext_</c> and the id with <c>.</c> and <c>-</c> replaced by <c>_</c>.</summary>
-    public static string SchemaFor(string extensionId) =>
-        "ext_" + extensionId.Replace('.', '_').Replace('-', '_');
+    /// <summary>The prefix of an extension's tables: <c>ext_</c>, the id with <c>.</c> and <c>-</c> replaced by <c>_</c>, and <c>_</c>.</summary>
+    public static string TablePrefix(string extensionId)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(extensionId);
+        return "ext_" + extensionId.Replace('.', '_').Replace('-', '_') + "_";
+    }
 
-    /// <summary>Configure the extension's entities here (tables get the extension's schema).</summary>
+    /// <summary>Configure the extension's entities here (table names get the extension's prefix).</summary>
     protected abstract void ConfigureModel(ModelBuilder modelBuilder);
 
     protected sealed override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema(ModuleSchema.Find(_options)
-            ?? throw new InvalidOperationException($"{GetType().Name} has no schema: register it with IExtensionBuilder.AddDbContext."));
         ConfigureModel(modelBuilder);
 
-        var shared = modelBuilder.Model.GetEntityTypes()
-            .Where(t => !t.IsOwned() && t.BaseType is null && !typeof(ITenantOwned).IsAssignableFrom(t.ClrType))
-            .Select(t => t.ClrType.Name)
-            .ToList();
-        if (shared.Count > 0)
+        var prefix = TablePrefix(ExtensionId);
+        var shared = new List<string>();
+        foreach (var entity in modelBuilder.Model.GetEntityTypes().Where(t => !t.IsOwned() && t.BaseType is null))
         {
-            throw new InvalidOperationException(
-                $"{GetType().Name}: extension entities must implement ITenantOwned ({string.Join(", ", shared)}).");
+            if (!typeof(ITenantOwned).IsAssignableFrom(entity.ClrType))
+            {
+                shared.Add(entity.ClrType.Name);
+            }
+
+            if (entity.GetTableName() is { } table && !table.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                entity.SetTableName(prefix + table);
+            }
         }
 
-        modelBuilder.ApplyPaperDotNetConventions(this);
+        if (shared.Count > 0)
+        {
+            throw new InvalidOperationException($"{GetType().Name}: extension entities must implement ITenantOwned ({string.Join(", ", shared)}).");
+        }
     }
 }

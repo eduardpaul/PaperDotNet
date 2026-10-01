@@ -96,6 +96,13 @@ public interface IExtensionBuilder
     IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TActivity>()
         where TActivity : class, IWorkflowActivity;
 
+    /// <summary>
+    /// The extension's own tables (EXT-07): a scoped DbContext on the server's database, with the SQL of its migrations
+    /// embedded in the extension assembly (see <see cref="ExtensionDbContext"/>).
+    /// </summary>
+    IExtensionBuilder AddDbContext<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TContext>()
+        where TContext : ExtensionDbContext;
+
     /// <summary>API endpoints under <c>/v1.0/ext/{id}</c> (404 in tenants where the extension is disabled).</summary>
     IExtensionBuilder MapEndpoints(Action<IEndpointRouteBuilder> map);
 }
@@ -106,7 +113,10 @@ public sealed class ItemMutatorOptions
     /// <summary>Lower runs first (built-in default 1000).</summary>
     public int Sequence { get; set; } = 1000;
 
-    /// <summary>Content type names, e.g. <c>Invoice</c>.</summary>
+    /// <summary>
+    /// Keys of content types (e.g. the extension's own <c>acme.invoices.invoice</c>, which keeps its key when a tenant
+    /// already has a content type of the same name) or content type names (e.g. <c>Invoice</c>).
+    /// </summary>
     public List<string> ContentTypes { get; } = [];
 
     /// <summary>List names.</summary>

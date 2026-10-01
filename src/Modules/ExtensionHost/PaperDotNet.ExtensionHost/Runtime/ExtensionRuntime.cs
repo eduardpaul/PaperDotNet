@@ -8,6 +8,7 @@ using PaperDotNet.Api;
 using PaperDotNet.Extensions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Persistence;
 using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.ExtensionHost.Runtime;
@@ -28,6 +29,8 @@ public sealed class ExtensionContributions
     public List<string> ListTemplates { get; } = [];
 
     public List<string> WorkflowActivities { get; } = [];
+
+    public List<string> Tables { get; } = [];
 
     public bool Endpoints { get; set; }
 }
@@ -232,6 +235,15 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
+    public IExtensionBuilder AddDbContext<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)] TContext>()
+        where TContext : ExtensionDbContext
+    {
+        services.AddModuleDbContext<TContext>();
+        services.AddSingleton(new SchemaScripts(extension.Id, typeof(TContext).Assembly));
+        extension.Contributions.Tables.Add(typeof(TContext).Name);
+        return this;
+    }
+
     public IExtensionBuilder MapEndpoints(Action<IEndpointRouteBuilder> map)
     {
         extension.EndpointMaps.Add(map);
@@ -255,7 +267,9 @@ internal sealed class GatedItemMutator(string extensionId, ItemMutatorOptions op
 
     public bool AppliesTo(ItemEventScope scope) =>
         (options.IncludeFolders || !scope.IsFolder)
-        && (options.ContentTypes.Count == 0 || (scope.ContentTypeName is { } name && options.ContentTypes.Contains(name, StringComparer.OrdinalIgnoreCase)))
+        && (options.ContentTypes.Count == 0
+            || (scope.ContentTypeKey is { } key && options.ContentTypes.Contains(key, StringComparer.Ordinal))
+            || (scope.ContentTypeName is { } name && options.ContentTypes.Contains(name, StringComparer.OrdinalIgnoreCase)))
         && (options.Lists.Count == 0 || options.Lists.Contains(scope.ListName, StringComparer.OrdinalIgnoreCase))
         && (options.ListTemplates.Count == 0 || (scope.ListTemplate is { } template && options.ListTemplates.Contains(template, StringComparer.Ordinal)))
         && (options.Condition?.Invoke(scope) ?? true)

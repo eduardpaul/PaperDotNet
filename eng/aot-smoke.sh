@@ -2,6 +2,8 @@
 # Publishes the server as a Native AOT binary, runs it on a fresh SQLite database, exercises the API (token, workspaces, lists,
 # items with OData filters, events through the outbox to the audit log) and checks the memory budget (ADR-0039):
 # resident memory under IDLE_BUDGET_MB after start and under LOAD_BUDGET_MB during a burst of parallel writes/reads.
+# The build includes the Invoices sample extension, so an extension's own tables (compiled model, precompiled queries,
+# embedded SQL) are checked under AOT too.
 #
 #   eng/aot-smoke.sh              publish, then test
 #   eng/aot-smoke.sh --no-publish test artifacts/aot/paperdotnet as it is
@@ -16,7 +18,8 @@ BASE="http://127.0.0.1:$PORT"
 OUT=artifacts/aot
 
 if [[ "${1:-}" != "--no-publish" ]]; then
-  dotnet publish src/PaperDotNet.Host -c Release -r "$RID" -o "$OUT"
+  dotnet publish src/PaperDotNet.Host -c Release -r "$RID" -o "$OUT" \
+    -p:PaperDotNetExtensions=../../samples/PaperDotNet.Samples.Invoices/PaperDotNet.Samples.Invoices.csproj
 fi
 echo "Binary: $(du -h "$OUT/paperdotnet" | cut -f1)"
 
@@ -85,7 +88,14 @@ DELTA=$(curl -sf "${AUTH[@]}" "$ITEMS/delta" | json 'str(len(d["value"])) + " " 
 curl -sf "${AUTH[@]}" "${DELTA#* }" -o /dev/null || fail "delta changes"
 CONTACTS=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Clients","templateKey":"contacts"}' | json 'd["id"]') || fail "list from a template"
 [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$CONTACTS/views" | json 'd[0]["name"]') == "All contacts" ]] || fail "template views"
-[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/extensions" | json 'len(d)') == 0 ]] || fail "extension catalog"
+# An extension with its own table (the Invoices sample, EXT-07).
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/extensions" | json '",".join(e["id"] + ":" + str(e["enabled"]) for e in d)') == "samples.invoices:False" ]] || fail "extension catalog"
+curl -sf -X POST "${AUTH[@]}" "$BASE/v1.0/extensions/samples.invoices/enable" -o /dev/null || fail "enable extension"
+BILLS=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Bills","templateKey":"samples.invoices.invoices"}' | json 'd["id"]') || fail "list from an extension template"
+read -r BILL STATUS < <(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$BILLS/items" -d '{"fields":{"title":"Big","amount":5000,"iban":"DE89 3704 0044 0532 0130 00"}}' | json 'd["id"] + " " + d["fields"]["status"]') || fail "create invoice"
+[[ "$STATUS" == pendingApproval ]] || fail "extension item mutator: $STATUS"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/ext/samples.invoices/workspaces/$WS/lists/$BILLS/items/$BILL/approve" -d '{"comment":"ok"}' -o /dev/null || fail "approve invoice"
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/ext/samples.invoices/approvals" | json 'd[0]["itemId"] + " " + d[0]["comment"]') == "$BILL ok" ]] || fail "extension table"
 
 AUDITED=0
 for _ in $(seq 1 50); do

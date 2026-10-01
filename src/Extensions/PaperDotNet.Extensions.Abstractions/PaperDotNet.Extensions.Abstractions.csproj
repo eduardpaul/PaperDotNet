@@ -14,18 +14,12 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
     <ProjectReference Include="..\..\Modules\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Workspaces\PaperDotNet.Workspaces.Contracts\PaperDotNet.Workspaces.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Workflows\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <!--
-      Extension tables come back with T09b (compiled model and precompiled queries per extension); term sets, template
-      sections, shipped workflows and MCP tools with their modules (docs/aot-porting-plan.md).
-    -->
-    <Compile Remove="ExtensionDbContext.cs" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />

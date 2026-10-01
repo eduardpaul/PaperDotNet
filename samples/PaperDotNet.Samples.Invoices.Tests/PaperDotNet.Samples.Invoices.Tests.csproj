@@ -13,7 +13,5 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Extensions\PaperDotNet.Extensions.Testing\PaperDotNet.Extensions.Testing.csproj" />
     <ProjectReference Include="..\PaperDotNet.Samples.Invoices\PaperDotNet.Samples.Invoices.csproj" />
-    <ProjectReference Include="..\PaperDotNet.Samples.Invoices.Migrations.Sqlite\PaperDotNet.Samples.Invoices.Migrations.Sqlite.csproj" />
-    <ProjectReference Include="..\PaperDotNet.Samples.Invoices.Migrations.PostgreSql\PaperDotNet.Samples.Invoices.Migrations.PostgreSql.csproj" />
   </ItemGroup>
 </Project>

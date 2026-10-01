@@ -1,0 +1,34 @@
+<Project>
+  <!--
+    Imported by extension projects in this repository (the SDK package brings the same through buildTransitive): an
+    extension is compiled into the Native AOT server (ADR-0014, ADR-0039), so it builds like a module.
+    - Trim and AOT analyzers on (warnings are errors); the extension analyzers (PDN1xxx).
+    - Minimal API endpoints compiled at build time.
+    - With extension tables (ExtensionDbContext): EF Core builds the compiled model and precompiles the extension's
+      queries when the host is published with AOT, from the extension's IDesignTimeDbContextFactory on SQLite.
+    - The SQL of the extension's migrations (Schema/*.sql, eng/schema.sh) is embedded for the host to apply.
+  -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.EntityFrameworkCore.GeneratedInterceptors</InterceptorsNamespaces>
+    <EFScaffoldModelStage>publish</EFScaffoldModelStage>
+    <EFPrecompileQueriesStage>publish</EFPrecompileQueriesStage>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <NoWarn>$(NoWarn);CS8669</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" PrivateAssets="all" />
+    <!-- EF Core's tools run the extension assembly at publish (modules get this package through Wolverine). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)PaperDotNet.Extensions.Abstractions\PaperDotNet.Extensions.Abstractions.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <!-- Design time only (compiled model, precompiled SQL): the build's database, ADR-0039. -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\BuildingBlocks\PaperDotNet.Persistence.Sqlite\PaperDotNet.Persistence.Sqlite.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="extension.json" LogicalName="paperdotnet.extension.json" />
+    <EmbeddedResource Include="Schema\*.sql" LogicalName="Schema.Sqlite.%(Filename).sql" />
+  </ItemGroup>
+</Project>

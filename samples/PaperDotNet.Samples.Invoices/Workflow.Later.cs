@@ -30,25 +30,6 @@ public sealed class ApprovalNeededTrigger(IListItemStore items, IWorkflowTrigger
     }
 }
 
-/// <summary>Action <c>samples.invoices.approve</c> (EVT-09): marks the invoice as approved.</summary>
-public sealed class ApproveInvoiceAction(IListItemStore items) : IWorkflowActivity
-{
-    public string Key => $"{InvoicesExtension.Id}.approve";
-
-    public string Description => "Marks the invoice as approved.";
-
-    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
-    {
-        if (context.Item is not { } item)
-        {
-            return WorkflowActivityResult.Fail("An invoice is required.");
-        }
-
-        var result = await items.AsSystem().UpdateAsync(item.WorkspaceId, item.ListId, item.ItemId, new JsonObject { ["status"] = "approved" }, null, cancellationToken);
-        return result.Succeeded ? WorkflowActivityResult.Ok() : WorkflowActivityResult.Fail(result.Status.ToString());
-    }
-}
-
 /// <summary>
 /// Activity <c>samples.invoices.awaitPayment</c> (ADR-0036): the run waits until the invoice's status becomes
 /// <c>paid</c> (<see cref="PaymentReceived"/> completes the wait) or <c>days</c> pass (default 30). Ports: <c>paid</c> and

@@ -1,5 +1,4 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -8,19 +7,13 @@ using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Host;
 using PaperDotNet.Identity.Contracts;
-using PaperDotNet.Tenancy.Contracts;
+using PaperDotNet.Identity.Features;
 
 namespace PaperDotNet.Extensions.Testing;
 
 /// <summary>How <see cref="ExtensionTestHost"/> runs the host.</summary>
 public sealed class ExtensionTestHostOptions
 {
-    /// <summary><c>Sqlite</c> (default: a temporary file, deleted on dispose) or <c>PostgreSql</c>.</summary>
-    public string DatabaseProvider { get; set; } = "Sqlite";
-
-    /// <summary>Required for PostgreSQL; for SQLite null means a temporary file.</summary>
-    public string? ConnectionString { get; set; }
-
     /// <summary>Password of the administrator created in every test tenant.</summary>
     public string AdminPassword { get; set; } = "test-admin-password";
 
@@ -29,8 +22,9 @@ public sealed class ExtensionTestHostOptions
 }
 
 /// <summary>
-/// Runs the real PaperDotNet host in-process with the extensions under test (EXT-05): migrations,
-/// modules, authentication and the extension runtime as in production. Create tenants with
+/// Runs the real PaperDotNet host in-process with the extensions under test (EXT-05) on a temporary SQLite database
+/// (the database of the Native AOT build, ADR-0039): migrations, modules, authentication and the extension runtime as
+/// in production. Create tenants with
 /// <see cref="CreateTenantAsync"/> (each has an administrator and the extensions enabled) and
 /// call the API with their clients, or run code inside a tenant with <see cref="TestTenant.RunAsync"/>.
 /// Share one host per test run (fixture) and isolate tests by tenant: the host starts once.
@@ -42,9 +36,7 @@ public class ExtensionTestHost : WebApplicationFactory<Program>
 
     private readonly ExtensionTestHostOptions _options;
     private readonly IReadOnlyList<IExtension> _extensions;
-    private readonly string? _sqliteFile;
-    private readonly string _connectionString;
-    private readonly string _dataPath = Path.Combine(Path.GetTempPath(), $"pdn_ext_test_data_{Ids.New():N}");
+    private readonly string _dataPath = Path.Combine(Path.GetTempPath(), $"pdn_ext_test_{Ids.New():N}");
     private int _tenants;
 
     public ExtensionTestHost(params IExtension[] extensions)
@@ -57,20 +49,6 @@ public class ExtensionTestHost : WebApplicationFactory<Program>
         ArgumentNullException.ThrowIfNull(options);
         _options = options;
         _extensions = extensions;
-        if (options.ConnectionString is { Length: > 0 } connectionString)
-        {
-            _connectionString = connectionString;
-        }
-        else if (string.Equals(options.DatabaseProvider, "Sqlite", StringComparison.OrdinalIgnoreCase))
-        {
-            _sqliteFile = Path.Combine(Path.GetTempPath(), $"pdn_ext_test_{Ids.New():N}.db");
-            _connectionString = $"Data Source={_sqliteFile}";
-        }
-        else
-        {
-            throw new ArgumentException("A connection string is required for PostgreSQL.", nameof(options));
-        }
-
         lock (PaperDotNetHost.AdditionalExtensions)
         {
             foreach (var extension in extensions.Where(e => !PaperDotNetHost.AdditionalExtensions.Any(a => a.GetType() == e.GetType())))
@@ -89,22 +67,22 @@ public class ExtensionTestHost : WebApplicationFactory<Program>
     public async Task<TestTenant> CreateTenantAsync(string? identifier = null, bool enableExtensions = true, CancellationToken cancellationToken = default)
     {
         identifier ??= $"test-{Interlocked.Increment(ref _tenants)}-{Ids.New():N}"[..24];
-        await using var scope = Services.CreateAsyncScope();
-        var tenant = await scope.ServiceProvider.GetRequiredService<ITenantDirectory>().CreateAsync(identifier, identifier, [], cancellationToken);
+        Guid tenantId;
         Guid adminId;
-        await using (var tenantScope = Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier))
+        await using (var scope = Services.CreateAsyncScope())
         {
-            adminId = await tenantScope.ServiceProvider.GetRequiredService<IUserDirectory>()
-                .CreateUserAsync(new NewUser(AdminUserName, _options.AdminPassword, Administrator: true), cancellationToken);
+            var (tenant, admin) = await scope.ServiceProvider.GetRequiredService<TenantProvisioner>()
+                .CreateAsync(identifier, identifier, AdminUserName, _options.AdminPassword, cancellationToken);
+            (tenantId, adminId) = (tenant.Id, admin.Id);
         }
 
-        var result = new TestTenant(this, tenant.Id, tenant.Identifier, adminId);
+        var result = new TestTenant(this, tenantId, identifier, adminId);
         if (enableExtensions)
         {
-            using var admin = await result.CreateClientAsync(cancellationToken: cancellationToken);
+            using var client = await result.CreateClientAsync(cancellationToken: cancellationToken);
             foreach (var extension in _extensions)
             {
-                await TestTenant.EnableAsync(admin, ExtensionId(extension), cancellationToken);
+                await TestTenant.EnableAsync(client, ExtensionId(extension), cancellationToken);
             }
         }
 
@@ -115,13 +93,8 @@ public class ExtensionTestHost : WebApplicationFactory<Program>
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.UseEnvironment("Testing");
-        builder.UseSetting("Database:Provider", _options.DatabaseProvider);
-        builder.UseSetting("ConnectionStrings:PaperDotNet", _connectionString);
-        builder.UseSetting("Auth:RequireHttps", "false");
-        builder.UseSetting("Tenancy:AllowHeader", "true");
-        builder.UseSetting("Bootstrap:AdminPassword", _options.AdminPassword);
-        builder.UseSetting("Jobs:SchedulerInterval", "00:00:01");
         builder.UseSetting("Storage:DataPath", _dataPath);
+        builder.UseSetting("Jobs:SchedulerInterval", "00:00:00.200");
         foreach (var (key, value) in _options.Settings)
         {
             builder.UseSetting(key, value);
@@ -132,18 +105,13 @@ public class ExtensionTestHost : WebApplicationFactory<Program>
     {
         await base.DisposeAsync();
         GC.SuppressFinalize(this);
-        if (Directory.Exists(_dataPath))
+        SqliteConnection.ClearAllPools();
+        try
         {
             Directory.Delete(_dataPath, recursive: true);
         }
-
-        if (_sqliteFile is not null)
+        catch (IOException)
         {
-            SqliteConnection.ClearAllPools();
-            foreach (var file in new[] { _sqliteFile, _sqliteFile + "-wal", _sqliteFile + "-shm" }.Where(File.Exists))
-            {
-                File.Delete(file);
-            }
         }
     }
 
@@ -179,14 +147,12 @@ public sealed class TestTenant
     public async Task<HttpClient> CreateClientAsync(string userName = ExtensionTestHost.AdminUserName, string? password = null, CancellationToken cancellationToken = default)
     {
         var client = _host.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Tenant", Identifier);
         using var response = await client.PostAsync(new Uri("/connect/token", UriKind.Relative), new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["grant_type"] = "password",
-            ["client_id"] = "paperdotnet",
             ["username"] = userName,
             ["password"] = password ?? _host.Options.AdminPassword,
-            ["scope"] = "api offline_access",
+            ["tenant"] = Identifier,
         }), cancellationToken);
         response.EnsureSuccessStatusCode();
         var token = (await response.Content.ReadFromJsonAsync<JsonElement>(Json, cancellationToken)).GetProperty("access_token").GetString();
@@ -199,7 +165,7 @@ public sealed class TestTenant
     {
         var password = $"pw-{Ids.New():N}";
         await RunAsync(services => services.GetRequiredService<IUserDirectory>()
-            .CreateUserAsync(new NewUser(userName, password, Administrator: administrator), cancellationToken), cancellationToken: cancellationToken);
+            .CreateUserAsync(Id, new NewUser(userName, password, Administrator: administrator), cancellationToken), cancellationToken);
         return await CreateClientAsync(userName, password, cancellationToken);
     }
 
@@ -227,22 +193,25 @@ public sealed class TestTenant
         }
     }
 
+    /// <summary>The administrator as the author of changes, e.g. for <c>IListItemStore.ActingAs</c> or <c>AsSystem</c>.</summary>
+    public ChangeActor Admin => new(Id, AdminUserId);
+
     /// <summary>
-    /// Runs <paramref name="action"/> in a service scope of this tenant, acting as the administrator
-    /// (or <paramref name="userId"/>), e.g. to call <c>IListItemStore</c> or the extension's services.
+    /// Runs <paramref name="action"/> in a service scope, e.g. to call <c>IListItemStore</c> or the extension's
+    /// services. There is no ambient tenant (ADR-0039): name it, e.g. <c>items.ActingAs(tenant.Admin)</c>.
     /// </summary>
-    public Task RunAsync(Func<IServiceProvider, Task> action, Guid? userId = null, CancellationToken cancellationToken = default) =>
+    public Task RunAsync(Func<IServiceProvider, Task> action, CancellationToken cancellationToken = default) =>
         RunAsync<object?>(async services =>
         {
             await action(services);
             return null;
-        }, userId, cancellationToken);
+        }, cancellationToken);
 
-    public async Task<T> RunAsync<T>(Func<IServiceProvider, Task<T>> action, Guid? userId = null, CancellationToken cancellationToken = default)
+    public async Task<T> RunAsync<T>(Func<IServiceProvider, Task<T>> action, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(action);
         cancellationToken.ThrowIfCancellationRequested();
-        await using var scope = _host.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(Id, Identifier, userId ?? AdminUserId);
+        await using var scope = _host.Services.CreateAsyncScope();
         return await action(scope.ServiceProvider);
     }
 

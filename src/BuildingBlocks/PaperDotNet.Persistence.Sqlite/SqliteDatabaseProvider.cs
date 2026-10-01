@@ -44,8 +44,12 @@ public static class SqliteDesignTime
     public const string MigrationsAssembly = "PaperDotNet.Migrations.Sqlite";
 
     public static DbContextOptions<TContext> Options<TContext>()
+        where TContext : DbContext => Options<TContext>(MigrationsAssembly);
+
+    /// <summary>Design-time options with the migrations in <paramref name="migrationsAssembly"/> (an extension's companion project).</summary>
+    public static DbContextOptions<TContext> Options<TContext>(string migrationsAssembly)
         where TContext : DbContext =>
         new DbContextOptionsBuilder<TContext>()
-            .UseSqlite("Data Source=design-time.db", sqlite => sqlite.MigrationsAssembly(MigrationsAssembly))
+            .UseSqlite("Data Source=design-time.db", sqlite => sqlite.MigrationsAssembly(migrationsAssembly))
             .Options;
 }

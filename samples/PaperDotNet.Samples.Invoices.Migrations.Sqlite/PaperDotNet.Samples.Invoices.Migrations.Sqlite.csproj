@@ -1,9 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Sqlite migrations of the sample extension's own tables (EXT-07). The host references this
-    assembly next to the extension; the runtime finds it by name ({extension assembly}.Migrations.Sqlite).
-    Add a migration:  dotnet ef migrations add <Name> -p samples/PaperDotNet.Samples.Invoices.Migrations.Sqlite -c InvoicesDbContext -o Generated
+    SQLite migrations of the sample extension's own tables (EXT-07). Design time only: eng/schema.sh turns each migration
+    into SQL in the extension's Schema/ folder, embedded in the extension and applied by the host on start (ADR-0039).
   -->
+  <PropertyGroup>
+    <!-- Generated migrations: our style rules do not apply to them. -->
+    <AnalysisLevel>none</AnalysisLevel>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PaperDotNet.Samples.Invoices\PaperDotNet.Samples.Invoices.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\PaperDotNet.Persistence.Sqlite\PaperDotNet.Persistence.Sqlite.csproj" />

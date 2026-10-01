@@ -1,8 +1,8 @@
 # Writing extensions
 
 PaperDotNet extensions are .NET class libraries **compiled into the host**
-(ADR-0014): no runtime plugin loading, so every build type works (including a
-future Native AOT host). Operators install extension code; tenant admins
+(ADR-0014): no runtime plugin loading, so the Native AOT server (ADR-0039) runs
+them like its modules. Operators install extension code; tenant admins
 enable, configure and disable it for their organization.
 
 Sample: [`samples/PaperDotNet.Samples.Invoices`](../samples/PaperDotNet.Samples.Invoices).
@@ -14,14 +14,38 @@ with a template alone, workflows included.
 ## 1. Project
 
 Reference only the SDK, `PaperDotNet.Extensions.Abstractions`, and embed the
-manifest:
+manifest. In this repository an extension imports `src/Extensions/Extension.props`,
+which does both and builds the project like a module of the Native AOT server
+(AOT analyzers, endpoints compiled at build time, the EF Core compiled model and
+precompiled queries of extension tables at publish, `Schema/*.sql` embedded):
 
 ```xml
-<ItemGroup>
-  <PackageReference Include="PaperDotNet.Extensions.Abstractions" Version="1.0.*" />
-  <EmbeddedResource Include="extension.json" LogicalName="paperdotnet.extension.json" />
-</ItemGroup>
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\src\Extensions\Extension.props" />
+</Project>
 ```
+
+The host compiles in the extensions it references; its source generator finds
+them by their `[assembly: PaperDotNetExtension(…)]`. Add a project or package
+reference to `src/PaperDotNet.Host`, or pass projects at build time:
+
+```bash
+dotnet publish src/PaperDotNet.Host -c Release -r linux-x64 \
+  -p:PaperDotNetExtensions=../../samples/PaperDotNet.Samples.Invoices/PaperDotNet.Samples.Invoices.csproj
+```
+
+Code runs under Native AOT: JSON through a source-generated context
+(`builder.AddJson(MyJson.Default)`), no reflection over your own types, and no
+ambient tenant. Every contribution is told its tenant: `ItemMutationContext.TenantId`,
+`ITenantRecurringJob.RunAsync(tenantId, …)`, `WorkflowActivityContext.TenantId`,
+the event's `TenantId`, and `Caller` in endpoints. Read settings with
+`IExtensionState.GetSettingsAsync(tenantId, id, …)`; act on items with
+`IListItemStore.ActingAs(actor)` or `AsSystem(actor)` outside a request.
+
+> **Porting status (docs/aot-porting-plan.md):** the Native AOT server offers field types, item mutators, event
+> subscribers, recurring jobs, endpoints, content types, list templates, workflow activities and own tables. Term sets
+> (T12), template sections (T13), workflow triggers and shipped workflows (T14) and MCP tools (T16) come back with
+> their modules; the sections on them below describe the design.
 
 ## 2. Manifest (`extension.json`)
 
@@ -52,7 +76,7 @@ public sealed class InvoicesExtension : IExtension
         builder.AddItemMutator<ApprovalMutator>(o =>              // change/reject writes (EVT-01, EVT-03)
         {
             o.Sequence = 100;
-            o.ContentTypes.Add("Invoice");
+            o.ContentTypes.Add("acme.invoices.invoice"); // key or name
         });
         builder.AddEventSubscriber<ItemAdded, InvoiceCounter>(); // async, at-least-once
         builder.AddRecurringJob<ReminderJob>("acme.invoices.reminders", "0 7 * * *");
@@ -135,38 +159,42 @@ tenant id, e.g. `{tenantId:N}/…`.
 
 **Own tables** — for technical or high-volume data. Derive from
 `ExtensionDbContext`, configure entities in `ConfigureModel` and register it
-with `builder.AddDbContext<TContext>()` (one per extension). The tables go to
-the schema `ext_{id}` (dots and dashes become `_`, e.g. `ext_acme_invoices`;
-on SQLite a table-name prefix). Every entity must implement `ITenantOwned`: the
-tenant query filter, PostgreSQL row-level security and the audit log
-(`/v1.0/auditLog`, entity type `{context name}.{Type}`) apply as for modules;
-`ISoftDeletable`, `IVersioned` and `IAuditable` work too. Data stays when a
-tenant disables the extension.
+with `builder.AddDbContext<TContext>()` (one per extension). Table names get
+the prefix `ext_{id}_` (dots and dashes become `_`, e.g. `ext_acme_invoices_approvals`).
+Every entity must implement `ITenantOwned`. The rules of the Native AOT server
+apply as in modules (ADR-0039): there are no global query filters, so every
+query names the tenant (`Where(a => a.TenantId == tenantId)`); queries must
+precompile (DbContext and captured values in locals, one expression from the
+`DbSet` to the terminal operator); entities are not sealed and live in the
+DbContext's namespace. The save guard stamps `IAuditable` and `IVersioned` and
+refuses writes to another tenant. Data stays when a tenant disables the extension.
 
 ```csharp
-public sealed class InvoicesDbContext(DbContextOptions<InvoicesDbContext> options, ITenantContext tenant)
-    : ExtensionDbContext(options, tenant)
+public class InvoicesDbContext(DbContextOptions<InvoicesDbContext> options) : ExtensionDbContext(options)
 {
-    public DbSet<ApprovalRecord> Approvals => Set<ApprovalRecord>();
+    public DbSet<ApprovalRecord> Approvals { get; set; } = null!;
+
+    protected override string ExtensionId => InvoicesExtension.Id;
 
     protected override void ConfigureModel(ModelBuilder modelBuilder) =>
         modelBuilder.Entity<ApprovalRecord>(b => b.ToTable("approvals"));
 }
+
+// For EF Core's compiled model and precompiled queries at publish.
+internal sealed class InvoicesDesignTimeFactory : IDesignTimeDbContextFactory<InvoicesDbContext>
+{
+    public InvoicesDbContext CreateDbContext(string[] args) =>
+        new(SqliteDesignTime.Options<InvoicesDbContext>("PaperDotNet.Samples.Invoices.Migrations.Sqlite"));
+}
 ```
 
-Migrations live in two companion projects named
-`{extension assembly}.Migrations.Sqlite` and `.PostgreSql`; they reference the
-extension and `PaperDotNet.Persistence.Sqlite` / `.PostgreSql`, contain an
-`IDesignTimeDbContextFactory` (see `samples/PaperDotNet.Samples.Invoices.Migrations.*`)
-and are generated with
-
-```bash
-dotnet ef migrations add <Name> -p samples/PaperDotNet.Samples.Invoices.Migrations.Sqlite -c InvoicesDbContext -o Generated
-dotnet ef migrations add <Name> -p samples/PaperDotNet.Samples.Invoices.Migrations.PostgreSql -c InvoicesDbContext -o Generated
-```
-
-The host runs them at startup with its own migrations. The extension project
-itself never references a database provider.
+Migrations live in a companion project `{extension assembly}.Migrations.Sqlite`
+(design time only; see `samples/PaperDotNet.Samples.Invoices.Migrations.Sqlite`).
+The Native AOT server cannot run EF Core migrations, so their SQL goes into the
+extension's `Schema/` folder, embedded as `Schema.Sqlite.{migration}.sql`;
+`eng/schema.sh add <Name>` adds migrations and writes the SQL (list your
+extension in its `extensions` array). The host applies the scripts at startup
+after its own. PostgreSQL migrations come with the PostgreSQL build (T17).
 
 **Configuration in templates (PRV-05)** — make your configuration portable
 with `builder.AddTemplateHandler<THandler>()`. The handler implements
