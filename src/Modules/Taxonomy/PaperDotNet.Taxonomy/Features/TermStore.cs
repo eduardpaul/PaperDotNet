@@ -275,9 +275,14 @@ internal sealed class TermStore(TaxonomyDbContext db) : ITermStore
         var normalized = TermRules.Normalize(label);
         var promoted = includePromoted;
         var ct = cancellationToken;
-        var candidates = await context.Terms.AsNoTracking()
-            .Where(t => t.TenantId == tenant && (t.TermSetId == setId || (promoted && t.AvailableAsKeyword)) && t.MergedIntoId == null && t.SearchText.Contains(normalized))
-            .ToListAsync(ct);
+        // One static query per option (precompiled queries, ADR-0039).
+        var candidates = promoted
+            ? await context.Terms.AsNoTracking()
+                .Where(t => t.TenantId == tenant && (t.TermSetId == setId || t.AvailableAsKeyword) && t.MergedIntoId == null && t.SearchText.Contains(normalized))
+                .ToListAsync(ct)
+            : await context.Terms.AsNoTracking()
+                .Where(t => t.TenantId == tenant && t.TermSetId == setId && t.MergedIntoId == null && t.SearchText.Contains(normalized))
+                .ToListAsync(ct);
         return [.. candidates.Where(t => t.SearchText.Split('\n').Contains(normalized, StringComparer.Ordinal))];
     }
 

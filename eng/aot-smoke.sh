@@ -141,6 +141,8 @@ GROUP=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/termStore/groups" -d '{"n
 SET=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/termStore/sets" -d "{\"groupId\":\"$GROUP\",\"name\":\"Departments\"}" | json 'd["id"]') || fail "term set"
 FIN=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/termStore/sets/$SET/terms" -d '{"name":"Finance"}' | json 'd["id"]') || fail "term"
 curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/termStore/sets/$SET/terms" -d "{\"name\":\"Payables\",\"parentId\":\"$FIN\",\"synonyms\":[\"Creditors\"]}" -o /dev/null || fail "child term"
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/termStore/sets/$SET/terms?search=creditor" | json 'd["value"][0]["name"]') == Payables ]] || fail "term search"
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/termStore/sets/$SET/terms?parentId=$FIN&includeDeprecated=true" | json 'len(d["value"])') == 1 ]] || fail "child terms"
 DOCS=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Records","templateKey":"documents"}' | json 'd["id"]') || fail "documents list"
 CT=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/contentTypes" -d "{\"name\":\"Record\",\"fields\":[{\"name\":\"department\",\"type\":\"managedMetadata\",\"termSetId\":\"$SET\"}]}" | json 'd["id"]') || fail "managed metadata field"
 TAGGED=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d "{\"name\":\"Tagged\",\"contentTypeIds\":[\"$CT\"]}" | json 'd["id"]') || fail "tagged list"

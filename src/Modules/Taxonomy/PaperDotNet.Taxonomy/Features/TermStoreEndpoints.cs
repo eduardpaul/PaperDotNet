@@ -417,19 +417,19 @@ internal static partial class TermStoreEndpoints
         {
             var text = TermRules.Normalize(search);
             terms = await db.Terms.AsNoTracking()
-                .Where(t => t.TenantId == tenant && t.TermSetId == set && t.MergedIntoId == null && (deprecated || !t.IsDeprecated) && t.SearchText.Contains(text) && t.Id.CompareTo(after) > 0)
+                .Where(t => t.TenantId == tenant && t.TermSetId == set && t.MergedIntoId == null && (!t.IsDeprecated || t.IsDeprecated == deprecated) && t.SearchText.Contains(text) && t.Id.CompareTo(after) > 0)
                 .OrderBy(t => t.Id).Take(take).ToListAsync(ct);
         }
         else if (parentId is { } parent)
         {
             terms = await db.Terms.AsNoTracking()
-                .Where(t => t.TenantId == tenant && t.TermSetId == set && t.MergedIntoId == null && (deprecated || !t.IsDeprecated) && t.ParentId == parent && t.Id.CompareTo(after) > 0)
+                .Where(t => t.TenantId == tenant && t.TermSetId == set && t.MergedIntoId == null && (!t.IsDeprecated || t.IsDeprecated == deprecated) && t.ParentId == parent && t.Id.CompareTo(after) > 0)
                 .OrderBy(t => t.Id).Take(take).ToListAsync(ct);
         }
         else
         {
             terms = await db.Terms.AsNoTracking()
-                .Where(t => t.TenantId == tenant && t.TermSetId == set && t.MergedIntoId == null && (deprecated || !t.IsDeprecated) && t.ParentId == null && t.Id.CompareTo(after) > 0)
+                .Where(t => t.TenantId == tenant && t.TermSetId == set && t.MergedIntoId == null && (!t.IsDeprecated || t.IsDeprecated == deprecated) && t.ParentId == null && t.Id.CompareTo(after) > 0)
                 .OrderBy(t => t.Id).Take(take).ToListAsync(ct);
         }
 
