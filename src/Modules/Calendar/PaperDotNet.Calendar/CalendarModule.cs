@@ -1,7 +1,6 @@
-using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Calendar.Data;
 using PaperDotNet.Calendar.Features;
@@ -24,23 +23,21 @@ public static class CalendarScopes
 }
 
 /// <summary>
-/// Calendar (phase 4b). Events are list items of the <c>event</c> content type; this module adds
-/// recurrence, time-range queries and iCalendar. Built on the extension SDK only (EXT-06).
+/// Calendar: events are list items of the <c>event</c> content type; this module adds recurrence, time-range queries,
+/// iCalendar (Ical.Net) and event reminders.
 /// </summary>
 public sealed class CalendarModule : IModule
 {
     public string Name => "Calendar";
 
+    public IJsonTypeInfoResolver Json => CalendarJson.Default;
+
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddModuleDbContext<CalendarDbContext>(CalendarDbContext.Schema);
+        services.AddModuleDbContext<CalendarDbContext>();
         services.AddSingleton(CalendarTemplates.ContentType);
         services.AddSingleton(CalendarTemplates.List);
-        services.AddScoped<CalendarService>();
-        services.AddScoped<ICalendarService>();
-        services.AddScoped<CalendarAccess>();
         services.AddScoped<IItemMutator, EventTimesMutator>();
-        services.AddEventSubscriber<ItemPurged, PurgedEventData>();
         services.AddTenantRecurringJob<EventReminderJob>(EventReminderJob.Name, EventReminderJob.Schedule);
         services.AddScopes(CalendarScopes.All);
     }
@@ -48,15 +45,14 @@ public sealed class CalendarModule : IModule
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => CalendarEndpoints.Map(endpoints);
 }
 
-/// <summary>Removes the recurrence, exceptions and import sources of permanently deleted events.</summary>
-internal sealed class PurgedEventData(CalendarDbContext db) : IEventSubscriber<ItemPurged>
-{
-    public async Task HandleAsync(ItemPurged integrationEvent, CancellationToken cancellationToken)
-    {
-        var id = integrationEvent.ItemId;
-        await db.Recurrences.Where(r => r.ItemId == id).ExecuteDeleteAsync(cancellationToken);
-        await db.OccurrenceChanges.Where(e => e.MasterItemId == id).ExecuteDeleteAsync(cancellationToken);
-        await db.OccurrenceChanges.Where(e => e.OverrideItemId == id).ExecuteUpdateAsync(s => s.SetProperty(e => e.OverrideItemId, (Guid?)null), cancellationToken);
-        await db.Sources.Where(s => s.ItemId == id).ExecuteDeleteAsync(cancellationToken);
-    }
-}
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(EventSeriesRequest))]
+[JsonSerializable(typeof(EventSeriesResponse))]
+[JsonSerializable(typeof(OccurrenceRequest))]
+[JsonSerializable(typeof(OccurrenceResponse))]
+[JsonSerializable(typeof(CalendarResponse))]
+[JsonSerializable(typeof(ImportResult))]
+[JsonSerializable(typeof(FeedRequest))]
+[JsonSerializable(typeof(FeedResponse))]
+[JsonSerializable(typeof(List<FeedResponse>))]
+internal sealed partial class CalendarJson : JsonSerializerContext;

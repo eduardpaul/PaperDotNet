@@ -53,17 +53,19 @@ internal sealed record EventTimes(DateTimeOffset Start, DateTimeOffset End, bool
     public static bool TryParse(JsonNode? node, out DateTimeOffset value)
     {
         value = default;
-        return node is JsonValue text && text.TryGetValue<string>(out var s)
-            && DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out value);
+        return node is JsonValue text && text.TryGetValue<string>(out var s) && TryParse(s, out value);
     }
+
+    public static bool TryParse(string? text, out DateTimeOffset value) =>
+        DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out value);
 }
 
 /// <summary>
-/// Reads events and due tasks for time ranges, expanding recurring series with their exceptions in
-/// the series' time zone (Ical.Net). Items come through <see cref="IListItemStore"/>, so the caller's
-/// permissions apply (ADR-0011).
+/// Reads events and due tasks for time ranges, expanding recurring series with their exceptions in the series' time zone
+/// (Ical.Net). Items come through <paramref name="items"/>, so its permissions apply (the caller's, a feed owner's, or
+/// the organization's for jobs); the tenant is named explicitly (ADR-0039).
 /// </summary>
-internal sealed class CalendarService(IListItemStore items, CalendarDbContext db)
+internal sealed class CalendarService(IListItemStore items, CalendarDbContext db, Guid tenantId)
 {
     public const string EventKey = "event";
     public const string TaskKey = "task";
@@ -125,9 +127,8 @@ internal sealed class CalendarService(IListItemStore items, CalendarDbContext db
 
     private async Task AddEventsAsync(ListData list, IReadOnlyList<ListItemData> found, DateTimeOffset from, DateTimeOffset to, List<CalendarEntry> entries, CancellationToken ct)
     {
-        var recurrences = await db.Recurrences.AsNoTracking().Where(r => r.ListId == list.Id).ToListAsync(ct);
-        var masterIds = recurrences.Select(r => r.ItemId).ToList();
-        var exceptions = await db.OccurrenceChanges.AsNoTracking().Where(e => masterIds.Contains(e.MasterItemId)).ToListAsync(ct);
+        var (recurrences, exceptions) = await SeriesOfAsync(db, tenantId, list.Id, ct);
+        var masterIds = recurrences.Select(r => r.ItemId).ToHashSet();
         var overrides = exceptions.Where(e => e.OverrideItemId is not null).ToDictionary(e => e.OverrideItemId!.Value, e => e.MasterItemId);
 
         foreach (var item in found.Where(i => !masterIds.Contains(i.Id)))
@@ -146,7 +147,7 @@ internal sealed class CalendarService(IListItemStore items, CalendarDbContext db
                 continue;
             }
 
-            var skipped = exceptions.Where(e => e.MasterItemId == item.Id).Select(e => e.OriginalStart.ToUniversalTime()).ToHashSet();
+            var skipped = exceptions.Where(e => e.MasterItemId == item.Id).Select(e => e.OriginalStart).ToHashSet();
             foreach (var start in Occurrences(recurrence, times, to).Where(s => s + times.Duration > from || (times.Duration == TimeSpan.Zero && s >= from)))
             {
                 if (!skipped.Contains(start))
@@ -155,6 +156,19 @@ internal sealed class CalendarService(IListItemStore items, CalendarDbContext db
                 }
             }
         }
+    }
+
+    /// <summary>The series of a list and their exceptions.</summary>
+    public static async Task<(List<EventRecurrence> Recurrences, List<OccurrenceChange> Exceptions)> SeriesOfAsync(
+        CalendarDbContext database, Guid tenantId, Guid listId, CancellationToken cancellationToken)
+    {
+        var context = database;
+        var tenant = tenantId;
+        var list = listId;
+        var ct = cancellationToken;
+        var recurrences = await context.Recurrences.AsNoTracking().Where(r => r.TenantId == tenant && r.ListId == list).ToListAsync(ct);
+        var exceptions = await context.OccurrenceChanges.AsNoTracking().Where(e => e.TenantId == tenant && e.ListId == list).ToListAsync(ct);
+        return (recurrences, exceptions);
     }
 
     private static void AddTasks(ListData list, IReadOnlyList<ListItemData> found, List<CalendarEntry> entries)
@@ -196,6 +210,19 @@ internal sealed class CalendarService(IListItemStore items, CalendarDbContext db
 
         var zone = TimeZoneInfo.FindSystemTimeZoneById(timeZone);
         return new CalDateTime(DateTime.SpecifyKind(TimeZoneInfo.ConvertTime(instant, zone).DateTime, DateTimeKind.Unspecified), timeZone);
+    }
+
+    public static bool IsValidRule(string rule)
+    {
+        try
+        {
+            _ = new RecurrencePattern(rule);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     public static bool IsKnownTimeZone(string timeZone) => timeZone == "UTC" || TimeZoneInfo.TryFindSystemTimeZoneById(timeZone, out _);

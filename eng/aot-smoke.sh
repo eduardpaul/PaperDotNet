@@ -121,6 +121,19 @@ curl -sf -X PUT "${AUTH[@]}" "${JSON[@]}" "$CHORE_URL/checklist" -d '[{"text":"B
 curl -sf -X PATCH "${AUTH[@]}" "${JSON[@]}" -H "If-Match: $CHORE_ETAG" "$CHORE_URL" -d '{"fields":{"status":"completed"}}' -o /dev/null || fail "complete task"
 for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/workspaces/$WS/lists/$TODO/items" --data-urlencode '$filter=fields/dueDate eq 2026-10-12' | json 'len(d["value"])') == 1 ]] && break; sleep 0.2; done
 [[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/workspaces/$WS/lists/$TODO/items" --data-urlencode '$filter=fields/dueDate eq 2026-10-12' | json 'len(d["value"])') == 1 ]] || fail "next occurrence of a repeating task"
+# Calendar: a series in its time zone across DST, iCalendar export and import, a feed without sign-in.
+CAL=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Meetings","templateKey":"calendar"}' | json 'd["id"]') || fail "calendar list"
+CAL_COPY=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Meetings copy","templateKey":"calendar"}' | json 'd["id"]') || fail "calendar list"
+STANDUP=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$CAL/items" -d '{"fields":{"title":"Standup","start":"2026-10-05T07:00:00Z","end":"2026-10-05T07:15:00Z"}}' | json 'd["id"]') || fail "create event"
+curl -sf -X PUT "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$CAL/items/$STANDUP/series" -d '{"rule":"FREQ=WEEKLY;COUNT=6","timeZone":"Europe/Berlin"}' -o /dev/null || fail "event series"
+RANGE="start=2026-10-01T00:00:00Z&end=2026-11-15T00:00:00Z"
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$CAL/calendar?$RANGE" | json '",".join(e["start"][11:13] for e in d["value"])') == "07,07,07,08,08,08" ]] || fail "series across DST"
+ICS=$(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$CAL/calendar.ics") || fail "iCalendar export"
+grep -q "RRULE:FREQ=WEEKLY;COUNT=6" <<<"$ICS" && grep -q "BEGIN:VTIMEZONE" <<<"$ICS" || fail "iCalendar content"
+[[ $(curl -sf "${AUTH[@]}" -H "Content-Type: text/calendar" --data-binary "$ICS" "$BASE/v1.0/workspaces/$WS/lists/$CAL_COPY/calendar/import" | json 'd["created"]') == 1 ]] || fail "iCalendar import"
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$CAL_COPY/calendar?$RANGE" | json 'len(d["value"])') == 6 ]] || fail "imported series"
+FEED=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/me/calendarFeeds" -d "{\"workspaceId\":\"$WS\",\"listId\":\"$CAL\"}" | json 'd["url"]') || fail "calendar feed"
+curl -sf "$FEED" | grep -q "SUMMARY:Standup" || fail "calendar feed without sign-in"
 
 AUDITED=0
 for _ in $(seq 1 50); do

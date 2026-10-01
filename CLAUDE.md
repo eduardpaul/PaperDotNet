@@ -30,7 +30,7 @@ inspired by Papermerge and SharePoint lists/libraries.
 **Native AOT server (ADR-0039)**: the server in `src/` is one Native AOT binary on .NET 11 (budget: under 150 MB
 idle, under 300 MB under load, checked by `eng/aot-smoke.sh`). Work happens in place in `src/`. Ported: Identity,
 Lists, Audit, Workflows, Jobs (operations, recurring jobs, live events), Workspaces, the extension host and SDK
-(`src/Extensions/Extension.props`; sample `samples/PaperDotNet.Samples.Invoices`), Notifications, Collaboration, Notes. Modules still to port stay in `src/Modules` out of the build (not in `PaperDotNet.slnx`);
+(`src/Extensions/Extension.props`; sample `samples/PaperDotNet.Samples.Invoices`), Notifications, Collaboration, Notes, Tasks, Calendar. Modules still to port stay in `src/Modules` out of the build (not in `PaperDotNet.slnx`);
 port them one at a time, best effort: keep a dependency if it works under AOT, otherwise use a standard that does,
 otherwise a plain REST implementation. Their tests wait in `tests/PaperDotNet.IntegrationTests/ToPort`.
 

@@ -60,7 +60,7 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 
 | Step | Task | Status |
 |---|---|---|
-| T11a | Tasks: content type and template, checklists, subtasks and dependencies, recurrence (Ical.Net, rooted for the trimmer), my tasks, tasks from documents, `task.create`, due reminders; the `task.completed` trigger comes with T14 | done (AOT smoke run pending) |
-| T11b | Calendar: content type and template, event times, series with exceptions in their time zone, time ranges, iCalendar export/import, feeds, event reminders | in progress |
+| T11a | Tasks: content type and template, checklists, subtasks and dependencies, recurrence (Ical.Net, rooted for the trimmer), my tasks, tasks from documents, `task.create`, due reminders; the `task.completed` trigger comes with T14 | done |
+| T11b | Calendar: content type and template, event times, series with exceptions in their time zone, time ranges, iCalendar export/import, feeds, event reminders | done (AOT smoke run pending). Occurrence starts are stored as Unix milliseconds |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

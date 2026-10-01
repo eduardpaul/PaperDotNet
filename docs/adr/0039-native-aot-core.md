@@ -1,6 +1,6 @@
 # ADR-0039: The server as one Native AOT binary on .NET 11
 
-- **Status:** Accepted (Identity, Lists, Audit, Workflows, Jobs, Workspaces, the extension host, Notifications, Collaboration and Notes ported; the other modules still to port, see
+- **Status:** Accepted (Identity, Lists, Audit, Workflows, Jobs, Workspaces, the extension host, Notifications, Collaboration, Notes, Tasks and Calendar ported; the other modules still to port, see
   `docs/aot-porting-plan.md`)
 - **Date:** 2026-09-30
 - **Changes:** [ADR-0007](0007-odata-for-item-queries.md) (OData stays as the query syntax, without ASP.NET Core OData),
@@ -145,7 +145,7 @@ describes the .NET 10 API; it is regenerated from the new document when the web 
 
 ### Still to port
 
-Documents (upload, versions, OCR, page images), Search, Taxonomy, Tasks, Calendar, smart
+Documents (upload, versions, OCR, page images), Search, Taxonomy, smart
 folders, Provisioning and templates, the extension points of those modules (term sets, template
 sections, workflow triggers and shipped workflows, MCP tools), MCP, AI workflows,
 sign-in in the browser (authorization-code flow, passkeys, OAuth client applications, reverse-proxy sign-in), the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
@@ -169,6 +169,9 @@ schedules, the web UI and the SDKs. Each follows the rules above and brings its 
   memory-mapped I/O. Resident memory then grew with the database while subscribers worked off a burst (up to 570 MB).
   The host passes Weasel's settings with SQLite's own page cache (2 MB) and no memory-mapped I/O, as on the modules'
   connections; under load it stays near 220 MB. The smoke test measures for ten seconds after the burst.
+- Ical.Net (RRULE, iCalendar) creates its types with `Activator.CreateInstance`. The host roots the assembly for the
+  trimmer (`TrimmerRootAssembly`); a Native AOT spike and the smoke test check RRULE expansion across DST, VTIMEZONE
+  serialization and loading.
 - OpenIddict (authorization code flow, passkeys) and ASP.NET Core OData are not used any more. Other dependencies are
   not checked under AOT yet (the MCP SDK, PDF and OCR libraries). Each
   is tested when its module is ported, with the same best-effort rule: keep it if it works, otherwise find a standard

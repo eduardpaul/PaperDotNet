@@ -17,7 +17,7 @@ public sealed record ImportResult(int Created, int Updated, int Skipped, IReadOn
 /// iCalendar export and import (CAL-04) with Ical.Net: events with RRULE, EXDATE and moved occurrences
 /// (RECURRENCE-ID), tasks as VTODO. Imported UIDs are remembered per list, so importing again updates.
 /// </summary>
-internal sealed class ICalendarService(IListItemStore items, CalendarDbContext db)
+internal sealed class ICalendarService(IListItemStore items, CalendarDbContext db, Guid tenantId)
 {
     public const string MediaType = "text/calendar";
     public const int MaxExportedItems = 1000;
@@ -49,7 +49,7 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
         {
             if (eventsByList.TryGetValue(list.Id, out var page))
             {
-                await ExportEventsAsync(page.Items, calendar, zones, ct);
+                await ExportEventsAsync(list, page.Items, calendar, zones, ct);
             }
 
             if (tasksByList.TryGetValue(list.Id, out var due))
@@ -69,12 +69,11 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
         return (new CalendarSerializer(calendar).SerializeToString() ?? string.Empty, null);
     }
 
-    private async Task ExportEventsAsync(IReadOnlyList<ListItemData> events, IcalCalendar calendar, HashSet<string> zones, CancellationToken ct)
+    private async Task ExportEventsAsync(ListData list, IReadOnlyList<ListItemData> events, IcalCalendar calendar, HashSet<string> zones, CancellationToken ct)
     {
-        var ids = events.Select(e => e.Id).ToList();
-        var recurrences = await db.Recurrences.AsNoTracking().Where(r => ids.Contains(r.ItemId)).ToDictionaryAsync(r => r.ItemId, ct);
-        var exceptions = await db.OccurrenceChanges.AsNoTracking().Where(e => ids.Contains(e.MasterItemId)).ToListAsync(ct);
-        var uids = await db.Sources.AsNoTracking().Where(s => ids.Contains(s.ItemId)).ToDictionaryAsync(s => s.ItemId, s => s.Uid, ct);
+        var (series, exceptions) = await CalendarService.SeriesOfAsync(db, tenantId, list.Id, ct);
+        var recurrences = series.ToDictionary(r => r.ItemId);
+        var uids = (await SourcesOfAsync(list.Id, ct)).DistinctBy(s => s.ItemId).ToDictionary(s => s.ItemId, s => s.Uid);
         var overrides = exceptions.Where(e => e.OverrideItemId is not null).ToDictionary(e => e.OverrideItemId!.Value);
 
         string UidOf(Guid itemId) => uids.TryGetValue(itemId, out var uid) && !uid.Contains('#', StringComparison.Ordinal) ? uid : $"{itemId:N}{UidSuffix}";
@@ -115,6 +114,44 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
 
             calendar.Events.Add(vevent);
         }
+    }
+
+    private Task<List<EventSource>> SourcesOfAsync(Guid listId, CancellationToken cancellationToken)
+    {
+        var context = db;
+        var tenant = tenantId;
+        var list = listId;
+        var ct = cancellationToken;
+        return context.Sources.AsNoTracking().Where(s => s.TenantId == tenant && s.ListId == list).ToListAsync(ct);
+    }
+
+    private Task<EventSource?> FindSourceAsync(Guid listId, string uid, CancellationToken cancellationToken)
+    {
+        var context = db;
+        var tenant = tenantId;
+        var list = listId;
+        var key = uid;
+        var ct = cancellationToken;
+        return context.Sources.FirstOrDefaultAsync(s => s.TenantId == tenant && s.ListId == list && s.Uid == key, ct);
+    }
+
+    private Task<EventRecurrence?> FindRecurrenceAsync(Guid itemId, CancellationToken cancellationToken)
+    {
+        var context = db;
+        var tenant = tenantId;
+        var id = itemId;
+        var ct = cancellationToken;
+        return context.Recurrences.FirstOrDefaultAsync(r => r.TenantId == tenant && r.ItemId == id, ct);
+    }
+
+    private Task<OccurrenceChange?> FindExceptionAsync(Guid masterItemId, long originalStartUnixMs, CancellationToken cancellationToken)
+    {
+        var context = db;
+        var tenant = tenantId;
+        var master = masterItemId;
+        var start = originalStartUnixMs;
+        var ct = cancellationToken;
+        return context.OccurrenceChanges.FirstOrDefaultAsync(e => e.TenantId == tenant && e.MasterItemId == master && e.OriginalStartUnixMs == start, ct);
     }
 
     private static Todo Todo(ListItemData task)
@@ -205,8 +242,8 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
         var key = vevent.Uid;
         if (vevent.RecurrenceIdentifier?.StartTime is { } recurrenceId)
         {
-            masterSource = await db.Sources.FirstOrDefaultAsync(s => s.ListId == list.Id && s.Uid == vevent.Uid, ct);
-            masterRecurrence = masterSource is null ? null : await db.Recurrences.FirstOrDefaultAsync(r => r.ItemId == masterSource.ItemId, ct);
+            masterSource = await FindSourceAsync(list.Id, vevent.Uid, ct);
+            masterRecurrence = masterSource is null ? null : await FindRecurrenceAsync(masterSource.ItemId, ct);
             if (masterRecurrence is null)
             {
                 return null;
@@ -215,7 +252,7 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
             key = $"{vevent.Uid}#{Instant(recurrenceId):O}";
         }
 
-        var source = await db.Sources.FirstOrDefaultAsync(s => s.ListId == list.Id && s.Uid == key, ct);
+        var source = await FindSourceAsync(list.Id, key, ct);
         ListItemData item;
         var isNew = source is null || await items.GetAsync(list.WorkspaceId, list.Id, source.ItemId, ct) is null;
         if (isNew)
@@ -229,7 +266,7 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
             item = result.Item!;
             if (source is null)
             {
-                source = new EventSource { Id = Ids.New(), ListId = list.Id, Uid = key, ItemId = item.Id };
+                source = new EventSource { Id = Ids.New(), TenantId = tenantId, ListId = list.Id, Uid = key, ItemId = item.Id };
                 db.Sources.Add(source);
             }
 
@@ -248,11 +285,19 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
 
         if (vevent.RecurrenceIdentifier?.StartTime is { } original)
         {
-            var originalStart = Instant(original);
-            var exception = await db.OccurrenceChanges.FirstOrDefaultAsync(e => e.MasterItemId == masterSource!.ItemId && e.OriginalStart == originalStart, ct);
+            var originalStart = Instant(original).ToUnixTimeMilliseconds();
+            var exception = await FindExceptionAsync(masterSource!.ItemId, originalStart, ct);
             if (exception is null)
             {
-                db.OccurrenceChanges.Add(new OccurrenceChange { Id = Ids.New(), MasterItemId = masterSource!.ItemId, OriginalStart = originalStart, OverrideItemId = item.Id });
+                db.OccurrenceChanges.Add(new OccurrenceChange
+                {
+                    Id = Ids.New(),
+                    TenantId = tenantId,
+                    ListId = list.Id,
+                    MasterItemId = masterSource.ItemId,
+                    OriginalStartUnixMs = originalStart,
+                    OverrideItemId = item.Id,
+                });
             }
             else
             {
@@ -270,7 +315,7 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
 
     private async Task ImportRecurrenceAsync(ListData list, ListItemData item, CalendarEvent vevent, CancellationToken ct)
     {
-        var recurrence = await db.Recurrences.FirstOrDefaultAsync(r => r.ItemId == item.Id, ct);
+        var recurrence = await FindRecurrenceAsync(item.Id, ct);
         if (vevent.RecurrenceRule is null)
         {
             if (recurrence is not null)
@@ -284,16 +329,17 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
         var zone = vevent.DtStart!.TzId is { } tz && CalendarService.IsKnownTimeZone(tz) ? tz : "UTC";
         if (recurrence is null)
         {
-            recurrence = new EventRecurrence { Id = Ids.New(), ItemId = item.Id, WorkspaceId = list.WorkspaceId, ListId = list.Id, Rule = vevent.RecurrenceRule.ToString() ?? string.Empty, TimeZone = zone };
+            recurrence = new EventRecurrence { Id = Ids.New(), TenantId = tenantId, ItemId = item.Id, WorkspaceId = list.WorkspaceId, ListId = list.Id };
             db.Recurrences.Add(recurrence);
         }
 
         recurrence.Rule = vevent.RecurrenceRule.ToString() ?? string.Empty;
         recurrence.TimeZone = zone;
-        var existing = await db.OccurrenceChanges.Where(e => e.MasterItemId == item.Id && e.OverrideItemId == null).Select(e => e.OriginalStart).ToListAsync(ct);
-        foreach (var date in vevent.ExceptionDates.GetAllDates().Select(Instant).Where(d => !existing.Contains(d)).Distinct())
+        var (_, exceptions) = await CalendarService.SeriesOfAsync(db, tenantId, list.Id, ct);
+        var existing = exceptions.Where(e => e.MasterItemId == item.Id).Select(e => e.OriginalStartUnixMs).ToHashSet();
+        foreach (var date in vevent.ExceptionDates.GetAllDates().Select(d => Instant(d).ToUnixTimeMilliseconds()).Where(d => !existing.Contains(d)).Distinct())
         {
-            db.OccurrenceChanges.Add(new OccurrenceChange { Id = Ids.New(), MasterItemId = item.Id, OriginalStart = date });
+            db.OccurrenceChanges.Add(new OccurrenceChange { Id = Ids.New(), TenantId = tenantId, ListId = list.Id, MasterItemId = item.Id, OriginalStartUnixMs = date });
         }
     }
 

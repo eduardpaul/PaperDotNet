@@ -45,6 +45,7 @@
     <ProjectReference Include="..\Modules\Collaboration\PaperDotNet.Collaboration\PaperDotNet.Collaboration.csproj" />
     <ProjectReference Include="..\Modules\Notes\PaperDotNet.Notes\PaperDotNet.Notes.csproj" />
     <ProjectReference Include="..\Modules\Tasks\PaperDotNet.Tasks\PaperDotNet.Tasks.csproj" />
+    <ProjectReference Include="..\Modules\Calendar\PaperDotNet.Calendar\PaperDotNet.Calendar.csproj" />
     <!--
       Extensions compiled into this build (ADR-0014): project or package references, e.g.
       dotnet publish -p:PaperDotNetExtensions=../../samples/PaperDotNet.Samples.Invoices/PaperDotNet.Samples.Invoices.csproj

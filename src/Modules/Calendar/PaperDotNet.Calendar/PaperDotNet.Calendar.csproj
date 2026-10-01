@@ -1,20 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Calendar (phase 4): the event content type and template, recurrence with exceptions,
-    time-range queries with expansion, iCal import/export and feeds.
-    Built on the public extension SDK only (EXT-06; enforced by the architecture tests).
+    Calendar (CAL-01…04): the event content type and Calendar template, repeating events with exceptions in their time
+    zone, time ranges across calendars and task lists, iCalendar export/import and feeds, event reminders. Uses other
+    modules only through their contracts.
   -->
+  <Import Project="..\..\AotModule.props" />
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Abstractions\PaperDotNet.Extensions.Abstractions.csproj" />
-    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
+    <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
+    <ProjectReference Include="..\..\Notifications\PaperDotNet.Notifications.Contracts\PaperDotNet.Notifications.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- iCalendar (RFC 5545): recurrence, time zones, import and export. -->
+    <!-- iCalendar (RFC 5545). Creates its types by reflection: the host roots the assembly for the trimmer (ADR-0039). -->
     <PackageReference Include="Ical.Net" />
-  </ItemGroup>
-  <ItemGroup>
-    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
-    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
   </ItemGroup>
 </Project>

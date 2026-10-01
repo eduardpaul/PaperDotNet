@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Audit.Data;
+using PaperDotNet.Calendar.Data;
 using PaperDotNet.Collaboration.Data;
 using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Identity.Data;
@@ -69,4 +70,9 @@ internal sealed class NotesFactory : IDesignTimeDbContextFactory<NotesDbContext>
 internal sealed class TasksFactory : IDesignTimeDbContextFactory<TasksDbContext>
 {
     public TasksDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<TasksDbContext>());
+}
+
+internal sealed class CalendarFactory : IDesignTimeDbContextFactory<CalendarDbContext>
+{
+    public CalendarDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<CalendarDbContext>());
 }

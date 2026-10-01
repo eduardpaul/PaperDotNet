@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\Modules\Collaboration\PaperDotNet.Collaboration\PaperDotNet.Collaboration.csproj" />
     <ProjectReference Include="..\..\Modules\Notes\PaperDotNet.Notes\PaperDotNet.Notes.csproj" />
     <ProjectReference Include="..\..\Modules\Tasks\PaperDotNet.Tasks\PaperDotNet.Tasks.csproj" />
+    <ProjectReference Include="..\..\Modules\Calendar\PaperDotNet.Calendar\PaperDotNet.Calendar.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />

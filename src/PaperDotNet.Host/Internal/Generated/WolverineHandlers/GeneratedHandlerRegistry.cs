@@ -11,7 +11,7 @@ namespace Internal.Generated.WolverineHandlers
 
         public override System.Type[] HandlerTypes()
         {
-            return new System.Type[] { typeof(PaperDotNet.Audit.Features.AuditSubscriber), typeof(PaperDotNet.Collaboration.Features.ActivitySubscriber), typeof(PaperDotNet.ExtensionHost.Runtime.ExtensionEventsSubscriber), typeof(PaperDotNet.Jobs.Features.OperationSubscriber), typeof(PaperDotNet.Lists.Features.FolderScopeSubscriber), typeof(PaperDotNet.Notes.Features.NoteLinkSubscriber), typeof(PaperDotNet.Notifications.Features.AlertSubscriber), typeof(PaperDotNet.Notifications.Features.ChangeSubscriber), typeof(PaperDotNet.Notifications.Features.NotificationCleanupSubscriber), typeof(PaperDotNet.Tasks.Features.TaskRecurrenceSubscriber), typeof(PaperDotNet.Workflows.Features.WorkflowRunSubscriber), typeof(PaperDotNet.Workflows.Features.WorkflowTriggerSubscriber), typeof(PaperDotNet.Workspaces.Features.WorkspacePrincipalSubscriber) };
+            return new System.Type[] { typeof(PaperDotNet.Audit.Features.AuditSubscriber), typeof(PaperDotNet.Calendar.Features.CalendarCleanupSubscriber), typeof(PaperDotNet.Collaboration.Features.ActivitySubscriber), typeof(PaperDotNet.ExtensionHost.Runtime.ExtensionEventsSubscriber), typeof(PaperDotNet.Jobs.Features.OperationSubscriber), typeof(PaperDotNet.Lists.Features.FolderScopeSubscriber), typeof(PaperDotNet.Notes.Features.NoteLinkSubscriber), typeof(PaperDotNet.Notifications.Features.AlertSubscriber), typeof(PaperDotNet.Notifications.Features.ChangeSubscriber), typeof(PaperDotNet.Notifications.Features.NotificationCleanupSubscriber), typeof(PaperDotNet.Tasks.Features.TaskRecurrenceSubscriber), typeof(PaperDotNet.Workflows.Features.WorkflowRunSubscriber), typeof(PaperDotNet.Workflows.Features.WorkflowTriggerSubscriber), typeof(PaperDotNet.Workspaces.Features.WorkspacePrincipalSubscriber) };
         }
 
 
@@ -34,6 +34,7 @@ namespace Internal.Generated.WolverineHandlers
 
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.GeneratedHandlerRegistry))]
+        [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.CalendarCleanupSubscriberHandler1500419719))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.CompleteFolderScopeChangeHandler983869399))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.ItemAdded241617761_ActivitySubscriberHandler1383803301))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.ItemAdded241617761_AlertSubscriberHandler798807913))]
@@ -76,6 +77,7 @@ namespace Internal.Generated.WolverineHandlers
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.RunOperationHandler552251503))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::Internal.Generated.WolverineHandlers.WorkspacePrincipalSubscriberHandler609879664))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Audit.Features.AuditSubscriber))]
+        [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Calendar.Features.CalendarCleanupSubscriber))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Collaboration.Features.ActivitySubscriber))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.ExtensionHost.Runtime.ExtensionEventsSubscriber))]
         [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All, typeof(global::PaperDotNet.Jobs.Features.OperationSubscriber))]
