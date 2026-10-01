@@ -34,7 +34,6 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | Aspire (`Aspire.Hosting`) | MIT | Local orchestration, tests |
 | `tusdotnet` | MIT | Resumable uploads |
 | `OpenIddict.AspNetCore` | Apache-2.0 | Built-in OAuth2/OIDC server |
-| `Finbuckle.MultiTenant.AspNetCore` | Apache-2.0 | Tenant resolution (evaluate) |
 | `WolverineFx` | MIT | Durable outbox / messaging (evaluate) |
 | `Quartz` | Apache-2.0 | Scheduling |
 | `Grpc.AspNetCore` | Apache-2.0 | Sidecar RPC (option) |

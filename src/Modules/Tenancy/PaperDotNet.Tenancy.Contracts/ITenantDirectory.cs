@@ -25,4 +25,7 @@ public interface ITenantDirectory
     Task<TenantSummary> CreateAsync(string identifier, string name, IReadOnlyList<string> hosts, CancellationToken cancellationToken);
 
     Task SetStatusAsync(string identifier, TenantStatus status, CancellationToken cancellationToken);
+
+    /// <summary>Replaces the custom host names mapped to the tenant (e.g. <c>dms.acme.com</c>).</summary>
+    Task SetHostsAsync(string identifier, IReadOnlyList<string> hosts, CancellationToken cancellationToken);
 }

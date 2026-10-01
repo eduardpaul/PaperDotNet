@@ -248,7 +248,7 @@ internal static class AdminCli
         {
             foreach (var t in await scope.GetRequiredService<ITenantDirectory>().ListAsync(ct))
             {
-                await parse.InvocationConfiguration.Output.WriteLineAsync($"{t.Identifier,-24} {t.Status,-10} {t.Name}");
+                await parse.InvocationConfiguration.Output.WriteLineAsync($"{t.Identifier,-24} {t.Status,-10} {t.Name} {string.Join(',', t.Hosts)}");
             }
 
             return 0;
@@ -259,12 +259,18 @@ internal static class AdminCli
         var name = new Option<string>("--name") { Description = "Display name." };
         var adminName = new Option<string>("--admin") { Description = "User name of the first administrator.", DefaultValueFactory = _ => "admin" };
         var adminPassword = new Option<string>("--admin-password") { Description = "Password of the first administrator.", Required = true };
-        var create = new Command("create", "Create a tenant with its first administrator.") { identifier, name, adminName, adminPassword };
+        var hosts = new Option<string[]>("--host") { Description = "Custom host name mapped to the tenant (repeatable).", AllowMultipleArgumentsPerToken = true };
+        var create = new Command("create", "Create a tenant with its first administrator.") { identifier, name, adminName, adminPassword, hosts };
         create.SetAction((parse, ct) => InScopeAsync(services, async scope =>
         {
             var id = parse.GetRequiredValue(identifier);
             var (created, _) = await scope.GetRequiredService<TenantProvisioner>().CreateAsync(
                 id, parse.GetValue(name) ?? id, parse.GetRequiredValue(adminName), parse.GetRequiredValue(adminPassword), ct);
+            if (parse.GetValue(hosts) is { Length: > 0 } names)
+            {
+                await scope.GetRequiredService<ITenantDirectory>().SetHostsAsync(created.Identifier, names, ct);
+            }
+
             await parse.InvocationConfiguration.Output.WriteLineAsync($"Created tenant '{created.Identifier}' ({created.Id}).");
             return 0;
         }, ct));

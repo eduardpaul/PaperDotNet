@@ -21,6 +21,15 @@ public class Tenant
     public DateTimeOffset CreatedAt { get; set; }
 }
 
+/// <summary>A custom host name mapped to a tenant (e.g. <c>dms.acme.com</c>): requests to it are in that tenant.</summary>
+public class TenantHost
+{
+    /// <summary>Lower-case host name, unique across tenants.</summary>
+    public string Host { get; set; } = "";
+
+    public Guid TenantId { get; set; }
+}
+
 /// <summary>Stored values of <see cref="Tenant.Status"/> (strings, not an enum: ADR-0039).</summary>
 public static class TenantStatuses
 {

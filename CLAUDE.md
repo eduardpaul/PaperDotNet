@@ -31,7 +31,9 @@ inspired by Papermerge and SharePoint lists/libraries.
 idle, under 300 MB under load, checked by `eng/aot-smoke.sh`). Work happens in place in `src/`. Ported: Identity,
 Lists, Audit, Workflows, Jobs (operations, recurring jobs, live events), Workspaces, the extension host and SDK
 (`src/Extensions/Extension.props`; sample `samples/PaperDotNet.Samples.Invoices`), Notifications, Collaboration, Notes, Tasks, Calendar, Taxonomy, Search (keyword; semantic later), smart folders, Provisioning (templates, packages, export and import), AI workflows
-(`ai.*` activities, batched AI; `PaperDotNet.AI` providers). Modules still to port stay in `src/Modules` out of the build (not in `PaperDotNet.slnx`);
+(`ai.*` activities, batched AI; `PaperDotNet.AI` providers), Documents (processing as library workflows), MCP (`/v1.0/mcp`), the
+audit log of every module (`/v1.0/auditLog`), tenant resolution by host and header, and the admin commands of the
+server binary (`paperdotnet backup|restore|export|import|tenant|user|reindex`). Modules still to port stay in `src/Modules` out of the build (not in `PaperDotNet.slnx`);
 port them one at a time, best effort: keep a dependency if it works under AOT, otherwise use a standard that does,
 otherwise a plain REST implementation. Their tests wait in `tests/PaperDotNet.IntegrationTests/ToPort`.
 

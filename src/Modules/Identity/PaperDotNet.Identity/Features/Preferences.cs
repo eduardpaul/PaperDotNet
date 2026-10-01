@@ -22,7 +22,8 @@ public sealed record PreferencesResponse(
     IReadOnlyList<string> Inherited,
     [property: JsonPropertyName("@odata.etag")] string ETag);
 
-public sealed record OrganizationResponse(Guid Id, string Identifier, string DisplayName);
+/// <summary>The caller's organization (tenant) with the custom host names mapped to it.</summary>
+public sealed record OrganizationResponse(Guid Id, string Identifier, string DisplayName, IReadOnlyList<string> Hosts);
 
 /// <summary>Reads effective preferences: user values over the organization's defaults over the built-in defaults.</summary>
 internal sealed class UserPreferences(IdentityDbContext db) : IUserPreferences
@@ -88,7 +89,9 @@ internal static partial class PreferencesEndpoints
         var tenant = caller.TenantId;
         var ct = cancellationToken;
         var entity = await db.Tenants.Where(t => t.Id == tenant).FirstOrDefaultAsync(ct);
-        return entity is null ? ApiErrors.NotFound() : TypedResults.Ok(new OrganizationResponse(entity.Id, entity.Identifier, entity.Name));
+        return entity is null
+            ? ApiErrors.NotFound()
+            : TypedResults.Ok(new OrganizationResponse(entity.Id, entity.Identifier, entity.Name, await TenantHostQueries.OfTenantAsync(database, entity.Id, cancellationToken)));
     }
 
     private static async Task<Ok<PreferencesResponse>> GetMineAsync(Caller caller, IdentityDbContext db, HttpResponse response, CancellationToken cancellationToken) =>

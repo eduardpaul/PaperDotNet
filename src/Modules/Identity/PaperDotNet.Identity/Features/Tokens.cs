@@ -114,7 +114,7 @@ internal static class TokenEndpoint
 
     private static async Task<Results<Ok<TokenResponse>, BadRequest<TokenError>>> HandleAsync(
         HttpRequest request, IdentityDbContext db, TokenIssuer issuer, IPasswordHasher<User> hasher, IEffectiveScopeProvider scopes,
-        IScopeCatalog catalog, IOptions<TenancyOptions> tenancy, TimeProvider time, CancellationToken cancellationToken)
+        IScopeCatalog catalog, IOptions<TenancyOptions> tenancy, TenantResolver tenants, TimeProvider time, CancellationToken cancellationToken)
     {
         if (!request.HasFormContentType)
         {
@@ -132,7 +132,14 @@ internal static class TokenEndpoint
                         return Invalid("invalid_scope", scopeError);
                     }
 
-                    var identifier = form["tenant"].ToString() is { Length: > 0 } requested ? requested : tenancy.Value.DefaultTenant;
+                    // The tenant: the request's parameter, else the one its host or header names, else the default.
+                    var named = await tenants.ResolveAsync(request, cancellationToken);
+                    var identifier = form["tenant"].ToString() is { Length: > 0 } requested ? requested : named?.Identifier ?? tenancy.Value.DefaultTenant;
+                    if (named is not null && !string.Equals(named.Identifier, identifier, StringComparison.Ordinal))
+                    {
+                        return Invalid("invalid_request", "The tenant parameter names another tenant than the host or header.");
+                    }
+
                     var user = await Users.FindForSignInAsync(db, identifier, form["username"].ToString(), cancellationToken);
                     if (user is null || !await SignInAsync(db, hasher, user, form["password"].ToString(), time.GetUtcNow(), cancellationToken))
                     {
@@ -203,12 +210,6 @@ internal static class TokenEndpoint
     }
 
     private static BadRequest<TokenError> Invalid(string error, string description) => TypedResults.BadRequest(new TokenError(error, description));
-}
-
-public sealed class TenancyOptions
-{
-    /// <summary>Tenant used when a token request names none.</summary>
-    public string DefaultTenant { get; set; } = "default";
 }
 
 internal static class RateLimits

@@ -13776,7 +13776,8 @@
         "required": [
           "id",
           "identifier",
-          "displayName"
+          "displayName",
+          "hosts"
         ],
         "type": "object",
         "properties": {
@@ -13789,8 +13790,15 @@
           },
           "displayName": {
             "type": "string"
+          },
+          "hosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
-        }
+        },
+        "description": "The caller's organization (tenant) with the custom host names mapped to it."
       },
       "PageOfActivityResponse": {
         "required": [

@@ -39,6 +39,7 @@ public sealed class IdentityModule : IModule
         services.AddMemoryCache();
         services.AddScoped<TenantProvisioner>();
         services.AddScoped<ITenantDirectory, TenantDirectory>();
+        services.AddSingleton<TenantResolver>();
         services.AddScoped<IEffectiveScopeProvider, EffectiveScopes>();
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<IRoleProvisioning, RoleProvisioning>();
@@ -82,4 +83,10 @@ public sealed class IdentityModule : IModule
         Roles.Map(endpoints);
         PreferencesEndpoints.Map(endpoints);
     }
+}
+
+public static class TenantGuardExtensions
+{
+    /// <summary>Rejects API requests whose host or header names an unknown tenant or another tenant than the token's. Call after authentication.</summary>
+    public static IApplicationBuilder UsePaperDotNetTenantGuard(this IApplicationBuilder app) => app.UseMiddleware<TenantGuardMiddleware>();
 }

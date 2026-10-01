@@ -22,6 +22,8 @@ public class IdentityDbContext : DbContext
 
     public DbSet<Tenant> Tenants { get; set; } = null!;
 
+    public DbSet<TenantHost> TenantHosts { get; set; } = null!;
+
     public DbSet<User> Users { get; set; } = null!;
 
     public DbSet<Group> Groups { get; set; } = null!;
@@ -121,6 +123,13 @@ public class IdentityDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<TenantHost>(host =>
+        {
+            host.ToTable("tenant_hosts");
+            host.HasKey(h => h.Host);
+            host.Property(h => h.Host).HasMaxLength(253);
+            host.HasIndex(h => h.TenantId);
+        });
         modelBuilder.Entity<Tenant>(tenant =>
         {
             tenant.ToTable("tenants");

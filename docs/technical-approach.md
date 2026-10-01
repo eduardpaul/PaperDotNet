@@ -177,7 +177,7 @@ PaperDotNet.slnx
 
 | Layer | Mechanism |
 |---|---|
-| Resolution | **Finbuckle.MultiTenant** (decided, ADR-0003) resolves the tenant from custom host, host template, header (opt-in), token claim, then the default tenant (only when none was requested explicitly). The result is exposed as our own `ITenantContext`. Background work gets the tenant from the message, never from ambient state |
+| Resolution | Custom host → host template (`Tenancy:HostTemplate`, e.g. `{tenant}.dms.example.com`) → `X-Tenant` header (`Tenancy:AllowHeader`) → the token's tenant → the default tenant (only when none was requested explicitly), in the Identity module (`TenantResolver`, ADR-0003 as amended by ADR-0039; Finbuckle until the Native AOT server). A token used on another tenant's host gets `403 tenantMismatch`, an unknown tenant `404 tenantNotFound`. Background work gets the tenant from the message, never from ambient state |
 | EF Core | Every tenant-owned entity implements `ITenantOwned`. A **named query filter** `"Tenant"` is applied by convention (EF Core 10 named filters), next to `"SoftDelete"`. Normal code may disable `SoftDelete` but never `Tenant` (enforced by an analyzer/architecture test) |
 | Writes | A `SaveChanges` interceptor stamps `TenantId` and rejects cross-tenant writes |
 | Database | *(P1, ADR-0003)* PostgreSQL **row-level security** as defense in depth. A connection interceptor sets `app.tenant_id` on each connection, and policies compare it to `tenant_id` |

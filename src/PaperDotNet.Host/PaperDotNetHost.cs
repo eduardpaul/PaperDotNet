@@ -104,6 +104,7 @@ internal static class PaperDotNetHost
         app.UseExceptionHandler();
         app.UseStatusCodePages();
         app.UseAuthentication();
+        app.UsePaperDotNetTenantGuard();
         app.UseAuthorization();
         app.UseRateLimiter();
 

@@ -1,6 +1,9 @@
 # ADR-0003: Tenant resolution with Finbuckle, isolation in EF Core
 
-**Status:** Accepted (2026-09-24)
+**Status:** Accepted (2026-09-24); resolution amended by [ADR-0039](0039-native-aot-core.md): under Native AOT the
+same order is implemented in the Identity module (`TenantResolver`, `TenantGuardMiddleware`, custom hosts in
+`identity.tenant_hosts`), without Finbuckle. Tokens carry their tenant; the resolver names the tenant of a sign-in and
+guards that a token is not used on another tenant's host or header.
 
 ## Decision
 - **Resolution** uses Finbuckle.MultiTenant with a read-only store over the
