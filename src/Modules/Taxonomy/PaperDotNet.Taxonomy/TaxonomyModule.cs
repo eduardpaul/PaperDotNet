@@ -4,6 +4,7 @@ using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Taxonomy.Data;
 using PaperDotNet.Taxonomy.Features;
@@ -12,8 +13,8 @@ namespace PaperDotNet.Taxonomy;
 
 /// <summary>
 /// Taxonomy (TAX): the term store (groups → sets → hierarchical terms), keywords (folksonomy) with promotion, merges
-/// and CSV import. Other modules resolve terms through <see cref="ITermStore"/>; template sections come with
-/// Provisioning (T13).
+/// and CSV import. Other modules resolve terms through <see cref="ITermStore"/>; the term store travels in templates
+/// (<see cref="TermGroupTemplateHandler"/>).
 /// </summary>
 public sealed class TaxonomyModule : IModule
 {
@@ -26,6 +27,7 @@ public sealed class TaxonomyModule : IModule
         services.AddModuleDbContext<TaxonomyDbContext>();
         services.AddScoped<ITermStore>(sp => new TermStore(sp.GetRequiredService<TaxonomyDbContext>()));
         services.AddScoped<ITermSetProvisioning>(sp => new TermSetProvisioner(sp.GetRequiredService<TaxonomyDbContext>(), sp.GetServices<TermSetTemplate>()));
+        services.AddScoped<ITemplateHandler>(sp => new TermGroupTemplateHandler(sp.GetRequiredService<TaxonomyDbContext>()));
         services.AddScopes(TaxonomyScopes.All);
     }
 

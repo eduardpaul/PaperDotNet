@@ -30,6 +30,8 @@ public sealed class ExtensionContributions
 
     public List<string> TermSets { get; } = [];
 
+    public List<string> TemplateSections { get; } = [];
+
     public List<string> WorkflowActivities { get; } = [];
 
     public List<string> Tables { get; } = [];
@@ -232,6 +234,16 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         RequirePrefix(listTemplate.Key, "List template key");
         services.AddSingleton(listTemplate with { ExtensionId = extension.Id });
         extension.Contributions.ListTemplates.Add(listTemplate.Key);
+        return this;
+    }
+
+    public IExtensionBuilder AddTemplateSection<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
+        where THandler : class, Provisioning.Contracts.ITemplateHandler
+    {
+        var id = extension.Id;
+        services.TryAddScoped<THandler>();
+        services.AddScoped<Provisioning.Contracts.ITemplateHandler>(sp => new Features.GatedTemplateHandler(id, sp.GetRequiredService<THandler>(), sp.GetRequiredService<IExtensionState>()));
+        extension.Contributions.TemplateSections.Add(typeof(THandler).Name);
         return this;
     }
 

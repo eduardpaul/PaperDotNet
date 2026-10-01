@@ -126,7 +126,7 @@ internal static class WorkflowEndpoints
         return errors.Count > 0 ? (null, ApiErrors.Validation(new Dictionary<string, string[]> { ["definition"] = [.. errors] })) : (spec, null);
     }
 
-    private static string TriggerTypes(WorkflowSpec spec) => $",{string.Join(',', spec.AllTriggers.Select(t => t.Type).Distinct(StringComparer.Ordinal))},";
+    internal static string TriggerTypes(WorkflowSpec spec) => $",{string.Join(',', spec.AllTriggers.Select(t => t.Type).Distinct(StringComparer.Ordinal))},";
 
     private static Ok<IReadOnlyList<ActivityDto>> Activities(IEnumerable<IWorkflowActivity> activities) =>
         TypedResults.Ok<IReadOnlyList<ActivityDto>>([

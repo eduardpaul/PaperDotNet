@@ -7,9 +7,9 @@ using PaperDotNet.Taxonomy.Data;
 namespace PaperDotNet.Taxonomy.Features;
 
 /// <summary>
-/// Template section <c>TermGroups</c> (PRV-01/02): term groups, term sets and term trees with labels
-/// and synonyms. The system group (keywords) is not part of templates. Terms are matched by name among
-/// their siblings; terms missing from the template stay. Registers term sets as <c>Group/Set</c>.
+/// Template section <c>TermGroups</c> (PRV-01/02): term groups, term sets and term trees with labels and synonyms. The
+/// system group (keywords) is not part of templates. Terms are matched by name among their siblings; terms missing from
+/// the template stay. Registers term sets as <c>Group/Set</c>.
 /// </summary>
 internal sealed class TermGroupTemplateHandler(TaxonomyDbContext db) : ITemplateHandler
 {
@@ -23,25 +23,29 @@ internal sealed class TermGroupTemplateHandler(TaxonomyDbContext db) : ITemplate
 
     public async Task<XElement?> ExportAsync(TemplateContext context, CancellationToken cancellationToken)
     {
-        var groups = await db.Groups.AsNoTracking().Where(g => !g.IsSystem).OrderBy(g => g.Name).ToListAsync(cancellationToken);
-        var groupIds = groups.Select(g => g.Id).ToList();
-        var sets = (await db.TermSets.AsNoTracking().Where(s => groupIds.Contains(s.GroupId)).OrderBy(s => s.Name).ToListAsync(cancellationToken))
-            .Where(s => context.Includes(TemplateKinds.TermSet, $"{groups.First(g => g.Id == s.GroupId).Name}/{s.Name}"))
+        var database = db;
+        var tenant = context.TenantId;
+        var ct = cancellationToken;
+        var groups = await database.Groups.AsNoTracking().Where(g => g.TenantId == tenant && !g.IsSystem).OrderBy(g => g.Name).ToListAsync(ct);
+        var names = groups.ToDictionary(g => g.Id, g => g.Name);
+        var sets = (await database.TermSets.AsNoTracking().Where(s => s.TenantId == tenant && !s.IsKeywords).OrderBy(s => s.Name).ToListAsync(ct))
+            .Where(s => names.ContainsKey(s.GroupId) && context.Includes(TemplateKinds.TermSet, $"{names[s.GroupId]}/{s.Name}"))
             .ToList();
         if (sets.Count == 0)
         {
             return null;
         }
 
-        var setIds = sets.Select(s => s.Id).ToList();
-        var terms = (await db.Terms.AsNoTracking().Where(t => setIds.Contains(t.TermSetId) && t.MergedIntoId == null).ToListAsync(cancellationToken))
+        var setIds = sets.Select(s => s.Id).ToHashSet();
+        var terms = (await database.Terms.AsNoTracking().Where(t => t.TenantId == tenant && t.MergedIntoId == null).ToListAsync(ct))
+            .Where(t => setIds.Contains(t.TermSetId))
             .ToLookup(t => (t.TermSetId, t.ParentId));
 
         IEnumerable<XElement> Tree(Guid setId, Guid? parentId) => terms[(setId, parentId)]
             .OrderBy(t => t.SortOrder).ThenBy(t => t.Name, StringComparer.Ordinal)
             .Select(t => new XElement(TermName,
-                    t.Labels.OrderBy(l => l.Language, StringComparer.Ordinal).Select(l => new XElement(TemplateXml.Name("Label"), new XAttribute("Language", l.Language), new XAttribute("Name", l.Name))),
-                    t.Synonyms.Select(s => new XElement(TemplateXml.Name("Synonym"), s)),
+                    t.GetLabels().OrderBy(l => l.Language, StringComparer.Ordinal).Select(l => new XElement(TemplateXml.Name("Label"), new XAttribute("Language", l.Language), new XAttribute("Name", l.Name))),
+                    t.GetSynonyms().Select(s => new XElement(TemplateXml.Name("Synonym"), s)),
                     Tree(setId, t.Id))
                 .With("Name", t.Name).With("Description", t.Description).With("Color", t.Color)
                 .With("SortOrder", t.SortOrder == 0 ? null : t.SortOrder).With("Deprecated", t.IsDeprecated, omitDefault: true));
@@ -54,21 +58,30 @@ internal sealed class TermGroupTemplateHandler(TaxonomyDbContext db) : ITemplate
 
     public async Task ApplyAsync(XElement section, TemplateContext context, CancellationToken cancellationToken)
     {
+        var tenantId = context.TenantId;
         foreach (var groupElement in section.Elements(TemplateXml.Name("TermGroup")))
         {
             var groupName = groupElement.RequiredAttr("Name").Trim();
-            var group = await db.Groups.FirstOrDefaultAsync(g => g.Name == groupName, cancellationToken);
+            var database = db;
+            var tenant = tenantId;
+            var wantedGroup = groupName;
+            var ct = cancellationToken;
+            var group = await database.Groups.FirstOrDefaultAsync(g => g.TenantId == tenant && g.Name == wantedGroup, ct);
             if (group is { IsSystem: true })
             {
                 throw new TemplateException($"Term group '{groupName}' is the system group and cannot be provisioned.", groupElement);
             }
 
             var description = groupElement.Attr("Description");
+            var newGroup = group is null;
             if (group is null)
             {
-                group = new TermGroup { Id = Ids.New(), Name = groupName, Description = description };
+                group = new TermGroup { Id = Ids.New(), TenantId = tenantId, Name = groupName, Description = description };
                 context.Created(TemplateKinds.TermGroup, groupName);
-                Add(group, context);
+                if (!context.DryRun)
+                {
+                    db.Groups.Add(group);
+                }
             }
             else if (group.Description != description)
             {
@@ -80,14 +93,20 @@ internal sealed class TermGroupTemplateHandler(TaxonomyDbContext db) : ITemplate
             {
                 var setName = setElement.RequiredAttr("Name").Trim();
                 var key = $"{groupName}/{setName}";
-                var set = await db.TermSets.FirstOrDefaultAsync(s => s.GroupId == group.Id && s.Name == setName, cancellationToken);
+                var groupId = group.Id;
+                var wantedSet = setName;
+                var set = newGroup ? null : await database.TermSets.FirstOrDefaultAsync(s => s.TenantId == tenant && s.GroupId == groupId && s.Name == wantedSet, ct);
                 var open = setElement.BoolAttr("Open", false);
                 var setDescription = setElement.Attr("Description");
+                var newSet = set is null;
                 if (set is null)
                 {
-                    set = new TermSet { Id = Ids.New(), GroupId = group.Id, Name = setName, Description = setDescription, IsOpen = open };
+                    set = new TermSet { Id = Ids.New(), TenantId = tenantId, GroupId = group.Id, Name = setName, Description = setDescription, IsOpen = open };
                     context.Created(TemplateKinds.TermSet, key);
-                    Add(set, context);
+                    if (!context.DryRun)
+                    {
+                        db.TermSets.Add(set);
+                    }
                 }
                 else if (set.Description != setDescription || set.IsOpen != open)
                 {
@@ -97,8 +116,9 @@ internal sealed class TermGroupTemplateHandler(TaxonomyDbContext db) : ITemplate
                 }
 
                 context.Register(TemplateKinds.TermSet, key, set.Id);
-                var existing = await db.Terms.Where(t => t.TermSetId == set.Id && t.MergedIntoId == null).ToListAsync(cancellationToken);
-                ApplyTerms(setElement, set.Id, null, null, key, existing, context);
+                var setId = set.Id;
+                var existing = newSet ? [] : await database.Terms.Where(t => t.TenantId == tenant && t.TermSetId == setId && t.MergedIntoId == null).ToListAsync(ct);
+                ApplyTerms(setElement, tenantId, set.Id, null, null, key, existing, context);
             }
         }
 
@@ -108,14 +128,14 @@ internal sealed class TermGroupTemplateHandler(TaxonomyDbContext db) : ITemplate
         }
     }
 
-    private void ApplyTerms(XElement parentElement, Guid setId, Term? parent, string? parentPath, string setKey, List<Term> existing, TemplateContext context)
+    private void ApplyTerms(XElement parentElement, Guid tenantId, Guid setId, Term? parent, string? parentPath, string setKey, List<Term> existing, TemplateContext context)
     {
         foreach (var element in parentElement.Elements(TermName))
         {
             var name = element.RequiredAttr("Name").Trim();
             var path = parentPath is null ? name : $"{parentPath}/{name}";
             var labels = element.Elements(TemplateXml.Name("Label"))
-                .Select(l => new TermLabel { Language = l.RequiredAttr("Language").Trim(), Name = l.RequiredAttr("Name").Trim() }).ToList();
+                .Select(l => new TermLabel(l.RequiredAttr("Language").Trim(), l.RequiredAttr("Name").Trim())).ToList();
             if (labels.GroupBy(l => l.Language, StringComparer.OrdinalIgnoreCase).Any(g => g.Count() > 1))
             {
                 throw new TemplateException($"Term '{path}': one label per language.", element);
@@ -131,22 +151,25 @@ internal sealed class TermGroupTemplateHandler(TaxonomyDbContext db) : ITemplate
             var deprecated = element.BoolAttr("Deprecated", false);
             if (term is null)
             {
-                term = TermRules.NewTerm(setId, parent?.Id, parent?.Path, name);
+                term = TermRules.NewTerm(tenantId, setId, parent?.Id, parent?.Path, name);
                 existing.Add(term);
                 Set(term, description, color, sortOrder, deprecated, labels, synonyms);
                 context.Created(TemplateKinds.Term, $"{setKey}: {path}");
-                Add(term, context);
+                if (!context.DryRun)
+                {
+                    db.Terms.Add(term);
+                }
             }
             else if (term.Description != description || term.Color != color || term.SortOrder != sortOrder || term.IsDeprecated != deprecated
-                || !Same(term.Labels.Select(l => $"{l.Language}={l.Name}"), labels.Select(l => $"{l.Language}={l.Name}"))
-                || !Same(term.Synonyms, synonyms))
+                || !Same(term.GetLabels().Select(l => $"{l.Language}={l.Name}"), labels.Select(l => $"{l.Language}={l.Name}"))
+                || !Same(term.GetSynonyms(), synonyms))
             {
                 context.Updated(TemplateKinds.Term, $"{setKey}: {path}");
                 Set(term, description, color, sortOrder, deprecated, labels, synonyms);
             }
 
             context.Register(TemplateKinds.Term, $"{setKey}/{path}", term.Id);
-            ApplyTerms(element, setId, term, path, setKey, existing, context);
+            ApplyTerms(element, tenantId, setId, term, path, setKey, existing, context);
         }
     }
 
@@ -156,20 +179,11 @@ internal sealed class TermGroupTemplateHandler(TaxonomyDbContext db) : ITemplate
         term.Color = color;
         term.SortOrder = sortOrder;
         term.IsDeprecated = deprecated;
-        term.Labels = labels;
-        term.Synonyms = synonyms;
+        term.SetLabels(labels);
+        term.SetSynonyms(synonyms);
         term.RefreshSearchText();
     }
 
     private static bool Same(IEnumerable<string> a, IEnumerable<string> b) =>
         a.Order(StringComparer.Ordinal).SequenceEqual(b.Order(StringComparer.Ordinal), StringComparer.Ordinal);
-
-    private void Add<T>(T entity, TemplateContext context)
-        where T : class
-    {
-        if (!context.DryRun)
-        {
-            db.Add(entity);
-        }
-    }
 }

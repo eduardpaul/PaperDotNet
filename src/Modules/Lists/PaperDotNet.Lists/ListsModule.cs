@@ -70,6 +70,7 @@ public sealed class ListsModule : IModule
         services.AddScoped<ITemplateHandler>(sp => new ContentTypeTemplateHandler(
             sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<FieldTypeRegistry>(), sp, sp.GetRequiredService<ListTemplateRegistry>(),
             sp.GetRequiredService<ContentTypeProvisioner>(), sp.GetRequiredService<ITermStore>(), sp.GetRequiredService<ListTemplateLookups>()));
+        services.AddScoped<ITemplateHandler>(sp => new SmartFolderTemplateHandler(sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ITermStore>()));
         services.AddScoped<ITemplateContainer>(sp => new ListTemplateContainer(
             sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ListTemplateRegistry>(), sp.GetRequiredService<ContentTypeProvisioner>(), sp,
             sp.GetRequiredService<ItemQueryRunner>(), sp.GetRequiredService<IUserDirectory>()));

@@ -42,6 +42,7 @@ public sealed class TicketsExtension : IExtension
         builder.AddEventSubscriber<ItemAdded, TicketCounter>();
         builder.AddRecurringJob<TicketJob>($"{Id}.tick", "* * * * * *");
         builder.AddWorkflowActivity<EchoActivity>();
+        builder.AddTemplateSection<TicketMarkerSection>();
         builder.MapEndpoints(api => api.MapGet("/stats", (Caller caller) => TypedResults.Ok(new TicketStats(TicketCounter.Count(caller.TenantId))))
             .RequireScope($"{Id}.read"));
     }
@@ -116,3 +117,38 @@ public sealed record TicketStats(int Added);
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 [JsonSerializable(typeof(TicketStats))]
 internal sealed partial class TicketsJson : JsonSerializerContext;
+
+/// <summary>
+/// A template section of the extension (PRV-05) in its own namespace: remembers the marker value applied per tenant and
+/// exports it again.
+/// </summary>
+public sealed class TicketMarkerSection : Provisioning.Contracts.ITemplateHandler
+{
+    public static readonly System.Xml.Linq.XNamespace Ns = "urn:test:marker";
+
+    public static ConcurrentDictionary<Guid, string> Applied { get; } = new();
+
+    public System.Xml.Linq.XName Element => Ns + "Marker";
+
+    public Provisioning.Contracts.TemplateLevel Level => Provisioning.Contracts.TemplateLevel.Tenant;
+
+    public int Order => 1000;
+
+    public Task<System.Xml.Linq.XElement?> ExportAsync(Provisioning.Contracts.TemplateContext context, CancellationToken cancellationToken) =>
+        Task.FromResult(Applied.TryGetValue(context.TenantId, out var value) ? new System.Xml.Linq.XElement(Element, new System.Xml.Linq.XAttribute("Value", value)) : null);
+
+    public Task ApplyAsync(System.Xml.Linq.XElement section, Provisioning.Contracts.TemplateContext context, CancellationToken cancellationToken)
+    {
+        var value = section.Attribute("Value")?.Value ?? "";
+        if (!Applied.TryGetValue(context.TenantId, out var current) || current != value)
+        {
+            context.Updated("marker", value);
+            if (!context.DryRun)
+            {
+                Applied[context.TenantId] = value;
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+}

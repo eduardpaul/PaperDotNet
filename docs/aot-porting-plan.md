@@ -70,7 +70,7 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | T12a | Taxonomy: term groups, sets and hierarchical terms (labels, synonyms, colors), keywords, merges (`TermMerged`), promotion, SharePoint CSV import, `ITermStore` and `ITermSetProvisioning` with the tenant named | done. Popular keywords come with T12c (they count tagged items); the template section with T13 |
 | T12b | Lists: `managedMetadata` and `keywords` fields (term resolution, hierarchical filters), the `TermMerged` subscriber, note `#tags`, extension term sets (`AddTermSet`) | done. Filters on a term match its subtree (looked up before the SQL is built); merges rewrite values through the item store, so versions, events and the delta follow; the documents content type has its keywords field again |
 | T12c | Search: SQLite FTS5 index from item events, access trimming by scope, page hits, comments, `ITermUsage` and popular keywords | done. FTS5 tables keyed on declared integer keys (row ids survive `VACUUM`), SQL per provider (`ISearchQueries`), id sets as one `json_each` parameter; permission moves refresh document scopes after the folder move completes |
-| T12d | Smart folders (from T08g): saved term filters that assign terms | done. Each list runs the folder's OData filter (term subtrees through `TermHierarchy`), pages merge newest first with a keyset cursor on `updatedAt`/`id`; sub-folders count values per list. Shared folders in workspace templates come with T13 (`ToPort/SmartFolderTests.cs`) |
+| T12d | Smart folders (from T08g): saved term filters that assign terms | done. Each list runs the folder's OData filter (term subtrees through `TermHierarchy`), pages merge newest first with a keyset cursor on `updatedAt`/`id`; sub-folders count values per list. Shared folders in workspace templates came with T13b |
 | T12e | Semantic and hybrid search (embeddings, `AI:Embeddings`), after T14's AI workflows; the search MCP tool with T16 | |
 
 ### T13 steps (in order)
@@ -78,7 +78,7 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | Step | Task | Status |
 |---|---|---|
 | T13a | Provisioning engine and contracts with the tenant and actor on `TemplateContext`, XML apply/export/schema endpoints, the `Workspace` and `List` containers, the `ContentTypes` section | done |
-| T13b | Sections: groups, roles and users (Identity), term groups (Taxonomy), smart folders (Lists), workflows, extensions (enable, settings, `IExtensionBuilder.AddTemplateSection`) | |
+| T13b | Sections: groups, roles and users (Identity), term groups (Taxonomy), smart folders (Lists), workflows, extensions (enable, settings, `IExtensionBuilder.AddTemplateSection`) | done. Workflow sections carry custom workflows; built-in workflows in templates come with T14, the documents section with T15 |
 | T13c | Packages with content (zip: items, folders, values, files), export and import as operations, cleanup job | |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

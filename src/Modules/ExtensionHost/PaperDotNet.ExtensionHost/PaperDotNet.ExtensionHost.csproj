@@ -4,8 +4,4 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Abstractions\PaperDotNet.Extensions.Abstractions.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <!-- Template sections come with Provisioning (T13, docs/aot-porting-plan.md). -->
-    <Compile Remove="Features/ExtensionTemplates.cs" />
-  </ItemGroup>
 </Project>

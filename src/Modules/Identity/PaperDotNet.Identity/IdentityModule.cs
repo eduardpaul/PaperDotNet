@@ -10,6 +10,7 @@ using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Identity.Features;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Tenancy.Contracts;
 
 namespace PaperDotNet.Identity;
@@ -42,6 +43,8 @@ public sealed class IdentityModule : IModule
         services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<IRoleProvisioning, RoleProvisioning>();
         services.AddScoped<IUserPreferences, UserPreferences>();
+        services.AddScoped<ITemplateHandler>(sp => new GroupTemplateHandler(sp.GetRequiredService<IdentityDbContext>()));
+        services.AddScoped<ITemplateHandler>(sp => new RoleTemplateHandler(sp.GetRequiredService<IdentityDbContext>(), sp.GetRequiredService<IScopeCatalog>()));
         services.AddSingleton<TokenIssuer>();
         services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 

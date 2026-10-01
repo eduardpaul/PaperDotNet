@@ -7,17 +7,18 @@ using PaperDotNet.ExtensionHost.Runtime;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Provisioning.Contracts;
+using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.ExtensionHost.Features;
 
 /// <summary>
-/// Template section <c>Extensions</c> (PRV-01/02): which extensions are enabled and their settings
-/// (values as JSON). Runs first, so that later sections can use the extensions' content types and
-/// field types. Enabled extensions are registered on the context (extension sections are gated on it).
+/// Template section <c>Extensions</c> (PRV-01/02): which extensions are enabled and their settings (values as JSON). Runs
+/// first, so that later sections can use the extensions' content types and field types. Enabled extensions are registered
+/// on the context (extension sections are gated on it).
 /// </summary>
 internal sealed class ExtensionTemplateHandler(
     ExtensionCatalog catalog, ExtensionsDbContext db, ExtensionState state, IRoleProvisioning roles, IContentTypeProvisioning contentTypes,
-    Taxonomy.Contracts.ITermSetProvisioning termSets) : ITemplateHandler
+    ITermSetProvisioning termSets) : ITemplateHandler
 {
     public XName Element => TemplateXml.Name("Extensions");
 
@@ -27,11 +28,14 @@ internal sealed class ExtensionTemplateHandler(
 
     public async Task<XElement?> ExportAsync(TemplateContext context, CancellationToken cancellationToken)
     {
-        var rows = await db.TenantExtensions.AsNoTracking().ToDictionaryAsync(e => e.ExtensionId, StringComparer.Ordinal, cancellationToken);
+        var database = db;
+        var tenant = context.TenantId;
+        var ct = cancellationToken;
+        var rows = (await database.TenantExtensions.AsNoTracking().Where(e => e.TenantId == tenant).ToListAsync(ct)).ToDictionary(e => e.ExtensionId, StringComparer.Ordinal);
         var elements = new List<XElement>();
         foreach (var extension in catalog.All.OrderBy(e => e.Id, StringComparer.Ordinal))
         {
-            var enabled = await state.IsEnabledAsync(extension.Id, cancellationToken);
+            var enabled = await state.IsEnabledAsync(context.TenantId, extension.Id, ct);
             var row = rows.GetValueOrDefault(extension.Id);
             if ((row is null && !enabled) || !context.Includes(TemplateKinds.Extension, extension.Id))
             {
@@ -49,6 +53,7 @@ internal sealed class ExtensionTemplateHandler(
 
     public async Task ApplyAsync(XElement section, TemplateContext context, CancellationToken cancellationToken)
     {
+        var tenantId = context.TenantId;
         foreach (var element in section.Elements(TemplateXml.Name("Extension")))
         {
             var id = element.RequiredAttr("Id");
@@ -74,16 +79,20 @@ internal sealed class ExtensionTemplateHandler(
             }
 
             var enable = element.BoolAttr("Enabled", true);
-            var enabled = await state.IsEnabledAsync(id, cancellationToken);
-            var row = await db.TenantExtensions.FirstOrDefaultAsync(e => e.ExtensionId == id, cancellationToken);
+            var enabled = await state.IsEnabledAsync(tenantId, id, cancellationToken);
+            var database = db;
+            var tenant = tenantId;
+            var extensionId = id;
+            var ct = cancellationToken;
+            var row = await database.TenantExtensions.AsNoTracking().FirstOrDefaultAsync(e => e.TenantId == tenant && e.ExtensionId == extensionId, ct);
             if (!JsonNode.DeepEquals(JsonNode.Parse(row?.Settings ?? "{}"), stored))
             {
                 context.Updated(TemplateKinds.Extension, id, "settings");
                 if (!context.DryRun)
                 {
-                    row = await ExtensionEndpoints.RowAsync(db, id, cancellationToken, enabledIfNew: enabled);
-                    row.Settings = stored.ToJsonString();
-                    await ExtensionEndpoints.SaveAsync(db, state, cancellationToken);
+                    var tracked = await ExtensionEndpoints.RowAsync(db, tenantId, id, enabledIfNew: enabled, ct);
+                    tracked.Settings = stored.ToJsonString();
+                    await ExtensionEndpoints.SaveAsync(db, state, ct);
                 }
             }
 
@@ -92,7 +101,7 @@ internal sealed class ExtensionTemplateHandler(
                 context.Updated(TemplateKinds.Extension, id, "enabled");
                 if (!context.DryRun)
                 {
-                    await ExtensionEndpoints.EnableExtensionAsync(extension, db, roles, contentTypes, termSets, state, cancellationToken);
+                    await ExtensionEndpoints.EnableExtensionAsync(tenantId, extension, db, roles, contentTypes, termSets, state, ct);
                 }
             }
             else if (!enable && enabled)
@@ -100,9 +109,9 @@ internal sealed class ExtensionTemplateHandler(
                 context.Updated(TemplateKinds.Extension, id, "disabled");
                 if (!context.DryRun)
                 {
-                    row = await ExtensionEndpoints.RowAsync(db, id, cancellationToken);
-                    row.Enabled = false;
-                    await ExtensionEndpoints.SaveAsync(db, state, cancellationToken);
+                    var tracked = await ExtensionEndpoints.RowAsync(db, tenantId, id, enabledIfNew: false, ct);
+                    tracked.Enabled = false;
+                    await ExtensionEndpoints.SaveAsync(db, state, ct);
                 }
             }
 
@@ -110,6 +119,34 @@ internal sealed class ExtensionTemplateHandler(
             {
                 context.Register(TemplateKinds.Extension, id, Guid.Empty);
             }
+        }
+    }
+}
+
+/// <summary>
+/// Runs an extension's template section only where the extension is enabled, or is being enabled by the same template
+/// (its Extensions section registers it).
+/// </summary>
+internal sealed class GatedTemplateHandler(string extensionId, ITemplateHandler inner, Extensions.IExtensionState state) : ITemplateHandler
+{
+    public XName Element => inner.Element;
+
+    public TemplateLevel Level => inner.Level;
+
+    public int Order => inner.Order;
+
+    public async Task<XElement?> ExportAsync(TemplateContext context, CancellationToken cancellationToken) =>
+        await state.IsEnabledAsync(context.TenantId, extensionId, cancellationToken) ? await inner.ExportAsync(context, cancellationToken) : null;
+
+    public async Task ApplyAsync(XElement section, TemplateContext context, CancellationToken cancellationToken)
+    {
+        if (context.Resolve(TemplateKinds.Extension, extensionId) is not null || await state.IsEnabledAsync(context.TenantId, extensionId, cancellationToken))
+        {
+            await inner.ApplyAsync(section, context, cancellationToken);
+        }
+        else
+        {
+            context.Warn($"Section {section.Name} was skipped: the extension '{extensionId}' is not enabled.", section);
         }
     }
 }

@@ -98,6 +98,13 @@ public interface IExtensionBuilder
     /// <summary>A list template (LST-16; key starts with <c>{extension id}.</c>), offered where the extension is enabled.</summary>
     IExtensionBuilder AddListTemplate(ListTemplateDefinition listTemplate);
 
+    /// <summary>
+    /// A section of provisioning templates (PRV-05) in the extension's own XML namespace: exported where the extension is
+    /// enabled, applied where it is enabled or the same template enables it.
+    /// </summary>
+    IExtensionBuilder AddTemplateSection<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
+        where THandler : class, Provisioning.Contracts.ITemplateHandler;
+
     /// <summary>An activity for workflows (EVT-09; key starts with <c>{extension id}.</c>).</summary>
     IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TActivity>()
         where TActivity : class, IWorkflowActivity;

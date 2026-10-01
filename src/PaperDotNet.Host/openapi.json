@@ -9629,6 +9629,12 @@
               "type": "string"
             }
           },
+          "templateSections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "workflowActivities": {
             "type": "array",
             "items": {

@@ -66,13 +66,21 @@ internal static class ExtensionEndpoints
             return ApiErrors.NotFound();
         }
 
-        var row = await RowAsync(db, caller.TenantId, id, enabledIfNew: false, cancellationToken);
+        await EnableExtensionAsync(caller.TenantId, extension, db, roles, contentTypes, termSets, state, cancellationToken);
+        return TypedResults.Ok(ToResponse(extension, enabled: true));
+    }
+
+    /// <summary>Enables the extension in a tenant: its content types and term sets are provisioned, member scopes granted.</summary>
+    internal static async Task EnableExtensionAsync(
+        Guid tenantId, LoadedExtension extension, ExtensionsDbContext db, IRoleProvisioning roles, IContentTypeProvisioning contentTypes,
+        ITermSetProvisioning termSets, ExtensionState state, CancellationToken cancellationToken)
+    {
+        var row = await RowAsync(db, tenantId, extension.Id, enabledIfNew: false, cancellationToken);
         row.Enabled = true;
         await SaveAsync(db, state, cancellationToken);
-        await contentTypes.ProvisionExtensionAsync(caller.TenantId, id, cancellationToken);
-        await termSets.ProvisionExtensionAsync(caller.TenantId, id, cancellationToken);
-        await roles.GrantToMembersAsync(caller.TenantId, [.. extension.Manifest.Scopes.Where(s => s.GrantedToMembers).Select(s => s.Name)], cancellationToken);
-        return TypedResults.Ok(ToResponse(extension, enabled: true));
+        await contentTypes.ProvisionExtensionAsync(tenantId, extension.Id, cancellationToken);
+        await termSets.ProvisionExtensionAsync(tenantId, extension.Id, cancellationToken);
+        await roles.GrantToMembersAsync(tenantId, [.. extension.Manifest.Scopes.Where(s => s.GrantedToMembers).Select(s => s.Name)], cancellationToken);
     }
 
     private static async Task<Results<Ok<ExtensionResponse>, ProblemHttpResult>> DisableAsync(
@@ -153,7 +161,7 @@ internal static class ExtensionEndpoints
         return (stored, effective, errors);
     }
 
-    private static async Task<TenantExtension> RowAsync(ExtensionsDbContext database, Guid tenantId, string id, bool enabledIfNew, CancellationToken cancellationToken)
+    internal static async Task<TenantExtension> RowAsync(ExtensionsDbContext database, Guid tenantId, string id, bool enabledIfNew, CancellationToken cancellationToken)
     {
         var context = database;
         var tenant = tenantId;
@@ -169,7 +177,7 @@ internal static class ExtensionEndpoints
         return row;
     }
 
-    private static async Task SaveAsync(ExtensionsDbContext db, ExtensionState state, CancellationToken cancellationToken)
+    internal static async Task SaveAsync(ExtensionsDbContext db, ExtensionState state, CancellationToken cancellationToken)
     {
         await db.SaveChangesAsync(cancellationToken);
         state.Reset();

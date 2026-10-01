@@ -7,5 +7,6 @@
   <ItemGroup>
     <ProjectReference Include="..\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Tenancy\PaperDotNet.Tenancy.Contracts\PaperDotNet.Tenancy.Contracts.csproj" />
+    <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
   </ItemGroup>
 </Project>

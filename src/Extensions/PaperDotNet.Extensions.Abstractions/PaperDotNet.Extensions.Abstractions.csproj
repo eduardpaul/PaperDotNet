@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\Modules\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Workflows\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Taxonomy\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />

@@ -4,6 +4,7 @@ using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workflows.Data;
 using PaperDotNet.Workflows.Features;
@@ -32,6 +33,8 @@ public sealed class WorkflowsModule : IModule
         services.AddScoped<ScriptRunner>();
         services.AddScoped<WorkflowStarter>();
         services.AddScoped<WorkflowInterpreter>();
+        services.AddScoped<ITemplateHandler>(sp => new WorkflowTemplateHandler(
+            sp.GetRequiredService<WorkflowsDbContext>(), sp.GetServices<IWorkflowActivity>(), sp.GetRequiredService<TimeProvider>()));
         services.AddWorkflowActivity<ItemCreateActivity>();
         services.AddWorkflowActivity<ItemUpdateActivity>();
     }
