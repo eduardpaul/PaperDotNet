@@ -68,7 +68,7 @@ internal static class PaperDotNetHost
         services.AddPaperDotNetExtensions(configuration, [.. ReferencedExtensions.Create(), .. AdditionalExtensions]);
 
         // Source-generated JSON of every module, for the API and the message queue.
-        var json = JsonTypeInfoResolver.Combine([.. Modules.Select(m => m.Json).OfType<IJsonTypeInfoResolver>()]);
+        var json = JsonTypeInfoResolver.Combine([HostJson.Default, .. Modules.Select(m => m.Json).OfType<IJsonTypeInfoResolver>()]);
         services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, json));
         services.AddProblemDetails();
         services.AddHealthChecks();
@@ -113,6 +113,7 @@ internal static class PaperDotNetHost
             module.MapEndpoints(app);
         }
 
+        Batch.Map(app);
         app.MapHealthChecks("/health");
         app.MapOpenApi();
         return app;

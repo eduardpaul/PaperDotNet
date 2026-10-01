@@ -22,7 +22,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | done (steps below). AOT smoke with the AI module and the OpenAI SDK: binary 87 MB, idle 140 MB, 233 MB under load |
 | T15 | XL | Documents (PDF libraries, page images, OCR) | done (steps below). AOT smoke with a PDF upload (text, thumbnail, page image, search): binary 98 MB, idle 135 MB after a post-start GC compaction, 281 MB under load with the workstation GC |
 | T16 | M | MCP, admin CLI, backup and restore, Papermerge import, the audit log across modules | done (steps below); the Papermerge import tool and the client CLI moved to T17 |
-| T17 | XL | PostgreSQL build, SDK regeneration, web UI (with the authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in); the Papermerge import tool (`ToPort/PapermergeImportTests.cs`, PostgreSQL) and the client CLI `pdn` (`ToPort/ClientCliTests.cs`, on the regenerated SDK) | |
+| T17 | XL | PostgreSQL build, SDK regeneration, web UI (with the authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in); the Papermerge import tool and the client CLI `pdn`; what is left in `ToPort/` | in progress (steps below) |
 
 Status values: empty = not started; "in progress"; "done" (with what moved to a later task).
 
@@ -109,3 +109,15 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | T16d | Tenants from the host name (custom hosts, host template) and the `X-Tenant` header (the old Tenancy module on Finbuckle), behind a reverse proxy; then remove `src/Modules/Tenancy` | done. `TenantResolver` in Identity (custom hosts in `tenant_hosts`, `Tenancy:HostTemplate` with `{tenant}`, `Tenancy:AllowHeader`), a short cache of found tenants; the token endpoint signs in to the named tenant, `TenantGuardMiddleware` answers `404 tenantNotFound` and `403 tenantMismatch`; `/v1.0/organization` lists the hosts; `paperdotnet tenant create --host`. Finbuckle and `PaperDotNet.Tenancy` are gone (the contracts stay) |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).
+
+### T17 steps (in order)
+
+| Step | Task | Status |
+|---|---|---|
+| T17a | Sweep `ToPort/`: port the cases still missing for ported modules (lists, workflows and scripts, permissions and scope fan-out, extensions and extension tables, workspaces, nested groups, indexed fields, events and jobs, cross-list queries, portability, the receipts package, health and OpenAPI document, tenant isolation) and delete the files they cover | |
+| T17b | JSON batching (`/v1.0/$batch`, `ToPort/BatchTests.cs`) | done. Sub-requests run through a branch of the application's pipeline (routing, authentication, the tenant guard, authorization); bodies through source-generated JSON (`HostJson`). Endpoints mapped by the host itself are not in the OpenAPI document yet: T17e |
+| T17c | Semantic and hybrid search (T12e: embeddings when `AI:Embeddings` is configured, `ToPort/SemanticSearchTests.cs`) | |
+| T17d | Sign-in for apps: `/connect/authorize` (authorization code with PKCE), OAuth client applications, passkeys, account pages, reverse-proxy sign-in (`ToPort/OAuthTests.cs`, `AuthenticationTests.cs`, `AccountTests.cs`, `ReverseProxyTests.cs`) | |
+| T17e | SDK regeneration from the AOT API (`sdk/openapi.json`, Kiota C#, TypeScript and Python; `SdkContractTests`, `ClientSdkTests`; `$batch` in the document) and the client CLI `pdn` (`ClientCliTests`) | |
+| T17f | Web UI on the AOT API (`web/`, Playwright, `WebUiTests`; the CI job back on) | |
+| T17g | PostgreSQL build (provider, migrations as SQL, RLS, LISTEN/NOTIFY for live events, `LiveEventBackplaneTests`) and the Papermerge import tool (`PapermergeImportTests`) | |

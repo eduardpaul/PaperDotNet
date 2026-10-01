@@ -180,6 +180,10 @@ done
 [[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/auditLog" --data-urlencode 'entityType=workspaces.Workspace' | json 'd["value"][-1]["action"]') == created ]] \
   || fail "audit log of every module"
 
+# JSON batching: sub-requests run through the application's pipeline.
+[[ $(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/\$batch" -d '{"requests":[{"id":"1","method":"GET","url":"/me"}]}' \
+  | json 'd["responses"][0]["status"]') == 200 ]] || fail "batch"
+
 # MCP (Streamable HTTP, stateless): the tools of the caller.
 curl -sf "${AUTH[@]}" "${JSON[@]}" -H 'Accept: application/json, text/event-stream' "$BASE/v1.0/mcp" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | grep -q '"query_items"' || fail "MCP tools"

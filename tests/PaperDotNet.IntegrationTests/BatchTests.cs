@@ -1,19 +1,24 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace PaperDotNet.IntegrationTests;
 
 /// <summary>JSON batching (API-04).</summary>
-public sealed class BatchTests(PaperDotNetApiFactory factory)
+public sealed class BatchTests : IAsyncLifetime
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    private readonly TestHost _host = new(settings: new Dictionary<string, string> { ["Tenancy:AllowHeader"] = "true" });
+
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+
+    public ValueTask DisposeAsync() => _host.DisposeAsync();
 
     private static async Task<Dictionary<string, JsonElement>> BatchAsync(HttpClient client, params object[] requests)
     {
         var response = await client.PostAsJsonAsync("/v1.0/$batch", new { requests }, Ct);
         Assert.True(response.StatusCode == HttpStatusCode.OK, await response.Content.ReadAsStringAsync(Ct));
-        return (await response.ReadJsonAsync()).GetProperty("responses").EnumerateArray().ToDictionary(r => r.GetProperty("id").GetString()!);
+        return (await response.JsonAsync(HttpStatusCode.OK)).GetProperty("responses").EnumerateArray().ToDictionary(r => r.GetProperty("id").GetString()!);
     }
 
     private static int Status(JsonElement response) => response.GetProperty("status").GetInt32();
@@ -21,11 +26,9 @@ public sealed class BatchTests(PaperDotNetApiFactory factory)
     [Fact]
     public async Task A_batch_runs_requests_in_order_with_their_own_status()
     {
-        await factory.CreateTenantAsync("batch-basic");
-        var client = await ApiClient.CreateAsync(factory, "batch-basic");
-        var ws = await client.CreateWorkspaceAsync("Batch");
-        var contentType = await client.CreateContentTypeAsync("Row", [new { name = "note", type = "text" }]);
-        var list = await client.CreateListAsync(ws, "Rows", contentType);
+        var client = await _host.SignInAsync();
+        var ws = await Api.CreateWorkspaceAsync(client, "Batch");
+        var list = (await Api.CreateListAsync(client, ws, "Rows", new[] { new { name = "note", type = "text" } })).Id();
         var items = $"/workspaces/{ws}/lists/{list}/items";
 
         var responses = await BatchAsync(client,
@@ -48,7 +51,7 @@ public sealed class BatchTests(PaperDotNetApiFactory factory)
         Assert.Equal(400, Status(responses["invalid"]));
 
         // The ETag from one response works in a later batch (If-Match header).
-        var id = responses["add"].GetProperty("body").GetProperty("id").GetGuid();
+        var id = responses["add"].GetProperty("body").GetProperty("id").GetString();
         var etag = responses["add"].GetProperty("headers").GetProperty("ETag").GetString();
         var update = await BatchAsync(client, new { id = "1", method = "PATCH", url = $"{items}/{id}", headers = new Dictionary<string, string> { ["If-Match"] = etag! }, body = new { fields = new { note = "changed" } } });
         Assert.Equal(200, Status(update["1"]));
@@ -57,8 +60,7 @@ public sealed class BatchTests(PaperDotNetApiFactory factory)
     [Fact]
     public async Task Batches_are_validated_and_need_authentication()
     {
-        await factory.CreateTenantAsync("batch-rules");
-        var client = await ApiClient.CreateAsync(factory, "batch-rules");
+        var client = await _host.SignInAsync();
         static async Task<HttpStatusCode> PostAsync(HttpClient c, object body) => (await c.PostAsJsonAsync("/v1.0/$batch", body, Ct)).StatusCode;
 
         Assert.Equal(HttpStatusCode.BadRequest, await PostAsync(client, new { requests = Array.Empty<object>() }));
@@ -71,23 +73,20 @@ public sealed class BatchTests(PaperDotNetApiFactory factory)
             requests = new object[] { new { id = "1", method = "GET", url = "/me", dependsOn = new[] { "2" } }, new { id = "2", method = "GET", url = "/me" } },
         }));
 
-        var anonymous = factory.CreateClient();
-        anonymous.DefaultRequestHeaders.Add("X-Tenant", "batch-rules");
+        var anonymous = _host.CreateClient();
         Assert.Equal(HttpStatusCode.Unauthorized, await PostAsync(anonymous, new { requests = new[] { new { id = "1", method = "GET", url = "/me" } } }));
     }
 
     [Fact]
     public async Task Sub_requests_stay_in_the_callers_tenant()
     {
-        await factory.CreateTenantAsync("batch-isolation-a");
-        await factory.CreateTenantAsync("batch-isolation-b");
-        var a = await ApiClient.CreateAsync(factory, "batch-isolation-a");
-        var b = await ApiClient.CreateAsync(factory, "batch-isolation-b");
-        var workspace = await a.CreateWorkspaceAsync("Only A");
+        var a = await _host.SignInAsync();
+        var b = await _host.CreateTenantAsync("batch-isolation-b");
+        var workspace = await Api.CreateWorkspaceAsync(a, "Only A");
 
         var responses = await BatchAsync(b,
             new { id = "1", method = "GET", url = $"/workspaces/{workspace}" },
-            new { id = "2", method = "GET", url = $"/workspaces/{workspace}", headers = new Dictionary<string, string> { ["X-Tenant"] = "batch-isolation-a" } });
+            new { id = "2", method = "GET", url = $"/workspaces/{workspace}", headers = new Dictionary<string, string> { ["X-Tenant"] = "default" } });
         Assert.Equal(404, Status(responses["1"]));
         Assert.True(Status(responses["2"]) is 401 or 403 or 404, responses["2"].ToString());
     }
