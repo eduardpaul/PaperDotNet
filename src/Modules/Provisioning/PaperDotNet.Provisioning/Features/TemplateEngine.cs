@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Schema;
-using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Provisioning.Contracts;
 
@@ -15,7 +14,7 @@ public sealed record TemplateResult(bool DryRun, IReadOnlyList<TemplateChange> C
 /// Exports and applies templates (PRV-01/02) by running the sections of every module in order.
 /// Apply always runs a dry run first and writes only when it succeeds.
 /// </summary>
-public sealed class TemplateEngine(ITenantScopeFactory scopes, ITenantContext tenant, ICurrentUser user)
+public sealed class TemplateEngine(IServiceScopeFactory scopes)
 {
     private static readonly XName WorkspacesName = TemplateXml.Name("Workspaces");
     private static readonly XName WorkspaceName = TemplateXml.Name("Workspace");
@@ -28,7 +27,7 @@ public sealed class TemplateEngine(ITenantScopeFactory scopes, ITenantContext te
     /// </summary>
     private async Task<T> InScopeAsync<T>(Func<Sections, Task<T>> run)
     {
-        await using var scope = scopes.CreateScope(tenant.TenantId!.Value, tenant.TenantIdentifier!, user.UserId);
+        await using var scope = scopes.CreateAsyncScope();
         var containers = scope.ServiceProvider.GetServices<ITemplateContainer>().ToList();
         return await run(new Sections(
             [.. scope.ServiceProvider.GetServices<ITemplateHandler>()],
@@ -46,13 +45,13 @@ public sealed class TemplateEngine(ITenantScopeFactory scopes, ITenantContext te
     /// Exports the tenant, or one workspace with the tenant-level objects it depends on; with a
     /// <paramref name="package"/>, sections also write their content (items, files) into it (PRV-04).
     /// </summary>
-    public Task<XDocument> ExportAsync(Guid? workspaceId, ITemplatePackage? package, CancellationToken ct) =>
-        InScopeAsync(sections => ExportAsync(sections, workspaceId, package, ct));
+    public Task<XDocument> ExportAsync(ChangeActor actor, Guid? workspaceId, ITemplatePackage? package, CancellationToken ct) =>
+        InScopeAsync(sections => ExportAsync(sections, actor, workspaceId, package, ct));
 
-    private static async Task<XDocument> ExportAsync(Sections sections, Guid? workspaceId, ITemplatePackage? package, CancellationToken ct)
+    private static async Task<XDocument> ExportAsync(Sections sections, ChangeActor actor, Guid? workspaceId, ITemplatePackage? package, CancellationToken ct)
     {
         var scope = workspaceId is null ? TemplateScope.Tenant : TemplateScope.Workspace;
-        var context = new TemplateContext(scope, dryRun: false) { WorkspaceId = workspaceId, Package = package };
+        var context = new TemplateContext(actor, scope, dryRun: false) { WorkspaceId = workspaceId, Package = package };
 
         // Workspaces first: in a workspace template they decide which tenant-level objects are needed.
         var workspaces = new List<XElement>();
@@ -113,7 +112,7 @@ public sealed class TemplateEngine(ITenantScopeFactory scopes, ITenantContext te
     }
 
     /// <summary>Validates and applies a template (substituted and schema-valid); throws <see cref="TemplateException"/>.</summary>
-    public async Task<TemplateResult> ApplyAsync(XElement root, Guid? targetWorkspaceId, bool dryRun, CancellationToken ct, ITemplatePackage? package = null)
+    public async Task<TemplateResult> ApplyAsync(ChangeActor actor, XElement root, Guid? targetWorkspaceId, bool dryRun, CancellationToken ct, ITemplatePackage? package = null)
     {
         var scope = root.EnumAttr("Scope", TemplateScope.Tenant);
         var workspaceCount = root.Element(WorkspacesName)?.Elements(WorkspaceName).Count() ?? 0;
@@ -122,14 +121,14 @@ public sealed class TemplateEngine(ITenantScopeFactory scopes, ITenantContext te
             throw new TemplateException("A template applied to a workspace needs exactly one Workspace element.", root);
         }
 
-        var plan = await InScopeAsync(sections => RunAsync(sections, root, scope, targetWorkspaceId, dryRun: true, package, ct));
-        return dryRun ? plan : await InScopeAsync(sections => RunAsync(sections, root, scope, targetWorkspaceId, dryRun: false, package, ct));
+        var plan = await InScopeAsync(sections => RunAsync(sections, actor, root, scope, targetWorkspaceId, dryRun: true, package, ct));
+        return dryRun ? plan : await InScopeAsync(sections => RunAsync(sections, actor, root, scope, targetWorkspaceId, dryRun: false, package, ct));
     }
 
     private static async Task<TemplateResult> RunAsync(
-        Sections sections, XElement root, TemplateScope scope, Guid? targetWorkspaceId, bool dryRun, ITemplatePackage? package, CancellationToken ct)
+        Sections sections, ChangeActor actor, XElement root, TemplateScope scope, Guid? targetWorkspaceId, bool dryRun, ITemplatePackage? package, CancellationToken ct)
     {
-        var context = new TemplateContext(scope, dryRun) { Package = package };
+        var context = new TemplateContext(actor, scope, dryRun) { Package = package };
         await ApplySectionsAsync(sections, root, TemplateLevel.Tenant, context, [TemplateXml.Name("Description"), TemplateXml.Name("Parameters"), WorkspacesName], ct);
         foreach (var workspace in root.Element(WorkspacesName)?.Elements(WorkspaceName) ?? [])
         {

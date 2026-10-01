@@ -18,7 +18,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T10 | S-M | Notes, Collaboration, Notifications | done (steps below); the message store keeps SQLite's own cache and no mmap (ADR-0039) |
 | T11 | M | Tasks and Calendar | done (steps below); Ical.Net works under AOT with its assembly rooted |
 | T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | done (steps below; semantic search is T12e, after the AI workflows of T14). AOT smoke with smart folders: idle 138 MB (close to the 150 MB budget: watch it), 226 MB under load |
-| T13 | M | Provisioning and templates | |
+| T13 | M | Provisioning and templates | in progress (steps below) |
 | T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | |
 | T15 | XL | Documents (PDF libraries, page images, OCR) | |
 | T16 | M | MCP, admin CLI, backup and restore, Papermerge import, the audit log across modules | |
@@ -72,5 +72,13 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | T12c | Search: SQLite FTS5 index from item events, access trimming by scope, page hits, comments, `ITermUsage` and popular keywords | done. FTS5 tables keyed on declared integer keys (row ids survive `VACUUM`), SQL per provider (`ISearchQueries`), id sets as one `json_each` parameter; permission moves refresh document scopes after the folder move completes |
 | T12d | Smart folders (from T08g): saved term filters that assign terms | done. Each list runs the folder's OData filter (term subtrees through `TermHierarchy`), pages merge newest first with a keyset cursor on `updatedAt`/`id`; sub-folders count values per list. Shared folders in workspace templates come with T13 (`ToPort/SmartFolderTests.cs`) |
 | T12e | Semantic and hybrid search (embeddings, `AI:Embeddings`), after T14's AI workflows; the search MCP tool with T16 | |
+
+### T13 steps (in order)
+
+| Step | Task | Status |
+|---|---|---|
+| T13a | Provisioning engine and contracts with the tenant and actor on `TemplateContext`, XML apply/export/schema endpoints, the `Workspace` and `List` containers, the `ContentTypes` section | done |
+| T13b | Sections: groups, roles and users (Identity), term groups (Taxonomy), smart folders (Lists), workflows, extensions (enable, settings, `IExtensionBuilder.AddTemplateSection`) | |
+| T13c | Packages with content (zip: items, folders, values, files), export and import as operations, cleanup job | |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

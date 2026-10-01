@@ -8078,6 +8078,101 @@
           }
         }
       }
+    },
+    "/v1.0/provisioning/schema": {
+      "get": {
+        "tags": [
+          "Provisioning"
+        ],
+        "operationId": "GetTemplateSchema",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1.0/provisioning/export": {
+      "get": {
+        "tags": [
+          "Provisioning"
+        ],
+        "description": "Exports the organization (no workspaceId) or one workspace with what it depends on, as XML.",
+        "operationId": "ExportTemplate",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1.0/provisioning/apply": {
+      "post": {
+        "tags": [
+          "Provisioning"
+        ],
+        "description": "Applies the template in the body (XML): dryRun=true lists the planned changes only; workspaceId applies a workspace template to that workspace; parameters[Name]=value sets parameters. Nothing is written when validation or the dry run fails.",
+        "operationId": "ApplyTemplate",
+        "parameters": [
+          {
+            "name": "dryRun",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/xml": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -12707,6 +12802,64 @@
           }
         }
       },
+      "TemplateChange": {
+        "required": [
+          "action",
+          "kind",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/TemplateChangeAction"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "A change an apply makes (or would make, in a dry run)."
+      },
+      "TemplateChangeAction": {
+        "enum": [
+          "create",
+          "update"
+        ]
+      },
+      "TemplateResult": {
+        "required": [
+          "dryRun",
+          "changes",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "dryRun": {
+            "type": "boolean"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateChange"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "Outcome of an apply: the changes made (or planned, in a dry run) and warnings."
+      },
       "TermGroupRequest": {
         "required": [
           "name",
@@ -13701,6 +13854,9 @@
     },
     {
       "name": "Permissions"
+    },
+    {
+      "name": "Provisioning"
     },
     {
       "name": "Recycle bin"

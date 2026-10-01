@@ -7,6 +7,7 @@
     <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
     <ProjectReference Include="..\..\Taxonomy\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
     <ProjectReference Include="..\..\Search\PaperDotNet.Search.Contracts\PaperDotNet.Search.Contracts.csproj" />
+    <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Only the URI parser for $filter/$orderby, not ASP.NET Core OData. -->

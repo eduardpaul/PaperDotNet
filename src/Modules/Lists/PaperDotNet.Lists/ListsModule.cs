@@ -2,6 +2,7 @@ using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
@@ -10,8 +11,10 @@ using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
 using PaperDotNet.Lists.Templates;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Search.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
+using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists;
 
@@ -61,6 +64,15 @@ public sealed class ListsModule : IModule
             sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ITermStore>(), sp.GetRequiredService<ISearchIndex>(), sp.GetServices<IItemSearchContributor>()));
         services.AddScoped<ISearchSource>(sp => sp.GetRequiredService<ItemSearchDocuments>());
         services.AddScoped<SmartFolderQuery>();
+
+        // Provisioning templates (ADR-0017): the ContentTypes section and the List element.
+        services.AddScoped(sp => new ListTemplateLookups(sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<IWorkspaceAccess>(), sp.GetRequiredService<ITermStore>()));
+        services.AddScoped<ITemplateHandler>(sp => new ContentTypeTemplateHandler(
+            sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<FieldTypeRegistry>(), sp, sp.GetRequiredService<ListTemplateRegistry>(),
+            sp.GetRequiredService<ContentTypeProvisioner>(), sp.GetRequiredService<ITermStore>(), sp.GetRequiredService<ListTemplateLookups>()));
+        services.AddScoped<ITemplateContainer>(sp => new ListTemplateContainer(
+            sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ListTemplateRegistry>(), sp.GetRequiredService<ContentTypeProvisioner>(), sp,
+            sp.GetRequiredService<ItemQueryRunner>(), sp.GetRequiredService<IUserDirectory>()));
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
         services.AddOperationHandler<BulkUpdateOperation>();

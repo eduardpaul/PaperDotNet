@@ -5,6 +5,7 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 using PaperDotNet.Workspaces.Data;
 using PaperDotNet.Workspaces.Features;
@@ -24,6 +25,8 @@ public sealed class WorkspacesModule : IModule
         services.AddScopes(WorkspaceScopes.All);
         services.AddScoped<WorkspaceAccess>();
         services.AddScoped<IWorkspaceAccess>(sp => sp.GetRequiredService<WorkspaceAccess>());
+        services.AddScoped<ITemplateContainer>(sp => new WorkspaceTemplateContainer(
+            sp.GetRequiredService<WorkspacesDbContext>(), sp.GetRequiredService<WorkspaceAccess>(), sp.GetRequiredService<IUserDirectory>()));
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => WorkspaceEndpoints.Map(endpoints);

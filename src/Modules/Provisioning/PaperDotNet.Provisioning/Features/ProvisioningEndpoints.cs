@@ -1,9 +1,6 @@
 using System.Text;
 using System.Xml;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
 using PaperDotNet.Api;
 using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Workspaces.Contracts;
@@ -19,48 +16,33 @@ internal static class ProvisioningEndpoints
     public const string XmlContentType = "application/xml";
     private const int MaxTemplateBytes = 10 * 1024 * 1024;
 
-    /// <summary>Packages sent to <c>apply</c> (larger ones go through the import operation, PLT-13).</summary>
-    public const long MaxPackageBytes = 512L * 1024 * 1024;
     private const string ParameterPrefix = "parameters[";
 
     public static void Map(IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapV1Group("provisioning", "Provisioning");
+        var group = endpoints.MapGroup("/v1.0/provisioning").WithTags("Provisioning");
         group.MapGet("/schema", () => TypedResults.Text(TemplateReader.Schema, XmlContentType, Encoding.UTF8))
-            .AllowAnonymous().WithName("GetTemplateSchema").ProducesBinary(XmlContentType);
-        group.MapGet("/export", ExportAsync).RequireScope(ProvisioningScopes.Read).WithName("ExportTemplate").ProducesBinary(XmlContentType, ZipTemplatePackage.ContentType);
+            .AllowAnonymous().WithName("GetTemplateSchema").Produces(StatusCodes.Status200OK, contentType: XmlContentType);
+        group.MapGet("/export", ExportAsync).RequireScope(ProvisioningScopes.Read).WithName("ExportTemplate")
+            .Produces(StatusCodes.Status200OK, contentType: XmlContentType)
+            .WithDescription("Exports the organization (no workspaceId) or one workspace with what it depends on, as XML.");
         group.MapPost("/apply", ApplyAsync).RequireScope(ProvisioningScopes.Manage).WithName("ApplyTemplate")
-            .Accepts<string>(XmlContentType, ZipTemplatePackage.ContentType);
+            .Accepts<string>(XmlContentType)
+            .WithDescription("Applies the template in the body (XML): dryRun=true lists the planned changes only; workspaceId applies a workspace "
+                + "template to that workspace; parameters[Name]=value sets parameters. Nothing is written when validation or the dry run fails.");
     }
 
-    /// <summary>
-    /// Exports the tenant (no <c>workspaceId</c>) or one workspace with what it depends on. With
-    /// <c>includeContent=true</c> the result is a package (zip) that also holds the items and files (PRV-04).
-    /// </summary>
-    private static async Task<Results<FileContentHttpResult, FileStreamHttpResult, ProblemHttpResult>> ExportAsync(
-        Guid? workspaceId, bool? includeContent, TemplateEngine engine, IWorkspaceAccess workspaces, CancellationToken ct)
+    private static async Task<Results<FileContentHttpResult, ProblemHttpResult>> ExportAsync(
+        Guid? workspaceId, Caller caller, TemplateEngine engine, IWorkspaceAccess workspaces, CancellationToken ct)
     {
-        if (workspaceId is { } id && await CheckWorkspaceAsync(workspaces, id, ct) is { } denied)
+        if (workspaceId is { } id && await CheckWorkspaceAsync(workspaces, caller, id, ct) is { } denied)
         {
             return denied;
         }
 
-        if (includeContent == true)
-        {
-            try
-            {
-                var file = await PackageFile.ExportAsync(engine, workspaceId, ct);
-                return TypedResults.File(file, ZipTemplatePackage.ContentType, workspaceId is null ? "tenant-package.zip" : "workspace-package.zip");
-            }
-            catch (TemplateException ex)
-            {
-                return ApiErrors.Conflict("cannotExport", ex.Message);
-            }
-        }
-
         try
         {
-            var document = await engine.ExportAsync(workspaceId, null, ct);
+            var document = await engine.ExportAsync(caller.Actor, workspaceId, null, ct);
             using var stream = new MemoryStream();
             await using (var writer = XmlWriter.Create(stream, new XmlWriterSettings { Async = true, Indent = true, Encoding = new UTF8Encoding(false) }))
             {
@@ -81,23 +63,17 @@ internal static class ProvisioningEndpoints
     /// sets parameters. Nothing is written when validation or the dry run fails.
     /// </summary>
     private static async Task<Results<Ok<TemplateResult>, ValidationProblem, ProblemHttpResult>> ApplyAsync(
-        HttpRequest request, bool? dryRun, Guid? workspaceId, TemplateEngine engine, IWorkspaceAccess workspaces, CancellationToken ct)
+        HttpRequest request, bool? dryRun, Guid? workspaceId, Caller caller, TemplateEngine engine, IWorkspaceAccess workspaces, CancellationToken ct)
     {
-        var isPackage = request.ContentType?.StartsWith(ZipTemplatePackage.ContentType, StringComparison.OrdinalIgnoreCase) == true;
-        if (!isPackage && (request.ContentType is not { } contentType
-            || !(contentType.StartsWith(XmlContentType, StringComparison.OrdinalIgnoreCase) || contentType.StartsWith("text/xml", StringComparison.OrdinalIgnoreCase))))
+        if (request.ContentType is not { } contentType
+            || !(contentType.StartsWith(XmlContentType, StringComparison.OrdinalIgnoreCase) || contentType.StartsWith("text/xml", StringComparison.OrdinalIgnoreCase)))
         {
-            return ApiErrors.Problem(StatusCodes.Status415UnsupportedMediaType, "unsupportedMediaType", "Send the template as application/xml, or a package as application/zip.");
+            return ApiErrors.Problem(StatusCodes.Status415UnsupportedMediaType, "unsupportedMediaType", "Send the template as application/xml.");
         }
 
-        if (workspaceId is { } id && await CheckWorkspaceAsync(workspaces, id, ct) is { } denied)
+        if (workspaceId is { } id && await CheckWorkspaceAsync(workspaces, caller, id, ct) is { } denied)
         {
             return denied;
-        }
-
-        if (isPackage)
-        {
-            return await ApplyPackageAsync(request, dryRun == true, workspaceId, engine, ct);
         }
 
         if (request.ContentLength > MaxTemplateBytes)
@@ -138,7 +114,7 @@ internal static class ProvisioningEndpoints
         TemplateResult plan;
         try
         {
-            plan = await engine.ApplyAsync(document.Root!, workspaceId, dryRun: true, ct);
+            plan = await engine.ApplyAsync(caller.Actor, document.Root!, workspaceId, dryRun: true, ct);
         }
         catch (TemplateException ex)
         {
@@ -152,43 +128,12 @@ internal static class ProvisioningEndpoints
 
         try
         {
-            var result = await engine.ApplyAsync(document.Root!, workspaceId, dryRun: false, ct);
+            var result = await engine.ApplyAsync(caller.Actor, document.Root!, workspaceId, dryRun: false, ct);
             return TypedResults.Ok(result with { Warnings = [.. warnings, .. result.Warnings] });
         }
         catch (TemplateException ex)
         {
             return ApiErrors.Conflict("applyFailed", $"{ex.Message} Part of the template may have been applied; fix the problem and apply it again.");
-        }
-    }
-
-    /// <summary>A package (zip): spooled to a temporary file, then its template is read, checked and applied with it.</summary>
-    private static async Task<Results<Ok<TemplateResult>, ValidationProblem, ProblemHttpResult>> ApplyPackageAsync(
-        HttpRequest request, bool dryRun, Guid? workspaceId, TemplateEngine engine, CancellationToken ct)
-    {
-        if (request.HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
-        {
-            limit.MaxRequestBodySize = MaxPackageBytes;
-        }
-
-        if (request.ContentLength > MaxPackageBytes)
-        {
-            return ApiErrors.Problem(StatusCodes.Status413PayloadTooLarge, "packageTooLarge", "Packages may be at most 512 MB here; use the import operation.");
-        }
-
-        await using var file = await PackageFile.SpoolAsync(request.Body, MaxPackageBytes, ct);
-        if (file is null)
-        {
-            return ApiErrors.Problem(StatusCodes.Status413PayloadTooLarge, "packageTooLarge", "Packages may be at most 512 MB here; use the import operation.");
-        }
-
-        try
-        {
-            var (result, errors) = await PackageFile.ApplyAsync(engine, file, Parameters(request), workspaceId, dryRun, ct);
-            return result is null ? Invalid(errors) : TypedResults.Ok(result);
-        }
-        catch (TemplateException ex)
-        {
-            return ApiErrors.Conflict("applyFailed", $"{ex.Message} Part of the package may have been applied; fix the problem and apply it again.");
         }
     }
 
@@ -206,8 +151,8 @@ internal static class ProvisioningEndpoints
         return parameters;
     }
 
-    private static async Task<ProblemHttpResult?> CheckWorkspaceAsync(IWorkspaceAccess workspaces, Guid workspaceId, CancellationToken ct) =>
-        await workspaces.GetPermissionAsync(workspaceId, ct) switch
+    private static async Task<ProblemHttpResult?> CheckWorkspaceAsync(IWorkspaceAccess workspaces, Caller caller, Guid workspaceId, CancellationToken ct) =>
+        await workspaces.GetPermissionAsync(caller.TenantId, caller.UserId, workspaceId, ct) switch
         {
             WorkspaceAccessLevel.None => ApiErrors.NotFound(),
             < WorkspaceAccessLevel.Manage => ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "Managing the workspace is required."),

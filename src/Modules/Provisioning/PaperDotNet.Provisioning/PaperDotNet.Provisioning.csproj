@@ -1,19 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Provisioning templates (phase 5a, PRV-01…05): export and apply configuration as XML.
-    Modules and extensions contribute sections through ITemplateHandler; this module only
-    orchestrates. Built on the public extension SDK only (enforced by the architecture tests).
+    Provisioning templates (PRV-01…05): export and apply configuration as XML. Modules and extensions contribute
+    sections through ITemplateHandler; this module only orchestrates (ADR-0017).
   -->
+  <Import Project="..\..\AotModule.props" />
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Abstractions\PaperDotNet.Extensions.Abstractions.csproj" />
-    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
+    <ProjectReference Include="..\..\Workspaces\PaperDotNet.Workspaces.Contracts\PaperDotNet.Workspaces.Contracts.csproj" />
+    <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Schema\template-1.0.xsd" LogicalName="PaperDotNet.Provisioning.Schema.template-1.0.xsd" />
   </ItemGroup>
   <ItemGroup>
-    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
-    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+    <!-- Packages with content and the export/import operations come with T13c. -->
+    <Compile Remove="Data/ProvisioningDbContext.cs;Features/PackageFile.cs;Features/TemplatePackage.cs;Features/Portability.cs" />
+    <None Include="Data/ProvisioningDbContext.cs;Features/PackageFile.cs;Features/TemplatePackage.cs;Features/Portability.cs" />
   </ItemGroup>
 </Project>

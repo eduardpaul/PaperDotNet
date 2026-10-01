@@ -2,8 +2,10 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Xml;
 using System.Xml.Linq;
+using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Provisioning.Contracts;
 
@@ -34,9 +36,13 @@ public enum TemplateLevel
     List = 2,
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<TemplateChangeAction>))]
 public enum TemplateChangeAction
 {
+    [JsonStringEnumMemberName("create")]
     Create = 0,
+
+    [JsonStringEnumMemberName("update")]
     Update = 1,
 }
 
@@ -72,16 +78,22 @@ public static class TemplateKinds
 }
 
 /// <summary>
-/// State of one export or apply, shared by all handlers: the current workspace and list, the
-/// ids registered by earlier sections (resolved or planned), the recorded changes and warnings.
+/// State of one export or apply, shared by all handlers: the tenant and who acts (no ambient tenant under Native AOT,
+/// ADR-0039), the current workspace and list, the ids registered by earlier sections (resolved or planned), the recorded
+/// changes and warnings.
 /// </summary>
-public sealed class TemplateContext(TemplateScope scope, bool dryRun)
+public sealed class TemplateContext(ChangeActor actor, TemplateScope scope, bool dryRun)
 {
     private readonly List<TemplateChange> _changes = [];
     private readonly List<string> _warnings = [];
     private readonly Dictionary<(string Kind, string Key), Guid> _ids = [];
     private readonly HashSet<(string Kind, string Key)> _required = [];
     private readonly List<Func<CancellationToken, Task>> _deferred = [];
+
+    /// <summary>The tenant and user the template is exported or applied for.</summary>
+    public ChangeActor Actor => actor;
+
+    public Guid TenantId => actor.TenantId;
 
     public TemplateScope Scope => scope;
 
