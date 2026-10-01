@@ -105,7 +105,7 @@ public class GroupNesting : ITenantOwned
 /// table). Derived from <see cref="GroupNesting"/>: <see cref="IdentityDbContext"/> keeps it current on every save, so
 /// "the groups of a user" is one join.
 /// </summary>
-public class GroupClosure : ITenantOwned
+public class GroupClosure : ITenantOwned, INotAudited
 {
     public Guid TenantId { get; set; }
 

@@ -6,7 +6,7 @@ namespace PaperDotNet.Jobs.Data;
 #pragma warning disable CA1852 // Not sealed: EF Core precompiled materializers (ADR-0039).
 
 /// <summary>A long-running operation (Graph-style <c>/operations/{id}</c>), readable by the user who started it.</summary>
-public class Operation : ITenantOwned
+public class Operation : ITenantOwned, INotAudited
 {
     public Guid Id { get; set; }
 

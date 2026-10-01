@@ -1,10 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
 using JasperFx;
 using PaperDotNet.Host;
+using PaperDotNet.Host.Cli;
 using PaperDotNet.Identity.Features;
 using PaperDotNet.Persistence.Sqlite;
 
-// One binary: `paperdotnet` serves the API; `paperdotnet healthcheck` probes it (container HEALTHCHECK);
+// One binary: `paperdotnet` serves the API; `paperdotnet healthcheck` probes it (container HEALTHCHECK); admin commands
+// (`paperdotnet backup`, `export`, `tenant create`, …, AdminCli) run on the built application without serving;
 // `paperdotnet codegen write` (JIT build only) writes the Wolverine handler code that the AOT build compiles in.
 if (args is ["healthcheck", ..])
 {
@@ -12,7 +14,8 @@ if (args is ["healthcheck", ..])
 }
 
 var generatingCode = args is ["codegen", ..];
-var builder = WebApplication.CreateSlimBuilder(generatingCode ? [] : args);
+var adminCommand = AdminCli.IsCommand(args);
+var builder = WebApplication.CreateSlimBuilder(generatingCode || adminCommand ? [] : args);
 
 // Settings from PAPERDOTNET__Section__Key environment variables (deploy/.env), over appsettings.json.
 builder.Configuration.AddEnvironmentVariables("PAPERDOTNET__");
@@ -22,6 +25,11 @@ var app = builder.Build();
 if (generatingCode)
 {
     return await CodeGeneration.RunAsync(app, args);
+}
+
+if (adminCommand)
+{
+    return await AdminCli.RunAsync(app.Services, args);
 }
 
 await SqliteDatabase.MigrateAsync(app.Services);

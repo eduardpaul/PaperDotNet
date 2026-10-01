@@ -73,7 +73,8 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
   (requests, responses, events, OpenAPI parameter types); the host combines them for HTTP and Wolverine.
 - **EF Core queries must precompile:**
   - one LINQ expression from a `DbSet` property to the terminal operator, never composed over several statements
-    (write two static queries instead of an `if`);
+    (write two static queries instead of an `if`; optional filters can be null parameters in one query,
+    `(type == null || a.EntityType == type)`, as in `/v1.0/auditLog`);
   - copy the DbContext and every value the query uses into locals first (EF Core cannot yet bind method, lambda or
     primary-constructor parameters, dotnet/efcore#35887), constants and static fields too (`.Take(batch)`, not
     `.Take(Batch)`: the precompiler fails with "unknown identifier");
@@ -84,6 +85,13 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
   - no `Skip` and `Take` in one query: precompiled, both get the parameter `@p` and the offset takes the limit's
     value (page by keyset on the time-ordered id instead);
   - entities live in the DbContext's namespace (the generated interceptors import only that one).
+- **Audit log without reflection:** the save guard records changes of tenant-owned entities (opt out with the marker
+  interface `INotAudited`, no attribute lookup) and writes them with plain SQL on the saving context's connection
+  (`IAuditLogWriter`, one per database build) in the transaction of the change, so every module's DbContext writes into
+  the one `audit_log` table without having it in its model. When the save has no transaction, the guard begins one and
+  ends it with the save: committed when saved, rolled back when the save fails, is cancelled or hits a concurrency
+  conflict (EF Core reports conflicts through `ThrowingConcurrencyException`, not `SaveChangesFailed`; a transaction
+  left open there kept the SQLite write lock until the context was disposed).
 - **Tenant isolation without query filters:** every query on a tenant-owned set filters on `TenantId` explicitly.
   `SaveChangesGuard` (PaperDotNet.Persistence) sets the tenant on new rows and refuses writes into another tenant. Every endpoint gets a
   tenant-isolation test.

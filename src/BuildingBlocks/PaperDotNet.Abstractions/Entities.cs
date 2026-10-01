@@ -17,6 +17,12 @@ public interface ITenantOwned
 }
 
 /// <summary>
+/// A tenant-owned row the audit log (LST-14) leaves out: technical or derived data written often (runs, deliveries, search
+/// documents, item versions, page text), whose changes are traced elsewhere.
+/// </summary>
+public interface INotAudited;
+
+/// <summary>
 /// Optimistic concurrency version, surfaced as an ETag. Mark the property <c>[ConcurrencyCheck]</c>; the save
 /// interceptor sets it to 1 on insert and increments it on every update.
 /// </summary>

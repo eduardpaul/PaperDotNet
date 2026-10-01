@@ -22,7 +22,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | done (steps below). AOT smoke with the AI module and the OpenAI SDK: binary 87 MB, idle 140 MB, 233 MB under load |
 | T15 | XL | Documents (PDF libraries, page images, OCR) | done (steps below). AOT smoke with a PDF upload (text, thumbnail, page image, search): binary 98 MB, idle 135 MB after a post-start GC compaction, 281 MB under load with the workstation GC |
 | T16 | M | MCP, admin CLI, backup and restore, Papermerge import, the audit log across modules | |
-| T17 | XL | PostgreSQL build, SDK regeneration, web UI (with the authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in) | |
+| T17 | XL | PostgreSQL build, SDK regeneration, web UI (with the authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in); the Papermerge import tool (`ToPort/PapermergeImportTests.cs`, PostgreSQL) and the client CLI `pdn` (`ToPort/ClientCliTests.cs`, on the regenerated SDK) | |
 
 Status values: empty = not started; "in progress"; "done" (with what moved to a later task).
 
@@ -104,8 +104,8 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | Step | Task | Status |
 |---|---|---|
 | T16a | MCP server (`/v1.0/mcp`, ModelContextProtocol SDK): tool contract with JSON-node results (no reflection), list and item tools, document tools, the search tool (from T12e), extension tools (`IExtensionBuilder.AddMcpTool`) | done. Tools build results with `JsonObject` (`McpToolResult.FromJson`), take the tenant from `Caller`, and the scope check runs the scope requirements directly; extension tools are gated per tenant (`tests_tickets_count`, sample `samples_invoices_pending`); the search tool is keyword-only until T12e |
-| T16b | The audit log across modules (`/v1.0/auditLog` by entity type), from T07 | |
-| T16c | Admin CLI (`PaperDotNet.Cli`), backup and restore, the Papermerge import (`PaperDotNet.Import.Papermerge`), the CLI export and import of packages (from T13) | |
+| T16b | The audit log across modules (`/v1.0/auditLog` by entity type), from T07 | done. The save guard records changes of tenant-owned entities (not `INotAudited` ones: runs, deliveries, search rows, item versions and values, page text) and writes them through `IAuditLogWriter` (plain SQL on the saving context's connection, `SqliteAuditLogWriter`) in the transaction of the change, beginning one when the save has none; `/v1.0/auditLog` filters by entity type, entity, user and time in one precompiled query (absent filters are null parameters). The event log `/v1.0/audit` stays |
+| T16c | Admin commands of the server binary (`paperdotnet migrate`, `bootstrap`, `tenant`, `user`, `backup`, `restore`, `reindex`, `export`, `import`), backup and restore (from T13: the CLI export and import of packages) | done. System.CommandLine in the AOT host; commands run on the built application without serving and migrate first; backups are a `.tar.gz` with a manifest, a SQLite snapshot (online backup API, `IDatabaseBackup`) and the stored files. The Papermerge import tool (`PaperDotNet.Import.Papermerge`, a package writer on PostgreSQL) and the client CLI `pdn` (on the C# SDK) move to T17, with the PostgreSQL build and the regenerated SDK they need |
 | T16d | Tenants from the host name (custom hosts, host template) and the `X-Tenant` header (the old Tenancy module on Finbuckle), behind a reverse proxy; then remove `src/Modules/Tenancy` | |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

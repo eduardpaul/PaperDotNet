@@ -93,7 +93,7 @@ public static class RunStatus
 }
 
 /// <summary>A run of a workflow: where it is in the flow and its state (outputs of the nodes that ran, variables, log).</summary>
-public class WorkflowRun : ITenantOwned, IVersioned
+public class WorkflowRun : ITenantOwned, IVersioned, INotAudited
 {
     public Guid Id { get; set; }
 
@@ -175,7 +175,7 @@ public static class BookmarkKinds
 /// job when their time has come. A completion that arrives before any run waits for it has no run yet (<see cref="RunId"/>
 /// empty) and is taken over by the run that starts waiting for it.
 /// </summary>
-public class WorkflowBookmark : ITenantOwned, IVersioned
+public class WorkflowBookmark : ITenantOwned, IVersioned, INotAudited
 {
     public Guid Id { get; set; }
 
@@ -282,7 +282,7 @@ public class ApprovalRequest : ITenantOwned, IAuditable, IVersioned
 /// Where the schedule job is with a timed trigger (<c>schedule</c> or <c>date</c>) of a workflow. A row belongs to one
 /// version of the workflow; a new version starts over. Times are Unix milliseconds (ADR-0039).
 /// </summary>
-public class WorkflowSchedule : ITenantOwned, IVersioned
+public class WorkflowSchedule : ITenantOwned, IVersioned, INotAudited
 {
     /// <summary>Made from the workflow and the trigger's position.</summary>
     public Guid Id { get; set; }

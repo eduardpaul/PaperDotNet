@@ -19,7 +19,7 @@ public static class PackageKinds
 /// A package being exported or imported (PLT-13): the file in blob storage (set once an export is written), who asked
 /// for it and until when it is kept.
 /// </summary>
-public class PortabilityPackage : ITenantOwned
+public class PortabilityPackage : ITenantOwned, INotAudited
 {
     public Guid Id { get; set; }
 

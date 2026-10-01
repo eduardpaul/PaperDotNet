@@ -246,7 +246,7 @@ public class ListItem : ITenantOwned, IAuditable, ISoftDeletable, IVersioned
 }
 
 /// <summary>A saved version of an item (LST-11): its values after one change, kept while the list has versioning on.</summary>
-public class ItemVersion : ITenantOwned
+public class ItemVersion : ITenantOwned, INotAudited
 {
     public Guid Id { get; set; }
 
@@ -306,7 +306,7 @@ public sealed record IndexedField
 }
 
 /// <summary>One value of an indexed multi-value or reference field of an item (ADR-0035): a GUID, or a name-based id of a text value.</summary>
-public class ItemValue : ITenantOwned
+public class ItemValue : ITenantOwned, INotAudited
 {
     public Guid TenantId { get; set; }
 
@@ -423,7 +423,7 @@ public static class ItemChangeKinds
 /// One entry of a list's change log (API-05), written in the same transaction as the change. The sequence orders
 /// changes; delta tokens point into it.
 /// </summary>
-public class ItemChange : ITenantOwned
+public class ItemChange : ITenantOwned, INotAudited
 {
     public long Sequence { get; set; }
 

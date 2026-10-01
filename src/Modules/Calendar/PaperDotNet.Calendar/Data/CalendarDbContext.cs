@@ -74,7 +74,7 @@ public class OccurrenceChange : ITenantOwned, IAuditable
 }
 
 /// <summary>The iCalendar UID of an imported event, so importing again updates instead of duplicating.</summary>
-public class EventSource : ITenantOwned
+public class EventSource : ITenantOwned, INotAudited
 {
     public Guid Id { get; set; }
 

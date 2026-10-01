@@ -67,6 +67,7 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" PrivateAssets="all" />
     <PackageReference Include="WolverineFx.Sqlite" />
+    <PackageReference Include="System.CommandLine" />
   </ItemGroup>
   <ItemGroup>
     <!-- Ical.Net (Tasks, Calendar) creates its types by reflection: keep the whole assembly (ADR-0039). -->

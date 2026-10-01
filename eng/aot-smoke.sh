@@ -176,6 +176,13 @@ for _ in $(seq 1 50); do
   [[ "$AUDITED" -ge 8 ]] && break; sleep 0.2
 done
 [[ "$AUDITED" -ge 8 ]] || fail "events did not reach the audit log ($AUDITED of 8)"
+# The audit log of every module (written by the save guard in the transaction of the change; one precompiled query).
+[[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/auditLog" --data-urlencode 'entityType=workspaces.Workspace' | json 'd["value"][-1]["action"]') == created ]] \
+  || fail "audit log of every module"
+
+# MCP (Streamable HTTP, stateless): the tools of the caller.
+curl -sf "${AUTH[@]}" "${JSON[@]}" -H 'Accept: application/json, text/event-stream' "$BASE/v1.0/mcp" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | grep -q '"query_items"' || fail "MCP tools"
 
 # Workflows (ADR-0036) with a Jint script step: an added invoice over 25 creates a task through a script.
 curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Tasks"}' -o /dev/null || fail "create task list"
@@ -288,5 +295,11 @@ PEAK=$(( AFTER > PEAK ? AFTER : PEAK ))
 echo "Memory: idle ${IDLE} MB (budget ${IDLE_BUDGET_MB}), under load ${PEAK} MB (budget ${LOAD_BUDGET_MB})"
 [[ "$IDLE" -lt "$IDLE_BUDGET_MB" ]] || fail "idle memory ${IDLE} MB over budget"
 [[ "$PEAK" -lt "$LOAD_BUDGET_MB" ]] || fail "memory under load ${PEAK} MB over budget"
+# Admin commands of the same binary (AdminCli) next to the running server: a backup and a package export.
+cli() { Storage__DataPath="$DATA" Logging__LogLevel__Default=Warning "$OUT/paperdotnet" "$@" >>"$DATA/cli.log" 2>&1 || fail "paperdotnet $1: $(tail -5 "$DATA/cli.log")"; }
+cli backup -o "$DATA/backup.tar.gz"
+tar -tzf "$DATA/backup.tar.gz" | grep -qx 'database.sqlite' || fail "backup archive"
+cli export --tenant default --user admin -o "$DATA/export.zip"
+[[ $(head -c 2 "$DATA/export.zip") == PK ]] || fail "export package"
 ! grep -E "Unhandled exception|fail:" "$LOG" || fail "errors in the host log"
 echo "AOT smoke test passed."

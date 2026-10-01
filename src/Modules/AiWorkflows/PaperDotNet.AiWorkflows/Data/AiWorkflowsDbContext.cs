@@ -12,7 +12,7 @@ namespace PaperDotNet.AiWorkflows.Data;
 /// A call of an AI activity to the chat model (AI-06): what was asked (as a hash, never the text), by which workflow run
 /// and model, the tokens used, and the answer, which is reused for the same model and input (the cache).
 /// </summary>
-public class AiCall : ITenantOwned
+public class AiCall : ITenantOwned, INotAudited
 {
     public Guid Id { get; set; }
 

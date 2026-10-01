@@ -31,6 +31,8 @@ public static class SqliteServiceCollectionExtensions
             }.ToString();
         services.AddSingleton(new SqliteDatabaseOptions(connectionString));
         services.AddSingleton<IDatabaseProvider, SqliteDatabaseProvider>();
+        services.AddSingleton<IAuditLogWriter, SqliteAuditLogWriter>();
+        services.AddSingleton<IDatabaseBackup, SqliteDatabaseBackup>();
         return connectionString;
     }
 }

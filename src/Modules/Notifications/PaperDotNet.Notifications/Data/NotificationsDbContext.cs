@@ -10,7 +10,7 @@ namespace PaperDotNet.Notifications.Data;
 #pragma warning disable CA1852 // Entities stay unsealed: EF Core's precompiled queries cannot use sealed entity types (ADR-0039).
 
 /// <summary>A notification in a user's inbox (NTF-01).</summary>
-public class Notification : ITenantOwned
+public class Notification : ITenantOwned, INotAudited
 {
     public Guid Id { get; set; }
 
@@ -86,7 +86,7 @@ public static class DeliveryStatuses
 }
 
 /// <summary>A notification to post to a user's webhook; retried with backoff.</summary>
-public class WebhookDelivery : ITenantOwned
+public class WebhookDelivery : ITenantOwned, INotAudited
 {
     public Guid Id { get; set; }
 
@@ -150,7 +150,7 @@ public class Follow : ITenantOwned, IAuditable
 }
 
 /// <summary>A change collected for a user's next daily digest.</summary>
-public class DigestEntry : ITenantOwned
+public class DigestEntry : ITenantOwned, INotAudited
 {
     public Guid Id { get; set; }
 
@@ -219,7 +219,7 @@ public class ChangeSubscription : ITenantOwned, IAuditable, IVersioned
 }
 
 /// <summary>A change to post to a subscription's URL; retried with backoff.</summary>
-public class ChangeDelivery : ITenantOwned
+public class ChangeDelivery : ITenantOwned, INotAudited
 {
     public Guid Id { get; set; }
 

@@ -58,6 +58,7 @@ internal static class PaperDotNetHost
         services.AddPaperDotNetPersistence();
         services.AddPaperDotNetMessaging();
         services.AddPaperDotNetStorage(configuration);
+        services.AddScoped<Backup.BackupService>();
         services.AddPaperDotNetAI(configuration);
         foreach (var module in Modules)
         {

@@ -43,7 +43,7 @@ public class Comment : ITenantOwned, IAuditable, IVersioned
 }
 
 /// <summary>An entry of an item's activity timeline (LST-17).</summary>
-public class ActivityEntry : ITenantOwned
+public class ActivityEntry : ITenantOwned, INotAudited
 {
     public Guid Id { get; set; }
 

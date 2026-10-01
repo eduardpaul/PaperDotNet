@@ -9,7 +9,7 @@ namespace PaperDotNet.Search.Data;
 #pragma warning disable CA1852 // Entities stay unsealed: EF Core's precompiled queries cannot use sealed entity types (ADR-0039).
 
 /// <summary>One searchable document of any data type (SRC-01), maintained by the owning module.</summary>
-public class SearchDocument : ITenantOwned
+public class SearchDocument : ITenantOwned, INotAudited
 {
     /// <summary>
     /// Integer key: the row id of the full-text index. Declared, so it never changes (SQLite may renumber the implicit
@@ -51,7 +51,7 @@ public class SearchDocument : ITenantOwned
 }
 
 /// <summary>A term (tag) of a document, for facets, hierarchical tag filters (SRC-03) and term usage.</summary>
-public class SearchTag : ITenantOwned
+public class SearchTag : ITenantOwned, INotAudited
 {
     public Guid DocumentId { get; set; }
 
@@ -64,7 +64,7 @@ public class SearchTag : ITenantOwned
 /// A passage of a document (SRC-07, SRC-09): a window of its text with the page it is on (null for text that is not
 /// on a page, like the fields). Passages have their own full-text index, so keyword hits can point to a page.
 /// </summary>
-public class SearchPassage : ITenantOwned
+public class SearchPassage : ITenantOwned, INotAudited
 {
     /// <summary>Integer key: the row id of the passages' full-text index (see <see cref="SearchDocument.Key"/>).</summary>
     public long Key { get; set; }

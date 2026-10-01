@@ -27,7 +27,7 @@ public static class DuplicatePolicies
 /// A stored file, content-addressed by SHA-256 per tenant (DOC-11): identical content is stored once. Rows without
 /// versions are removed by <c>StoredFileCleanupJob</c> after a grace period.
 /// </summary>
-public class StoredFile : ITenantOwned
+public class StoredFile : ITenantOwned, INotAudited
 {
     public Guid Id { get; set; }
 
@@ -101,7 +101,7 @@ public class FileVersion : ITenantOwned, IAuditable
 }
 
 /// <summary>Text of one page of a stored file (from its text layer or OCR), for search.</summary>
-public class StoredFilePage : ITenantOwned
+public class StoredFilePage : ITenantOwned, INotAudited
 {
     public Guid StoredFileId { get; set; }
 
