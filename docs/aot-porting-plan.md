@@ -43,7 +43,7 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 
 | Step | Task | Status |
 |---|---|---|
-| T09a | SDK core and extension host: manifest, catalog, per-tenant state and settings (tenant explicit), gated field types, item mutators, content types, list templates, recurring jobs, workflow activities, endpoints under `/v1.0/ext/{id}`, subscribers of list events; the build-time generator | done (AOT smoke run pending) |
+| T09a | SDK core and extension host: manifest, catalog, per-tenant state and settings (tenant explicit), gated field types, item mutators, content types, list templates, recurring jobs, workflow activities, endpoints under `/v1.0/ext/{id}`, subscribers of list events; the build-time generator | done |
 | T09b | Extension tables (`ExtensionDbContext` with a compiled model and precompiled queries, migrations as SQL per extension) and the Invoices sample (the parts whose modules are ported) | |
 | later | Term sets (T12), template sections (T13), workflow triggers, shipped workflows and waits (T14), MCP tools (T16) | |
 

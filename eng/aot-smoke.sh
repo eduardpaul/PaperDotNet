@@ -85,6 +85,7 @@ DELTA=$(curl -sf "${AUTH[@]}" "$ITEMS/delta" | json 'str(len(d["value"])) + " " 
 curl -sf "${AUTH[@]}" "${DELTA#* }" -o /dev/null || fail "delta changes"
 CONTACTS=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Clients","templateKey":"contacts"}' | json 'd["id"]') || fail "list from a template"
 [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$CONTACTS/views" | json 'd[0]["name"]') == "All contacts" ]] || fail "template views"
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/extensions" | json 'len(d)') == 0 ]] || fail "extension catalog"
 
 AUDITED=0
 for _ in $(seq 1 50); do
