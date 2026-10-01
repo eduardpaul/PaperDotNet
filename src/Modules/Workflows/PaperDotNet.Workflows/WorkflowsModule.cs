@@ -39,6 +39,8 @@ public sealed class WorkflowsModule : IModule
             sp.GetRequiredService<PaperDotNet.Collaboration.Contracts.IItemActivity>(), sp.GetRequiredService<TimeProvider>()));
         services.AddSingleton<IWorkflowBookmarks>(sp => new WorkflowBookmarks(sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<TimeProvider>()));
         services.AddTenantRecurringJob<WorkflowTimerJob>(WorkflowTimerJob.Name, WorkflowTimerJob.Schedule);
+        services.Configure<WorkflowOptions>(configuration.GetSection(WorkflowOptions.Section));
+        services.AddTenantRecurringJob<WorkflowRunCleanupJob>(WorkflowRunCleanupJob.Name, WorkflowRunCleanupJob.Schedule);
         services.AddScoped<ITemplateHandler>(sp => new WorkflowTemplateHandler(
             sp.GetRequiredService<WorkflowsDbContext>(), sp.GetServices<IWorkflowActivity>(), sp.GetRequiredService<TimeProvider>()));
         services.AddWorkflowActivity<ItemCreateActivity>();
@@ -64,6 +66,7 @@ public sealed class WorkflowsModule : IModule
 [JsonSerializable(typeof(IReadOnlyList<ActivityDto>))]
 [JsonSerializable(typeof(ResumeRun))]
 [JsonSerializable(typeof(NotifyApproval))]
+[JsonSerializable(typeof(WorkflowTriggerRaised))]
 [JsonSerializable(typeof(ApprovalDto))]
 [JsonSerializable(typeof(Page<ApprovalDto>))]
 [JsonSerializable(typeof(ApprovalDecisionRequest))]

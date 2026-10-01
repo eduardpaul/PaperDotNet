@@ -14279,6 +14279,7 @@
         "required": [
           "id",
           "name",
+          "key",
           "description",
           "enabled",
           "version",
@@ -14294,6 +14295,9 @@
             "format": "uuid"
           },
           "name": {
+            "type": "string"
+          },
+          "key": {
             "type": "string"
           },
           "description": {

@@ -35,6 +35,9 @@ public class WorkflowsDbContext : DbContext
         {
             workflow.ToTable("workflows");
             workflow.Property(w => w.Name).HasMaxLength(200);
+            workflow.Property(w => w.Key).HasMaxLength(100);
+            workflow.Ignore(w => w.EventKey);
+            workflow.HasIndex(w => new { w.TenantId, w.WorkspaceId, w.Key });
             workflow.HasIndex(w => new { w.TenantId, w.WorkspaceId, w.Name }).IsUnique();
             workflow.HasIndex(w => new { w.TenantId, w.WorkspaceId, w.Enabled });
         });
@@ -52,6 +55,8 @@ public class WorkflowsDbContext : DbContext
             run.Property(r => r.Status).HasMaxLength(16);
             run.HasIndex(r => new { r.TenantId, r.WorkflowId, r.Id });
             run.HasIndex(r => new { r.TenantId, r.WorkspaceId, r.Id });
+            run.HasIndex(r => new { r.TenantId, r.WorkflowId, r.ItemId, r.Status });
+            run.HasIndex(r => new { r.TenantId, r.Status, r.CompletedAtUnixMs });
             run.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(r => r.WorkflowId).OnDelete(DeleteBehavior.Cascade);
         });
 

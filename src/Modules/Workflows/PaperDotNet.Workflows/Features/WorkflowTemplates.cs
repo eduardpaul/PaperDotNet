@@ -94,6 +94,7 @@ internal sealed class WorkflowTemplateHandler(WorkflowsDbContext db, IEnumerable
                         TenantId = context.TenantId,
                         WorkspaceId = workspaceId,
                         Name = name,
+                        Key = await WorkflowEndpoints.UniqueKeyAsync(db, context.TenantId, workspaceId, name, cancellationToken),
                         Description = description,
                         Enabled = enabled,
                         CurrentVersion = 1,

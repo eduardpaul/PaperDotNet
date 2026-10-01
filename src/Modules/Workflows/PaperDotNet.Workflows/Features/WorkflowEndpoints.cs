@@ -15,6 +15,7 @@ namespace PaperDotNet.Workflows.Features;
 public sealed record WorkflowDto(
     Guid Id,
     string Name,
+    string Key,
     string? Description,
     bool Enabled,
     int Version,
@@ -84,7 +85,7 @@ internal static class WorkflowEndpoints
     }
 
     private static WorkflowDto ToDto(WorkflowDefinition workflow, WorkflowVersion version) =>
-        new(workflow.Id, workflow.Name, workflow.Description, workflow.Enabled, workflow.CurrentVersion, JsonNode.Parse(version.Definition)!.AsObject(),
+        new(workflow.Id, workflow.Name, workflow.EventKey, workflow.Description, workflow.Enabled, workflow.CurrentVersion, JsonNode.Parse(version.Definition)!.AsObject(),
             workflow.CreatedAt, workflow.UpdatedAt, ETags.From(workflow.Version));
 
     private static RunDto ToDto(WorkflowRun run) =>
@@ -196,6 +197,7 @@ internal static class WorkflowEndpoints
             TenantId = caller.TenantId,
             WorkspaceId = workspaceId,
             Name = name,
+            Key = await UniqueKeyAsync(db, caller.TenantId, workspaceId, name, cancellationToken),
             Description = body.Description,
             Enabled = body.Enabled ?? true,
             CurrentVersion = 1,
@@ -438,5 +440,24 @@ internal static class WorkflowEndpoints
         return await runs.RetryAsync(run, cancellationToken)
             ? TypedResults.Ok(ToDto(run))
             : ApiErrors.Conflict("notRetryable", "Only failed runs that stopped at a node can be retried.");
+    }
+
+    /// <summary>A key for a new workflow made from its name, unique in the workspace (<c>name</c>, <c>name-2</c>, …).</summary>
+    internal static async Task<string> UniqueKeyAsync(WorkflowsDbContext database, Guid tenantId, Guid workspaceId, string name, CancellationToken cancellationToken)
+    {
+        var context = database;
+        var tenant = tenantId;
+        var workspace = workspaceId;
+        var ct = cancellationToken;
+        var workflows = await context.Workflows.AsNoTracking().Where(w => w.TenantId == tenant && w.WorkspaceId == workspace).ToListAsync(ct);
+        var taken = workflows.Select(w => w.EventKey).ToHashSet(StringComparer.Ordinal);
+        var key = WorkflowKeys.FromName(name);
+        var candidate = key;
+        for (var i = 2; taken.Contains(candidate); i++)
+        {
+            candidate = $"{key}-{i}";
+        }
+
+        return candidate;
     }
 }

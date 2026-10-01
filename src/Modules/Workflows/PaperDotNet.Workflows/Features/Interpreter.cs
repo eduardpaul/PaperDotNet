@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
@@ -24,6 +25,7 @@ public sealed partial class WorkflowInterpreter(
     TokenExpander tokens,
     ScriptRunner scripts,
     IWorkflowRecipients recipients,
+    RunService runs,
     TimeProvider time,
     ILogger<WorkflowInterpreter> logger)
 {
@@ -37,12 +39,14 @@ public sealed partial class WorkflowInterpreter(
     public async Task RunAsync(Guid tenantId, Guid runId, CancellationToken ct)
     {
         if (await FindRunAsync(db, tenantId, runId, ct) is not { Status: RunStatus.Running or RunStatus.Waiting } run
-            || await WorkflowVersions.FindAsync(db, tenantId, run.WorkflowId, run.WorkflowVersion, ct) is not { } version)
+            || await WorkflowVersions.FindAsync(db, tenantId, run.WorkflowId, run.WorkflowVersion, ct) is not { } version
+            || await FindWorkflowAsync(db, tenantId, run.WorkflowId, ct) is not { } workflow)
         {
             return;
         }
 
-        var flow = WorkflowJson.Deserialize(version.Definition).Flow!;
+        var spec = WorkflowJson.Deserialize(version.Definition);
+        var flow = spec.RunFlow;
         var outputs = JsonNode.Parse(run.Outputs) as JsonObject ?? [];
         var variables = JsonNode.Parse(run.Variables) as JsonObject ?? [];
         var log = JsonNode.Parse(run.Log) as JsonArray ?? [];
@@ -59,22 +63,46 @@ public sealed partial class WorkflowInterpreter(
             }
         }
 
-        Task SaveAsync(IReadOnlyCollection<object>? messages = null)
+        Task SaveAsync(IReadOnlyCollection<object>? messages = null, IReadOnlyCollection<IntegrationEvent>? events = null)
         {
             run.Log = log.ToJsonString();
             run.Outputs = outputs.ToJsonString();
             run.Variables = variables.ToJsonString();
-            return messages is { Count: > 0 } ? outbox.SaveChangesAsync(db, [], messages, ct) : db.SaveChangesAsync(ct);
+            return messages is { Count: > 0 } || events is { Count: > 0 } ? outbox.SaveChangesAsync(db, events ?? [], messages ?? [], ct) : db.SaveChangesAsync(ct);
+        }
+
+        // An event of this workflow (ADR-0038): wf.{key}.{name}, on the run's item, one deeper than the run. Its id comes
+        // from the run and what raised it, so saving it again (a retried message) starts nothing twice.
+        WorkflowTriggerRaised Event(string name, JsonObject? payload, string source) => new()
+        {
+            EventId = WorkflowStarter.StableId($"wf:{run.Id:N}:{name}:{source}"),
+            TenantId = run.TenantId,
+            UserId = run.StartedBy,
+            Depth = run.Depth + 1,
+            OccurredAt = time.GetUtcNow(),
+            Trigger = $"{WorkflowTriggers.WorkflowEventPrefix}{workflow.EventKey}.{name}",
+            WorkspaceId = run.WorkspaceId,
+            ListId = run.ListId,
+            ItemId = run.ItemId,
+            Data = payload?.ToJsonString(),
+        };
+
+        void Finish(string status)
+        {
+            run.Status = status;
+            run.WaitingOn = null;
+            run.CompletedAt = time.GetUtcNow();
+            run.CompletedAtUnixMs = run.CompletedAt.Value.ToUnixTimeMilliseconds();
         }
 
         async Task FailAsync(string error, string? node)
         {
             Log($"Failed: {error}");
-            run.Status = RunStatus.Failed;
+            Finish(RunStatus.Failed);
             run.Error = Truncate(error);
             run.FailedNode = node;
-            run.CompletedAt = time.GetUtcNow();
-            await SaveAsync();
+            await SaveAsync(events: [Event(WorkflowEvents.Failed,
+                new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = RunStatus.Failed, ["error"] = run.Error }, run.CompletedAtUnixMs!.Value.ToString(CultureInfo.InvariantCulture))]);
             LogRunFailed(run.Id, error);
         }
 
@@ -84,15 +112,15 @@ public sealed partial class WorkflowInterpreter(
             var target = next?.GetValueOrDefault(outcome) ?? (outcome == "error" ? null : next?.GetValueOrDefault("done"));
             if (target is null)
             {
-                run.Status = RunStatus.Completed;
-                run.CompletedAt = time.GetUtcNow();
+                Finish(RunStatus.Completed);
                 Log("Completed");
-                await SaveAsync();
+                await SaveAsync(events: [Event(WorkflowEvents.Completed, new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = RunStatus.Completed }, "end")]);
                 return false;
             }
 
             run.Node = target;
             run.StepExecutionId = null;
+            run.NodeAttempts = 0;
             await SaveAsync();
             return true;
         }
@@ -124,9 +152,29 @@ public sealed partial class WorkflowInterpreter(
             return bookmark;
         }
 
-        // A failed node continues on its error port if connected; else the run fails there.
+        // A failure of a node: its retry policy, else its error port, else the run fails there. False: the run stopped.
         async Task<bool> FailedAsync(string id, FlowNode node, string error)
         {
+            if (node.Retry is { } retry && run.NodeAttempts < retry.Attempts)
+            {
+                run.NodeAttempts++;
+                var delay = retry.DelayMinutes ?? 1;
+                Log($"{id}: {error} (trying again in {delay} minutes, {run.NodeAttempts} of {retry.Attempts})");
+                var bookmark = NewBookmark(id, BookmarkKinds.Retry, $"{run.Id:N}:{run.StepExecutionId:N}:{run.NodeAttempts}", time.GetUtcNow().AddMinutes(delay));
+                if (delay <= 0)
+                {
+                    // No delay: the retry is due now, so the run resumes right away.
+                    RunService.Complete(bookmark, null, time);
+                    await WaitAsync(bookmark, [new ResumeRun(run.TenantId, run.Id)]);
+                }
+                else
+                {
+                    await WaitAsync(bookmark);
+                }
+
+                return false;
+            }
+
             if (node.Next?.GetValueOrDefault("error") is not null)
             {
                 outputs[id] = new JsonObject { ["error"] = error };
@@ -235,6 +283,25 @@ public sealed partial class WorkflowInterpreter(
 
         if (run.Node is null)
         {
+            // Runs of this workflow on the item: the earlier one wins (skip) or the later one does (replace).
+            if (spec.Concurrency is RunConcurrency.Skip or RunConcurrency.Replace && run.ItemId is { } runItem)
+            {
+                var others = await ActiveRunsAsync(db, run.TenantId, run.WorkflowId, runItem, run.Id, ct);
+                var earlier = others.Where(r => r.StartedAt < run.StartedAt || (r.StartedAt == run.StartedAt && r.Id.CompareTo(run.Id) < 0)).ToList();
+                if (spec.Concurrency == RunConcurrency.Skip && earlier.Count > 0)
+                {
+                    Log("Skipped: another run of this workflow on the item is going (concurrency: skip).");
+                    Finish(RunStatus.Cancelled);
+                    await SaveAsync();
+                    return;
+                }
+
+                foreach (var older in spec.Concurrency == RunConcurrency.Replace ? earlier : [])
+                {
+                    await runs.CancelAsync(older, ct);
+                }
+            }
+
             run.Node = flow.Start;
             Log($"Started ({run.Trigger})");
             await SaveAsync();
@@ -333,7 +400,11 @@ public sealed partial class WorkflowInterpreter(
 
                 case FlowActivities.If:
                     bool holds;
-                    if (DefinitionValidator.Text(inputs, "filter") is { } filter)
+                    if (DefinitionValidator.Text(inputs, "step") is { } approvalNode)
+                    {
+                        holds = outputs[approvalNode]?["outcome"] is JsonValue decided && decided.ToString() == DefinitionValidator.Text(inputs, "is");
+                    }
+                    else if (DefinitionValidator.Text(inputs, "filter") is { } filter)
                     {
                         if (run.ListId is not { } listId || run.ItemId is not { } itemId)
                         {
@@ -365,6 +436,28 @@ public sealed partial class WorkflowInterpreter(
 
                 case FlowActivities.Script:
                     running = await ScriptAsync(id, node);
+                    break;
+
+                case FlowActivities.Raise:
+                    // Raises wf.{key}.{event} with data, saved with the run: a repeat raises it with the same id.
+                    var eventName = DefinitionValidator.Text(inputs, "event")!;
+                    var payload = new JsonObject();
+                    foreach (var (field, value) in inputs["data"] as JsonObject ?? [])
+                    {
+                        payload[field] = value is JsonValue raw && raw.TryGetValue<string>(out var valueTemplate)
+                            ? tokens.Value(valueTemplate, await ScopeAsync())
+                            : value?.DeepClone();
+                    }
+
+                    var raised = Event(eventName, payload, $"{id}:{run.StepExecutionId:N}");
+                    Log($"{id}: raised {raised.Trigger}");
+                    outputs[id] = new JsonObject { ["event"] = raised.Trigger };
+                    await SaveAsync(events: [raised]);
+                    running = await ContinueAsync(id, "done");
+                    break;
+
+                case FlowActivities.ForEach:
+                    running = await ForEachAsync(id, node);
                     break;
 
                 case FlowActivities.Delay:
@@ -401,6 +494,120 @@ public sealed partial class WorkflowInterpreter(
 
             // Values of the item may have changed.
             scope = null;
+        }
+
+        // An order of loop events in this run (one more than any loop recorded): tells which loops started in a pass.
+        long LoopStamp() => 1 + flow.Nodes.Where(n => n.Value.Activity == FlowActivities.ForEach)
+            .Select(n => outputs[n.Key] as JsonObject)
+            .SelectMany(o => new[] { o?["started"], o?["pass"] })
+            .Select(v => v is JsonValue value && value.TryGetValue<long>(out var number) ? number : 0)
+            .DefaultIfEmpty(0).Max();
+
+        // The elements a forEach goes through: its items (an array or one token), or the items its query finds.
+        async Task<(JsonArray? Elements, string? Error)> ElementsAsync(JsonObject inputs)
+        {
+            JsonNode? value;
+            if (inputs["query"] is JsonObject query)
+            {
+                var listName = tokens.Expand(DefinitionValidator.Text(query, "list")!, await ScopeAsync());
+                if (await items.FindListByNameAsync(reader, run.WorkspaceId, listName, ct) is not { } list)
+                {
+                    return (null, $"The list '{listName}' does not exist in the workspace.");
+                }
+
+                var filter = DefinitionValidator.Text(query, "filter") is { } text ? tokens.Expand(text, await ScopeAsync()) : null;
+                var (found, problem) = await items.QueryAsync(reader, run.WorkspaceId, list.Id, filter, null, FlowActivities.MaxForEachItems + 1, null, ct);
+                if (problem is not null)
+                {
+                    return (null, problem);
+                }
+
+                value = new JsonArray([.. found.Select(i =>
+                {
+                    var element = i.Fields.DeepClone().AsObject();
+                    element["id"] = i.Id.ToString();
+                    return (JsonNode)element;
+                })]);
+            }
+            else if (inputs["items"] is JsonValue token && token.TryGetValue<string>(out var template))
+            {
+                value = tokens.Value(template, await ScopeAsync());
+            }
+            else
+            {
+                value = inputs["items"]?.DeepClone();
+            }
+
+            return value switch
+            {
+                null => ([], null),
+                JsonArray { Count: > FlowActivities.MaxForEachItems } => (null, $"forEach goes through at most {FlowActivities.MaxForEachItems} elements."),
+                JsonArray array => (array, null),
+                _ => (null, "items is not a list."),
+            };
+        }
+
+        // The loop's state is the node's output: the elements, the current index and the count. The body leads back
+        // here, which moves on to the next element; after the last, the node continues with done.
+        async Task<bool> ForEachAsync(string id, FlowNode node)
+        {
+            var inputs = node.Inputs ?? [];
+            var loop = outputs[id] as JsonObject;
+            var active = loop?["active"] is JsonValue flag && flag.GetValueKind() == System.Text.Json.JsonValueKind.True && loop["items"] is JsonArray;
+            var (elements, elementsError) = active ? ((JsonArray)loop!["items"]!, null) : await ElementsAsync(inputs);
+            if (elements is null)
+            {
+                return await FailedAsync(id, node, elementsError!);
+            }
+
+            var position = active ? loop!["index"]!.GetValue<int>() + 1 : 0;
+            var element = DefinitionValidator.Text(inputs, "as") ?? "item";
+            if (position >= elements.Count)
+            {
+                variables.Remove(element);
+                outputs[id] = new JsonObject { ["index"] = elements.Count, ["count"] = elements.Count };
+                return await ContinueAsync(id, "done");
+            }
+
+            if (active)
+            {
+                // Loops that started during the previous element's pass are inside this loop: they start again for this
+                // element, also when that pass left them early.
+                var pass = loop!["pass"]?.GetValue<long>() ?? 0;
+                foreach (var inner in FlowActivities.LoopBody(flow, id).Where(n => flow.Nodes[n].Activity == FlowActivities.ForEach))
+                {
+                    if (outputs[inner] is JsonObject innerLoop && (innerLoop["started"]?.GetValue<long>() ?? 0) >= pass)
+                    {
+                        innerLoop["active"] = false;
+                    }
+                }
+
+                loop["index"] = position;
+                loop["pass"] = LoopStamp();
+            }
+            else
+            {
+                Log($"{id}: {elements.Count} element(s)");
+                var stamp = LoopStamp();
+                outputs[id] = new JsonObject
+                {
+                    ["active"] = true,
+                    ["index"] = position,
+                    ["count"] = elements.Count,
+                    ["started"] = stamp,
+                    ["pass"] = stamp,
+                    ["items"] = elements.DeepClone(),
+                };
+            }
+
+            variables[element] = elements[position]?.DeepClone();
+            if (outputs.ToJsonString().Length > MaxStateLength)
+            {
+                await FailAsync($"{id}: the elements are too large.", id);
+                return false;
+            }
+
+            return await ContinueAsync(id, "item");
         }
 
         // The pending request of the node (reused when it runs again), or a new one (saved with the wait).
@@ -565,6 +772,31 @@ public sealed partial class WorkflowInterpreter(
         var id = runId;
         var ct = cancellationToken;
         return context.WorkflowRuns.Where(r => r.TenantId == tenant && r.Id == id).FirstOrDefaultAsync(ct);
+    }
+
+    private static Task<WorkflowDefinition?> FindWorkflowAsync(WorkflowsDbContext database, Guid tenantId, Guid workflowId, CancellationToken cancellationToken)
+    {
+        var context = database;
+        var tenant = tenantId;
+        var id = workflowId;
+        var ct = cancellationToken;
+        return context.Workflows.AsNoTracking().FirstOrDefaultAsync(w => w.TenantId == tenant && w.Id == id, ct);
+    }
+
+    /// <summary>Other running or waiting runs of the workflow on the item.</summary>
+    private static Task<List<WorkflowRun>> ActiveRunsAsync(WorkflowsDbContext database, Guid tenantId, Guid workflowId, Guid itemId, Guid exceptRunId, CancellationToken cancellationToken)
+    {
+        var context = database;
+        var tenant = tenantId;
+        var workflow = workflowId;
+        var item = (Guid?)itemId;
+        var except = exceptRunId;
+        var running = RunStatus.Running;
+        var waiting = RunStatus.Waiting;
+        var ct = cancellationToken;
+        return context.WorkflowRuns
+            .Where(r => r.TenantId == tenant && r.WorkflowId == workflow && r.ItemId == item && r.Id != except && (r.Status == running || r.Status == waiting))
+            .ToListAsync(ct);
     }
 
     private static string Truncate(string text) => text.Length > 2000 ? text[..2000] : text;

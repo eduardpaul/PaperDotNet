@@ -17,6 +17,12 @@ public class WorkflowDefinition : ITenantOwned, IVersioned, IAuditable
 
     public string Name { get; set; } = "";
 
+    /// <summary>
+    /// The stable key of the workflow's events (<c>wf.{key}.completed</c>, ADR-0038): made from the name when it is
+    /// created, unchanged by a rename. Null for workflows saved before keys (see <see cref="EventKey"/>).
+    /// </summary>
+    public string? Key { get; set; }
+
     public string? Description { get; set; }
 
     public bool Enabled { get; set; }
@@ -37,6 +43,9 @@ public class WorkflowDefinition : ITenantOwned, IVersioned, IAuditable
 
     [ConcurrencyCheck]
     public uint Version { get; set; }
+
+    /// <summary>The key its events use: <see cref="Key"/>, else one made from the name.</summary>
+    public string EventKey => Key ?? Features.WorkflowKeys.FromName(Name);
 }
 
 /// <summary>A saved definition of a workflow: runs keep the version they started with.</summary>
@@ -92,6 +101,9 @@ public class WorkflowRun : ITenantOwned, IVersioned
     /// <summary>The bookmark a waiting run waits on.</summary>
     public Guid? WaitingOn { get; set; }
 
+    /// <summary>Failed tries of the current node so far (its retry policy decides whether it runs again).</summary>
+    public int NodeAttempts { get; set; }
+
     /// <summary>Nodes run so far (loop guard).</summary>
     public int NodesRun { get; set; }
 
@@ -122,6 +134,9 @@ public class WorkflowRun : ITenantOwned, IVersioned
     public DateTimeOffset StartedAt { get; set; }
 
     public DateTimeOffset? CompletedAt { get; set; }
+
+    /// <summary><see cref="CompletedAt"/> in Unix milliseconds (cleanup compares it in SQL, ADR-0039).</summary>
+    public long? CompletedAtUnixMs { get; set; }
 
     [ConcurrencyCheck]
     public uint Version { get; set; }

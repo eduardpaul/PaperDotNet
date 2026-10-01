@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
+using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workflows.Data;
 
 namespace PaperDotNet.Workflows.Features;
@@ -32,6 +33,19 @@ public static class WorkflowTriggerSubscriber
 
     public static Task Handle(ItemDeleted e, WorkflowStarter starter, CancellationToken cancellationToken) =>
         e.IsFolder ? Task.CompletedTask : starter.OnItemEventAsync(WorkflowTriggers.ItemDeleted, e, [], new JsonObject { ["title"] = e.Title }, cancellationToken);
+
+    public static Task Handle(ItemRestored e, WorkflowStarter starter, CancellationToken cancellationToken) =>
+        e.IsFolder ? Task.CompletedTask : starter.OnItemEventAsync(WorkflowTriggers.ItemRestored, e, [], null, cancellationToken);
+}
+
+/// <summary>
+/// Starts the workflows whose trigger is a raised event: workflow events (<c>wf.{key}.{event}</c>) and module or extension
+/// triggers (Wolverine handler, generated ahead of time).
+/// </summary>
+public static class WorkflowEventSubscriber
+{
+    public static Task Handle(WorkflowTriggerRaised e, WorkflowStarter starter, CancellationToken cancellationToken) =>
+        starter.OnTriggerAsync(e, cancellationToken);
 }
 
 /// <summary>Whether an item matches an OData filter (workflow conditions and <c>if</c> nodes).</summary>
@@ -101,6 +115,58 @@ public sealed partial class WorkflowStarter(WorkflowsDbContext db, IOutbox outbo
             }
 
             runs.Add(NewRun(runId, workflow, spec, trigger, listId, itemId, data, cause.UserId, cause.Depth));
+        }
+
+        await StartAsync(runs, cancellationToken);
+    }
+
+    /// <summary>Starts the enabled workflows of the workspace whose triggers have the event's type (and list, when narrowed).</summary>
+    public async Task OnTriggerAsync(WorkflowTriggerRaised cause, CancellationToken cancellationToken)
+    {
+        if (cause.Depth >= MaxDepth)
+        {
+            LogTooDeep(cause.Trigger, cause.ItemId ?? Guid.Empty, cause.Depth);
+            return;
+        }
+
+        var tenant = cause.TenantId;
+        var enabled = await EnabledAsync(tenant, cause.WorkspaceId, cause.Trigger, cancellationToken);
+        if (enabled.Count == 0)
+        {
+            return;
+        }
+
+        var listName = cause.ListId is { } listId ? (await items.FindListAsync(new ChangeActor(tenant, null), cause.WorkspaceId, listId, cancellationToken))?.Name : null;
+        var data = cause.Data is { } json ? JsonNode.Parse(json) as JsonObject : null;
+        var runs = new List<WorkflowRun>();
+        foreach (var (workflow, spec) in enabled)
+        {
+            if (!spec.AllTriggers.Any(t => t.Type == cause.Trigger && (t.List is null || t.List == listName)))
+            {
+                continue;
+            }
+
+            if (spec.Condition is { Length: > 0 } condition && cause is { ListId: { } conditionList, ItemId: { } conditionItem })
+            {
+                var (matches, error) = await conditions.MatchesAsync(tenant, cause.WorkspaceId, conditionList, conditionItem, condition, cancellationToken);
+                if (error is not null)
+                {
+                    LogConditionFailed(workflow.Name, error);
+                }
+
+                if (!matches)
+                {
+                    continue;
+                }
+            }
+
+            var runId = RunIdFor(cause.EventId, workflow.Id);
+            if (await RunExistsAsync(tenant, runId, cancellationToken))
+            {
+                continue;
+            }
+
+            runs.Add(NewRun(runId, workflow, spec, cause.Trigger, cause.ListId, cause.ItemId, data, cause.UserId, cause.Depth));
         }
 
         await StartAsync(runs, cancellationToken);
@@ -181,6 +247,16 @@ public sealed partial class WorkflowStarter(WorkflowsDbContext db, IOutbox outbo
         var id = runId;
         var ct = cancellationToken;
         return context.WorkflowRuns.AnyAsync(r => r.TenantId == tenant && r.Id == id, ct);
+    }
+
+    /// <summary>A stable id made from a text (e.g. the run and what raised an event): the same text, the same id.</summary>
+    internal static Guid StableId(string text)
+    {
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text), hash);
+        hash[6] = (byte)((hash[6] & 0x0F) | 0x80);
+        hash[8] = (byte)((hash[8] & 0x3F) | 0x80);
+        return new Guid(hash[..16], bigEndian: true);
     }
 
     internal static Guid RunIdFor(Guid eventId, Guid workflowId)

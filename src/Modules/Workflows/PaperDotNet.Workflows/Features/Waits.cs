@@ -298,7 +298,7 @@ public static class ApprovalOutcomes
 }
 
 /// <summary>Decisions on approvals, completing bookmarks, and cancelling and retrying runs.</summary>
-internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, IItemActivity activity, TimeProvider time)
+public sealed class RunService(WorkflowsDbContext db, IOutbox outbox, IItemActivity activity, TimeProvider time)
 {
     public enum DecisionResult
     {
@@ -381,6 +381,7 @@ internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, IItemAct
             run.Status = RunStatus.Cancelled;
             run.WaitingOn = null;
             run.CompletedAt = time.GetUtcNow();
+            run.CompletedAtUnixMs = run.CompletedAt.Value.ToUnixTimeMilliseconds();
             foreach (var approval in await WaitQueries.PendingOfRunAsync(db, run.TenantId, run.Id, ct))
             {
                 approval.Status = ApprovalStatus.Cancelled;
@@ -421,7 +422,9 @@ internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, IItemAct
         run.FailedNode = null;
         run.Error = null;
         run.CompletedAt = null;
+        run.CompletedAtUnixMs = null;
         run.NodesRun = 0;
+        run.NodeAttempts = 0;
         var log = JsonNode.Parse(run.Log) as JsonArray ?? [];
         log.Add((JsonNode)new JsonObject { ["at"] = now.ToString("O"), ["message"] = $"Retried from {node}" });
         run.Log = log.ToJsonString();
