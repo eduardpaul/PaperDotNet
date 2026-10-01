@@ -77,6 +77,12 @@ internal sealed record ParsedItemQuery(
     IDictionary<string, QueryNode>? OrderAliases)
 {
     public static readonly ParsedItemQuery Empty = new([], null, null);
+
+    /// <summary>Managed metadata fields: comparing them with a term matches its subtree (<see cref="TermDescendants"/>).</summary>
+    public IReadOnlySet<string>? TermFields { get; init; }
+
+    /// <summary>Each term id of the filters with its active descendants (itself included), from <see cref="TermHierarchy"/>.</summary>
+    public IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>? TermDescendants { get; init; }
 }
 
 /// <summary>

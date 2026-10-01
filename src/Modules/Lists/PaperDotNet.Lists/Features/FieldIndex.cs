@@ -204,7 +204,7 @@ internal static class FieldIndex
     /// <summary>The ids a stored value holds in the value table: GUIDs as they are, text (choices) as name-based ids.</summary>
     public static IEnumerable<Guid> Ids(string field, JsonNode? value)
     {
-        IEnumerable<JsonNode?> items = value is JsonArray array ? array : [value];
+        IEnumerable<JsonNode?> items = value is JsonArray array ? array : new[] { value };
         foreach (var item in items)
         {
             if (item is JsonValue single && single.TryGetValue<string>(out var text) && text.Length > 0)

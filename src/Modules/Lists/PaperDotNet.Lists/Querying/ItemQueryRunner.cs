@@ -3,6 +3,7 @@ using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
+using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Querying;
@@ -11,11 +12,19 @@ namespace PaperDotNet.Lists.Querying;
 internal sealed record ItemRunResult(IReadOnlyList<ListItem> Items, long? Count, string? NextCursor);
 
 /// <summary>Parses, validates and runs item queries against a list, trimmed to what the caller may read.</summary>
-internal sealed class ItemQueryRunner(IItemQueries queries, FieldTypeRegistry fieldTypes, TimeProvider time)
+internal sealed class ItemQueryRunner(IItemQueries queries, FieldTypeRegistry fieldTypes, ITermStore terms, TimeProvider time)
 {
     /// <summary>Checks <c>$filter</c>/<c>$orderby</c> against the list's fields; returns an error or null.</summary>
     public string? Validate(ListSchema schema, string? filter, string? orderBy, Guid? userId) =>
         ItemQueryParser.Parse(schema.Fields, fieldTypes, [filter], orderBy, userId, time.GetUtcNow()).Error;
+
+    /// <summary>Parses the filters and ordering; filters on terms are expanded to their subtrees (<see cref="TermHierarchy"/>).</summary>
+    public async Task<(ParsedItemQuery? Query, string? Error)> ParseAsync(
+        Guid tenantId, ListSchema schema, IEnumerable<string?> filters, string? orderBy, Guid? userId, CancellationToken cancellationToken)
+    {
+        var (parsed, error) = ItemQueryParser.Parse(schema.Fields, fieldTypes, filters, orderBy, userId, time.GetUtcNow());
+        return parsed is null ? (null, error) : (await TermHierarchy.ExpandAsync(parsed, schema.Fields, terms, tenantId, cancellationToken), null);
+    }
 
     public async Task<(ItemRunResult? Result, string? Error)> RunAsync(
         ListCaller caller, ListSchema schema, IEnumerable<string?> filters, string? orderBy, int top, string? skipToken, bool count,
@@ -26,7 +35,7 @@ internal sealed class ItemQueryRunner(IItemQueries queries, FieldTypeRegistry fi
             return (null, "The cursor is not valid. Omit it to read the first page.");
         }
 
-        var (parsed, error) = ItemQueryParser.Parse(schema.Fields, fieldTypes, filters, orderBy, caller.UserId, time.GetUtcNow());
+        var (parsed, error) = await ParseAsync(caller.TenantId, schema, filters, orderBy, caller.UserId, cancellationToken);
         if (parsed is null)
         {
             return (null, error);

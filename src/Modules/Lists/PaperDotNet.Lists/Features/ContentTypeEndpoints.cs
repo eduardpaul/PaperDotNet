@@ -7,6 +7,7 @@ using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Fields;
+using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
@@ -241,6 +242,15 @@ internal static class ContentTypeEndpoints
             if (!await context.Lists.AnyAsync(l => l.TenantId == tenant && l.Id == list && l.DeletedAt == null, ct))
             {
                 errors.Add($"Lookup list {lookup} does not exist.");
+            }
+        }
+
+        var terms = services.GetService<ITermStore>();
+        foreach (var termSetId in fields.Where(f => f.TermSetId is not null).Select(f => f.TermSetId!.Value).Distinct())
+        {
+            if (terms is null || await terms.GetTermSetAsync(tenantId, termSetId, cancellationToken) is null)
+            {
+                errors.Add($"Term set {termSetId} does not exist.");
             }
         }
 

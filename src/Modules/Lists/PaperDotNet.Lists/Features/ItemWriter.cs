@@ -7,6 +7,7 @@ using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Messaging;
+using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Features;
@@ -29,6 +30,7 @@ internal sealed class ItemWriter(
     ListsDbContext db,
     FieldTypeRegistry fieldTypes,
     IUserDirectory users,
+    ITermStore terms,
     IEnumerable<IItemMutator> mutators,
     IOutbox outbox,
     ILiveEvents live,
@@ -62,7 +64,7 @@ internal sealed class ItemWriter(
         // Folders hold values of their content type's fields too (LST-19), but required fields and defaults are for items.
         var definitions = contentType.Fields;
         var errors = new Dictionary<string, string[]>();
-        var context = new ValidationContext(db, users, caller.TenantId);
+        var context = new ValidationContext(db, users, terms, caller.TenantId);
         var values = await NormalizeAsync(context, definitions, fields, [], applyDefaults: !isFolder, enforceRequired: !isFolder, errors, ct);
         if (errors.Count > 0)
         {
@@ -147,7 +149,7 @@ internal sealed class ItemWriter(
 
         var definitions = contentType.Fields;
         var errors = new Dictionary<string, string[]>();
-        var context = new ValidationContext(db, users, caller.TenantId);
+        var context = new ValidationContext(db, users, terms, caller.TenantId);
         var values = await NormalizeAsync(context, definitions, fields, current, applyDefaults: false, enforceRequired: !item.IsFolder, errors, ct);
         if (errors.Count > 0)
         {
@@ -655,7 +657,7 @@ internal sealed class ItemWriter(
     }
 
     /// <summary>Lookups for field validation, within the item's tenant.</summary>
-    private sealed class ValidationContext(ListsDbContext db, IUserDirectory users, Guid tenantId) : IFieldValidationContext
+    private sealed class ValidationContext(ListsDbContext db, IUserDirectory users, ITermStore terms, Guid tenantId) : IFieldValidationContext
     {
         public Task<bool> UserExistsAsync(Guid userId, CancellationToken cancellationToken) => users.IsActiveAsync(tenantId, userId, cancellationToken);
 
@@ -669,8 +671,12 @@ internal sealed class ItemWriter(
             return context.Items.AnyAsync(i => i.TenantId == tenant && i.ListId == list && i.Id == id && !i.IsFolder && i.DeletedAt == null, ct);
         }
 
-        /// <summary>Terms come with the Taxonomy module; until then no term resolves.</summary>
-        public Task<Guid?> ResolveTermAsync(Guid? termSetId, string value, CancellationToken cancellationToken) => Task.FromResult<Guid?>(null);
+        /// <summary>A term of the set (null: a keyword); new labels are added to open sets (the keywords set is open).</summary>
+        public async Task<Guid?> ResolveTermAsync(Guid? termSetId, string value, CancellationToken cancellationToken)
+        {
+            var setId = termSetId ?? (await terms.GetKeywordsSetAsync(tenantId, cancellationToken)).Id;
+            return await terms.ResolveAsync(tenantId, setId, value, allowCreate: true, cancellationToken);
+        }
     }
 }
 

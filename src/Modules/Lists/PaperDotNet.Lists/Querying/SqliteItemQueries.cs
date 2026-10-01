@@ -181,6 +181,8 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
         }
 
         translator.Indexed = query.Indexed;
+        translator.TermFields = query.Parsed.TermFields;
+        translator.TermDescendants = query.Parsed.TermDescendants;
         foreach (var (clause, aliases) in query.Parsed.Filters)
         {
             translator.Aliases = aliases;
@@ -291,7 +293,8 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
         FieldIdentifier,
     }
 
-    private readonly record struct Operand(string Sql, OperandKind Kind);
+    /// <summary>An SQL operand; <c>Field</c> names the list field it reads (for term subtrees).</summary>
+    private readonly record struct Operand(string Sql, OperandKind Kind, string? Field = null);
 
     private sealed class Translator(DbCommand command)
     {
@@ -315,6 +318,11 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
 
         /// <summary>Indexed fields ready to use (ADR-0035): their item column or value-table rows instead of the JSON.</summary>
         public IReadOnlyDictionary<string, IndexedField>? Indexed { get; set; }
+
+        /// <summary>Managed metadata fields and the subtrees of the terms in the filters (<see cref="TermHierarchy"/>).</summary>
+        public IReadOnlySet<string>? TermFields { get; set; }
+
+        public IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>? TermDescendants { get; set; }
 
         public string Parameter(object? value)
         {
@@ -356,8 +364,8 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
                     var kind = KindOf(field.Property.Type);
                     return Indexed?.GetValueOrDefault(field.Property.Name) is { Column: { } indexColumn } && FieldIndex.Columns.Contains(indexColumn)
                         && kind != OperandKind.Boolean
-                        ? new($"\"i\".\"{indexColumn}\"", kind)
-                        : new($"json_extract(\"i\".\"Fields\", {Parameter("$." + field.Property.Name)})", kind);
+                        ? new($"\"i\".\"{indexColumn}\"", kind, field.Property.Name)
+                        : new($"json_extract(\"i\".\"Fields\", {Parameter("$." + field.Property.Name)})", kind, field.Property.Name);
                 case SingleValuePropertyAccessNode property when ItemColumns.TryGetValue(property.Property.Name, out var column):
                     return column;
                 default:
@@ -413,6 +421,13 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
                 throw Unsupported(node);
             }
 
+            if (op is "=" or "<>" && Subtree(operand, constant.Value) is { } subtree)
+            {
+                // A term and its descendants.
+                var values = string.Join(", ", subtree.Select(id => Parameter(Value(operand.Kind, id))));
+                return op == "=" ? $"{operand.Sql} IN ({values})" : $"({operand.Sql} NOT IN ({values}) OR {operand.Sql} IS NULL)";
+            }
+
             var sql = $"{operand.Sql} {op} {Parameter(Value(operand.Kind, constant.Value))}";
 
             // "ne" also matches items without a value, as in LINQ.
@@ -447,10 +462,14 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
                 throw Unsupported(node);
             }
 
-            var items = values.Items.Select(Unwrap).ToList();
+            var items = values.Items.Select(Unwrap)
+                .Select(v => v is ConstantNode constant ? constant.Value : throw Unsupported(v))
+                .SelectMany(v => Subtree(operand, v) is { } subtree ? subtree.Cast<object?>() : [v])
+                .Distinct()
+                .ToList();
             return items.Count == 0
                 ? "1 = 0"
-                : $"{operand.Sql} IN ({string.Join(", ", items.Select(v => Parameter(Value(operand.Kind, v is ConstantNode constant ? constant.Value : throw Unsupported(v)))))})";
+                : $"{operand.Sql} IN ({string.Join(", ", items.Select(v => Parameter(Value(operand.Kind, v))))})";
         }
 
         /// <summary><c>fields/tags/any(t: …)</c>: some value of a multi-value field matches (no body: it has a value).</summary>
@@ -473,7 +492,7 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
                 return $"EXISTS (SELECT 1 FROM {from})";
             }
 
-            _ranges[node.CurrentRangeVariable] = new($"{alias}.\"value\"", KindOf(collection.Property.Type));
+            _ranges[node.CurrentRangeVariable] = new($"{alias}.\"value\"", KindOf(collection.Property.Type), collection.Property.Name);
             return $"EXISTS (SELECT 1 FROM {from} WHERE {Predicate(node.Body)})";
         }
 
@@ -508,9 +527,22 @@ internal sealed class SqliteItemQueries(ListsDbContext db, TimeProvider time) : 
                 return null;
             }
 
+            var element = new Operand(string.Empty, OperandKind.FieldIdentifier, collection.Property.Name);
+            if (Guid.TryParse(text, out var term) && Subtree(element, term) is { } subtree)
+            {
+                var ids = subtree.Select(t => GuidText(FieldIndex.ValueId(collection.Property.Name, FieldFormats.Identifier(t)))).ToList();
+                return field => $"EXISTS ({rows}{Parameter(field)} AND \"v\".\"Value\" IN ({string.Join(", ", ids.Select(i => Parameter(i)))}))";
+            }
+
             var id = GuidText(FieldIndex.ValueId(collection.Property.Name, text));
             return field => $"EXISTS ({rows}{Parameter(field)} AND \"v\".\"Value\" = {Parameter(id)})";
         }
+
+        /// <summary>The term and its descendants when <paramref name="operand"/> is a managed metadata field and the value one of the filters' terms.</summary>
+        private IReadOnlyList<Guid>? Subtree(Operand operand, object? value) =>
+            operand.Field is { } field && TermFields?.Contains(field) == true && value is Guid term && TermDescendants?.TryGetValue(term, out var subtree) == true
+                ? subtree
+                : null;
 
         private static object? Value(OperandKind kind, object? value) => (kind, value) switch
         {

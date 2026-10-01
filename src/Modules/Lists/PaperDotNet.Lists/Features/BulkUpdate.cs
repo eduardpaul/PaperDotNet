@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using PaperDotNet.Api;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Data;
-using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
 using PaperDotNet.Workspaces.Contracts;
 
@@ -71,7 +70,7 @@ internal static class BulkUpdateEndpoints
 
 /// <summary>Runs a bulk update as the user who started it: their access is checked again, item by item.</summary>
 internal sealed class BulkUpdateOperation(
-    ListSchemaLoader loader, IItemQueries queries, FieldTypeRegistry fieldTypes, ItemWriter writer, ListsDbContext db, TimeProvider time)
+    ListSchemaLoader loader, IItemQueries queries, ItemQueryRunner runner, ItemWriter writer, ListsDbContext db)
     : OperationHandler<BulkUpdatePayload>
 {
     private const int PageSize = 200;
@@ -134,7 +133,7 @@ internal sealed class BulkUpdateOperation(
     /// <summary>The ids of the items (not folders) matching the filter that the caller can read, page by page.</summary>
     private async Task<List<Guid>> MatchingAsync(ListCaller caller, ListSchema schema, string? filter, CancellationToken cancellationToken)
     {
-        var (parsed, error) = ItemQueryParser.Parse(schema.Fields, fieldTypes, [filter], null, caller.UserId, time.GetUtcNow());
+        var (parsed, error) = await runner.ParseAsync(caller.TenantId, schema, [filter], null, caller.UserId, cancellationToken);
         if (parsed is null)
         {
             throw new InvalidOperationException(error);

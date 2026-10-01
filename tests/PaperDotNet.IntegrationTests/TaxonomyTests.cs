@@ -238,6 +238,86 @@ public sealed class TaxonomyTests : IAsyncLifetime
         await ImportAsync(other, regions, HttpStatusCode.NotFound);
     }
 
+    private async Task<List<string>> TitlesAsync(string workspace, string list, string filter) =>
+        [.. (await GetAsync(_client, $"{Api.Items(workspace, list)}?$filter={Uri.EscapeDataString(filter)}")).GetProperty("value").EnumerateArray()
+            .Select(i => i.GetProperty("fields").GetProperty("title").GetString()!).Order(StringComparer.Ordinal)];
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Managed_metadata_fields_resolve_terms_and_filter_hierarchically(bool indexed)
+    {
+        var (set, terms) = await SetupAsync(_client);
+        var ws = await Api.CreateWorkspaceAsync(_client, "Docs");
+        var list = (await Api.CreateListAsync(_client, ws, "Documents", new object[]
+        {
+            new { name = "department", displayName = "Department", type = "managedMetadata", termSetId = set, indexed },
+            new { name = "keywords", displayName = "Keywords", type = "keywords", allowMultiple = true, indexed },
+        })).Id();
+
+        var invoice = await Api.CreateItemAsync(_client, ws, list, new { title = "Invoice", department = "payables", keywords = new[] { "Tax", "tax", "2026" } });
+        await Api.CreateItemAsync(_client, ws, list, new { title = "Ledger", department = terms["accounting"] });
+        await Api.CreateItemAsync(_client, ws, list, new { title = "Pitch", department = terms["sales"], keywords = new[] { "tax" } });
+        using var unknown = await _client.PostAsJsonAsync(Api.Items(ws, list), new { fields = new { title = "X", department = "Legal" } }, Ct);
+        using var otherSet = await _client.PostAsJsonAsync(Api.Items(ws, list), new { fields = new { title = "Y", department = Guid.NewGuid() } }, Ct);
+
+        Assert.Equal(terms["payables"], invoice.GetProperty("fields").GetProperty("department").GetString());
+        Assert.Equal(2, invoice.GetProperty("fields").GetProperty("keywords").GetArrayLength());
+        Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, otherSet.StatusCode);
+
+        // Filtering on a term matches its descendants.
+        Assert.Equal(["Invoice", "Ledger"], await TitlesAsync(ws, list, $"fields/department eq {terms["finance"]}"));
+        Assert.Equal(["Invoice"], await TitlesAsync(ws, list, $"fields/department eq {terms["payables"]}"));
+        Assert.Equal(["Pitch"], await TitlesAsync(ws, list, $"fields/department ne {terms["finance"]}"));
+        Assert.Equal(["Invoice", "Ledger", "Pitch"], await TitlesAsync(ws, list, $"fields/department in ({terms["accounting"]}, {terms["sales"]})"));
+
+        var tax = (await GetAsync(_client, "/v1.0/termStore/keywords?search=tax")).EnumerateArray().Single().Id();
+        Assert.Equal(["Invoice", "Pitch"], await TitlesAsync(ws, list, $"fields/keywords/any(k: k eq {tax})"));
+    }
+
+    [Fact]
+    public async Task Term_sets_of_managed_metadata_fields_must_exist_in_the_tenant()
+    {
+        var (set, _) = await SetupAsync(_client);
+        var other = await _host.CreateTenantAsync("tax-fields-b");
+
+        using var missing = await _client.PostAsJsonAsync("/v1.0/contentTypes", new { name = "A", fields = new object[] { new { name = "d", displayName = "D", type = "managedMetadata" } } }, Ct);
+        using var unknown = await _client.PostAsJsonAsync("/v1.0/contentTypes", new { name = "B", fields = new object[] { new { name = "d", displayName = "D", type = "managedMetadata", termSetId = Guid.NewGuid() } } }, Ct);
+        using var foreign = await other.PostAsJsonAsync("/v1.0/contentTypes", new { name = "C", fields = new object[] { new { name = "d", displayName = "D", type = "managedMetadata", termSetId = set } } }, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, foreign.StatusCode);
+    }
+
+    [Fact]
+    public async Task Merging_terms_rewrites_item_values_in_the_background()
+    {
+        var (set, terms) = await SetupAsync(_client);
+        var ws = await Api.CreateWorkspaceAsync(_client, "Docs");
+        var list = (await Api.CreateListAsync(_client, ws, "Documents",
+            new object[] { new { name = "departments", displayName = "Departments", type = "managedMetadata", termSetId = set, allowMultiple = true } })).Id();
+        var item = await Api.CreateItemAsync(_client, ws, list, new { title = "Both", departments = new[] { "Sales", "Accounting" } });
+
+        using var merge = await _client.PostAsJsonAsync($"/v1.0/termStore/sets/{set}/terms/{terms["accounting"]}/merge", new { targetTermId = terms["sales"] }, Ct);
+        await merge.JsonAsync(HttpStatusCode.OK);
+
+        // The old id still resolves to the target.
+        var viaOldId = await Api.CreateItemAsync(_client, ws, list, new { title = "Old id", departments = new[] { terms["accounting"] } });
+        Assert.Equal(terms["sales"], viaOldId.GetProperty("fields").GetProperty("departments")[0].GetString());
+
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        JsonElement values;
+        while ((values = (await GetAsync(_client, $"{Api.Items(ws, list)}/{item.Id()}")).GetProperty("fields").GetProperty("departments")).GetArrayLength() != 1)
+        {
+            Assert.True(DateTime.UtcNow < deadline, values.ToString());
+            await Task.Delay(100, Ct);
+        }
+
+        Assert.Equal(terms["sales"], values[0].GetString());
+    }
+
     [Fact]
     public async Task Term_store_is_isolated_per_tenant()
     {

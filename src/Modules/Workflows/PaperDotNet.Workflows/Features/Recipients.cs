@@ -33,7 +33,7 @@ internal sealed class WorkflowRecipientResolver(IUserDirectory users, IListItemS
             else if (spec.StartsWith("field:", StringComparison.Ordinal))
             {
                 var value = item?.Fields[spec["field:".Length..]];
-                IEnumerable<JsonNode?> values = value is JsonArray array ? array : [value];
+                IEnumerable<JsonNode?> values = value is JsonArray array ? array : new[] { value };
                 result.AddRange(values.Select(v => v is JsonValue s && s.TryGetValue<string>(out var text) && Guid.TryParse(text, out var id) ? id : Guid.Empty)
                     .Where(id => id != Guid.Empty));
             }

@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OData;
 using PaperDotNet.Api;
-using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
 using PaperDotNet.Workspaces.Contracts;
 
@@ -34,7 +33,7 @@ internal static class ItemCountEndpoints
 
     private static async Task<Results<Ok<ValueCountsResponse>, ValidationProblem, ProblemHttpResult>> CountAsync(
         Guid workspaceId, Guid listId, string field, [FromQuery(Name = "$filter")] string? filter, Caller caller, ListSchemaLoader loader,
-        FieldTypeRegistry fieldTypes, IItemQueries queries, TimeProvider time, CancellationToken cancellationToken)
+        ItemQueryRunner runner, IItemQueries queries, CancellationToken cancellationToken)
     {
         var schema = await loader.LoadAsync(ListEndpoints.CallerOf(caller), workspaceId, listId, cancellationToken);
         if (schema is null)
@@ -47,7 +46,7 @@ internal static class ItemCountEndpoints
             return ApiErrors.Validation("field", $"The list has no field '{field}'.");
         }
 
-        var (parsed, error) = ItemQueryParser.Parse(schema.Fields, fieldTypes, [filter], null, caller.UserId, time.GetUtcNow());
+        var (parsed, error) = await runner.ParseAsync(caller.TenantId, schema, [filter], null, caller.UserId, cancellationToken);
         if (parsed is null)
         {
             return ApiErrors.Validation("$filter", error!);
