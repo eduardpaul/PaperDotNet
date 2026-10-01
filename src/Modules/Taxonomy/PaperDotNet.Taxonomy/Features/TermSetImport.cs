@@ -53,7 +53,6 @@ internal static class TermSetImport
         var setId = (await TermStore.EnsureKeywordsSetAsync(db, tenant, ct)).Id;
         var keywords = await db.Terms.AsNoTracking()
             .Where(t => t.TenantId == tenant && t.TermSetId == setId && t.MergedIntoId == null && !t.IsDeprecated)
-            .Select(t => new { t.Id, t.Name })
             .ToListAsync(ct);
         var counts = await usage.CountAsync(tenant, [.. keywords.Select(k => k.Id)], ct);
         var result = keywords

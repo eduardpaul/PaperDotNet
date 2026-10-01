@@ -75,7 +75,10 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
   - one LINQ expression from a `DbSet` property to the terminal operator, never composed over several statements
     (write two static queries instead of an `if`);
   - copy the DbContext and every value the query uses into locals first (EF Core cannot yet bind method, lambda or
-    primary-constructor parameters, dotnet/efcore#35887);
+    primary-constructor parameters, dotnet/efcore#35887), constants and static fields too (`.Take(batch)`, not
+    `.Take(Batch)`: the precompiler fails with "unknown identifier");
+  - no anonymous types in projections (`Select(t => new { … })` builds its expression with trim-unsafe reflection):
+    select the entity or a named type;
   - entity classes are not `sealed` (the generated materializer tests for `IInjectableService`);
   - no `DateTimeOffset` in `ORDER BY` on SQLite (order by the time-ordered id);
   - no `Skip` and `Take` in one query: precompiled, both get the parameter `@p` and the offset takes the limit's

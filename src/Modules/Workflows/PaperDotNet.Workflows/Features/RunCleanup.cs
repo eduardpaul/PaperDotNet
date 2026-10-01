@@ -59,9 +59,10 @@ internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<Work
         var failed = RunStatus.Failed;
         var cancelled = RunStatus.Cancelled;
         var ct = cancellationToken;
+        var batch = Batch;
         return context.WorkflowRuns
             .Where(r => r.TenantId == tenant && (r.Status == completed || r.Status == failed || r.Status == cancelled) && r.CompletedAtUnixMs != null && r.CompletedAtUnixMs < cutoff)
-            .Take(Batch).ToListAsync(ct);
+            .Take(batch).ToListAsync(ct);
     }
 
     private static Task<List<ApprovalRequest>> ApprovalsOfRunAsync(WorkflowsDbContext database, Guid tenantId, Guid runId, CancellationToken cancellationToken)
