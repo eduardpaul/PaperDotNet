@@ -17,7 +17,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T09 | M | Extension SDK, extension host and generator | done (steps below): term sets, template sections, workflow triggers and shipped workflows, MCP tools come with T12, T13, T14 and T16 |
 | T10 | S-M | Notes, Collaboration, Notifications | done (steps below); the message store keeps SQLite's own cache and no mmap (ADR-0039) |
 | T11 | M | Tasks and Calendar | done (steps below); Ical.Net works under AOT with its assembly rooted |
-| T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | done (steps below; semantic search is T12e, after the AI workflows of T14). AOT smoke: idle 131 MB, 261 MB under load |
+| T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | done (steps below; semantic search is T12e, after the AI workflows of T14). AOT smoke with smart folders: idle 138 MB (close to the 150 MB budget: watch it), 226 MB under load |
 | T13 | M | Provisioning and templates | |
 | T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | |
 | T15 | XL | Documents (PDF libraries, page images, OCR) | |
