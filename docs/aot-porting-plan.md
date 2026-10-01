@@ -79,6 +79,6 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 |---|---|---|
 | T13a | Provisioning engine and contracts with the tenant and actor on `TemplateContext`, XML apply/export/schema endpoints, the `Workspace` and `List` containers, the `ContentTypes` section | done |
 | T13b | Sections: groups, roles and users (Identity), term groups (Taxonomy), smart folders (Lists), workflows, extensions (enable, settings, `IExtensionBuilder.AddTemplateSection`) | done. Workflow sections carry custom workflows; built-in workflows in templates come with T14, the documents section with T15 |
-| T13c | Packages with content (zip: items, folders, values, files), export and import as operations, cleanup job | |
+| T13c | Packages with content (zip: items, folders, values, files), export and import as operations, cleanup job | in progress: packages with items, folders, portable values, stamps (`AuditOverrides`) and item permissions on `/provisioning/export?includeContent=true` and `/provisioning/apply` are done; library files come with T15 (documents section) |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

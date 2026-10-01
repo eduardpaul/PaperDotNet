@@ -3,6 +3,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Persistence;
 
@@ -28,6 +29,7 @@ public static class DatabaseRegistration
     public static IServiceCollection AddPaperDotNetPersistence(this IServiceCollection services)
     {
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddScoped<AuditOverrides>();
         services.AddScoped<SaveChangesGuard>();
         return services;
     }

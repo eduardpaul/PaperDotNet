@@ -1,3 +1,4 @@
+using PaperDotNet.Abstractions;
 using PaperDotNet.Provisioning.Contracts;
 
 namespace PaperDotNet.Provisioning.Features;
@@ -9,14 +10,14 @@ namespace PaperDotNet.Provisioning.Features;
 internal static class PackageFile
 {
     /// <summary>A package of the tenant or workspace; the returned stream deletes its file when disposed.</summary>
-    public static async Task<Stream> ExportAsync(TemplateEngine engine, Guid? workspaceId, CancellationToken ct)
+    public static async Task<Stream> ExportAsync(TemplateEngine engine, ChangeActor actor, Guid? workspaceId, CancellationToken ct)
     {
         var path = Path.GetTempFileName();
         try
         {
             await using (var package = ZipTemplatePackage.Create(new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true)))
             {
-                var template = await engine.ExportAsync(workspaceId, package, ct);
+                var template = await engine.ExportAsync(actor, workspaceId, package, ct);
                 await package.WriteTemplateAsync(template, ct);
             }
 
@@ -55,7 +56,7 @@ internal static class PackageFile
     /// unless <paramref name="dryRun"/>. Returns validation errors instead of a result when the template is invalid.
     /// </summary>
     public static async Task<(TemplateResult? Result, List<string> Errors)> ApplyAsync(
-        TemplateEngine engine, Stream file, IReadOnlyDictionary<string, string> parameters, Guid? workspaceId, bool dryRun, CancellationToken ct)
+        TemplateEngine engine, ChangeActor actor, Stream file, IReadOnlyDictionary<string, string> parameters, Guid? workspaceId, bool dryRun, CancellationToken ct)
     {
         ZipTemplatePackage package;
         try
@@ -93,7 +94,7 @@ internal static class PackageFile
         TemplateResult result;
         try
         {
-            result = await engine.ApplyAsync(document.Root!, workspaceId, dryRun: true, ct, package);
+            result = await engine.ApplyAsync(actor, document.Root!, workspaceId, dryRun: true, ct, package);
         }
         catch (TemplateException ex)
         {
@@ -102,7 +103,7 @@ internal static class PackageFile
 
         if (!dryRun)
         {
-            result = await engine.ApplyAsync(document.Root!, workspaceId, dryRun: false, ct, package);
+            result = await engine.ApplyAsync(actor, document.Root!, workspaceId, dryRun: false, ct, package);
         }
 
         return (result with { Warnings = [.. warnings, .. result.Warnings] }, []);

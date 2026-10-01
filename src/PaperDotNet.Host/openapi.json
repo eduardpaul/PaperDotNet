@@ -8097,7 +8097,7 @@
         "tags": [
           "Provisioning"
         ],
-        "description": "Exports the organization (no workspaceId) or one workspace with what it depends on, as XML.",
+        "description": "Exports the organization (no workspaceId) or one workspace with what it depends on, as XML; with includeContent=true as a package (zip) that also holds the items and files.",
         "operationId": "ExportTemplate",
         "parameters": [
           {
@@ -8106,6 +8106,13 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "includeContent",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -8121,7 +8128,7 @@
         "tags": [
           "Provisioning"
         ],
-        "description": "Applies the template in the body (XML): dryRun=true lists the planned changes only; workspaceId applies a workspace template to that workspace; parameters[Name]=value sets parameters. Nothing is written when validation or the dry run fails.",
+        "description": "Applies the template (XML) or package (zip) in the body: dryRun=true lists the planned changes only; workspaceId applies a workspace template to that workspace; parameters[Name]=value sets parameters. Nothing is written when validation or the dry run fails.",
         "operationId": "ApplyTemplate",
         "parameters": [
           {
@@ -8143,6 +8150,11 @@
         "requestBody": {
           "content": {
             "application/xml": {
+              "schema": {
+                "type": "string"
+              }
+            },
+            "application/zip": {
               "schema": {
                 "type": "string"
               }

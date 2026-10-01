@@ -10,6 +10,7 @@ using PaperDotNet.Lists.Features;
 using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
 using PaperDotNet.Lists.Templates;
+using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
 using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Search.Contracts;
@@ -70,6 +71,10 @@ public sealed class ListsModule : IModule
         services.AddScoped<ITemplateHandler>(sp => new ContentTypeTemplateHandler(
             sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<FieldTypeRegistry>(), sp, sp.GetRequiredService<ListTemplateRegistry>(),
             sp.GetRequiredService<ContentTypeProvisioner>(), sp.GetRequiredService<ITermStore>(), sp.GetRequiredService<ListTemplateLookups>()));
+        services.AddScoped<ITemplateHandler>(sp => new ListItemsTemplateHandler(
+            sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ListSchemaLoader>(), sp.GetRequiredService<ItemWriter>(),
+            sp.GetRequiredService<ListTemplateLookups>(), sp.GetRequiredService<ITermStore>(), sp.GetRequiredService<IUserDirectory>(),
+            sp.GetRequiredService<AuditOverrides>(), sp.GetRequiredService<ScopeMover>(), sp.GetRequiredService<IOutbox>()));
         services.AddScoped<ITemplateHandler>(sp => new SmartFolderTemplateHandler(sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ITermStore>()));
         services.AddScoped<ITemplateContainer>(sp => new ListTemplateContainer(
             sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ListTemplateRegistry>(), sp.GetRequiredService<ContentTypeProvisioner>(), sp,

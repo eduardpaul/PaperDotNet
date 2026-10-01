@@ -10,7 +10,7 @@ namespace PaperDotNet.Persistence;
 /// query filters under Native AOT, ADR-0039), so every query filters on the tenant itself; writes are checked here:
 /// an added row gets the caller's tenant, and a row of another tenant can never be written in a request.
 /// </summary>
-public sealed class SaveChangesGuard(ICurrentUser user, TimeProvider time) : SaveChangesInterceptor
+public sealed class SaveChangesGuard(ICurrentUser user, TimeProvider time, AuditOverrides overrides) : SaveChangesInterceptor
 {
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
     {
@@ -81,7 +81,21 @@ public sealed class SaveChangesGuard(ICurrentUser user, TimeProvider time) : Sav
 
             if (entry.Entity is IAuditable auditable)
             {
-                if (entry.State == EntityState.Added)
+                // Imports keep the original stamps of what they create (AuditOverrides).
+                var stamp = !overrides.IsEmpty && entry.Metadata.FindProperty("Id") is { ClrType: var idType } && idType == typeof(Guid)
+                    && overrides.TryGet((Guid)entry.Property("Id").CurrentValue!, out var imported) ? imported : null;
+                if (stamp is not null && entry.State is EntityState.Added or EntityState.Modified)
+                {
+                    if (entry.State == EntityState.Added)
+                    {
+                        auditable.CreatedAt = stamp.CreatedAt;
+                        auditable.CreatedBy = stamp.CreatedBy;
+                    }
+
+                    auditable.UpdatedAt = stamp.UpdatedAt ?? stamp.CreatedAt;
+                    auditable.UpdatedBy = stamp.UpdatedBy ?? stamp.CreatedBy;
+                }
+                else if (entry.State == EntityState.Added)
                 {
                     auditable.CreatedAt = now;
                     auditable.CreatedBy ??= user.UserId;

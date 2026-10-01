@@ -13,8 +13,8 @@
     <EmbeddedResource Include="Schema\template-1.0.xsd" LogicalName="PaperDotNet.Provisioning.Schema.template-1.0.xsd" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Packages with content and the export/import operations come with T13c. -->
-    <Compile Remove="Data/ProvisioningDbContext.cs;Features/PackageFile.cs;Features/TemplatePackage.cs;Features/Portability.cs" />
-    <None Include="Data/ProvisioningDbContext.cs;Features/PackageFile.cs;Features/TemplatePackage.cs;Features/Portability.cs" />
+    <!-- The export/import operations come with T13c. -->
+    <Compile Remove="Data/ProvisioningDbContext.cs;Features/Portability.cs" />
+    <None Include="Data/ProvisioningDbContext.cs;Features/Portability.cs" />
   </ItemGroup>
 </Project>

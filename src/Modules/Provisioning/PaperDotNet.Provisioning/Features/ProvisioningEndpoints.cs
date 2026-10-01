@@ -1,5 +1,6 @@
 using System.Text;
 using System.Xml;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.HttpResults;
 using PaperDotNet.Api;
 using PaperDotNet.Provisioning.Contracts;
@@ -16,6 +17,9 @@ internal static class ProvisioningEndpoints
     public const string XmlContentType = "application/xml";
     private const int MaxTemplateBytes = 10 * 1024 * 1024;
 
+    /// <summary>Packages sent to <c>apply</c> (larger ones go through the import operation, PLT-13).</summary>
+    public const long MaxPackageBytes = 512L * 1024 * 1024;
+
     private const string ParameterPrefix = "parameters[";
 
     public static void Map(IEndpointRouteBuilder endpoints)
@@ -24,20 +28,34 @@ internal static class ProvisioningEndpoints
         group.MapGet("/schema", () => TypedResults.Text(TemplateReader.Schema, XmlContentType, Encoding.UTF8))
             .AllowAnonymous().WithName("GetTemplateSchema").Produces(StatusCodes.Status200OK, contentType: XmlContentType);
         group.MapGet("/export", ExportAsync).RequireScope(ProvisioningScopes.Read).WithName("ExportTemplate")
-            .Produces(StatusCodes.Status200OK, contentType: XmlContentType)
-            .WithDescription("Exports the organization (no workspaceId) or one workspace with what it depends on, as XML.");
+            .Produces(StatusCodes.Status200OK, contentType: XmlContentType, additionalContentTypes: ZipTemplatePackage.ContentType)
+            .WithDescription("Exports the organization (no workspaceId) or one workspace with what it depends on, as XML; with includeContent=true "
+                + "as a package (zip) that also holds the items and files.");
         group.MapPost("/apply", ApplyAsync).RequireScope(ProvisioningScopes.Manage).WithName("ApplyTemplate")
-            .Accepts<string>(XmlContentType)
-            .WithDescription("Applies the template in the body (XML): dryRun=true lists the planned changes only; workspaceId applies a workspace "
-                + "template to that workspace; parameters[Name]=value sets parameters. Nothing is written when validation or the dry run fails.");
+            .Accepts<string>(XmlContentType, ZipTemplatePackage.ContentType)
+            .WithDescription("Applies the template (XML) or package (zip) in the body: dryRun=true lists the planned changes only; workspaceId applies "
+                + "a workspace template to that workspace; parameters[Name]=value sets parameters. Nothing is written when validation or the dry run fails.");
     }
 
-    private static async Task<Results<FileContentHttpResult, ProblemHttpResult>> ExportAsync(
-        Guid? workspaceId, Caller caller, TemplateEngine engine, IWorkspaceAccess workspaces, CancellationToken ct)
+    private static async Task<Results<FileContentHttpResult, FileStreamHttpResult, ProblemHttpResult>> ExportAsync(
+        Guid? workspaceId, bool? includeContent, Caller caller, TemplateEngine engine, IWorkspaceAccess workspaces, CancellationToken ct)
     {
         if (workspaceId is { } id && await CheckWorkspaceAsync(workspaces, caller, id, ct) is { } denied)
         {
             return denied;
+        }
+
+        if (includeContent == true)
+        {
+            try
+            {
+                var file = await PackageFile.ExportAsync(engine, caller.Actor, workspaceId, ct);
+                return TypedResults.File(file, ZipTemplatePackage.ContentType, workspaceId is null ? "tenant-package.zip" : "workspace-package.zip");
+            }
+            catch (TemplateException ex)
+            {
+                return ApiErrors.Conflict("cannotExport", ex.Message);
+            }
         }
 
         try
@@ -65,15 +83,21 @@ internal static class ProvisioningEndpoints
     private static async Task<Results<Ok<TemplateResult>, ValidationProblem, ProblemHttpResult>> ApplyAsync(
         HttpRequest request, bool? dryRun, Guid? workspaceId, Caller caller, TemplateEngine engine, IWorkspaceAccess workspaces, CancellationToken ct)
     {
-        if (request.ContentType is not { } contentType
-            || !(contentType.StartsWith(XmlContentType, StringComparison.OrdinalIgnoreCase) || contentType.StartsWith("text/xml", StringComparison.OrdinalIgnoreCase)))
+        var isPackage = request.ContentType?.StartsWith(ZipTemplatePackage.ContentType, StringComparison.OrdinalIgnoreCase) == true;
+        if (!isPackage && (request.ContentType is not { } contentType
+            || !(contentType.StartsWith(XmlContentType, StringComparison.OrdinalIgnoreCase) || contentType.StartsWith("text/xml", StringComparison.OrdinalIgnoreCase))))
         {
-            return ApiErrors.Problem(StatusCodes.Status415UnsupportedMediaType, "unsupportedMediaType", "Send the template as application/xml.");
+            return ApiErrors.Problem(StatusCodes.Status415UnsupportedMediaType, "unsupportedMediaType", "Send the template as application/xml, or a package as application/zip.");
         }
 
         if (workspaceId is { } id && await CheckWorkspaceAsync(workspaces, caller, id, ct) is { } denied)
         {
             return denied;
+        }
+
+        if (isPackage)
+        {
+            return await ApplyPackageAsync(request, dryRun == true, workspaceId, caller, engine, ct);
         }
 
         if (request.ContentLength > MaxTemplateBytes)
@@ -136,6 +160,40 @@ internal static class ProvisioningEndpoints
             return ApiErrors.Conflict("applyFailed", $"{ex.Message} Part of the template may have been applied; fix the problem and apply it again.");
         }
     }
+
+    /// <summary>A package (zip): spooled to a temporary file, then its template is read, checked and applied with it.</summary>
+    private static async Task<Results<Ok<TemplateResult>, ValidationProblem, ProblemHttpResult>> ApplyPackageAsync(
+        HttpRequest request, bool dryRun, Guid? workspaceId, Caller caller, TemplateEngine engine, CancellationToken ct)
+    {
+        if (request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+        {
+            limit.MaxRequestBodySize = MaxPackageBytes;
+        }
+
+        if (request.ContentLength > MaxPackageBytes)
+        {
+            return PackageTooLarge();
+        }
+
+        await using var file = await PackageFile.SpoolAsync(request.Body, MaxPackageBytes, ct);
+        if (file is null)
+        {
+            return PackageTooLarge();
+        }
+
+        try
+        {
+            var (result, errors) = await PackageFile.ApplyAsync(engine, caller.Actor, file, Parameters(request), workspaceId, dryRun, ct);
+            return result is null ? Invalid(errors) : TypedResults.Ok(result);
+        }
+        catch (TemplateException ex)
+        {
+            return ApiErrors.Conflict("applyFailed", $"{ex.Message} Part of the package may have been applied; fix the problem and apply it again.");
+        }
+    }
+
+    private static ProblemHttpResult PackageTooLarge() =>
+        ApiErrors.Problem(StatusCodes.Status413PayloadTooLarge, "packageTooLarge", $"Packages may be at most {MaxPackageBytes / 1024 / 1024} MB here; use the import operation.");
 
     internal static Dictionary<string, string> Parameters(HttpRequest request)
     {

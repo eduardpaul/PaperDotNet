@@ -21,12 +21,10 @@ internal sealed class ZipTemplatePackage : ITemplatePackage, IAsyncDisposable
     /// <summary>JSON documents and the template are read into memory, so they have a limit; files are streamed.</summary>
     private const long MaxDocumentBytes = 200L * 1024 * 1024;
 
-    private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
-
     private readonly Stream _stream;
     private readonly bool _leaveOpen;
     private readonly ZipArchive _zip;
-    private readonly HashSet<string> _files = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _files = [with(StringComparer.Ordinal)];
 
     private ZipTemplatePackage(Stream stream, ZipArchiveMode mode, bool leaveOpen = false)
     {
@@ -71,7 +69,9 @@ internal sealed class ZipTemplatePackage : ITemplatePackage, IAsyncDisposable
     public async Task WriteJsonAsync(string path, JsonNode content, CancellationToken cancellationToken)
     {
         await using var entry = await _zip.CreateEntry(path, CompressionLevel.Optimal).OpenAsync(cancellationToken);
-        await JsonSerializer.SerializeAsync(entry, content, Json, cancellationToken);
+        await using var writer = new Utf8JsonWriter(entry);
+        content.WriteTo(writer);
+        await writer.FlushAsync(cancellationToken);
     }
 
     public async Task<string> AddFileAsync(Stream content, CancellationToken cancellationToken)
