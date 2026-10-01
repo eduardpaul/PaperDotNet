@@ -56,4 +56,12 @@ namespace PaperDotNet.Lists;
 [JsonSerializable(typeof(ItemDeleted))]
 [JsonSerializable(typeof(ItemRestored))]
 [JsonSerializable(typeof(ItemPurged))]
+[JsonSerializable(typeof(SmartFolderDefinition))]
+[JsonSerializable(typeof(SmartFolderRequest))]
+[JsonSerializable(typeof(SmartFolderResponse))]
+[JsonSerializable(typeof(Page<SmartFolderResponse>))]
+[JsonSerializable(typeof(Page<SmartFolderEntry>))]
+[JsonSerializable(typeof(SmartFolderEntry))]
+[JsonSerializable(typeof(SmartFolderGroupsResponse))]
+[JsonSerializable(typeof(SmartFolderDropRequest))]
 internal sealed partial class ListsJson : JsonSerializerContext;

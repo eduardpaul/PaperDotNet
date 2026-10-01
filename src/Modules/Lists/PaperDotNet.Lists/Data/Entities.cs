@@ -370,6 +370,39 @@ public class ListView : ITenantOwned, IAuditable, IVersioned
     public uint Version { get; set; }
 }
 
+/// <summary>
+/// A smart folder (TAX-08): a saved, rule-based view over items of many lists. Personal folders have an
+/// <see cref="OwnerId"/>; shared ones belong to <see cref="WorkspaceId"/>.
+/// </summary>
+public class SmartFolder : ITenantOwned, IAuditable, IVersioned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public string Name { get; set; } = "";
+
+    public string? Description { get; set; }
+
+    public Guid? WorkspaceId { get; set; }
+
+    public Guid? OwnerId { get; set; }
+
+    /// <summary>The definition as JSON (<c>SmartFolderDefinition</c>).</summary>
+    public string Definition { get; set; } = "{}";
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Guid? CreatedBy { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public Guid? UpdatedBy { get; set; }
+
+    [ConcurrencyCheck]
+    public uint Version { get; set; }
+}
+
 /// <summary>Values of <see cref="ItemChange.Kind"/>.</summary>
 public static class ItemChangeKinds
 {

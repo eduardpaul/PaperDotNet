@@ -44,6 +44,8 @@ public class ListsDbContext : DbContext
 
     public DbSet<ListView> Views { get; set; } = null!;
 
+    public DbSet<SmartFolder> SmartFolders { get; set; } = null!;
+
     public DbSet<ItemChange> ItemChanges { get; set; } = null!;
 
     public DbSet<ItemValue> ItemValues { get; set; } = null!;
@@ -348,6 +350,13 @@ public class ListsDbContext : DbContext
             change.HasIndex(c => new { c.TenantId, c.At });
         });
 
+        modelBuilder.Entity<SmartFolder>(folder =>
+        {
+            folder.ToTable("smart_folders");
+            folder.Property(f => f.Name).HasMaxLength(200);
+            folder.HasIndex(f => new { f.TenantId, f.OwnerId });
+            folder.HasIndex(f => new { f.TenantId, f.WorkspaceId });
+        });
         modelBuilder.Entity<ListView>(view =>
         {
             view.ToTable("list_views");

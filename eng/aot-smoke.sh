@@ -156,6 +156,8 @@ for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/search" --dat
 [[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/search" --data-urlencode 'q=quarterly ledger' | json 'd["value"][0]["title"]') == "Quarterly ledger" ]] || fail "full-text search"
 [[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/search" --data-urlencode "termId=$FIN" | json 'd["@odata.count"]') == 1 ]] || fail "search by a parent term"
 [[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/search" --data-urlencode 'q=statement' | json 'd["value"][0]["title"]') == "Quarterly ledger" ]] || fail "comment in search"
+SMART=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/smartFolders" -d "{\"name\":\"Finance\",\"workspaceId\":\"$WS\",\"definition\":{\"terms\":[\"$FIN\"]}}" | json 'd["id"]') || fail "smart folder"
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/smartFolders/$SMART/items" | json '",".join(e["item"]["fields"]["title"] for e in d["value"])') == "Quarterly ledger" ]] || fail "smart folder items"
 
 AUDITED=0
 for _ in $(seq 1 50); do

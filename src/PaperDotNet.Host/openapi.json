@@ -3338,6 +3338,474 @@
         }
       }
     },
+    "/v1.0/smartFolders": {
+      "get": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "ListSmartFolders",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "$top",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "$skiptoken",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfSmartFolderResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "CreateSmartFolder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmartFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/smartFolders/{id}": {
+      "get": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "GetSmartFolder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "UpdateSmartFolder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmartFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "DeleteSmartFolder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/smartFolders/{id}/items": {
+      "get": {
+        "tags": [
+          "Smart folders"
+        ],
+        "description": "Items of the folder across its lists, most recently changed first. path (repeated) selects a virtual sub-folder of groupBy; an empty value is the (empty) group.",
+        "operationId": "ListSmartFolderItems",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "$top",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "$skiptoken",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfSmartFolderEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Smart folders"
+        ],
+        "operationId": "AddToSmartFolder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmartFolderDropRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderEntry"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/smartFolders/{id}/groups": {
+      "get": {
+        "tags": [
+          "Smart folders"
+        ],
+        "description": "The virtual sub-folders at path: the values of the next groupBy level with item counts.",
+        "operationId": "ListSmartFolderGroups",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderGroupsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/smartFolders/{id}/items/{itemId}": {
+      "delete": {
+        "tags": [
+          "Smart folders"
+        ],
+        "description": "Removes the folder's classification from an item (its terms, and field values equal to the folder's conditions).",
+        "operationId": "RemoveFromSmartFolder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "workspaceId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartFolderEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workspaces/{workspaceId}/lists/{listId}/views": {
       "get": {
         "tags": [
@@ -10759,6 +11227,68 @@
         },
         "description": "A page of results in Graph/OData shape."
       },
+      "PageOfSmartFolderEntry": {
+        "required": [
+          "value",
+          "@odata.nextLink"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SmartFolderEntry"
+            }
+          },
+          "@odata.nextLink": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "@odata.count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        },
+        "description": "A page of results in Graph/OData shape."
+      },
+      "PageOfSmartFolderResponse": {
+        "required": [
+          "value",
+          "@odata.nextLink"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SmartFolderResponse"
+            }
+          },
+          "@odata.nextLink": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "@odata.count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        },
+        "description": "A page of results in Graph/OData shape."
+      },
       "PageOfTermGroupResponse": {
         "required": [
           "value",
@@ -11734,6 +12264,324 @@
           }
         },
         "description": "Settings; string? SettingsResponse.WebhookSecret is only returned when a secret was created (shown once)."
+      },
+      "SmartFolderDefinition": {
+        "type": "object",
+        "properties": {
+          "lists": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "listTemplates": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "contentTypes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "terms": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "termMatch": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "filter": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupBy": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SmartFolderGroupBy"
+            }
+          },
+          "includeFolders": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "description": "What a smart folder shows (TAX-08). All parts are optional and combine with \"and\":\n`lists` (list names), `listTemplates` (e.g. `tasks`), `contentTypes` (names or keys),\n`terms` (term ids, with their child terms; `termMatch``all` or `any`), and an OData\n`filter` over fields (with `@me`, `@today`, \u2026). `groupBy` adds virtual sub-folders (TAX-10)."
+      },
+      "SmartFolderDropRequest": {
+        "required": [
+          "workspaceId",
+          "listId",
+          "itemId",
+          "fields",
+          "path"
+        ],
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "fields": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "path": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "Drop to classify (TAX-09): an existing item (`itemId`) gets the folder's terms and the values of its\n`eq` conditions (and of the sub-folder `path`); or a new item is created with them (`fields`)."
+      },
+      "SmartFolderEntry": {
+        "required": [
+          "workspaceId",
+          "listName",
+          "item"
+        ],
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listName": {
+            "type": "string"
+          },
+          "item": {
+            "$ref": "#/components/schemas/ItemResponse"
+          }
+        },
+        "description": "An item in a smart folder, with where it lives."
+      },
+      "SmartFolderGroup": {
+        "required": [
+          "value",
+          "label",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "SmartFolderGroupBy": {
+        "required": [
+          "field"
+        ],
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "by": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "One level of metadata navigation: a field, optionally by `year` or `month` (date fields)."
+      },
+      "SmartFolderGroupsResponse": {
+        "required": [
+          "value",
+          "field",
+          "by"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SmartFolderGroup"
+            }
+          },
+          "field": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "by": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SmartFolderRequest": {
+        "required": [
+          "name",
+          "description",
+          "workspaceId",
+          "personal",
+          "definition"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workspaceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "personal": {
+            "type": "boolean"
+          },
+          "definition": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SmartFolderDefinition"
+              }
+            ]
+          }
+        },
+        "description": "Create/update body. `personal` folders belong to the caller; others to `workspaceId` (Manage needed)."
+      },
+      "SmartFolderResponse": {
+        "required": [
+          "id",
+          "name",
+          "description",
+          "workspaceId",
+          "personal",
+          "definition",
+          "createdAt",
+          "createdBy",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workspaceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "personal": {
+            "type": "boolean"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/SmartFolderDefinition"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "@odata.etag": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The ETag for `If-Match` on changes (the same as the `ETag` header)."
+          }
+        }
       },
       "StartRunRequest": {
         "required": [
@@ -12862,6 +13710,9 @@
     },
     {
       "name": "Search"
+    },
+    {
+      "name": "Smart folders"
     },
     {
       "name": "Tasks"

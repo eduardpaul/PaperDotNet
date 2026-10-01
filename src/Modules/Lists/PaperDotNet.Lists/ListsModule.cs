@@ -60,6 +60,7 @@ public sealed class ListsModule : IModule
         services.AddScoped(sp => new ItemSearchDocuments(
             sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ITermStore>(), sp.GetRequiredService<ISearchIndex>(), sp.GetServices<IItemSearchContributor>()));
         services.AddScoped<ISearchSource>(sp => sp.GetRequiredService<ItemSearchDocuments>());
+        services.AddScoped<SmartFolderQuery>();
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
         services.AddOperationHandler<BulkUpdateOperation>();
@@ -81,6 +82,7 @@ public sealed class ListsModule : IModule
         DeltaEndpoints.Map(endpoints);
         ItemHistoryEndpoints.Map(endpoints);
         PermissionEndpoints.Map(endpoints);
+        SmartFolders.Map(endpoints);
         ViewEndpoints.Map(endpoints);
     }
 }

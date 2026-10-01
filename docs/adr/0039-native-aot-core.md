@@ -1,6 +1,6 @@
 # ADR-0039: The server as one Native AOT binary on .NET 11
 
-- **Status:** Accepted (Identity, Lists, Audit, Workflows, Jobs, Workspaces, the extension host, Notifications, Collaboration, Notes, Tasks and Calendar ported; the other modules still to port, see
+- **Status:** Accepted (Identity, Lists, Audit, Workflows, Jobs, Workspaces, the extension host, Notifications, Collaboration, Notes, Tasks, Calendar, Taxonomy, Search and smart folders ported; the other modules still to port, see
   `docs/aot-porting-plan.md`)
 - **Date:** 2026-09-30
 - **Changes:** [ADR-0007](0007-odata-for-item-queries.md) (OData stays as the query syntax, without ASP.NET Core OData),
@@ -143,11 +143,20 @@ Kiota stays: its C# runtime is AOT-clean, and the TypeScript SDK does not run in
 document is `src/PaperDotNet.Host/openapi.json` (`eng/openapi.sh`). `sdk/` (C#, TypeScript and Python SDKs) still
 describes the .NET 10 API; it is regenerated from the new document when the web UI moves to the AOT server.
 
+### Search under Native AOT
+
+Full-text search uses SQLite FTS5 tables over the search documents and passages, kept by triggers created in the
+migration. Their row ids are the tables' declared integer keys, so they never change (SQLite may renumber implicit row
+ids, e.g. on `VACUUM`). EF Core cannot precompile full-text or dynamically filtered queries, so the search SQL sits
+behind `ISearchQueries` with one implementation per provider, like `IItemQueries`; sets of ids are one JSON parameter
+read with `json_each`. Results are trimmed by permission scope: Lists tells Search what a user may read
+(`IItemAccess.GetReadableAsync`), and a permission move refreshes the scopes of the moved documents.
+
 ### Still to port
 
-Documents (upload, versions, OCR, page images), Search, Taxonomy, smart
-folders, Provisioning and templates, the extension points of those modules (term sets, template
-sections, workflow triggers and shipped workflows, MCP tools), MCP, AI workflows,
+Documents (upload, versions, OCR, page images), semantic and hybrid search, Provisioning and templates, the
+extension points of those modules (template sections, workflow triggers and shipped workflows, MCP tools), MCP, AI
+workflows,
 sign-in in the browser (authorization-code flow, passkeys, OAuth client applications, reverse-proxy sign-in), the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
 schedules, the web UI and the SDKs. Each follows the rules above and brings its tests back from `ToPort`.
 
