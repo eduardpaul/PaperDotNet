@@ -60,6 +60,7 @@ public class WorkflowsDbContext : DbContext
             run.Property(r => r.Status).HasMaxLength(16);
             run.HasIndex(r => new { r.TenantId, r.WorkflowId, r.Id });
             run.HasIndex(r => new { r.TenantId, r.WorkspaceId, r.Id });
+            run.HasIndex(r => new { r.TenantId, r.ItemId, r.Id });
             run.HasIndex(r => new { r.TenantId, r.WorkflowId, r.ItemId, r.Status });
             run.HasIndex(r => new { r.TenantId, r.Status, r.CompletedAtUnixMs });
             run.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(r => r.WorkflowId).OnDelete(DeleteBehavior.Cascade);

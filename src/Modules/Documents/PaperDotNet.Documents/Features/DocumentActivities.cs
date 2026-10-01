@@ -220,7 +220,8 @@ internal sealed class OcrActivity(TimeProvider time) : IWorkflowActivity
         {
             if (resumed.Payload?["error"] is JsonValue error)
             {
-                return WorkflowActivityResult.Fail($"OCR failed: {error}");
+                var message = error.ToString();
+                return WorkflowActivityResult.Fail(message.StartsWith("OCR failed", StringComparison.Ordinal) ? message : $"OCR failed: {message}");
             }
 
             if (resumed.TimedOut)

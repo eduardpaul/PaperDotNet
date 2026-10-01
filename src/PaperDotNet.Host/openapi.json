@@ -4397,6 +4397,65 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/workflows/runs": {
+      "get": {
+        "tags": [
+          "Workflows"
+        ],
+        "description": "Runs of every workflow of the workspace, newest first; ?itemId= narrows to the runs on an item.",
+        "operationId": "ListWorkspaceWorkflowRuns",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "$top",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "$skiptoken",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfRunDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workspaces/{workspaceId}/workflows/runs/{runId}": {
       "get": {
         "tags": [
@@ -9313,6 +9372,126 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/pages/{page}/image": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "description": "A page as JPEG as the library's \"Render pages\" workflow made it: width 800 (default) or 1600 pixels; version selects an older file version.",
+        "operationId": "GetPageImage",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/file/thumbnail": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "description": "The thumbnail of the first page, as the library's \"Make thumbnails\" workflow made it.",
+        "operationId": "GetThumbnail",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }

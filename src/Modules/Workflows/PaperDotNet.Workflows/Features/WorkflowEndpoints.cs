@@ -73,6 +73,8 @@ internal static class WorkflowEndpoints
         group.MapDelete("/{workflowId:guid}", DeleteAsync).RequireScope(WorkflowScopes.Write).WithName("DeleteWorkflow");
         group.MapPost("/{workflowId:guid}/runs", StartAsync).RequireScope(WorkflowScopes.Write).WithName("StartWorkflowRun");
         group.MapGet("/{workflowId:guid}/runs", ListRunsAsync).RequireScope(WorkflowScopes.Read).WithName("ListWorkflowRuns");
+        group.MapGet("/runs", ListWorkspaceRunsAsync).RequireScope(WorkflowScopes.Read).WithName("ListWorkspaceWorkflowRuns")
+            .WithDescription("Runs of every workflow of the workspace, newest first; ?itemId= narrows to the runs on an item.");
         group.MapGet("/runs/{runId:guid}", GetRunAsync).RequireScope(WorkflowScopes.Read).WithName("GetWorkflowRun");
         group.MapPost("/runs/{runId:guid}/cancel", CancelRunAsync).RequireScope(WorkflowScopes.Write).WithName("CancelWorkflowRun")
             .WithDescription("Stops a running or waiting run; its pending approvals are cancelled.");
@@ -434,6 +436,22 @@ internal static class WorkflowEndpoints
         return TypedResults.Ok(Page.Create([.. runs.Select(ToDto)], page, request, r => r.Id));
     }
 
+    private static async Task<Results<Ok<Page<RunDto>>, ProblemHttpResult>> ListWorkspaceRunsAsync(
+        Guid workspaceId, Guid? itemId, HttpRequest request, [FromQuery(Name = "$top")] int? top, [FromQuery(Name = "$skiptoken")] string? skipToken,
+        Caller caller, IWorkspaceAccess workspaces, WorkflowsDbContext database, CancellationToken cancellationToken)
+    {
+        if (await CheckAsync(caller, workspaceId, WorkspaceAccessLevel.Read, workspaces, cancellationToken) is { } problem)
+        {
+            return problem;
+        }
+
+        var page = PageRequest.Create(top, skipToken);
+        var runs = itemId is { } item
+            ? await RunQueries.OfItemAsync(database, caller.TenantId, workspaceId, item, page.After, page.Top + 1, cancellationToken)
+            : await RunQueries.OfWorkspaceAsync(database, caller.TenantId, workspaceId, page.After, page.Top + 1, cancellationToken);
+        return TypedResults.Ok(Page.Create([.. runs.Select(ToDto)], page, request, r => r.Id));
+    }
+
     private static async Task<Results<Ok<RunDto>, ProblemHttpResult>> GetRunAsync(
         Guid workspaceId, Guid runId, Caller caller, IWorkspaceAccess workspaces, WorkflowsDbContext database, CancellationToken cancellationToken)
     {
@@ -518,5 +536,42 @@ internal static class WorkflowEndpoints
         }
 
         return candidate;
+    }
+}
+
+/// <summary>Runs of a workspace, newest first, by keyset (ADR-0039: one precompiled expression each).</summary>
+internal static class RunQueries
+{
+    public static Task<List<WorkflowRun>> OfWorkspaceAsync(WorkflowsDbContext database, Guid tenantId, Guid workspaceId, Guid? after, int take, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = tenantId;
+        var workspace = workspaceId;
+        var count = take;
+        var ct = cancellationToken;
+        if (after is { } before)
+        {
+            return db.WorkflowRuns.Where(r => r.TenantId == tenant && r.WorkspaceId == workspace && r.Id.CompareTo(before) < 0).OrderByDescending(r => r.Id).Take(count).ToListAsync(ct);
+        }
+
+        return db.WorkflowRuns.Where(r => r.TenantId == tenant && r.WorkspaceId == workspace).OrderByDescending(r => r.Id).Take(count).ToListAsync(ct);
+    }
+
+    public static Task<List<WorkflowRun>> OfItemAsync(
+        WorkflowsDbContext database, Guid tenantId, Guid workspaceId, Guid itemId, Guid? after, int take, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = tenantId;
+        var workspace = workspaceId;
+        var item = itemId;
+        var count = take;
+        var ct = cancellationToken;
+        if (after is { } before)
+        {
+            return db.WorkflowRuns.Where(r => r.TenantId == tenant && r.WorkspaceId == workspace && r.ItemId == item && r.Id.CompareTo(before) < 0)
+                .OrderByDescending(r => r.Id).Take(count).ToListAsync(ct);
+        }
+
+        return db.WorkflowRuns.Where(r => r.TenantId == tenant && r.WorkspaceId == workspace && r.ItemId == item).OrderByDescending(r => r.Id).Take(count).ToListAsync(ct);
     }
 }

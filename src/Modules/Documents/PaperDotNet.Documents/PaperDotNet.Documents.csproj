@@ -11,10 +11,14 @@
     <ProjectReference Include="..\..\Workflows\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Still to port (ADR-0039): processing and its workflows (T15b), page operations, templates and inboxes (T15c), MCP tools (T16). -->
-    <Compile Remove="Features/Processing.cs;Features/DocumentActivities.cs;Features/DocumentWorkflows.cs;Features/GlmOcr.cs;Features/PageImageEndpoints.cs" />
+    <!-- Text layers (PdfPig), page images (PDFium through PDFtoImage, SkiaSharp; native libraries next to the binary), the Tesseract CLI. -->
+    <PackageReference Include="PdfPig" />
+    <PackageReference Include="PDFtoImage" />
+    <PackageReference Include="CliWrap" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Still to port (ADR-0039): page operations, templates and inboxes (T15c), MCP tools (T16). -->
     <Compile Remove="Features/PageOperations.cs;Features/DocumentTemplates.cs;Features/GroupInboxEndpoints.cs;Features/DocumentTools.cs" />
-    <None Include="Features/Processing.cs;Features/DocumentActivities.cs;Features/DocumentWorkflows.cs;Features/GlmOcr.cs;Features/PageImageEndpoints.cs" />
     <None Include="Features/PageOperations.cs;Features/DocumentTemplates.cs;Features/GroupInboxEndpoints.cs;Features/DocumentTools.cs" />
   </ItemGroup>
 </Project>

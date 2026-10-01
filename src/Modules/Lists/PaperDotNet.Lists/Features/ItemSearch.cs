@@ -51,6 +51,24 @@ public sealed class ItemSearchDocuments : ISearchSource
     /// <summary>Indexes one item again, or removes it when it is deleted, a folder, or its list is gone.</summary>
     public async Task IndexItemAsync(Guid tenantId, Guid itemId, CancellationToken cancellationToken)
     {
+        // One indexing of an item at a time in this process: an event handled late (e.g. the item's creation) must not
+        // overwrite what a newer indexing wrote (e.g. its file's text, ReindexAsync) with what it read before.
+        var gate = ItemGates[(itemId.GetHashCode() & int.MaxValue) % ItemGates.Length];
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            await IndexItemCoreAsync(tenantId, itemId, cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private static readonly SemaphoreSlim[] ItemGates = [.. Enumerable.Range(0, 64).Select(_ => new SemaphoreSlim(1, 1))];
+
+    private async Task IndexItemCoreAsync(Guid tenantId, Guid itemId, CancellationToken cancellationToken)
+    {
         var db = _db;
         var tenant = tenantId;
         var id = itemId;

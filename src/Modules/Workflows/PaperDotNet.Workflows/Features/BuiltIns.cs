@@ -280,6 +280,25 @@ public sealed partial class BuiltInWorkflows(
             return;
         }
 
+        // One at a time in this process (the catalog and a trigger often ask at once); other servers are caught below.
+        await EnsureLock.WaitAsync(ct);
+        try
+        {
+            if (!EnsuredLibraries.ContainsKey((tenantId, list.Id)))
+            {
+                await CreateDefaultsAsync(tenantId, list, ct);
+            }
+        }
+        finally
+        {
+            EnsureLock.Release();
+        }
+    }
+
+    private static readonly SemaphoreSlim EnsureLock = new(1, 1);
+
+    private async Task CreateDefaultsAsync(Guid tenantId, ListData list, CancellationToken ct)
+    {
         foreach (var workflow in (await ListAsync(tenantId, ct)).Where(w => w.Scope == BuiltInScope.Library && w.EnabledByDefault && IsAvailable(w)))
         {
             if (await RowAsync(tenantId, list.WorkspaceId, workflow.Key, ct, list.Id) is not null)

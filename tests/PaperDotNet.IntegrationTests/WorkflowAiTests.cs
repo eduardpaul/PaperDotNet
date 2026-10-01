@@ -323,6 +323,41 @@ public sealed class WorkflowAiTests
         Assert.False(batch.GetProperty("available").GetBoolean());
     }
 
+    [Fact]
+    public async Task Ai_steps_send_the_pages_of_a_document_as_images()
+    {
+        await using var s = await Setup.CreateAsync();
+        using var created = await s.Admin.PostAsJsonAsync($"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Scans", templateKey = "documents" }, Ct);
+        var library = (await created.JsonAsync(HttpStatusCode.Created)).Id();
+        static string Flow(string images) => $$"""
+            {
+              "trigger": { "type": "manual", "list": "Scans" },
+              "flow": {
+                "start": "ask",
+                "nodes": {
+                  "ask": { "activity": "ai.prompt", "inputs": { "prompt": "What is on it?", "includeImages": {{images}} }, "next": { "done": "save" } },
+                  "save": { "activity": "item.update", "inputs": { "fields": { "description": "{step:ask.text}" } } }
+                }
+              }
+            }
+            """;
+
+        using (var invalid = await s.Admin.PostAsJsonAsync(s.Workflows, new { name = "Bad", definition = JsonNode.Parse(Flow("\"yes\"")) }, Ct))
+        {
+            Assert.Contains("includeImages", (await invalid.JsonAsync(HttpStatusCode.BadRequest)).ToString(), StringComparison.Ordinal);
+        }
+
+        var look = await s.CreateWorkflowAsync("Look", Flow("2"));
+        var form = new MultipartFormDataContent { { new ByteArrayContent(DocumentProcessingTests.TextPdf("A receipt")), "file", "scan.pdf" } };
+        using var upload = await s.Admin.PostAsync($"/v1.0/workspaces/{s.Workspace}/lists/{library}/documents", form, Ct);
+        var item = (await upload.JsonAsync(HttpStatusCode.Created)).GetProperty("itemId").GetString()!;
+
+        // The one page goes as an image (asked for two); the model's answer says it saw it.
+        var run = await s.RunAsync(await s.StartAsync(look, library, item), "completed", "failed");
+        Assert.True(run.GetProperty("status").GetString() == "completed", run.ToString());
+        Assert.Equal("Echo: What is on it? [1 image(s)]", (await s.FieldsAsync(library, item)).GetProperty("description").GetString());
+    }
+
     /// <summary>A manual workflow that asks <paramref name="ask"/> (ai.prompt inputs) and writes the answer to the item.</summary>
     private static Task<string> AskWorkflowAsync(Setup s, string name, string ask) => s.CreateWorkflowAsync(name, $$"""
         {

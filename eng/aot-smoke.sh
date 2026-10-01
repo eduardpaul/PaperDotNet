@@ -203,6 +203,35 @@ curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/me/approvals/$APPROVAL/decision" 
 for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/workflows/runs/$APPROVAL_RUN" | json 'd["status"]') == completed ]] && break; sleep 0.2; done
 [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/workflows/runs/$APPROVAL_RUN" | json 'd["status"]') == completed ]] || fail "approval run"
 
+# Documents (ADR-0038): an upload only stores the file; the library's built-in workflows read the text (PdfPig) and render
+# the thumbnail and pages (PDFium, SkiaSharp: native libraries next to the binary).
+python3 - "$DATA/report.pdf" <<'PY'
+import sys
+objects = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+           b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+           None, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+text = b"BT /F1 24 Tf 72 760 Td (Quarterly smoke report with paperclips) Tj ET"
+objects[3] = b"<< /Length " + str(len(text)).encode() + b" >>\nstream\n" + text + b"\nendstream"
+out, offsets = bytearray(b"%PDF-1.4\n"), []
+for i, body in enumerate(objects, 1):
+    offsets.append(len(out)); out += b"%d 0 obj\n" % i + body + b"\nendobj\n"
+xref = len(out)
+out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1) + b"".join(b"%010d 00000 n \n" % o for o in offsets)
+out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objects) + 1, xref)
+open(sys.argv[1], "wb").write(out)
+PY
+LIBRARY=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Reports","templateKey":"documents"}' | json 'd["id"]') || fail "create library"
+DOC=$(curl -sf "${AUTH[@]}" -F "file=@$DATA/report.pdf;type=application/pdf" "$BASE/v1.0/workspaces/$WS/lists/$LIBRARY/documents" | json 'd["itemId"]') || fail "upload document"
+DOC_FILE="$BASE/v1.0/workspaces/$WS/lists/$LIBRARY/items/$DOC/file"
+curl -sf "${AUTH[@]}" "$DOC_FILE" -o "$DATA/download.pdf" && cmp -s "$DATA/report.pdf" "$DATA/download.pdf" || fail "download document"
+for _ in $(seq 1 100); do curl -sf "${AUTH[@]}" "$DOC_FILE/pages/1/image" -o /dev/null && break; sleep 0.2; done
+curl -sf "${AUTH[@]}" "$DOC_FILE/thumbnail" -o "$DATA/thumbnail.jpg" || fail "thumbnail (document.thumbnail workflow)"
+[[ $(head -c 2 "$DATA/thumbnail.jpg" | od -An -tx1 | tr -d ' \n') == ffd8 ]] || fail "thumbnail is not a JPEG"
+curl -sf "${AUTH[@]}" "$DOC_FILE/pages/1/image" -o /dev/null || fail "page image (document.renderPages workflow)"
+for _ in $(seq 1 100); do [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/search?q=paperclips" | json 'len(d["value"])') -ge 1 ]] && break; sleep 0.2; done
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/search?q=paperclips" | json 'd["value"][0]["id"]') == "$DOC" ]] || fail "document text in search (document.readText workflow)"
+[[ $(curl -sf "${AUTH[@]}" "$DOC_FILE/versions" | json 'd["value"][0]["pageCount"]') == 1 ]] || fail "page count"
+
 # Identity: a member in a group inside a group gets a role's scope; preferences; an API token limited to one scope.
 MEMBER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/users" -d '{"userName":"member","password":"member-password-1"}' | json 'd["id"]') || fail "create user"
 OUTER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/groups" -d '{"name":"Outer"}' | json 'd["id"]') || fail "create group"
