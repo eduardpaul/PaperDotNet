@@ -38,6 +38,9 @@ public class WorkflowsDbContext : DbContext
             workflow.ToTable("workflows");
             workflow.Property(w => w.Name).HasMaxLength(200);
             workflow.Property(w => w.Key).HasMaxLength(100);
+            workflow.Property(w => w.BuiltInKey).HasMaxLength(200);
+            workflow.Property(w => w.CopiedFrom).HasMaxLength(200);
+            workflow.HasIndex(w => new { w.TenantId, w.WorkspaceId, w.BuiltInKey, w.ListId });
             workflow.Ignore(w => w.EventKey);
             workflow.HasIndex(w => new { w.TenantId, w.WorkspaceId, w.Key });
             workflow.HasIndex(w => new { w.TenantId, w.WorkspaceId, w.Name }).IsUnique();

@@ -95,6 +95,9 @@ public class ExtensionTestHost : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.UseSetting("Storage:DataPath", _dataPath);
         builder.UseSetting("Jobs:SchedulerInterval", "00:00:00.200");
+
+        // One host serves every test of a run: sign-ins of all of them count against one address.
+        builder.UseSetting("Identity:SignInsPerMinute", "1000");
         foreach (var (key, value) in _options.Settings)
         {
             builder.UseSetting(key, value);

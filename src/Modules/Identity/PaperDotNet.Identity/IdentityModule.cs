@@ -62,12 +62,14 @@ public sealed class IdentityModule : IModule
                 options.ForwardChallenge = BearerTokenDefaults.AuthenticationScheme;
                 options.ForwardForbid = BearerTokenDefaults.AuthenticationScheme;
             });
+        // Sign-ins per client address and minute (Identity:SignInsPerMinute, default 20).
+        var signInsPerMinute = int.TryParse(configuration["Identity:SignInsPerMinute"], System.Globalization.CultureInfo.InvariantCulture, out var limit) && limit > 0 ? limit : 20;
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.AddPolicy(RateLimits.SignIn, http => RateLimitPartition.GetFixedWindowLimiter(
                 http.Connection.RemoteIpAddress?.ToString() ?? "",
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = signInsPerMinute, Window = TimeSpan.FromMinutes(1) }));
         });
     }
 

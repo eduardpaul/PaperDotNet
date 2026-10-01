@@ -20,6 +20,8 @@ public sealed record WorkflowDto(
     bool Enabled,
     int Version,
     JsonObject Definition,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? BuiltIn,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? CopiedFrom,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     [property: JsonPropertyName("@odata.etag")] string ETag);
@@ -81,7 +83,7 @@ internal static class WorkflowEndpoints
     }
 
     /// <summary>The caller's access to the workspace, or a problem: 404 when it is not visible, 403 below <paramref name="needed"/>.</summary>
-    private static async Task<ProblemHttpResult?> CheckAsync(Caller caller, Guid workspaceId, WorkspaceAccessLevel needed, IWorkspaceAccess workspaces, CancellationToken cancellationToken)
+    internal static async Task<ProblemHttpResult?> CheckAsync(Caller caller, Guid workspaceId, WorkspaceAccessLevel needed, IWorkspaceAccess workspaces, CancellationToken cancellationToken)
     {
         var level = await workspaces.GetPermissionAsync(caller.TenantId, caller.UserId, workspaceId, cancellationToken);
         return level == WorkspaceAccessLevel.None ? ApiErrors.NotFound()
@@ -89,9 +91,9 @@ internal static class WorkflowEndpoints
             : null;
     }
 
-    private static WorkflowDto ToDto(WorkflowDefinition workflow, WorkflowVersion version) =>
+    internal static WorkflowDto ToDto(WorkflowDefinition workflow, WorkflowVersion version) =>
         new(workflow.Id, workflow.Name, workflow.EventKey, workflow.Description, workflow.Enabled, workflow.CurrentVersion, JsonNode.Parse(version.Definition)!.AsObject(),
-            workflow.CreatedAt, workflow.UpdatedAt, ETags.From(workflow.Version));
+            workflow.BuiltInKey, workflow.CopiedFrom, workflow.CreatedAt, workflow.UpdatedAt, ETags.From(workflow.Version));
 
     private static RunDto ToDto(WorkflowRun run) =>
         new(run.Id, run.WorkflowId, run.WorkflowVersion, run.Status, run.Trigger, run.Node, run.ListId, run.ItemId,
@@ -107,7 +109,7 @@ internal static class WorkflowEndpoints
         return db.Workflows.Where(w => w.TenantId == tenant && w.WorkspaceId == workspace && w.Id == id).FirstOrDefaultAsync(ct);
     }
 
-    private static Task<bool> NameTakenAsync(WorkflowsDbContext database, Guid tenantId, Guid workspaceId, string workflowName, Guid exceptId, CancellationToken cancellationToken)
+    internal static Task<bool> NameTakenAsync(WorkflowsDbContext database, Guid tenantId, Guid workspaceId, string workflowName, Guid exceptId, CancellationToken cancellationToken)
     {
         var db = database;
         var tenant = tenantId;
@@ -261,6 +263,11 @@ internal static class WorkflowEndpoints
         if (workflow.Version != etag)
         {
             return ApiErrors.PreconditionFailed();
+        }
+
+        if (workflow.BuiltInKey is { } builtIn && (body.Definition is not null || body.Name is not null))
+        {
+            return ApiErrors.Conflict("builtIn", $"The built-in workflow '{builtIn}' cannot be changed: set its parameters, or copy it (…/workflows/builtIns/{builtIn}/copy).");
         }
 
         if (body.Name is { } newName)

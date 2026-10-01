@@ -36,6 +36,8 @@ public sealed class ExtensionContributions
 
     public List<string> WorkflowTriggers { get; } = [];
 
+    public List<string> Workflows { get; } = [];
+
     public List<string> Tables { get; } = [];
 
     public bool Endpoints { get; set; }
@@ -262,6 +264,20 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
+    public IExtensionBuilder AddWorkflow(BuiltInWorkflow workflow)
+    {
+        ArgumentNullException.ThrowIfNull(workflow);
+        if (!workflow.Key.StartsWith($"{extension.Id}.", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"The workflow '{workflow.Key}' of the extension '{extension.Id}' must start with '{extension.Id}.'.");
+        }
+
+        var id = extension.Id;
+        services.AddScoped<IWorkflowDefinitionProvider>(sp => new GatedWorkflowProvider(id, workflow, sp.GetRequiredService<IExtensionState>()));
+        extension.Contributions.Workflows.Add(workflow.Key);
+        return this;
+    }
+
     public IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TActivity>()
         where TActivity : class, IWorkflowActivity
     {
@@ -327,6 +343,14 @@ internal sealed record ExtensionSubscription<TEvent>(string ExtensionId, string 
     where TEvent : IntegrationEvent;
 
 /// <summary>Runs an extension's recurring job only in tenants that enabled it.</summary>
+/// <summary>A built-in workflow of an extension: offered only where the extension is enabled.</summary>
+internal sealed class GatedWorkflowProvider(string extensionId, BuiltInWorkflow workflow, IExtensionState state) : IWorkflowDefinitionProvider
+{
+    public IEnumerable<BuiltInWorkflow> GetWorkflows() => [workflow];
+
+    public ValueTask<bool> IsAvailableAsync(Guid tenantId, CancellationToken cancellationToken) => state.IsEnabledAsync(tenantId, extensionId, cancellationToken);
+}
+
 internal sealed class GatedRecurringJob(string extensionId, ITenantRecurringJob inner, IExtensionState state) : ITenantRecurringJob
 {
     public async Task RunAsync(Guid tenantId, CancellationToken cancellationToken)

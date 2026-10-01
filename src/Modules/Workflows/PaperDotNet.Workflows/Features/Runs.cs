@@ -65,7 +65,8 @@ public sealed class ItemConditions(WorkflowItems items)
 /// depth; from <see cref="MaxDepth"/> on nothing starts (loop protection). Queries copy their arguments into locals (ADR-0039).
 /// </summary>
 public sealed partial class WorkflowStarter(
-    WorkflowsDbContext db, IOutbox outbox, WorkflowItems items, ItemConditions conditions, TriggerTerms terms, TimeProvider time, ILogger<WorkflowStarter> logger)
+    WorkflowsDbContext db, IOutbox outbox, WorkflowItems items, ItemConditions conditions, TriggerTerms terms, BuiltInWorkflows builtIns, TimeProvider time,
+    ILogger<WorkflowStarter> logger)
 {
     /// <summary>Changes caused by this many workflow reactions in a row start no more workflows (loop protection).</summary>
     public const int MaxDepth = 8;
@@ -96,15 +97,23 @@ public sealed partial class WorkflowStarter(
         }
 
         var tenant = cause.TenantId;
-        var enabled = await EnabledAsync(tenant, cause.WorkspaceId, cause.Trigger, cancellationToken);
+
+        // A deleted item's list is found too while the list itself is not deleted. A library's built-in workflows that are on
+        // by default are created before its events are matched.
+        var reader = new ChangeActor(tenant, null);
+        var list = cause.ListId is { } listId ? await items.FindListAsync(reader, cause.WorkspaceId, listId, cancellationToken) : null;
+        if (list is { IsLibrary: true })
+        {
+            await builtIns.EnsureDefaultsAsync(tenant, list, cancellationToken);
+        }
+
+        // A per-library workflow only starts for its library's items.
+        var enabled = (await EnabledAsync(tenant, cause.WorkspaceId, cause.Trigger, cancellationToken))
+            .Where(w => w.Workflow.ListId is null || w.Workflow.ListId == cause.ListId).ToList();
         if (enabled.Count == 0)
         {
             return;
         }
-
-        // A deleted item's list is found too while the list itself is not deleted.
-        var reader = new ChangeActor(tenant, null);
-        var list = cause.ListId is { } listId ? await items.FindListAsync(reader, cause.WorkspaceId, listId, cancellationToken) : null;
 
         // The item's values, read once when a content type (of a raised trigger) or terms have to be checked.
         ListItemData? current = null;

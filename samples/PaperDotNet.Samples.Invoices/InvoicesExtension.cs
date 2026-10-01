@@ -65,6 +65,7 @@ public sealed class InvoicesExtension : IExtension
         builder.AddEventSubscriber<ItemUpdated, PaymentReceived>();
         builder.AddWorkflowTrigger(new WorkflowTriggerDefinition(ApprovalNeededTrigger.Key, "An invoice above the approval threshold was added (data: amount)."));
         builder.AddEventSubscriber<ItemAdded, ApprovalNeededTrigger>();
+        builder.AddWorkflow(InvoiceWorkflows.ApproveAndCollect);
         builder.AddRecurringJob<ReminderJob>($"{Id}.reminders", "* * * * * *");
         builder.MapEndpoints(api => api.MapGet("/stats", (InvoiceStats stats, Caller caller) => TypedResults.Ok(stats.For(caller.TenantId).Snapshot()))
             .RequireScope($"{Id}.read"));

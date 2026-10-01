@@ -111,6 +111,12 @@ public interface IExtensionBuilder
     /// </summary>
     IExtensionBuilder AddWorkflowTrigger(WorkflowTriggerDefinition trigger);
 
+    /// <summary>
+    /// A built-in workflow the extension ships (EVT-12; key starts with <c>{extension id}.</c>), offered in workspaces where
+    /// the extension is enabled.
+    /// </summary>
+    IExtensionBuilder AddWorkflow(BuiltInWorkflow workflow);
+
     /// <summary>An activity for workflows (EVT-09; key starts with <c>{extension id}.</c>).</summary>
     IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TActivity>()
         where TActivity : class, IWorkflowActivity;

@@ -12,9 +12,11 @@ namespace PaperDotNet.Workflows.Features;
 /// Workspace section <c>Workflows</c> in <c>urn:paperdotnet:workflow:1</c>: the workspace's workflows with their
 /// definitions as JSON (they refer to lists and users by name, so they are portable). Workflows are matched by name; a
 /// changed definition becomes a new version (ADR-0036: workflows travel with lists and libraries). Built-in workflows
-/// (EVT-12) come with T14.
+/// (EVT-12) travel as their key (<c>BuiltIn</c>), on or off, with their parameters as JSON; copies keep <c>CopiedFrom</c>.
+/// A built-in workflow this server does not have is skipped with a warning.
 /// </summary>
-internal sealed class WorkflowTemplateHandler(WorkflowsDbContext db, IEnumerable<IWorkflowActivity> activities, TriggerCatalog triggers, TimeProvider time) : ITemplateHandler
+internal sealed class WorkflowTemplateHandler(
+    WorkflowsDbContext db, IEnumerable<IWorkflowActivity> activities, TriggerCatalog triggers, BuiltInWorkflows builtIns, TimeProvider time) : ITemplateHandler
 {
     public static readonly XNamespace Ns = "urn:paperdotnet:workflow:1";
 
@@ -35,13 +37,24 @@ internal sealed class WorkflowTemplateHandler(WorkflowsDbContext db, IEnumerable
         var section = new XElement(Element);
         foreach (var workflow in workflows.OrderBy(w => w.Name, StringComparer.Ordinal))
         {
+            if (workflow.ListId is not null)
+            {
+                continue; // Per-library built-in workflows follow their library (documents section, T15).
+            }
+
+            if (workflow.BuiltInKey is { } builtIn)
+            {
+                section.Add(new XElement(Ns + "Workflow", workflow.Parameters ?? "{}").With("Name", workflow.Name).With("BuiltIn", builtIn).With("Enabled", workflow.Enabled));
+                continue;
+            }
+
             if (await WorkflowVersions.FindAsync(db, context.TenantId, workflow.Id, workflow.CurrentVersion, cancellationToken) is not { } version)
             {
                 continue;
             }
 
             section.Add(new XElement(Ns + "Workflow", version.Definition)
-                .With("Name", workflow.Name).With("Description", workflow.Description).With("Enabled", workflow.Enabled));
+                .With("Name", workflow.Name).With("Description", workflow.Description).With("Enabled", workflow.Enabled).With("CopiedFrom", workflow.CopiedFrom));
         }
 
         return section;
@@ -58,7 +71,7 @@ internal sealed class WorkflowTemplateHandler(WorkflowsDbContext db, IEnumerable
             var name = element.RequiredAttr("Name").Trim();
             if (element.Attr("BuiltIn") is { } key)
             {
-                context.Warn($"Workflow '{name}': built-in workflows ('{key}') are not available on this server yet; skipped.", element);
+                await ApplyBuiltInAsync(element, name, key, existing, context, cancellationToken);
                 continue;
             }
 
@@ -97,6 +110,7 @@ internal sealed class WorkflowTemplateHandler(WorkflowsDbContext db, IEnumerable
                         Key = await WorkflowEndpoints.UniqueKeyAsync(db, context.TenantId, workspaceId, name, cancellationToken),
                         Description = description,
                         Enabled = enabled,
+                        CopiedFrom = element.Attr("CopiedFrom"),
                         CurrentVersion = 1,
                         TriggerTypes = WorkflowEndpoints.TriggerTypes(spec!),
                     };
@@ -131,6 +145,71 @@ internal sealed class WorkflowTemplateHandler(WorkflowsDbContext db, IEnumerable
         if (!context.DryRun)
         {
             await db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    /// <summary>A built-in workflow: turned on or off with the template's parameters (a dry run only checks them).</summary>
+    private async Task ApplyBuiltInAsync(XElement element, string name, string key, List<WorkflowDefinition> existing, TemplateContext context, CancellationToken ct)
+    {
+        if (await builtIns.FindAsync(context.TenantId, key, ct) is not { Scope: BuiltInScope.Workspace } workflow)
+        {
+            context.Warn($"Workflow '{name}': the built-in workflow '{key}' is not available on this server; skipped.", element);
+            return;
+        }
+
+        JsonObject? parameters;
+        try
+        {
+            parameters = string.IsNullOrWhiteSpace(element.Value) ? null : JsonNode.Parse(element.Value) as JsonObject;
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            throw new TemplateException($"Workflow '{name}': the parameters are not valid JSON ({ex.Message}).", element);
+        }
+
+        var enabled = element.BoolAttr("Enabled", true);
+        var prefix = context.WorkspaceName;
+        var row = existing.FirstOrDefault(w => w.BuiltInKey == key && w.ListId is null);
+        var (_, values, _) = BuiltInWorkflows.Resolve(workflow, parameters);
+        if (row is not null && row.Enabled == enabled && row.Parameters == values.ToJsonString())
+        {
+            return;
+        }
+
+        if (context.IsPlanned || context.DryRun)
+        {
+            // The lists it names may only be created by this template: checked when it is applied.
+            if (row is null)
+            {
+                context.Created("workflow", $"{prefix}: {workflow.Name}", key);
+            }
+            else
+            {
+                context.Updated("workflow", $"{prefix}: {workflow.Name}", key);
+            }
+
+            return;
+        }
+
+        // After the lists: the lists it names may be created by this template.
+        var workspaceId = context.WorkspaceId!.Value;
+        context.Defer(async deferredCt =>
+        {
+            var (_, errors, _) = await builtIns.SetAsync(context.TenantId, workspaceId, workflow, enabled, parameters ?? [], deferredCt);
+            if (errors.Count > 0)
+            {
+                throw new TemplateException($"Workflow '{name}' ({key}): {string.Join(" ", errors)}", element);
+            }
+
+            await db.SaveChangesAsync(deferredCt);
+        });
+        if (row is null)
+        {
+            context.Created("workflow", $"{prefix}: {workflow.Name}", key);
+        }
+        else
+        {
+            context.Updated("workflow", $"{prefix}: {workflow.Name}", key);
         }
     }
 

@@ -14,6 +14,8 @@ public sealed class InvoicesHost() : ExtensionTestHost(new InvoicesExtension());
 
 public sealed class InvoicesExtensionTests(InvoicesHost host)
 {
+    private static readonly string[] Approvers = ["creator"];
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static async Task<(Guid Workspace, Guid List)> CreateInvoiceListAsync(HttpClient admin)
@@ -208,5 +210,47 @@ public sealed class InvoicesExtensionTests(InvoicesHost host)
         Assert.Equal("Check INV-9 (5000)", title);
         Assert.Equal("INV-10", (await tenant.RunAsync(services => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin)
             .GetAsync(ws, list, small.Item!.Id, Ct), Ct))!.Fields["title"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task The_extension_ships_a_workflow_offered_where_it_is_enabled()
+    {
+        var tenant = await host.CreateTenantAsync(cancellationToken: Ct);
+        using var admin = await tenant.CreateClientAsync(cancellationToken: Ct);
+        var (ws, list) = await CreateInvoiceListAsync(admin);
+        var builtIns = $"/v1.0/workspaces/{ws}/workflows/builtIns";
+        const string key = "samples.invoices.approveAndCollect";
+        var catalog = await (await admin.GetAsync(builtIns, Ct)).Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.Contains(catalog.EnumerateArray(), b => b.GetProperty("key").GetString() == key);
+        var set = await admin.PutAsJsonAsync($"{builtIns}/{key}", new { enabled = true, parameters = new { list = "Invoices", approvers = Approvers } }, Ct);
+        Assert.True(set.IsSuccessStatusCode, await set.Content.ReadAsStringAsync(Ct));
+
+        // It runs with the extension's trigger and activities and the core ones: approve, mark approved, wait for payment.
+        var invoice = await tenant.RunAsync(services => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin)
+            .CreateAsync(ws, list, new JsonObject { ["title"] = "Big", ["amount"] = 5000 }, null, Ct), Ct);
+        string? approval = null;
+        for (var attempt = 0; attempt < 300 && approval is null; attempt++)
+        {
+            await Task.Delay(100, Ct);
+            var pending = await (await admin.GetAsync("/v1.0/me/approvals?status=pending", Ct)).Content.ReadFromJsonAsync<JsonElement>(Ct);
+            approval = pending.GetProperty("value").EnumerateArray().Select(a => a.GetProperty("id").GetString()).FirstOrDefault();
+        }
+
+        Assert.NotNull(approval);
+        Assert.True((await admin.PostAsJsonAsync($"/v1.0/me/approvals/{approval}/decision", new { outcome = "approved" }, Ct)).IsSuccessStatusCode);
+        async Task<string?> StatusAsync() => (await tenant.RunAsync(services => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin)
+            .GetAsync(ws, list, invoice.Item!.Id, Ct), Ct))!.Fields["status"]!.GetValue<string>();
+        for (var attempt = 0; attempt < 300 && await StatusAsync() != "approved"; attempt++)
+        {
+            await Task.Delay(100, Ct);
+        }
+
+        Assert.Equal("approved", await StatusAsync());
+
+        // Not offered where the extension is turned off.
+        await tenant.DisableAsync(InvoicesExtension.Id, Ct);
+        catalog = await (await admin.GetAsync(builtIns, Ct)).Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.DoesNotContain(catalog.EnumerateArray(), b => b.GetProperty("key").GetString() == key);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsJsonAsync($"{builtIns}/{key}", new { enabled = true }, Ct)).StatusCode);
     }
 }

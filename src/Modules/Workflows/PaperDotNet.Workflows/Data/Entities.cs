@@ -30,6 +30,21 @@ public class WorkflowDefinition : ITenantOwned, IVersioned, IAuditable
     /// <summary>Number of the version new runs use.</summary>
     public int CurrentVersion { get; set; }
 
+    /// <summary>
+    /// The built-in workflow this is (EVT-12): read-only, its definition comes from the release with <see cref="Parameters"/>
+    /// filled in; null for workflows people wrote.
+    /// </summary>
+    public string? BuiltInKey { get; set; }
+
+    /// <summary>The values of a built-in workflow's parameters as a JSON object.</summary>
+    public string? Parameters { get; set; }
+
+    /// <summary>The built-in workflow this one was copied from, if any.</summary>
+    public string? CopiedFrom { get; set; }
+
+    /// <summary>The library a per-library built-in workflow belongs to (its triggers apply to that list only); null otherwise.</summary>
+    public Guid? ListId { get; set; }
+
     /// <summary>The trigger types of the current version, as <c>,type,type,</c> (found by <c>,type,</c>).</summary>
     public string TriggerTypes { get; set; } = ",";
 
@@ -45,7 +60,7 @@ public class WorkflowDefinition : ITenantOwned, IVersioned, IAuditable
     public uint Version { get; set; }
 
     /// <summary>The key its events use: <see cref="Key"/>, else one made from the name.</summary>
-    public string EventKey => Key ?? Features.WorkflowKeys.FromName(Name);
+    public string EventKey => Key ?? BuiltInKey ?? Features.WorkflowKeys.FromName(Name);
 }
 
 /// <summary>A saved definition of a workflow: runs keep the version they started with.</summary>

@@ -35,6 +35,9 @@ public sealed class WorkflowsModule : IModule
         services.AddScoped<WorkflowStarter>();
         services.AddSingleton(sp => new TriggerCatalog(sp.GetServices<WorkflowTriggerDefinition>()));
         services.AddScoped<TriggerTerms>();
+        services.AddScoped<BuiltInWorkflows>();
+        services.AddWorkflow(WorkflowBuiltIns.ApproveItemsWorkflow);
+        services.AddTenantRecurringJob<BuiltInSyncJob>(BuiltInSyncJob.Name, BuiltInSyncJob.Schedule);
         services.AddSingleton<IWorkflowTriggers>(sp => new WorkflowTriggerPublisher(sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<TimeProvider>()));
         services.AddTenantRecurringJob<WorkflowScheduleJob>(WorkflowScheduleJob.Name, WorkflowScheduleJob.Schedule);
         services.AddScoped<WorkflowInterpreter>();
@@ -46,7 +49,7 @@ public sealed class WorkflowsModule : IModule
         services.Configure<WorkflowOptions>(configuration.GetSection(WorkflowOptions.Section));
         services.AddTenantRecurringJob<WorkflowRunCleanupJob>(WorkflowRunCleanupJob.Name, WorkflowRunCleanupJob.Schedule);
         services.AddScoped<ITemplateHandler>(sp => new WorkflowTemplateHandler(
-            sp.GetRequiredService<WorkflowsDbContext>(), sp.GetServices<IWorkflowActivity>(), sp.GetRequiredService<TriggerCatalog>(), sp.GetRequiredService<TimeProvider>()));
+            sp.GetRequiredService<WorkflowsDbContext>(), sp.GetServices<IWorkflowActivity>(), sp.GetRequiredService<TriggerCatalog>(), sp.GetRequiredService<BuiltInWorkflows>(), sp.GetRequiredService<TimeProvider>()));
         services.AddWorkflowActivity<ItemCreateActivity>();
         services.AddWorkflowActivity<ItemUpdateActivity>();
     }
@@ -55,6 +58,7 @@ public sealed class WorkflowsModule : IModule
     {
         WorkflowEndpoints.Map(endpoints);
         ApprovalEndpoints.Map(endpoints);
+        BuiltInEndpoints.Map(endpoints);
     }
 }
 
@@ -69,6 +73,10 @@ public sealed class WorkflowsModule : IModule
 [JsonSerializable(typeof(Page<RunDto>))]
 [JsonSerializable(typeof(IReadOnlyList<ActivityDto>))]
 [JsonSerializable(typeof(IReadOnlyList<TriggerDto>))]
+[JsonSerializable(typeof(List<BuiltInDto>))]
+[JsonSerializable(typeof(BuiltInDto))]
+[JsonSerializable(typeof(SetBuiltInRequest))]
+[JsonSerializable(typeof(CopyBuiltInRequest))]
 [JsonSerializable(typeof(List<RunDto>))]
 [JsonSerializable(typeof(ResumeRun))]
 [JsonSerializable(typeof(NotifyApproval))]
