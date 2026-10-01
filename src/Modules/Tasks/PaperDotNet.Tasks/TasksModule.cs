@@ -1,9 +1,8 @@
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Jobs.Contracts;
-using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Tasks.Data;
 using PaperDotNet.Tasks.Features;
@@ -24,23 +23,21 @@ public static class TaskScopes
 }
 
 /// <summary>
-/// Tasks (phase 4a). Tasks are list items of the <c>task</c> content type; this module adds what
-/// fields cannot express. Built on the extension SDK only (EXT-06).
+/// Tasks: list items of the <c>task</c> content type; this module adds what fields cannot express (checklists, links,
+/// recurrence, cross-list views), the <c>task.create</c> activity and due reminders. The <c>task.completed</c> workflow
+/// trigger comes with workflow parity (T14).
 /// </summary>
 public sealed class TasksModule : IModule
 {
     public string Name => "Tasks";
 
+    public IJsonTypeInfoResolver Json => TasksJson.Default;
+
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddModuleDbContext<TasksDbContext>(TasksDbContext.Schema);
+        services.AddModuleDbContext<TasksDbContext>();
         services.AddSingleton(TaskTemplates.ContentType);
         services.AddSingleton(TaskTemplates.List);
-        services.AddScoped<TaskAccess>();
-        services.AddEventSubscriber<ItemUpdated, RecurringTaskSpawner>();
-        services.AddEventSubscriber<ItemPurged, PurgedTaskData>();
-        services.AddEventSubscriber<ItemUpdated, TaskCompletedTrigger>();
-        services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggers.TaskCompleted, "A task was completed (data: completedBy)."));
         services.AddWorkflowActivity<TaskCreateActivity>();
         services.AddTenantRecurringJob<DueTaskReminderJob>(DueTaskReminderJob.Name, DueTaskReminderJob.Schedule);
         services.AddScopes(TaskScopes.All);
@@ -48,3 +45,16 @@ public sealed class TasksModule : IModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => TaskEndpoints.Map(endpoints);
 }
+
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(List<ChecklistEntryDto>))]
+[JsonSerializable(typeof(ChecklistResponse))]
+[JsonSerializable(typeof(TaskLinksResponse))]
+[JsonSerializable(typeof(AddLinkRequest))]
+[JsonSerializable(typeof(LinkedItem))]
+[JsonSerializable(typeof(RecurrenceRequest))]
+[JsonSerializable(typeof(RecurrenceResponse))]
+[JsonSerializable(typeof(MyTasksResponse))]
+[JsonSerializable(typeof(MyTask))]
+[JsonSerializable(typeof(TaskFromDocumentRequest))]
+internal sealed partial class TasksJson : JsonSerializerContext;

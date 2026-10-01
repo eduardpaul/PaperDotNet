@@ -44,6 +44,7 @@
     <ProjectReference Include="..\Modules\Notifications\PaperDotNet.Notifications\PaperDotNet.Notifications.csproj" />
     <ProjectReference Include="..\Modules\Collaboration\PaperDotNet.Collaboration\PaperDotNet.Collaboration.csproj" />
     <ProjectReference Include="..\Modules\Notes\PaperDotNet.Notes\PaperDotNet.Notes.csproj" />
+    <ProjectReference Include="..\Modules\Tasks\PaperDotNet.Tasks\PaperDotNet.Tasks.csproj" />
     <!--
       Extensions compiled into this build (ADR-0014): project or package references, e.g.
       dotnet publish -p:PaperDotNetExtensions=../../samples/PaperDotNet.Samples.Invoices/PaperDotNet.Samples.Invoices.csproj
@@ -56,6 +57,10 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" PrivateAssets="all" />
     <PackageReference Include="WolverineFx.Sqlite" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Ical.Net (Tasks, Calendar) creates its types by reflection: keep the whole assembly (ADR-0039). -->
+    <TrimmerRootAssembly Include="Ical.Net" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />

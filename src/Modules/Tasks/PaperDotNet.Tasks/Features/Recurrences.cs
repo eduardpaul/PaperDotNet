@@ -45,31 +45,37 @@ internal static class Recurrences
 }
 
 /// <summary>
-/// Completing a repeating task creates its next occurrence (TSK-05): same title, priority, assignees,
-/// description and checklist (unchecked), due on the next date of the rule; the rule moves to the new
-/// task. Idempotent and safe to repeat: the next task's id is derived from the rule and the completed task,
-/// its checklist is saved before the task is created (so it never appears without it), and a repeated
-/// event finds the task created before; once the rule moved, a redelivered event finds nothing to do.
+/// Completing a repeating task creates its next occurrence (TSK-05): same title, priority, assignees, description and
+/// checklist (unchecked), due on the next date of the rule; the rule moves to the new task. Idempotent: the next task's
+/// id is derived from the rule and the completed task, its checklist is saved before the task is created (so it never
+/// appears without it), and a repeated event finds the task created before; once the rule moved, a redelivered event
+/// finds nothing to do. Permanently deleted items lose their checklists, links and recurrences. A Wolverine handler
+/// generated ahead of time.
 /// </summary>
-internal sealed class RecurringTaskSpawner(TasksDbContext db, IListItemStore items) : IEventSubscriber<ItemUpdated>
+public static class TaskRecurrenceSubscriber
 {
     private static readonly string[] CopiedFields = ["title", "priority", "assignedTo", "description"];
 
-    public async Task HandleAsync(ItemUpdated integrationEvent, CancellationToken cancellationToken)
+    public static async Task Handle(ItemUpdated e, TasksDbContext database, IListItemStore items, CancellationToken cancellationToken)
     {
-        if (!integrationEvent.ChangedFields.Contains("status"))
+        if (!e.ChangedFields.Contains("status"))
         {
             return;
         }
 
-        var recurrence = await db.Recurrences.FirstOrDefaultAsync(r => r.ItemId == integrationEvent.ItemId, cancellationToken);
+        var db = database;
+        var tenant = e.TenantId;
+        var itemId = e.ItemId;
+        var ct = cancellationToken;
+        var recurrence = await db.Recurrences.FirstOrDefaultAsync(r => r.TenantId == tenant && r.ItemId == itemId, ct);
         if (recurrence is null)
         {
             return;
         }
 
-        var system = items.AsSystem();
-        var task = await system.GetAsync(recurrence.WorkspaceId, recurrence.ListId, recurrence.ItemId, cancellationToken);
+        // Changes made in reaction to an event carry its depth + 1 (loop protection).
+        var system = items.AsSystem(new ChangeActor(tenant, e.UserId, e.Depth + 1));
+        var task = await system.GetAsync(recurrence.WorkspaceId, recurrence.ListId, recurrence.ItemId, ct);
         if (task?.Fields["status"]?.GetValue<string>() != TaskTemplates.Completed)
         {
             return;
@@ -80,7 +86,7 @@ internal sealed class RecurringTaskSpawner(TasksDbContext db, IListItemStore ite
         if (next is null)
         {
             db.Recurrences.Remove(recurrence); // The series has ended.
-            await db.SaveChangesAsync(cancellationToken);
+            await db.SaveChangesAsync(ct);
             return;
         }
 
@@ -97,21 +103,34 @@ internal sealed class RecurringTaskSpawner(TasksDbContext db, IListItemStore ite
         }
 
         var nextId = NextItemId(recurrence.Id, task.Id);
-        if (!await db.Checklist.AnyAsync(c => c.ItemId == nextId, cancellationToken))
+        var previousId = task.Id;
+        if (!await db.Checklist.AnyAsync(c => c.TenantId == tenant && c.ItemId == nextId, ct))
         {
-            var checklist = await db.Checklist.AsNoTracking().Where(c => c.ItemId == task.Id).OrderBy(c => c.Position).ToListAsync(cancellationToken);
-            db.Checklist.AddRange(checklist.Select(c => new ChecklistEntry { Id = Ids.New(), ItemId = nextId, Position = c.Position, Text = c.Text }));
-            await db.SaveChangesAsync(cancellationToken);
+            var checklist = await db.Checklist.AsNoTracking().Where(c => c.TenantId == tenant && c.ItemId == previousId).OrderBy(c => c.Position).ToListAsync(ct);
+            db.Checklist.AddRange(checklist.Select(c => new ChecklistEntry { Id = Ids.New(), TenantId = tenant, ItemId = nextId, Position = c.Position, Text = c.Text }));
+            await db.SaveChangesAsync(ct);
         }
 
-        var created = await system.CreateAsync(task.WorkspaceId, task.ListId, nextId, fields, task.ContentTypeId, cancellationToken);
+        var created = await system.CreateAsync(task.WorkspaceId, task.ListId, nextId, fields, task.ContentTypeId, ct);
         if (!created.Succeeded)
         {
             return;
         }
 
         recurrence.ItemId = nextId;
-        await db.SaveChangesAsync(cancellationToken);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public static async Task Handle(ItemPurged e, TasksDbContext database, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = e.TenantId;
+        var id = e.ItemId;
+        var ct = cancellationToken;
+        db.Checklist.RemoveRange(await db.Checklist.Where(c => c.TenantId == tenant && c.ItemId == id).ToListAsync(ct));
+        db.Links.RemoveRange(await db.Links.Where(l => l.TenantId == tenant && (l.ItemId == id || l.TargetItemId == id)).ToListAsync(ct));
+        db.Recurrences.RemoveRange(await db.Recurrences.Where(r => r.TenantId == tenant && r.ItemId == id).ToListAsync(ct));
+        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>The id of the occurrence after <paramref name="previous"/>: the same every time, so repeats find it.</summary>
@@ -127,16 +146,4 @@ internal sealed class RecurringTaskSpawner(TasksDbContext db, IListItemStore ite
     }
 
     private static string Format(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-}
-
-/// <summary>Removes checklists, links and recurrences of permanently deleted items.</summary>
-internal sealed class PurgedTaskData(TasksDbContext db) : IEventSubscriber<ItemPurged>
-{
-    public async Task HandleAsync(ItemPurged integrationEvent, CancellationToken cancellationToken)
-    {
-        var id = integrationEvent.ItemId;
-        await db.Checklist.Where(c => c.ItemId == id).ExecuteDeleteAsync(cancellationToken);
-        await db.Links.Where(l => l.ItemId == id || l.TargetItemId == id).ExecuteDeleteAsync(cancellationToken);
-        await db.Recurrences.Where(r => r.ItemId == id).ExecuteDeleteAsync(cancellationToken);
-    }
 }

@@ -112,6 +112,15 @@ HOME_NOTE=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/
 curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$WIKI/items" -d '{"fields":{"title":"Plans","body":"Back [[Home]]."}}' -o /dev/null || fail "create note"
 for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$WIKI/items/$HOME_NOTE/noteLinks" | json '"note" in d["value"][0]' 2>/dev/null) == True ]] && break; sleep 0.2; done
 [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$WIKI/items/$HOME_NOTE/noteLinks" | json 'd["value"][0]["note"]["title"]') == Plans ]] || fail "note links"
+# Tasks: checklists and repeating tasks (Ical.Net under AOT).
+TODO=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Chores","templateKey":"tasks"}' | json 'd["id"]') || fail "task list"
+read -r CHORE CHORE_ETAG < <(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$TODO/items" -d '{"fields":{"title":"Water plants","dueDate":"2026-10-05"}}' | json 'd["id"] + " " + d["@odata.etag"]') || fail "create task"
+CHORE_URL="$BASE/v1.0/workspaces/$WS/lists/$TODO/items/$CHORE"
+curl -sf -X PUT "${AUTH[@]}" "${JSON[@]}" "$CHORE_URL/checklist" -d '[{"text":"Balcony","done":true}]' -o /dev/null || fail "checklist"
+[[ $(curl -sf -X PUT "${AUTH[@]}" "${JSON[@]}" "$CHORE_URL/recurrence" -d '{"rule":"FREQ=WEEKLY;BYDAY=MO"}' | json 'd["nextDueDate"]') == 2026-10-12 ]] || fail "task recurrence"
+curl -sf -X PATCH "${AUTH[@]}" "${JSON[@]}" -H "If-Match: $CHORE_ETAG" "$CHORE_URL" -d '{"fields":{"status":"completed"}}' -o /dev/null || fail "complete task"
+for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/workspaces/$WS/lists/$TODO/items" --data-urlencode '$filter=fields/dueDate eq 2026-10-12' | json 'len(d["value"])') == 1 ]] && break; sleep 0.2; done
+[[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/workspaces/$WS/lists/$TODO/items" --data-urlencode '$filter=fields/dueDate eq 2026-10-12' | json 'len(d["value"])') == 1 ]] || fail "next occurrence of a repeating task"
 
 AUDITED=0
 for _ in $(seq 1 50); do

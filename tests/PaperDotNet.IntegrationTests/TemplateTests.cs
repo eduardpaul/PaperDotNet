@@ -32,9 +32,9 @@ public sealed class TemplateTests : IAsyncLifetime
     [Fact]
     public async Task Every_built_in_template_creates_a_working_list()
     {
-        // Tasks and Calendar add their templates when they are ported (T11).
+        // Calendar adds its template when it is ported (T11b).
         var templates = (await (await _client.GetAsync("/v1.0/listTemplates", Ct)).JsonAsync(HttpStatusCode.OK)).EnumerateArray().ToList();
-        Assert.Equal(["contacts", "documents", "notes"], templates.Select(t => t.GetProperty("key").GetString()).Order(StringComparer.Ordinal));
+        Assert.Equal(["contacts", "documents", "notes", "tasks"], templates.Select(t => t.GetProperty("key").GetString()).Order(StringComparer.Ordinal));
 
         foreach (var template in templates)
         {
@@ -85,7 +85,7 @@ public sealed class TemplateTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, (await _client.PostAsJsonAsync(lists, new { name = "Y", templateKey = "contacts", contentTypeIds = new[] { thing } }, Ct)).StatusCode);
 
         var other = await _host.CreateTenantAsync("other");
-        Assert.Equal(3, (await (await other.GetAsync("/v1.0/listTemplates", Ct)).JsonAsync(HttpStatusCode.OK)).GetArrayLength());
+        Assert.Equal(4, (await (await other.GetAsync("/v1.0/listTemplates", Ct)).JsonAsync(HttpStatusCode.OK)).GetArrayLength());
         Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsJsonAsync(lists, new { name = "Z", templateKey = "contacts" }, Ct)).StatusCode);
     }
 }

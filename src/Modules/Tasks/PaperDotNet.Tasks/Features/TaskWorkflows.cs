@@ -8,8 +8,9 @@ namespace PaperDotNet.Tasks.Features;
 /// <summary>
 /// <c>task.create</c>: creates a task in a task list of the workspace (<c>list</c>, <c>title</c>, <c>assignedTo</c>,
 /// <c>dueInDays</c>, <c>priority</c>, <c>description</c>). Tasks add it to workflows through the SDK, like an extension.
+/// Activities are singletons: scoped services come from the context.
 /// </summary>
-internal sealed class TaskCreateActivity(IListItemStore items, IWorkflowRecipients recipients, TimeProvider time) : IWorkflowActivity
+internal sealed class TaskCreateActivity(TimeProvider time) : IWorkflowActivity
 {
     public string Key => "task.create";
 
@@ -17,30 +18,20 @@ internal sealed class TaskCreateActivity(IListItemStore items, IWorkflowRecipien
 
     public IEnumerable<string> Validate(JsonObject inputs) => ActivityInputs.Required(inputs, "list", "title");
 
-    public JsonObject? InputSchema => ActivitySchemas.Of(["list", "title"],
-        ("list", ActivitySchemas.Text("A task list of the workspace, by name.")),
-        ("title", ActivitySchemas.Text("Title (template).")),
-        ("assignedTo", ActivitySchemas.People("Assignees.")),
-        ("dueInDays", ActivitySchemas.Number("Due this many days from now.")),
-        ("priority", ActivitySchemas.Text("Priority.")),
-        ("description", ActivitySchemas.Text("Description (template).")));
-
-    public JsonObject? OutputSchema => ActivitySchemas.Of([], ("taskId", ActivitySchemas.Text("Id of the task.")));
-
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
-        var store = items.AsSystem();
-        var listName = ActivityInputs.Text(context.Inputs, "list")!;
+        var store = context.Services.GetRequiredService<IListItemStore>().AsSystem(context.Actor);
+        var listName = await context.ExpandAsync(ActivityInputs.Text(context.Inputs, "list") ?? "", cancellationToken);
         var list = (await store.GetListsAsync(context.WorkspaceId, null, cancellationToken)).FirstOrDefault(l => l.Name == listName);
-        if (list is null)
+        if (list is null || !list.ContentTypeKeys.Contains(TaskTemplates.ContentTypeKey))
         {
-            return WorkflowActivityResult.Fail($"The list '{listName}' does not exist in the workspace.");
+            return WorkflowActivityResult.Fail($"The task list '{listName}' does not exist in the workspace.");
         }
 
-        var fields = new JsonObject { ["title"] = await context.ExpandAsync(ActivityInputs.Text(context.Inputs, "title")!, cancellationToken) };
+        var fields = new JsonObject { ["title"] = await context.ExpandAsync(ActivityInputs.Text(context.Inputs, "title") ?? "", cancellationToken) };
         if (ActivityInputs.Texts(context.Inputs, "assignedTo") is { Count: > 0 } people)
         {
-            var assignees = await recipients.ResolveAsync(people, context, cancellationToken);
+            var assignees = await context.Services.GetRequiredService<IWorkflowRecipients>().ResolveAsync(people, context, cancellationToken);
             fields["assignedTo"] = new JsonArray([.. assignees.Users.Select(u => JsonValue.Create(u.ToString()))]);
         }
 

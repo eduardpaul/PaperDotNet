@@ -1,10 +1,7 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
@@ -22,11 +19,13 @@ public sealed record ChecklistResponse([property: JsonPropertyName("value")] IRe
 public sealed record LinkedItem(Guid LinkId, Guid WorkspaceId, Guid ListId, Guid ItemId, string? Title, string? Status);
 
 public sealed record TaskLinksResponse(
-    LinkedItem? Parent, IReadOnlyList<LinkedItem> Subtasks, IReadOnlyList<LinkedItem> BlockedBy, IReadOnlyList<LinkedItem> Blocking, IReadOnlyList<LinkedItem> Documents);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LinkedItem? Parent,
+    IReadOnlyList<LinkedItem> Subtasks, IReadOnlyList<LinkedItem> BlockedBy, IReadOnlyList<LinkedItem> Blocking, IReadOnlyList<LinkedItem> Documents);
 
-public sealed record AddLinkRequest(TaskLinkKind Kind, Guid WorkspaceId, Guid ListId, Guid ItemId);
+/// <summary>A link to add: <c>kind</c> is <c>subtask</c>, <c>blockedBy</c> or <c>document</c>.</summary>
+public sealed record AddLinkRequest(string? Kind, Guid WorkspaceId, Guid ListId, Guid ItemId);
 
-public sealed record RecurrenceRequest(string Rule);
+public sealed record RecurrenceRequest(string? Rule);
 
 public sealed record RecurrenceResponse(string Rule, DateOnly? NextDueDate);
 
@@ -40,55 +39,59 @@ public sealed record MyTasksResponse([property: JsonPropertyName("value")] IRead
 public sealed record TaskFromDocumentRequest(Guid WorkspaceId, Guid ListId, string? Title, DateOnly? DueDate, IReadOnlyList<Guid>? AssignedTo);
 
 /// <summary>
-/// Task features on list items: checklists (TSK-01), subtasks and dependencies (TSK-02), cross-list
-/// views (TSK-03), recurrence (TSK-05) and tasks from documents (TSK-06). Access comes from the
-/// lists engine (<see cref="IListItemStore"/>): reading needs Read on the item, changing Contribute.
+/// Task features on list items: checklists (TSK-01), subtasks and dependencies (TSK-02), cross-list views (TSK-03),
+/// recurrence (TSK-05) and tasks from documents (TSK-06). Access comes from the lists engine (<see cref="IListItemStore"/>):
+/// reading needs Read on the item, changing Contribute.
 /// </summary>
 internal static class TaskEndpoints
 {
     public const int MaxChecklistEntries = 200;
     private const int MaxMyTasks = 500;
 
-    public static void Map(IEndpointRouteBuilder endpoints)
+    public static void Map(IEndpointRouteBuilder app)
     {
-        var item = endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}", "Tasks");
+        var item = app.MapGroup("/v1.0/workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}").WithTags("Tasks");
         item.MapGet("/checklist", GetChecklistAsync).RequireScope(TaskScopes.Read).WithName("GetChecklist");
-        item.MapPut("/checklist", ReplaceChecklistAsync).RequireScope(TaskScopes.Write).WithName("ReplaceChecklist");
+        item.MapPut("/checklist", ReplaceChecklistAsync).RequireScope(TaskScopes.Write).WithName("ReplaceChecklist")
+            .WithDescription("Replaces the checklist (order as given).");
         item.MapGet("/links", GetLinksAsync).RequireScope(TaskScopes.Read).WithName("GetTaskLinks");
-        item.MapPost("/links", AddLinkAsync).RequireScope(TaskScopes.Write).WithName("AddTaskLink");
+        item.MapPost("/links", AddLinkAsync).RequireScope(TaskScopes.Write).WithName("AddTaskLink")
+            .WithDescription("Links the task to another item: subtask (one parent per task), blockedBy or document. Cycles are rejected.");
         item.MapDelete("/links/{linkId:guid}", RemoveLinkAsync).RequireScope(TaskScopes.Write).WithName("RemoveTaskLink");
         item.MapGet("/recurrence", GetRecurrenceAsync).RequireScope(TaskScopes.Read).WithName("GetTaskRecurrence");
-        item.MapPut("/recurrence", SetRecurrenceAsync).RequireScope(TaskScopes.Write).WithName("SetTaskRecurrence");
+        item.MapPut("/recurrence", SetRecurrenceAsync).RequireScope(TaskScopes.Write).WithName("SetTaskRecurrence")
+            .WithDescription("Makes the task repeat (RFC 5545 RRULE, e.g. FREQ=MONTHLY;BYMONTHDAY=1); the task needs a due date.");
         item.MapDelete("/recurrence", RemoveRecurrenceAsync).RequireScope(TaskScopes.Write).WithName("RemoveTaskRecurrence");
         item.MapGet("/tasks", TasksOfDocumentAsync).RequireScope(TaskScopes.Read).WithName("ListTasksOfDocument");
-        item.MapPost("/tasks", CreateTaskFromDocumentAsync).RequireScope(TaskScopes.Write).WithName("CreateTaskFromDocument");
+        item.MapPost("/tasks", CreateTaskFromDocumentAsync).RequireScope(TaskScopes.Write).WithName("CreateTaskFromDocument")
+            .WithDescription("Creates a task in a task list, linked to the document (e.g. \"pay this invoice\").");
 
-        endpoints.MapV1Group("me", "Tasks").MapGet("/tasks", MyTasksAsync).RequireScope(TaskScopes.Read).WithName("ListMyTasks");
+        app.MapGet("/v1.0/me/tasks", MyTasksAsync).RequireScope(TaskScopes.Read).WithTags("Tasks").WithName("ListMyTasks")
+            .WithDescription("Open tasks across every task list the caller can read: view=mine (default), dueThisWeek, overdue or all. Dates are UTC; ordered by due date.");
     }
 
     // ---- Checklist -----------------------------------------------------------
 
     private static async Task<Results<Ok<ChecklistResponse>, ProblemHttpResult>> GetChecklistAsync(
-        Guid workspaceId, Guid listId, Guid itemId, TaskAccess access, TasksDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, Caller caller, IListItemStore items, TasksDbContext db, CancellationToken ct)
     {
-        if (await access.TaskAsync(workspaceId, listId, itemId, ct) is null)
+        if (await TaskAccess.TaskAsync(items, workspaceId, listId, itemId, ct) is null)
         {
             return ApiErrors.NotFound();
         }
 
-        return TypedResults.Ok(new ChecklistResponse(await ChecklistAsync(db, itemId, ct)));
+        return TypedResults.Ok(new ChecklistResponse(await ChecklistAsync(db, caller.TenantId, itemId, ct)));
     }
 
-    /// <summary>Replaces the checklist (order as given).</summary>
     private static async Task<Results<Ok<ChecklistResponse>, ValidationProblem, ProblemHttpResult>> ReplaceChecklistAsync(
-        Guid workspaceId, Guid listId, Guid itemId, List<ChecklistEntryDto> entries, TaskAccess access, TasksDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, List<ChecklistEntryDto> entries, Caller caller, IListItemStore items, TasksDbContext database, CancellationToken cancellationToken)
     {
         if (entries.Count > MaxChecklistEntries || entries.Any(e => string.IsNullOrWhiteSpace(e.Text) || e.Text.Length > 500))
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["checklist"] = [$"Up to {MaxChecklistEntries} entries with 1 to 500 characters each."] });
+            return ApiErrors.Validation("checklist", $"Up to {MaxChecklistEntries} entries with 1 to 500 characters each.");
         }
 
-        var task = await access.TaskAsync(workspaceId, listId, itemId, ct);
+        var task = await TaskAccess.TaskAsync(items, workspaceId, listId, itemId, cancellationToken);
         if (task is null)
         {
             return ApiErrors.NotFound();
@@ -99,51 +102,69 @@ internal static class TaskEndpoints
             return TaskAccess.Forbidden();
         }
 
-        await db.Checklist.Where(c => c.ItemId == itemId).ExecuteDeleteAsync(ct);
-        db.Checklist.AddRange(entries.Select((e, i) => new ChecklistEntry { Id = Ids.New(), ItemId = itemId, Position = i, Text = e.Text.Trim(), Done = e.Done }));
+        var db = database;
+        var tenant = caller.TenantId;
+        var id = itemId;
+        var ct = cancellationToken;
+        db.Checklist.RemoveRange(await db.Checklist.Where(c => c.TenantId == tenant && c.ItemId == id).ToListAsync(ct));
+        db.Checklist.AddRange(entries.Select((e, i) => new ChecklistEntry { Id = Ids.New(), TenantId = tenant, ItemId = id, Position = i, Text = e.Text.Trim(), Done = e.Done }));
         await db.SaveChangesAsync(ct);
-        return TypedResults.Ok(new ChecklistResponse(await ChecklistAsync(db, itemId, ct)));
+        return TypedResults.Ok(new ChecklistResponse(await ChecklistAsync(db, tenant, id, ct)));
     }
 
-    internal static async Task<List<ChecklistEntryDto>> ChecklistAsync(TasksDbContext db, Guid itemId, CancellationToken ct) =>
-        await db.Checklist.AsNoTracking().Where(c => c.ItemId == itemId).OrderBy(c => c.Position)
-            .Select(c => new ChecklistEntryDto(c.Text, c.Done)).ToListAsync(ct);
+    internal static async Task<List<ChecklistEntryDto>> ChecklistAsync(TasksDbContext database, Guid tenantId, Guid itemId, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = tenantId;
+        var id = itemId;
+        var ct = cancellationToken;
+        var entries = await db.Checklist.AsNoTracking().Where(c => c.TenantId == tenant && c.ItemId == id).OrderBy(c => c.Position).ToListAsync(ct);
+        return [.. entries.Select(c => new ChecklistEntryDto(c.Text, c.Done))];
+    }
 
     // ---- Links ---------------------------------------------------------------
 
     private static async Task<Results<Ok<TaskLinksResponse>, ProblemHttpResult>> GetLinksAsync(
-        Guid workspaceId, Guid listId, Guid itemId, TaskAccess access, TasksDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, Caller caller, IListItemStore items, TasksDbContext database, CancellationToken cancellationToken)
     {
-        if (await access.TaskAsync(workspaceId, listId, itemId, ct) is null)
+        if (await TaskAccess.TaskAsync(items, workspaceId, listId, itemId, cancellationToken) is null)
         {
             return ApiErrors.NotFound();
         }
 
-        var outgoing = await db.Links.AsNoTracking().Where(l => l.ItemId == itemId).OrderBy(l => l.CreatedAt).ToListAsync(ct);
-        var incoming = await db.Links.AsNoTracking().Where(l => l.TargetItemId == itemId && l.Kind != TaskLinkKind.Document).OrderBy(l => l.CreatedAt).ToListAsync(ct);
+        var db = database;
+        var tenant = caller.TenantId;
+        var id = itemId;
+        var document = TaskLinkKinds.Document;
+        var ct = cancellationToken;
+        var outgoing = await db.Links.AsNoTracking().Where(l => l.TenantId == tenant && l.ItemId == id).OrderBy(l => l.Id).ToListAsync(ct);
+        var incoming = await db.Links.AsNoTracking().Where(l => l.TenantId == tenant && l.TargetItemId == id && l.Kind != document).OrderBy(l => l.Id).ToListAsync(ct);
 
-        async Task<List<LinkedItem>> TargetsAsync(TaskLinkKind kind) =>
-            await access.VisibleAsync(outgoing.Where(l => l.Kind == kind).Select(l => (l.Id, l.TargetWorkspaceId, l.TargetListId, l.TargetItemId)), ct);
+        Task<List<LinkedItem>> TargetsAsync(string kind) =>
+            TaskAccess.VisibleAsync(items, outgoing.Where(l => l.Kind == kind).Select(l => (l.Id, l.TargetWorkspaceId, l.TargetListId, l.TargetItemId)), ct);
 
-        async Task<List<LinkedItem>> SourcesAsync(TaskLinkKind kind) =>
-            await access.VisibleAsync(incoming.Where(l => l.Kind == kind).Select(l => (l.Id, l.WorkspaceId, l.ListId, l.ItemId)), ct);
+        Task<List<LinkedItem>> SourcesAsync(string kind) =>
+            TaskAccess.VisibleAsync(items, incoming.Where(l => l.Kind == kind).Select(l => (l.Id, l.WorkspaceId, l.ListId, l.ItemId)), ct);
 
         return TypedResults.Ok(new TaskLinksResponse(
-            (await SourcesAsync(TaskLinkKind.Subtask)).FirstOrDefault(),
-            await TargetsAsync(TaskLinkKind.Subtask),
-            await TargetsAsync(TaskLinkKind.BlockedBy),
-            await SourcesAsync(TaskLinkKind.BlockedBy),
-            await TargetsAsync(TaskLinkKind.Document)));
+            (await SourcesAsync(TaskLinkKinds.Subtask)).FirstOrDefault(),
+            await TargetsAsync(TaskLinkKinds.Subtask),
+            await TargetsAsync(TaskLinkKinds.BlockedBy),
+            await SourcesAsync(TaskLinkKinds.BlockedBy),
+            await TargetsAsync(TaskLinkKinds.Document)));
     }
 
-    /// <summary>
-    /// Links the task to another item: <c>subtask</c> (the target becomes a subtask; one parent per
-    /// task), <c>blockedBy</c> (the task waits for the target) or <c>document</c>. Cycles are rejected.
-    /// </summary>
     private static async Task<Results<Created<LinkedItem>, ValidationProblem, ProblemHttpResult>> AddLinkAsync(
-        Guid workspaceId, Guid listId, Guid itemId, AddLinkRequest request, TaskAccess access, TasksDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, AddLinkRequest request, Caller caller, IListItemStore items, TasksDbContext database, CancellationToken cancellationToken)
     {
-        var task = await access.TaskAsync(workspaceId, listId, itemId, ct);
+        if (!TaskLinkKinds.IsValid(request.Kind))
+        {
+            return ApiErrors.Validation("kind", "Use subtask, blockedBy or document.");
+        }
+
+        var kind = request.Kind!;
+        var ct = cancellationToken;
+        var task = await TaskAccess.TaskAsync(items, workspaceId, listId, itemId, ct);
         if (task is null)
         {
             return ApiErrors.NotFound();
@@ -154,28 +175,30 @@ internal static class TaskEndpoints
             return TaskAccess.Forbidden();
         }
 
-        var target = request.Kind == TaskLinkKind.Document
-            ? await access.DocumentAsync(request.WorkspaceId, request.ListId, request.ItemId, ct)
-            : await access.TaskAsync(request.WorkspaceId, request.ListId, request.ItemId, ct);
+        var target = kind == TaskLinkKinds.Document
+            ? await TaskAccess.DocumentAsync(items, request.WorkspaceId, request.ListId, request.ItemId, ct)
+            : await TaskAccess.TaskAsync(items, request.WorkspaceId, request.ListId, request.ItemId, ct);
         if (target is null || request.ItemId == itemId)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]>
-            {
-                ["itemId"] = [request.Kind == TaskLinkKind.Document ? "A document you can read is expected." : "Another task you can read is expected."],
-            });
+            return ApiErrors.Validation("itemId", kind == TaskLinkKinds.Document ? "A document you can read is expected." : "Another task you can read is expected.");
         }
 
-        if (await db.Links.AnyAsync(l => l.ItemId == itemId && l.TargetItemId == request.ItemId && l.Kind == request.Kind, ct))
+        var db = database;
+        var tenant = caller.TenantId;
+        var source = itemId;
+        var targetId = target.Id;
+        var subtask = TaskLinkKinds.Subtask;
+        if (await db.Links.AnyAsync(l => l.TenantId == tenant && l.ItemId == source && l.TargetItemId == targetId && l.Kind == kind, ct))
         {
             return ApiErrors.Conflict("linkExists", "The items are already linked this way.");
         }
 
-        if (request.Kind == TaskLinkKind.Subtask && await db.Links.AnyAsync(l => l.TargetItemId == request.ItemId && l.Kind == TaskLinkKind.Subtask, ct))
+        if (kind == TaskLinkKinds.Subtask && await db.Links.AnyAsync(l => l.TenantId == tenant && l.TargetItemId == targetId && l.Kind == subtask, ct))
         {
             return ApiErrors.Conflict("hasParent", "The task already is a subtask of another task.");
         }
 
-        if (request.Kind != TaskLinkKind.Document && await ReachesAsync(db, request.ItemId, itemId, request.Kind, ct))
+        if (kind != TaskLinkKinds.Document && await ReachesAsync(db, tenant, targetId, source, kind, ct))
         {
             return ApiErrors.Conflict("cycle", "The link would create a cycle.");
         }
@@ -183,57 +206,71 @@ internal static class TaskEndpoints
         var link = new TaskLink
         {
             Id = Ids.New(),
-            Kind = request.Kind,
-            ItemId = itemId,
+            TenantId = tenant,
+            Kind = kind,
+            ItemId = source,
             WorkspaceId = workspaceId,
             ListId = listId,
-            TargetItemId = target.Id,
+            TargetItemId = targetId,
             TargetWorkspaceId = target.WorkspaceId,
             TargetListId = target.ListId,
         };
         db.Links.Add(link);
         await db.SaveChangesAsync(ct);
         return TypedResults.Created(
-            $"{ApiRoutes.V1}/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/links",
-            new LinkedItem(link.Id, target.WorkspaceId, target.ListId, target.Id, target.Fields["title"]?.GetValue<string>(), Status(target)));
+            $"/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/links",
+            new LinkedItem(link.Id, target.WorkspaceId, target.ListId, target.Id, Text(target, "title"), Text(target, "status")));
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> RemoveLinkAsync(
-        Guid workspaceId, Guid listId, Guid itemId, Guid linkId, TaskAccess access, TasksDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, Guid linkId, Caller caller, IListItemStore items, TasksDbContext database, CancellationToken cancellationToken)
     {
-        var task = await access.TaskAsync(workspaceId, listId, itemId, ct);
-        var link = task is null ? null : await db.Links.FirstOrDefaultAsync(l => l.Id == linkId && (l.ItemId == itemId || l.TargetItemId == itemId), ct);
-        if (link is null)
+        var db = database;
+        var tenant = caller.TenantId;
+        var id = itemId;
+        var link = linkId;
+        var ct = cancellationToken;
+        var task = await TaskAccess.TaskAsync(items, workspaceId, listId, itemId, ct);
+        var found = task is null ? null : await db.Links.FirstOrDefaultAsync(l => l.TenantId == tenant && l.Id == link && (l.ItemId == id || l.TargetItemId == id), ct);
+        if (task is null || found is null)
         {
             return ApiErrors.NotFound();
         }
 
-        if (task!.Access < WorkspaceAccessLevel.Contribute)
+        if (task.Access < WorkspaceAccessLevel.Contribute)
         {
             return TaskAccess.Forbidden();
         }
 
-        db.Links.Remove(link);
+        db.Links.Remove(found);
         await db.SaveChangesAsync(ct);
         return TypedResults.NoContent();
     }
 
     /// <summary>Whether <paramref name="to"/> can be reached from <paramref name="from"/> over links of <paramref name="kind"/>.</summary>
-    private static async Task<bool> ReachesAsync(TasksDbContext db, Guid from, Guid to, TaskLinkKind kind, CancellationToken ct)
+    private static async Task<bool> ReachesAsync(TasksDbContext database, Guid tenantId, Guid from, Guid to, string kind, CancellationToken cancellationToken)
     {
+        var db = database;
+        var tenant = tenantId;
+        var linkKind = kind;
+        var ct = cancellationToken;
         var seen = new HashSet<Guid> { from };
-        var frontier = new List<Guid> { from };
-        while (frontier.Count > 0)
+        var frontier = new Queue<Guid>([from]);
+        while (frontier.TryDequeue(out var node))
         {
-            if (frontier.Contains(to))
+            if (node == to)
             {
                 return true;
             }
 
-            var current = frontier;
-            frontier = (await db.Links.AsNoTracking().Where(l => l.Kind == kind && current.Contains(l.ItemId)).Select(l => l.TargetItemId).ToListAsync(ct))
-                .Where(seen.Add)
-                .ToList();
+            var current = node;
+            foreach (var next in await db.Links.AsNoTracking().Where(l => l.TenantId == tenant && l.Kind == linkKind && l.ItemId == current).Select(l => l.TargetItemId).ToListAsync(ct))
+            {
+                if (seen.Add(next))
+                {
+                    frontier.Enqueue(next);
+                }
+            }
         }
 
         return false;
@@ -241,19 +278,27 @@ internal static class TaskEndpoints
 
     // ---- Recurrence ------------------------------------------------------------
 
-    private static async Task<Results<Ok<RecurrenceResponse>, ProblemHttpResult>> GetRecurrenceAsync(
-        Guid workspaceId, Guid listId, Guid itemId, TaskAccess access, TasksDbContext db, CancellationToken ct)
+    private static Task<TaskRecurrence?> FindRecurrenceAsync(TasksDbContext database, Guid tenantId, Guid itemId, CancellationToken cancellationToken)
     {
-        var task = await access.TaskAsync(workspaceId, listId, itemId, ct);
-        var recurrence = task is null ? null : await db.Recurrences.AsNoTracking().FirstOrDefaultAsync(r => r.ItemId == itemId, ct);
+        var db = database;
+        var tenant = tenantId;
+        var id = itemId;
+        var ct = cancellationToken;
+        return db.Recurrences.FirstOrDefaultAsync(r => r.TenantId == tenant && r.ItemId == id, ct);
+    }
+
+    private static async Task<Results<Ok<RecurrenceResponse>, ProblemHttpResult>> GetRecurrenceAsync(
+        Guid workspaceId, Guid listId, Guid itemId, Caller caller, IListItemStore items, TasksDbContext db, CancellationToken ct)
+    {
+        var task = await TaskAccess.TaskAsync(items, workspaceId, listId, itemId, ct);
+        var recurrence = task is null ? null : await FindRecurrenceAsync(db, caller.TenantId, itemId, ct);
         return recurrence is null
             ? ApiErrors.NotFound("The task does not repeat.")
             : TypedResults.Ok(new RecurrenceResponse(recurrence.Rule, Recurrences.Next(recurrence.Rule, DueDate(task!))));
     }
 
-    /// <summary>Makes the task repeat (RFC 5545 RRULE, e.g. <c>FREQ=MONTHLY;BYMONTHDAY=1</c>); the task needs a due date.</summary>
     private static async Task<Results<Ok<RecurrenceResponse>, ValidationProblem, ProblemHttpResult>> SetRecurrenceAsync(
-        Guid workspaceId, Guid listId, Guid itemId, RecurrenceRequest request, TaskAccess access, TasksDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, RecurrenceRequest request, Caller caller, IListItemStore items, TasksDbContext db, CancellationToken ct)
     {
         var rule = request.Rule?.Trim() ?? string.Empty;
         if (rule.StartsWith("RRULE:", StringComparison.OrdinalIgnoreCase))
@@ -263,10 +308,10 @@ internal static class TaskEndpoints
 
         if (rule.Length is 0 or > 500 || !Recurrences.IsValid(rule))
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["rule"] = ["A valid RRULE is expected, e.g. FREQ=WEEKLY;BYDAY=MO."] });
+            return ApiErrors.Validation("rule", "A valid RRULE is expected, e.g. FREQ=WEEKLY;BYDAY=MO.");
         }
 
-        var task = await access.TaskAsync(workspaceId, listId, itemId, ct);
+        var task = await TaskAccess.TaskAsync(items, workspaceId, listId, itemId, ct);
         if (task is null)
         {
             return ApiErrors.NotFound();
@@ -279,13 +324,13 @@ internal static class TaskEndpoints
 
         if (DueDate(task) is null)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["dueDate"] = ["A repeating task needs a due date."] });
+            return ApiErrors.Validation("dueDate", "A repeating task needs a due date.");
         }
 
-        var recurrence = await db.Recurrences.FirstOrDefaultAsync(r => r.ItemId == itemId, ct);
+        var recurrence = await FindRecurrenceAsync(db, caller.TenantId, itemId, ct);
         if (recurrence is null)
         {
-            recurrence = new TaskRecurrence { Id = Ids.New(), ItemId = itemId, WorkspaceId = workspaceId, ListId = listId, Rule = rule };
+            recurrence = new TaskRecurrence { Id = Ids.New(), TenantId = caller.TenantId, ItemId = itemId, WorkspaceId = workspaceId, ListId = listId };
             db.Recurrences.Add(recurrence);
         }
 
@@ -295,9 +340,9 @@ internal static class TaskEndpoints
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> RemoveRecurrenceAsync(
-        Guid workspaceId, Guid listId, Guid itemId, TaskAccess access, TasksDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, Caller caller, IListItemStore items, TasksDbContext db, CancellationToken ct)
     {
-        var task = await access.TaskAsync(workspaceId, listId, itemId, ct);
+        var task = await TaskAccess.TaskAsync(items, workspaceId, listId, itemId, ct);
         if (task is null)
         {
             return ApiErrors.NotFound();
@@ -308,7 +353,12 @@ internal static class TaskEndpoints
             return TaskAccess.Forbidden();
         }
 
-        await db.Recurrences.Where(r => r.ItemId == itemId).ExecuteDeleteAsync(ct);
+        if (await FindRecurrenceAsync(db, caller.TenantId, itemId, ct) is { } recurrence)
+        {
+            db.Recurrences.Remove(recurrence);
+            await db.SaveChangesAsync(ct);
+        }
+
         return TypedResults.NoContent();
     }
 
@@ -316,14 +366,19 @@ internal static class TaskEndpoints
 
     /// <summary>Tasks linked to a document (TSK-06), those the caller can read.</summary>
     private static async Task<Results<Ok<MyTasksResponse>, ProblemHttpResult>> TasksOfDocumentAsync(
-        Guid workspaceId, Guid listId, Guid itemId, TaskAccess access, TasksDbContext db, IListItemStore items, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, Caller caller, IListItemStore items, TasksDbContext database, CancellationToken cancellationToken)
     {
-        if (await access.DocumentAsync(workspaceId, listId, itemId, ct) is null)
+        if (await TaskAccess.DocumentAsync(items, workspaceId, listId, itemId, cancellationToken) is null)
         {
             return ApiErrors.NotFound();
         }
 
-        var links = await db.Links.AsNoTracking().Where(l => l.TargetItemId == itemId && l.Kind == TaskLinkKind.Document).ToListAsync(ct);
+        var db = database;
+        var tenant = caller.TenantId;
+        var id = itemId;
+        var document = TaskLinkKinds.Document;
+        var ct = cancellationToken;
+        var links = await db.Links.AsNoTracking().Where(l => l.TenantId == tenant && l.TargetItemId == id && l.Kind == document).OrderBy(l => l.Id).ToListAsync(ct);
         var result = new List<MyTask>();
         foreach (var link in links)
         {
@@ -337,12 +392,10 @@ internal static class TaskEndpoints
         return TypedResults.Ok(new MyTasksResponse(result));
     }
 
-    /// <summary>Creates a task in a task list, linked to the document (e.g. "pay this invoice").</summary>
     private static async Task<Results<Created<MyTask>, ValidationProblem, ProblemHttpResult>> CreateTaskFromDocumentAsync(
-        Guid workspaceId, Guid listId, Guid itemId, TaskFromDocumentRequest request, TaskAccess access, TasksDbContext db,
-        IListItemStore items, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, TaskFromDocumentRequest request, Caller caller, IListItemStore items, TasksDbContext db, CancellationToken ct)
     {
-        var document = await access.DocumentAsync(workspaceId, listId, itemId, ct);
+        var document = await TaskAccess.DocumentAsync(items, workspaceId, listId, itemId, ct);
         if (document is null)
         {
             return ApiErrors.NotFound();
@@ -351,16 +404,16 @@ internal static class TaskEndpoints
         var taskList = await items.GetListAsync(request.WorkspaceId, request.ListId, ct);
         if (taskList is null || !taskList.ContentTypeKeys.Contains(TaskTemplates.ContentTypeKey))
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["listId"] = ["A task list you can see is expected."] });
+            return ApiErrors.Validation("listId", "A task list you can see is expected.");
         }
 
         var fields = new JsonObject
         {
-            ["title"] = string.IsNullOrWhiteSpace(request.Title) ? document.Fields["title"]?.GetValue<string>() ?? "Task" : request.Title,
+            ["title"] = string.IsNullOrWhiteSpace(request.Title) ? Text(document, "title") ?? "Task" : request.Title,
         };
         if (request.DueDate is { } due)
         {
-            fields["dueDate"] = due.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            fields["dueDate"] = Date(due);
         }
 
         if (request.AssignedTo is { Count: > 0 } assignees)
@@ -386,7 +439,8 @@ internal static class TaskEndpoints
         db.Links.Add(new TaskLink
         {
             Id = Ids.New(),
-            Kind = TaskLinkKind.Document,
+            TenantId = caller.TenantId,
+            Kind = TaskLinkKinds.Document,
             ItemId = task.Id,
             WorkspaceId = task.WorkspaceId,
             ListId = task.ListId,
@@ -395,22 +449,17 @@ internal static class TaskEndpoints
             TargetListId = document.ListId,
         });
         await db.SaveChangesAsync(ct);
-        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{task.WorkspaceId}/lists/{task.ListId}/items/{task.Id}", ToMyTask(taskList, task));
+        return TypedResults.Created($"/v1.0/workspaces/{task.WorkspaceId}/lists/{task.ListId}/items/{task.Id}", ToMyTask(taskList, task));
     }
 
     // ---- My tasks ---------------------------------------------------------------
 
-    /// <summary>
-    /// Open tasks across every task list the caller can read (TSK-03): <c>view=mine</c> (assigned to
-    /// me, default), <c>dueThisWeek</c> (mine, due today to Sunday), <c>overdue</c> (mine, due before
-    /// today) or <c>all</c> (every open task). Dates are UTC; ordered by due date.
-    /// </summary>
     private static async Task<Results<Ok<MyTasksResponse>, ValidationProblem>> MyTasksAsync(
-        string? view, int? top, IListItemStore items, ICurrentUser user, TimeProvider time, CancellationToken ct)
+        string? view, int? top, Caller caller, IListItemStore items, TimeProvider time, CancellationToken ct)
     {
         var today = DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime);
         var endOfWeek = today.AddDays(((int)DayOfWeek.Sunday - (int)today.DayOfWeek + 7) % 7);
-        var mine = $"fields/assignedTo/any(a: a eq {user.UserId})";
+        var mine = $"fields/assignedTo/any(a: a eq {caller.UserId})";
         var open = $"fields/status ne '{TaskTemplates.Completed}'";
         var filter = (view ?? "mine") switch
         {
@@ -420,76 +469,79 @@ internal static class TaskEndpoints
             "all" => open,
             _ => null,
         };
-        if (filter is null || user.UserId is null)
+        if (filter is null)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["view"] = ["Use mine, dueThisWeek, overdue or all."] });
+            return ApiErrors.Validation("view", "Use mine, dueThisWeek, overdue or all.");
         }
 
         var limit = Math.Clamp(top ?? 100, 1, MaxMyTasks);
         var lists = (await items.GetListsAsync(null, null, ct)).Where(l => l.ContentTypeKeys.Contains(TaskTemplates.ContentTypeKey)).ToList();
+        if (lists.Count == 0)
+        {
+            return TypedResults.Ok(new MyTasksResponse([]));
+        }
+
         var (pages, error) = await items.QueryAsync(lists, new ListItemQuery(filter, "fields/dueDate", MaxMyTasks), ct);
         if (error is not null)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["filter"] = [error] });
+            return ApiErrors.Validation("filter", error);
         }
 
         var result = pages.SelectMany(page => page.Items.Select(task => ToMyTask(page.List, task))).ToList();
-        return TypedResults.Ok(new MyTasksResponse(result
+        return TypedResults.Ok(new MyTasksResponse([.. result
             .OrderBy(t => t.DueDate ?? "9999-12-31", StringComparer.Ordinal)
-            .ThenBy(t => t.Title, StringComparer.CurrentCulture)
-            .Take(limit)
-            .ToList()));
+            .ThenBy(t => t.Title, StringComparer.Ordinal)
+            .Take(limit)]));
     }
 
     private static string Date(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     internal static DateOnly? DueDate(ListItemData task) =>
-        task.Fields["dueDate"] is JsonValue due && DateOnly.TryParse(due.GetValue<string>(), CultureInfo.InvariantCulture, out var date) ? date : null;
+        Text(task, "dueDate") is { } due && DateOnly.TryParse(due, CultureInfo.InvariantCulture, out var date) ? date : null;
 
-    private static string? Status(ListItemData item) => item.Fields["status"] is JsonValue status ? status.GetValue<string>() : null;
+    internal static string? Text(ListItemData item, string field) => item.Fields[field] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     internal static MyTask ToMyTask(ListData list, ListItemData task) => new(
         task.WorkspaceId,
         task.ListId,
         list.Name,
         task.Id,
-        task.Fields["title"]?.GetValue<string>(),
-        Status(task),
-        task.Fields["priority"] is JsonValue priority ? priority.GetValue<string>() : null,
-        task.Fields["dueDate"] is JsonValue due ? due.GetValue<string>() : null,
+        Text(task, "title"),
+        Text(task, "status"),
+        Text(task, "priority"),
+        Text(task, "dueDate"),
         task.Fields["assignedTo"] is JsonArray assigned ? [.. assigned.Select(a => Guid.Parse(a!.GetValue<string>()))] : []);
 }
 
 /// <summary>Resolves tasks and documents with the caller's access, via the lists engine.</summary>
-internal sealed class TaskAccess(IListItemStore items)
+internal static class TaskAccess
 {
     public static ProblemHttpResult Forbidden() =>
         ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "You do not have permission for this action in the workspace.");
 
     /// <summary>The item when it is readable and its list has the task content type.</summary>
-    public async Task<ListItemData?> TaskAsync(Guid workspaceId, Guid listId, Guid itemId, CancellationToken ct)
+    public static async Task<ListItemData?> TaskAsync(IListItemStore items, Guid workspaceId, Guid listId, Guid itemId, CancellationToken ct)
     {
         var list = await items.GetListAsync(workspaceId, listId, ct);
         return list is null || !list.ContentTypeKeys.Contains(TaskTemplates.ContentTypeKey) ? null : await items.GetAsync(workspaceId, listId, itemId, ct);
     }
 
     /// <summary>The item when it is readable and in a library.</summary>
-    public async Task<ListItemData?> DocumentAsync(Guid workspaceId, Guid listId, Guid itemId, CancellationToken ct)
+    public static async Task<ListItemData?> DocumentAsync(IListItemStore items, Guid workspaceId, Guid listId, Guid itemId, CancellationToken ct)
     {
         var list = await items.GetListAsync(workspaceId, listId, ct);
         return list is not { IsLibrary: true } ? null : await items.GetAsync(workspaceId, listId, itemId, ct);
     }
 
     /// <summary>The linked items the caller can read.</summary>
-    public async Task<List<LinkedItem>> VisibleAsync(IEnumerable<(Guid LinkId, Guid WorkspaceId, Guid ListId, Guid ItemId)> links, CancellationToken ct)
+    public static async Task<List<LinkedItem>> VisibleAsync(IListItemStore items, IEnumerable<(Guid LinkId, Guid WorkspaceId, Guid ListId, Guid ItemId)> links, CancellationToken ct)
     {
         var result = new List<LinkedItem>();
         foreach (var (linkId, workspaceId, listId, itemId) in links)
         {
             if (await items.GetAsync(workspaceId, listId, itemId, ct) is { } item)
             {
-                result.Add(new LinkedItem(linkId, workspaceId, listId, itemId, item.Fields["title"]?.GetValue<string>(),
-                    item.Fields["status"] is JsonValue status ? status.GetValue<string>() : null));
+                result.Add(new LinkedItem(linkId, workspaceId, listId, itemId, TaskEndpoints.Text(item, "title"), TaskEndpoints.Text(item, "status")));
             }
         }
 

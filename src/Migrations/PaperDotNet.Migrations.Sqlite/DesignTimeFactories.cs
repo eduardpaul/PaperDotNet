@@ -8,6 +8,7 @@ using PaperDotNet.Lists.Data;
 using PaperDotNet.Notes.Data;
 using PaperDotNet.Notifications.Data;
 using PaperDotNet.Persistence.Sqlite;
+using PaperDotNet.Tasks.Data;
 using PaperDotNet.Workflows.Data;
 using PaperDotNet.Workspaces.Data;
 
@@ -63,4 +64,9 @@ internal sealed class CollaborationFactory : IDesignTimeDbContextFactory<Collabo
 internal sealed class NotesFactory : IDesignTimeDbContextFactory<NotesDbContext>
 {
     public NotesDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<NotesDbContext>());
+}
+
+internal sealed class TasksFactory : IDesignTimeDbContextFactory<TasksDbContext>
+{
+    public TasksDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<TasksDbContext>());
 }
