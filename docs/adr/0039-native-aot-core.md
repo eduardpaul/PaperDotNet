@@ -1,6 +1,6 @@
 # ADR-0039: The server as one Native AOT binary on .NET 11
 
-- **Status:** Accepted (Identity, Lists, Audit, Workflows, Jobs, Workspaces, the extension host, Notifications, Collaboration, Notes, Tasks, Calendar, Taxonomy, Search and smart folders ported; the other modules still to port, see
+- **Status:** Accepted (Identity, Lists, Audit, Workflows, Jobs, Workspaces, the extension host, Notifications, Collaboration, Notes, Tasks, Calendar, Taxonomy, Search, smart folders and Provisioning (templates, packages, export and import) ported; the other modules still to port, see
   `docs/aot-porting-plan.md`)
 - **Date:** 2026-09-30
 - **Changes:** [ADR-0007](0007-odata-for-item-queries.md) (OData stays as the query syntax, without ASP.NET Core OData),
@@ -152,11 +152,19 @@ behind `ISearchQueries` with one implementation per provider, like `IItemQueries
 read with `json_each`. Results are trimmed by permission scope: Lists tells Search what a user may read
 (`IItemAccess.GetReadableAsync`), and a permission move refreshes the scopes of the moved documents.
 
+### Templates and packages under Native AOT
+
+Templates are XML (System.Xml with the embedded XSD, which is AOT-safe); every section names the tenant through
+`TemplateContext.Actor`, and packages are zip files whose JSON documents are read and written as `JsonNode`. Imported
+items keep their original created and changed stamps through `AuditOverrides`, a scoped service the save guard reads.
+Export and import of whole workspaces or tenants run as operations (`/v1.0/portability`), with packages in blob storage
+and a daily cleanup job.
+
 ### Still to port
 
-Documents (upload, versions, OCR, page images), semantic and hybrid search, Provisioning and templates, the
-extension points of those modules (template sections, workflow triggers and shipped workflows, MCP tools), MCP, AI
-workflows,
+Documents (upload, versions, OCR, page images, and their files in template packages), semantic and hybrid search, the
+remaining extension points (workflow triggers and shipped workflows, MCP tools), built-in workflows in templates, MCP,
+AI workflows,
 sign-in in the browser (authorization-code flow, passkeys, OAuth client applications, reverse-proxy sign-in), the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
 schedules, the web UI and the SDKs. Each follows the rules above and brings its tests back from `ToPort`.
 

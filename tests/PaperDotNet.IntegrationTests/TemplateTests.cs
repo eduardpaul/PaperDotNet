@@ -87,4 +87,36 @@ public sealed class TemplateTests : IAsyncLifetime
         Assert.Equal(5, (await (await other.GetAsync("/v1.0/listTemplates", Ct)).JsonAsync(HttpStatusCode.OK)).GetArrayLength());
         Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsJsonAsync(lists, new { name = "Z", templateKey = "contacts" }, Ct)).StatusCode);
     }
+
+    [Fact]
+    public async Task Field_search_weights_decide_what_is_found_and_how_it_ranks()
+    {
+        var contentType = await Api.CreateContentTypeAsync(_client, "Ticket", new object[]
+        {
+            new { name = "code", displayName = "Code", type = "text", search = "high" },
+            new { name = "details", displayName = "Details", type = "note" },
+            new { name = "secret", displayName = "Secret", type = "note", search = "none" },
+        });
+        using var created = await _client.PostAsJsonAsync($"/v1.0/workspaces/{_workspace}/lists", new { name = "Tickets", contentTypeIds = new[] { contentType } }, Ct);
+        var list = (await created.JsonAsync(HttpStatusCode.Created)).Id();
+        await Api.CreateItemAsync(_client, _workspace, list, new { title = "In details", details = "a zebra crossing" });
+        await Api.CreateItemAsync(_client, _workspace, list, new { title = "In code", code = "ZEBRA-1" });
+        await Api.CreateItemAsync(_client, _workspace, list, new { title = "In secret", secret = "zebra" });
+
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        List<string?> titles;
+        while (true)
+        {
+            var result = await (await _client.GetAsync("/v1.0/search?q=zebra", Ct)).JsonAsync(HttpStatusCode.OK);
+            titles = [.. result.GetProperty("value").EnumerateArray().Select(h => h.GetProperty("title").GetString())];
+            if (titles.Count >= 2 || DateTime.UtcNow > deadline)
+            {
+                break;
+            }
+
+            await Task.Delay(100, Ct);
+        }
+
+        Assert.Equal(["In code", "In details"], titles);
+    }
 }

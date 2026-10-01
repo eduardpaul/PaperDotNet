@@ -9,6 +9,7 @@ using PaperDotNet.Lists.Data;
 using PaperDotNet.Notes.Data;
 using PaperDotNet.Notifications.Data;
 using PaperDotNet.Persistence.Sqlite;
+using PaperDotNet.Provisioning.Data;
 using PaperDotNet.Search.Data;
 using PaperDotNet.Tasks.Data;
 using PaperDotNet.Taxonomy.Data;
@@ -87,4 +88,9 @@ internal sealed class TaxonomyFactory : IDesignTimeDbContextFactory<TaxonomyDbCo
 internal sealed class SearchFactory : IDesignTimeDbContextFactory<SearchDbContext>
 {
     public SearchDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<SearchDbContext>());
+}
+
+internal sealed class ProvisioningFactory : IDesignTimeDbContextFactory<ProvisioningDbContext>
+{
+    public ProvisioningDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<ProvisioningDbContext>());
 }

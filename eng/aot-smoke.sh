@@ -158,6 +158,17 @@ for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/search" --dat
 [[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/search" --data-urlencode 'q=statement' | json 'd["value"][0]["title"]') == "Quarterly ledger" ]] || fail "comment in search"
 SMART=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/smartFolders" -d "{\"name\":\"Finance\",\"workspaceId\":\"$WS\",\"definition\":{\"terms\":[\"$FIN\"]}}" | json 'd["id"]') || fail "smart folder"
 [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/smartFolders/$SMART/items" | json '",".join(e["item"]["fields"]["title"] for e in d["value"])') == "Quarterly ledger" ]] || fail "smart folder items"
+# Provisioning: the workspace as a template, as a package with its items applied to another workspace, and an export operation.
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/provisioning/export?workspaceId=$WS" | grep -c '<List ') -ge 1 ]] || fail "template export"
+curl -sf "${AUTH[@]}" "$BASE/v1.0/provisioning/export?workspaceId=$WS&includeContent=true" -o "$DATA/package.zip" || fail "package export"
+COPY=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces" -d '{"name":"Copy"}' | json 'd["id"]') || fail "create workspace for the package"
+APPLIED=$(curl -s "${AUTH[@]}" -H "Content-Type: application/zip" --data-binary "@$DATA/package.zip" "$BASE/v1.0/provisioning/apply?workspaceId=$COPY")
+[[ $(json 'len([c for c in d["changes"] if c["kind"] == "items"])' <<<"$APPLIED") -ge 3 ]] || fail "package apply: $APPLIED"
+COPIED=$(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$COPY/lists" | json '[l["id"] for l in d if l["name"] == "Tagged"][0]') || fail "copied list"
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$COPY/lists/$COPIED/items" | json '",".join(i["fields"]["title"] for i in d["value"])') == *"Quarterly ledger"* ]] || fail "copied items"
+EXPORT=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/portability/exports" -d "{\"workspaceId\":\"$WS\"}" | json 'd["id"]') || fail "start export"
+for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/portability/exports/$EXPORT" | json 'd["ready"]') == True ]] && break; sleep 0.2; done
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/portability/exports/$EXPORT/package" | head -c 2) == PK ]] || fail "export package"
 
 AUDITED=0
 for _ in $(seq 1 50); do

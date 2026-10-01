@@ -18,7 +18,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T10 | S-M | Notes, Collaboration, Notifications | done (steps below); the message store keeps SQLite's own cache and no mmap (ADR-0039) |
 | T11 | M | Tasks and Calendar | done (steps below); Ical.Net works under AOT with its assembly rooted |
 | T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | done (steps below; semantic search is T12e, after the AI workflows of T14). AOT smoke with smart folders: idle 138 MB (close to the 150 MB budget: watch it), 226 MB under load |
-| T13 | M | Provisioning and templates | in progress (steps below) |
+| T13 | M | Provisioning and templates | done (steps below); built-in workflows in templates come with T14, documents in packages with T15 |
 | T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | |
 | T15 | XL | Documents (PDF libraries, page images, OCR) | |
 | T16 | M | MCP, admin CLI, backup and restore, Papermerge import, the audit log across modules | |
@@ -79,6 +79,16 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 |---|---|---|
 | T13a | Provisioning engine and contracts with the tenant and actor on `TemplateContext`, XML apply/export/schema endpoints, the `Workspace` and `List` containers, the `ContentTypes` section | done |
 | T13b | Sections: groups, roles and users (Identity), term groups (Taxonomy), smart folders (Lists), workflows, extensions (enable, settings, `IExtensionBuilder.AddTemplateSection`) | done. Workflow sections carry custom workflows; built-in workflows in templates come with T14, the documents section with T15 |
-| T13c | Packages with content (zip: items, folders, values, files), export and import as operations, cleanup job | in progress: packages with items, folders, portable values, stamps (`AuditOverrides`) and item permissions on `/provisioning/export?includeContent=true` and `/provisioning/apply` are done; library files come with T15 (documents section) |
+| T13c | Packages with content (zip: items, folders, values, files), export and import as operations, cleanup job | done. The `Items` section (portable values, folders, stamps through `AuditOverrides`, item permissions) on `/provisioning/export?includeContent=true` and `/provisioning/apply`; `/v1.0/portability` exports and imports as operations with their own table and a daily cleanup. Library files and versions in packages come with T15 (documents section, `ToPort/PackageHistoryTests.cs`), the CLI export and import with T16 |
+
+### T14 steps (in order)
+
+| Step | Task | Status |
+|---|---|---|
+| T14a | Waits: bookmarks (`WorkflowActivityResult.Wait`/`WaitAndRunAgain`, `IWorkflowBookmarks`), time-outs and the `delay` activity, approvals (`approval` with approvers, escalation and outcome ports) | |
+| T14b | Flow parity: the `steps` form, `forEach`, retries, `event.raise` and `wf.{key}.completed/failed` triggers, restored-item triggers, run cleanup, concurrency per item | |
+| T14c | Triggers: schedules (cron), date fields, several triggers, module triggers through `IWorkflowTriggers` (`task.completed`, `comment.added`), extension triggers (`AddWorkflowTrigger`), term filters, manual inputs and selections | |
+| T14d | Built-in and shipped workflows (`AddWorkflow`, `Scope = Library`), extension workflows, `BuiltIn` elements in templates | |
+| T14e | AI workflows (Microsoft.Extensions.AI, off by default): extract, classify, summarize, prompt, `ai.batch` | |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).
