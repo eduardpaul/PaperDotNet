@@ -7,6 +7,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
     <ProjectReference Include="..\..\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
+    <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Script steps: sandboxed JavaScript; runs under Native AOT without .NET interop (ADR-0039). -->

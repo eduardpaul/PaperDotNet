@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Audit.Data;
+using PaperDotNet.Collaboration.Data;
 using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Jobs.Data;
 using PaperDotNet.Lists.Data;
+using PaperDotNet.Notes.Data;
+using PaperDotNet.Notifications.Data;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Workflows.Data;
 using PaperDotNet.Workspaces.Data;
@@ -45,4 +48,19 @@ internal sealed class WorkspacesFactory : IDesignTimeDbContextFactory<Workspaces
 internal sealed class ExtensionsFactory : IDesignTimeDbContextFactory<ExtensionsDbContext>
 {
     public ExtensionsDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<ExtensionsDbContext>());
+}
+
+internal sealed class NotificationsFactory : IDesignTimeDbContextFactory<NotificationsDbContext>
+{
+    public NotificationsDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<NotificationsDbContext>());
+}
+
+internal sealed class CollaborationFactory : IDesignTimeDbContextFactory<CollaborationDbContext>
+{
+    public CollaborationDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<CollaborationDbContext>());
+}
+
+internal sealed class NotesFactory : IDesignTimeDbContextFactory<NotesDbContext>
+{
+    public NotesDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<NotesDbContext>());
 }

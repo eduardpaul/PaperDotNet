@@ -1,15 +1,11 @@
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
@@ -20,9 +16,9 @@ using PaperDotNet.Notifications.Data;
 namespace PaperDotNet.Notifications.Features;
 
 /// <summary>
-/// Create body. <c>resource</c> is <c>workspaces/{id}/lists/{id}/items</c> (the whole list) or
-/// <c>…/items/{id}</c> (one item); <c>changeTypes</c> any of <c>created</c>, <c>updated</c>,
-/// <c>deleted</c>; <c>expirationDateTime</c> at most 30 days ahead (default: the maximum).
+/// Create body. <c>resource</c> is <c>workspaces/{id}/lists/{id}/items</c> (the whole list) or <c>…/items/{id}</c> (one
+/// item); <c>changeTypes</c> any of <c>created</c>, <c>updated</c>, <c>deleted</c>; <c>expirationDateTime</c> at most 30
+/// days ahead (default: the maximum).
 /// </summary>
 public sealed record ChangeSubscriptionRequest(
     string? Resource, IReadOnlyList<string>? ChangeTypes, string? NotificationUrl, string? ClientState, DateTimeOffset? ExpirationDateTime);
@@ -33,21 +29,33 @@ public sealed record ChangeSubscriptionUpdate(DateTimeOffset? ExpirationDateTime
 /// <summary>A change subscription; <see cref="Secret"/> is only returned when it is created (shown once).</summary>
 public sealed record ChangeSubscriptionResponse(
     Guid Id, string Resource, IReadOnlyList<string> ChangeTypes, string NotificationUrl, string? ClientState,
-    DateTimeOffset ExpirationDateTime, DateTimeOffset CreatedAt, string? Secret = null)
+    DateTimeOffset ExpirationDateTime, DateTimeOffset CreatedAt,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Secret = null)
 {
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
-    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    [JsonPropertyName("@odata.etag")]
     public string? ETag { get; init; }
 
-
     internal static ChangeSubscriptionResponse From(ChangeSubscription s) =>
-        new(s.Id, ChangeNotifications.Resource(s.WorkspaceId, s.ListId, s.ItemId), s.ChangeTypes, s.NotificationUrl, s.ClientState, s.ExpiresAt, s.CreatedAt) { ETag = ETags.From(s.Version) };
+        new(s.Id, ChangeNotifications.Resource(s.WorkspaceId, s.ListId, s.ItemId), ChangeNotifications.TypesOf(s), s.NotificationUrl, s.ClientState, s.ExpiresAt, s.CreatedAt)
+        {
+            ETag = ETags.From(s.Version),
+        };
 }
 
+/// <summary>The body of a change notification (Graph shape): one change per post.</summary>
+public sealed record ChangeNotificationBody([property: JsonPropertyName("value")] IReadOnlyList<ChangeNotificationValue> Value);
+
+public sealed record ChangeNotificationValue(
+    Guid SubscriptionId, string? ClientState, string ChangeType, string Resource, ChangeResourceData ResourceData,
+    DateTimeOffset OccurredAt, DateTimeOffset SubscriptionExpirationDateTime, Guid TenantId);
+
+public sealed record ChangeResourceData(Guid Id, Guid WorkspaceId, Guid ListId);
+
 /// <summary>
-/// Change notifications (API-06): API clients subscribe to changes of a list or item and receive
-/// signed POSTs (as for user webhooks). The URL must answer a validation request first. Notifications
-/// carry ids only, and only for items the subscription's owner can read.
+/// Change notifications (API-06): API clients subscribe to changes of a list or item and receive signed POSTs (as for
+/// user webhooks). The URL must answer a validation request first. Notifications carry ids only, and only for items the
+/// subscription's owner can read.
 /// </summary>
 internal static partial class ChangeNotifications
 {
@@ -58,38 +66,53 @@ internal static partial class ChangeNotifications
     public static string Resource(Guid workspaceId, Guid listId, Guid? itemId) =>
         $"workspaces/{workspaceId}/lists/{listId}/items" + (itemId is { } id ? $"/{id}" : "");
 
+    public static List<string> TypesOf(ChangeSubscription subscription) => [.. subscription.ChangeTypes.Split(',', StringSplitOptions.RemoveEmptyEntries)];
+
     [GeneratedRegex(@"^/?workspaces/(?<ws>[0-9a-fA-F-]{36})/lists/(?<list>[0-9a-fA-F-]{36})/items(/(?<item>[0-9a-fA-F-]{36}))?$")]
     private static partial Regex ResourcePattern();
 
-    public static void Map(IEndpointRouteBuilder endpoints)
+    public static void Map(IEndpointRouteBuilder app)
     {
-        var group = endpoints.MapV1Group("changeSubscriptions", "Change notifications");
+        var group = app.MapGroup("/v1.0/changeSubscriptions").WithTags("Change notifications");
         group.MapGet("", ListAsync).RequireScope(NotificationScopes.ChangeSubscriptions).WithName("ListChangeSubscriptions");
-        group.MapPost("", CreateAsync).RequireScope(NotificationScopes.ChangeSubscriptions).WithName("CreateChangeSubscription");
+        group.MapPost("", CreateAsync).RequireScope(NotificationScopes.ChangeSubscriptions).WithName("CreateChangeSubscription")
+            .WithDescription("The URL must answer POST {url}?validationToken=… with 200 and the token as the body.");
         group.MapGet("/{id:guid}", GetAsync).RequireScope(NotificationScopes.ChangeSubscriptions).WithName("GetChangeSubscription");
         group.MapPatch("/{id:guid}", RenewAsync).RequireScope(NotificationScopes.ChangeSubscriptions).WithName("RenewChangeSubscription");
         group.MapDelete("/{id:guid}", DeleteAsync).RequireScope(NotificationScopes.ChangeSubscriptions).WithName("DeleteChangeSubscription");
     }
 
-    /// <summary>The caller's subscriptions (including expired ones until they are cleaned up).</summary>
-    private static async Task<Ok<Page<ChangeSubscriptionResponse>>> ListAsync(NotificationsDbContext db, ICurrentUser user, HttpRequest http, CancellationToken ct)
+    private static Task<ChangeSubscription?> FindAsync(NotificationsDbContext database, Caller caller, Guid id, CancellationToken cancellationToken)
     {
-        var page = PageRequest.From(http);
-        var query = db.ChangeSubscriptions.AsNoTracking().Where(s => s.UserId == user.UserId);
-        if (page.After is { } after)
-        {
-            query = query.Where(s => s.Id.CompareTo(after) < 0);
-        }
+        var db = database;
+        var tenant = caller.TenantId;
+        var user = caller.UserId;
+        var subscriptionId = id;
+        var ct = cancellationToken;
+        return db.ChangeSubscriptions.FirstOrDefaultAsync(s => s.TenantId == tenant && s.Id == subscriptionId && s.UserId == user, ct);
+    }
 
-        var subscriptions = await query.OrderByDescending(s => s.Id).Take(page.Top + 1).ToListAsync(ct);
-        return TypedResults.Ok(Page.Create(subscriptions.Select(ChangeSubscriptionResponse.From).ToList(), page, http, s => s.Id));
+    /// <summary>The caller's subscriptions, newest first (including expired ones until they are cleaned up).</summary>
+    private static async Task<Ok<Page<ChangeSubscriptionResponse>>> ListAsync(
+        HttpRequest request, [FromQuery(Name = "$top")] int? top, [FromQuery(Name = "$skiptoken")] string? skipToken,
+        Caller caller, NotificationsDbContext database, CancellationToken cancellationToken)
+    {
+        var page = PageRequest.Create(top, skipToken);
+        var db = database;
+        var tenant = caller.TenantId;
+        var user = caller.UserId;
+        var take = page.Top + 1;
+        var ct = cancellationToken;
+        var subscriptions = page.After is { } before
+            ? await db.ChangeSubscriptions.AsNoTracking().Where(s => s.TenantId == tenant && s.UserId == user && s.Id.CompareTo(before) < 0).OrderByDescending(s => s.Id).Take(take).ToListAsync(ct)
+            : await db.ChangeSubscriptions.AsNoTracking().Where(s => s.TenantId == tenant && s.UserId == user).OrderByDescending(s => s.Id).Take(take).ToListAsync(ct);
+        return TypedResults.Ok(Page.Create([.. subscriptions.Select(ChangeSubscriptionResponse.From)], page, request, s => s.Id));
     }
 
     private static async Task<Results<Ok<ChangeSubscriptionResponse>, ProblemHttpResult>> GetAsync(
-        Guid id, NotificationsDbContext db, ICurrentUser user, HttpResponse response, CancellationToken ct)
+        Guid id, Caller caller, NotificationsDbContext db, HttpResponse response, CancellationToken ct)
     {
-        var subscription = await db.ChangeSubscriptions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id && s.UserId == user.UserId, ct);
-        if (subscription is null)
+        if (await FindAsync(db, caller, id, ct) is not { } subscription)
         {
             return ApiErrors.NotFound();
         }
@@ -99,26 +122,27 @@ internal static partial class ChangeNotifications
     }
 
     private static async Task<Results<Created<ChangeSubscriptionResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
-        ChangeSubscriptionRequest request, NotificationsDbContext db, ICurrentUser user, IListItemStore items, WebhookHttp http,
-        IDataProtectionProvider protection, IOptions<NotificationsOptions> options, TimeProvider time, HttpResponse response, CancellationToken ct)
+        ChangeSubscriptionRequest request, Caller caller, NotificationsDbContext database, IListItemStore items, WebhookHttp http,
+        IDataProtectionProvider protection, IOptions<NotificationsOptions> options, TimeProvider time, HttpResponse response, CancellationToken cancellationToken)
     {
-        if (user.UserId is not { } userId)
-        {
-            return ApiErrors.Problem(StatusCodes.Status403Forbidden, "userRequired", "Change subscriptions belong to users.");
-        }
-
         var errors = new Dictionary<string, string[]>();
         var match = ResourcePattern().Match(request.Resource ?? "");
         Guid workspaceId = default, listId = default;
         Guid? itemId = null;
-        if (!match.Success || !Guid.TryParse(match.Groups["ws"].Value, out workspaceId) || !Guid.TryParse(match.Groups["list"].Value, out listId)
-            || (match.Groups["item"].Success && !Guid.TryParse(match.Groups["item"].Value, out _)))
+        if (!match.Success || !Guid.TryParse(match.Groups["ws"].Value, out workspaceId) || !Guid.TryParse(match.Groups["list"].Value, out listId))
         {
             errors["resource"] = ["Use workspaces/{id}/lists/{id}/items or workspaces/{id}/lists/{id}/items/{id}."];
         }
         else if (match.Groups["item"].Success)
         {
-            itemId = Guid.Parse(match.Groups["item"].Value);
+            if (Guid.TryParse(match.Groups["item"].Value, out var parsed))
+            {
+                itemId = parsed;
+            }
+            else
+            {
+                errors["resource"] = ["The item id is not valid."];
+            }
         }
 
         var types = (request.ChangeTypes ?? []).Distinct().ToList();
@@ -151,35 +175,40 @@ internal static partial class ChangeNotifications
         }
 
         var visible = itemId is { } item
-            ? await items.GetAsync(workspaceId, listId, item, ct) is not null
-            : await items.GetListAsync(workspaceId, listId, ct) is not null;
+            ? await items.GetAsync(workspaceId, listId, item, cancellationToken) is not null
+            : await items.GetListAsync(workspaceId, listId, cancellationToken) is not null;
         if (!visible)
         {
-            return ApiErrors.NotFound("The resource was not found.");
+            return ApiErrors.NotFound();
         }
 
-        if (await db.ChangeSubscriptions.CountAsync(s => s.UserId == userId, ct) >= MaxPerUser)
+        var db = database;
+        var tenant = caller.TenantId;
+        var user = caller.UserId;
+        var ct = cancellationToken;
+        if (await db.ChangeSubscriptions.CountAsync(s => s.TenantId == tenant && s.UserId == user, ct) >= MaxPerUser)
         {
             return ApiErrors.Conflict("tooManySubscriptions", $"You can have up to {MaxPerUser} change subscriptions.");
         }
 
         if (await ValidateEndpointAsync(http.Client, request.NotificationUrl!, ct) is { } validationError)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["notificationUrl"] = [validationError] });
+            return ApiErrors.Validation("notificationUrl", validationError);
         }
 
-        var secret = "whsec_" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        var secret = WebhookPosts.NewSecret();
         var subscription = new ChangeSubscription
         {
             Id = Ids.New(),
-            UserId = userId,
+            TenantId = tenant,
+            UserId = user,
             WorkspaceId = workspaceId,
             ListId = listId,
             ItemId = itemId,
-            ChangeTypes = types,
+            ChangeTypes = string.Join(',', types),
             NotificationUrl = request.NotificationUrl!,
             ClientState = request.ClientState,
-            Secret = protection.CreateProtector(WebhookDispatcher.SecretPurpose).Protect(secret),
+            Secret = protection.CreateProtector(WebhookPosts.SecretPurpose).Protect(secret),
             ExpiresAt = expires,
         };
         db.ChangeSubscriptions.Add(subscription);
@@ -190,11 +219,10 @@ internal static partial class ChangeNotifications
 
     /// <summary>Extends (or shortens) the subscription; needs <c>If-Match</c>.</summary>
     private static async Task<Results<Ok<ChangeSubscriptionResponse>, ValidationProblem, ProblemHttpResult>> RenewAsync(
-        Guid id, ChangeSubscriptionUpdate request, NotificationsDbContext db, ICurrentUser user, TimeProvider time,
+        Guid id, ChangeSubscriptionUpdate request, Caller caller, NotificationsDbContext db, TimeProvider time,
         HttpRequest http, HttpResponse response, CancellationToken ct)
     {
-        var subscription = await db.ChangeSubscriptions.FirstOrDefaultAsync(s => s.Id == id && s.UserId == user.UserId, ct);
-        if (subscription is null)
+        if (await FindAsync(db, caller, id, ct) is not { } subscription)
         {
             return ApiErrors.NotFound();
         }
@@ -213,12 +241,12 @@ internal static partial class ChangeNotifications
         var expires = request.ExpirationDateTime ?? now + MaxLifetime;
         if (ExpiryError(expires, now) is { } error)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["expirationDateTime"] = [error] });
+            return ApiErrors.Validation("expirationDateTime", error);
         }
 
         if (request.ClientState is { Length: > ChangeSubscription.MaxClientState })
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["clientState"] = [$"Up to {ChangeSubscription.MaxClientState} characters."] });
+            return ApiErrors.Validation("clientState", $"Up to {ChangeSubscription.MaxClientState} characters.");
         }
 
         subscription.ExpiresAt = expires;
@@ -228,15 +256,20 @@ internal static partial class ChangeNotifications
         return TypedResults.Ok(ChangeSubscriptionResponse.From(subscription));
     }
 
-    private static async Task<Results<NoContent, NotFound>> DeleteAsync(Guid id, NotificationsDbContext db, ICurrentUser user, CancellationToken ct)
+    private static async Task<Results<NoContent, NotFound>> DeleteAsync(Guid id, Caller caller, NotificationsDbContext database, CancellationToken cancellationToken)
     {
-        if (!await db.ChangeSubscriptions.AnyAsync(s => s.Id == id && s.UserId == user.UserId, ct))
+        var db = database;
+        if (await FindAsync(db, caller, id, cancellationToken) is not { } subscription)
         {
             return TypedResults.NotFound();
         }
 
-        await db.ChangeDeliveries.Where(d => d.SubscriptionId == id).ExecuteDeleteAsync(ct);
-        await db.ChangeSubscriptions.Where(s => s.Id == id).ExecuteDeleteAsync(ct);
+        var tenant = caller.TenantId;
+        var subscriptionId = subscription.Id;
+        var ct = cancellationToken;
+        db.ChangeDeliveries.RemoveRange(await db.ChangeDeliveries.Where(d => d.TenantId == tenant && d.SubscriptionId == subscriptionId).ToListAsync(ct));
+        db.ChangeSubscriptions.Remove(subscription);
+        await db.SaveChangesAsync(ct);
         return TypedResults.NoContent();
     }
 
@@ -245,10 +278,7 @@ internal static partial class ChangeNotifications
         : expires > now + MaxLifetime + TimeSpan.FromMinutes(1) ? $"Subscriptions last up to {MaxLifetime.TotalDays} days; renew them before they expire."
         : null;
 
-    /// <summary>
-    /// The receiver proves it wants notifications: it must answer <c>POST {url}?validationToken=…</c>
-    /// with 200 and the token as the body.
-    /// </summary>
+    /// <summary>The receiver proves it wants notifications: it must answer <c>POST {url}?validationToken=…</c> with 200 and the token as the body.</summary>
     private static async Task<string?> ValidateEndpointAsync(HttpClient client, string url, CancellationToken ct)
     {
         var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
@@ -274,37 +304,53 @@ internal static partial class ChangeNotifications
     }
 }
 
-/// <summary>Queues a delivery per matching subscription whose owner can read the item (idempotent per event).</summary>
-internal sealed class ChangeNotifier(NotificationsDbContext db, ITenantScopeFactory scopes, TimeProvider time)
-    : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemDeleted>
+/// <summary>
+/// Queues a delivery per matching change subscription whose owner can read the item (a Wolverine handler generated
+/// ahead of time). Idempotent: one delivery per subscription and event.
+/// </summary>
+public static class ChangeSubscriber
 {
-    public Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken) => QueueAsync(integrationEvent, "created", cancellationToken);
+    public static Task Handle(ItemAdded e, NotificationsDbContext db, IListItemStore items, TimeProvider time, CancellationToken cancellationToken) =>
+        QueueAsync(e, "created", db, items, time, cancellationToken);
 
-    public Task HandleAsync(ItemUpdated integrationEvent, CancellationToken cancellationToken) => QueueAsync(integrationEvent, "updated", cancellationToken);
+    public static Task Handle(ItemUpdated e, NotificationsDbContext db, IListItemStore items, TimeProvider time, CancellationToken cancellationToken) =>
+        QueueAsync(e, "updated", db, items, time, cancellationToken);
 
-    public Task HandleAsync(ItemDeleted integrationEvent, CancellationToken cancellationToken) => QueueAsync(integrationEvent, "deleted", cancellationToken);
+    public static Task Handle(ItemDeleted e, NotificationsDbContext db, IListItemStore items, TimeProvider time, CancellationToken cancellationToken) =>
+        QueueAsync(e, "deleted", db, items, time, cancellationToken);
 
-    private async Task QueueAsync(ItemEvent change, string type, CancellationToken ct)
+    private static async Task QueueAsync(ItemEvent change, string type, NotificationsDbContext database, IListItemStore items, TimeProvider time, CancellationToken cancellationToken)
     {
-        var now = time.GetUtcNow();
-        var subscriptions = (await db.ChangeSubscriptions.AsNoTracking()
-                .Where(s => s.ListId == change.ListId && (s.ItemId == null || s.ItemId == change.ItemId) && s.ExpiresAt > now)
-                .ToListAsync(ct))
-            .Where(s => s.ChangeTypes.Contains(type))
-            .ToList();
-        if (subscriptions.Count == 0)
+        if (change.IsFolder)
         {
             return;
         }
 
-        var ids = subscriptions.Select(s => s.Id).ToList();
-        var done = await db.ChangeDeliveries.Where(d => d.EventId == change.EventId && ids.Contains(d.SubscriptionId)).Select(d => d.SubscriptionId).ToListAsync(ct);
+        var db = database;
+        var tenant = change.TenantId;
+        var listId = change.ListId;
+        var ct = cancellationToken;
+        var now = time.GetUtcNow();
+        // SQLite cannot compare DateTimeOffset values in SQL: the list's (few) subscriptions are filtered here.
+        var subscriptions = (await db.ChangeSubscriptions.AsNoTracking().Where(s => s.TenantId == tenant && s.ListId == listId).ToListAsync(ct))
+            .Where(s => (s.ItemId == null || s.ItemId == change.ItemId) && s.ExpiresAt > now && ChangeNotifications.TypesOf(s).Contains(type))
+            .ToList();
         var readers = new Dictionary<Guid, bool>();
-        foreach (var subscription in subscriptions.Where(s => !done.Contains(s.Id)))
+        foreach (var subscription in subscriptions)
         {
+            var subscriptionId = subscription.Id;
+            var eventId = change.EventId;
+            if (await db.ChangeDeliveries.AnyAsync(d => d.TenantId == tenant && d.SubscriptionId == subscriptionId && d.EventId == eventId, ct))
+            {
+                continue;
+            }
+
             if (!readers.TryGetValue(subscription.UserId, out var canRead))
             {
-                readers[subscription.UserId] = canRead = await CanReadAsync(change, subscription.UserId, type, ct);
+                var reader = items.ActingAs(new ChangeActor(tenant, subscription.UserId));
+                readers[subscription.UserId] = canRead = type == "deleted"
+                    ? await reader.GetListAsync(change.WorkspaceId, listId, ct) is not null
+                    : await reader.GetAsync(change.WorkspaceId, listId, change.ItemId, ct) is not null;
             }
 
             if (canRead)
@@ -312,11 +358,12 @@ internal sealed class ChangeNotifier(NotificationsDbContext db, ITenantScopeFact
                 db.ChangeDeliveries.Add(new ChangeDelivery
                 {
                     Id = Ids.New(),
-                    SubscriptionId = subscription.Id,
-                    EventId = change.EventId,
+                    TenantId = tenant,
+                    SubscriptionId = subscriptionId,
+                    EventId = eventId,
                     ChangeType = type,
                     WorkspaceId = change.WorkspaceId,
-                    ListId = change.ListId,
+                    ListId = listId,
                     ItemId = change.ItemId,
                     OccurredAt = change.OccurredAt,
                     NextAttemptAt = now,
@@ -326,118 +373,84 @@ internal sealed class ChangeNotifier(NotificationsDbContext db, ITenantScopeFact
 
         await db.SaveChangesAsync(ct);
     }
-
-    /// <summary>Whether the owner can read the item now (for deletions: the list).</summary>
-    private async Task<bool> CanReadAsync(ItemEvent change, Guid userId, string type, CancellationToken ct)
-    {
-        await using var scope = scopes.CreateScope(change.TenantId, change.TenantIdentifier, userId);
-        var store = scope.ServiceProvider.GetRequiredService<IListItemStore>();
-        return type == "deleted"
-            ? await store.GetListAsync(change.WorkspaceId, change.ListId, ct) is not null
-            : await store.GetAsync(change.WorkspaceId, change.ListId, change.ItemId, ct) is not null;
-    }
 }
 
 /// <summary>
-/// Posts pending change notifications, signed like user webhooks (<c>X-PaperDotNet-Signature</c>
-/// with the subscription's secret). Failures are retried with backoff (1 min … 12 h, six attempts).
+/// Posts pending change notifications, signed like user webhooks (<c>X-PaperDotNet-Signature</c> with the
+/// subscription's secret). Failures are retried with backoff (1 min … 12 h, six attempts).
 /// </summary>
 internal sealed partial class ChangeDispatcher(
-    NotificationsDbContext db, WebhookHttp http, IDataProtectionProvider protection, TimeProvider time,
-    ITenantContext tenant, ILogger<ChangeDispatcher> logger) : ITenantRecurringJob
+    NotificationsDbContext db, WebhookHttp http, IDataProtectionProvider protection, TimeProvider time, ILogger<ChangeDispatcher> logger) : ITenantRecurringJob
 {
     public const string Name = "notifications.changes";
     public const string Schedule = "*/10 * * * * *";
     private const int BatchSize = 100;
-    private static readonly TimeSpan[] Backoff = [TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(30), TimeSpan.FromHours(2), TimeSpan.FromHours(12)];
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    public async Task RunAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(Guid tenantId, CancellationToken cancellationToken)
     {
+        var context = db;
+        var tenant = tenantId;
+        var pending = DeliveryStatuses.Pending;
+        var ct = cancellationToken;
         var now = time.GetUtcNow();
-        var due = await db.ChangeDeliveries.Where(d => d.Status == DeliveryStatus.Pending && d.NextAttemptAt <= now)
-            .OrderBy(d => d.NextAttemptAt).Take(BatchSize).ToListAsync(cancellationToken);
+        var due = (await context.ChangeDeliveries.Where(d => d.TenantId == tenant && d.Status == pending).ToListAsync(ct))
+            .Where(d => d.NextAttemptAt <= now)
+            .OrderBy(d => d.NextAttemptAt)
+            .Take(BatchSize)
+            .ToList();
         if (due.Count == 0)
         {
             return;
         }
 
-        var ids = due.Select(d => d.SubscriptionId).Distinct().ToList();
-        var subscriptions = await db.ChangeSubscriptions.AsNoTracking().Where(s => ids.Contains(s.Id)).ToDictionaryAsync(s => s.Id, cancellationToken);
-        var protector = protection.CreateProtector(WebhookDispatcher.SecretPurpose);
+        var protector = protection.CreateProtector(WebhookPosts.SecretPurpose);
+        var subscriptions = new Dictionary<Guid, ChangeSubscription?>();
         foreach (var delivery in due)
         {
-            if (!subscriptions.TryGetValue(delivery.SubscriptionId, out var subscription) || subscription.ExpiresAt <= now)
+            var subscriptionId = delivery.SubscriptionId;
+            if (!subscriptions.TryGetValue(subscriptionId, out var subscription))
             {
-                delivery.Status = DeliveryStatus.Failed;
+                subscriptions[subscriptionId] = subscription =
+                    await context.ChangeSubscriptions.AsNoTracking().FirstOrDefaultAsync(s => s.TenantId == tenant && s.Id == subscriptionId, ct);
+            }
+
+            if (subscription is null || subscription.ExpiresAt <= now)
+            {
+                delivery.Status = DeliveryStatuses.Failed;
                 delivery.LastError = "The subscription expired or was deleted.";
                 continue;
             }
 
             delivery.Attempts++;
-            var error = await PostAsync(subscription, protector.Unprotect(subscription.Secret), delivery, cancellationToken);
+            var body = JsonSerializer.Serialize(new ChangeNotificationBody(
+            [
+                new ChangeNotificationValue(subscription.Id, subscription.ClientState, delivery.ChangeType,
+                    ChangeNotifications.Resource(delivery.WorkspaceId, delivery.ListId, delivery.ItemId),
+                    new ChangeResourceData(delivery.ItemId, delivery.WorkspaceId, delivery.ListId),
+                    delivery.OccurredAt, subscription.ExpiresAt, tenant),
+            ]), NotificationsJson.Default.ChangeNotificationBody);
+            var error = await WebhookPosts.PostAsync(http.Client, subscription.NotificationUrl, protector.Unprotect(subscription.Secret), "change", delivery.Id, body, time, ct);
             if (error is null)
             {
-                delivery.Status = DeliveryStatus.Delivered;
+                delivery.Status = DeliveryStatuses.Delivered;
                 delivery.DeliveredAt = time.GetUtcNow();
                 delivery.LastError = null;
+                continue;
+            }
+
+            LogDeliveryFailed(delivery.Id, error);
+            delivery.LastError = SettingsRules.Truncate(error, 500);
+            if (delivery.Attempts > WebhookPosts.Backoff.Length)
+            {
+                delivery.Status = DeliveryStatuses.Failed;
             }
             else
             {
-                LogDeliveryFailed(delivery.Id, error);
-                delivery.LastError = error.Length > 500 ? error[..500] : error;
-                if (delivery.Attempts > Backoff.Length)
-                {
-                    delivery.Status = DeliveryStatus.Failed;
-                }
-                else
-                {
-                    delivery.NextAttemptAt = time.GetUtcNow() + Backoff[delivery.Attempts - 1];
-                }
+                delivery.NextAttemptAt = time.GetUtcNow() + WebhookPosts.Backoff[delivery.Attempts - 1];
             }
         }
 
-        await db.SaveChangesAsync(cancellationToken);
-    }
-
-    private async Task<string?> PostAsync(ChangeSubscription subscription, string secret, ChangeDelivery delivery, CancellationToken ct)
-    {
-        var body = JsonSerializer.Serialize(new
-        {
-            value = new[]
-            {
-                new
-                {
-                    subscriptionId = subscription.Id,
-                    clientState = subscription.ClientState,
-                    changeType = delivery.ChangeType,
-                    resource = ChangeNotifications.Resource(delivery.WorkspaceId, delivery.ListId, delivery.ItemId),
-                    resourceData = new { id = delivery.ItemId, workspaceId = delivery.WorkspaceId, listId = delivery.ListId },
-                    occurredAt = delivery.OccurredAt,
-                    subscriptionExpirationDateTime = subscription.ExpiresAt,
-                    tenant = tenant.TenantIdentifier,
-                },
-            },
-        }, Json);
-        var timestamp = time.GetUtcNow().ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
-        using var request = new HttpRequestMessage(HttpMethod.Post, subscription.NotificationUrl) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
-        request.Headers.Add("X-PaperDotNet-Event", "change");
-        request.Headers.Add("X-PaperDotNet-Delivery", delivery.Id.ToString());
-        request.Headers.Add("X-PaperDotNet-Timestamp", timestamp);
-        request.Headers.Add("X-PaperDotNet-Signature", WebhookDispatcher.Sign(secret, timestamp, body));
-        try
-        {
-            using var response = await http.Client.SendAsync(request, ct);
-            return response.IsSuccessStatusCode ? null : $"HTTP {(int)response.StatusCode}";
-        }
-        catch (HttpRequestException ex)
-        {
-            return ex.Message;
-        }
-        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
-        {
-            return "Timed out.";
-        }
+        await context.SaveChangesAsync(ct);
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Change notification {DeliveryId} failed: {Error}")]
@@ -450,12 +463,23 @@ internal sealed class ChangeSubscriptionCleanupJob(NotificationsDbContext db, Ti
     public const string Name = "notifications.change-cleanup";
     public const string Schedule = "15 4 * * *";
 
-    public async Task RunAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(Guid tenantId, CancellationToken cancellationToken)
     {
+        var context = db;
+        var tenant = tenantId;
+        var pending = DeliveryStatuses.Pending;
+        var ct = cancellationToken;
         var cutoff = time.GetUtcNow() - TimeSpan.FromDays(7);
-        await db.ChangeDeliveries.Where(d => d.Status != DeliveryStatus.Pending && d.NextAttemptAt < cutoff).ExecuteDeleteAsync(cancellationToken);
-        var expired = db.ChangeSubscriptions.Where(s => s.ExpiresAt < cutoff).Select(s => s.Id);
-        await db.ChangeDeliveries.Where(d => expired.Contains(d.SubscriptionId)).ExecuteDeleteAsync(cancellationToken);
-        await db.ChangeSubscriptions.Where(s => s.ExpiresAt < cutoff).ExecuteDeleteAsync(cancellationToken);
+        // SQLite cannot compare DateTimeOffset values in SQL: finished deliveries are filtered here.
+        context.ChangeDeliveries.RemoveRange((await context.ChangeDeliveries.Where(d => d.TenantId == tenant && d.Status != pending).ToListAsync(ct))
+            .Where(d => d.NextAttemptAt < cutoff));
+        foreach (var subscription in (await context.ChangeSubscriptions.Where(s => s.TenantId == tenant).ToListAsync(ct)).Where(s => s.ExpiresAt < cutoff))
+        {
+            var subscriptionId = subscription.Id;
+            context.ChangeDeliveries.RemoveRange(await context.ChangeDeliveries.Where(d => d.TenantId == tenant && d.SubscriptionId == subscriptionId).ToListAsync(ct));
+            context.ChangeSubscriptions.Remove(subscription);
+        }
+
+        await context.SaveChangesAsync(ct);
     }
 }

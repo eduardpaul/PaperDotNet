@@ -86,7 +86,7 @@ POST /v1.0/changeSubscriptions
       "subscriptionId": "…", "clientState": "my-own-check-value", "changeType": "updated",
       "resource": "workspaces/…/lists/…/items/…",
       "resourceData": { "id": "…", "workspaceId": "…", "listId": "…" },
-      "occurredAt": "…", "subscriptionExpirationDateTime": "…", "tenant": "acme" } ] }
+      "occurredAt": "…", "subscriptionExpirationDateTime": "…", "tenantId": "…" } ] }
   ```
 
   - Headers as for user webhooks: `X-PaperDotNet-Event: change`,

@@ -15,11 +15,11 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T07 | L | Lists parity 2: versions and history, recycle bin, item mutators, full item events | done: item versions (list, get, restore), the recycle bin (list, restore, purge) with a daily cleanup job, mutators (`IItemMutator` in DI), restored and purged events in the audit log. The audit log across modules (`/v1.0/auditLog` by entity type) comes with T16 |
 | T08 | XL | Lists parity 3: permissions (ADR-0035), indexed fields, views, templates, smart folders, delta, bulk | done (steps below; smart folders moved to T12) |
 | T09 | M | Extension SDK, extension host and generator | done (steps below): term sets, template sections, workflow triggers and shipped workflows, MCP tools come with T12, T13, T14 and T16 |
-| T10 | S-M | Notes, Collaboration, Notifications | |
+| T10 | S-M | Notes, Collaboration, Notifications | in progress (steps below) |
 | T11 | M | Tasks and Calendar | |
-| T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g) | |
+| T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | |
 | T13 | M | Provisioning and templates | |
-| T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins) and AI workflows | |
+| T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | |
 | T15 | XL | Documents (PDF libraries, page images, OCR) | |
 | T16 | M | MCP, admin CLI, backup and restore, Papermerge import, the audit log across modules | |
 | T17 | XL | PostgreSQL build, SDK regeneration, web UI (with the authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in) | |
@@ -46,5 +46,14 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | T09a | SDK core and extension host: manifest, catalog, per-tenant state and settings (tenant explicit), gated field types, item mutators, content types, list templates, recurring jobs, workflow activities, endpoints under `/v1.0/ext/{id}`, subscribers of list events; the build-time generator | done |
 | T09b | Extension tables (`ExtensionDbContext` with a compiled model and precompiled queries, migrations as SQL per extension) and the Invoices sample (the parts whose modules are ported), `Extensions.Testing` | done |
 | later | Term sets (T12), template sections (T13), workflow triggers, shipped workflows and waits (T14), MCP tools (T16) | |
+
+### T10 steps (in order)
+
+| Step | Task | Status |
+|---|---|---|
+| T10a | Notifications: inbox, settings, webhooks (signed, retried, quiet hours), follows with alerts and digests, the `notify` activity (with `IWorkflowRecipients`) | done (AOT smoke run pending). Posts name the tenant by id (`tenantId`); reminders come with T11 |
+| T10b | Change subscriptions (API-06): validation handshake, signed deliveries, cleanup | done (AOT smoke run pending) |
+| T10c | Collaboration: comments with mentions, the activity timeline (`IItemActivity`); comments in search come with T12, the `comment.added` trigger with T14 | done (AOT smoke run pending). `IItemActivity.RecordAsync` takes the actor (tenant explicit) |
+| T10d | Notes: content type and template, wiki links and backlinks, link updates on renames; `#tags` as keywords come with T12 | done (AOT smoke run pending) |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

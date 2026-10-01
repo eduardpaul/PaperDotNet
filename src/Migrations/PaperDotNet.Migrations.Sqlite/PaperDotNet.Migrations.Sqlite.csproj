@@ -19,6 +19,9 @@
     <ProjectReference Include="..\..\Modules\Jobs\PaperDotNet.Jobs\PaperDotNet.Jobs.csproj" />
     <ProjectReference Include="..\..\Modules\Workspaces\PaperDotNet.Workspaces\PaperDotNet.Workspaces.csproj" />
     <ProjectReference Include="..\..\Modules\ExtensionHost\PaperDotNet.ExtensionHost\PaperDotNet.ExtensionHost.csproj" />
+    <ProjectReference Include="..\..\Modules\Notifications\PaperDotNet.Notifications\PaperDotNet.Notifications.csproj" />
+    <ProjectReference Include="..\..\Modules\Collaboration\PaperDotNet.Collaboration\PaperDotNet.Collaboration.csproj" />
+    <ProjectReference Include="..\..\Modules\Notes\PaperDotNet.Notes\PaperDotNet.Notes.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />

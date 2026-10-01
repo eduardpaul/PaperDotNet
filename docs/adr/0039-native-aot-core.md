@@ -1,6 +1,6 @@
 # ADR-0039: The server as one Native AOT binary on .NET 11
 
-- **Status:** Accepted (Identity, Lists, Audit, Workflows, Jobs, Workspaces and the extension host ported; the other modules still to port, see
+- **Status:** Accepted (Identity, Lists, Audit, Workflows, Jobs, Workspaces, the extension host, Notifications, Collaboration and Notes ported; the other modules still to port, see
   `docs/aot-porting-plan.md`)
 - **Date:** 2026-09-30
 - **Changes:** [ADR-0007](0007-odata-for-item-queries.md) (OData stays as the query syntax, without ASP.NET Core OData),
@@ -145,8 +145,8 @@ describes the .NET 10 API; it is regenerated from the new document when the web 
 
 ### Still to port
 
-Documents (upload, versions, OCR, page images), Search, Taxonomy, Tasks, Calendar, Notes, Notifications, smart
-folders, Collaboration, Provisioning and templates, the extension points of those modules (term sets, template
+Documents (upload, versions, OCR, page images), Search, Taxonomy, Tasks, Calendar, smart
+folders, Provisioning and templates, the extension points of those modules (term sets, template
 sections, workflow triggers and shipped workflows, MCP tools), MCP, AI workflows,
 sign-in in the browser (authorization-code flow, passkeys, OAuth client applications, reverse-proxy sign-in), the admin CLI and backups, the Papermerge import, PostgreSQL (its own build), workflow waits and
 schedules, the web UI and the SDKs. Each follows the rules above and brings its tests back from `ToPort`.

@@ -96,6 +96,22 @@ read -r BILL STATUS < <(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspace
 [[ "$STATUS" == pendingApproval ]] || fail "extension item mutator: $STATUS"
 curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/ext/samples.invoices/workspaces/$WS/lists/$BILLS/items/$BILL/approve" -d '{"comment":"ok"}' -o /dev/null || fail "approve invoice"
 [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/ext/samples.invoices/approvals" | json 'd[0]["itemId"] + " " + d[0]["comment"]') == "$BILL ok" ]] || fail "extension table"
+# Notifications: inbox, settings, follows.
+curl -sf -X PUT "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/me/notificationSettings" -d '{"digestHour":6}' -o /dev/null || fail "notification settings"
+curl -sf -X POST "${AUTH[@]}" "$BASE/v1.0/me/notificationSettings/test" -o /dev/null || fail "test notification"
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/me/notifications/unreadCount" | json 'd["count"]') == 1 ]] || fail "notification inbox"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/me/subscriptions" -d "{\"workspaceId\":\"$WS\",\"listId\":\"$LIST\",\"frequency\":\"daily\"}" -o /dev/null || fail "follow a list"
+# Collaboration and Notes.
+BILL_URL="$BASE/v1.0/workspaces/$WS/lists/$BILLS/items/$BILL"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BILL_URL/comments" -d '{"text":"Looks right"}' -o /dev/null || fail "comment"
+[[ $(curl -sf "${AUTH[@]}" "$BILL_URL/comments" | json 'd["value"][0]["text"]') == "Looks right" ]] || fail "comments"
+for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" "$BILL_URL/activity" | json 'len(d["value"])') -ge 2 ]] && break; sleep 0.2; done
+[[ $(curl -sf "${AUTH[@]}" "$BILL_URL/activity" | json '",".join(sorted(set(a["kind"] for a in d["value"])))') == *commented* ]] || fail "item activity"
+WIKI=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Wiki","templateKey":"notes"}' | json 'd["id"]') || fail "notes list"
+HOME_NOTE=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$WIKI/items" -d '{"fields":{"title":"Home","body":"See [[Plans]]."}}' | json 'd["id"]') || fail "create note"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$WIKI/items" -d '{"fields":{"title":"Plans","body":"Back [[Home]]."}}' -o /dev/null || fail "create note"
+for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$WIKI/items/$HOME_NOTE/noteLinks" | json '"note" in d["value"][0]' 2>/dev/null) == True ]] && break; sleep 0.2; done
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/lists/$WIKI/items/$HOME_NOTE/noteLinks" | json 'd["value"][0]["note"]["title"]') == Plans ]] || fail "note links"
 
 AUDITED=0
 for _ in $(seq 1 50); do

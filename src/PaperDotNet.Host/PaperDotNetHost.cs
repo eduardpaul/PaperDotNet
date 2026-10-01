@@ -2,6 +2,7 @@ using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
+using PaperDotNet.Collaboration;
 using PaperDotNet.ExtensionHost;
 using PaperDotNet.ExtensionHost.Runtime;
 using PaperDotNet.Extensions;
@@ -10,6 +11,8 @@ using PaperDotNet.Identity;
 using PaperDotNet.Jobs;
 using PaperDotNet.Lists;
 using PaperDotNet.Messaging;
+using PaperDotNet.Notes;
+using PaperDotNet.Notifications;
 using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Storage;
@@ -22,12 +25,13 @@ namespace PaperDotNet.Host;
 
 /// <summary>
 /// Composes the modules into the Native AOT server (ADR-0039). Modules still to port (Documents, Tasks, Calendar,
-/// Search, Taxonomy, Notifications, …) stay in src/Modules out of the build until they follow the AOT rules.
+/// Search, Taxonomy, …) stay in src/Modules out of the build until they follow the AOT rules.
 /// </summary>
 internal static class PaperDotNetHost
 {
     private static readonly IModule[] Modules =
-        [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule(), new JobsModule(), new WorkspacesModule(), new ExtensionHostModule()];
+        [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule(), new JobsModule(), new WorkspacesModule(), new ExtensionHostModule(),
+            new NotificationsModule(), new CollaborationModule(), new NotesModule()];
 
     /// <summary>Extensions added besides those this build references (tests register theirs here before the host starts).</summary>
     public static List<IExtension> AdditionalExtensions { get; } = [];

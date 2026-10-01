@@ -21,12 +21,12 @@ public sealed record NotificationLink(Guid WorkspaceId, Guid ListId, Guid? ItemI
 public sealed record NotificationMessage(string Type, string Title, string? Body = null, NotificationLink? Link = null, string? DeduplicationKey = null);
 
 /// <summary>
-/// Sends notifications to users of the current tenant (NTF-01…05): into their inbox, as live events,
-/// and to the channels they chose (webhook), honoring quiet hours. Extensions define their own types
-/// (e.g. <c>acme.invoices.approval</c>).
+/// Sends notifications to users of a tenant (NTF-01…05): into their inbox, as live events, and to the channels they
+/// chose (webhook), honoring quiet hours. Extensions define their own types (e.g. <c>acme.invoices.approval</c>). The
+/// tenant is named explicitly: there is no ambient tenant (ADR-0039).
 /// </summary>
 public interface INotificationSender
 {
     /// <summary>Returns the number of users the notification was created for (duplicates are skipped).</summary>
-    Task<int> SendAsync(NotificationMessage message, IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
+    Task<int> SendAsync(Guid tenantId, NotificationMessage message, IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
 }

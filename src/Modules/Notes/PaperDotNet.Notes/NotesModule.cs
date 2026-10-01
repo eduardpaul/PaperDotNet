@@ -1,8 +1,7 @@
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Notes.Data;
 using PaperDotNet.Notes.Features;
 using PaperDotNet.Persistence;
@@ -20,26 +19,27 @@ public static class NoteScopes
 }
 
 /// <summary>
-/// Notes (LST-18): Markdown notes are list items of the <c>note</c> content type; this module adds #tags as keywords,
-/// wiki links with backlinks and link updates on renames. Built on the extension SDK only (EXT-06).
+/// Notes (LST-18): Markdown notes are list items of the <c>note</c> content type; this module adds wiki links with
+/// backlinks and link updates on renames (<see cref="NoteLinkSubscriber"/>). #tags as keywords come with Taxonomy (T12).
 /// </summary>
 public sealed class NotesModule : IModule
 {
     public string Name => "Notes";
 
+    public IJsonTypeInfoResolver Json => NotesJson.Default;
+
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddModuleDbContext<NotesDbContext>(NotesDbContext.Schema);
+        services.AddModuleDbContext<NotesDbContext>();
         services.AddSingleton(NoteTemplates.ContentType);
         services.AddSingleton(NoteTemplates.List);
-        services.AddScoped<IItemMutator, NoteTagsMutator>();
-        services.AddEventSubscriber<ItemAdded, NoteLinkIndexer>();
-        services.AddEventSubscriber<ItemUpdated, NoteLinkIndexer>();
-        services.AddEventSubscriber<ItemRestored, NoteLinkIndexer>();
-        services.AddEventSubscriber<ItemDeleted, NoteLinkIndexer>();
-        services.AddEventSubscriber<ItemPurged, NoteLinkIndexer>();
         services.AddScopes(NoteScopes.All);
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => NoteEndpoints.Map(endpoints);
 }
+
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(NoteLinksResponse))]
+[JsonSerializable(typeof(BacklinksResponse))]
+internal sealed partial class NotesJson : JsonSerializerContext;

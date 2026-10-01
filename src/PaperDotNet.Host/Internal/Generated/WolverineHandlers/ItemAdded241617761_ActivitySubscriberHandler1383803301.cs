@@ -4,13 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Internal.Generated.WolverineHandlers
 {
-    // START: PrincipalDeletedHandler1799230648
+    // START: ItemAdded241617761_ActivitySubscriberHandler1383803301
     [global::System.CodeDom.Compiler.GeneratedCode("JasperFx", "1.0.0")]
-    public sealed class PrincipalDeletedHandler1799230648 : Wolverine.Runtime.Handlers.MessageHandler
+    public sealed class ItemAdded241617761_ActivitySubscriberHandler1383803301 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
 
-        public PrincipalDeletedHandler1799230648(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
+        public ItemAdded241617761_ActivitySubscriberHandler1383803301(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
         {
             _serviceScopeFactory = serviceScopeFactory;
         }
@@ -22,21 +22,21 @@ namespace Internal.Generated.WolverineHandlers
             await using var serviceScope = _serviceScopeFactory.CreateAsyncScope();
             Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Wolverine.Runtime.ScopedMessageContextHolder>(serviceScope.ServiceProvider).Context = context;
             // This service has been marked as requiring service location independent of Wolverine's ability to use constructor injection of everything else
-            var workspacesDbContext = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Workspaces.Data.WorkspacesDbContext>(serviceScope.ServiceProvider);
+            var collaborationDbContext = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Collaboration.Data.CollaborationDbContext>(serviceScope.ServiceProvider);
             // The actual message body
-            var principalDeleted = (PaperDotNet.Identity.Contracts.PrincipalDeleted)context.Envelope.Message;
+            var itemAdded = (PaperDotNet.Lists.Contracts.ItemAdded)context.Envelope.Message;
 
-            System.Diagnostics.Activity.Current?.SetTag("message.handler", "PaperDotNet.Workspaces.Features.WorkspacePrincipalSubscriber");
-            System.Diagnostics.Activity.Current?.SetTag("handler.type", "PaperDotNet.Workspaces.Features.WorkspacePrincipalSubscriber");
+            System.Diagnostics.Activity.Current?.SetTag("message.handler", "PaperDotNet.Collaboration.Features.ActivitySubscriber");
+            System.Diagnostics.Activity.Current?.SetTag("handler.type", "PaperDotNet.Collaboration.Features.ActivitySubscriber");
             
             // The actual message execution
-            await PaperDotNet.Workspaces.Features.WorkspacePrincipalSubscriber.Handle(principalDeleted, workspacesDbContext, cancellation).ConfigureAwait(false);
+            await PaperDotNet.Collaboration.Features.ActivitySubscriber.Handle(itemAdded, collaborationDbContext, cancellation).ConfigureAwait(false);
 
         }
 
     }
 
-    // END: PrincipalDeletedHandler1799230648
+    // END: ItemAdded241617761_ActivitySubscriberHandler1383803301
     
     
 }

@@ -1,10 +1,8 @@
-using System.Text.Json.Nodes;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Collaboration.Contracts;
@@ -12,7 +10,6 @@ using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Notifications.Contracts;
-using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Collaboration.Features;
@@ -28,61 +25,79 @@ public sealed record CommentResponse(
     DateTimeOffset CreatedAt, Guid? CreatedBy, DateTimeOffset UpdatedAt, Guid? UpdatedBy)
 {
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
-    [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
+    [JsonPropertyName("@odata.etag")]
     public string? ETag { get; init; }
 
-
     internal static CommentResponse From(Comment c) =>
-        new(c.Id, c.ItemId, c.ParentId, c.Text, c.Mentions, c.CreatedAt, c.CreatedBy, c.UpdatedAt, c.UpdatedBy) { ETag = ETags.From(c.Version) };
+        new(c.Id, c.ItemId, c.ParentId, c.Text, CommentEndpoints.MentionsOf(c), c.CreatedAt, c.CreatedBy, c.UpdatedAt, c.UpdatedBy) { ETag = ETags.From(c.Version) };
 }
 
-public sealed record ActivityResponse(Guid Id, string Kind, Guid? ActorId, string? Summary, IReadOnlyList<string> ChangedFields, DateTimeOffset At);
+public sealed record ActivityResponse(Guid Id, string Kind, Guid? ActorId, string? Summary, IReadOnlyList<string> ChangedFields, DateTimeOffset At)
+{
+    internal static ActivityResponse From(ActivityEntry a) =>
+        new(a.Id, a.Kind, a.ActorId, a.Summary, JsonSerializer.Deserialize(a.ChangedFields, CollaborationJson.Default.ListString) ?? [], a.At);
+}
 
 /// <summary>
-/// Comments and the activity timeline of list items (LST-17). Access comes from the lists engine:
-/// reading needs Read on the item, commenting Contribute; authors change their comments, and
-/// people with Manage on the item may delete any comment.
+/// Comments and the activity timeline of list items (LST-17). Access comes from the lists engine: reading needs Read on
+/// the item, commenting Contribute; authors change their comments, and people with Manage on the item may delete any
+/// comment.
 /// </summary>
 internal static class CommentEndpoints
 {
-    public static void Map(IEndpointRouteBuilder endpoints)
+    public static void Map(IEndpointRouteBuilder app)
     {
-        var item = endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}", "Comments");
-        item.MapGet("/comments", ListAsync).RequireScope(CollaborationScopes.Read).WithName("ListComments");
-        item.MapPost("/comments", CreateAsync).RequireScope(CollaborationScopes.Write).WithName("CreateComment");
-        item.MapGet("/comments/{commentId:guid}", GetAsync).RequireScope(CollaborationScopes.Read).WithName("GetComment");
-        item.MapPatch("/comments/{commentId:guid}", UpdateAsync).RequireScope(CollaborationScopes.Write).WithName("UpdateComment");
-        item.MapDelete("/comments/{commentId:guid}", DeleteAsync).RequireScope(CollaborationScopes.Write).WithName("DeleteComment");
-        endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}", "Activity")
-            .MapGet("/activity", ActivityAsync).RequireScope(CollaborationScopes.Read).WithName("ListItemActivity");
+        var item = app.MapGroup("/v1.0/workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}");
+        var comments = item.MapGroup("/comments").WithTags("Comments");
+        comments.MapGet("", ListAsync).RequireScope(CollaborationScopes.Read).WithName("ListComments")
+            .WithDescription("Oldest first; replies carry parentId.");
+        comments.MapPost("", CreateAsync).RequireScope(CollaborationScopes.Write).WithName("CreateComment");
+        comments.MapGet("/{commentId:guid}", GetAsync).RequireScope(CollaborationScopes.Read).WithName("GetComment");
+        comments.MapPatch("/{commentId:guid}", UpdateAsync).RequireScope(CollaborationScopes.Write).WithName("UpdateComment")
+            .WithDescription("Authors only; needs If-Match. Users newly mentioned are notified.");
+        comments.MapDelete("/{commentId:guid}", DeleteAsync).RequireScope(CollaborationScopes.Write).WithName("DeleteComment")
+            .WithDescription("Deletes the comment and its replies (the author, or someone with Manage on the item).");
+        item.MapGet("/activity", ActivityAsync).RequireScope(CollaborationScopes.Read).WithTags("Activity").WithName("ListItemActivity")
+            .WithDescription("The item's timeline, newest first: changes, comments and entries of modules and extensions.");
     }
 
-    /// <summary>Comments of the item, oldest first (replies carry <c>parentId</c>).</summary>
+    internal static List<Guid> MentionsOf(Comment comment) => JsonSerializer.Deserialize(comment.Mentions, CollaborationJson.Default.ListGuid) ?? [];
+
     private static async Task<Results<Ok<Page<CommentResponse>>, ProblemHttpResult>> ListAsync(
-        Guid workspaceId, Guid listId, Guid itemId, IListItemStore items, CollaborationDbContext db, HttpRequest http, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, HttpRequest request, [FromQuery(Name = "$top")] int? top, [FromQuery(Name = "$skiptoken")] string? skipToken,
+        Caller caller, IListItemStore items, CollaborationDbContext database, CancellationToken cancellationToken)
     {
-        if (await items.GetAsync(workspaceId, listId, itemId, ct) is null)
+        if (await items.GetAsync(workspaceId, listId, itemId, cancellationToken) is null)
         {
             return ApiErrors.NotFound();
         }
 
-        var page = PageRequest.From(http);
-        var query = db.Comments.AsNoTracking().Where(c => c.ItemId == itemId && c.ListId == listId);
-        if (page.After is { } after)
-        {
-            query = query.Where(c => c.Id.CompareTo(after) > 0);
-        }
+        var page = PageRequest.Create(top, skipToken);
+        var db = database;
+        var tenant = caller.TenantId;
+        var item = itemId;
+        var take = page.Top + 1;
+        var ct = cancellationToken;
+        var comments = page.After is { } after
+            ? await db.Comments.AsNoTracking().Where(c => c.TenantId == tenant && c.ItemId == item && c.Id.CompareTo(after) > 0).OrderBy(c => c.Id).Take(take).ToListAsync(ct)
+            : await db.Comments.AsNoTracking().Where(c => c.TenantId == tenant && c.ItemId == item).OrderBy(c => c.Id).Take(take).ToListAsync(ct);
+        return TypedResults.Ok(Page.Create([.. comments.Select(CommentResponse.From)], page, request, c => c.Id));
+    }
 
-        var comments = await query.OrderBy(c => c.Id).Take(page.Top + 1).ToListAsync(ct);
-        return TypedResults.Ok(Page.Create(comments.Select(CommentResponse.From).ToList(), page, http, c => c.Id));
+    private static Task<Comment?> FindAsync(CollaborationDbContext database, Guid tenantId, Guid itemId, Guid commentId, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = tenantId;
+        var item = itemId;
+        var id = commentId;
+        var ct = cancellationToken;
+        return db.Comments.FirstOrDefaultAsync(c => c.TenantId == tenant && c.Id == id && c.ItemId == item, ct);
     }
 
     private static async Task<Results<Ok<CommentResponse>, ProblemHttpResult>> GetAsync(
-        Guid workspaceId, Guid listId, Guid itemId, Guid commentId, IListItemStore items, CollaborationDbContext db, HttpResponse response, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, Guid commentId, Caller caller, IListItemStore items, CollaborationDbContext db, HttpResponse response, CancellationToken ct)
     {
-        var comment = await items.GetAsync(workspaceId, listId, itemId, ct) is null
-            ? null
-            : await db.Comments.AsNoTracking().FirstOrDefaultAsync(c => c.Id == commentId && c.ItemId == itemId && c.ListId == listId, ct);
+        var comment = await items.GetAsync(workspaceId, listId, itemId, ct) is null ? null : await FindAsync(db, caller.TenantId, itemId, commentId, ct);
         if (comment is null)
         {
             return ApiErrors.NotFound();
@@ -93,10 +108,10 @@ internal static class CommentEndpoints
     }
 
     private static async Task<Results<Created<CommentResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
-        Guid workspaceId, Guid listId, Guid itemId, CommentRequest request, IListItemStore items, CollaborationDbContext db,
-        CommentMentions mentions, IWorkflowTriggers triggers, ICurrentUser user, TimeProvider time, HttpResponse response, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, CommentRequest request, Caller caller, IListItemStore items, CollaborationDbContext database,
+        IUserDirectory users, INotificationSender sender, TimeProvider time, HttpResponse response, CancellationToken cancellationToken)
     {
-        var item = await items.GetAsync(workspaceId, listId, itemId, ct);
+        var item = await items.GetAsync(workspaceId, listId, itemId, cancellationToken);
         if (item is null)
         {
             return ApiErrors.NotFound();
@@ -107,11 +122,17 @@ internal static class CommentEndpoints
             return Forbidden();
         }
 
-        var errors = await mentions.ValidateAsync(request.Text, request.Mentions, ct);
-        if (request.ParentId is { } parentId
-            && !await db.Comments.AnyAsync(c => c.Id == parentId && c.ItemId == itemId && c.ParentId == null, ct))
+        var db = database;
+        var tenant = caller.TenantId;
+        var ct = cancellationToken;
+        var errors = await ValidateAsync(users, tenant, request.Text, request.Mentions, ct);
+        if (request.ParentId is { } parentId)
         {
-            errors["parentId"] = ["Replies must point to a top-level comment of the same item."];
+            var target = itemId;
+            if (!await db.Comments.AnyAsync(c => c.TenantId == tenant && c.Id == parentId && c.ItemId == target && c.ParentId == null, ct))
+            {
+                errors["parentId"] = ["Replies must point to a top-level comment of the same item."];
+            }
         }
 
         if (errors.Count > 0)
@@ -119,44 +140,39 @@ internal static class CommentEndpoints
             return ApiErrors.Validation(errors);
         }
 
+        var mentions = (request.Mentions ?? []).Distinct().ToList();
         var comment = new Comment
         {
             Id = Ids.New(),
+            TenantId = tenant,
             WorkspaceId = workspaceId,
             ListId = listId,
             ItemId = itemId,
             ParentId = request.ParentId,
             Text = request.Text!.Trim(),
-            Mentions = [.. (request.Mentions ?? []).Distinct()],
+            Mentions = JsonSerializer.Serialize(mentions, CollaborationJson.Default.ListGuid),
         };
         db.Comments.Add(comment);
-        db.Activity.Add(ItemActivity.Create(workspaceId, listId, itemId, ActivityKinds.Commented, user.UserId, Excerpt(comment.Text), [], $"comment:{comment.Id:N}", time.GetUtcNow()));
+        db.Activity.Add(ItemActivity.Create(tenant, workspaceId, listId, itemId, ActivityKinds.Commented, caller.UserId, Excerpt(comment.Text), [], $"comment:{comment.Id:N}", time.GetUtcNow()));
         await db.SaveChangesAsync(ct);
 
-        await mentions.NotifyAsync(item, comment, comment.Mentions, ct);
-        await items.ReindexAsync(itemId, ct);
-
-        // Workflows can react to comments (comment.added); the comment's id makes a second raise start nothing.
-        await triggers.RaiseAsync(WorkflowTriggers.CommentAdded, workspaceId, new WorkflowItem(workspaceId, listId, itemId),
-            new JsonObject { ["commentId"] = comment.Id.ToString(), ["text"] = comment.Text, ["author"] = user.UserId?.ToString(), ["reply"] = comment.ParentId is not null },
-            comment.Id, ct);
+        await NotifyAsync(items, sender, caller, item, comment, mentions, ct);
         ETags.Set(response, comment.Version);
         return TypedResults.Created($"/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/comments/{comment.Id}", CommentResponse.From(comment));
     }
 
-    /// <summary>Changes the text (authors only; needs <c>If-Match</c>). Users newly mentioned are notified.</summary>
     private static async Task<Results<Ok<CommentResponse>, ValidationProblem, ProblemHttpResult>> UpdateAsync(
-        Guid workspaceId, Guid listId, Guid itemId, Guid commentId, CommentUpdateRequest request, IListItemStore items, CollaborationDbContext db,
-        CommentMentions mentions, ICurrentUser user, HttpRequest http, HttpResponse response, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, Guid commentId, CommentUpdateRequest request, Caller caller, IListItemStore items,
+        CollaborationDbContext db, IUserDirectory users, INotificationSender sender, HttpRequest http, HttpResponse response, CancellationToken ct)
     {
         var item = await items.GetAsync(workspaceId, listId, itemId, ct);
-        var comment = item is null ? null : await db.Comments.FirstOrDefaultAsync(c => c.Id == commentId && c.ItemId == itemId && c.ListId == listId, ct);
-        if (comment is null)
+        var comment = item is null ? null : await FindAsync(db, caller.TenantId, itemId, commentId, ct);
+        if (item is null || comment is null)
         {
             return ApiErrors.NotFound();
         }
 
-        if (comment.CreatedBy != user.UserId || item!.Access < WorkspaceAccessLevel.Contribute)
+        if (comment.CreatedBy != caller.UserId || item.Access < WorkspaceAccessLevel.Contribute)
         {
             return Forbidden();
         }
@@ -171,79 +187,88 @@ internal static class CommentEndpoints
             return ApiErrors.PreconditionFailed();
         }
 
-        var errors = await mentions.ValidateAsync(request.Text, request.Mentions, ct);
+        var errors = await ValidateAsync(users, caller.TenantId, request.Text, request.Mentions, ct);
         if (errors.Count > 0)
         {
             return ApiErrors.Validation(errors);
         }
 
-        var added = (request.Mentions ?? []).Distinct().Except(comment.Mentions).ToList();
+        var mentions = (request.Mentions ?? []).Distinct().ToList();
+        var added = mentions.Except(MentionsOf(comment)).ToList();
         comment.Text = request.Text!.Trim();
-        comment.Mentions = [.. (request.Mentions ?? []).Distinct()];
-        await db.SaveChangesAsync(ct);
+        comment.Mentions = JsonSerializer.Serialize(mentions, CollaborationJson.Default.ListGuid);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return ApiErrors.PreconditionFailed();
+        }
 
-        await mentions.NotifyAsync(item, comment, added, ct);
-        await items.ReindexAsync(itemId, ct);
+        await NotifyAsync(items, sender, caller, item, comment, added, ct);
         ETags.Set(response, comment.Version);
         return TypedResults.Ok(CommentResponse.From(comment));
     }
 
-    /// <summary>Deletes the comment and its replies (the author, or someone with Manage on the item).</summary>
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteAsync(
-        Guid workspaceId, Guid listId, Guid itemId, Guid commentId, IListItemStore items, CollaborationDbContext db, ICurrentUser user, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, Guid commentId, Caller caller, IListItemStore items, CollaborationDbContext database, CancellationToken cancellationToken)
     {
-        var item = await items.GetAsync(workspaceId, listId, itemId, ct);
-        var comment = item is null ? null : await db.Comments.FirstOrDefaultAsync(c => c.Id == commentId && c.ItemId == itemId && c.ListId == listId, ct);
-        if (comment is null)
+        var db = database;
+        var item = await items.GetAsync(workspaceId, listId, itemId, cancellationToken);
+        var comment = item is null ? null : await FindAsync(db, caller.TenantId, itemId, commentId, cancellationToken);
+        if (item is null || comment is null)
         {
             return ApiErrors.NotFound();
         }
 
-        if (!(comment.CreatedBy == user.UserId && item!.Access >= WorkspaceAccessLevel.Contribute) && item!.Access < WorkspaceAccessLevel.Manage)
+        if (!(comment.CreatedBy == caller.UserId && item.Access >= WorkspaceAccessLevel.Contribute) && item.Access < WorkspaceAccessLevel.Manage)
         {
             return Forbidden();
         }
 
-        db.Comments.RemoveRange(await db.Comments.Where(c => c.ParentId == commentId).ToListAsync(ct));
+        var tenant = caller.TenantId;
+        var parent = comment.Id;
+        var ct = cancellationToken;
+        db.Comments.RemoveRange(await db.Comments.Where(c => c.TenantId == tenant && c.ParentId == parent).ToListAsync(ct));
         db.Comments.Remove(comment);
         await db.SaveChangesAsync(ct);
-        await items.ReindexAsync(itemId, ct);
         return TypedResults.NoContent();
     }
 
-    /// <summary>The item's timeline, newest first: changes, comments and entries of modules and extensions.</summary>
     private static async Task<Results<Ok<Page<ActivityResponse>>, ProblemHttpResult>> ActivityAsync(
-        Guid workspaceId, Guid listId, Guid itemId, IListItemStore items, CollaborationDbContext db, HttpRequest http, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, HttpRequest request, [FromQuery(Name = "$top")] int? top, [FromQuery(Name = "$skiptoken")] string? skipToken,
+        Caller caller, IListItemStore items, CollaborationDbContext database, CancellationToken cancellationToken)
     {
-        if (await items.GetAsync(workspaceId, listId, itemId, ct) is null)
+        if (await items.GetAsync(workspaceId, listId, itemId, cancellationToken) is null)
         {
             return ApiErrors.NotFound();
         }
 
-        var page = PageRequest.From(http);
-        var query = db.Activity.AsNoTracking().Where(a => a.ItemId == itemId && a.ListId == listId);
-        // Entries are recorded asynchronously, so order by the time of the change (the id breaks ties).
-        if (page.After is { } after
-            && await db.Activity.AsNoTracking().Where(a => a.Id == after && a.ItemId == itemId).Select(a => (DateTimeOffset?)a.At).FirstOrDefaultAsync(ct) is { } at)
+        var page = PageRequest.Create(top, skipToken);
+        var db = database;
+        var tenant = caller.TenantId;
+        var item = itemId;
+        var take = page.Top + 1;
+        var ct = cancellationToken;
+        // Entries are recorded asynchronously, so the order is the time of the change (the id breaks ties).
+        long? at = null;
+        if (page.After is { } after)
         {
-            query = query.Where(a => a.At < at || (a.At == at && a.Id.CompareTo(after) < 0));
+            at = await db.Activity.AsNoTracking().Where(a => a.TenantId == tenant && a.Id == after && a.ItemId == item).Select(a => (long?)a.AtUnixMs).FirstOrDefaultAsync(ct);
         }
 
-        var entries = await query.OrderByDescending(a => a.At).ThenByDescending(a => a.Id).Take(page.Top + 1).ToListAsync(ct);
-        return TypedResults.Ok(Page.Create(
-            entries.Select(a => new ActivityResponse(a.Id, a.Kind, a.ActorId, a.Summary, a.ChangedFields, a.At)).ToList(), page, http, a => a.Id));
+        var entries = page.After is { } before && at is { } since
+            ? await db.Activity.AsNoTracking()
+                .Where(a => a.TenantId == tenant && a.ItemId == item && (a.AtUnixMs < since || (a.AtUnixMs == since && a.Id.CompareTo(before) < 0)))
+                .OrderByDescending(a => a.AtUnixMs).ThenByDescending(a => a.Id).Take(take).ToListAsync(ct)
+            : await db.Activity.AsNoTracking().Where(a => a.TenantId == tenant && a.ItemId == item)
+                .OrderByDescending(a => a.AtUnixMs).ThenByDescending(a => a.Id).Take(take).ToListAsync(ct);
+        return TypedResults.Ok(Page.Create([.. entries.Select(ActivityResponse.From)], page, request, a => a.Id));
     }
 
-    private static string Excerpt(string text) => text.Length <= 200 ? text : text[..199] + "…";
-
-    private static ProblemHttpResult Forbidden() =>
-        ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "You do not have permission for this action on the item.");
-}
-
-/// <summary>Validates comment text and mentions and notifies mentioned users who can read the item.</summary>
-internal sealed class CommentMentions(IUserDirectory users, INotificationSender sender, ITenantContext tenant, ICurrentUser user, ITenantScopeFactory scopes)
-{
-    public async Task<Dictionary<string, string[]>> ValidateAsync(string? text, IReadOnlyList<Guid>? mentions, CancellationToken ct)
+    /// <summary>Checks the text and that mentions name users of the organization.</summary>
+    private static async Task<Dictionary<string, string[]>> ValidateAsync(IUserDirectory users, Guid tenantId, string? text, IReadOnlyList<Guid>? mentions, CancellationToken ct)
     {
         var errors = new Dictionary<string, string[]>();
         if (string.IsNullOrWhiteSpace(text) || text.Trim().Length > CommentRules.MaxLength)
@@ -256,7 +281,7 @@ internal sealed class CommentMentions(IUserDirectory users, INotificationSender 
         {
             errors["mentions"] = [$"Mention up to {CommentRules.MaxMentions} people."];
         }
-        else if (ids.Count > 0 && (await users.GetUserNamesAsync(ids, ct)).Count != ids.Count)
+        else if (ids.Count > 0 && (await users.GetUserNamesAsync(tenantId, ids, ct)).Count != ids.Count)
         {
             errors["mentions"] = ["Mentions must be users of the organization."];
         }
@@ -265,13 +290,13 @@ internal sealed class CommentMentions(IUserDirectory users, INotificationSender 
     }
 
     /// <summary>Notifies <paramref name="mentioned"/> (except the author) who can read the item.</summary>
-    public async Task NotifyAsync(ListItemData item, Comment comment, IReadOnlyCollection<Guid> mentioned, CancellationToken ct)
+    private static async Task NotifyAsync(
+        IListItemStore items, INotificationSender sender, Caller caller, ListItemData item, Comment comment, IReadOnlyCollection<Guid> mentioned, CancellationToken ct)
     {
         var recipients = new List<Guid>();
-        foreach (var userId in mentioned.Where(u => u != user.UserId))
+        foreach (var userId in mentioned.Where(u => u != caller.UserId))
         {
-            await using var scope = scopes.CreateScope(tenant.TenantId!.Value, tenant.TenantIdentifier!, userId);
-            if (await scope.ServiceProvider.GetRequiredService<IListItemStore>().GetAsync(item.WorkspaceId, item.ListId, item.Id, ct) is not null)
+            if (await items.ActingAs(new ChangeActor(caller.TenantId, userId)).GetAsync(item.WorkspaceId, item.ListId, item.Id, ct) is not null)
             {
                 recipients.Add(userId);
             }
@@ -283,9 +308,14 @@ internal sealed class CommentMentions(IUserDirectory users, INotificationSender 
         }
 
         var title = item.Fields["title"]?.GetValue<string>() ?? "an item";
-        await sender.SendAsync(
+        await sender.SendAsync(caller.TenantId,
             new NotificationMessage(NotificationTypes.Mention, $"You were mentioned in a comment on {title}", comment.Text.Length <= 300 ? comment.Text : comment.Text[..299] + "…",
                 new NotificationLink(item.WorkspaceId, item.ListId, item.Id), $"mention:{comment.Id:N}:{comment.Version}"),
             recipients, ct);
     }
+
+    private static string Excerpt(string text) => text.Length <= 200 ? text : text[..199] + "…";
+
+    private static ProblemHttpResult Forbidden() =>
+        ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "You do not have permission for this action on the item.");
 }

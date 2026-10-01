@@ -1,3 +1,5 @@
+using PaperDotNet.Abstractions;
+
 namespace PaperDotNet.Collaboration.Contracts;
 
 /// <summary>Kinds of activity entries written by the platform; extensions use their own (<c>{extension id}.…</c>).</summary>
@@ -19,11 +21,11 @@ public sealed record ItemActivityEntry(
     Guid WorkspaceId, Guid ListId, Guid ItemId, string Kind, string? Summary = null, string? DeduplicationKey = null);
 
 /// <summary>
-/// Adds entries to the activity timeline of items (LST-17). Item changes and comments are
-/// recorded by the platform; modules and extensions add their own events (approvals, signatures, …).
-/// The entry names the current user as the actor.
+/// Adds entries to the activity timeline of items (LST-17). Item changes and comments are recorded by the platform;
+/// modules and extensions add their own events (approvals, signatures, …). The entry names
+/// the actor's user as the actor, in its tenant (no ambient tenant, ADR-0039).
 /// </summary>
 public interface IItemActivity
 {
-    Task RecordAsync(ItemActivityEntry entry, CancellationToken cancellationToken);
+    Task RecordAsync(ChangeActor actor, ItemActivityEntry entry, CancellationToken cancellationToken);
 }

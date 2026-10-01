@@ -332,6 +332,7 @@ public sealed partial class WorkflowInterpreter(
                 Inputs = node.Inputs ?? [],
                 ExecutionId = run.StepExecutionId!.Value,
                 Actor = actor,
+                StartedBy = run.StartedBy,
                 Services = services,
                 ExpandAsync = async (template, _) => tokens.Expand(template, await ScopeAsync()),
                 ResolveAsync = async (template, _) => tokens.Value(template, await ScopeAsync()),

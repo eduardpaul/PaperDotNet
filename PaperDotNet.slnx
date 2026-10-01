@@ -26,6 +26,10 @@
   <Folder Name="/src/Modules/Audit/">
     <Project Path="src/Modules/Audit/PaperDotNet.Audit/PaperDotNet.Audit.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Collaboration/">
+    <Project Path="src/Modules/Collaboration/PaperDotNet.Collaboration.Contracts/PaperDotNet.Collaboration.Contracts.csproj" />
+    <Project Path="src/Modules/Collaboration/PaperDotNet.Collaboration/PaperDotNet.Collaboration.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/ExtensionHost/">
     <Project Path="src/Modules/ExtensionHost/PaperDotNet.ExtensionHost/PaperDotNet.ExtensionHost.csproj" />
   </Folder>
@@ -40,6 +44,13 @@
   <Folder Name="/src/Modules/Lists/">
     <Project Path="src/Modules/Lists/PaperDotNet.Lists.Contracts/PaperDotNet.Lists.Contracts.csproj" />
     <Project Path="src/Modules/Lists/PaperDotNet.Lists/PaperDotNet.Lists.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notes/">
+    <Project Path="src/Modules/Notes/PaperDotNet.Notes/PaperDotNet.Notes.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/PaperDotNet.Notifications.Contracts/PaperDotNet.Notifications.Contracts.csproj" />
+    <Project Path="src/Modules/Notifications/PaperDotNet.Notifications/PaperDotNet.Notifications.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Tenancy/">
     <Project Path="src/Modules/Tenancy/PaperDotNet.Tenancy.Contracts/PaperDotNet.Tenancy.Contracts.csproj" />

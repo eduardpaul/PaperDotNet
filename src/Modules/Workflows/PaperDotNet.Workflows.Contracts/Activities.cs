@@ -40,6 +40,9 @@ public sealed class WorkflowActivityContext
     /// <summary>The author of the changes the activity makes: the organization, one level deeper than the run.</summary>
     public required ChangeActor Actor { get; init; }
 
+    /// <summary>The user who started the run or whose change triggered it, if any.</summary>
+    public Guid? StartedBy { get; init; }
+
     public required IServiceProvider Services { get; init; }
 
     /// <summary>Expands tokens in a text (<c>{title}</c>, <c>{var:name}</c>, <c>{step:node.path}</c>, …).</summary>

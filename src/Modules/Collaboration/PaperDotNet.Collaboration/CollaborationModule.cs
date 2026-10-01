@@ -1,13 +1,12 @@
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Api;
 using PaperDotNet.Collaboration.Contracts;
 using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Collaboration.Features;
-using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
-using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Collaboration;
 
@@ -24,29 +23,32 @@ public static class CollaborationScopes
 }
 
 /// <summary>
-/// Collaboration (phase 5d): comments with @mentions and the activity timeline of items (LST-17).
-/// Built on the extension SDK only (EXT-06); others add timeline entries with <see cref="IItemActivity"/>.
+/// Collaboration: comments with @mentions and the activity timeline of items (LST-17). Others add timeline entries with
+/// <see cref="IItemActivity"/>. Comments in search come with Search (T12), the <c>comment.added</c> workflow trigger with
+/// workflow parity (T14).
 /// </summary>
 public sealed class CollaborationModule : IModule
 {
     public string Name => "Collaboration";
 
+    public IJsonTypeInfoResolver Json => CollaborationJson.Default;
+
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddModuleDbContext<CollaborationDbContext>(CollaborationDbContext.Schema);
-        services.AddScoped<ItemActivity>();
-        services.AddScoped<IItemActivity>(sp => sp.GetRequiredService<ItemActivity>());
-        services.AddScoped<CommentMentions>();
-        services.AddScoped<IItemSearchContributor, CommentSearchContent>();
-        services.AddScoped<ItemActivityRecorder>();
-        services.AddEventSubscriber<ItemAdded, ItemActivityRecorder>();
-        services.AddEventSubscriber<ItemUpdated, ItemActivityRecorder>();
-        services.AddEventSubscriber<ItemDeleted, ItemActivityRecorder>();
-        services.AddEventSubscriber<ItemRestored, ItemActivityRecorder>();
-        services.AddEventSubscriber<ItemPurged, ItemActivityRecorder>();
-        services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggers.CommentAdded, "A comment was added to an item (data: commentId, text, author, reply)."));
+        services.AddModuleDbContext<CollaborationDbContext>();
+        services.AddScoped<IItemActivity>(sp => new ItemActivity(sp.GetRequiredService<CollaborationDbContext>(), sp.GetRequiredService<TimeProvider>()));
         services.AddScopes(CollaborationScopes.All);
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => CommentEndpoints.Map(endpoints);
 }
+
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(CommentRequest))]
+[JsonSerializable(typeof(CommentUpdateRequest))]
+[JsonSerializable(typeof(CommentResponse))]
+[JsonSerializable(typeof(Page<CommentResponse>))]
+[JsonSerializable(typeof(Page<ActivityResponse>))]
+[JsonSerializable(typeof(List<Guid>))]
+[JsonSerializable(typeof(List<string>))]
+internal sealed partial class CollaborationJson : JsonSerializerContext;
