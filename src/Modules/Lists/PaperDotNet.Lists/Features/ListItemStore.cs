@@ -16,15 +16,18 @@ namespace PaperDotNet.Lists.Features;
 /// </summary>
 internal sealed class ListItemStore(
     ListsDbContext db, ListSchemaLoader loader, ItemQueryRunner runner, ItemWriter writer, IWorkspaceAccess workspaces, ICurrentUser user,
-    ItemSearchDocuments search, ListCaller? bound = null)
+    ItemSearchDocuments search, HomeLibraries home, ListCaller? bound = null)
     : IListItemStore
 {
     private ListCaller Caller => bound ?? new ListCaller(
         user.TenantId ?? throw new InvalidOperationException("The item store needs a caller: use ActingAs or AsSystem outside a request."), user.UserId);
 
-    public IListItemStore ActingAs(ChangeActor actor) => new ListItemStore(db, loader, runner, writer, workspaces, user, search, ListCaller.From(actor));
+    public IListItemStore ActingAs(ChangeActor actor) => new ListItemStore(db, loader, runner, writer, workspaces, user, search, home, ListCaller.From(actor));
 
-    public IListItemStore AsSystem(ChangeActor actor) => new ListItemStore(db, loader, runner, writer, workspaces, user, search, ListCaller.From(actor, system: true));
+    public IListItemStore AsSystem(ChangeActor actor) => new ListItemStore(db, loader, runner, writer, workspaces, user, search, home, ListCaller.From(actor, system: true));
+
+    public Task<HomeData> EnsureHomeAsync(CancellationToken cancellationToken) =>
+        home.EnsureAsync(Caller.TenantId, Caller.UserId ?? throw new InvalidOperationException("Home belongs to a user."), cancellationToken);
 
     public IListItemStore AsSystem() => AsSystem(Caller.Actor);
 

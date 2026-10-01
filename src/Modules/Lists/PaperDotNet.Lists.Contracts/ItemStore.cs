@@ -23,6 +23,9 @@ public sealed record ListData(Guid Id, Guid WorkspaceId, string Name, string? Te
 /// <summary>A content type of a list: its name, and its template key for built-in and extension ones.</summary>
 public sealed record ListContentType(Guid Id, string Name, string? Key);
 
+/// <summary>The caller's personal workspace with its Documents and Inbox libraries (LST-07).</summary>
+public sealed record HomeData(Guid WorkspaceId, Guid DocumentsListId, Guid InboxListId);
+
 /// <summary>A column of a list, as returned by <see cref="IListItemStore.DescribeListAsync"/>.</summary>
 public sealed record ListFieldInfo(
     string Name,
@@ -150,6 +153,9 @@ public interface IListItemStore
 
     /// <summary>The list's content types and columns, or null when it is not visible.</summary>
     Task<ListDescription?> DescribeListAsync(Guid workspaceId, Guid listId, CancellationToken cancellationToken);
+
+    /// <summary>The caller's Home workspace and libraries, created on first use (needs a user).</summary>
+    Task<HomeData> EnsureHomeAsync(CancellationToken cancellationToken);
 
     Task<ListItemData?> GetAsync(Guid workspaceId, Guid listId, Guid itemId, CancellationToken cancellationToken);
 

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PaperDotNet.Lists.Data;
 
@@ -10,14 +11,11 @@ using PaperDotNet.Lists.Data;
 namespace PaperDotNet.Migrations.Sqlite.Generated.Lists;
 
 [DbContext(typeof(ListsDbContext))]
-partial class ListsDbContextModelSnapshot : ModelSnapshot
+[Migration("20261001220845_HomeLibraries")]
+partial class _20261001220845_HomeLibraries
 {
-    // If you encounter a merge conflict in the line below, it means you need to
-    // discard one of the migration branches and recreate its migrations on top of
-    // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261001220845_HomeLibraries";
-
-    protected override void BuildModel(ModelBuilder modelBuilder)
+    /// <inheritdoc />
+    protected override void BuildTargetModel(ModelBuilder modelBuilder)
     {
 #pragma warning disable 612, 618
         modelBuilder

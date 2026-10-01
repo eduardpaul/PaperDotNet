@@ -1,8 +1,4 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Documents.Data;
@@ -45,15 +41,17 @@ internal static class PageOperationEndpoints
 {
     public static void Map(IEndpointRouteBuilder endpoints)
     {
-        var pages = endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}/file/pages", "Documents");
-        pages.MapPut("", EditAsync).RequireScope(DocumentScopes.Write).WithName("EditPages");
+        var pages = endpoints.MapGroup("/v1.0/workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}/file/pages").WithTags("Documents");
+        pages.MapPut("", EditAsync).RequireScope(DocumentScopes.Write).WithName("EditPages")
+            .WithDescription("The pages of the new version in order (with rotations); pages left out are deleted. If-Match with the file's ETag is checked when sent.");
         pages.MapPost("/extract", ExtractAsync).RequireScope(DocumentScopes.Write).WithName("ExtractPages");
         pages.MapPost("/move", MoveAsync).RequireScope(DocumentScopes.Write).WithName("MovePages");
     }
 
     private static async Task<Results<Ok<FileVersionResponse>, ValidationProblem, ProblemHttpResult>> EditAsync(
-        Guid workspaceId, Guid listId, Guid itemId, EditPagesRequest request, HttpRequest http, PageEditor editor, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, EditPagesRequest request, HttpRequest http, Caller caller, PageEditor editor, CancellationToken ct)
     {
+        editor.Actor = caller.Actor;
         var source = await editor.LoadAsync(workspaceId, listId, itemId, http.Headers.IfMatch.ToString(), ct);
         if (source.Problem is { } problem)
         {
@@ -93,8 +91,9 @@ internal static class PageOperationEndpoints
     }
 
     private static async Task<Results<Ok<PageOperationResponse>, ValidationProblem, ProblemHttpResult>> ExtractAsync(
-        Guid workspaceId, Guid listId, Guid itemId, ExtractPagesRequest request, PageEditor editor, IListItemStore items, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, ExtractPagesRequest request, Caller caller, PageEditor editor, IListItemStore items, CancellationToken ct)
     {
+        editor.Actor = caller.Actor;
         var source = await editor.LoadAsync(workspaceId, listId, itemId, null, ct);
         if (source.Problem is { } problem)
         {
@@ -110,7 +109,7 @@ internal static class PageOperationEndpoints
 
         if (request.Remove && pages.Count == file.PageCount)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["pages"] = ["Removing every page would leave an empty document; move the document instead."] });
+            return ApiErrors.Validation("pages", "Removing every page would leave an empty document; move the document instead.");
         }
 
         var targetWorkspace = request.WorkspaceId ?? workspaceId;
@@ -124,7 +123,7 @@ internal static class PageOperationEndpoints
 
         if (!target.IsLibrary)
         {
-            return ApiErrors.Problem(StatusCodes.Status400BadRequest, "notALibrary", "Pages can only be extracted into libraries.");
+            return ApiErrors.BadRequest("notALibrary", "Pages can only be extracted into libraries.");
         }
 
         if (target.Access < WorkspaceAccessLevel.Contribute)
@@ -159,17 +158,18 @@ internal static class PageOperationEndpoints
     }
 
     private static async Task<Results<Ok<PageOperationResponse>, ValidationProblem, ProblemHttpResult>> MoveAsync(
-        Guid workspaceId, Guid listId, Guid itemId, MovePagesRequest request, PageEditor editor, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, MovePagesRequest request, Caller caller, PageEditor editor, CancellationToken ct)
     {
+        editor.Actor = caller.Actor;
         var position = request.Position ?? "append";
         if (position is not ("append" or "prepend" or "replace"))
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["position"] = ["append, prepend or replace is expected."] });
+            return ApiErrors.Validation("position", "append, prepend or replace is expected.");
         }
 
         if (request.TargetItemId == itemId)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["targetItemId"] = ["Pages cannot be moved into the same document; edit its pages instead."] });
+            return ApiErrors.Validation("targetItemId", "Pages cannot be moved into the same document; edit its pages instead.");
         }
 
         var source = await editor.LoadAsync(workspaceId, listId, itemId, null, ct);
@@ -224,7 +224,7 @@ internal static class PageOperationEndpoints
         : pages.Distinct().Count() != pages.Count ? Invalid("Each page may appear once.")
         : null;
 
-    private static ValidationProblem Invalid(string message) => ApiErrors.Validation(new Dictionary<string, string[]> { ["pages"] = [message] });
+    private static ValidationProblem Invalid(string message) => ApiErrors.Validation("pages", message);
 
     private static ProblemHttpResult Concurrent() => ApiErrors.Conflict("concurrentChange", "The file was changed at the same time; try again.");
 }
@@ -232,17 +232,22 @@ internal static class PageOperationEndpoints
 /// <summary>A document's current PDF, ready for page operations.</summary>
 internal sealed record EditableFile(ListItemData Item, FileVersion Version, StoredFile Stored, int PageCount, IReadOnlyDictionary<int, string> Texts)
 {
-    public string Title => Item.Fields["title"]?.GetValue<string>() ?? Path.GetFileNameWithoutExtension(Version.FileName);
+    public string Title => Item.Fields["title"] is System.Text.Json.Nodes.JsonValue title && title.TryGetValue<string>(out var text) ? text : Path.GetFileNameWithoutExtension(Version.FileName);
 }
 
-/// <summary>Builds PDFs from pages of stored files (PDFsharp) and saves them as versions or new documents.</summary>
+/// <summary>
+/// Builds PDFs from pages of stored files (PDFsharp) and saves them as versions or new documents, for <see cref="Actor"/>
+/// (the request's caller; the item store acts as the caller too).
+/// </summary>
 internal sealed class PageEditor(DocumentsDbContext db, IBlobStore blobs, IListItemStore items, FileIntake intake, DocumentService documents)
 {
+    public ChangeActor Actor { get; set; } = null!;
+
     public async Task<(EditableFile? File, ProblemHttpResult? Problem)> LoadAsync(
         Guid workspaceId, Guid listId, Guid itemId, string? ifMatch, CancellationToken ct)
     {
         var item = await items.GetAsync(workspaceId, listId, itemId, ct);
-        var version = item is null ? null : await db.FileVersions.FirstOrDefaultAsync(v => v.ItemId == itemId && v.IsCurrent, ct);
+        var version = item is null ? null : await DocumentQueries.CurrentAsync(db, Actor.TenantId, itemId, ct);
         if (version is null)
         {
             return (null, ApiErrors.NotFound("The item has no file."));
@@ -263,7 +268,11 @@ internal sealed class PageEditor(DocumentsDbContext db, IBlobStore blobs, IListI
             return (null, ApiErrors.Conflict("pdfRequired", "Pages can only be changed in PDF files; images get a PDF when they are processed."));
         }
 
-        var stored = await db.StoredFiles.FirstAsync(f => f.Id == version.StoredFileId, ct);
+        if (await DocumentQueries.StoredFileAsync(db, Actor.TenantId, version.StoredFileId, ct) is not { } stored)
+        {
+            return (null, ApiErrors.Problem(StatusCodes.Status500InternalServerError, "fileContentMissing", "The stored content of the file is missing."));
+        }
+
         int pageCount;
         try
         {
@@ -278,7 +287,7 @@ internal sealed class PageEditor(DocumentsDbContext db, IBlobStore blobs, IListI
             return (null, ApiErrors.Conflict("pdfNotEditable", "The PDF cannot be edited (it may be encrypted or damaged)."));
         }
 
-        var texts = await db.Pages.AsNoTracking().Where(p => p.StoredFileId == stored.Id).ToDictionaryAsync(p => p.PageNumber, p => p.Text, ct);
+        var texts = (await DocumentQueries.PagesAsync(db, Actor.TenantId, stored.Id, ct)).ToDictionary(p => p.PageNumber, p => p.Text);
         return (new EditableFile(item, version, stored, pageCount, texts), null);
     }
 
@@ -286,7 +295,7 @@ internal sealed class PageEditor(DocumentsDbContext db, IBlobStore blobs, IListI
     public async Task<FileVersion?> SaveVersionAsync(EditableFile file, IReadOnlyList<(EditableFile From, int Page, int Rotate)> pages, CancellationToken ct)
     {
         var stored = await BuildAsync(pages, ct);
-        return await documents.AddDerivedVersionAsync(file.Item, file.Version, stored, Texts(pages), ct);
+        return await documents.AddDerivedVersionAsync(Actor, file.Item, file.Version, stored, Texts(pages), ct);
     }
 
     public async Task<(DocumentResponse? Document, ProblemHttpResult? Problem)> CreateDocumentAsync(
@@ -294,9 +303,9 @@ internal sealed class PageEditor(DocumentsDbContext db, IBlobStore blobs, IListI
     {
         var spec = pages.Select(p => (from, p, 0)).ToList();
         var stored = await BuildAsync(spec, ct);
-        var (item, version, problem) = await documents.CreateDerivedAsync(workspaceId, listId, folderId, title, stored, from.Version, Texts(spec), ct);
+        var (item, version, problem) = await documents.CreateDerivedAsync(Actor, workspaceId, listId, folderId, title, stored, from.Version, Texts(spec), ct);
         return item is null
-            ? (null, ApiErrors.Problem(StatusCodes.Status400BadRequest, "itemRejected",
+            ? (null, ApiErrors.BadRequest("itemRejected",
                 problem?.Message ?? string.Join(" ", problem?.Errors?.SelectMany(e => e.Value) ?? ["The document could not be created."])))
             : (new DocumentResponse(item.WorkspaceId, item.ListId, item.Id, item.Version, item.Fields, FileVersionResponse.From(version!), []), null);
     }
@@ -339,7 +348,7 @@ internal sealed class PageEditor(DocumentsDbContext db, IBlobStore blobs, IListI
 
             await using var content = File.OpenRead(output);
             await using var spooled = await FileIntake.SpoolAsync(content, long.MaxValue, ct);
-            return await intake.StoreAsync(spooled, ct);
+            return await intake.StoreAsync(Actor.TenantId, spooled, ct);
         }
         finally
         {

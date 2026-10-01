@@ -27,6 +27,14 @@ if (generatingCode)
 await SqliteDatabase.MigrateAsync(app.Services);
 await Bootstrap.RunAsync(app.Services);
 app.UsePaperDotNet();
+
+// Starting leaves garbage (migrations, models, the bootstrap); one compacting collection once the server is up gives
+// that memory back, so an idle server stays small (ADR-0039 budget, eng/aot-smoke.sh).
+app.Lifetime.ApplicationStarted.Register(() => _ = Task.Run(async () =>
+{
+    await Task.Delay(TimeSpan.FromSeconds(1));
+    GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+}));
 await app.RunAsync();
 return 0;
 

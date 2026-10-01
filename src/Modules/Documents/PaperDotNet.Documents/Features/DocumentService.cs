@@ -14,7 +14,8 @@ namespace PaperDotNet.Documents.Features;
 /// Upload, replace and restore: spool, check, store once, then create the item and the version. The item store acts as
 /// the request's caller; the tenant and the author of changes are the <see cref="ChangeActor"/> passed in.
 /// </summary>
-internal sealed class DocumentService(IListItemStore items, DocumentsDbContext db, FileIntake intake, DocumentEvents events, IOptions<DocumentsOptions> options)
+internal sealed class DocumentService(
+    IListItemStore items, DocumentsDbContext db, FileIntake intake, DocumentEvents events, IOptions<DocumentsOptions> options, AuditOverrides stamps)
 {
     private const int MaxDuplicates = 20;
 
@@ -174,11 +175,16 @@ internal sealed class DocumentService(IListItemStore items, DocumentsDbContext d
     /// </summary>
     internal async Task<FileVersion?> AddVersionAsync(
         ChangeActor actor, ListItemData item, FileVersion? current, StoredFile stored, string fileName, string source, string? languages, CancellationToken ct,
-        bool announce = true)
+        bool announce = true, AuditStamp? stamp = null)
     {
         var number = (await DocumentQueries.LastNumberAsync(db, actor.TenantId, item.Id, ct) ?? 0) + 1;
         current?.IsCurrent = false;
         var version = NewVersion(actor.TenantId, item, stored, fileName, number, source, languages ?? current?.Languages);
+        if (stamp is not null)
+        {
+            stamps.Set(version.Id, stamp);
+        }
+
         db.FileVersions.Add(version);
         try
         {
@@ -196,6 +202,131 @@ internal sealed class DocumentService(IListItemStore items, DocumentsDbContext d
         }
 
         return version;
+    }
+
+    /// <summary>
+    /// Gives an item its first file (templates and imports, PRV-04): checked like an upload (size, type) and announced like
+    /// one. Nothing happens when the item already has a file. Returns an error message, or null.
+    /// </summary>
+    public async Task<string?> AttachAsync(ChangeActor actor, ListItemData item, Stream content, string fileName, CancellationToken ct)
+    {
+        if (await DocumentQueries.HasVersionsAsync(db, actor.TenantId, item.Id, ct))
+        {
+            return null;
+        }
+
+        await using var spooled = await FileIntake.SpoolAsync(content, options.Value.MaxFileSize, ct);
+        if (CheckImport(spooled) is { } problem)
+        {
+            return problem;
+        }
+
+        var stored = await intake.StoreAsync(actor.TenantId, spooled, ct);
+        var version = await AddVersionAsync(actor, item, null, stored, FileName(fileName, spooled.MediaType!), "import", null, ct);
+        return version is null ? "the item's file was changed at the same time" : null;
+    }
+
+    /// <summary>
+    /// Adds an imported version to an item (packages, PLT-13/15): checked like an upload, with its original source, languages
+    /// and stamps. With page texts it counts as read; only the last (current) version is announced to the library's
+    /// workflows. Returns an error message, or null.
+    /// </summary>
+    public async Task<string?> ImportVersionAsync(
+        ChangeActor actor, ListItemData item, Stream content, string fileName, ImportedVersion imported, bool isCurrent, CancellationToken ct)
+    {
+        await using var spooled = await FileIntake.SpoolAsync(content, options.Value.MaxFileSize, ct);
+        if (CheckImport(spooled) is { } problem)
+        {
+            return problem;
+        }
+
+        var stored = await intake.StoreAsync(actor.TenantId, spooled, ct);
+        var current = await DocumentQueries.CurrentAsync(db, actor.TenantId, item.Id, ct);
+        var version = await AddVersionAsync(
+            actor, item, current, stored, FileName(fileName, spooled.MediaType!), imported.Source ?? "import", imported.Languages, ct,
+            announce: false, stamp: imported.Stamp);
+        if (version is null)
+        {
+            return "the item's file was changed at the same time";
+        }
+
+        version.TextLanguage = imported.TextLanguage;
+        if (imported.Pages is { Count: > 0 } pages)
+        {
+            await DocumentText.SavePagesAsync(db, actor.TenantId, stored.Id, pages, ct);
+            version.PageCount = pages.Count;
+        }
+
+        await db.SaveChangesAsync(ct);
+        if (isCurrent)
+        {
+            // The library's workflows take it from here (thumbnails, pages; the text when it came without).
+            await items.AsSystem(actor).ReindexAsync(item.Id, ct);
+            await events.AddedAsync(actor, version, newDocument: current is null, ct);
+        }
+
+        return null;
+    }
+
+    private string? CheckImport(SpooledFile spooled) =>
+        spooled.TooLarge ? $"the file has more than {options.Value.MaxFileSize} bytes"
+        : spooled.MediaType is null ? "only PDF, TIFF, JPEG and PNG files are supported"
+        : null;
+
+    /// <summary>
+    /// A new current version made from the current one (page operations, DOC-05/06), with the given page texts; announced
+    /// like an upload (thumbnails and page images are made again). Null when another change won the race.
+    /// </summary>
+    internal async Task<FileVersion?> AddDerivedVersionAsync(
+        ChangeActor actor, ListItemData item, FileVersion current, StoredFile stored, IReadOnlyList<string> pageTexts, CancellationToken ct)
+    {
+        await DocumentText.SavePagesAsync(db, actor.TenantId, stored.Id, pageTexts, ct);
+        var version = await AddVersionAsync(actor, item, current, stored, Path.ChangeExtension(current.FileName, ".pdf"), "pages", null, ct, announce: false);
+        if (version is not null)
+        {
+            Complete(version, current, pageTexts.Count);
+            await db.SaveChangesAsync(ct);
+            await FinishAsync(actor, item.Id, version, newDocument: false, ct);
+        }
+
+        return version;
+    }
+
+    /// <summary>
+    /// A new document in a library from pages of another file (extract, DOC-06): created like an upload, in
+    /// <paramref name="folderId"/> when given, with the given page texts and without reading them again.
+    /// </summary>
+    internal async Task<(ListItemData? Item, FileVersion? Version, ListItemResult? Problem)> CreateDerivedAsync(
+        ChangeActor actor, Guid workspaceId, Guid listId, Guid? folderId, string title, StoredFile stored, FileVersion from, IReadOnlyList<string> pageTexts,
+        CancellationToken ct)
+    {
+        var created = await items.CreateAsync(workspaceId, listId, new JsonObject { ["title"] = title }, null, folderId, ct);
+        if (!created.Succeeded)
+        {
+            return (null, null, created);
+        }
+
+        var item = created.Item!;
+        await DocumentText.SavePagesAsync(db, actor.TenantId, stored.Id, pageTexts, ct);
+        var version = NewVersion(actor.TenantId, item, stored, Path.ChangeExtension(from.FileName, ".pdf"), number: 1, "pages", from.Languages);
+        Complete(version, from, pageTexts.Count);
+        db.FileVersions.Add(version);
+        await db.SaveChangesAsync(ct);
+        await FinishAsync(actor, item.Id, version, newDocument: true, ct);
+        return (item, version, null);
+    }
+
+    /// <summary>Indexes the item with the page texts it kept, and announces the version to the library's workflows.</summary>
+    private async Task FinishAsync(ChangeActor actor, Guid itemId, FileVersion version, bool newDocument, CancellationToken ct)
+    {
+        await items.ReindexAsync(itemId, ct);
+        await events.AddedAsync(actor, version, newDocument, ct);
+    }
+
+    private static void Complete(FileVersion version, FileVersion from, int pageCount)
+    {
+        version.PageCount = pageCount;
+        version.TextLanguage = from.TextLanguage;
     }
 
     private async Task<SpooledFile> SpoolAsync(IFormFile file, CancellationToken ct)

@@ -85,6 +85,7 @@ public sealed class ListsModule : IModule
         services.AddScoped(sp => new ScopeMover(sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<IItemQueries>(), sp.GetRequiredService<IOptions<ListsOptions>>()));
         services.AddScoped<IItemQueries, SqliteItemQueries>();
         services.AddScoped<ItemQueryRunner>();
+        services.AddScoped<HomeLibraries>();
         services.AddScoped<ListItemStore>();
         services.AddScoped<IListItemStore>(sp => sp.GetRequiredService<ListItemStore>());
     }
@@ -102,5 +103,6 @@ public sealed class ListsModule : IModule
         PermissionEndpoints.Map(endpoints);
         SmartFolders.Map(endpoints);
         ViewEndpoints.Map(endpoints);
+        HomeLibraries.Map(endpoints);
     }
 }

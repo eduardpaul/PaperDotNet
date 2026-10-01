@@ -352,7 +352,15 @@ internal static class PortabilityEndpoints
         package.OperationId = await operations.StartAsync(
             caller.Actor, ImportOperation.OperationType, new ImportPayload(package.Id, dryRun == true, ProvisioningEndpoints.Parameters(http)),
             ProvisioningJson.Default.ImportPayload, ct);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The import already ran and removed its package (a small package is applied at once): nothing left to note.
+        }
+
         return TypedResults.Accepted($"/v1.0/operations/{package.OperationId}", new ImportResponse(package.Id, package.OperationId));
     }
 

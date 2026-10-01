@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
     <ProjectReference Include="..\..\Workflows\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
+    <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Text layers (PdfPig), page images (PDFium through PDFtoImage, SkiaSharp; native libraries next to the binary), the Tesseract CLI. -->
@@ -17,8 +18,12 @@
     <PackageReference Include="CliWrap" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Still to port (ADR-0039): page operations, templates and inboxes (T15c), MCP tools (T16). -->
-    <Compile Remove="Features/PageOperations.cs;Features/DocumentTemplates.cs;Features/GroupInboxEndpoints.cs;Features/DocumentTools.cs" />
-    <None Include="Features/PageOperations.cs;Features/DocumentTemplates.cs;Features/GroupInboxEndpoints.cs;Features/DocumentTools.cs" />
+    <!-- Page operations (DOC-05/06). -->
+    <PackageReference Include="PDFsharp" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Still to port (ADR-0039): the MCP document tools (T16). -->
+    <Compile Remove="Features/DocumentTools.cs" />
+    <None Include="Features/DocumentTools.cs" />
   </ItemGroup>
 </Project>

@@ -31,7 +31,7 @@ Storage__DataPath="$DATA" ASPNETCORE_URLS="$BASE" Logging__LogLevel__Default=War
 PID=$!
 cleanup() { kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; rm -rf "$DATA"; }
 trap cleanup EXIT
-fail() { echo "FAIL: $*" >&2; echo "--- host log" >&2; tail -50 "$LOG" >&2; exit 1; }
+fail() { echo "FAIL: $*" >&2; cp "$LOG" "$OUT/host.log"; echo "--- host log (all of it in $OUT/host.log)" >&2; tail -50 "$LOG" >&2; exit 1; }
 json() { python3 -c "import json,sys; d=json.load(sys.stdin); print(eval(sys.argv[1], {'d': d}))" "$1"; }
 rss_mb() { echo $(( $(awk '/VmRSS/{print $2}' "/proc/$PID/status") / 1024 )); }
 

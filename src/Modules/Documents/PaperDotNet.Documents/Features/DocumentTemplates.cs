@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using System.Xml.Linq;
-using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.Identity.Contracts;
@@ -26,9 +25,10 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db, IUse
 
     public async Task<XElement?> ExportAsync(TemplateContext context, CancellationToken cancellationToken)
     {
-        var settings = await db.LibrarySettings.AsNoTracking().FirstOrDefaultAsync(s => s.ListId == context.ListId, cancellationToken);
-        var inbox = await db.GroupInboxes.AsNoTracking().FirstOrDefaultAsync(g => g.ListId == context.ListId, cancellationToken);
-        var group = inbox is null ? null : (await directory.GetGroupNamesAsync([inbox.GroupId], cancellationToken)).GetValueOrDefault(inbox.GroupId);
+        var listId = context.ListId!.Value;
+        var settings = await DocumentQueries.SettingsAsync(db, context.TenantId, listId, cancellationToken);
+        var inbox = await DocumentQueries.InboxOfListAsync(db, context.TenantId, listId, cancellationToken);
+        var group = inbox is null ? null : (await directory.GetGroupNamesAsync(context.TenantId, [inbox.GroupId], cancellationToken)).GetValueOrDefault(inbox.GroupId);
         if (settings is null && group is null)
         {
             return null;
@@ -48,12 +48,19 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db, IUse
             throw new TemplateException("OcrLanguages: Tesseract language codes joined with '+', e.g. 'deu+eng'.", section);
         }
 
-        var settings = context.IsPlanned ? null : await db.LibrarySettings.FirstOrDefaultAsync(s => s.ListId == context.ListId, cancellationToken);
+        var policy = section.Attr("DuplicatePolicy")?.ToLowerInvariant() ?? DuplicatePolicies.Warn;
+        if (!DuplicatePolicies.IsValid(policy))
+        {
+            throw new TemplateException("DuplicatePolicy: allow, warn or block.", section);
+        }
+
+        var settings = context.IsPlanned ? null : await DocumentQueries.SettingsAsync(db, context.TenantId, context.ListId!.Value, cancellationToken);
         var wanted = new LibrarySettings
         {
             Id = Ids.New(),
-            ListId = context.ListId!.Value,
-            DuplicatePolicy = section.EnumAttr("DuplicatePolicy", DuplicatePolicy.Warn),
+            TenantId = context.TenantId,
+            ListId = context.ListId ?? Guid.Empty,
+            DuplicatePolicy = policy,
             OcrLanguages = languages,
         };
         var name = $"{context.WorkspaceName}/{context.ListName}";
@@ -87,13 +94,13 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db, IUse
             return;
         }
 
-        if (await directory.FindGroupAsync(groupName, ct) is not { } groupId)
+        if (await directory.FindGroupAsync(context.TenantId, groupName, ct) is not { } groupId)
         {
             context.Warn($"{name}: the group '{groupName}' does not exist, so the library is not its inbox.", section);
             return;
         }
 
-        var inbox = await db.GroupInboxes.FirstOrDefaultAsync(g => g.GroupId == groupId, ct);
+        var inbox = context.IsPlanned ? null : await DocumentQueries.InboxOfGroupAsync(db, context.TenantId, groupId, ct);
         if (inbox is not null && inbox.ListId == context.ListId)
         {
             return;
@@ -107,7 +114,7 @@ internal sealed class LibrarySettingsTemplateHandler(DocumentsDbContext db, IUse
 
         if (inbox is null)
         {
-            inbox = new GroupInbox { Id = Ids.New(), GroupId = groupId };
+            inbox = new GroupInbox { Id = Ids.New(), TenantId = context.TenantId, GroupId = groupId };
             db.GroupInboxes.Add(inbox);
         }
 
@@ -145,19 +152,20 @@ internal sealed class DocumentFilesTemplateHandler(
         }
 
         var listId = context.ListId!.Value;
-        var versions = await (from v in db.FileVersions.AsNoTracking()
-                              where v.ListId == listId
-                              join f in db.StoredFiles.AsNoTracking() on v.StoredFileId equals f.Id
-                              orderby v.ItemId, v.Number
-                              select new { Version = v, File = f })
-            .ToListAsync(cancellationToken);
-        var people = await directory.GetUserNamesAsync([.. versions.Select(v => v.Version.CreatedBy).OfType<Guid>().Distinct()], cancellationToken);
+        var tenant = context.TenantId;
+        var versions = (await DocumentQueries.VersionsOfListAsync(db, tenant, listId, cancellationToken)).OrderBy(v => v.ItemId).ThenBy(v => v.Number).ToList();
+        var people = await directory.GetUserNamesAsync(tenant, [.. versions.Select(v => v.CreatedBy).OfType<Guid>().Distinct()], cancellationToken);
         var entries = new JsonArray();
-        foreach (var item in versions.GroupBy(v => v.Version.ItemId))
+        foreach (var item in versions.GroupBy(v => v.ItemId))
         {
             var exported = new JsonArray();
-            foreach (var (version, stored) in item.Select(v => (v.Version, v.File)))
+            foreach (var version in item)
             {
+                if (await DocumentQueries.StoredFileAsync(db, tenant, version.StoredFileId, cancellationToken) is not { } stored)
+                {
+                    continue;
+                }
+
                 await using var content = await blobs.OpenReadAsync(stored.BlobKey, cancellationToken);
                 if (content is null)
                 {
@@ -165,7 +173,7 @@ internal sealed class DocumentFilesTemplateHandler(
                     continue;
                 }
 
-                var texts = await db.Pages.AsNoTracking().Where(p => p.StoredFileId == stored.Id).OrderBy(p => p.PageNumber).ToListAsync(cancellationToken);
+                var texts = await DocumentQueries.PagesAsync(db, tenant, stored.Id, cancellationToken);
                 string? pages = null;
                 if (texts.Count > 0)
                 {
@@ -175,17 +183,17 @@ internal sealed class DocumentFilesTemplateHandler(
                     {
                         while (number++ < page.PageNumber)
                         {
-                            array.Add(string.Empty);
+                            array.Add((JsonNode)string.Empty);
                         }
 
-                        array.Add(page.Text);
+                        array.Add((JsonNode)page.Text);
                     }
 
                     using var json = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(array.ToJsonString()));
                     pages = await package.AddFileAsync(json, cancellationToken);
                 }
 
-                exported.Add(new JsonObject
+                exported.Add((JsonNode)new JsonObject
                 {
                     ["file"] = await package.AddFileAsync(content, cancellationToken),
                     ["name"] = version.FileName,
@@ -206,7 +214,7 @@ internal sealed class DocumentFilesTemplateHandler(
 
             // The current file stays at the top level, so older readers still find it.
             var current = exported.OfType<JsonObject>().LastOrDefault(v => v["current"] is not null) ?? (JsonObject)exported[^1]!;
-            entries.Add(new JsonObject
+            entries.Add((JsonNode)new JsonObject
             {
                 ["key"] = item.Key.ToString("N"),
                 ["file"] = current["file"]!.DeepClone(),
@@ -248,7 +256,7 @@ internal sealed class DocumentFilesTemplateHandler(
             }
 
             var itemId = TemplateContent.ItemId(listId, key);
-            if (await db.FileVersions.AnyAsync(v => v.ItemId == itemId, cancellationToken))
+            if (await DocumentQueries.HasVersionsAsync(db, context.TenantId, itemId, cancellationToken))
             {
                 continue;
             }
@@ -259,7 +267,7 @@ internal sealed class DocumentFilesTemplateHandler(
                 continue;
             }
 
-            var item = await items.AsSystem().GetAsync(context.WorkspaceId!.Value, listId, itemId, cancellationToken);
+            var item = await items.AsSystem(context.Actor).GetAsync(context.WorkspaceId!.Value, listId, itemId, cancellationToken);
             if (item is null)
             {
                 context.Warn($"{name}: the file of item {key} was skipped: the item was not created.");
@@ -268,7 +276,7 @@ internal sealed class DocumentFilesTemplateHandler(
 
             if (entry["versions"] is JsonArray versions && versions.Count > 0)
             {
-                if (await ImportVersionsAsync(item, versions.OfType<JsonObject>().ToList(), package, cancellationToken) is { } versionError)
+                if (await ImportVersionsAsync(context.Actor, item, [.. versions.OfType<JsonObject>()], package, cancellationToken) is { } versionError)
                 {
                     context.Warn($"{name}: the file of item {key} was not completely imported: {versionError}.");
                 }
@@ -284,7 +292,7 @@ internal sealed class DocumentFilesTemplateHandler(
                 continue;
             }
 
-            if (await documents.AttachAsync(item, content, entry["name"]?.ToString() ?? "document", cancellationToken) is { } error)
+            if (await documents.AttachAsync(context.Actor, item, content, entry["name"]?.ToString() ?? "document", cancellationToken) is { } error)
             {
                 context.Warn($"{name}: the file of item {key} was skipped: {error}.");
                 continue;
@@ -300,7 +308,7 @@ internal sealed class DocumentFilesTemplateHandler(
     }
 
     /// <summary>Imports every version in order (the last one becomes current); returns the first error.</summary>
-    private async Task<string?> ImportVersionsAsync(ListItemData item, List<JsonObject> versions, ITemplatePackage package, CancellationToken ct)
+    private async Task<string?> ImportVersionsAsync(ChangeActor actor, ListItemData item, List<JsonObject> versions, ITemplatePackage package, CancellationToken ct)
     {
         for (var index = 0; index < versions.Count; index++)
         {
@@ -317,7 +325,7 @@ internal sealed class DocumentFilesTemplateHandler(
                 {
                     await using (pagesStream)
                     {
-                        pages = (await JsonNode.ParseAsync(pagesStream, cancellationToken: ct) as JsonArray)?.Select(p => p?.ToString() ?? string.Empty).ToList();
+                        pages = (await JsonNode.ParseAsync(pagesStream, cancellationToken: ct) as JsonArray)?.Select(p => p is JsonValue text && text.TryGetValue<string>(out var value) ? value : string.Empty).ToList();
                     }
                 }
 
@@ -328,8 +336,8 @@ internal sealed class DocumentFilesTemplateHandler(
                     languages is not null && DocumentText.IsValidLanguageList(languages) ? languages : null,
                     textLanguage is { Length: > 0 and <= 20 } ? textLanguage : null,
                     pages,
-                    await StampAsync(version, ct));
-                if (await documents.ImportVersionAsync(item, content, version["name"]?.ToString() ?? "document", imported, index == versions.Count - 1, ct) is { } error)
+                    await StampAsync(actor.TenantId, version, ct));
+                if (await documents.ImportVersionAsync(actor, item, content, version["name"]?.ToString() ?? "document", imported, index == versions.Count - 1, ct) is { } error)
                 {
                     return $"version {index + 1}: {error}";
                 }
@@ -339,8 +347,9 @@ internal sealed class DocumentFilesTemplateHandler(
         return null;
     }
 
-    private async Task<AuditStamp?> StampAsync(JsonObject version, CancellationToken ct) =>
-        version["created"] is JsonValue created && created.TryGetValue<DateTimeOffset>(out var at)
-            ? new AuditStamp(at, version["createdBy"]?.ToString() is { Length: > 0 } userName ? await directory.FindUserAsync(userName, ct) : null)
+    private async Task<AuditStamp?> StampAsync(Guid tenantId, JsonObject version, CancellationToken ct) =>
+        version["created"] is JsonValue created && created.TryGetValue<string>(out var text)
+            && DateTimeOffset.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var at)
+            ? new AuditStamp(at, version["createdBy"]?.ToString() is { Length: > 0 } userName ? await directory.FindUserAsync(tenantId, userName, ct) : null)
             : null;
 }

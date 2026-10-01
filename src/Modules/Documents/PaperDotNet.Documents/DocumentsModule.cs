@@ -8,6 +8,7 @@ using PaperDotNet.Documents.Features;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Documents;
@@ -28,7 +29,7 @@ public static class DocumentScopes
 /// Documents: files in libraries (DOC-01…03, DOC-10, DOC-11). Items, permissions and events come from the lists engine
 /// through Lists.Contracts; an upload only stores the file and raises <c>document.added</c> (ADR-0038).
 /// Text, thumbnails, page images and OCR are built-in library workflows (<see cref="DocumentWorkflows"/>).
-/// Subscribers: <see cref="PurgedFilesSubscriber"/>.
+/// Subscribers: <see cref="PurgedFilesSubscriber"/>, <see cref="GroupInboxCleanupSubscriber"/>.
 /// </summary>
 public sealed class DocumentsModule : IModule
 {
@@ -44,6 +45,9 @@ public sealed class DocumentsModule : IModule
         services.AddScoped<FileIntake>();
         services.AddScoped<DocumentEvents>();
         services.AddScoped<DocumentService>();
+        services.AddScoped<PageEditor>();
+        services.AddScoped<ITemplateHandler, LibrarySettingsTemplateHandler>();
+        services.AddScoped<ITemplateHandler, DocumentFilesTemplateHandler>();
         services.AddScoped<IItemSearchContributor, DocumentSearchContent>();
         services.AddHttpClient(GlmOcr.HttpClientName, (sp, client) => client.Timeout = sp.GetRequiredService<IOptions<DocumentsOptions>>().Value.OcrTimeout);
         services.AddScoped<OcrEngine>();
@@ -68,6 +72,8 @@ public sealed class DocumentsModule : IModule
     {
         DocumentEndpoints.Map(endpoints);
         PageImageEndpoints.Map(endpoints);
+        PageOperationEndpoints.Map(endpoints);
+        GroupInboxEndpoints.Map(endpoints);
     }
 }
 
@@ -80,6 +86,13 @@ public sealed class DocumentsModule : IModule
 [JsonSerializable(typeof(LibrarySettingsRequest))]
 [JsonSerializable(typeof(IFormFile))]
 [JsonSerializable(typeof(OcrFile))]
+[JsonSerializable(typeof(EditPagesRequest))]
+[JsonSerializable(typeof(ExtractPagesRequest))]
+[JsonSerializable(typeof(MovePagesRequest))]
+[JsonSerializable(typeof(PageOperationResponse))]
+[JsonSerializable(typeof(GroupInboxRequest))]
+[JsonSerializable(typeof(GroupInboxResponse))]
+[JsonSerializable(typeof(List<InboxResponse>))]
 [JsonSerializable(typeof(GlmGenerateRequest))]
 [JsonSerializable(typeof(GlmGenerateResponse))]
 internal sealed partial class DocumentsJson : JsonSerializerContext;

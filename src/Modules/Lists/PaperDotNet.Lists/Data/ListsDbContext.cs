@@ -293,6 +293,7 @@ public class ListsDbContext : DbContext
             list.Property(l => l.Versioning).HasMaxLength(16);
             list.Property(l => l.TemplateKey).HasMaxLength(150);
             list.Property(l => l.SystemKey).HasMaxLength(64);
+            list.HasIndex(l => new { l.TenantId, l.WorkspaceId, l.SystemKey }).IsUnique();
             list.HasIndex(l => new { l.TenantId, l.WorkspaceId });
         });
 

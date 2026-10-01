@@ -156,4 +156,32 @@ internal static class DocumentQueries
         var ct = cancellationToken;
         return db.Pages.Where(p => p.TenantId == tenant && p.StoredFileId == stored).ToListAsync(ct);
     }
+
+    /// <summary>Every version of every document of a library (exports).</summary>
+    public static Task<List<FileVersion>> VersionsOfListAsync(DocumentsDbContext database, Guid tenantId, Guid listId, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = tenantId;
+        var list = listId;
+        var ct = cancellationToken;
+        return db.FileVersions.AsNoTracking().Where(v => v.TenantId == tenant && v.ListId == list).ToListAsync(ct);
+    }
+
+    public static Task<GroupInbox?> InboxOfGroupAsync(DocumentsDbContext database, Guid tenantId, Guid groupId, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = tenantId;
+        var group = groupId;
+        var ct = cancellationToken;
+        return db.GroupInboxes.Where(g => g.TenantId == tenant && g.GroupId == group).FirstOrDefaultAsync(ct);
+    }
+
+    public static Task<GroupInbox?> InboxOfListAsync(DocumentsDbContext database, Guid tenantId, Guid listId, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = tenantId;
+        var list = listId;
+        var ct = cancellationToken;
+        return db.GroupInboxes.Where(g => g.TenantId == tenant && g.ListId == list).FirstOrDefaultAsync(ct);
+    }
 }

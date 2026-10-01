@@ -10,6 +10,7 @@ namespace PaperDotNet.Lists;
 
 /// <summary>Every type the Lists API, its events and its JSON columns serialize, with source-generated metadata (ADR-0039).</summary>
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(HomeResponse))]
 [JsonSerializable(typeof(List<FieldDefinition>))]
 [JsonSerializable(typeof(List<Guid>))]
 [JsonSerializable(typeof(List<IndexedField>))]

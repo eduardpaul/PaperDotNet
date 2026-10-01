@@ -36,6 +36,9 @@ namespace Internal.Generated.WolverineHandlers
             * 
             * Dependency: Descriptor: ServiceType: PaperDotNet.Jobs.Contracts.IOperationHandler Lifetime: Scoped ImplementationType: PaperDotNet.Provisioning.Features.ImportOperation
             * Concrete type PaperDotNet.Provisioning.Features.ImportOperation is not public, so requires service location
+            * 
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Jobs.Contracts.IOperationHandler Lifetime: Scoped ImplementationType: PaperDotNet.Documents.Features.DocumentOcr
+            * Concrete type PaperDotNet.Documents.Features.DocumentOcr is not public, so requires service location
             */
             var operationRunner = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Jobs.Features.OperationRunner>(serviceScope.ServiceProvider);
             // The actual message body
