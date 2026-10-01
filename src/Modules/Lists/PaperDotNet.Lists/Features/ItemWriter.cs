@@ -497,6 +497,7 @@ internal sealed class ItemWriter(
     private static ItemEventScope Scope(ListSchema schema, ListItem item) =>
         new(schema.List.WorkspaceId, schema.List.Id, schema.List.Name, item.ContentTypeId, item.IsFolder)
         {
+            TenantId = schema.List.TenantId,
             ContentTypeName = schema.FindContentType(item.ContentTypeId)?.Name,
             ContentTypeKey = schema.FindContentType(item.ContentTypeId)?.Key,
             ListTemplate = schema.List.TemplateKey,

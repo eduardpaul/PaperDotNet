@@ -4,13 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Internal.Generated.WolverineHandlers
 {
-    // START: ListCreatedHandler47173266
+    // START: ListDeleted718092699_AuditSubscriberHandler1397558633
     [global::System.CodeDom.Compiler.GeneratedCode("JasperFx", "1.0.0")]
-    public sealed class ListCreatedHandler47173266 : Wolverine.Runtime.Handlers.MessageHandler
+    public sealed class ListDeleted718092699_AuditSubscriberHandler1397558633 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
 
-        public ListCreatedHandler47173266(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
+        public ListDeleted718092699_AuditSubscriberHandler1397558633(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
         {
             _serviceScopeFactory = serviceScopeFactory;
         }
@@ -24,19 +24,19 @@ namespace Internal.Generated.WolverineHandlers
             // This service has been marked as requiring service location independent of Wolverine's ability to use constructor injection of everything else
             var auditDbContext = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Audit.Data.AuditDbContext>(serviceScope.ServiceProvider);
             // The actual message body
-            var listCreated = (PaperDotNet.Lists.Contracts.ListCreated)context.Envelope.Message;
+            var listDeleted = (PaperDotNet.Lists.Contracts.ListDeleted)context.Envelope.Message;
 
             System.Diagnostics.Activity.Current?.SetTag("message.handler", "PaperDotNet.Audit.Features.AuditSubscriber");
             System.Diagnostics.Activity.Current?.SetTag("handler.type", "PaperDotNet.Audit.Features.AuditSubscriber");
             
             // The actual message execution
-            await PaperDotNet.Audit.Features.AuditSubscriber.Handle(listCreated, auditDbContext, cancellation).ConfigureAwait(false);
+            await PaperDotNet.Audit.Features.AuditSubscriber.Handle(listDeleted, auditDbContext, cancellation).ConfigureAwait(false);
 
         }
 
     }
 
-    // END: ListCreatedHandler47173266
+    // END: ListDeleted718092699_AuditSubscriberHandler1397558633
     
     
 }

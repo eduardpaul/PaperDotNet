@@ -7,23 +7,25 @@
     <RootNamespace>PaperDotNet.Extensions</RootNamespace>
     <PackageId>PaperDotNet.Extensions.Abstractions</PackageId>
   </PropertyGroup>
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
-    <!-- Provider-neutral EF Core conventions for ExtensionDbContext; never the provider packages. -->
-    <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
     <ProjectReference Include="..\..\Modules\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
-    <ProjectReference Include="..\..\Modules\Taxonomy\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
-    <ProjectReference Include="..\..\Modules\Search\PaperDotNet.Search.Contracts\PaperDotNet.Search.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Workspaces\PaperDotNet.Workspaces.Contracts\PaperDotNet.Workspaces.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
-    <ProjectReference Include="..\..\Modules\Notifications\PaperDotNet.Notifications.Contracts\PaperDotNet.Notifications.Contracts.csproj" />
-    <ProjectReference Include="..\..\Modules\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Workflows\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
-    <ProjectReference Include="..\..\Modules\Collaboration\PaperDotNet.Collaboration.Contracts\PaperDotNet.Collaboration.Contracts.csproj" />
-    <ProjectReference Include="..\..\Modules\Mcp\PaperDotNet.Mcp.Contracts\PaperDotNet.Mcp.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!--
+      Extension tables come back with T09b (compiled model and precompiled queries per extension); term sets, template
+      sections, shipped workflows and MCP tools with their modules (docs/aot-porting-plan.md).
+    -->
+    <Compile Remove="ExtensionDbContext.cs" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />

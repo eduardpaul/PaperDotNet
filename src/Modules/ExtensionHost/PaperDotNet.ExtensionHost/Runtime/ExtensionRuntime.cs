@@ -1,24 +1,18 @@
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json.Serialization.Metadata;
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Extensions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
-using PaperDotNet.Messaging;
-using PaperDotNet.Persistence;
-using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.ExtensionHost.Runtime;
 
-/// <summary>What an extension contributes (for the catalog API and validation).</summary>
+/// <summary>What an extension contributes (for the catalog API).</summary>
 public sealed class ExtensionContributions
 {
     public List<string> FieldTypes { get; } = [];
@@ -33,20 +27,7 @@ public sealed class ExtensionContributions
 
     public List<string> ListTemplates { get; } = [];
 
-    public List<string> TemplateHandlers { get; } = [];
-
     public List<string> WorkflowActivities { get; } = [];
-
-    public List<string> WorkflowTriggers { get; } = [];
-
-    public List<string> Workflows { get; } = [];
-
-    public List<string> McpTools { get; } = [];
-
-    public List<string> TermSets { get; } = [];
-
-    /// <summary>The extension's own DbContext (EXT-07), if any.</summary>
-    public string? DbContext { get; set; }
 
     public bool Endpoints { get; set; }
 }
@@ -81,13 +62,16 @@ public sealed class ExtensionCatalog(IReadOnlyList<LoadedExtension> extensions)
     public string? FieldTypeOwner(string fieldType) => _fieldTypeOwners.GetValueOrDefault(fieldType);
 }
 
+/// <summary>JSON metadata an extension brings for its endpoints (<see cref="IExtensionBuilder.AddJson"/>).</summary>
+internal sealed record ExtensionJson(IJsonTypeInfoResolver Resolver);
+
 public static class ExtensionRegistration
 {
-    public const string RoutePrefix = "ext";
+    public const string RoutePrefix = "/v1.0/ext";
 
     /// <summary>
-    /// Validates the manifests of <paramref name="extensions"/> and lets each one register its
-    /// contributions. Fails fast at startup on invalid or conflicting extensions.
+    /// Validates the manifests of <paramref name="extensions"/> and lets each one register its contributions. Fails fast
+    /// at startup on invalid or conflicting extensions.
     /// </summary>
     public static IServiceCollection AddPaperDotNetExtensions(this IServiceCollection services, IConfiguration configuration, IEnumerable<IExtension> extensions)
     {
@@ -113,6 +97,15 @@ public static class ExtensionRegistration
         }
 
         services.AddSingleton(new ExtensionCatalog(loaded));
+
+        // The extensions' JSON metadata comes after the modules' (which the host inserts first).
+        services.AddOptions<JsonOptions>().Configure<IEnumerable<ExtensionJson>>((options, json) =>
+        {
+            foreach (var resolver in json)
+            {
+                options.SerializerOptions.TypeInfoResolverChain.Add(resolver.Resolver);
+            }
+        });
         return services;
     }
 
@@ -123,11 +116,15 @@ public static class ExtensionRegistration
         foreach (var extension in catalog.All.Where(e => e.EndpointMaps.Count > 0))
         {
             var id = extension.Id;
-            var group = endpoints.MapV1Group($"{RoutePrefix}/{id}", $"Extension: {extension.Manifest.Name}");
+            var group = endpoints.MapGroup($"{RoutePrefix}/{id}").WithTags($"Extension: {extension.Manifest.Name}");
             group.AddEndpointFilter(async (context, next) =>
-                await context.HttpContext.RequestServices.GetRequiredService<IExtensionState>().IsEnabledAsync(id, context.HttpContext.RequestAborted)
+            {
+                var services = context.HttpContext.RequestServices;
+                var tenant = services.GetRequiredService<ICurrentUser>().TenantId;
+                return tenant is { } tenantId && await services.GetRequiredService<IExtensionState>().IsEnabledAsync(tenantId, id, context.HttpContext.RequestAborted)
                     ? await next(context)
-                    : ApiErrors.Problem(StatusCodes.Status404NotFound, "extensionDisabled", "The extension is not enabled for this organization."));
+                    : ApiErrors.Problem(StatusCodes.Status404NotFound, "extensionDisabled", "The extension is not enabled for this organization.");
+            });
             foreach (var map in extension.EndpointMaps)
             {
                 map(group);
@@ -149,19 +146,22 @@ public static class ExtensionRegistration
 /// <summary>Registers contributions; every one is gated by the tenant's enablement of the extension.</summary>
 internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollection services, IConfiguration configuration) : IExtensionBuilder
 {
-    // PostgreSQL identifiers have at most 63 characters; keep room for the table name on SQLite.
-    private const int MaxSchemaLength = 40;
-
     public ExtensionManifest Manifest => extension.Manifest;
 
     public IServiceCollection Services => services;
 
     public IConfiguration Configuration => configuration;
 
+    public IExtensionBuilder AddJson(IJsonTypeInfoResolver json)
+    {
+        services.AddSingleton(new ExtensionJson(json));
+        return this;
+    }
+
     public IExtensionBuilder AddFieldType(IFieldType fieldType)
     {
         RequirePrefix(fieldType.Name, "Field type");
-        services.AddSingleton<IFieldType>(fieldType);
+        services.AddSingleton(fieldType);
         extension.Contributions.FieldTypes.Add(fieldType.Name);
         return this;
     }
@@ -182,17 +182,16 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         where TEvent : IntegrationEvent
         where TSubscriber : class, IEventSubscriber<TEvent>
     {
+        if (!ExtensionEvents.Supported.Contains(typeof(TEvent)))
+        {
+            throw new InvalidOperationException(
+                $"Extension {extension.Id}: {typeof(TEvent).Name} cannot be subscribed to; supported are {string.Join(", ", ExtensionEvents.Supported.Select(t => t.Name))}.");
+        }
+
         var id = extension.Id;
         services.TryAddScoped<TSubscriber>();
-        services.AddEventSubscriber<TEvent>(typeof(TSubscriber).FullName!, sp => new GatedEventSubscriber<TEvent>(id, sp.GetRequiredService<TSubscriber>(), sp.GetRequiredService<IExtensionState>()));
+        services.AddScoped(sp => new ExtensionSubscription<TEvent>(id, typeof(TSubscriber).Name, sp.GetRequiredService<TSubscriber>()));
         extension.Contributions.EventSubscribers.Add($"{typeof(TEvent).Name}: {typeof(TSubscriber).Name}");
-        return this;
-    }
-
-    public IExtensionBuilder AddIntegrationEvent<TEvent>()
-        where TEvent : IntegrationEvent
-    {
-        services.AddIntegrationEvent<TEvent>();
         return this;
     }
 
@@ -200,9 +199,9 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         where TJob : class, ITenantRecurringJob
     {
         RequirePrefix(name, "Job name");
+        var id = extension.Id;
         services.TryAddScoped<TJob>();
-        services.AddSingleton(new ExtensionJobOwner(typeof(TJob), extension.Id));
-        services.AddTenantRecurringJob<GatedRecurringJob<TJob>>(name, cronSchedule);
+        services.AddSingleton(new RecurringJobRegistration(name, cronSchedule, sp => new GatedRecurringJob(id, sp.GetRequiredService<TJob>(), sp.GetRequiredService<IExtensionState>())));
         extension.Contributions.Jobs.Add(name);
         return this;
     }
@@ -215,14 +214,6 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
-    public IExtensionBuilder AddTermSet(Taxonomy.Contracts.TermSetTemplate termSet)
-    {
-        RequirePrefix(termSet.Key ?? "", "Term set key");
-        services.AddSingleton(termSet with { ExtensionId = extension.Id });
-        extension.Contributions.TermSets.Add(termSet.Key!);
-        return this;
-    }
-
     public IExtensionBuilder AddListTemplate(ListTemplateDefinition listTemplate)
     {
         RequirePrefix(listTemplate.Key, "List template key");
@@ -231,73 +222,13 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
-    public IExtensionBuilder AddDbContext<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TContext>()
-        where TContext : ExtensionDbContext
-    {
-        if (extension.Contributions.DbContext is { } existing)
-        {
-            throw new InvalidOperationException($"Extension {extension.Id} already has a DbContext ({existing}); use one per extension.");
-        }
-
-        var schema = ExtensionDbContext.SchemaFor(extension.Id);
-        if (schema.Length > MaxSchemaLength)
-        {
-            throw new InvalidOperationException($"The schema of extension {extension.Id} ('{schema}') is longer than {MaxSchemaLength} characters; use a shorter id.");
-        }
-
-        services.AddModuleDbContext<TContext>(schema, $"{typeof(TContext).Assembly.GetName().Name}.Migrations");
-        extension.Contributions.DbContext = typeof(TContext).Name;
-        return this;
-    }
-
-    public IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
-        where TAction : class, IWorkflowActivity
+    public IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TActivity>()
+        where TActivity : class, IWorkflowActivity
     {
         var id = extension.Id;
-        services.TryAddScoped<TAction>();
-        services.AddScoped<IWorkflowActivity>(sp => new GatedWorkflowActivity(id, sp.GetRequiredService<TAction>(), sp.GetRequiredService<IExtensionState>()));
-        extension.Contributions.WorkflowActivities.Add(typeof(TAction).Name);
-        return this;
-    }
-
-    public IExtensionBuilder AddMcpTool<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTool>()
-        where TTool : class, Mcp.Contracts.IMcpTool
-    {
-        var id = extension.Id;
-        services.TryAddScoped<TTool>();
-        services.AddScoped<Mcp.Contracts.IMcpTool>(sp => new GatedMcpTool(id, sp.GetRequiredService<TTool>(), sp.GetRequiredService<IExtensionState>()));
-        extension.Contributions.McpTools.Add(typeof(TTool).Name);
-        return this;
-    }
-
-    public IExtensionBuilder AddWorkflowTrigger(WorkflowTriggerDefinition trigger)
-    {
-        RequirePrefix(trigger.Key, "Workflow trigger key");
-        services.AddSingleton(trigger);
-        extension.Contributions.WorkflowTriggers.Add(trigger.Key);
-        return this;
-    }
-
-    public IExtensionBuilder AddWorkflow(BuiltInWorkflow workflow)
-    {
-        RequirePrefix(workflow.Key, "Workflow key");
-        var id = extension.Id;
-        services.AddScoped<IWorkflowDefinitionProvider>(sp =>
-        {
-            var state = sp.GetRequiredService<IExtensionState>();
-            return new WorkflowDefinitions([workflow], ct => state.IsEnabledAsync(id, ct));
-        });
-        extension.Contributions.Workflows.Add(workflow.Key);
-        return this;
-    }
-
-    public IExtensionBuilder AddTemplateHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
-        where THandler : class, ITemplateHandler
-    {
-        var id = extension.Id;
-        services.TryAddScoped<THandler>();
-        services.AddScoped<ITemplateHandler>(sp => new GatedTemplateHandler(id, sp.GetRequiredService<THandler>(), sp.GetRequiredService<IExtensionState>()));
-        extension.Contributions.TemplateHandlers.Add(typeof(THandler).Name);
+        services.TryAddSingleton<TActivity>();
+        services.AddSingleton<IWorkflowActivity>(sp => new GatedWorkflowActivity(id, sp.GetRequiredService<TActivity>()));
+        extension.Contributions.WorkflowActivities.Add(typeof(TActivity).Name);
         return this;
     }
 
@@ -331,7 +262,7 @@ internal sealed class GatedItemMutator(string extensionId, ItemMutatorOptions op
         && inner.AppliesTo(scope);
 
     public async ValueTask<bool> AppliesToAsync(ItemEventScope scope, CancellationToken cancellationToken) =>
-        AppliesTo(scope) && await state.IsEnabledAsync(extensionId, cancellationToken) && await inner.AppliesToAsync(scope, cancellationToken);
+        AppliesTo(scope) && await state.IsEnabledAsync(scope.TenantId, extensionId, cancellationToken) && await inner.AppliesToAsync(scope, cancellationToken);
 
     public ValueTask ItemAddingAsync(ItemMutationContext context, CancellationToken cancellationToken) => inner.ItemAddingAsync(context, cancellationToken);
 
@@ -340,68 +271,27 @@ internal sealed class GatedItemMutator(string extensionId, ItemMutatorOptions op
     public ValueTask ItemDeletingAsync(ItemMutationContext context, CancellationToken cancellationToken) => inner.ItemDeletingAsync(context, cancellationToken);
 }
 
-/// <summary>Delivers events to an extension only in tenants that enabled it.</summary>
-internal sealed class GatedEventSubscriber<TEvent>(string extensionId, IEventSubscriber<TEvent> inner, IExtensionState state) : IEventSubscriber<TEvent>
-    where TEvent : IntegrationEvent
-{
-    public async Task HandleAsync(TEvent integrationEvent, CancellationToken cancellationToken)
-    {
-        if (await state.IsEnabledAsync(extensionId, cancellationToken))
-        {
-            await inner.HandleAsync(integrationEvent, cancellationToken);
-        }
-    }
-}
-
-internal sealed record ExtensionJobOwner(Type JobType, string ExtensionId);
+/// <summary>An extension's subscriber of <typeparamref name="TEvent"/>, delivered by <see cref="ExtensionEvents"/>.</summary>
+internal sealed record ExtensionSubscription<TEvent>(string ExtensionId, string Name, IEventSubscriber<TEvent> Subscriber)
+    where TEvent : IntegrationEvent;
 
 /// <summary>Runs an extension's recurring job only in tenants that enabled it.</summary>
-internal sealed class GatedRecurringJob<TJob>(TJob inner, IExtensionState state, IEnumerable<ExtensionJobOwner> owners) : ITenantRecurringJob
-    where TJob : class, ITenantRecurringJob
+internal sealed class GatedRecurringJob(string extensionId, ITenantRecurringJob inner, IExtensionState state) : ITenantRecurringJob
 {
-    public async Task RunAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(Guid tenantId, CancellationToken cancellationToken)
     {
-        var owner = owners.First(o => o.JobType == typeof(TJob)).ExtensionId;
-        if (await state.IsEnabledAsync(owner, cancellationToken))
+        if (await state.IsEnabledAsync(tenantId, extensionId, cancellationToken))
         {
-            await inner.RunAsync(cancellationToken);
+            await inner.RunAsync(tenantId, cancellationToken);
         }
     }
 }
 
 /// <summary>
-/// Runs an extension's template section only where the extension is enabled, or is being enabled by
-/// the same template (its Extensions section registers it).
+/// An extension's workflow activity: its key must start with the extension id (checked when first used, since the key
+/// is an instance property), and it fails where the extension is not enabled.
 /// </summary>
-internal sealed class GatedTemplateHandler(string extensionId, ITemplateHandler inner, IExtensionState state) : ITemplateHandler
-{
-    public System.Xml.Linq.XName Element => inner.Element;
-
-    public TemplateLevel Level => inner.Level;
-
-    public int Order => inner.Order;
-
-    public async Task<System.Xml.Linq.XElement?> ExportAsync(TemplateContext context, CancellationToken cancellationToken) =>
-        await state.IsEnabledAsync(extensionId, cancellationToken) ? await inner.ExportAsync(context, cancellationToken) : null;
-
-    public async Task ApplyAsync(System.Xml.Linq.XElement section, TemplateContext context, CancellationToken cancellationToken)
-    {
-        if (context.Resolve(TemplateKinds.Extension, extensionId) is not null || await state.IsEnabledAsync(extensionId, cancellationToken))
-        {
-            await inner.ApplyAsync(section, context, cancellationToken);
-        }
-        else
-        {
-            context.Warn($"Section {section.Name} was skipped: the extension '{extensionId}' is not enabled.", section);
-        }
-    }
-}
-
-/// <summary>
-/// An extension's workflow action: its key must start with the extension id (checked when first used,
-/// since the key is an instance property), and it fails where the extension is not enabled.
-/// </summary>
-internal sealed class GatedWorkflowActivity(string extensionId, IWorkflowActivity inner, IExtensionState state) : IWorkflowActivity
+internal sealed class GatedWorkflowActivity(string extensionId, IWorkflowActivity inner) : IWorkflowActivity
 {
     public string Key => inner.Key.StartsWith(extensionId + ".", StringComparison.Ordinal)
         ? inner.Key
@@ -411,49 +301,10 @@ internal sealed class GatedWorkflowActivity(string extensionId, IWorkflowActivit
 
     public IEnumerable<string> Validate(System.Text.Json.Nodes.JsonObject inputs) => inner.Validate(inputs);
 
-    public System.Text.Json.Nodes.JsonObject? InputSchema => inner.InputSchema;
-
-    public System.Text.Json.Nodes.JsonObject? OutputSchema => inner.OutputSchema;
-
     public IReadOnlyList<string> Outcomes => inner.Outcomes;
 
-    /// <summary>Runs the activity when the extension is enabled; its waits must be of kinds that start with the extension id.</summary>
-    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
-    {
-        if (!await state.IsEnabledAsync(extensionId, cancellationToken))
-        {
-            return WorkflowActivityResult.Fail($"The extension '{extensionId}' is not enabled.");
-        }
-
-        var result = await inner.ExecuteAsync(context, cancellationToken);
-        return result.Waiting is { } wait && !wait.Kind.StartsWith(extensionId + ".", StringComparison.Ordinal)
-            ? WorkflowActivityResult.Fail($"Waits of extension {extensionId} must have kinds that start with '{extensionId}.' (not '{wait.Kind}').")
-            : result;
-    }
-}
-
-/// <summary>An extension's MCP tool: offered only where the extension is enabled; the name carries the extension id.</summary>
-internal sealed class GatedMcpTool(string extensionId, Mcp.Contracts.IMcpTool inner, IExtensionState state) : Mcp.Contracts.IMcpTool
-{
-    public static string Prefix(string extensionId) => extensionId.Replace('.', '_').Replace('-', '_') + "_";
-
-    public string Name => inner.Name.StartsWith(Prefix(extensionId), StringComparison.Ordinal)
-        ? inner.Name
-        : throw new InvalidOperationException($"MCP tool '{inner.Name}' of extension {extensionId} must start with '{Prefix(extensionId)}'.");
-
-    public string Description => inner.Description;
-
-    public System.Text.Json.JsonElement InputSchema => inner.InputSchema;
-
-    public string? RequiredScope => inner.RequiredScope;
-
-    public bool IsReadOnly => inner.IsReadOnly;
-
-    public async ValueTask<bool> IsAvailableAsync(CancellationToken cancellationToken) =>
-        await state.IsEnabledAsync(extensionId, cancellationToken) && await inner.IsAvailableAsync(cancellationToken);
-
-    public async Task<Mcp.Contracts.McpToolResult> CallAsync(Mcp.Contracts.McpArguments arguments, CancellationToken cancellationToken) =>
-        await state.IsEnabledAsync(extensionId, cancellationToken)
-            ? await inner.CallAsync(arguments, cancellationToken)
-            : Mcp.Contracts.McpToolResult.Error($"The extension '{extensionId}' is not enabled.");
+    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken) =>
+        await context.Services.GetRequiredService<IExtensionState>().IsEnabledAsync(context.TenantId, extensionId, cancellationToken)
+            ? await inner.ExecuteAsync(context, cancellationToken)
+            : WorkflowActivityResult.Fail($"The extension '{extensionId}' is not enabled.");
 }

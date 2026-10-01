@@ -4143,6 +4143,199 @@
           }
         }
       }
+    },
+    "/v1.0/extensions": {
+      "get": {
+        "tags": [
+          "Extensions"
+        ],
+        "operationId": "ListExtensions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExtensionResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/extensions/{id}": {
+      "get": {
+        "tags": [
+          "Extensions"
+        ],
+        "operationId": "GetExtension",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/extensions/{id}/enable": {
+      "post": {
+        "tags": [
+          "Extensions"
+        ],
+        "description": "Provisions the extension's content types and grants its member scopes to the Member role.",
+        "operationId": "EnableExtension",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/extensions/{id}/disable": {
+      "post": {
+        "tags": [
+          "Extensions"
+        ],
+        "description": "Its endpoints, subscribers, mutators and jobs stop in this organization; data stays.",
+        "operationId": "DisableExtension",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/extensions/{id}/settings": {
+      "get": {
+        "tags": [
+          "Extensions"
+        ],
+        "operationId": "GetExtensionSettings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonObject"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Extensions"
+        ],
+        "operationId": "ReplaceExtensionSettings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonElement"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4895,6 +5088,179 @@
             "type": "string"
           }
         }
+      },
+      "ExtensionContributions": {
+        "type": "object",
+        "properties": {
+          "fieldTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "itemMutators": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "eventSubscribers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "jobs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contentTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "listTemplates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "workflowActivities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "endpoints": {
+            "type": "boolean"
+          }
+        },
+        "description": "What an extension contributes (for the catalog API)."
+      },
+      "ExtensionResponse": {
+        "required": [
+          "id",
+          "name",
+          "version",
+          "publisher",
+          "description",
+          "enabled",
+          "scopes",
+          "settings",
+          "contributions"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "publisher": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExtensionScope"
+            }
+          },
+          "settings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExtensionSetting"
+            }
+          },
+          "contributions": {
+            "$ref": "#/components/schemas/ExtensionContributions"
+          }
+        }
+      },
+      "ExtensionScope": {
+        "required": [
+          "name",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "grantedToMembers": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ExtensionSetting": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ExtensionSettingType"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "default": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonElement"
+              }
+            ]
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "A tenant-level setting of an extension."
+      },
+      "ExtensionSettingType": {
+        "enum": [
+          "text",
+          "number",
+          "boolean",
+          "choice"
+        ]
       },
       "FieldDefinitionDto": {
         "required": [
@@ -6857,6 +7223,9 @@
     },
     {
       "name": "Content types"
+    },
+    {
+      "name": "Extensions"
     },
     {
       "name": "Groups"

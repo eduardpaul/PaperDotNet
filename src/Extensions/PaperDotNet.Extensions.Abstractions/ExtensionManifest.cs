@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
@@ -36,15 +37,9 @@ public sealed partial record ExtensionManifest
     /// <summary>Settings tenant admins can change.</summary>
     public IReadOnlyList<ExtensionSetting> Settings { get; init; } = [];
 
-    public static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-    };
-
+    /// <summary>Reads <c>extension.json</c> (comments and trailing commas allowed), with source-generated metadata (ADR-0039).</summary>
     public static ExtensionManifest Parse(Stream json) =>
-        JsonSerializer.Deserialize<ExtensionManifest>(json, JsonOptions) ?? throw new JsonException("The manifest is empty.");
+        JsonSerializer.Deserialize(json, ExtensionSdkJson.Default.ExtensionManifest) ?? throw new JsonException("The manifest is empty.");
 
     /// <summary>Checks the manifest against the rules and the host's SDK version; returns all problems.</summary>
     public IReadOnlyList<string> Validate(Version hostSdk)
@@ -104,11 +99,19 @@ public sealed partial record ExtensionManifest
 
 public sealed record ExtensionScope(string Name, string Description, bool GrantedToMembers = false);
 
+[JsonConverter(typeof(JsonStringEnumConverter<ExtensionSettingType>))]
 public enum ExtensionSettingType
 {
+    [JsonStringEnumMemberName("text")]
     Text,
+
+    [JsonStringEnumMemberName("number")]
     Number,
+
+    [JsonStringEnumMemberName("boolean")]
     Boolean,
+
+    [JsonStringEnumMemberName("choice")]
     Choice,
 }
 
@@ -159,3 +162,9 @@ public sealed partial record ExtensionSetting
     [GeneratedRegex("^[a-z][A-Za-z0-9]{0,62}$")]
     private static partial Regex NamePattern();
 }
+
+/// <summary>JSON metadata of the SDK's own types: the manifest, and what the host returns about extensions.</summary>
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, ReadCommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true)]
+[JsonSerializable(typeof(ExtensionManifest))]
+[JsonSerializable(typeof(JsonObject))]
+public sealed partial class ExtensionSdkJson : JsonSerializerContext;

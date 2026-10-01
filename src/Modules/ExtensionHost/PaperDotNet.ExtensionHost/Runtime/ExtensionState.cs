@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
-using PaperDotNet.Abstractions;
 using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Extensions;
 using PaperDotNet.Lists.Contracts;
@@ -9,35 +8,33 @@ using PaperDotNet.Lists.Contracts;
 namespace PaperDotNet.ExtensionHost.Runtime;
 
 /// <summary>
-/// Per-tenant enablement and settings of extensions. Read once per request (one small
-/// indexed query) and kept for that request, so changes apply at once on every node.
-/// Without a stored row the manifest's <c>autoEnable</c> applies.
+/// Per-tenant enablement and settings of extensions. Read once per scope and tenant (one small indexed query), so
+/// changes apply at once on every node. Without a stored row the manifest's <c>autoEnable</c> applies.
 /// </summary>
-internal sealed class ExtensionState(ExtensionsDbContext db, ExtensionCatalog catalog, ITenantContext tenant)
-    : IExtensionState, IFieldTypeAvailability, IExtensionAvailability
+internal sealed class ExtensionState(ExtensionsDbContext db, ExtensionCatalog catalog) : IExtensionState, IFieldTypeAvailability, IExtensionAvailability
 {
-    private Dictionary<string, StateRow>? _rows;
+    private readonly Dictionary<Guid, Dictionary<string, TenantExtension>> _rows = [];
 
-    public async ValueTask<bool> IsEnabledAsync(string extensionId, CancellationToken cancellationToken)
+    public async ValueTask<bool> IsEnabledAsync(Guid tenantId, string extensionId, CancellationToken cancellationToken)
     {
-        if (catalog.Find(extensionId) is not { } extension || tenant.TenantId is null)
+        if (catalog.Find(extensionId) is not { } extension)
         {
             return false;
         }
 
-        var rows = await RowsAsync(cancellationToken);
+        var rows = await RowsAsync(tenantId, cancellationToken);
         return rows.TryGetValue(extensionId, out var row) ? row.Enabled : extension.Manifest.AutoEnable;
     }
 
-    public async ValueTask<JsonObject> GetSettingsAsync(string extensionId, CancellationToken cancellationToken)
+    public async ValueTask<JsonObject> GetSettingsAsync(Guid tenantId, string extensionId, CancellationToken cancellationToken)
     {
         var extension = catalog.Find(extensionId) ?? throw new ArgumentException($"Unknown extension '{extensionId}'.", nameof(extensionId));
-        var rows = tenant.TenantId is null ? new Dictionary<string, StateRow>() : await RowsAsync(cancellationToken);
+        var rows = await RowsAsync(tenantId, cancellationToken);
         return Effective(extension.Manifest, rows.TryGetValue(extensionId, out var row) ? row.Settings : "{}");
     }
 
-    public async ValueTask<bool> IsAvailableAsync(string fieldType, CancellationToken cancellationToken) =>
-        catalog.FieldTypeOwner(fieldType) is not { } owner || await IsEnabledAsync(owner, cancellationToken);
+    public async ValueTask<bool> IsAvailableAsync(Guid tenantId, string fieldType, CancellationToken cancellationToken) =>
+        catalog.FieldTypeOwner(fieldType) is not { } owner || await IsEnabledAsync(tenantId, owner, cancellationToken);
 
     /// <summary>Manifest defaults overlaid with the stored values.</summary>
     internal static JsonObject Effective(ExtensionManifest manifest, string stored)
@@ -59,13 +56,21 @@ internal sealed class ExtensionState(ExtensionsDbContext db, ExtensionCatalog ca
         return result;
     }
 
-    private async ValueTask<Dictionary<string, StateRow>> RowsAsync(CancellationToken ct) =>
-        _rows ??= await db.TenantExtensions.AsNoTracking()
-            .Select(e => new StateRow(e.ExtensionId, e.Enabled, e.Settings))
-            .ToDictionaryAsync(r => r.ExtensionId, StringComparer.Ordinal, ct);
+    /// <summary>Forgets what was read in this scope (after a change).</summary>
+    internal void Reset() => _rows.Clear();
 
-    /// <summary>Forgets the state read in this request (after a change).</summary>
-    internal void Reset() => _rows = null;
+    private async ValueTask<Dictionary<string, TenantExtension>> RowsAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        if (!_rows.TryGetValue(tenantId, out var rows))
+        {
+            var context = db;
+            var tenant = tenantId;
+            var ct = cancellationToken;
+            rows = (await context.TenantExtensions.AsNoTracking().Where(e => e.TenantId == tenant).ToListAsync(ct))
+                .ToDictionary(e => e.ExtensionId, StringComparer.Ordinal);
+            _rows[tenantId] = rows;
+        }
 
-    internal sealed record StateRow(string ExtensionId, bool Enabled, string Settings);
+        return rows;
+    }
 }

@@ -16,6 +16,9 @@ public sealed class TestHost(Action<IServiceCollection>? services = null, IReadO
 {
     public const string AdminPassword = "Admin-Pass-123";
 
+    /// <summary>Every test host has the test extension (disabled until a tenant enables it).</summary>
+    static TestHost() => PaperDotNet.Host.PaperDotNetHost.AdditionalExtensions.Add(new Extension.TicketsExtension());
+
     private readonly string _dataPath = Path.Combine(Path.GetTempPath(), "pdn-tests", Guid.NewGuid().ToString("N"));
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

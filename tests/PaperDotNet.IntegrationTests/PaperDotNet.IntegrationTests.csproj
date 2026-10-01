@@ -19,4 +19,8 @@
     <ProjectReference Include="..\..\src\PaperDotNet.Host\PaperDotNet.Host.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\PaperDotNet.Storage\PaperDotNet.Storage.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The test extension's manifest (Extension/TicketsExtension.cs). -->
+    <EmbeddedResource Include="Extension/extension.json" LogicalName="paperdotnet.extension.json" />
+  </ItemGroup>
 </Project>

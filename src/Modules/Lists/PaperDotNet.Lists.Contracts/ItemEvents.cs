@@ -13,6 +13,9 @@ public enum ItemEventKind
 /// <summary>Where an item write happens; mutators use it to decide whether they apply.</summary>
 public sealed record ItemEventScope(Guid WorkspaceId, Guid ListId, string ListName, Guid ContentTypeId, bool IsFolder)
 {
+    /// <summary>The tenant of the write (there is no ambient tenant, ADR-0039).</summary>
+    public Guid TenantId { get; init; }
+
     /// <summary>Name of the item's content type (e.g. <c>Invoice</c>).</summary>
     public string? ContentTypeName { get; init; }
 

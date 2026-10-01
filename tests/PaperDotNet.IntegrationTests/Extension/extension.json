@@ -1,0 +1,19 @@
+{
+  // The test extension (EXT-01): disabled until a tenant enables it.
+  "id": "tests.tickets",
+  "name": "Tickets",
+  "version": "1.0.0",
+  "publisher": "PaperDotNet tests",
+  "description": "Support tickets with codes, used by the integration tests.",
+  "sdkVersion": "1.0",
+  "autoEnable": false,
+  "scopes": [
+    { "name": "tests.tickets.read", "description": "See ticket statistics.", "grantedToMembers": true },
+    { "name": "tests.tickets.admin", "description": "Administer tickets." }
+  ],
+  "settings": [
+    { "name": "prefix", "type": "text", "description": "Put before new ticket titles.", "default": "T-" },
+    { "name": "priority", "type": "choice", "choices": ["low", "high"], "default": "low" },
+    { "name": "limit", "type": "number" },
+  ],
+}

@@ -1,12 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
-using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Extensions;
@@ -21,8 +21,8 @@ public static class ExtensionSdk
 }
 
 /// <summary>
-/// Marks an assembly as a PaperDotNet extension. The host's source generator finds
-/// referenced extensions at compile time (ADR-0014): no runtime scanning.
+/// Marks an assembly as a PaperDotNet extension. The host's source generator finds referenced extensions at compile
+/// time (ADR-0014): no runtime scanning.
 /// </summary>
 [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false)]
 public sealed class PaperDotNetExtensionAttribute(Type extensionType) : Attribute
@@ -31,13 +31,24 @@ public sealed class PaperDotNetExtensionAttribute(Type extensionType) : Attribut
 }
 
 /// <summary>
-/// An extension. <see cref="Configure"/> runs once at startup (before the tenant is
-/// known) and registers contributions; each one is active only in tenants that enabled
-/// the extension. Needs a public parameterless constructor.
+/// An extension. <see cref="Configure"/> runs once at startup (before any tenant is known) and registers
+/// contributions; each one is active only in tenants that enabled the extension. Needs a public parameterless
+/// constructor. Under Native AOT (ADR-0039) an extension follows the same rules as a module: its JSON is
+/// source-generated (<see cref="IExtensionBuilder.AddJson"/>) and its endpoints use the request delegate generator.
 /// </summary>
 public interface IExtension
 {
     void Configure(IExtensionBuilder builder);
+}
+
+/// <summary>
+/// Receives an integration event in the background, in tenants that enabled the extension. Must be idempotent: an
+/// event can be delivered again. The event carries its tenant (<see cref="IntegrationEvent.TenantId"/>).
+/// </summary>
+public interface IEventSubscriber<in TEvent>
+    where TEvent : IntegrationEvent
+{
+    Task HandleAsync(TEvent integrationEvent, CancellationToken cancellationToken);
 }
 
 /// <summary>Registers an extension's contributions (extension points, EXT-04).</summary>
@@ -50,6 +61,9 @@ public interface IExtensionBuilder
 
     IConfiguration Configuration { get; }
 
+    /// <summary>The extension's source-generated JSON metadata (the types of its endpoints and settings).</summary>
+    IExtensionBuilder AddJson(IJsonTypeInfoResolver json);
+
     /// <summary>A field type (name must start with <c>{extension id}.</c>).</summary>
     IExtensionBuilder AddFieldType(IFieldType fieldType);
 
@@ -57,72 +71,32 @@ public interface IExtensionBuilder
     IExtensionBuilder AddItemMutator<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TMutator>(Action<ItemMutatorOptions>? configure = null)
         where TMutator : class, IItemMutator;
 
-    /// <summary>An asynchronous subscriber to an integration event (e.g. <c>ItemAdded</c>).</summary>
+    /// <summary>
+    /// A subscriber to a list event: <see cref="ItemAdded"/>, <see cref="ItemUpdated"/>, <see cref="ItemDeleted"/>,
+    /// <see cref="ItemRestored"/>, <see cref="ItemPurged"/>, <see cref="ListCreated"/> or <see cref="ListDeleted"/>.
+    /// </summary>
     IExtensionBuilder AddEventSubscriber<TEvent, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TSubscriber>()
         where TEvent : IntegrationEvent
         where TSubscriber : class, IEventSubscriber<TEvent>;
 
-    /// <summary>An integration event type defined by the extension (so it can be published and subscribed to).</summary>
-    IExtensionBuilder AddIntegrationEvent<TEvent>()
-        where TEvent : IntegrationEvent;
-
-    /// <summary>A job on a cron schedule (UTC), run in every tenant that enabled the extension.</summary>
+    /// <summary>A job on a cron schedule (UTC), run in every tenant that enabled the extension (name starts with <c>{extension id}.</c>).</summary>
     IExtensionBuilder AddRecurringJob<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TJob>(string name, string cronSchedule)
         where TJob : class, ITenantRecurringJob;
 
     /// <summary>
-    /// A content type managed by the extension (key starts with <c>{extension id}.</c>). It is
-    /// provisioned into a tenant when the tenant enables the extension, and kept in sync.
+    /// A content type managed by the extension (key starts with <c>{extension id}.</c>). It is provisioned into a tenant
+    /// when the tenant enables the extension, and kept in sync.
     /// </summary>
     IExtensionBuilder AddContentType(ContentTypeTemplate contentType);
-
-    /// <summary>
-    /// A term set (TAX-11; key starts with <c>{extension id}.</c>), provisioned into a tenant when it enables the
-    /// extension: missing terms and synonyms are added, terms are never removed.
-    /// </summary>
-    IExtensionBuilder AddTermSet(Taxonomy.Contracts.TermSetTemplate termSet);
 
     /// <summary>A list template (LST-16; key starts with <c>{extension id}.</c>), offered where the extension is enabled.</summary>
     IExtensionBuilder AddListTemplate(ListTemplateDefinition listTemplate);
 
-    /// <summary>
-    /// The extension's own tables (EXT-07, one context per extension) in the schema
-    /// <c>ext_{id}</c>. Migrations come from <c>{assembly of TContext}.Migrations.{Sqlite|PostgreSql}</c>
-    /// and run at startup with the host's; data stays when a tenant disables the extension.
-    /// </summary>
-    IExtensionBuilder AddDbContext<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TContext>()
-        where TContext : ExtensionDbContext;
+    /// <summary>An activity for workflows (EVT-09; key starts with <c>{extension id}.</c>).</summary>
+    IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TActivity>()
+        where TActivity : class, IWorkflowActivity;
 
-    /// <summary>
-    /// A provisioning template section (PRV-05) in the extension's own XML namespace: exported and
-    /// applied with the rest of a template in tenants that enabled the extension.
-    /// </summary>
-    IExtensionBuilder AddTemplateHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
-        where THandler : class, ITemplateHandler;
-
-    /// <summary>An action for workflow steps (EVT-09; key starts with <c>{extension id}.</c>).</summary>
-    IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
-        where TAction : class, IWorkflowActivity;
-
-    /// <summary>A trigger for workflows (EVT-09; key starts with <c>{extension id}.</c>); raise it with <see cref="IWorkflowTriggers"/>.</summary>
-    IExtensionBuilder AddWorkflowTrigger(WorkflowTriggerDefinition trigger);
-
-    /// <summary>
-    /// A workflow the extension ships (EVT-12; key starts with <c>{extension id}.</c>), like the built-in ones: workspaces
-    /// turn it on with its parameters or copy it to change it. Offered only in organizations that enabled the extension;
-    /// turning the extension off turns it off.
-    /// </summary>
-    IExtensionBuilder AddWorkflow(BuiltInWorkflow workflow);
-
-    /// <summary>
-    /// A tool for AI assistants on the MCP endpoint (API-09). The name must start with the extension id
-    /// with <c>.</c> and <c>-</c> replaced by <c>_</c>, then <c>_</c> (e.g. <c>acme_invoices_approve</c>);
-    /// the tool is offered only in tenants that enabled the extension.
-    /// </summary>
-    IExtensionBuilder AddMcpTool<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTool>()
-        where TTool : class, Mcp.Contracts.IMcpTool;
-
-    /// <summary>API endpoints under <c>/v1.0/extensions/{id}</c> (404 in tenants where the extension is disabled).</summary>
+    /// <summary>API endpoints under <c>/v1.0/ext/{id}</c> (404 in tenants where the extension is disabled).</summary>
     IExtensionBuilder MapEndpoints(Action<IEndpointRouteBuilder> map);
 }
 
@@ -147,11 +121,11 @@ public sealed class ItemMutatorOptions
     public Func<ItemEventScope, bool>? Condition { get; set; }
 }
 
-/// <summary>Per-tenant state of extensions (enabled, settings).</summary>
+/// <summary>Per-tenant state of extensions (enabled, settings). The tenant is explicit: there is no ambient tenant (ADR-0039).</summary>
 public interface IExtensionState
 {
-    ValueTask<bool> IsEnabledAsync(string extensionId, CancellationToken cancellationToken);
+    ValueTask<bool> IsEnabledAsync(Guid tenantId, string extensionId, CancellationToken cancellationToken);
 
-    /// <summary>The extension's settings in the current tenant, with manifest defaults applied.</summary>
-    ValueTask<JsonObject> GetSettingsAsync(string extensionId, CancellationToken cancellationToken);
+    /// <summary>The extension's settings in the tenant, with manifest defaults applied.</summary>
+    ValueTask<JsonObject> GetSettingsAsync(Guid tenantId, string extensionId, CancellationToken cancellationToken);
 }

@@ -1,9 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
@@ -26,86 +23,77 @@ public sealed record ExtensionResponse(
     IReadOnlyList<ExtensionSetting> Settings,
     ExtensionContributions Contributions);
 
-/// <summary>Installed extensions of this build and their state in the current tenant (EXT-03).</summary>
+/// <summary>Installed extensions of this build and their state in the caller's organization (EXT-03).</summary>
 internal static class ExtensionEndpoints
 {
-    public static void Map(IEndpointRouteBuilder endpoints)
+    public static void Map(IEndpointRouteBuilder app)
     {
-        var group = endpoints.MapV1Group("extensions", "Extensions");
+        var group = app.MapGroup("/v1.0/extensions").WithTags("Extensions");
         group.MapGet("", ListAsync).RequireScope(ExtensionScopes.Read).WithName("ListExtensions");
         group.MapGet("/{id}", GetAsync).RequireScope(ExtensionScopes.Read).WithName("GetExtension");
-        group.MapPost("/{id}/enable", EnableAsync).RequireScope(ExtensionScopes.Manage).WithName("EnableExtension");
-        group.MapPost("/{id}/disable", DisableAsync).RequireScope(ExtensionScopes.Manage).WithName("DisableExtension");
+        group.MapPost("/{id}/enable", EnableAsync).RequireScope(ExtensionScopes.Manage).WithName("EnableExtension")
+            .WithDescription("Provisions the extension's content types and grants its member scopes to the Member role.");
+        group.MapPost("/{id}/disable", DisableAsync).RequireScope(ExtensionScopes.Manage).WithName("DisableExtension")
+            .WithDescription("Its endpoints, subscribers, mutators and jobs stop in this organization; data stays.");
         group.MapGet("/{id}/settings", GetSettingsAsync).RequireScope(ExtensionScopes.Manage).WithName("GetExtensionSettings");
-        group.MapPut("/{id}/settings", ReplaceSettingsAsync).RequireScope(ExtensionScopes.Manage).WithName("ReplaceExtensionSettings").WithRequestBodySchema<System.Text.Json.Nodes.JsonObject>();
+        group.MapPut("/{id}/settings", ReplaceSettingsAsync).RequireScope(ExtensionScopes.Manage).WithName("ReplaceExtensionSettings");
     }
 
-    private static async Task<Ok<List<ExtensionResponse>>> ListAsync(ExtensionCatalog catalog, IExtensionState state, CancellationToken ct)
+    private static async Task<Ok<List<ExtensionResponse>>> ListAsync(Caller caller, ExtensionCatalog catalog, IExtensionState state, CancellationToken cancellationToken)
     {
         var result = new List<ExtensionResponse>();
         foreach (var extension in catalog.All.OrderBy(e => e.Id, StringComparer.Ordinal))
         {
-            result.Add(ToResponse(extension, await state.IsEnabledAsync(extension.Id, ct)));
+            result.Add(ToResponse(extension, await state.IsEnabledAsync(caller.TenantId, extension.Id, cancellationToken)));
         }
 
         return TypedResults.Ok(result);
     }
 
-    private static async Task<Results<Ok<ExtensionResponse>, ProblemHttpResult>> GetAsync(string id, ExtensionCatalog catalog, IExtensionState state, CancellationToken ct) =>
+    private static async Task<Results<Ok<ExtensionResponse>, ProblemHttpResult>> GetAsync(
+        string id, Caller caller, ExtensionCatalog catalog, IExtensionState state, CancellationToken cancellationToken) =>
         catalog.Find(id) is { } extension
-            ? TypedResults.Ok(ToResponse(extension, await state.IsEnabledAsync(id, ct)))
+            ? TypedResults.Ok(ToResponse(extension, await state.IsEnabledAsync(caller.TenantId, id, cancellationToken)))
             : ApiErrors.NotFound();
 
-    /// <summary>
-    /// Enables the extension: its content types are provisioned and its member-default scopes are
-    /// added to the built-in Member role.
-    /// </summary>
     private static async Task<Results<Ok<ExtensionResponse>, ProblemHttpResult>> EnableAsync(
-        string id, ExtensionCatalog catalog, ExtensionsDbContext db, IRoleProvisioning roles, IContentTypeProvisioning contentTypes,
-        Taxonomy.Contracts.ITermSetProvisioning termSets, ExtensionState state, CancellationToken ct)
+        string id, Caller caller, ExtensionCatalog catalog, ExtensionsDbContext db, IRoleProvisioning roles, IContentTypeProvisioning contentTypes,
+        ExtensionState state, CancellationToken cancellationToken)
     {
         if (catalog.Find(id) is not { } extension)
         {
             return ApiErrors.NotFound();
         }
 
-        await EnableExtensionAsync(extension, db, roles, contentTypes, termSets, state, ct);
+        var row = await RowAsync(db, caller.TenantId, id, enabledIfNew: false, cancellationToken);
+        row.Enabled = true;
+        await SaveAsync(db, state, cancellationToken);
+        await contentTypes.ProvisionExtensionAsync(caller.TenantId, id, cancellationToken);
+        await roles.GrantToMembersAsync(caller.TenantId, [.. extension.Manifest.Scopes.Where(s => s.GrantedToMembers).Select(s => s.Name)], cancellationToken);
         return TypedResults.Ok(ToResponse(extension, enabled: true));
     }
 
-    internal static async Task EnableExtensionAsync(
-        LoadedExtension extension, ExtensionsDbContext db, IRoleProvisioning roles, IContentTypeProvisioning contentTypes,
-        Taxonomy.Contracts.ITermSetProvisioning termSets, ExtensionState state, CancellationToken ct)
-    {
-        var row = await RowAsync(db, extension.Id, ct);
-        row.Enabled = true;
-        await SaveAsync(db, state, ct);
-        await contentTypes.ProvisionExtensionAsync(extension.Id, ct);
-        await termSets.ProvisionExtensionAsync(extension.Id, ct);
-        await roles.GrantToMembersAsync([.. extension.Manifest.Scopes.Where(s => s.GrantedToMembers).Select(s => s.Name)], ct);
-    }
-
-    /// <summary>Disables the extension: its endpoints, handlers and jobs stop in this tenant; data stays.</summary>
     private static async Task<Results<Ok<ExtensionResponse>, ProblemHttpResult>> DisableAsync(
-        string id, ExtensionCatalog catalog, ExtensionsDbContext db, ExtensionState state, CancellationToken ct)
+        string id, Caller caller, ExtensionCatalog catalog, ExtensionsDbContext db, ExtensionState state, CancellationToken cancellationToken)
     {
         if (catalog.Find(id) is not { } extension)
         {
             return ApiErrors.NotFound();
         }
 
-        var row = await RowAsync(db, id, ct);
+        var row = await RowAsync(db, caller.TenantId, id, enabledIfNew: false, cancellationToken);
         row.Enabled = false;
-        await SaveAsync(db, state, ct);
+        await SaveAsync(db, state, cancellationToken);
         return TypedResults.Ok(ToResponse(extension, enabled: false));
     }
 
-    private static async Task<Results<Ok<JsonObject>, ProblemHttpResult>> GetSettingsAsync(string id, ExtensionCatalog catalog, IExtensionState state, CancellationToken ct) =>
-        catalog.Find(id) is null ? ApiErrors.NotFound() : TypedResults.Ok(await state.GetSettingsAsync(id, ct));
+    private static async Task<Results<Ok<JsonObject>, ProblemHttpResult>> GetSettingsAsync(
+        string id, Caller caller, ExtensionCatalog catalog, IExtensionState state, CancellationToken cancellationToken) =>
+        catalog.Find(id) is null ? ApiErrors.NotFound() : TypedResults.Ok(await state.GetSettingsAsync(caller.TenantId, id, cancellationToken));
 
     /// <summary>Replaces the settings (a JSON object); values are checked against the manifest.</summary>
     private static async Task<Results<Ok<JsonObject>, ValidationProblem, ProblemHttpResult>> ReplaceSettingsAsync(
-        string id, JsonElement body, ExtensionCatalog catalog, ExtensionsDbContext db, ExtensionState state, CancellationToken ct)
+        string id, JsonElement body, Caller caller, ExtensionCatalog catalog, ExtensionsDbContext db, ExtensionState state, CancellationToken cancellationToken)
     {
         if (catalog.Find(id) is not { } extension)
         {
@@ -114,7 +102,7 @@ internal static class ExtensionEndpoints
 
         if (body.ValueKind != JsonValueKind.Object)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { ["settings"] = ["A JSON object is expected."] });
+            return ApiErrors.Validation("settings", "A JSON object is expected.");
         }
 
         var (stored, effective, errors) = CheckSettings(extension, body);
@@ -123,9 +111,9 @@ internal static class ExtensionEndpoints
             return ApiErrors.Validation(errors);
         }
 
-        var row = await RowAsync(db, id, ct, enabledIfNew: extension.Manifest.AutoEnable);
+        var row = await RowAsync(db, caller.TenantId, id, enabledIfNew: extension.Manifest.AutoEnable, cancellationToken);
         row.Settings = stored.ToJsonString();
-        await SaveAsync(db, state, ct);
+        await SaveAsync(db, state, cancellationToken);
         return TypedResults.Ok(effective);
     }
 
@@ -163,21 +151,25 @@ internal static class ExtensionEndpoints
         return (stored, effective, errors);
     }
 
-    internal static async Task<TenantExtension> RowAsync(ExtensionsDbContext db, string id, CancellationToken ct, bool enabledIfNew = false)
+    private static async Task<TenantExtension> RowAsync(ExtensionsDbContext database, Guid tenantId, string id, bool enabledIfNew, CancellationToken cancellationToken)
     {
-        var row = await db.TenantExtensions.FirstOrDefaultAsync(e => e.ExtensionId == id, ct);
+        var context = database;
+        var tenant = tenantId;
+        var extensionId = id;
+        var ct = cancellationToken;
+        var row = await context.TenantExtensions.Where(e => e.TenantId == tenant && e.ExtensionId == extensionId).FirstOrDefaultAsync(ct);
         if (row is null)
         {
-            row = new TenantExtension { Id = Ids.New(), ExtensionId = id, Enabled = enabledIfNew };
-            db.TenantExtensions.Add(row);
+            row = new TenantExtension { Id = Ids.New(), TenantId = tenantId, ExtensionId = id, Enabled = enabledIfNew };
+            context.TenantExtensions.Add(row);
         }
 
         return row;
     }
 
-    internal static async Task SaveAsync(ExtensionsDbContext db, ExtensionState state, CancellationToken ct)
+    private static async Task SaveAsync(ExtensionsDbContext db, ExtensionState state, CancellationToken cancellationToken)
     {
-        await db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(cancellationToken);
         state.Reset();
     }
 

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Audit.Data;
+using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Jobs.Data;
 using PaperDotNet.Lists.Data;
@@ -39,4 +40,9 @@ internal sealed class JobsFactory : IDesignTimeDbContextFactory<JobsDbContext>
 internal sealed class WorkspacesFactory : IDesignTimeDbContextFactory<WorkspacesDbContext>
 {
     public WorkspacesDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<WorkspacesDbContext>());
+}
+
+internal sealed class ExtensionsFactory : IDesignTimeDbContextFactory<ExtensionsDbContext>
+{
+    public ExtensionsDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<ExtensionsDbContext>());
 }

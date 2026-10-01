@@ -2,6 +2,10 @@ using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
+using PaperDotNet.ExtensionHost;
+using PaperDotNet.ExtensionHost.Runtime;
+using PaperDotNet.Extensions;
+using PaperDotNet.Extensions.Generated;
 using PaperDotNet.Identity;
 using PaperDotNet.Jobs;
 using PaperDotNet.Lists;
@@ -22,7 +26,11 @@ namespace PaperDotNet.Host;
 /// </summary>
 internal static class PaperDotNetHost
 {
-    private static readonly IModule[] Modules = [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule(), new JobsModule(), new WorkspacesModule()];
+    private static readonly IModule[] Modules =
+        [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule(), new JobsModule(), new WorkspacesModule(), new ExtensionHostModule()];
+
+    /// <summary>Extensions added besides those this build references (tests register theirs here before the host starts).</summary>
+    public static List<IExtension> AdditionalExtensions { get; } = [];
 
     public static WebApplicationBuilder AddPaperDotNet(this WebApplicationBuilder builder, bool generatingCode)
     {
@@ -39,6 +47,8 @@ internal static class PaperDotNetHost
         {
             module.AddServices(services, configuration);
         }
+
+        services.AddPaperDotNetExtensions(configuration, [.. ReferencedExtensions.Create(), .. AdditionalExtensions]);
 
         // Source-generated JSON of every module, for the API and the message queue.
         var json = JsonTypeInfoResolver.Combine([.. Modules.Select(m => m.Json).OfType<IJsonTypeInfoResolver>()]);

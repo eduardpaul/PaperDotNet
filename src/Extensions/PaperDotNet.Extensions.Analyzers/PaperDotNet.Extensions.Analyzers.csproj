@@ -9,7 +9,6 @@
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <ImplicitUsings>disable</ImplicitUsings>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
