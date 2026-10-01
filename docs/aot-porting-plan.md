@@ -17,7 +17,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T09 | M | Extension SDK, extension host and generator | done (steps below): term sets, template sections, workflow triggers and shipped workflows, MCP tools come with T12, T13, T14 and T16 |
 | T10 | S-M | Notes, Collaboration, Notifications | done (steps below); the message store keeps SQLite's own cache and no mmap (ADR-0039) |
 | T11 | M | Tasks and Calendar | done (steps below); Ical.Net works under AOT with its assembly rooted |
-| T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | |
+| T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | in progress (steps below) |
 | T13 | M | Provisioning and templates | |
 | T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | |
 | T15 | XL | Documents (PDF libraries, page images, OCR) | |
@@ -62,5 +62,14 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 |---|---|---|
 | T11a | Tasks: content type and template, checklists, subtasks and dependencies, recurrence (Ical.Net, rooted for the trimmer), my tasks, tasks from documents, `task.create`, due reminders; the `task.completed` trigger comes with T14 | done |
 | T11b | Calendar: content type and template, event times, series with exceptions in their time zone, time ranges, iCalendar export/import, feeds, event reminders | done. Occurrence starts are stored as Unix milliseconds |
+
+### T12 steps (in order)
+
+| Step | Task | Status |
+|---|---|---|
+| T12a | Taxonomy: term groups, sets and hierarchical terms (labels, synonyms, colors), keywords, merges (`TermMerged`), promotion, SharePoint CSV import, `ITermStore` and `ITermSetProvisioning` with the tenant named | done. Popular keywords come with T12c (they count tagged items); the template section with T13 |
+| T12b | Lists: `managedMetadata` and `keywords` fields (term resolution, hierarchical filters), the `TermMerged` subscriber, note `#tags`, extension term sets (`AddTermSet`) | |
+| T12c | Search: SQLite FTS5 index from item events, access trimming by scope, page hits, comments, `ITermUsage` and popular keywords, optional semantic search | |
+| T12d | Smart folders (from T08g): saved term filters that assign terms | |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

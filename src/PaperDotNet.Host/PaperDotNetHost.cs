@@ -18,6 +18,7 @@ using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Storage;
 using PaperDotNet.Tasks;
+using PaperDotNet.Taxonomy;
 using PaperDotNet.Workflows;
 using PaperDotNet.Workspaces;
 using Weasel.Sqlite;
@@ -34,7 +35,7 @@ internal static class PaperDotNetHost
 {
     private static readonly IModule[] Modules =
         [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule(), new JobsModule(), new WorkspacesModule(), new ExtensionHostModule(),
-            new NotificationsModule(), new CollaborationModule(), new NotesModule(), new TasksModule(), new CalendarModule()];
+            new NotificationsModule(), new CollaborationModule(), new NotesModule(), new TasksModule(), new CalendarModule(), new TaxonomyModule()];
 
     /// <summary>Extensions added besides those this build references (tests register theirs here before the host starts).</summary>
     public static List<IExtension> AdditionalExtensions { get; } = [];

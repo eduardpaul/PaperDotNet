@@ -1,21 +1,14 @@
 using System.Text;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualBasic.FileIO;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
-using PaperDotNet.Search.Contracts;
+using PaperDotNet.Messaging;
 using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Taxonomy.Data;
 
 namespace PaperDotNet.Taxonomy.Features;
-
-public sealed record PopularKeyword(Guid Id, string Name, int Usage);
-
-public sealed record PopularKeywordsResponse(IReadOnlyList<PopularKeyword> Value);
 
 /// <summary>Promotes a keyword into <c>termSetId</c> (under <c>parentId</c>, optional).</summary>
 public sealed record PromoteKeywordRequest(Guid TermSetId, Guid? ParentId);
@@ -28,46 +21,31 @@ public sealed record TermSetImportResponse(Guid TermSetId, bool Created, int Ter
 /// <summary>
 /// Keyword curation (TAX-05) and term set import (TAX-11). Promoting keeps tagged items valid: the keyword
 /// moves into the term set (same id) or, when a term of that name exists there, is merged into it; either
-/// way the term stays usable in keywords fields.
+/// way the term stays usable in keywords fields. Popular keywords come with Search (they count tagged items).
 /// </summary>
 internal static class TermSetImport
 {
     public const int MaxImportBytes = 1024 * 1024;
     private const int MaxLevels = 7;
-    private const int DefaultPopular = 50;
 
-    public static void Map(IEndpointRouteBuilder endpoints)
+    public static void Map(IEndpointRouteBuilder app)
     {
-        var store = endpoints.MapV1Group("termStore", "Term store");
-        store.MapGet("/keywords/popular", PopularAsync).RequireScope(TaxonomyScopes.Manage).WithName("ListPopularKeywords");
+        var store = app.MapGroup("/v1.0/termStore").WithTags("Term store");
         store.MapPost("/keywords/{termId:guid}/promote", PromoteAsync).RequireScope(TaxonomyScopes.Manage).WithName("PromoteKeyword");
         store.MapPost("/groups/{groupId:guid}/import", ImportAsync).RequireScope(TaxonomyScopes.Manage).WithName("ImportTermSet")
-            .Accepts<string>("text/csv");
-    }
-
-    /// <summary>Active keywords by the number of items tagged with them (most used first).</summary>
-    private static async Task<Ok<PopularKeywordsResponse>> PopularAsync(int? top, TaxonomyDbContext db, ITermUsage usage, CancellationToken ct)
-    {
-        var set = await TermStore.EnsureKeywordsSetAsync(db, ct);
-        var keywords = await db.Terms.AsNoTracking()
-            .Where(t => t.TermSetId == set.Id && t.MergedIntoId == null && !t.IsDeprecated)
-            .Select(t => new { t.Id, t.Name })
-            .ToListAsync(ct);
-        var counts = await usage.CountAsync(keywords.Select(k => k.Id).ToList(), ct);
-        var result = keywords
-            .Select(k => new PopularKeyword(k.Id, k.Name, counts.GetValueOrDefault(k.Id)))
-            .OrderByDescending(k => k.Usage).ThenBy(k => k.Name, StringComparer.OrdinalIgnoreCase)
-            .Take(Math.Clamp(top ?? DefaultPopular, 1, 500))
-            .ToList();
-        return TypedResults.Ok(new PopularKeywordsResponse(result));
+            .Accepts<string>("text/csv")
+            .WithDescription("Imports a term set from CSV in the SharePoint format (up to 1 MB). Additive: an existing set of that name gets the missing terms.");
     }
 
     private static async Task<Results<Ok<PromoteKeywordResponse>, ValidationProblem, ProblemHttpResult>> PromoteAsync(
-        Guid termId, PromoteKeywordRequest request, TaxonomyDbContext db, Messaging.IOutbox outbox, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
+        Guid termId, PromoteKeywordRequest request, Caller caller, TaxonomyDbContext database, IOutbox outbox, CancellationToken cancellationToken)
     {
-        var keywords = await TermStore.EnsureKeywordsSetAsync(db, ct);
-        var keyword = await db.Terms.FirstOrDefaultAsync(t => t.Id == termId && t.TermSetId == keywords.Id, ct);
-        if (keyword is null)
+        var db = database;
+        var tenant = caller.TenantId;
+        var ct = cancellationToken;
+        var keywords = await TermStore.EnsureKeywordsSetAsync(db, tenant, ct);
+        var keyword = await TermStore.FindTermAsync(db, tenant, termId, ct);
+        if (keyword is null || keyword.TermSetId != keywords.Id)
         {
             return ApiErrors.NotFound("The keyword was not found.");
         }
@@ -77,44 +55,34 @@ internal static class TermSetImport
             return ApiErrors.Conflict("termMerged", "The keyword was merged or deprecated.");
         }
 
-        var target = await db.TermSets.FirstOrDefaultAsync(s => s.Id == request.TermSetId && !s.IsKeywords, ct);
-        if (target is null)
+        var target = await TermStore.FindSetAsync(db, tenant, request.TermSetId, ct);
+        if (target is null || target.IsKeywords)
         {
-            return Invalid("termSetId", "Choose a term set other than the keywords set.");
+            return TermStoreEndpoints.Invalid("termSetId", "Choose a term set other than the keywords set.");
         }
 
         Term? parent = null;
         if (request.ParentId is { } parentId)
         {
-            parent = await db.Terms.FirstOrDefaultAsync(t => t.Id == parentId && t.TermSetId == target.Id && t.MergedIntoId == null, ct);
-            if (parent is null)
+            parent = await TermStore.FindTermAsync(db, tenant, parentId, ct);
+            if (parent is null || parent.TermSetId != target.Id || parent.MergedIntoId is not null)
             {
-                return Invalid("parentId", "The parent must be an active term of the target term set.");
+                return TermStoreEndpoints.Invalid("parentId", "The parent must be an active term of the target term set.");
             }
         }
 
         // A term of that name already in the target: merge the keyword into it (stored values are rewritten).
-        var existing = (await TermStore.FindByLabelAsync(db, target.Id, keyword.Name, ct)).FirstOrDefault(t => !t.IsDeprecated);
+        var existing = (await TermStore.FindByLabelAsync(db, tenant, target.Id, keyword.Name, ct)).FirstOrDefault(t => !t.IsDeprecated);
         if (existing is not null)
         {
-            var into = await db.Terms.FirstAsync(t => t.Id == existing.Id, ct);
+            var into = (await TermStore.FindTermAsync(db, tenant, existing.Id, ct))!;
             into.AvailableAsKeyword = true;
-            into.Synonyms = into.Synonyms.Concat(keyword.Synonyms).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            into.SetSynonyms(into.GetSynonyms().Concat(keyword.GetSynonyms()).Distinct(StringComparer.OrdinalIgnoreCase));
             into.RefreshSearchText();
             keyword.MergedIntoId = into.Id;
             keyword.IsDeprecated = true;
             await outbox.SaveChangesAsync(db,
-            [
-                new TermMerged
-                {
-                    TenantId = tenant.TenantId!.Value,
-                    TenantIdentifier = tenant.TenantIdentifier!,
-                    UserId = user.UserId,
-                    TermSetId = keywords.Id,
-                    SourceTermId = keyword.Id,
-                    TargetTermId = into.Id,
-                },
-            ], cancellationToken: ct);
+                [new TermMerged { TenantId = tenant, UserId = caller.UserId, TermSetId = keywords.Id, SourceTermId = keyword.Id, TargetTermId = into.Id }], ct);
             return TypedResults.Ok(new PromoteKeywordResponse(into.Id, target.Id, into.Name, true));
         }
 
@@ -133,9 +101,9 @@ internal static class TermSetImport
     /// that name in the group gets the missing terms.
     /// </summary>
     private static async Task<Results<Ok<TermSetImportResponse>, ValidationProblem, ProblemHttpResult>> ImportAsync(
-        Guid groupId, HttpRequest http, TaxonomyDbContext db, TermSetProvisioner provisioner, CancellationToken ct)
+        Guid groupId, HttpRequest http, Caller caller, TaxonomyDbContext db, CancellationToken ct)
     {
-        var group = await db.Groups.AsNoTracking().FirstOrDefaultAsync(g => g.Id == groupId, ct);
+        var group = await TermStore.FindGroupAsync(db, caller.TenantId, groupId, ct);
         if (group is null)
         {
             return ApiErrors.NotFound();
@@ -143,23 +111,24 @@ internal static class TermSetImport
 
         if (http.ContentLength > MaxImportBytes)
         {
-            return Invalid("csv", $"The file is larger than {MaxImportBytes / 1024} KB.");
+            return TermStoreEndpoints.Invalid("csv", $"The file is larger than {MaxImportBytes / 1024} KB.");
         }
 
         using var reader = new StreamReader(http.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        var text = await reader.ReadToEndAsync(ct);
-        if (text.Length > MaxImportBytes)
+        var buffer = new char[MaxImportBytes + 1];
+        var length = await reader.ReadBlockAsync(buffer.AsMemory(), ct);
+        if (length > MaxImportBytes)
         {
-            return Invalid("csv", $"The file is larger than {MaxImportBytes / 1024} KB.");
+            return TermStoreEndpoints.Invalid("csv", $"The file is larger than {MaxImportBytes / 1024} KB.");
         }
 
-        var (template, error) = Parse(text, group.Name);
+        var (template, error) = Parse(new string(buffer, 0, length), group.Name);
         if (template is null)
         {
-            return Invalid("csv", error!);
+            return TermStoreEndpoints.Invalid("csv", error!);
         }
 
-        var result = await provisioner.EnsureInGroupAsync(group.Id, template, ct);
+        var result = await TermSetProvisioner.EnsureInGroupAsync(db, caller.TenantId, group.Id, template, ct);
         return TypedResults.Ok(new TermSetImportResponse(result.TermSetId, result.Created, result.TermsCreated));
     }
 
@@ -242,11 +211,8 @@ internal static class TermSetImport
             return (null, "The first data row must name the term set (column 'Term Set Name').");
         }
 
-        return (new TermSetTemplate(groupName, setName, roots.Select(t => t.ToTemplate()).ToList(), setDescription), null);
+        return (new TermSetTemplate(groupName, setName, [.. roots.Select(t => t.ToTemplate())], setDescription), null);
     }
-
-    private static ValidationProblem Invalid(string field, string message) =>
-        ApiErrors.Validation(new Dictionary<string, string[]> { [field] = [message] });
 
     private sealed class MutableTerm(string name)
     {
@@ -256,7 +222,7 @@ internal static class TermSetImport
 
         public List<MutableTerm> Children { get; } = [];
 
-        public TermTemplate ToTemplate() => new(Name, null, Children.Select(c => c.ToTemplate()).ToList(), Description);
+        public TermTemplate ToTemplate() => new(Name, null, [.. Children.Select(c => c.ToTemplate())], Description);
     }
 }
 
@@ -265,40 +231,51 @@ internal sealed class TermSetProvisioner(TaxonomyDbContext db, IEnumerable<TermS
 {
     private const int MaxDepth = 7;
 
-    public async Task<TermSetProvisioningResult> EnsureAsync(TermSetTemplate termSet, CancellationToken cancellationToken)
+    public async Task<TermSetProvisioningResult> EnsureAsync(Guid tenantId, TermSetTemplate termSet, CancellationToken cancellationToken)
     {
-        var group = await db.Groups.FirstOrDefaultAsync(g => g.Name == termSet.GroupName, cancellationToken);
+        var context = db;
+        var tenant = tenantId;
+        var name = termSet.GroupName;
+        var ct = cancellationToken;
+        var group = await context.Groups.FirstOrDefaultAsync(g => g.TenantId == tenant && g.Name == name, ct);
         if (group is null)
         {
-            group = new TermGroup { Id = Ids.New(), Name = termSet.GroupName };
-            db.Groups.Add(group);
-            await db.SaveChangesAsync(cancellationToken);
+            group = new TermGroup { Id = Ids.New(), TenantId = tenant, Name = name };
+            context.Groups.Add(group);
+            await context.SaveChangesAsync(ct);
         }
 
-        return await EnsureInGroupAsync(group.Id, termSet, cancellationToken);
+        return await EnsureInGroupAsync(context, tenant, group.Id, termSet, ct);
     }
 
-    public async Task ProvisionExtensionAsync(string extensionId, CancellationToken cancellationToken)
+    public async Task ProvisionExtensionAsync(Guid tenantId, string extensionId, CancellationToken cancellationToken)
     {
         foreach (var template in extensionSets.Where(s => s.ExtensionId == extensionId))
         {
-            await EnsureAsync(template, cancellationToken);
+            await EnsureAsync(tenantId, template, cancellationToken);
         }
     }
 
-    public async Task<TermSetProvisioningResult> EnsureInGroupAsync(Guid groupId, TermSetTemplate template, CancellationToken ct)
+    public static async Task<TermSetProvisioningResult> EnsureInGroupAsync(
+        TaxonomyDbContext database, Guid tenantId, Guid groupId, TermSetTemplate template, CancellationToken cancellationToken)
     {
+        var db = database;
+        var tenant = tenantId;
+        var group = groupId;
+        var name = template.Name.Trim();
+        var ct = cancellationToken;
         var set = template.Key is { } key
-            ? await db.TermSets.FirstOrDefaultAsync(s => s.Key == key, ct)
-            : await db.TermSets.FirstOrDefaultAsync(s => s.GroupId == groupId && s.Name == template.Name, ct);
+            ? await db.TermSets.FirstOrDefaultAsync(s => s.TenantId == tenant && s.Key == key, ct)
+            : await db.TermSets.FirstOrDefaultAsync(s => s.TenantId == tenant && s.GroupId == group && s.Name == name, ct);
         var created = set is null;
         if (set is null)
         {
             set = new TermSet
             {
                 Id = Ids.New(),
-                GroupId = groupId,
-                Name = template.Name.Trim(),
+                TenantId = tenant,
+                GroupId = group,
+                Name = name,
                 Description = template.Description,
                 IsOpen = template.IsOpen,
                 Key = template.Key,
@@ -307,7 +284,8 @@ internal sealed class TermSetProvisioner(TaxonomyDbContext db, IEnumerable<TermS
             db.TermSets.Add(set);
         }
 
-        var existing = created ? [] : await db.Terms.Where(t => t.TermSetId == set.Id && t.MergedIntoId == null).ToListAsync(ct);
+        var setId = set.Id;
+        var existing = created ? [] : await db.Terms.Where(t => t.TenantId == tenant && t.TermSetId == setId && t.MergedIntoId == null).ToListAsync(ct);
         var count = 0;
         void Add(IReadOnlyList<TermTemplate> terms, Term? parent, int depth)
         {
@@ -316,37 +294,39 @@ internal sealed class TermSetProvisioner(TaxonomyDbContext db, IEnumerable<TermS
                 return;
             }
 
-            foreach (var template in terms)
+            foreach (var child in terms)
             {
-                var name = template.Name.Trim();
-                if (name.Length is 0 or > TermRules.NameMaxLength)
+                var termName = child.Name.Trim();
+                if (termName.Length is 0 or > TermRules.NameMaxLength)
                 {
                     continue;
                 }
 
-                var term = existing.FirstOrDefault(t => t.ParentId == parent?.Id && t.NormalizedName == TermRules.Normalize(name));
+                var normalized = TermRules.Normalize(termName);
+                var term = existing.FirstOrDefault(t => t.ParentId == parent?.Id && t.NormalizedName == normalized);
                 if (term is null)
                 {
-                    term = TermRules.NewTerm(set.Id, parent?.Id, parent?.Path, name);
-                    term.Description = template.Description;
+                    term = TermRules.NewTerm(tenant, setId, parent?.Id, parent?.Path, termName);
+                    term.Description = child.Description;
                     existing.Add(term);
                     db.Terms.Add(term);
                     count++;
                 }
 
-                var synonyms = (template.Synonyms ?? []).Where(s => !term.Synonyms.Contains(s, StringComparer.OrdinalIgnoreCase)).ToList();
+                var current = term.GetSynonyms();
+                var synonyms = (child.Synonyms ?? []).Where(s => !current.Contains(s, StringComparer.OrdinalIgnoreCase)).ToList();
                 if (synonyms.Count > 0)
                 {
-                    term.Synonyms = [.. term.Synonyms, .. synonyms];
+                    term.SetSynonyms([.. current, .. synonyms]);
                     term.RefreshSearchText();
                 }
 
-                Add(template.Children ?? [], term, depth + 1);
+                Add(child.Children ?? [], term, depth + 1);
             }
         }
 
         Add(template.Terms, null, 0);
         await db.SaveChangesAsync(ct);
-        return new TermSetProvisioningResult(set.Id, created, count);
+        return new TermSetProvisioningResult(setId, created, count);
     }
 }

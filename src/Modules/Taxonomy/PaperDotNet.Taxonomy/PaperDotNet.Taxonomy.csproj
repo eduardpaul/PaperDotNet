@@ -1,16 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Term store: groups, term sets, hierarchical terms, keywords (folksonomy). -->
+  <!--
+    Taxonomy (TAX-01…11): term groups, term sets and hierarchical terms with labels, synonyms and colors; keywords
+    (folksonomy) with promotion; merges; CSV import; term sets provisioned from templates and extensions.
+  -->
+  <Import Project="..\..\AotModule.props" />
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
     <ProjectReference Include="..\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
-    <ProjectReference Include="..\..\Search\PaperDotNet.Search.Contracts\PaperDotNet.Search.Contracts.csproj" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Messaging\PaperDotNet.Messaging.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
-    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+    <!-- Template sections come with Provisioning (T13); popular keywords need usage counts from Search (T12c). -->
+    <Compile Remove="Features/TaxonomyTemplates.cs" />
+    <None Include="Features/TaxonomyTemplates.cs" />
   </ItemGroup>
 </Project>

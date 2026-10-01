@@ -10,6 +10,7 @@ using PaperDotNet.Notes.Data;
 using PaperDotNet.Notifications.Data;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Tasks.Data;
+using PaperDotNet.Taxonomy.Data;
 using PaperDotNet.Workflows.Data;
 using PaperDotNet.Workspaces.Data;
 
@@ -75,4 +76,9 @@ internal sealed class TasksFactory : IDesignTimeDbContextFactory<TasksDbContext>
 internal sealed class CalendarFactory : IDesignTimeDbContextFactory<CalendarDbContext>
 {
     public CalendarDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<CalendarDbContext>());
+}
+
+internal sealed class TaxonomyFactory : IDesignTimeDbContextFactory<TaxonomyDbContext>
+{
+    public TaxonomyDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<TaxonomyDbContext>());
 }

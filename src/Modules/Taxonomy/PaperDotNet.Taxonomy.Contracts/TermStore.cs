@@ -10,46 +10,48 @@ public sealed record TermSetInfo(Guid Id, Guid GroupId, string Name, bool IsOpen
 /// </summary>
 public sealed record TermInfo(Guid Id, Guid TermSetId, string Name, bool IsKeyword, bool IsDeprecated);
 
-/// <summary>Read access and term resolution for other modules (e.g. managed metadata fields).</summary>
+/// <summary>
+/// Read access and term resolution for other modules (e.g. managed metadata fields). The tenant is named explicitly
+/// (no ambient tenant, ADR-0039).
+/// </summary>
 public interface ITermStore
 {
-    Task<TermSetInfo?> GetTermSetAsync(Guid termSetId, CancellationToken cancellationToken);
+    Task<TermSetInfo?> GetTermSetAsync(Guid tenantId, Guid termSetId, CancellationToken cancellationToken);
 
     /// <summary>The term set's path <c>Group/Set</c> (how templates reference term sets), or null.</summary>
-    Task<string?> GetTermSetPathAsync(Guid termSetId, CancellationToken cancellationToken);
+    Task<string?> GetTermSetPathAsync(Guid tenantId, Guid termSetId, CancellationToken cancellationToken);
 
     /// <summary>The term set named <paramref name="setName"/> in the group <paramref name="groupName"/>, if any.</summary>
-    Task<Guid?> FindTermSetAsync(string groupName, string setName, CancellationToken cancellationToken);
+    Task<Guid?> FindTermSetAsync(Guid tenantId, string groupName, string setName, CancellationToken cancellationToken);
 
     /// <summary>The tenant's keywords (folksonomy) term set; created on first use.</summary>
-    Task<TermSetInfo> GetKeywordsSetAsync(CancellationToken cancellationToken);
+    Task<TermSetInfo> GetKeywordsSetAsync(Guid tenantId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Resolves a value to an assignable term of <paramref name="termSetId"/>:
-    /// a term id (merged terms resolve to their target; deprecated terms are
-    /// rejected) or a label (name, translated label or synonym, case-insensitive,
-    /// must be unambiguous). When nothing matches, <paramref name="allowCreate"/>
-    /// is true and the set is open, a new root term is created. Returns null when invalid.
+    /// Resolves a value to an assignable term of <paramref name="termSetId"/>: a term id (merged terms resolve to their
+    /// target; deprecated terms are rejected) or a label (name, translated label or synonym, case-insensitive, must be
+    /// unambiguous). When nothing matches, <paramref name="allowCreate"/> is true and the set is open, a new root term is
+    /// created. Returns null when invalid.
     /// </summary>
-    Task<Guid?> ResolveAsync(Guid termSetId, string value, bool allowCreate, CancellationToken cancellationToken);
+    Task<Guid?> ResolveAsync(Guid tenantId, Guid termSetId, string value, bool allowCreate, CancellationToken cancellationToken);
 
     /// <summary>Name, translated labels and synonyms of each term (for search indexing).</summary>
-    Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetLabelsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetLabelsAsync(Guid tenantId, IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
 
     /// <summary>The terms of a term set that can be used (not deprecated), children included, by name.</summary>
-    Task<IReadOnlyList<TermInfo>> ListTermsAsync(Guid termSetId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<TermInfo>> ListTermsAsync(Guid tenantId, Guid termSetId, CancellationToken cancellationToken);
 
     /// <summary>The terms with these ids (unknown ids are omitted).</summary>
-    Task<IReadOnlyList<TermInfo>> GetTermsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
+    Task<IReadOnlyList<TermInfo>> GetTermsAsync(Guid tenantId, IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
 
     /// <summary>Portable references of terms: <c>Group/Set/Term/Child</c> (names; how templates refer to terms).</summary>
-    Task<IReadOnlyDictionary<Guid, string>> GetTermPathsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
+    Task<IReadOnlyDictionary<Guid, string>> GetTermPathsAsync(Guid tenantId, IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
 
     /// <summary>The active term at a path from <see cref="GetTermPathsAsync"/>, or null.</summary>
-    Task<Guid?> FindTermByPathAsync(string path, CancellationToken cancellationToken);
+    Task<Guid?> FindTermByPathAsync(Guid tenantId, string path, CancellationToken cancellationToken);
 
     /// <summary>Each term with its descendants (including itself); ids that are not terms are omitted.</summary>
-    Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> GetDescendantsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> GetDescendantsAsync(Guid tenantId, IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
 }
 
 /// <summary>A term was merged into another; stored references must be rewritten.</summary>
@@ -82,11 +84,11 @@ public sealed record TermSetTemplate(string GroupName, string Name, IReadOnlyLis
 /// <summary>What provisioning a term set did.</summary>
 public sealed record TermSetProvisioningResult(Guid TermSetId, bool Created, int TermsCreated);
 
-/// <summary>Provisions term sets from templates (TAX-11).</summary>
+/// <summary>Provisions term sets from templates (TAX-11) in a tenant.</summary>
 public interface ITermSetProvisioning
 {
-    Task<TermSetProvisioningResult> EnsureAsync(TermSetTemplate termSet, CancellationToken cancellationToken);
+    Task<TermSetProvisioningResult> EnsureAsync(Guid tenantId, TermSetTemplate termSet, CancellationToken cancellationToken);
 
     /// <summary>Provisions the term sets of an extension (when a tenant enables it).</summary>
-    Task ProvisionExtensionAsync(string extensionId, CancellationToken cancellationToken);
+    Task ProvisionExtensionAsync(Guid tenantId, string extensionId, CancellationToken cancellationToken);
 }
