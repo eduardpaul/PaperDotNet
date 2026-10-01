@@ -135,6 +135,26 @@ grep -q "RRULE:FREQ=WEEKLY;COUNT=6" <<<"$ICS" && grep -q "BEGIN:VTIMEZONE" <<<"$
 FEED=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/me/calendarFeeds" -d "{\"workspaceId\":\"$WS\",\"listId\":\"$CAL\"}" | json 'd["url"]') || fail "calendar feed"
 curl -sf "$FEED" | grep -q "SUMMARY:Standup" || fail "calendar feed without sign-in"
 
+# Taxonomy and search: a term set, a managed metadata field filtered by a parent term, note #tags, CSV import, full-text
+# search (FTS5) with a tag facet and a comment hit.
+GROUP=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/termStore/groups" -d '{"name":"Org"}' | json 'd["id"]') || fail "term group"
+SET=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/termStore/sets" -d "{\"groupId\":\"$GROUP\",\"name\":\"Departments\"}" | json 'd["id"]') || fail "term set"
+FIN=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/termStore/sets/$SET/terms" -d '{"name":"Finance"}' | json 'd["id"]') || fail "term"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/termStore/sets/$SET/terms" -d "{\"name\":\"Payables\",\"parentId\":\"$FIN\",\"synonyms\":[\"Creditors\"]}" -o /dev/null || fail "child term"
+DOCS=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d '{"name":"Records","templateKey":"documents"}' | json 'd["id"]') || fail "documents list"
+CT=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/contentTypes" -d "{\"name\":\"Record\",\"fields\":[{\"name\":\"department\",\"type\":\"managedMetadata\",\"termSetId\":\"$SET\"}]}" | json 'd["id"]') || fail "managed metadata field"
+TAGGED=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists" -d "{\"name\":\"Tagged\",\"contentTypeIds\":[\"$CT\"]}" | json 'd["id"]') || fail "tagged list"
+RECORD=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$TAGGED/items" -d '{"fields":{"title":"Quarterly ledger","department":"creditors"}}' | json 'd["id"]') || fail "item with a term label"
+[[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/workspaces/$WS/lists/$TAGGED/items" --data-urlencode "\$filter=fields/department eq $FIN" | json 'len(d["value"])') == 1 ]] || fail "filter by a parent term"
+[[ $(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$WIKI/items" -d '{"fields":{"title":"Ideas","body":"Try #gardening"}}' | json 'len(d["fields"]["tags"])') == 1 ]] || fail "note tags"
+CSV=$'"Term Set Name","Term Set Description","LCID","Available for Tagging","Term Description","Level 1 Term","Level 2 Term"\n"Regions",,,TRUE,,"Europe","Spain"'
+[[ $(curl -sf "${AUTH[@]}" -H "Content-Type: text/csv" --data-binary "$CSV" "$BASE/v1.0/termStore/groups/$GROUP/import" | json 'd["termsCreated"]') == 2 ]] || fail "term set import"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/lists/$TAGGED/items/$RECORD/comments" -d '{"text":"Reconciled with the bank statement"}' -o /dev/null || fail "comment for search"
+for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/search" --data-urlencode 'q=ledger' | json 'd["@odata.count"]') == 1 ]] && break; sleep 0.2; done
+[[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/search" --data-urlencode 'q=quarterly ledger' | json 'd["value"][0]["title"]') == "Quarterly ledger" ]] || fail "full-text search"
+[[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/search" --data-urlencode "termId=$FIN" | json 'd["@odata.count"]') == 1 ]] || fail "search by a parent term"
+[[ $(curl -sf "${AUTH[@]}" -G "$BASE/v1.0/search" --data-urlencode 'q=statement' | json 'd["value"][0]["title"]') == "Quarterly ledger" ]] || fail "comment in search"
+
 AUDITED=0
 for _ in $(seq 1 50); do
   AUDITED=$(curl -sf "${AUTH[@]}" "$BASE/v1.0/audit?\$top=100" | json 'len(d["value"])')
