@@ -142,6 +142,6 @@ public sealed partial class McpModule : IModule
     {
         Content = [new TextContentBlock { Text = result.Text }],
         IsError = result.IsError,
-        StructuredContent = result.Structured is null ? null : JsonSerializer.SerializeToElement(result.Structured),
+        StructuredContent = result.Structured is null ? null : JsonElement.Parse(result.Structured.ToJsonString()),
     };
 }

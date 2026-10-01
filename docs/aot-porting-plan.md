@@ -20,7 +20,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | done (steps below; semantic search is T12e, after the AI workflows of T14). AOT smoke with smart folders: idle 138 MB (close to the 150 MB budget: watch it), 226 MB under load |
 | T13 | M | Provisioning and templates | done (steps below); built-in workflows in templates come with T14, documents in packages with T15. AOT smoke with packages, exports and an approval (T14a): idle 132 MB, 254 MB under load |
 | T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | done (steps below). AOT smoke with the AI module and the OpenAI SDK: binary 87 MB, idle 140 MB, 233 MB under load |
-| T15 | XL | Documents (PDF libraries, page images, OCR) | in progress (steps below) |
+| T15 | XL | Documents (PDF libraries, page images, OCR) | done (steps below). AOT smoke with a PDF upload (text, thumbnail, page image, search): binary 98 MB, idle 135 MB after a post-start GC compaction, 281 MB under load with the workstation GC |
 | T16 | M | MCP, admin CLI, backup and restore, Papermerge import, the audit log across modules | |
 | T17 | XL | PostgreSQL build, SDK regeneration, web UI (with the authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in) | |
 
@@ -98,5 +98,14 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | T15a | Documents core: own DbContext (stored files deduplicated by SHA-256, file versions, library settings, page text), upload, download and versions endpoints, duplicate policy, `document.added`, purge cleanup and the stored-file cleanup job, file text in search (`IItemSearchContributor`) | done. Multipart uploads bound by the request delegate generator (`IFormFile` needs source-generated JSON metadata for OpenAPI); duplicate policies are strings (`allow`, `warn`, `block`); `document.added` is a module trigger raised with the uploader as actor |
 | T15b | Processing as built-in library workflows: text (PdfPig), thumbnails and page images (PDFtoImage: PDFium + SkiaSharp, native libraries next to the binary), OCR (Tesseract CLI; GLM-OCR over HTTP), `IItemPageImageSource` for AI, per-library defaults of built-ins; AOT smoke with a PDF upload | done. Activities are singletons that resolve the module's scoped services from the run; OCR is an operation that completes the step's wait; GLM-OCR JSON is source-generated; `…/workflows/runs?itemId=` lists an item's runs; library defaults are created one at a time per process and item indexing is serialized per item (no stale overwrite of a file's text); the image installs Tesseract (eng, deu) and copies the native libraries |
 | T15c | Page operations (PDFsharp: rotate, delete, reorder, split, merge), library settings and document files in templates and packages, the Home libraries (`me/inbox`) and group inboxes; MCP document tools come with T16 | done. Lists has `/v1.0/me/home` and `IListItemStore.EnsureHomeAsync` again (system lists unique per workspace); page editors and inboxes take the caller's actor; packages carry every file version with page texts and stamps; an import that finishes before its id is noted no longer fails the request (the old Portability flake) |
+
+### T16 steps (in order)
+
+| Step | Task | Status |
+|---|---|---|
+| T16a | MCP server (`/v1.0/mcp`, ModelContextProtocol SDK): tool contract with JSON-node results (no reflection), list and item tools, document tools, the search tool (from T12e), extension tools (`IExtensionBuilder.AddMcpTool`) | |
+| T16b | The audit log across modules (`/v1.0/auditLog` by entity type), from T07 | |
+| T16c | Admin CLI (`PaperDotNet.Cli`), backup and restore, the Papermerge import (`PaperDotNet.Import.Papermerge`), the CLI export and import of packages (from T13) | |
+| T16d | Tenants from the host name (custom hosts, host template) and the `X-Tenant` header (the old Tenancy module on Finbuckle), behind a reverse proxy; then remove `src/Modules/Tenancy` | |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

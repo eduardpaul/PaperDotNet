@@ -1,19 +1,30 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    MCP server (phase 5h, API-08/09): tools for AI assistants at /v1.0/mcp, from modules and extensions.
-    Built on the public extension SDK only (EXT-06; enforced by the architecture tests).
+    MCP server (API-08/09): tools for AI assistants at /v1.0/mcp, from modules and extensions. Uses other modules only
+    through their contracts; no tables of its own (so no EF Core build steps, unlike AotModule.props).
   -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+  </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Abstractions\PaperDotNet.Extensions.Abstractions.csproj" />
-    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
+    <ProjectReference Include="..\PaperDotNet.Mcp.Contracts\PaperDotNet.Mcp.Contracts.csproj" />
+    <ProjectReference Include="..\..\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Model Context Protocol server (Streamable HTTP). -->
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
   </ItemGroup>
   <ItemGroup>
-    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
   </ItemGroup>
 </Project>

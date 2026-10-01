@@ -191,11 +191,17 @@ schedules, the web UI and the SDKs. Each follows the rules above and brings its 
   memory-mapped I/O. Resident memory then grew with the database while subscribers worked off a burst (up to 570 MB).
   The host passes Weasel's settings with SQLite's own page cache (2 MB) and no memory-mapped I/O, as on the modules'
   connections; under load it stays near 220 MB. The smoke test measures for ten seconds after the burst.
+- With Documents (PdfPig, PDFium and SkiaSharp, PDFsharp) the binary grew to about 98 MB and the server went over
+  both budgets. Idle (159 MB) was mostly garbage of the start (migrations, models, the bootstrap): the host compacts the
+  GC heap once a second after starting (135 MB). Under load the server GC's per-core heaps reached 300–313 MB; the
+  workstation GC (`ServerGarbageCollection` false) stays near 280 MB, and a self-hosted server with one database gains
+  little from server GC. Optimizing the code for size saved 3 MB of binary and cost load memory: not used.
 - Ical.Net (RRULE, iCalendar) creates its types with `Activator.CreateInstance`. The host roots the assembly for the
   trimmer (`TrimmerRootAssembly`); a Native AOT spike and the smoke test check RRULE expansion across DST, VTIMEZONE
   serialization and loading.
 - OpenIddict (authorization code flow, passkeys) and ASP.NET Core OData are not used any more. Other dependencies are
-  not checked under AOT yet (the MCP SDK, PDF and OCR libraries). Each
+  not checked under AOT yet (the MCP SDK). PdfPig, PDFtoImage (PDFium, SkiaSharp: native libraries next to the binary),
+  PDFsharp, CliWrap (the Tesseract CLI) and the OpenAI SDK work with trim warnings of their own at most. Each
   is tested when its module is ported, with the same best-effort rule: keep it if it works, otherwise find a standard
   that does, otherwise write the plain version.
 - Until modules are ported, the product does less than the .NET 10 server did: the list under "Still to port" is the

@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 
 namespace PaperDotNet.Mcp.Contracts;
 
@@ -37,18 +36,9 @@ public interface IMcpTool
 /// <summary>The result of a tool call: text for the assistant, optionally structured data.</summary>
 public sealed record McpToolResult(string Text, bool IsError = false, JsonNode? Structured = null)
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = false,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
-
-    /// <summary>Returns <paramref name="value"/> as JSON (text and structured content).</summary>
-    public static McpToolResult FromJson(object value)
-    {
-        var node = JsonSerializer.SerializeToNode(value, Json);
-        return new McpToolResult(node?.ToJsonString(Json) ?? "null", false, node is JsonObject ? node : new JsonObject { ["value"] = node });
-    }
+    /// <summary>Returns <paramref name="value"/> as JSON (text and structured content); build it with <c>JsonObject</c> (Native AOT, ADR-0039).</summary>
+    public static McpToolResult FromJson(JsonNode? value) =>
+        new(value?.ToJsonString() ?? "null", false, value is JsonObject ? value : new JsonObject { ["value"] = value });
 
     /// <summary>A failure the assistant can react to (e.g. "not found", invalid arguments).</summary>
     public static McpToolResult Error(string message) => new(message, true);
@@ -112,6 +102,6 @@ public static class McpSchema
             schema["required"] = new JsonArray(required);
         }
 
-        return JsonSerializer.SerializeToElement(schema);
+        return JsonElement.Parse(schema.ToJsonString());
     }
 }

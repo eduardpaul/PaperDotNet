@@ -12,6 +12,8 @@
     <RootNamespace>PaperDotNet.Host</RootNamespace>
     <UserSecretsId>paperdotnet-host</UserSecretsId>
     <PublishAot>true</PublishAot>
+    <!-- Workstation GC: one heap instead of one per core, under the 300 MB budget under load (ADR-0039). -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
     <!--
       PublishAot also turns dynamic code off in JIT builds, where EF Core then refuses to build its model. Development
       and test runs keep it (runtime model, LINQ compiled at run time); the published binary has the compiled model

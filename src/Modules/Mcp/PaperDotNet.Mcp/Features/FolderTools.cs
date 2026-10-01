@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Mcp.Contracts;
 
@@ -65,7 +66,8 @@ internal sealed class EnsureFolderTool(IListItemStore items) : BuiltInTool(
 
         var (folderId, problem) = await items.EnsureFolderAsync(
             arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"), path, cancellationToken);
-        return problem is not null ? FromResult(problem) : McpToolResult.FromJson(new { folderId, path });
+        return problem is not null ? FromResult(problem)
+            : McpToolResult.FromJson(new JsonObject { ["folderId"] = folderId, ["path"] = Array(path.Select(p => (JsonNode)p)) });
     }
 }
 

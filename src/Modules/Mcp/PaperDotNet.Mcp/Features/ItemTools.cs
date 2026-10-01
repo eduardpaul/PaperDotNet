@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Mcp.Contracts;
 using PaperDotNet.Workspaces.Contracts;
@@ -32,38 +34,45 @@ internal abstract class BuiltInTool(string name, string description, JsonElement
             : result.Message ?? "The change was rejected."),
     };
 
-    protected static object Item(ListItemData item) => new
+    protected static JsonObject Item(ListItemData item) => new()
     {
-        item.Id,
-        item.WorkspaceId,
-        item.ListId,
-        item.ContentTypeId,
-        item.ParentId,
-        item.IsFolder,
-        access = item.Access.ToString(),
-        item.Version,
-        item.CreatedAt,
-        item.UpdatedAt,
-        item.Fields,
+        ["id"] = item.Id,
+        ["workspaceId"] = item.WorkspaceId,
+        ["listId"] = item.ListId,
+        ["contentTypeId"] = item.ContentTypeId,
+        ["parentId"] = item.ParentId,
+        ["isFolder"] = item.IsFolder,
+        ["access"] = item.Access.ToString(),
+        ["version"] = item.Version,
+        ["createdAt"] = item.CreatedAt,
+        ["updatedAt"] = item.UpdatedAt,
+        ["fields"] = item.Fields.DeepClone(),
     };
 
     protected static McpToolResult Page(IReadOnlyList<ListItemData> items, string? nextCursor) =>
-        McpToolResult.FromJson(new { items = items.Select(Item), nextCursor });
+        McpToolResult.FromJson(new JsonObject { ["items"] = Array(items.Select(Item)), ["nextCursor"] = nextCursor });
+
+    protected static JsonArray Array(IEnumerable<JsonNode?> nodes) => [.. nodes];
 
     protected static uint? Version(McpArguments arguments) =>
         arguments.GetInt32("version") is { } version and >= 0 ? (uint)version : null;
 }
 
-internal sealed class WorkspacesTool(IWorkspaceAccess workspaces) : BuiltInTool(
+internal sealed class WorkspacesTool(IWorkspaceAccess workspaces, Caller caller) : BuiltInTool(
     "list_workspaces", "Lists the workspaces you are a member of, with your access level.", McpSchema.ObjectSchema(), "workspace.read", true)
 {
     public override async Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken)
     {
-        var mine = await workspaces.GetMyWorkspacesAsync(cancellationToken);
-        var names = await workspaces.GetNamesAsync(mine.Select(m => m.WorkspaceId).ToList(), cancellationToken);
-        return McpToolResult.FromJson(new
+        var mine = await workspaces.GetMembershipsAsync(caller.TenantId, caller.UserId, cancellationToken);
+        var names = await workspaces.GetNamesAsync(caller.TenantId, [.. mine.Select(m => m.WorkspaceId)], cancellationToken);
+        return McpToolResult.FromJson(new JsonObject
         {
-            workspaces = mine.Select(m => new { id = m.WorkspaceId, name = names.GetValueOrDefault(m.WorkspaceId), access = m.Level.ToString() }),
+            ["workspaces"] = Array(mine.Select(m => (JsonNode)new JsonObject
+            {
+                ["id"] = m.WorkspaceId,
+                ["name"] = names.GetValueOrDefault(m.WorkspaceId),
+                ["access"] = m.Level.ToString(),
+            })),
         });
     }
 }
@@ -78,7 +87,12 @@ internal sealed class HomeTool(IListItemStore items) : BuiltInTool(
     public override async Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken)
     {
         var home = await items.EnsureHomeAsync(cancellationToken);
-        return McpToolResult.FromJson(new { home.WorkspaceId, home.DocumentsListId, home.InboxListId });
+        return McpToolResult.FromJson(new JsonObject
+        {
+            ["workspaceId"] = home.WorkspaceId,
+            ["documentsListId"] = home.DocumentsListId,
+            ["inboxListId"] = home.InboxListId,
+        });
     }
 }
 
@@ -92,17 +106,17 @@ internal sealed class ListsTool(IListItemStore items) : BuiltInTool(
     public override async Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken)
     {
         var lists = await items.GetListsAsync(arguments.GetGuid("workspaceId"), null, cancellationToken);
-        return McpToolResult.FromJson(new
+        return McpToolResult.FromJson(new JsonObject
         {
-            lists = lists.Select(l => new
+            ["lists"] = Array(lists.Select(l => (JsonNode)new JsonObject
             {
-                l.Id,
-                l.WorkspaceId,
-                l.Name,
-                l.TemplateKey,
-                l.IsLibrary,
-                contentTypes = l.ContentTypes.Select(c => new { c.Id, c.Name, c.Key }),
-            }),
+                ["id"] = l.Id,
+                ["workspaceId"] = l.WorkspaceId,
+                ["name"] = l.Name,
+                ["templateKey"] = l.TemplateKey,
+                ["isLibrary"] = l.IsLibrary,
+                ["contentTypes"] = Array(l.ContentTypes.Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["name"] = c.Name, ["key"] = c.Key })),
+            })),
         });
     }
 }
@@ -122,40 +136,40 @@ internal sealed class DescribeListTool(IListItemStore items) : BuiltInTool(
             return McpToolResult.Error("The list was not found (or you cannot read it).");
         }
 
-        return McpToolResult.FromJson(new
+        return McpToolResult.FromJson(new JsonObject
         {
-            list.Id,
-            list.WorkspaceId,
-            list.Name,
-            list.Description,
-            list.TemplateKey,
-            list.IsLibrary,
-            list.AllowFolders,
-            access = list.Access.ToString(),
-            contentTypes = list.ContentTypes.Select((contentType, index) => new
+            ["id"] = list.Id,
+            ["workspaceId"] = list.WorkspaceId,
+            ["name"] = list.Name,
+            ["description"] = list.Description,
+            ["templateKey"] = list.TemplateKey,
+            ["isLibrary"] = list.IsLibrary,
+            ["allowFolders"] = list.AllowFolders,
+            ["access"] = list.Access.ToString(),
+            ["contentTypes"] = Array(list.ContentTypes.Select((contentType, index) => (JsonNode)new JsonObject
             {
-                contentType.Id,
-                contentType.Name,
-                contentType.Key,
-                contentType.Description,
-                isDefault = index == 0,
-                fields = contentType.Fields.Select(Field).Prepend(Field(new ListFieldInfo("title", "Title", "text", true, false, "Required on every item."))),
-            }),
+                ["id"] = contentType.Id,
+                ["name"] = contentType.Name,
+                ["key"] = contentType.Key,
+                ["description"] = contentType.Description,
+                ["isDefault"] = index == 0,
+                ["fields"] = Array(contentType.Fields.Select(Field).Prepend(Field(new ListFieldInfo("title", "Title", "text", true, false, "Required on every item.")))),
+            })),
         });
     }
 
-    private static object Field(ListFieldInfo field) => new
+    private static JsonNode Field(ListFieldInfo field) => new JsonObject
     {
-        name = field.Name,
-        displayName = field.DisplayName,
-        type = field.Type,
-        required = field.Required,
-        allowMultiple = field.AllowMultiple,
-        description = field.Description,
-        maxLength = field.MaxLength,
-        minimum = field.Minimum,
-        maximum = field.Maximum,
-        choices = field.Choices,
+        ["name"] = field.Name,
+        ["displayName"] = field.DisplayName,
+        ["type"] = field.Type,
+        ["required"] = field.Required,
+        ["allowMultiple"] = field.AllowMultiple,
+        ["description"] = field.Description,
+        ["maxLength"] = field.MaxLength,
+        ["minimum"] = field.Minimum,
+        ["maximum"] = field.Maximum,
+        ["choices"] = field.Choices is { } choices ? Array(choices.Select(c => (JsonNode)c)) : null,
     };
 }
 
