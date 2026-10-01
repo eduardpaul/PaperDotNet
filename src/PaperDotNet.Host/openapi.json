@@ -11857,6 +11857,12 @@
               "type": "string"
             }
           },
+          "mcpTools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "endpoints": {
             "type": "boolean"
           }

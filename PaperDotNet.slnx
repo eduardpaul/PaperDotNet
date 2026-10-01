@@ -62,6 +62,10 @@
   <Folder Name="/src/Modules/AiWorkflows/">
     <Project Path="src/Modules/AiWorkflows/PaperDotNet.AiWorkflows/PaperDotNet.AiWorkflows.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Mcp/">
+    <Project Path="src/Modules/Mcp/PaperDotNet.Mcp.Contracts/PaperDotNet.Mcp.Contracts.csproj" />
+    <Project Path="src/Modules/Mcp/PaperDotNet.Mcp/PaperDotNet.Mcp.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Provisioning/">
     <Project Path="src/Modules/Provisioning/PaperDotNet.Provisioning.Contracts/PaperDotNet.Provisioning.Contracts.csproj" />
     <Project Path="src/Modules/Provisioning/PaperDotNet.Provisioning/PaperDotNet.Provisioning.csproj" />

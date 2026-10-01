@@ -42,6 +42,7 @@ public sealed class SearchModule : IModule
         services.AddScoped<ITermUsage>(sp => new TermUsage(sp.GetRequiredService<ISearchQueries>()));
         services.AddScoped(sp => new SearchService(sp.GetRequiredService<ISearchQueries>(), sp.GetRequiredService<ITermStore>(), sp.GetRequiredService<IItemAccess>()));
         services.AddScoped<SearchReindexer>();
+        services.AddScoped<PaperDotNet.Mcp.Contracts.IMcpTool>(sp => new SearchTool(sp.GetRequiredService<SearchService>(), sp.GetRequiredService<PaperDotNet.Api.Caller>()));
         services.AddOperationHandler<ReindexOperation>();
         services.AddScopes(SearchScopes.All);
     }

@@ -1,8 +1,8 @@
 using System.Text.Json;
-using Microsoft.AspNetCore.Http;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using PaperDotNet.Api;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Mcp.Contracts;
@@ -64,29 +64,20 @@ internal static class DocumentTools
         ContentType = "application/octet-stream",
     };
 
-    private static object Payload(DocumentResponse document) => new
-    {
-        document.WorkspaceId,
-        document.ListId,
-        itemId = document.ItemId,
-        document.Version,
-        document.Fields,
-        file = FileInfo(document.File),
-        duplicates = document.Duplicates.Select(duplicate => new { duplicate.WorkspaceId, duplicate.ListId, duplicate.ItemId, duplicate.Title }),
-    };
+    private static JsonNode? Payload(DocumentResponse document) => JsonSerializer.SerializeToNode(document, DocumentsJson.Default.DocumentResponse);
 
-    public static object FileInfo(FileVersionResponse file) => new
+    public static JsonObject FileInfo(FileVersionResponse file) => new()
     {
-        file.Number,
-        file.FileName,
-        file.MediaType,
-        file.Size,
-        file.Sha256,
-        file.PageCount,
+        ["number"] = file.Number,
+        ["fileName"] = file.FileName,
+        ["mediaType"] = file.MediaType,
+        ["size"] = file.Size,
+        ["sha256"] = file.Sha256,
+        ["pageCount"] = file.PageCount,
     };
 }
 
-internal sealed class UploadDocumentTool(DocumentService documents, IOptions<DocumentsOptions> options) : IMcpTool
+internal sealed class UploadDocumentTool(DocumentService documents, Caller caller, IOptions<DocumentsOptions> options) : IMcpTool
 {
     public string Name => "upload_document";
 
@@ -121,13 +112,13 @@ internal sealed class UploadDocumentTool(DocumentService documents, IOptions<Doc
         await using var content = new MemoryStream(bytes);
         var file = DocumentTools.File(content, arguments.GetRequiredString("fileName"));
         var result = await documents.UploadAsync(
-            arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"), file, arguments.GetString("title"),
-            arguments.GetGuid("contentTypeId"), arguments.GetString("languages"), cancellationToken, arguments.GetGuid("folderId"));
+            caller.Actor, arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"), file, arguments.GetString("title"),
+            arguments.GetGuid("contentTypeId"), arguments.GetString("languages"), arguments.GetGuid("folderId"), cancellationToken);
         return DocumentTools.From(result.Result);
     }
 }
 
-internal sealed class ReplaceDocumentTool(DocumentService documents, IOptions<DocumentsOptions> options) : IMcpTool
+internal sealed class ReplaceDocumentTool(DocumentService documents, Caller caller, IOptions<DocumentsOptions> options) : IMcpTool
 {
     public string Name => "replace_document";
 
@@ -160,13 +151,13 @@ internal sealed class ReplaceDocumentTool(DocumentService documents, IOptions<Do
         await using var content = new MemoryStream(bytes);
         var file = DocumentTools.File(content, arguments.GetRequiredString("fileName"));
         var result = await documents.ReplaceAsync(
-            arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"), arguments.GetRequiredGuid("itemId"),
+            caller.Actor, arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"), arguments.GetRequiredGuid("itemId"),
             file, arguments.GetString("languages"), sha256 is null ? null : $"\"{sha256}\"", cancellationToken);
         return DocumentTools.From(result.Result);
     }
 }
 
-internal sealed class GetFileTool(IListItemStore items, DocumentsDbContext db) : IMcpTool
+internal sealed class GetFileTool(IListItemStore items, DocumentsDbContext db, Caller caller) : IMcpTool
 {
     public string Name => "get_file";
 
@@ -185,16 +176,16 @@ internal sealed class GetFileTool(IListItemStore items, DocumentsDbContext db) :
 
     public async Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken)
     {
-        var version = await CurrentAsync(items, db, arguments, cancellationToken);
+        var version = await CurrentAsync(items, db, caller.TenantId, arguments, cancellationToken);
         return version switch
         {
             null => McpToolResult.Error("The item was not found (or you cannot read it)."),
             { File: null } => McpToolResult.Error("The item has no file."),
-            { File: { } file } => McpToolResult.FromJson(new { itemId = version.ItemId, file = DocumentTools.FileInfo(FileVersionResponse.From(file)) }),
+            { File: { } file } => McpToolResult.FromJson(new JsonObject { ["itemId"] = version.ItemId, ["file"] = DocumentTools.FileInfo(FileVersionResponse.From(file)) }),
         };
     }
 
-    internal static async Task<CurrentFile?> CurrentAsync(IListItemStore items, DocumentsDbContext db, McpArguments arguments, CancellationToken cancellationToken)
+    internal static async Task<CurrentFile?> CurrentAsync(IListItemStore items, DocumentsDbContext db, Guid tenantId, McpArguments arguments, CancellationToken cancellationToken)
     {
         var itemId = arguments.GetRequiredGuid("itemId");
         var item = await items.GetAsync(arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"), itemId, cancellationToken);
@@ -203,14 +194,14 @@ internal sealed class GetFileTool(IListItemStore items, DocumentsDbContext db) :
             return null;
         }
 
-        var file = await db.FileVersions.AsNoTracking().FirstOrDefaultAsync(version => version.ItemId == itemId && version.IsCurrent, cancellationToken);
+        var file = await DocumentQueries.CurrentAsync(db, tenantId, itemId, cancellationToken);
         return new CurrentFile(itemId, file);
     }
 
     internal sealed record CurrentFile(Guid ItemId, FileVersion? File);
 }
 
-internal sealed class ReadDocumentTool(IListItemStore items, DocumentsDbContext db) : IMcpTool
+internal sealed class ReadDocumentTool(IListItemStore items, DocumentsDbContext db, Caller caller) : IMcpTool
 {
     private const int DefaultPages = 5;
     private const int MaxPages = 20;
@@ -239,7 +230,7 @@ internal sealed class ReadDocumentTool(IListItemStore items, DocumentsDbContext 
 
     public async Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken)
     {
-        var current = await GetFileTool.CurrentAsync(items, db, arguments, cancellationToken);
+        var current = await GetFileTool.CurrentAsync(items, db, caller.TenantId, arguments, cancellationToken);
         if (current is null)
         {
             return McpToolResult.Error("The item was not found (or you cannot read it).");
@@ -253,13 +244,9 @@ internal sealed class ReadDocumentTool(IListItemStore items, DocumentsDbContext 
         var fromPage = Math.Max(1, arguments.GetInt32("fromPage") ?? 1);
         var maxPages = Math.Clamp(arguments.GetInt32("maxPages") ?? DefaultPages, 1, MaxPages);
         var maxCharacters = Math.Clamp(arguments.GetInt32("maxCharacters") ?? DefaultCharacters, 1, MaxCharacters);
-        var stored = await db.Pages.AsNoTracking()
-            .Where(page => page.StoredFileId == file.StoredFileId && page.PageNumber >= fromPage)
-            .OrderBy(page => page.PageNumber)
-            .Take(maxPages)
-            .Select(page => new { page.PageNumber, page.Text })
-            .ToListAsync(cancellationToken);
-        var pages = new List<object>();
+        var all = await DocumentQueries.PagesAsync(db, caller.TenantId, file.StoredFileId, cancellationToken);
+        var stored = all.Where(page => page.PageNumber >= fromPage).Take(maxPages).ToList();
+        var pages = new JsonArray();
         var used = 0;
         int? nextPage = null;
         var truncated = false;
@@ -274,7 +261,7 @@ internal sealed class ReadDocumentTool(IListItemStore items, DocumentsDbContext 
 
             var text = page.Text.Length > room ? page.Text[..room] : page.Text;
             truncated = text.Length < page.Text.Length;
-            pages.Add(new { page = page.PageNumber, text });
+            pages.Add((JsonNode)new JsonObject { ["page"] = page.PageNumber, ["text"] = text });
             used += text.Length;
             if (truncated)
             {
@@ -286,20 +273,20 @@ internal sealed class ReadDocumentTool(IListItemStore items, DocumentsDbContext 
         if (nextPage is null && stored.Count == maxPages)
         {
             var last = stored[^1].PageNumber;
-            if (await db.Pages.AsNoTracking().AnyAsync(page => page.StoredFileId == file.StoredFileId && page.PageNumber > last, cancellationToken))
+            if (all.Any(page => page.PageNumber > last))
             {
                 nextPage = last + 1;
             }
         }
 
-        return McpToolResult.FromJson(new
+        return McpToolResult.FromJson(new JsonObject
         {
-            file.FileName,
-            file.PageCount,
-            pages,
-            nextPage,
-            truncated,
-            message = pages.Count == 0
+            ["fileName"] = file.FileName,
+            ["pageCount"] = file.PageCount,
+            ["pages"] = pages,
+            ["nextPage"] = nextPage,
+            ["truncated"] = truncated,
+            ["message"] = pages.Count == 0
                 ? "No text is stored for this file yet: the library's workflows (\"Read the text\", OCR) have not read it, or are off."
                 : null,
         });

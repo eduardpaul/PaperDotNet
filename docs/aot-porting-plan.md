@@ -103,7 +103,7 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 
 | Step | Task | Status |
 |---|---|---|
-| T16a | MCP server (`/v1.0/mcp`, ModelContextProtocol SDK): tool contract with JSON-node results (no reflection), list and item tools, document tools, the search tool (from T12e), extension tools (`IExtensionBuilder.AddMcpTool`) | |
+| T16a | MCP server (`/v1.0/mcp`, ModelContextProtocol SDK): tool contract with JSON-node results (no reflection), list and item tools, document tools, the search tool (from T12e), extension tools (`IExtensionBuilder.AddMcpTool`) | done. Tools build results with `JsonObject` (`McpToolResult.FromJson`), take the tenant from `Caller`, and the scope check runs the scope requirements directly; extension tools are gated per tenant (`tests_tickets_count`, sample `samples_invoices_pending`); the search tool is keyword-only until T12e |
 | T16b | The audit log across modules (`/v1.0/auditLog` by entity type), from T07 | |
 | T16c | Admin CLI (`PaperDotNet.Cli`), backup and restore, the Papermerge import (`PaperDotNet.Import.Papermerge`), the CLI export and import of packages (from T13) | |
 | T16d | Tenants from the host name (custom hosts, host template) and the `X-Tenant` header (the old Tenancy module on Finbuckle), behind a reverse proxy; then remove `src/Modules/Tenancy` | |

@@ -122,6 +122,14 @@ public interface IExtensionBuilder
         where TActivity : class, IWorkflowActivity;
 
     /// <summary>
+    /// A tool for AI assistants on the MCP endpoint (API-09). The name must start with the extension id
+    /// with <c>.</c> and <c>-</c> replaced by <c>_</c>, then <c>_</c> (e.g. <c>acme_invoices_approve</c>);
+    /// the tool is offered only in tenants that enabled the extension.
+    /// </summary>
+    IExtensionBuilder AddMcpTool<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTool>()
+        where TTool : class, Mcp.Contracts.IMcpTool;
+
+    /// <summary>
     /// The extension's own tables (EXT-07): a scoped DbContext on the server's database, with the SQL of its migrations
     /// embedded in the extension assembly (see <see cref="ExtensionDbContext"/>).
     /// </summary>

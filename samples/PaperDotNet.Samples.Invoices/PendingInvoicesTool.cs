@@ -1,9 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Mcp.Contracts;
-using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Samples.Invoices;
 
@@ -26,11 +24,22 @@ public sealed class PendingInvoicesTool(IListItemStore items) : IMcpTool
     {
         var (found, error) = await items.QueryAsync(arguments.GetRequiredGuid("workspaceId"), arguments.GetRequiredGuid("listId"),
             new ListItemQuery("fields/status eq 'pendingApproval'", "fields/amount desc"), cancellationToken);
-        return error is not null
-            ? McpToolResult.Error(error)
-            : McpToolResult.FromJson(new
+        if (error is not null)
+        {
+            return McpToolResult.Error(error);
+        }
+
+        var invoices = new JsonArray();
+        foreach (var item in found)
+        {
+            invoices.Add((JsonNode)new JsonObject
             {
-                invoices = found.Select(i => new { i.Id, title = i.Fields["title"]?.GetValue<string>(), amount = i.Fields["amount"]?.GetValue<decimal>() }),
+                ["id"] = item.Id,
+                ["title"] = item.Fields["title"]?.DeepClone(),
+                ["amount"] = item.Fields["amount"]?.DeepClone(),
             });
+        }
+
+        return McpToolResult.FromJson(new JsonObject { ["invoices"] = invoices });
     }
 }

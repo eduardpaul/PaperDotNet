@@ -49,8 +49,17 @@ internal abstract class BuiltInTool(string name, string description, JsonElement
         ["fields"] = item.Fields.DeepClone(),
     };
 
-    protected static McpToolResult Page(IReadOnlyList<ListItemData> items, string? nextCursor) =>
-        McpToolResult.FromJson(new JsonObject { ["items"] = Array(items.Select(Item)), ["nextCursor"] = nextCursor });
+    /// <summary>A page of items; <c>nextCursor</c> only when there is a next page.</summary>
+    protected static McpToolResult Page(IReadOnlyList<ListItemData> items, string? nextCursor)
+    {
+        var page = new JsonObject { ["items"] = Array(items.Select(Item)) };
+        if (nextCursor is not null)
+        {
+            page["nextCursor"] = nextCursor;
+        }
+
+        return McpToolResult.FromJson(page);
+    }
 
     protected static JsonArray Array(IEnumerable<JsonNode?> nodes) => [.. nodes];
 

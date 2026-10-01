@@ -9,10 +9,11 @@
     <ProjectReference Include="..\..\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
     <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
     <ProjectReference Include="..\..\Taxonomy\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
+    <ProjectReference Include="..\..\Mcp\PaperDotNet.Mcp.Contracts\PaperDotNet.Mcp.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Semantic and hybrid search (SRC-07, SRC-08) and the MCP tool come later (T12e, T16). -->
-    <Compile Remove="Features/Semantic.cs;Features/SearchTool.cs" />
-    <None Include="Features/Semantic.cs;Features/SearchTool.cs" />
+    <Compile Remove="Features/Semantic.cs" />
+    <None Include="Features/Semantic.cs" />
   </ItemGroup>
 </Project>

@@ -8,6 +8,7 @@ using PaperDotNet.Api;
 using PaperDotNet.Extensions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Mcp.Contracts;
 using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.IntegrationTests.Extension;
@@ -44,6 +45,7 @@ public sealed class TicketsExtension : IExtension
         builder.AddWorkflowActivity<EchoActivity>();
         builder.AddWorkflowActivity<AwaitSignalActivity>();
         builder.AddTemplateSection<TicketMarkerSection>();
+        builder.AddMcpTool<TicketCountTool>();
         builder.MapEndpoints(api => api.MapGet("/stats", (Caller caller) => TypedResults.Ok(new TicketStats(TicketCounter.Count(caller.TenantId))))
             .RequireScope($"{Id}.read"));
     }
@@ -129,6 +131,23 @@ public sealed class AwaitSignalActivity : IWorkflowActivity
             ? WorkflowActivityResult.Wait(WaitKind, itemId.ToString("N"), DateTimeOffset.UtcNow.AddDays(ActivityInputs.Number(context.Inputs, "days") ?? 30),
                 new JsonObject { ["about"] = itemId.ToString() })
             : WorkflowActivityResult.Fail("An item is required."));
+}
+
+/// <summary>MCP tool <c>tests_tickets_count</c> (API-09): tickets added in the caller's tenant.</summary>
+public sealed class TicketCountTool(Caller caller) : IMcpTool
+{
+    public string Name => "tests_tickets_count";
+
+    public string Description => "Counts the tickets added in this organization.";
+
+    public JsonElement InputSchema { get; } = McpSchema.ObjectSchema();
+
+    public string? RequiredScope => null;
+
+    public bool IsReadOnly => true;
+
+    public Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken) =>
+        Task.FromResult(McpToolResult.FromJson(new JsonObject { ["added"] = TicketCounter.Count(caller.TenantId) }));
 }
 
 public sealed record TicketStats(int Added);

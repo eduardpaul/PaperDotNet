@@ -14,6 +14,7 @@ using PaperDotNet.Extensions.Generated;
 using PaperDotNet.Identity;
 using PaperDotNet.Jobs;
 using PaperDotNet.Lists;
+using PaperDotNet.Mcp;
 using PaperDotNet.Messaging;
 using PaperDotNet.Notes;
 using PaperDotNet.Notifications;
@@ -41,7 +42,7 @@ internal static class PaperDotNetHost
     private static readonly IModule[] Modules =
         [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule(), new JobsModule(), new WorkspacesModule(), new ExtensionHostModule(),
             new NotificationsModule(), new CollaborationModule(), new NotesModule(), new TasksModule(), new CalendarModule(), new TaxonomyModule(), new SearchModule(), new ProvisioningModule(),
-            new AiWorkflowsModule(), new DocumentsModule()];
+            new AiWorkflowsModule(), new DocumentsModule(), new McpModule()];
 
     /// <summary>Extensions added besides those this build references (tests register theirs here before the host starts).</summary>
     public static List<IExtension> AdditionalExtensions { get; } = [];

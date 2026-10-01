@@ -4,9 +4,4 @@
     host build as a project or package reference; the host's generator finds it. Its tables' SQL: eng/schema.sh.
   -->
   <Import Project="..\..\src\Extensions\Extension.props" />
-  <ItemGroup>
-    <!-- The approval workflow (trigger, payment wait, built-in workflow) and the MCP tool come with T14 and T16 (docs/aot-porting-plan.md). -->
-    <Compile Remove="Workflow.Later.cs" />
-    <None Include="Workflow.Later.cs" />
-  </ItemGroup>
 </Project>

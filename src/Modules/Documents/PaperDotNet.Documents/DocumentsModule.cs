@@ -46,6 +46,10 @@ public sealed class DocumentsModule : IModule
         services.AddScoped<DocumentEvents>();
         services.AddScoped<DocumentService>();
         services.AddScoped<PageEditor>();
+        services.AddScoped<PaperDotNet.Mcp.Contracts.IMcpTool, UploadDocumentTool>();
+        services.AddScoped<PaperDotNet.Mcp.Contracts.IMcpTool, ReplaceDocumentTool>();
+        services.AddScoped<PaperDotNet.Mcp.Contracts.IMcpTool, GetFileTool>();
+        services.AddScoped<PaperDotNet.Mcp.Contracts.IMcpTool, ReadDocumentTool>();
         services.AddScoped<ITemplateHandler, LibrarySettingsTemplateHandler>();
         services.AddScoped<ITemplateHandler, DocumentFilesTemplateHandler>();
         services.AddScoped<IItemSearchContributor, DocumentSearchContent>();

@@ -2,6 +2,8 @@ using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 using PaperDotNet.Extensions.Testing;
 using PaperDotNet.Lists.Contracts;
 
@@ -25,6 +27,28 @@ public sealed class InvoicesExtensionTests(InvoicesHost host)
         var list = await admin.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name = "Invoices", templateKey = $"{InvoicesExtension.Id}.invoices" }, Ct);
         Assert.Equal(HttpStatusCode.Created, list.StatusCode);
         return (ws, (await list.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task Assistants_list_pending_invoices_with_the_mcp_tool()
+    {
+        var tenant = await host.CreateTenantAsync(cancellationToken: Ct);
+        using var admin = await tenant.CreateClientAsync(cancellationToken: Ct);
+        var (ws, list) = await CreateInvoiceListAsync(admin);
+        var store = (IServiceProvider services) => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin);
+        await tenant.RunAsync(services => store(services).CreateAsync(ws, list, new JsonObject { ["title"] = "INV-1", ["amount"] = 5000 }, null, Ct), Ct);
+        await tenant.RunAsync(services => store(services).CreateAsync(ws, list, new JsonObject { ["title"] = "INV-2", ["amount"] = 80 }, null, Ct), Ct);
+
+        var transport = new HttpClientTransport(
+            new HttpClientTransportOptions { Endpoint = new Uri(admin.BaseAddress!, "/v1.0/mcp"), TransportMode = HttpTransportMode.StreamableHttp }, admin, ownsHttpClient: false);
+        await using var mcp = await McpClient.CreateAsync(transport, cancellationToken: Ct);
+        var result = await mcp.CallToolAsync("samples_invoices_pending", new Dictionary<string, object?> { ["workspaceId"] = ws.ToString(), ["listId"] = list.ToString() }, cancellationToken: Ct);
+        var text = Assert.IsType<TextContentBlock>(Assert.Single(result.Content)).Text;
+        Assert.True(result.IsError != true, text);
+        Assert.Equal(["INV-1"], JsonElement.Parse(text).GetProperty("invoices").EnumerateArray().Select(i => i.GetProperty("title").GetString()));
+
+        await tenant.DisableAsync(InvoicesExtension.Id, Ct);
+        Assert.DoesNotContain("samples_invoices_pending", (await mcp.ListToolsAsync(cancellationToken: Ct)).Select(t => t.Name));
     }
 
     [Fact]

@@ -1,11 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using PaperDotNet.Abstractions;
@@ -101,9 +96,7 @@ public sealed partial class McpModule : IModule
             return Result(McpToolResult.Error($"Unknown tool '{name}', or you may not use it."));
         }
 
-        var arguments = new McpArguments(context.Params!.Arguments is { } args
-            ? new Dictionary<string, JsonElement>(args)
-            : new Dictionary<string, JsonElement>());
+        var arguments = new McpArguments(context.Params!.Arguments is { } args ? args.ToDictionary() : []);
         try
         {
             return Result(await tool.CallAsync(arguments, ct));
@@ -127,7 +120,7 @@ public sealed partial class McpModule : IModule
             }
 
             if (tool.RequiredScope is { } scope
-                && (user is null || !(await authorization.AuthorizeAsync(user, ScopePolicyProvider.Prefix + scope)).Succeeded))
+                && (user is null || !(await authorization.AuthorizeAsync(user, null, [new ActiveUserRequirement(), new ScopeRequirement(scope)])).Succeeded))
             {
                 continue;
             }
