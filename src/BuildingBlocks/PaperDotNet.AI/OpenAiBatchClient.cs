@@ -171,7 +171,7 @@ public sealed class OpenAiBatchClient(OpenAIClient client, string completionWind
         var parts = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = line.Input });
         foreach (var image in images)
         {
-            parts.Add(new JsonObject
+            parts.Add((JsonNode)new JsonObject
             {
                 ["type"] = "image_url",
                 ["image_url"] = new JsonObject { ["url"] = $"data:{image.MediaType};base64,{Convert.ToBase64String(image.Content)}" },

@@ -52,7 +52,8 @@ public sealed record RunDto(
     DateTimeOffset StartedAt,
     DateTimeOffset? CompletedAt);
 
-public sealed record ActivityDto(string Key, string Description, IReadOnlyList<string> Outcomes);
+/// <summary>An activity of the catalog: its outcome ports and, when it describes them, JSON Schemas of its inputs and output.</summary>
+public sealed record ActivityDto(string Key, string Description, IReadOnlyList<string> Outcomes, JsonObject? InputSchema = null, JsonObject? OutputSchema = null);
 
 /// <summary>
 /// Workflows (ADR-0036) of a workspace: members read them, owners (workspace managers) change them, contributors start
@@ -149,7 +150,7 @@ internal static class WorkflowEndpoints
     private static Ok<IReadOnlyList<ActivityDto>> Activities(IEnumerable<IWorkflowActivity> activities) =>
         TypedResults.Ok<IReadOnlyList<ActivityDto>>([
             .. FlowActivities.All.Select(a => new ActivityDto(a, "Flow activity (see ADR-0036).", [.. FlowActivities.Ports(a, null)])),
-            .. activities.Select(a => new ActivityDto(a.Key, a.Description, ["done", "error", .. a.Outcomes])),
+            .. activities.Select(a => new ActivityDto(a.Key, a.Description, ["done", "error", .. a.Outcomes], a.InputSchema, a.OutputSchema)),
         ]);
 
     private static async Task<Results<Ok<Page<WorkflowDto>>, ProblemHttpResult>> ListAsync(

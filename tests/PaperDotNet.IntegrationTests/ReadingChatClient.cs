@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.AI;
@@ -17,8 +16,6 @@ namespace PaperDotNet.IntegrationTests;
 /// </summary>
 internal sealed partial class ReadingChatClient : IChatClient
 {
-    public static readonly ReadingChatClient Instance = new();
-
     private int _calls;
 
     /// <summary>Calls answered so far (cached answers never get here).</summary>

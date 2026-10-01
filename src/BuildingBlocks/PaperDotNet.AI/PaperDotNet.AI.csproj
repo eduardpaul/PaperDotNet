@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- AI providers (P6, ADR-0027): Microsoft.Extensions.AI abstractions, created from configuration. Off by default. -->
+  <!--
+    AI providers (P6, ADR-0027): Microsoft.Extensions.AI abstractions, created from configuration. Off by default.
+    The OpenAI SDK and its Microsoft.Extensions.AI adapter are trim and AOT compatible (ADR-0039).
+  -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.Extensions.AI" />
@@ -8,8 +14,5 @@
   <ItemGroup>
     <!-- The batch API client implements the workflows' contract for batched AI (AI-08). -->
     <ProjectReference Include="..\..\Modules\Workflows\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
   </ItemGroup>
 </Project>

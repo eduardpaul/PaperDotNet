@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Design;
+using PaperDotNet.AiWorkflows.Data;
 using PaperDotNet.Audit.Data;
 using PaperDotNet.Calendar.Data;
 using PaperDotNet.Collaboration.Data;
@@ -93,4 +94,9 @@ internal sealed class SearchFactory : IDesignTimeDbContextFactory<SearchDbContex
 internal sealed class ProvisioningFactory : IDesignTimeDbContextFactory<ProvisioningDbContext>
 {
     public ProvisioningDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<ProvisioningDbContext>());
+}
+
+internal sealed class AiWorkflowsFactory : IDesignTimeDbContextFactory<AiWorkflowsDbContext>
+{
+    public AiWorkflowsDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<AiWorkflowsDbContext>());
 }

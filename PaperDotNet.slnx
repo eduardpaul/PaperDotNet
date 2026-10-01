@@ -8,6 +8,7 @@
   </Folder>
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/PaperDotNet.Abstractions/PaperDotNet.Abstractions.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.AI/PaperDotNet.AI.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Api/PaperDotNet.Api.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Messaging/PaperDotNet.Messaging.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence/PaperDotNet.Persistence.csproj" />
@@ -54,6 +55,9 @@
   <Folder Name="/src/Modules/Notifications/">
     <Project Path="src/Modules/Notifications/PaperDotNet.Notifications.Contracts/PaperDotNet.Notifications.Contracts.csproj" />
     <Project Path="src/Modules/Notifications/PaperDotNet.Notifications/PaperDotNet.Notifications.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/AiWorkflows/">
+    <Project Path="src/Modules/AiWorkflows/PaperDotNet.AiWorkflows/PaperDotNet.AiWorkflows.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Provisioning/">
     <Project Path="src/Modules/Provisioning/PaperDotNet.Provisioning.Contracts/PaperDotNet.Provisioning.Contracts.csproj" />

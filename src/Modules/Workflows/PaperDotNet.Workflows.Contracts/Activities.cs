@@ -118,6 +118,12 @@ public interface IWorkflowActivity
     /// <summary>Outcome ports besides <c>done</c> and <c>error</c>.</summary>
     IReadOnlyList<string> Outcomes => [];
 
+    /// <summary>A JSON Schema of the inputs (see <see cref="ActivitySchemas"/>), for editors and the activity catalog; null when not described.</summary>
+    JsonObject? InputSchema => null;
+
+    /// <summary>A JSON Schema of the output, which later nodes read as <c>{step:node.name}</c>; null when not described.</summary>
+    JsonObject? OutputSchema => null;
+
     Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken);
 }
 

@@ -1,17 +1,12 @@
-using System.Collections.Concurrent;
 using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.IntegrationTests;
 
 /// <summary>
-/// A provider's batch API in memory, for the tenants that ask for one (<see cref="For"/>; other tenants have none, so
-/// their batches are answered by the chat model): answers <c>Batch: </c> and the input; can fail after submitting, or
-/// fail batches.
+/// A provider's batch API in memory: answers <c>Batch: </c> and the input; can fail after submitting, or fail batches.
 /// </summary>
 internal sealed class FakeBatchClient : IAiBatchClient
 {
-    private static readonly ConcurrentDictionary<string, FakeBatchClient> Clients = new(StringComparer.Ordinal);
-
     public List<(Guid BatchId, IReadOnlyList<AiBatchLine> Lines)> Submitted { get; } = [];
 
     public bool CrashAfterSubmit { get; set; }
@@ -20,10 +15,6 @@ internal sealed class FakeBatchClient : IAiBatchClient
 
     /// <summary>The answer to a line; default: <c>Batch: </c> and the input.</summary>
     public Func<AiBatchLine, string>? Answer { get; set; }
-
-    /// <summary>The client of a tenant that uses one (created on first use), else null.</summary>
-    public static FakeBatchClient? For(string? tenantIdentifier) =>
-        tenantIdentifier is not null && tenantIdentifier.StartsWith("wf-batch-api", StringComparison.Ordinal) ? Clients.GetOrAdd(tenantIdentifier, _ => new()) : null;
 
     private static string ProviderId(Guid batchId) => "batch_" + batchId.ToString("N");
 

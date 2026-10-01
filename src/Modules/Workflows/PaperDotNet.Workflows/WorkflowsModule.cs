@@ -41,6 +41,7 @@ public sealed class WorkflowsModule : IModule
         services.AddSingleton<IWorkflowTriggers>(sp => new WorkflowTriggerPublisher(sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<TimeProvider>()));
         services.AddTenantRecurringJob<WorkflowScheduleJob>(WorkflowScheduleJob.Name, WorkflowScheduleJob.Schedule);
         services.AddScoped<WorkflowInterpreter>();
+        services.AddScoped<IWorkflowDirectory>(sp => new WorkflowDirectory(sp.GetRequiredService<WorkflowsDbContext>()));
         services.AddScoped(sp => new RunService(
             sp.GetRequiredService<WorkflowsDbContext>(), sp.GetRequiredService<PaperDotNet.Messaging.IOutbox>(),
             sp.GetRequiredService<PaperDotNet.Collaboration.Contracts.IItemActivity>(), sp.GetRequiredService<TimeProvider>()));

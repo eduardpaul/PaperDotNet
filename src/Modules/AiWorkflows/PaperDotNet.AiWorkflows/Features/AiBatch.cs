@@ -1,8 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.Logging;
-using PaperDotNet.AiWorkflows.Data;
 using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.AiWorkflows.Features;
@@ -104,10 +102,7 @@ internal static class AiBatch
 /// and a batch is tagged with an id derived from the step's execution id, so a retry adopts what it already sent. Built
 /// on the public workflow contracts only (<see cref="IWorkflowBookmarks"/>, <see cref="IWorkflowDirectory"/>).
 /// </summary>
-internal sealed partial class AiBatchActivity(
-    AiGateway gateway, IWorkflowBookmarks bookmarks, IWorkflowDirectory workflows, TimeProvider time, ILogger<AiBatchActivity> logger,
-    IAiBatchClient? client = null)
-    : IWorkflowActivity
+internal sealed partial class AiBatchActivity(IWorkflowBookmarks bookmarks, TimeProvider time, ILogger<AiBatchActivity> logger) : IWorkflowActivity
 {
     private const int Page = 500;
 
@@ -138,12 +133,9 @@ internal sealed partial class AiBatchActivity(
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
-        if (context.RunId is not { } runId)
-        {
-            return WorkflowActivityResult.Fail("ai.batch runs in a workflow run.");
-        }
-
-        var work = new BatchWork(bookmarks, workflows, context, runId);
+        var gateway = context.Services.GetRequiredService<AiGateway>();
+        var client = context.Services.GetService<IAiBatchClient>();
+        var work = new BatchWork(bookmarks, context.Services.GetRequiredService<IWorkflowDirectory>(), gateway, client, context);
         if (context.Resumed is { Kind: AiBatch.PollKind } poll)
         {
             return await ProviderAsync(() => CollectAsync(work, poll.Data ?? [], cancellationToken));
@@ -161,7 +153,7 @@ internal sealed partial class AiBatchActivity(
             return WorkflowActivityResult.Ok(Counts(0, 0, 0));
         }
 
-        if (await gateway.BudgetProblemAsync(cancellationToken) is { } problem)
+        if (await gateway.BudgetProblemAsync(context.TenantId, cancellationToken) is { } problem)
         {
             LogSkipped(problem);
             return WorkflowActivityResult.Ok(Counts(0, 0, await work.ReleaseAsync(waiting, cancellationToken)));
@@ -186,6 +178,8 @@ internal sealed partial class AiBatchActivity(
     /// <summary>Without a batch API: asks the chat model each question once and completes its steps' waits.</summary>
     private async Task<WorkflowActivityResult> AnswerAsync(BatchWork work, List<WorkflowOpenWait> waiting, CancellationToken ct)
     {
+        var gateway = work.Gateway;
+        var tenantId = work.Context.TenantId;
         int answered = 0, failed = 0;
         var groups = waiting.GroupBy(w => AiBatch.Text(w.Data, "hash")).ToList();
         for (var i = 0; i < groups.Count; i++)
@@ -193,11 +187,11 @@ internal sealed partial class AiBatchActivity(
             var group = groups[i].ToList();
             var data = group[0].Data ?? [];
             var hash = groups[i].Key ?? string.Empty;
-            var text = await gateway.CachedAsync(hash, AiBatch.Question(data), time.GetUtcNow(), ct);
+            var text = await gateway.CachedAsync(tenantId, hash, AiBatch.Question(data), time.GetUtcNow(), ct);
             string? error = null;
             if (text is null)
             {
-                var (call, problem) = await gateway.CallAsync(AiBatch.Question(data), AiBatch.Text(data, "model") ?? "default", hash, work.Context.Source, work.RunId, ct);
+                var (call, problem) = await gateway.CallAsync(tenantId, AiBatch.Question(data), AiBatch.Text(data, "model") ?? "default", hash, work.RunId, ct);
                 if (call is null)
                 {
                     // The day's budget is used up: the rest wait for the next batch (or their deadline).
@@ -225,6 +219,7 @@ internal sealed partial class AiBatchActivity(
     /// <summary>With a batch API: one batch per model (each question once), then waits and polls for the results.</summary>
     private async Task<WorkflowActivityResult> SendAsync(BatchWork work, List<WorkflowOpenWait> waiting, CancellationToken ct)
     {
+        var client = work.Client!;
         var batches = new JsonArray();
         foreach (var model in waiting.GroupBy(w => AiBatch.Text(w.Data, "model") ?? "default"))
         {
@@ -234,16 +229,16 @@ internal sealed partial class AiBatchActivity(
                 // Images are loaded now: the waits keep only which pages of which item.
                 var question = AiBatch.Question(group.First().Data ?? []);
                 var images = question.Images is { } pages
-                    ? [.. (await gateway.LoadImagesAsync(pages.ItemId, pages.Pages, ct)).Select(i => new AiBatchImage(i.MediaType, i.Content))]
+                    ? [.. (await work.Gateway.LoadImagesAsync(work.Context.TenantId, pages.ItemId, pages.Pages, ct)).Select(i => new AiBatchImage(i.MediaType, i.Content))]
                     : (List<AiBatchImage>?)null;
                 lines.Add(new AiBatchLine(group.Key, model.Key, question.Instructions, question.Input, question.Schema, images));
             }
 
             // The same tag when the step runs again: a batch sent before a crash or failure is adopted, not sent twice.
             var tag = Tag(work.Context.ExecutionId, model.Key);
-            var providerId = await client!.FindAsync(tag, ct) ?? await client.SubmitAsync(tag, lines, ct);
+            var providerId = await client.FindAsync(tag, ct) ?? await client.SubmitAsync(tag, lines, ct);
             LogSubmitted(tag, providerId, lines.Count);
-            batches.Add(new JsonObject { ["tag"] = tag.ToString(), ["model"] = model.Key, ["providerId"] = providerId });
+            batches.Add((JsonNode)new JsonObject { ["tag"] = tag.ToString(), ["model"] = model.Key, ["providerId"] = providerId });
         }
 
         return Poll(work, batches);
@@ -252,6 +247,7 @@ internal sealed partial class AiBatchActivity(
     /// <summary>Checks the provider's batches: finished ones complete their steps' waits; the others are polled again.</summary>
     private async Task<WorkflowActivityResult> CollectAsync(BatchWork work, JsonObject state, CancellationToken ct)
     {
+        var client = work.Client ?? throw new InvalidOperationException("The AI batch API is no longer configured.");
         var pending = new JsonArray();
         int answered = 0, failed = 0, released = 0;
         var taken = await work.TakenAsync(ct);
@@ -259,7 +255,7 @@ internal sealed partial class AiBatchActivity(
         {
             var providerId = AiBatch.Text(batch, "providerId")!;
             var model = AiBatch.Text(batch, "model");
-            var status = await client!.GetAsync(providerId, ct);
+            var status = await client.GetAsync(providerId, ct);
             if (status.State == AiBatchState.Running)
             {
                 pending.Add(batch.DeepClone());
@@ -277,12 +273,12 @@ internal sealed partial class AiBatchActivity(
                 }
 
                 var data = group.First().Data;
-                var call = AiGateway.NewCall(AiBatch.Text(data, "activity") ?? "ai.prompt", work.Context.Source, work.RunId, model ?? "default", group.Key,
+                var call = AiGateway.NewCall(work.Context.TenantId, AiBatch.Text(data, "activity") ?? "ai.prompt", AiGateway.WorkflowSource, work.RunId, model ?? "default", group.Key,
                     result.Error is null ? result.Text : null, false, time.GetUtcNow());
                 call.InputTokens = result.InputTokens;
                 call.OutputTokens = result.OutputTokens;
                 call.Error = result.Error is null ? null : AiGateway.Truncate(result.Error, 2000);
-                await gateway.AddAsync(call, ct);
+                await work.Gateway.AddAsync(call, ct);
                 var count = await work.CompleteAsync([.. group], call.Response, call.Response is null ? result.Error ?? "The model gave no answer." : null, ct);
                 if (call.Response is null)
                 {
@@ -327,13 +323,19 @@ internal sealed partial class AiBatchActivity(
     private partial void LogCollected(string providerId, AiBatchState state, int results);
 
     /// <summary>The waiting questions a batch run works on, through the workflow contracts.</summary>
-    private sealed class BatchWork(IWorkflowBookmarks bookmarks, IWorkflowDirectory workflows, WorkflowActivityContext context, Guid runId)
+    private sealed class BatchWork(IWorkflowBookmarks bookmarks, IWorkflowDirectory workflows, AiGateway gateway, IAiBatchClient? client, WorkflowActivityContext context)
     {
         public WorkflowActivityContext Context => context;
 
-        public Guid RunId => runId;
+        public AiGateway Gateway => gateway;
 
-        private string Claim => runId.ToString("N");
+        public IAiBatchClient? Client => client;
+
+        public Guid RunId => context.RunId;
+
+        private Guid Tenant => context.TenantId;
+
+        private string Claim => context.RunId.ToString("N");
 
         /// <summary>
         /// Takes up to <paramref name="max"/> open questions of the workspace, oldest first: free ones, this run's, and ones
@@ -346,7 +348,7 @@ internal sealed partial class AiBatchActivity(
             var active = new Dictionary<string, bool>();
             for (var skip = 0; taken.Count < max; skip += Page)
             {
-                var page = await bookmarks.ListOpenAsync(AiBatch.WaitKind, context.WorkspaceId, skip, Page, ct);
+                var page = await bookmarks.ListOpenAsync(Tenant, AiBatch.WaitKind, context.WorkspaceId, skip, Page, ct);
                 foreach (var wait in page)
                 {
                     var claim = AiBatch.Text(wait.Data, AiBatch.ClaimedBy);
@@ -354,7 +356,7 @@ internal sealed partial class AiBatchActivity(
                     {
                         if (!active.TryGetValue(claim, out var busy))
                         {
-                            busy = Guid.TryParseExact(claim, "N", out var other) && await workflows.IsRunActiveAsync(other, ct);
+                            busy = Guid.TryParseExact(claim, "N", out var other) && await workflows.IsRunActiveAsync(Tenant, other, ct);
                             active[claim] = busy;
                         }
 
@@ -368,7 +370,7 @@ internal sealed partial class AiBatchActivity(
                     if (claim != Claim)
                     {
                         data[AiBatch.ClaimedBy] = Claim;
-                        if (!await bookmarks.SetDataAsync(AiBatch.WaitKind, wait.Key, data, ct))
+                        if (!await bookmarks.SetDataAsync(Tenant, AiBatch.WaitKind, wait.Key, data, ct))
                         {
                             continue; // answered, timed out or taken meanwhile
                         }
@@ -396,7 +398,7 @@ internal sealed partial class AiBatchActivity(
             var taken = new List<WorkflowOpenWait>();
             for (var skip = 0; ; skip += Page)
             {
-                var page = await bookmarks.ListOpenAsync(AiBatch.WaitKind, context.WorkspaceId, skip, Page, ct);
+                var page = await bookmarks.ListOpenAsync(Tenant, AiBatch.WaitKind, context.WorkspaceId, skip, Page, ct);
                 taken.AddRange(page.Where(w => AiBatch.Text(w.Data, AiBatch.ClaimedBy) == Claim));
                 if (page.Count < Page)
                 {
@@ -413,7 +415,7 @@ internal sealed partial class AiBatchActivity(
             {
                 var data = wait.Data?.DeepClone().AsObject() ?? [];
                 data.Remove(AiBatch.ClaimedBy);
-                if (await bookmarks.SetDataAsync(AiBatch.WaitKind, wait.Key, data, ct))
+                if (await bookmarks.SetDataAsync(Tenant, AiBatch.WaitKind, wait.Key, data, ct))
                 {
                     released++;
                 }
@@ -429,7 +431,7 @@ internal sealed partial class AiBatchActivity(
             foreach (var wait in waits)
             {
                 var payload = text is not null ? new JsonObject { ["text"] = text } : new JsonObject { ["error"] = error ?? "No answer." };
-                if (await bookmarks.CompleteAsync(AiBatch.WaitKind, wait.Key, payload, ct))
+                if (await bookmarks.CompleteAsync(Tenant, AiBatch.WaitKind, wait.Key, payload, ct))
                 {
                     count++;
                 }

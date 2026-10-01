@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
+using PaperDotNet.AI;
+using PaperDotNet.AiWorkflows;
 using PaperDotNet.Api;
 using PaperDotNet.Audit;
 using PaperDotNet.Calendar;
@@ -37,7 +39,8 @@ internal static class PaperDotNetHost
 {
     private static readonly IModule[] Modules =
         [new IdentityModule(), new ListsModule(), new AuditModule(), new WorkflowsModule(), new JobsModule(), new WorkspacesModule(), new ExtensionHostModule(),
-            new NotificationsModule(), new CollaborationModule(), new NotesModule(), new TasksModule(), new CalendarModule(), new TaxonomyModule(), new SearchModule(), new ProvisioningModule()];
+            new NotificationsModule(), new CollaborationModule(), new NotesModule(), new TasksModule(), new CalendarModule(), new TaxonomyModule(), new SearchModule(), new ProvisioningModule(),
+            new AiWorkflowsModule()];
 
     /// <summary>Extensions added besides those this build references (tests register theirs here before the host starts).</summary>
     public static List<IExtension> AdditionalExtensions { get; } = [];
@@ -53,6 +56,7 @@ internal static class PaperDotNetHost
         services.AddPaperDotNetPersistence();
         services.AddPaperDotNetMessaging();
         services.AddPaperDotNetStorage(configuration);
+        services.AddPaperDotNetAI(configuration);
         foreach (var module in Modules)
         {
             module.AddServices(services, configuration);

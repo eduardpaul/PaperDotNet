@@ -8862,8 +8862,29 @@
             "items": {
               "type": "string"
             }
+          },
+          "inputSchema": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "outputSchema": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
           }
-        }
+        },
+        "description": "An activity of the catalog: its outcome ports and, when it describes them, JSON Schemas of its inputs and output."
       },
       "ActivityResponse": {
         "required": [

@@ -19,6 +19,19 @@ public interface IItemSearchContributor
     Task<IReadOnlyDictionary<Guid, ItemSearchContent>> GetContentAsync(Guid tenantId, IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken);
 }
 
+/// <summary>A page of an item as an image (a JPEG, for example).</summary>
+public sealed record ItemPageImage(int Page, string MediaType, byte[] Content);
+
+/// <summary>
+/// The pages of items as images, for AI models that read images (AI activities with <c>includeImages</c>): Documents
+/// renders the pages of an item's current file.
+/// </summary>
+public interface IItemPageImageSource
+{
+    /// <summary>The first <paramref name="maxPages"/> pages of the item as images, page 1 first; empty when it has none.</summary>
+    Task<IReadOnlyList<ItemPageImage>> GetPageImagesAsync(Guid tenantId, Guid itemId, int maxPages, CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// What a user may read across a tenant's lists (ADR-0035), for indexes kept outside Lists (search): documents of
 /// <see cref="FullWorkspaces"/> (managed by the user), and documents of <see cref="Workspaces"/> (where the user is a
