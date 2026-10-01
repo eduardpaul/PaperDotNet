@@ -1,11 +1,10 @@
 using System.Text.Json.Nodes;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
-using PaperDotNet.Persistence;
 using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Documents.Features;
@@ -16,7 +15,10 @@ internal static class DocumentActivity
     public const string NoFile = "The item has no file (document steps work on documents of a library).";
 
     public static async Task<FileVersion?> CurrentAsync(DocumentsDbContext db, WorkflowActivityContext context, CancellationToken ct) =>
-        context.Item is { } item ? await db.FileVersions.FirstOrDefaultAsync(v => v.ItemId == item.ItemId && v.IsCurrent, ct) : null;
+        context.ItemId is { } item ? await DocumentQueries.CurrentAsync(db, context.TenantId, item, ct) : null;
+
+    /// <summary>The author of what a step makes: the run's actor, for the user who started it (live events).</summary>
+    public static ChangeActor Actor(WorkflowActivityContext context) => context.Actor with { UserId = context.StartedBy ?? context.Actor.UserId };
 
     /// <summary>Runs work on the file; a file that cannot be read fails the step with why (it would fail again on a retry).</summary>
     public static async Task<WorkflowActivityResult> ReadingAsync(Func<Task<WorkflowActivityResult>> work)
@@ -49,9 +51,7 @@ internal static class DocumentActivity
 /// <c>document.readText</c> (ADR-0038): the text layer of a PDF as page texts, the page count and the search text of the
 /// item. Continues on <c>text</c> when the file has text, on <c>noText</c> for scans and photos (e.g. to OCR them).
 /// </summary>
-internal sealed class ReadTextActivity(
-    DocumentsDbContext db, IBlobStore blobs, IListItemStore items, IUserPreferences preferences, ILiveEvents live, ITenantContext tenant, ICurrentUser user)
-    : IWorkflowActivity
+internal sealed class ReadTextActivity(IBlobStore blobs, IUserPreferences preferences, ILiveEvents live) : IWorkflowActivity
 {
     public string Key => "document.readText";
 
@@ -68,15 +68,17 @@ internal sealed class ReadTextActivity(
 
     private async Task<WorkflowActivityResult> ReadAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
+        var db = context.Services.GetRequiredService<DocumentsDbContext>();
         if (await DocumentActivity.CurrentAsync(db, context, cancellationToken) is not { } version)
         {
             return WorkflowActivityResult.Fail(DocumentActivity.NoFile);
         }
 
-        var pages = await DocumentText.PagesAsync(db, version.StoredFileId, cancellationToken);
+        var pages = await DocumentText.PagesAsync(db, context.TenantId, version.StoredFileId, cancellationToken);
         if (pages.Count == 0 && version.MediaType == FileTypes.Pdf)
         {
-            var stored = await db.StoredFiles.AsNoTracking().FirstAsync(f => f.Id == version.StoredFileId, cancellationToken);
+            var stored = await DocumentQueries.StoredFileAsync(db, context.TenantId, version.StoredFileId, cancellationToken)
+                ?? throw new InvalidOperationException("The stored content of the file is missing.");
             var work = Directory.CreateTempSubdirectory("pdn_text_");
             try
             {
@@ -95,14 +97,14 @@ internal sealed class ReadTextActivity(
                 work.Delete(recursive: true);
             }
 
-            await DocumentText.SavePagesAsync(db, version.StoredFileId, pages, cancellationToken);
+            await DocumentText.SavePagesAsync(db, context.TenantId, version.StoredFileId, pages, cancellationToken);
         }
 
         version.PageCount ??= Math.Max(1, pages.Count);
         version.TextLanguage ??= DocumentText.FirstLanguage(await DocumentText.LanguagesAsync(db, preferences, version, null, cancellationToken));
         await db.SaveChangesAsync(cancellationToken);
-        await items.ReindexAsync(version.ItemId, cancellationToken);
-        live.Publish(DocumentLiveEvents.Changed(tenant, user, version, "text"));
+        await context.Services.GetRequiredService<IListItemStore>().AsSystem(context.Actor).ReindexAsync(version.ItemId, cancellationToken);
+        live.Publish(DocumentLiveEvents.Changed(DocumentActivity.Actor(context), version, "text"));
 
         var hasText = version.Source == "ocr" || DocumentText.Enough(pages);
         return WorkflowActivityResult.Ok(hasText ? "text" : "noText", DocumentActivity.Output(version, ("hasText", hasText)));
@@ -110,8 +112,7 @@ internal sealed class ReadTextActivity(
 }
 
 /// <summary><c>document.thumbnail</c> (ADR-0038): the thumbnail of the first page. Without it a library shows no thumbnails.</summary>
-internal sealed class ThumbnailActivity(DocumentsDbContext db, PageRenderer renderer, ILiveEvents live, ITenantContext tenant, ICurrentUser user)
-    : IWorkflowActivity
+internal sealed class ThumbnailActivity(ILiveEvents live) : IWorkflowActivity
 {
     public string Key => "document.thumbnail";
 
@@ -125,13 +126,15 @@ internal sealed class ThumbnailActivity(DocumentsDbContext db, PageRenderer rend
 
     private async Task<WorkflowActivityResult> MakeAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
+        var db = context.Services.GetRequiredService<DocumentsDbContext>();
+        var renderer = context.Services.GetRequiredService<PageRenderer>();
         if (await DocumentActivity.CurrentAsync(db, context, cancellationToken) is not { } version)
         {
             return WorkflowActivityResult.Fail(DocumentActivity.NoFile);
         }
 
         var made = await renderer.RenderAsync(version, 1, PageRenderer.Widths[0], store: true, cancellationToken) is not null;
-        live.Publish(DocumentLiveEvents.Changed(tenant, user, version, "thumbnail"));
+        live.Publish(DocumentLiveEvents.Changed(DocumentActivity.Actor(context), version, "thumbnail"));
         return WorkflowActivityResult.Ok(DocumentActivity.Output(version, ("thumbnail", made)));
     }
 }
@@ -140,9 +143,7 @@ internal sealed class ThumbnailActivity(DocumentsDbContext db, PageRenderer rend
 /// <c>document.renderPages</c> (ADR-0038): every page as an image at the preview and large widths, for viewing. Without it
 /// a library shows no page previews.
 /// </summary>
-internal sealed class RenderPagesActivity(
-    DocumentsDbContext db, PageRenderer renderer, Microsoft.Extensions.Options.IOptions<DocumentsOptions> options, ILiveEvents live, ITenantContext tenant,
-    ICurrentUser user) : IWorkflowActivity
+internal sealed class RenderPagesActivity(IOptions<DocumentsOptions> options, ILiveEvents live) : IWorkflowActivity
 {
     public string Key => "document.renderPages";
 
@@ -156,6 +157,8 @@ internal sealed class RenderPagesActivity(
 
     private async Task<WorkflowActivityResult> RenderAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
+        var db = context.Services.GetRequiredService<DocumentsDbContext>();
+        var renderer = context.Services.GetRequiredService<PageRenderer>();
         if (await DocumentActivity.CurrentAsync(db, context, cancellationToken) is not { } version)
         {
             return WorkflowActivityResult.Fail(DocumentActivity.NoFile);
@@ -178,7 +181,7 @@ internal sealed class RenderPagesActivity(
             rendered = page;
         }
 
-        live.Publish(DocumentLiveEvents.Changed(tenant, user, version, "pages"));
+        live.Publish(DocumentLiveEvents.Changed(DocumentActivity.Actor(context), version, "pages"));
         return WorkflowActivityResult.Ok(DocumentActivity.Output(version, ("pages", rendered)));
     }
 }
@@ -188,7 +191,7 @@ internal sealed class RenderPagesActivity(
 /// starts the OCR operation and waits for it (the run holds no server meanwhile). A file that has text is left as it is,
 /// unless <c>force</c>. <c>languages</c> (e.g. <c>deu+eng</c>) default to the file's, the library's, then the uploader's.
 /// </summary>
-internal sealed class OcrActivity(DocumentsDbContext db, IOperations operations, TimeProvider time) : IWorkflowActivity
+internal sealed class OcrActivity(TimeProvider time) : IWorkflowActivity
 {
     /// <summary>How long a step waits for OCR before it fails.</summary>
     private static readonly TimeSpan MaxWait = TimeSpan.FromHours(24);
@@ -212,6 +215,7 @@ internal sealed class OcrActivity(DocumentsDbContext db, IOperations operations,
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {
+        var db = context.Services.GetRequiredService<DocumentsDbContext>();
         if (context.Resumed is { Kind: DocumentOcr.WaitKind } resumed)
         {
             if (resumed.Payload?["error"] is JsonValue error)
@@ -258,7 +262,8 @@ internal sealed class OcrActivity(DocumentsDbContext db, IOperations operations,
 
         // The operation completes this wait when it ends (a completion that comes first is kept for it).
         var key = context.ExecutionId.ToString("N");
-        await operations.StartAsync(DocumentOcr.OperationType, new OcrFile(version.Id, force, languages, key), cancellationToken);
+        await context.Services.GetRequiredService<IOperations>().StartAsync(
+            DocumentActivity.Actor(context), DocumentOcr.OperationType, new OcrFile(version.Id, force, languages, key), DocumentsJson.Default.OcrFile, cancellationToken);
         return WorkflowActivityResult.WaitAndRunAgain(DocumentOcr.WaitKind, key, time.GetUtcNow() + MaxWait, new JsonObject { ["version"] = version.Id.ToString() });
     }
 }

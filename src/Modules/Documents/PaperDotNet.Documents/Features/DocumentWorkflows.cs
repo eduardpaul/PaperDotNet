@@ -30,8 +30,8 @@ internal static class DocumentWorkflows
     private static JsonObject OnNewFiles(string flow) => JsonNode.Parse($$"""
         {
           "triggers": [
-            { "type": "{{WorkflowTriggers.DocumentAdded}}", "list": "{param:list}" },
-            { "type": "{{WorkflowTriggers.Manual}}", "list": "{param:list}" }
+            { "type": "{{DocumentTriggers.Added}}", "list": "{param:list}" },
+            { "type": "manual", "list": "{param:list}" }
           ],
           "flow": {{flow}}
         }
@@ -82,7 +82,7 @@ internal static class DocumentWorkflows
                   "triggers": [
                     { "type": "wf.{{Text}}.noText", "list": "{param:list}" },
                     {
-                      "type": "{{WorkflowTriggers.Manual}}", "list": "{param:list}",
+                      "type": "manual", "list": "{param:list}",
                       "inputs": { "properties": { "force": { "type": "boolean", "description": "Recognize the text even when the file has text." } } }
                     }
                   ],

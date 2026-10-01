@@ -13,7 +13,7 @@ cd "$(dirname "$0")/.."
 project=src/Migrations/PaperDotNet.Migrations.Sqlite
 out=src/BuildingBlocks/PaperDotNet.Persistence.Sqlite/Schema
 # Module DbContexts and the folder of their migrations.
-contexts=(IdentityDbContext:Identity ListsDbContext:Lists AuditDbContext:Audit WorkflowsDbContext:Workflows JobsDbContext:Jobs WorkspacesDbContext:Workspaces ExtensionsDbContext:ExtensionHost NotificationsDbContext:Notifications CollaborationDbContext:Collaboration NotesDbContext:Notes TasksDbContext:Tasks CalendarDbContext:Calendar TaxonomyDbContext:Taxonomy SearchDbContext:Search ProvisioningDbContext:Provisioning AiWorkflowsDbContext:AiWorkflows)
+contexts=(IdentityDbContext:Identity ListsDbContext:Lists AuditDbContext:Audit WorkflowsDbContext:Workflows JobsDbContext:Jobs WorkspacesDbContext:Workspaces ExtensionsDbContext:ExtensionHost NotificationsDbContext:Notifications CollaborationDbContext:Collaboration NotesDbContext:Notes TasksDbContext:Tasks CalendarDbContext:Calendar TaxonomyDbContext:Taxonomy SearchDbContext:Search ProvisioningDbContext:Provisioning AiWorkflowsDbContext:AiWorkflows DocumentsDbContext:Documents)
 # Extension DbContexts: migrations project, DbContext and the extension's folder.
 extensions=(samples/PaperDotNet.Samples.Invoices.Migrations.Sqlite:InvoicesDbContext:samples/PaperDotNet.Samples.Invoices)
 dotnet tool restore >/dev/null

@@ -28,6 +28,7 @@
     <ProjectReference Include="..\..\Modules\Search\PaperDotNet.Search\PaperDotNet.Search.csproj" />
     <ProjectReference Include="..\..\Modules\Provisioning\PaperDotNet.Provisioning\PaperDotNet.Provisioning.csproj" />
     <ProjectReference Include="..\..\Modules\AiWorkflows\PaperDotNet.AiWorkflows\PaperDotNet.AiWorkflows.csproj" />
+    <ProjectReference Include="..\..\Modules\Documents\PaperDotNet.Documents\PaperDotNet.Documents.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />

@@ -20,8 +20,6 @@ internal sealed class GlmOcr(DocumentsOptions options, HttpClient http)
 {
     public const string HttpClientName = "glm-ocr";
 
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-
     public static bool Uses(string? engine) =>
         engine is not null && engine.Trim().Equals("glm", StringComparison.OrdinalIgnoreCase);
 
@@ -41,13 +39,13 @@ internal sealed class GlmOcr(DocumentsOptions options, HttpClient http)
 
     private async Task<string> RecognizePageAsync(string image, CancellationToken ct)
     {
-        var payload = new GenerateRequest(
+        var payload = new GlmGenerateRequest(
             options.GlmModel,
             "Text Recognition:",
             [Convert.ToBase64String(await File.ReadAllBytesAsync(image, ct))],
             false,
-            new GenerateOptions(0, options.GlmContext, options.GlmMaxTokens));
-        using var response = await http.PostAsJsonAsync(Endpoint(options.GlmBaseUrl), payload, Json, ct);
+            new GlmGenerateOptions(0, options.GlmContext, options.GlmMaxTokens));
+        using var response = await http.PostAsync(Endpoint(options.GlmBaseUrl), JsonContent.Create(payload, DocumentsJson.Default.GlmGenerateRequest), ct);
         var body = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
         {
@@ -55,7 +53,7 @@ internal sealed class GlmOcr(DocumentsOptions options, HttpClient http)
             throw new InvalidOperationException($"GLM-OCR failed ({(int)response.StatusCode}): {detail}");
         }
 
-        var parsed = JsonSerializer.Deserialize<GenerateResponse>(body, Json);
+        var parsed = JsonSerializer.Deserialize(body, DocumentsJson.Default.GlmGenerateResponse);
         if (string.Equals(parsed?.DoneReason, "length", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
@@ -173,16 +171,17 @@ internal sealed class GlmOcr(DocumentsOptions options, HttpClient http)
     private static bool IsTiff(ReadOnlySpan<byte> header) =>
         header.Length >= 4 && ((header[0] == 0x49 && header[1] == 0x49 && header[2] == 0x2A && header[3] == 0x00)
             || (header[0] == 0x4D && header[1] == 0x4D && header[2] == 0x00 && header[3] == 0x2A));
-
-    private sealed record GenerateRequest(string Model, string Prompt, string[] Images, bool Stream, GenerateOptions Options);
-
-    private sealed record GenerateOptions(
-        double Temperature,
-        [property: JsonPropertyName("num_ctx")] int NumCtx,
-        [property: JsonPropertyName("num_predict")] int NumPredict);
-
-    private sealed record GenerateResponse(string? Response, [property: JsonPropertyName("done_reason")] string? DoneReason);
 }
+
+/// <summary>Ollama's generate request (source-generated JSON, ADR-0039).</summary>
+internal sealed record GlmGenerateRequest(string Model, string Prompt, string[] Images, bool Stream, GlmGenerateOptions Options);
+
+internal sealed record GlmGenerateOptions(
+    double Temperature,
+    [property: JsonPropertyName("num_ctx")] int NumCtx,
+    [property: JsonPropertyName("num_predict")] int NumPredict);
+
+internal sealed record GlmGenerateResponse(string? Response, [property: JsonPropertyName("done_reason")] string? DoneReason);
 
 /// <summary>
 /// A PDF whose pages are the scan and whose text layer is the recognition, drawn with rendering mode

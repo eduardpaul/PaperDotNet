@@ -1,22 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Documents (DMS, phase 3): files in libraries, file versions, deduplicated storage.
-    Built on the public extension SDK only (EXT-06; enforced by the architecture tests).
+    Documents (DMS): files in libraries, file versions, deduplicated storage; text, page images and OCR as built-in
+    library workflows (ADR-0038). Uses other modules only through their contracts.
   -->
+  <Import Project="..\..\AotModule.props" />
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Abstractions\PaperDotNet.Extensions.Abstractions.csproj" />
-    <ProjectReference Include="..\..\..\Extensions\PaperDotNet.Extensions.Analyzers\PaperDotNet.Extensions.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
+    <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
+    <ProjectReference Include="..\..\Workflows\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Text extraction, page rendering (PDFium + SkiaSharp) and running the Tesseract CLI. -->
-    <PackageReference Include="PDFsharp" />
-    <PackageReference Include="PdfPig" />
-    <PackageReference Include="PDFtoImage" />
-    <PackageReference Include="CliWrap" />
-  </ItemGroup>
-  <ItemGroup>
-    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
-    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+    <!-- Still to port (ADR-0039): processing and its workflows (T15b), page operations, templates and inboxes (T15c), MCP tools (T16). -->
+    <Compile Remove="Features/Processing.cs;Features/DocumentActivities.cs;Features/DocumentWorkflows.cs;Features/GlmOcr.cs;Features/PageImageEndpoints.cs" />
+    <Compile Remove="Features/PageOperations.cs;Features/DocumentTemplates.cs;Features/GroupInboxEndpoints.cs;Features/DocumentTools.cs" />
+    <None Include="Features/Processing.cs;Features/DocumentActivities.cs;Features/DocumentWorkflows.cs;Features/GlmOcr.cs;Features/PageImageEndpoints.cs" />
+    <None Include="Features/PageOperations.cs;Features/DocumentTemplates.cs;Features/GroupInboxEndpoints.cs;Features/DocumentTools.cs" />
   </ItemGroup>
 </Project>

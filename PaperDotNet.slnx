@@ -56,6 +56,9 @@
     <Project Path="src/Modules/Notifications/PaperDotNet.Notifications.Contracts/PaperDotNet.Notifications.Contracts.csproj" />
     <Project Path="src/Modules/Notifications/PaperDotNet.Notifications/PaperDotNet.Notifications.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Documents/">
+    <Project Path="src/Modules/Documents/PaperDotNet.Documents/PaperDotNet.Documents.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/AiWorkflows/">
     <Project Path="src/Modules/AiWorkflows/PaperDotNet.AiWorkflows/PaperDotNet.AiWorkflows.csproj" />
   </Folder>

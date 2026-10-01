@@ -51,6 +51,7 @@
     <ProjectReference Include="..\Modules\Search\PaperDotNet.Search\PaperDotNet.Search.csproj" />
     <ProjectReference Include="..\Modules\Provisioning\PaperDotNet.Provisioning\PaperDotNet.Provisioning.csproj" />
     <ProjectReference Include="..\Modules\AiWorkflows\PaperDotNet.AiWorkflows\PaperDotNet.AiWorkflows.csproj" />
+    <ProjectReference Include="..\Modules\Documents\PaperDotNet.Documents\PaperDotNet.Documents.csproj" />
     <!--
       Extensions compiled into this build (ADR-0014): project or package references, e.g.
       dotnet publish -p:PaperDotNetExtensions=../../samples/PaperDotNet.Samples.Invoices/PaperDotNet.Samples.Invoices.csproj

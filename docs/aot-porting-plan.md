@@ -19,8 +19,8 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T11 | M | Tasks and Calendar | done (steps below); Ical.Net works under AOT with its assembly rooted |
 | T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | done (steps below; semantic search is T12e, after the AI workflows of T14). AOT smoke with smart folders: idle 138 MB (close to the 150 MB budget: watch it), 226 MB under load |
 | T13 | M | Provisioning and templates | done (steps below); built-in workflows in templates come with T14, documents in packages with T15. AOT smoke with packages, exports and an approval (T14a): idle 132 MB, 254 MB under load |
-| T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | in progress (steps below) |
-| T15 | XL | Documents (PDF libraries, page images, OCR) | |
+| T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | done (steps below). AOT smoke with the AI module and the OpenAI SDK: binary 87 MB, idle 140 MB, 233 MB under load |
+| T15 | XL | Documents (PDF libraries, page images, OCR) | in progress (steps below) |
 | T16 | M | MCP, admin CLI, backup and restore, Papermerge import, the audit log across modules | |
 | T17 | XL | PostgreSQL build, SDK regeneration, web UI (with the authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in) | |
 
@@ -90,5 +90,13 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | T14c | Triggers: schedules (cron), date fields, several triggers, module triggers through `IWorkflowTriggers` (`task.completed`, `comment.added`), extension triggers (`AddWorkflowTrigger`), term filters, manual inputs and selections | done. `IWorkflowTriggers` names the tenant (an actor or the causing event); `approval.decided` is raised with decisions; triggers narrow by list, content type, changed fields, terms (with terms below) and data; `/v1.0/workflows/triggers` lists them; the minute job `workflows.schedules` keeps state per timed trigger (Unix ms); the Invoices sample's `approvalNeeded` trigger works again |
 | T14d | Built-in and shipped workflows (`AddWorkflow`, `Scope = Library`), extension workflows, `BuiltIn` elements in templates | done. `IWorkflowDefinitionProvider` with the tenant (an extension's are offered only where it is enabled); `…/workflows/builtIns` (catalog, turn on with parameters and `If-Match`, copy) and per library; built-in rows are read-only; hourly `workflows.builtIns` sync; templates carry the key and parameters (set after the lists of the run) and copies' `CopiedFrom`; the Invoices sample's `approveAndCollect` works again. AI requirements come with T14e, per-library defaults with documents (T15). AOT smoke after T14b–d: idle 145 MB (at the edge of the 150 MB budget: watch it), 225 MB under load |
 | T14e | AI workflows (Microsoft.Extensions.AI, off by default): extract, classify, summarize, prompt, `ai.batch` | done. AiWorkflows module (calls, cache, daily budget, cleanup job), `ai.*` activities resolve their scoped services from the run, batched AI on waits (`IWorkflowBookmarks`, `IWorkflowDirectory`), the "AI batch" built-in requires a chat model (`IWorkflowRequirement`); `PaperDotNet.AI` (OpenAI SDK, `AI:Chat`, `AI:Batch`, `AI:Embeddings`) is in the AOT build; activities describe `InputSchema`/`OutputSchema` in the catalog. Page images (`IItemPageImageSource`) come with Documents (T15) |
+
+### T15 steps (in order)
+
+| Step | Task | Status |
+|---|---|---|
+| T15a | Documents core: own DbContext (stored files deduplicated by SHA-256, file versions, library settings, page text), upload, download and versions endpoints, duplicate policy, `document.added`, purge cleanup and the stored-file cleanup job, file text in search (`IItemSearchContributor`) | done. Multipart uploads bound by the request delegate generator (`IFormFile` needs source-generated JSON metadata for OpenAPI); duplicate policies are strings (`allow`, `warn`, `block`); `document.added` is a module trigger raised with the uploader as actor |
+| T15b | Processing as built-in library workflows: text (PdfPig), thumbnails and page images (PDFtoImage: PDFium + SkiaSharp, native libraries next to the binary), OCR (Tesseract CLI; GLM-OCR over HTTP), `IItemPageImageSource` for AI, per-library defaults of built-ins; AOT smoke with a PDF upload | |
+| T15c | Page operations (PDFsharp: rotate, delete, reorder, split, merge), library settings and document files in templates and packages, the Home libraries (`me/inbox`) and group inboxes; MCP document tools come with T16 | |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

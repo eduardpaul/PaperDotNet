@@ -88,15 +88,15 @@ internal sealed class FileIntake(DocumentsDbContext db, IBlobStore blobs, TimePr
     }
 
     /// <summary>The stored file for the content, writing the blob only when the tenant does not have it yet.</summary>
-    public async Task<StoredFile> StoreAsync(SpooledFile file, CancellationToken ct)
+    public async Task<StoredFile> StoreAsync(Guid tenantId, SpooledFile file, CancellationToken ct)
     {
         var now = time.GetUtcNow();
         for (var attempt = 0; ; attempt++)
         {
-            var stored = await db.StoredFiles.FirstOrDefaultAsync(f => f.Sha256 == file.Sha256, ct);
+            var stored = await DocumentQueries.StoredFileByHashAsync(db, tenantId, file.Sha256, ct);
             if (stored is not null)
             {
-                stored.LastUsedAt = now;
+                stored.LastUsedAtUnixMs = now.ToUnixTimeMilliseconds();
                 await db.SaveChangesAsync(ct);
                 if (!await blobs.ExistsAsync(stored.BlobKey, ct))
                 {
@@ -109,11 +109,12 @@ internal sealed class FileIntake(DocumentsDbContext db, IBlobStore blobs, TimePr
             stored = new StoredFile
             {
                 Id = Ids.New(),
+                TenantId = tenantId,
                 Sha256 = file.Sha256,
                 Size = file.Size,
                 MediaType = file.MediaType!,
                 CreatedAt = now,
-                LastUsedAt = now,
+                LastUsedAtUnixMs = now.ToUnixTimeMilliseconds(),
             };
             db.StoredFiles.Add(stored);
             try

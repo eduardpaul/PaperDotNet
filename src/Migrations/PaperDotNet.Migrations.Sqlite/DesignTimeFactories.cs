@@ -3,6 +3,7 @@ using PaperDotNet.AiWorkflows.Data;
 using PaperDotNet.Audit.Data;
 using PaperDotNet.Calendar.Data;
 using PaperDotNet.Collaboration.Data;
+using PaperDotNet.Documents.Data;
 using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Jobs.Data;
@@ -99,4 +100,9 @@ internal sealed class ProvisioningFactory : IDesignTimeDbContextFactory<Provisio
 internal sealed class AiWorkflowsFactory : IDesignTimeDbContextFactory<AiWorkflowsDbContext>
 {
     public AiWorkflowsDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<AiWorkflowsDbContext>());
+}
+
+internal sealed class DocumentsFactory : IDesignTimeDbContextFactory<DocumentsDbContext>
+{
+    public DocumentsDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<DocumentsDbContext>());
 }

@@ -1,16 +1,12 @@
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.Documents.Features;
-using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
-using PaperDotNet.Mcp.Contracts;
 using PaperDotNet.Persistence;
-using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Documents;
@@ -28,56 +24,39 @@ public static class DocumentScopes
 }
 
 /// <summary>
-/// Documents (phase 3): files in libraries. Built on the extension SDK only (EXT-06): items,
-/// permissions and events come from the lists engine through Lists.Contracts.
+/// Documents: files in libraries (DOC-01…03, DOC-10, DOC-11). Items, permissions and events come from the lists engine
+/// through Lists.Contracts; an upload only stores the file and raises <c>document.added</c> (ADR-0038).
+/// Subscribers: <see cref="PurgedFilesSubscriber"/>.
 /// </summary>
 public sealed class DocumentsModule : IModule
 {
     public string Name => "Documents";
 
+    public IJsonTypeInfoResolver Json => DocumentsJson.Default;
+
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddModuleDbContext<DocumentsDbContext>(DocumentsDbContext.Schema);
-        services.AddOptions<DocumentsOptions>().BindConfiguration(DocumentsOptions.Section);
-        services.AddHttpClient(GlmOcr.HttpClientName, (sp, client) =>
-        {
-            client.Timeout = sp.GetRequiredService<IOptions<DocumentsOptions>>().Value.OcrTimeout;
-        });
-        services.AddScoped<FileIntake>();
-        services.AddScoped<DocumentService>();
-        services.AddScoped<PageEditor>();
-        services.AddScoped<DocumentEvents>();
-        services.AddScoped<OcrEngine>();
-        services.AddScoped<PageRenderer>();
-        services.AddOperationHandler<DocumentOcr>();
-        services.AddWorkflowActivity<ReadTextActivity>();
-        services.AddWorkflowActivity<ThumbnailActivity>();
-        services.AddWorkflowActivity<RenderPagesActivity>();
-        services.AddWorkflowActivity<OcrActivity>();
-        services.AddScoped<IItemSearchContributor, DocumentSearchContent>();
-        services.AddScoped<IItemPageImageSource, DocumentPageImages>();
-        services.AddScoped<IMcpTool, UploadDocumentTool>();
-        services.AddScoped<IMcpTool, ReplaceDocumentTool>();
-        services.AddScoped<IMcpTool, GetFileTool>();
-        services.AddScoped<IMcpTool, ReadDocumentTool>();
-        services.AddEventSubscriber<ItemPurged, PurgedItemFiles>();
-        services.AddEventSubscriber<PrincipalDeleted, DeletedGroupInbox>();
-        services.AddTenantRecurringJob<StoredFileCleanupJob>(StoredFileCleanupJob.Name, StoredFileCleanupJob.Schedule);
-        services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggers.DocumentAdded,
-            "A file was added to a library: a new document or a new version (data: version, mediaType, fileName, newDocument). Nothing else happens on upload."));
-        foreach (var workflow in DocumentWorkflows.All)
-        {
-            services.AddWorkflow(workflow);
-        }
-        services.AddScoped<ITemplateHandler, LibrarySettingsTemplateHandler>();
-        services.AddScoped<ITemplateHandler, DocumentFilesTemplateHandler>();
+        services.AddModuleDbContext<DocumentsDbContext>();
         services.AddScopes(DocumentScopes.All);
+        services.Configure<DocumentsOptions>(configuration.GetSection(DocumentsOptions.Section));
+        services.AddScoped<FileIntake>();
+        services.AddScoped<DocumentEvents>();
+        services.AddScoped<DocumentService>();
+        services.AddScoped<IItemSearchContributor, DocumentSearchContent>();
+        services.AddTenantRecurringJob<StoredFileCleanupJob>(StoredFileCleanupJob.Name, StoredFileCleanupJob.Schedule);
+        services.AddWorkflowTrigger(new WorkflowTriggerDefinition(DocumentTriggers.Added,
+            "A file was added to a library: a new document or a new version (data: version, mediaType, fileName, newDocument). Nothing else happens on upload."));
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints)
-    {
-        DocumentEndpoints.Map(endpoints);
-        GroupInboxEndpoints.Map(endpoints);
-        PageOperationEndpoints.Map(endpoints);
-    }
+    public void MapEndpoints(IEndpointRouteBuilder endpoints) => DocumentEndpoints.Map(endpoints);
 }
+
+/// <summary>Every type the Documents API serializes (Native AOT, ADR-0039).</summary>
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(DocumentResponse))]
+[JsonSerializable(typeof(FileVersionResponse))]
+[JsonSerializable(typeof(FileVersionList))]
+[JsonSerializable(typeof(LibrarySettingsResponse))]
+[JsonSerializable(typeof(LibrarySettingsRequest))]
+[JsonSerializable(typeof(IFormFile))]
+internal sealed partial class DocumentsJson : JsonSerializerContext;
