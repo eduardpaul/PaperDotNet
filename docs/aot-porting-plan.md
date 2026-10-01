@@ -16,7 +16,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T08 | XL | Lists parity 3: permissions (ADR-0035), indexed fields, views, templates, smart folders, delta, bulk | done (steps below; smart folders moved to T12) |
 | T09 | M | Extension SDK, extension host and generator | done (steps below): term sets, template sections, workflow triggers and shipped workflows, MCP tools come with T12, T13, T14 and T16 |
 | T10 | S-M | Notes, Collaboration, Notifications | done (steps below); the message store keeps SQLite's own cache and no mmap (ADR-0039) |
-| T11 | M | Tasks and Calendar | in progress (steps below) |
+| T11 | M | Tasks and Calendar | done (steps below); Ical.Net works under AOT with its assembly rooted |
 | T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | |
 | T13 | M | Provisioning and templates | |
 | T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | |
@@ -61,6 +61,6 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | Step | Task | Status |
 |---|---|---|
 | T11a | Tasks: content type and template, checklists, subtasks and dependencies, recurrence (Ical.Net, rooted for the trimmer), my tasks, tasks from documents, `task.create`, due reminders; the `task.completed` trigger comes with T14 | done |
-| T11b | Calendar: content type and template, event times, series with exceptions in their time zone, time ranges, iCalendar export/import, feeds, event reminders | done (AOT smoke run pending). Occurrence starts are stored as Unix milliseconds |
+| T11b | Calendar: content type and template, event times, series with exceptions in their time zone, time ranges, iCalendar export/import, feeds, event reminders | done. Occurrence starts are stored as Unix milliseconds |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).
