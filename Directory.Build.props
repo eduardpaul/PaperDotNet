@@ -15,6 +15,9 @@
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <!-- The server is one Native AOT binary (ADR-0039): no culture data needed. -->
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- No localized satellite assemblies (System.CommandLine ships some): their cultures do not exist in invariant
+         mode, and Wolverine's assembly scan fails on them. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <Authors>Eduard Paul</Authors>
     <Copyright>Copyright 2026 Eduard Paul</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
