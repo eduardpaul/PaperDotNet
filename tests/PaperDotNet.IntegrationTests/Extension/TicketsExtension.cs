@@ -26,6 +26,14 @@ public sealed class TicketsExtension : IExtension
             new FieldDefinition { Name = "code", DisplayName = "Code", Type = $"{Id}.code" },
             new FieldDefinition { Name = "priority", DisplayName = "Priority", Type = "choice", Choices = ["low", "high"] },
         ]));
+        builder.AddTermSet(new Taxonomy.Contracts.TermSetTemplate("Support", "Ticket areas",
+        [
+            new("Hardware", Children: [new("Printers"), new("Laptops", ["Notebooks"])]),
+            new("Software"),
+        ], "Areas of support tickets.")
+        {
+            Key = $"{Id}.areas",
+        });
         builder.AddListTemplate(new ListTemplateDefinition($"{Id}.tickets", "Tickets", "Support tickets.", [$"{Id}.ticket"],
         [
             new ViewTemplate("All tickets", ["title", "code", "priority"], IsDefault: true),

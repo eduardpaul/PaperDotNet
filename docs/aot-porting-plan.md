@@ -45,7 +45,7 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 |---|---|---|
 | T09a | SDK core and extension host: manifest, catalog, per-tenant state and settings (tenant explicit), gated field types, item mutators, content types, list templates, recurring jobs, workflow activities, endpoints under `/v1.0/ext/{id}`, subscribers of list events; the build-time generator | done |
 | T09b | Extension tables (`ExtensionDbContext` with a compiled model and precompiled queries, migrations as SQL per extension) and the Invoices sample (the parts whose modules are ported), `Extensions.Testing` | done |
-| later | Term sets (T12), template sections (T13), workflow triggers, shipped workflows and waits (T14), MCP tools (T16) | |
+| later | Term sets (done in T12b), template sections (T13), workflow triggers, shipped workflows and waits (T14), MCP tools (T16) | |
 
 ### T10 steps (in order)
 
@@ -68,7 +68,7 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 | Step | Task | Status |
 |---|---|---|
 | T12a | Taxonomy: term groups, sets and hierarchical terms (labels, synonyms, colors), keywords, merges (`TermMerged`), promotion, SharePoint CSV import, `ITermStore` and `ITermSetProvisioning` with the tenant named | done. Popular keywords come with T12c (they count tagged items); the template section with T13 |
-| T12b | Lists: `managedMetadata` and `keywords` fields (term resolution, hierarchical filters), the `TermMerged` subscriber, note `#tags`, extension term sets (`AddTermSet`) | |
+| T12b | Lists: `managedMetadata` and `keywords` fields (term resolution, hierarchical filters), the `TermMerged` subscriber, note `#tags`, extension term sets (`AddTermSet`) | done. Filters on a term match its subtree (looked up before the SQL is built); merges rewrite values through the item store, so versions, events and the delta follow; the documents content type has its keywords field again |
 | T12c | Search: SQLite FTS5 index from item events, access trimming by scope, page hits, comments, `ITermUsage` and popular keywords, optional semantic search | |
 | T12d | Smart folders (from T08g): saved term filters that assign terms | |
 

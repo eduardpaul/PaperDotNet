@@ -196,6 +196,32 @@ public sealed class ExtensionTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Extensions_provide_term_sets_when_enabled()
+    {
+        var a = await _host.SignInAsync();
+        var b = await _host.CreateTenantAsync("other-terms");
+        static bool IsAreas(JsonElement s) => s.GetProperty("name").GetString() == "Ticket areas";
+        static async Task<List<JsonElement>> SetsAsync(HttpClient client) =>
+            [.. (await (await client.GetAsync("/v1.0/termStore/sets", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray()];
+        Assert.DoesNotContain(await SetsAsync(a), IsAreas);
+
+        Assert.Equal(HttpStatusCode.OK, (await EnableAsync(a)).StatusCode);
+        var set = Assert.Single(await SetsAsync(a), IsAreas).Id();
+        var roots = (await (await a.GetAsync($"/v1.0/termStore/sets/{set}/terms", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray().ToList();
+        Assert.Equal(["Hardware", "Software"], roots.Select(t => t.GetProperty("name").GetString()).Order(StringComparer.Ordinal));
+        var hardware = roots.Single(t => t.GetProperty("name").GetString() == "Hardware").Id();
+        var laptops = (await (await a.GetAsync($"/v1.0/termStore/sets/{set}/terms?parentId={hardware}", Ct)).JsonAsync(HttpStatusCode.OK))
+            .GetProperty("value").EnumerateArray().Single(t => t.GetProperty("name").GetString() == "Laptops");
+        Assert.Equal(["Notebooks"], laptops.GetProperty("synonyms").EnumerateArray().Select(s => s.GetString()));
+
+        // Enabling again is idempotent; other tenants get nothing.
+        await EnableAsync(a, enabled: false);
+        await EnableAsync(a);
+        Assert.Single(await SetsAsync(a), IsAreas);
+        Assert.DoesNotContain(await SetsAsync(b), IsAreas);
+    }
+
+    [Fact]
     public async Task Workflow_activities_of_an_extension_run_where_it_is_enabled()
     {
         var admin = await _host.SignInAsync();

@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace PaperDotNet.IntegrationTests;
 
-/// <summary>Markdown notes (LST-18): [[wiki links]], backlinks and renames (#tags come with Taxonomy, T12).</summary>
+/// <summary>Markdown notes (LST-18): #tags, [[wiki links]], backlinks and renames.</summary>
 public sealed class NoteTests : IAsyncLifetime
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -37,18 +37,25 @@ public sealed class NoteTests : IAsyncLifetime
     private static bool Resolved(JsonElement link) => link.TryGetProperty("note", out var note) && note.ValueKind == JsonValueKind.Object;
 
     [Fact]
-    public async Task Notes_have_links_and_backlinks_that_follow_renames()
+    public async Task Notes_have_tags_links_and_backlinks_that_follow_renames()
     {
         var ws = await Api.CreateWorkspaceAsync(_client, "Wiki");
         using var created = await _client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name = "Notes", templateKey = "notes" }, Ct);
         var list = (await created.JsonAsync(HttpStatusCode.Created)).Id();
         string Item(string id) => $"{Api.Items(ws, list)}/{id}";
 
-        var alpha = (await Api.CreateItemAsync(_client, ws, list, new
+        var created1 = await Api.CreateItemAsync(_client, ws, list, new
         {
             title = "Project Alpha",
-            body = "# Plan\nSee [[Meeting Notes#Actions|the meeting]] and [[Missing page]].\n`[[code]]` and ```\n[[Not a link]]\n```",
-        })).Id();
+            body = "# Plan\nWork with #planning and #team/core.\nSee [[Meeting Notes#Actions|the meeting]] and [[Missing page]].\n`[[code]]` `#code` and ```\n[[Not a link]]\n```",
+        });
+        var alpha = created1.Id();
+
+        // #tags become keywords (code is ignored).
+        var tags = created1.GetProperty("fields").GetProperty("tags").EnumerateArray().Select(t => t.GetString()).ToList();
+        Assert.Equal(2, tags.Count);
+        using var planning = await _client.GetAsync("/v1.0/termStore/keywords?search=planning", Ct);
+        Assert.Contains((await planning.JsonAsync(HttpStatusCode.OK))[0].Id(), tags);
 
         // Links wait for their notes, and resolve when one gets the title.
         var links = await WaitAsync($"{Item(alpha)}/noteLinks", b => Values(b).Count == 2);

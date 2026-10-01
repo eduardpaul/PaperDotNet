@@ -9,6 +9,7 @@ using PaperDotNet.ExtensionHost.Runtime;
 using PaperDotNet.Extensions;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.ExtensionHost.Features;
 
@@ -58,7 +59,7 @@ internal static class ExtensionEndpoints
 
     private static async Task<Results<Ok<ExtensionResponse>, ProblemHttpResult>> EnableAsync(
         string id, Caller caller, ExtensionCatalog catalog, ExtensionsDbContext db, IRoleProvisioning roles, IContentTypeProvisioning contentTypes,
-        ExtensionState state, CancellationToken cancellationToken)
+        ITermSetProvisioning termSets, ExtensionState state, CancellationToken cancellationToken)
     {
         if (catalog.Find(id) is not { } extension)
         {
@@ -69,6 +70,7 @@ internal static class ExtensionEndpoints
         row.Enabled = true;
         await SaveAsync(db, state, cancellationToken);
         await contentTypes.ProvisionExtensionAsync(caller.TenantId, id, cancellationToken);
+        await termSets.ProvisionExtensionAsync(caller.TenantId, id, cancellationToken);
         await roles.GrantToMembersAsync(caller.TenantId, [.. extension.Manifest.Scopes.Where(s => s.GrantedToMembers).Select(s => s.Name)], cancellationToken);
         return TypedResults.Ok(ToResponse(extension, enabled: true));
     }

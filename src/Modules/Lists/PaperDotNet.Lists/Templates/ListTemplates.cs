@@ -174,12 +174,12 @@ internal static class BuiltInTemplates
     private static FieldDefinition Field(string name, string displayName, string type, FieldSearchWeight? search = null) =>
         new() { Name = name, DisplayName = displayName, Type = type, Search = search };
 
-    // The document's keywords field (managed metadata) comes with Taxonomy (T12).
     public static readonly ContentTypeTemplate[] ContentTypes =
     [
         new(DocumentKey, "Document", "A document with a description.",
         [
             Field("description", "Description", "note"),
+            new() { Name = "keywords", DisplayName = "Keywords", Type = "keywords", AllowMultiple = true, Search = FieldSearchWeight.High },
         ]),
         new("contact", "Contact", "A person or organization to contact.",
         [
@@ -195,7 +195,7 @@ internal static class BuiltInTemplates
     [
         new(DocumentsListKey, "Documents", "A document library with version history.", [DocumentKey],
         [
-            new ViewTemplate("All documents", ["title", "description"], IsDefault: true),
+            new ViewTemplate("All documents", ["title", "description", "keywords"], IsDefault: true),
         ])
         {
             IsLibrary = true,

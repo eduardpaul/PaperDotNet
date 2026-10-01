@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Notes.Data;
 using PaperDotNet.Notes.Features;
 using PaperDotNet.Persistence;
@@ -20,7 +21,8 @@ public static class NoteScopes
 
 /// <summary>
 /// Notes (LST-18): Markdown notes are list items of the <c>note</c> content type; this module adds wiki links with
-/// backlinks and link updates on renames (<see cref="NoteLinkSubscriber"/>). #tags as keywords come with Taxonomy (T12).
+/// backlinks and link updates on renames (<see cref="NoteLinkSubscriber"/>). <c>#tags</c> in the body are added to the
+/// note's keywords (<see cref="NoteTagsMutator"/>).
 /// </summary>
 public sealed class NotesModule : IModule
 {
@@ -33,6 +35,7 @@ public sealed class NotesModule : IModule
         services.AddModuleDbContext<NotesDbContext>();
         services.AddSingleton(NoteTemplates.ContentType);
         services.AddSingleton(NoteTemplates.List);
+        services.AddScoped<IItemMutator, NoteTagsMutator>();
         services.AddScopes(NoteScopes.All);
     }
 
