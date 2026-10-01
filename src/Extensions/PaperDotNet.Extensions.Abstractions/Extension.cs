@@ -105,6 +105,12 @@ public interface IExtensionBuilder
     IExtensionBuilder AddTemplateSection<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>()
         where THandler : class, Provisioning.Contracts.ITemplateHandler;
 
+    /// <summary>
+    /// A workflow trigger the extension raises with <c>IWorkflowTriggers</c> (EVT-09; key starts with <c>{extension id}.</c>),
+    /// offered in the trigger catalog.
+    /// </summary>
+    IExtensionBuilder AddWorkflowTrigger(WorkflowTriggerDefinition trigger);
+
     /// <summary>An activity for workflows (EVT-09; key starts with <c>{extension id}.</c>).</summary>
     IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TActivity>()
         where TActivity : class, IWorkflowActivity;

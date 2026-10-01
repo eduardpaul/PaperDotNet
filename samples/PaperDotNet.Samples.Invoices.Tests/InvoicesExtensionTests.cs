@@ -174,4 +174,39 @@ public sealed class InvoicesExtensionTests(InvoicesHost host)
         var paid = await tenant.RunAsync(services => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin).GetAsync(ws, list, item.Item.Id, Ct), Ct);
         Assert.Equal("Paid", paid!.Fields["title"]!.GetValue<string>());
     }
+
+    [Fact]
+    public async Task Large_invoices_raise_the_approval_trigger_for_workflows()
+    {
+        var tenant = await host.CreateTenantAsync(cancellationToken: Ct);
+        using var admin = await tenant.CreateClientAsync(cancellationToken: Ct);
+        var (ws, list) = await CreateInvoiceListAsync(admin);
+        var triggers = await (await admin.GetAsync("/v1.0/workflows/triggers", Ct)).Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.Contains(triggers.EnumerateArray(), t => t.GetProperty("key").GetString() == "samples.invoices.approvalNeeded");
+        var workflow = await admin.PostAsJsonAsync($"/v1.0/workspaces/{ws}/workflows", new
+        {
+            name = "Flag",
+            definition = JsonNode.Parse("""
+                { "trigger": { "type": "samples.invoices.approvalNeeded", "list": "Invoices" },
+                  "flow": { "start": "flag", "nodes": { "flag": { "activity": "item.update", "inputs": { "fields": { "title": "Check {title} ({data:amount})" } } } } } }
+                """),
+        }, Ct);
+        Assert.Equal(HttpStatusCode.Created, workflow.StatusCode);
+
+        var big = await tenant.RunAsync(services => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin)
+            .CreateAsync(ws, list, new JsonObject { ["title"] = "INV-9", ["amount"] = 5000 }, null, Ct), Ct);
+        var small = await tenant.RunAsync(services => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin)
+            .CreateAsync(ws, list, new JsonObject { ["title"] = "INV-10", ["amount"] = 5 }, null, Ct), Ct);
+        string? title = null;
+        for (var attempt = 0; attempt < 300 && title != "Check INV-9 (5000)"; attempt++)
+        {
+            await Task.Delay(100, Ct);
+            title = (await tenant.RunAsync(services => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin).GetAsync(ws, list, big.Item!.Id, Ct), Ct))!
+                .Fields["title"]!.GetValue<string>();
+        }
+
+        Assert.Equal("Check INV-9 (5000)", title);
+        Assert.Equal("INV-10", (await tenant.RunAsync(services => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin)
+            .GetAsync(ws, list, small.Item!.Id, Ct), Ct))!.Fields["title"]!.GetValue<string>());
+    }
 }

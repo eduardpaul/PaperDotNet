@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,7 @@ using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Notifications.Contracts;
+using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Collaboration.Features;
@@ -109,7 +111,7 @@ internal static class CommentEndpoints
 
     private static async Task<Results<Created<CommentResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
         Guid workspaceId, Guid listId, Guid itemId, CommentRequest request, Caller caller, IListItemStore items, CollaborationDbContext database,
-        IUserDirectory users, INotificationSender sender, TimeProvider time, HttpResponse response, CancellationToken cancellationToken)
+        IUserDirectory users, INotificationSender sender, IWorkflowTriggers triggers, TimeProvider time, HttpResponse response, CancellationToken cancellationToken)
     {
         var item = await items.GetAsync(workspaceId, listId, itemId, cancellationToken);
         if (item is null)
@@ -159,6 +161,16 @@ internal static class CommentEndpoints
         // Comments are part of the item's search document.
         await items.ReindexAsync(itemId, ct);
         await NotifyAsync(items, sender, caller, item, comment, mentions, ct);
+
+        // Workflows can react to comments (comment.added); the comment's id makes a repeat start nothing twice.
+        await triggers.RaiseAsync(caller.Actor, WorkflowTriggerKeys.CommentAdded, workspaceId, new WorkflowItem(workspaceId, listId, itemId),
+            new JsonObject
+            {
+                ["commentId"] = comment.Id.ToString(),
+                ["text"] = comment.Text,
+                ["author"] = caller.UserId.ToString(),
+                ["reply"] = comment.ParentId is not null,
+            }, comment.Id, ct);
         ETags.Set(response, comment.Version);
         return TypedResults.Created($"/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/comments/{comment.Id}", CommentResponse.From(comment));
     }

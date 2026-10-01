@@ -58,70 +58,36 @@ public sealed class ItemConditions(WorkflowItems items)
     }
 }
 
-/// <summary>Creates runs and sends them to the interpreter. Queries copy their arguments into locals (ADR-0039).</summary>
-public sealed partial class WorkflowStarter(WorkflowsDbContext db, IOutbox outbox, WorkflowItems items, ItemConditions conditions, TimeProvider time, ILogger<WorkflowStarter> logger)
+/// <summary>
+/// Creates runs and sends them to the interpreter. A trigger of the event's type matches when its list, content type,
+/// changed fields, terms and data fit; then the workflow's condition is checked on the item. A run's id comes from the
+/// event and the workflow, so a redelivered event starts nothing twice. Changes made by workflows carry a higher causation
+/// depth; from <see cref="MaxDepth"/> on nothing starts (loop protection). Queries copy their arguments into locals (ADR-0039).
+/// </summary>
+public sealed partial class WorkflowStarter(
+    WorkflowsDbContext db, IOutbox outbox, WorkflowItems items, ItemConditions conditions, TriggerTerms terms, TimeProvider time, ILogger<WorkflowStarter> logger)
 {
     /// <summary>Changes caused by this many workflow reactions in a row start no more workflows (loop protection).</summary>
     public const int MaxDepth = 8;
 
-    public async Task OnItemEventAsync(string trigger, ItemEvent cause, IReadOnlyList<string> changedFields, JsonObject? data, CancellationToken cancellationToken)
-    {
-        var (workspaceId, listId, itemId) = (cause.WorkspaceId, cause.ListId, cause.ItemId);
-        if (cause.Depth >= MaxDepth)
-        {
-            LogTooDeep(trigger, itemId, cause.Depth);
-            return;
-        }
+    /// <summary>Most items one manual start may select.</summary>
+    public const int MaxItemsPerStart = 100;
 
-        var tenant = cause.TenantId;
-        var enabled = await EnabledAsync(tenant, workspaceId, trigger, cancellationToken);
-        if (enabled.Count == 0)
-        {
-            return;
-        }
+    /// <summary>What a trigger is matched against.</summary>
+    private sealed record Cause(
+        Guid TenantId, Guid WorkspaceId, string Trigger, Guid EventId, Guid? ListId, Guid? ItemId, Guid? ContentTypeId,
+        IReadOnlyList<string> ChangedFields, JsonObject? Data, Guid? UserId, int Depth);
 
-        // A deleted item's list is found too while the list itself is not deleted.
-        var listName = (await items.FindListAsync(new ChangeActor(tenant, null), workspaceId, listId, cancellationToken))?.Name;
-        var runs = new List<WorkflowRun>();
-        foreach (var (workflow, spec) in enabled)
-        {
-            var matching = spec.AllTriggers.Any(t => t.Type == trigger
-                && (t.List is null || t.List == listName)
-                && (t.ChangedFields is not { Count: > 0 } || t.ChangedFields.Intersect(changedFields, StringComparer.Ordinal).Any()));
-            if (!matching)
-            {
-                continue;
-            }
+    public Task OnItemEventAsync(string trigger, ItemEvent cause, IReadOnlyList<string> changedFields, JsonObject? data, CancellationToken cancellationToken) =>
+        StartMatchingAsync(new Cause(cause.TenantId, cause.WorkspaceId, trigger, cause.EventId, cause.ListId, cause.ItemId, cause.ContentTypeId,
+            changedFields, data, cause.UserId, cause.Depth), cancellationToken);
 
-            if (spec.Condition is { Length: > 0 } condition && trigger != WorkflowTriggers.ItemDeleted)
-            {
-                var (matches, error) = await conditions.MatchesAsync(tenant, workspaceId, listId, itemId, condition, cancellationToken);
-                if (error is not null)
-                {
-                    LogConditionFailed(workflow.Name, error);
-                }
+    /// <summary>Starts the enabled workflows of the workspace whose triggers have the event's type and fit it.</summary>
+    public Task OnTriggerAsync(WorkflowTriggerRaised cause, CancellationToken cancellationToken) =>
+        StartMatchingAsync(new Cause(cause.TenantId, cause.WorkspaceId, cause.Trigger, cause.EventId, cause.ListId, cause.ItemId, null,
+            [], cause.Data is { } json ? JsonNode.Parse(json) as JsonObject : null, cause.UserId, cause.Depth), cancellationToken);
 
-                if (!matches)
-                {
-                    continue;
-                }
-            }
-
-            // The run's id comes from the event and the workflow, so a redelivered event starts nothing twice.
-            var runId = RunIdFor(cause.EventId, workflow.Id);
-            if (await RunExistsAsync(tenant, runId, cancellationToken))
-            {
-                continue;
-            }
-
-            runs.Add(NewRun(runId, workflow, spec, trigger, listId, itemId, data, cause.UserId, cause.Depth));
-        }
-
-        await StartAsync(runs, cancellationToken);
-    }
-
-    /// <summary>Starts the enabled workflows of the workspace whose triggers have the event's type (and list, when narrowed).</summary>
-    public async Task OnTriggerAsync(WorkflowTriggerRaised cause, CancellationToken cancellationToken)
+    private async Task StartMatchingAsync(Cause cause, CancellationToken cancellationToken)
     {
         if (cause.Depth >= MaxDepth)
         {
@@ -136,17 +102,65 @@ public sealed partial class WorkflowStarter(WorkflowsDbContext db, IOutbox outbo
             return;
         }
 
-        var listName = cause.ListId is { } listId ? (await items.FindListAsync(new ChangeActor(tenant, null), cause.WorkspaceId, listId, cancellationToken))?.Name : null;
-        var data = cause.Data is { } json ? JsonNode.Parse(json) as JsonObject : null;
+        // A deleted item's list is found too while the list itself is not deleted.
+        var reader = new ChangeActor(tenant, null);
+        var list = cause.ListId is { } listId ? await items.FindListAsync(reader, cause.WorkspaceId, listId, cancellationToken) : null;
+
+        // The item's values, read once when a content type (of a raised trigger) or terms have to be checked.
+        ListItemData? current = null;
+        var loaded = false;
+        async Task<ListItemData?> CurrentAsync()
+        {
+            if (!loaded && cause is { ListId: { } itemList, ItemId: { } itemId })
+            {
+                current = await items.GetAsync(reader, cause.WorkspaceId, itemList, itemId, cancellationToken);
+                loaded = true;
+            }
+
+            return current;
+        }
+
+        async Task<bool> MatchesAsync(WorkflowTrigger candidate)
+        {
+            if ((candidate.List is { } listName && list?.Name != listName)
+                || (candidate.ChangedFields is { Count: > 0 } fields && !fields.Intersect(cause.ChangedFields, StringComparer.Ordinal).Any())
+                || !candidate.MatchesData(cause.Data))
+            {
+                return false;
+            }
+
+            if (candidate.ContentType is { } type)
+            {
+                var contentTypeId = cause.ContentTypeId ?? (await CurrentAsync())?.ContentTypeId;
+                var contentType = list?.ContentTypes.FirstOrDefault(c => c.Id == contentTypeId);
+                if (contentType?.Name != type && contentType?.Key != type)
+                {
+                    return false;
+                }
+            }
+
+            return candidate.Terms is not { Count: > 0 } wanted || await terms.HasAnyAsync(tenant, await CurrentAsync(), wanted, cancellationToken);
+        }
+
         var runs = new List<WorkflowRun>();
         foreach (var (workflow, spec) in enabled)
         {
-            if (!spec.AllTriggers.Any(t => t.Type == cause.Trigger && (t.List is null || t.List == listName)))
+            var matched = false;
+            foreach (var candidate in spec.AllTriggers.Where(t => t.Type == cause.Trigger))
+            {
+                if (await MatchesAsync(candidate))
+                {
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (!matched)
             {
                 continue;
             }
 
-            if (spec.Condition is { Length: > 0 } condition && cause is { ListId: { } conditionList, ItemId: { } conditionItem })
+            if (spec.Condition is { Length: > 0 } condition && cause.Trigger != WorkflowTriggers.ItemDeleted && cause is { ListId: { } conditionList, ItemId: { } conditionItem })
             {
                 var (matches, error) = await conditions.MatchesAsync(tenant, cause.WorkspaceId, conditionList, conditionItem, condition, cancellationToken);
                 if (error is not null)
@@ -166,29 +180,51 @@ public sealed partial class WorkflowStarter(WorkflowsDbContext db, IOutbox outbo
                 continue;
             }
 
-            runs.Add(NewRun(runId, workflow, spec, cause.Trigger, cause.ListId, cause.ItemId, data, cause.UserId, cause.Depth));
+            runs.Add(NewRun(runId, workflow, spec, cause.Trigger, cause.ListId, cause.ItemId, cause.Data, cause.UserId, cause.Depth));
         }
 
         await StartAsync(runs, cancellationToken);
     }
 
-    /// <summary>A run started by a person, on an item or not, with <paramref name="inputs"/> as variables.</summary>
-    public async Task<WorkflowRun> StartManualAsync(WorkflowDefinition workflow, WorkflowSpec spec, Guid? listId, Guid? itemId, JsonObject? inputs, Guid userId, CancellationToken cancellationToken)
+    /// <summary>A run of a timed trigger (an occurrence, or an item's date): once per <paramref name="eventId"/>.</summary>
+    public async Task StartTimedAsync(
+        WorkflowDefinition workflow, WorkflowSpec spec, string trigger, Guid eventId, Guid? itemId, JsonObject data, CancellationToken cancellationToken, Guid? listId = null)
     {
-        var run = NewRun(Ids.New(), workflow, spec, WorkflowTriggers.Manual, listId, itemId, null, userId, 0);
-        if (inputs is not null)
+        var runId = RunIdFor(eventId, workflow.Id);
+        if (!await RunExistsAsync(workflow.TenantId, runId, cancellationToken))
         {
-            var variables = JsonNode.Parse(run.Variables)!.AsObject();
-            foreach (var (name, value) in inputs)
+            await StartAsync([NewRun(runId, workflow, spec, trigger, itemId is null ? null : listId, itemId, data, null, 0)], cancellationToken);
+        }
+    }
+
+    /// <summary>A run started by a person, on an item or not, with <paramref name="inputs"/> as variables.</summary>
+    public async Task<WorkflowRun> StartManualAsync(WorkflowDefinition workflow, WorkflowSpec spec, Guid? listId, Guid? itemId, JsonObject? inputs, Guid userId, CancellationToken cancellationToken) =>
+        (await StartManualAsync(workflow, spec, listId, itemId is { } id ? [id] : [null], inputs, userId, cancellationToken))[0];
+
+    /// <summary>Runs started by a person: one per selected item (or one without an item).</summary>
+    public async Task<List<WorkflowRun>> StartManualAsync(
+        WorkflowDefinition workflow, WorkflowSpec spec, Guid? listId, IReadOnlyList<Guid?> itemIds, JsonObject? inputs, Guid userId, CancellationToken cancellationToken)
+    {
+        var runs = new List<WorkflowRun>();
+        foreach (var itemId in itemIds)
+        {
+            var run = NewRun(Ids.New(), workflow, spec, WorkflowTriggers.Manual, itemId is null ? null : listId, itemId, null, userId, 0);
+            if (inputs is not null)
             {
-                variables[name] = value?.DeepClone();
+                var variables = JsonNode.Parse(run.Variables)!.AsObject();
+                foreach (var (name, value) in inputs)
+                {
+                    variables[name] = value?.DeepClone();
+                }
+
+                run.Variables = variables.ToJsonString();
             }
 
-            run.Variables = variables.ToJsonString();
+            runs.Add(run);
         }
 
-        await StartAsync([run], cancellationToken);
-        return run;
+        await StartAsync(runs, cancellationToken);
+        return runs;
     }
 
     private async Task StartAsync(List<WorkflowRun> runs, CancellationToken cancellationToken)

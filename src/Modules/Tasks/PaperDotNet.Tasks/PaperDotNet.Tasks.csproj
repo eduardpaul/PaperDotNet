@@ -11,11 +11,6 @@
     <ProjectReference Include="..\..\Workflows\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- The task.completed workflow trigger comes with workflow parity (T14, docs/aot-porting-plan.md). -->
-    <Compile Remove="Features/TaskTriggers.cs" />
-    <None Include="Features/TaskTriggers.cs" />
-  </ItemGroup>
-  <ItemGroup>
     <!-- RRULE (RFC 5545). Creates its types by reflection: the host roots the assembly for the trimmer (ADR-0039). -->
     <PackageReference Include="Ical.Net" />
   </ItemGroup>

@@ -26,6 +26,8 @@ public class WorkflowsDbContext : DbContext
 
     public DbSet<ApprovalRequest> Approvals { get; set; } = null!;
 
+    public DbSet<WorkflowSchedule> WorkflowSchedules { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Runs are started through the outbox (ResumeRun messages) in the same transaction.
@@ -69,6 +71,12 @@ public class WorkflowsDbContext : DbContext
             bookmark.HasIndex(b => new { b.TenantId, b.Kind, b.Key }).IsUnique();
             bookmark.HasIndex(b => new { b.TenantId, b.RunId });
             bookmark.HasIndex(b => new { b.TenantId, b.ResumeAtUnixMs });
+        });
+
+        modelBuilder.Entity<WorkflowSchedule>(schedule =>
+        {
+            schedule.ToTable("workflow_schedules");
+            schedule.HasIndex(s => s.TenantId);
         });
 
         modelBuilder.Entity<ApprovalRequest>(approval =>

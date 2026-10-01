@@ -263,4 +263,28 @@ public class ApprovalRequest : ITenantOwned, IAuditable, IVersioned
     public uint Version { get; set; }
 }
 
+/// <summary>
+/// Where the schedule job is with a timed trigger (<c>schedule</c> or <c>date</c>) of a workflow. A row belongs to one
+/// version of the workflow; a new version starts over. Times are Unix milliseconds (ADR-0039).
+/// </summary>
+public class WorkflowSchedule : ITenantOwned, IVersioned
+{
+    /// <summary>Made from the workflow and the trigger's position.</summary>
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    /// <summary>The workflow version the row was computed for.</summary>
+    public int WorkflowVersion { get; set; }
+
+    /// <summary>The next occurrence of a schedule.</summary>
+    public long? NextAtUnixMs { get; set; }
+
+    /// <summary>Up to when the trigger was checked.</summary>
+    public long? CheckedUntilUnixMs { get; set; }
+
+    [ConcurrencyCheck]
+    public uint Version { get; set; }
+}
+
 #pragma warning restore CA1852

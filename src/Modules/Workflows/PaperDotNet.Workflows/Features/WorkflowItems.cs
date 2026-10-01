@@ -16,6 +16,12 @@ public sealed class WorkflowItems(IListItemStore store)
     public async Task<ListData?> FindListByNameAsync(ChangeActor actor, Guid workspaceId, string name, CancellationToken cancellationToken) =>
         (await store.AsSystem(actor).GetListsAsync(workspaceId, null, cancellationToken)).FirstOrDefault(l => string.Equals(l.Name, name, StringComparison.Ordinal));
 
+    public Task<ListDescription?> DescribeListAsync(ChangeActor actor, Guid workspaceId, Guid listId, CancellationToken cancellationToken) =>
+        store.AsSystem(actor).DescribeListAsync(workspaceId, listId, cancellationToken);
+
+    public Task<(ListItemPage? Page, string? Error)> QueryPageAsync(ChangeActor actor, Guid workspaceId, Guid listId, ListItemQuery query, CancellationToken cancellationToken) =>
+        store.AsSystem(actor).QueryPageAsync(workspaceId, listId, query, cancellationToken);
+
     public Task<ListItemData?> GetAsync(ChangeActor actor, Guid workspaceId, Guid listId, Guid itemId, CancellationToken cancellationToken) =>
         store.AsSystem(actor).GetAsync(workspaceId, listId, itemId, cancellationToken);
 

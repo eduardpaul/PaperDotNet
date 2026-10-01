@@ -14,7 +14,7 @@ namespace PaperDotNet.Workflows.Features;
 /// changed definition becomes a new version (ADR-0036: workflows travel with lists and libraries). Built-in workflows
 /// (EVT-12) come with T14.
 /// </summary>
-internal sealed class WorkflowTemplateHandler(WorkflowsDbContext db, IEnumerable<IWorkflowActivity> activities, TimeProvider time) : ITemplateHandler
+internal sealed class WorkflowTemplateHandler(WorkflowsDbContext db, IEnumerable<IWorkflowActivity> activities, TriggerCatalog triggers, TimeProvider time) : ITemplateHandler
 {
     public static readonly XNamespace Ns = "urn:paperdotnet:workflow:1";
 
@@ -73,7 +73,7 @@ internal sealed class WorkflowTemplateHandler(WorkflowsDbContext db, IEnumerable
             }
 
             var (spec, error) = definition is null ? (null, "Not a workflow definition.") : WorkflowJson.Read(definition);
-            var errors = spec is null ? [error ?? "Not a workflow definition."] : DefinitionValidator.Validate(spec, catalog);
+            var errors = spec is null ? [error ?? "Not a workflow definition."] : DefinitionValidator.Validate(spec, catalog, triggers);
             if (errors.Count > 0)
             {
                 throw new TemplateException($"Workflow '{name}': {string.Join(" ", errors)}", element);

@@ -19,13 +19,18 @@ public static class WorkflowTriggers
     /// <summary>An item came back from the recycle bin.</summary>
     public const string ItemRestored = "itemRestored";
 
+    /// <summary>On a schedule: <c>cron</c> (5 fields) in <c>timeZone</c> (default: the organization's); no item.</summary>
+    public const string Schedule = "schedule";
+
+    /// <summary>For each item of <c>list</c> when its date <c>field</c> plus <c>offsetHours</c> (negative: before) is reached.</summary>
+    public const string Date = "date";
+
     /// <summary>Prefix of workflow events: <c>wf.{key}.{event}</c> (ADR-0038).</summary>
     public const string WorkflowEventPrefix = "wf.";
 
-    public static readonly string[] All = [Manual, ItemAdded, ItemUpdated, ItemDeleted, ItemRestored];
+    public static readonly string[] All = [Manual, ItemAdded, ItemUpdated, ItemDeleted, ItemRestored, Schedule, Date];
 
-    /// <summary>Whether a trigger type is known: one of <see cref="All"/> or a workflow event.</summary>
-    public static bool IsKnown(string type) => All.Contains(type, StringComparer.Ordinal) || WorkflowEvents.IsEventTrigger(type);
+    public static readonly string[] Items = [ItemAdded, ItemUpdated, ItemDeleted, ItemRestored];
 }
 
 /// <summary>Events of workflows (ADR-0038): <c>wf.{key}.{event}</c>.</summary>
@@ -74,10 +79,32 @@ public static partial class WorkflowKeys
 }
 
 /// <summary>
-/// When a workflow runs: <c>type</c>, and for item triggers the <c>list</c> (by name, any list without it) and, for
-/// updates, <c>changedFields</c> (one of them must change).
+/// When a workflow runs: <c>type</c> is <c>manual</c>, an item event (<c>itemAdded</c>, <c>itemUpdated</c>,
+/// <c>itemDeleted</c>, <c>itemRestored</c>), <c>schedule</c>, <c>date</c>, a module or extension trigger
+/// (<c>task.completed</c>, <c>comment.added</c>, <c>approval.decided</c>, …) or a workflow event (<c>wf.{key}.{event}</c>).
+/// <c>list</c> and <c>contentType</c> narrow it by name; <c>changedFields</c> (updates) needs one of them to change;
+/// <c>terms</c> (paths <c>Group/Set/Term</c>) needs the item to have one of them or a term below. <c>schedule</c> runs on
+/// <c>cron</c> in <c>timeZone</c>; <c>date</c> runs for each item of <c>list</c> when its date <c>field</c> plus
+/// <c>offsetHours</c> is reached. <c>manual</c> may describe the <c>inputs</c> a person gives (a JSON Schema object; they
+/// become run variables). <c>data</c> needs the trigger's data to have these values, e.g. <c>{ "reply": false }</c>.
 /// </summary>
-public sealed record WorkflowTrigger(string Type, string? List = null, IReadOnlyList<string>? ChangedFields = null);
+public sealed record WorkflowTrigger(
+    string Type,
+    string? List = null,
+    IReadOnlyList<string>? ChangedFields = null,
+    string? ContentType = null,
+    IReadOnlyList<string>? Terms = null,
+    string? Cron = null,
+    string? TimeZone = null,
+    string? Field = null,
+    double? OffsetHours = null,
+    JsonObject? Inputs = null,
+    JsonObject? Data = null)
+{
+    /// <summary>Whether the trigger's data has every value of <see cref="Data"/> (true without <see cref="Data"/>).</summary>
+    public bool MatchesData(JsonObject? data) =>
+        Data is null || Data.All(wanted => data is not null && data.TryGetPropertyValue(wanted.Key, out var value) && JsonNode.DeepEquals(value, wanted.Value));
+}
 
 /// <summary>Runs of one workflow on the same item (ADR-0037).</summary>
 public static class RunConcurrency
@@ -500,7 +527,7 @@ internal static class StepCompiler
 /// <summary>Checks a definition when it is saved.</summary>
 internal static partial class DefinitionValidator
 {
-    public static List<string> Validate(WorkflowSpec spec, IReadOnlyDictionary<string, IWorkflowActivity> actions)
+    public static List<string> Validate(WorkflowSpec spec, IReadOnlyDictionary<string, IWorkflowActivity> actions, TriggerCatalog catalog)
     {
         var errors = new List<string>();
         var triggers = spec.AllTriggers;
@@ -511,15 +538,7 @@ internal static partial class DefinitionValidator
 
         foreach (var trigger in triggers)
         {
-            if (!WorkflowTriggers.IsKnown(trigger.Type ?? ""))
-            {
-                errors.Add($"Unknown trigger type '{trigger.Type}'. Use one of: {string.Join(", ", WorkflowTriggers.All)}, or wf.{{key}}.{{event}}.");
-            }
-
-            if (trigger.ChangedFields is { Count: > 0 } && trigger.Type != WorkflowTriggers.ItemUpdated)
-            {
-                errors.Add("changedFields applies to itemUpdated triggers only.");
-            }
+            errors.AddRange(ValidateTrigger(trigger, catalog));
         }
 
         if (spec.Concurrency is { } concurrency && !RunConcurrency.All.Contains(concurrency, StringComparer.Ordinal))
@@ -624,6 +643,63 @@ internal static partial class DefinitionValidator
         }
 
         return errors;
+    }
+
+    private static IEnumerable<string> ValidateTrigger(WorkflowTrigger trigger, TriggerCatalog catalog)
+    {
+        if (!catalog.IsKnown(trigger.Type ?? ""))
+        {
+            yield return $"Unknown trigger type '{trigger.Type}'. Use one of: {string.Join(", ", catalog.All.Select(t => t.Key))}, or wf.{{key}}.{{event}}.";
+            yield break;
+        }
+
+        if (trigger.ChangedFields is { Count: > 0 } && trigger.Type != WorkflowTriggers.ItemUpdated)
+        {
+            yield return "changedFields applies to itemUpdated triggers only.";
+        }
+
+        if (trigger.Inputs is not null && trigger.Type != WorkflowTriggers.Manual)
+        {
+            yield return "inputs apply to manual triggers only.";
+        }
+
+        foreach (var error in WorkflowInputs.ValidateSchema(trigger.Inputs))
+        {
+            yield return error;
+        }
+
+        switch (trigger.Type)
+        {
+            case WorkflowTriggers.Schedule:
+                if (TriggerSchedules.ParseCron(trigger.Cron) is null)
+                {
+                    yield return "A schedule trigger needs cron: 5 fields (minute hour day month weekday), e.g. 0 8 * * 1-5.";
+                }
+
+                if (trigger.TimeZone is { } zone && !TimeZoneInfo.TryFindSystemTimeZoneById(zone, out _))
+                {
+                    yield return $"Unknown time zone '{zone}' (use an IANA name such as Europe/Berlin).";
+                }
+
+                if (trigger.List is not null || trigger.Terms is not null)
+                {
+                    yield return "A schedule trigger has no item: list and terms do not apply.";
+                }
+
+                break;
+            case WorkflowTriggers.Date:
+                if (trigger.List is null || trigger.Field is null)
+                {
+                    yield return "A date trigger needs list and field (a date or dateTime field).";
+                }
+
+                if (trigger.OffsetHours is < -8760 or > 8760)
+                {
+                    yield return "offsetHours is at most a year (8760) before or after the date.";
+                }
+
+                break;
+        }
     }
 
     private static IEnumerable<string> ValidateIf(FlowDefinition flow, JsonObject inputs)

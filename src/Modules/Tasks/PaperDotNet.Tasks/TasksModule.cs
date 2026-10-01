@@ -39,6 +39,7 @@ public sealed class TasksModule : IModule
         services.AddSingleton(TaskTemplates.ContentType);
         services.AddSingleton(TaskTemplates.List);
         services.AddWorkflowActivity<TaskCreateActivity>();
+        services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggerKeys.TaskCompleted, "A task was completed (data: completedBy)."));
         services.AddTenantRecurringJob<DueTaskReminderJob>(DueTaskReminderJob.Name, DueTaskReminderJob.Schedule);
         services.AddScopes(TaskScopes.All);
     }

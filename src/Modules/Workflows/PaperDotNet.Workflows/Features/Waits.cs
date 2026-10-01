@@ -162,6 +162,15 @@ internal static class WaitQueries
             .OrderByDescending(a => a.Id).Take(200).ToListAsync(ct);
     }
 
+    public static Task<WorkflowDefinition?> WorkflowAsync(WorkflowsDbContext database, Guid tenantId, Guid workflowId, CancellationToken cancellationToken)
+    {
+        var context = database;
+        var tenant = tenantId;
+        var id = workflowId;
+        var ct = cancellationToken;
+        return context.Workflows.AsNoTracking().FirstOrDefaultAsync(w => w.TenantId == tenant && w.Id == id, ct);
+    }
+
     public static Task<WorkflowRun?> RunAsync(WorkflowsDbContext database, Guid tenantId, Guid runId, CancellationToken cancellationToken)
     {
         var context = database;
@@ -349,9 +358,33 @@ public sealed class RunService(WorkflowsDbContext db, IOutbox outbox, IItemActiv
                 messages.Add(new ResumeRun(tenantId, bookmark.RunId));
             }
 
+            // Workflows can react to the decision (approval.decided), one level deeper than the run that asked.
+            var origin = await WaitQueries.RunAsync(db, tenantId, approval.RunId, ct);
+            var workflowName = origin is null ? null : (await WaitQueries.WorkflowAsync(db, tenantId, origin.WorkflowId, ct))?.Name;
+            var decided = new WorkflowTriggerRaised
+            {
+                EventId = WorkflowStarter.StableId($"approval:{approval.Id:N}"),
+                TenantId = tenantId,
+                UserId = userId,
+                Depth = (origin?.Depth ?? 0) + 1,
+                OccurredAt = now,
+                Trigger = WorkflowTriggerKeys.ApprovalDecided,
+                WorkspaceId = approval.WorkspaceId,
+                ListId = approval.ListId,
+                ItemId = approval.ItemId,
+                Data = new JsonObject
+                {
+                    ["workflow"] = workflowName,
+                    ["step"] = approval.Node,
+                    ["outcome"] = outcome,
+                    ["comment"] = comment,
+                    ["decidedBy"] = userId.ToString(),
+                }.ToJsonString(),
+            };
+
             try
             {
-                await outbox.SaveChangesAsync(db, [], messages, ct);
+                await outbox.SaveChangesAsync(db, [decided], messages, ct);
             }
             catch (DbUpdateConcurrencyException) when (attempt < 3)
             {

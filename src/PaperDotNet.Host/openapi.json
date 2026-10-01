@@ -159,6 +159,29 @@
         }
       }
     },
+    "/v1.0/workflows/triggers": {
+      "get": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "ListWorkflowTriggers",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TriggerDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workflows/activities": {
       "get": {
         "tags": [
@@ -4281,6 +4304,19 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunDto"
+                  }
+                }
+              }
+            }
+          },
           "202": {
             "description": "Accepted",
             "content": {
@@ -10186,6 +10222,12 @@
               "type": "string"
             }
           },
+          "workflowTriggers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "tables": {
             "type": "array",
             "items": {
@@ -13308,8 +13350,19 @@
                 "$ref": "#/components/schemas/JsonObject"
               }
             ]
+          },
+          "itemIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
-        }
+        },
+        "description": "A manual start: on an item (`itemId`), on several (`itemIds`: one run each) or without an item, with `inputs`."
       },
       "TaskFromDocumentRequest": {
         "required": [
@@ -13764,6 +13817,21 @@
           }
         },
         "description": "OAuth 2.0 token response (RFC 6749 \u00a75.1)."
+      },
+      "TriggerDto": {
+        "required": [
+          "key",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
       },
       "UnreadCount": {
         "required": [

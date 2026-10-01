@@ -28,7 +28,10 @@ public sealed record CreateWorkflowRequest(string Name, string? Description, boo
 
 public sealed record UpdateWorkflowRequest(string? Name, string? Description, bool? Enabled, JsonObject? Definition);
 
-public sealed record StartRunRequest(Guid? ListId, Guid? ItemId, JsonObject? Inputs);
+/// <summary>A manual start: on an item (<c>itemId</c>), on several (<c>itemIds</c>: one run each) or without an item, with <c>inputs</c>.</summary>
+public sealed record StartRunRequest(Guid? ListId, Guid? ItemId, JsonObject? Inputs, IReadOnlyList<Guid>? ItemIds = null);
+
+public sealed record TriggerDto(string Key, string Description);
 
 public sealed record RunDto(
     Guid Id,
@@ -72,6 +75,8 @@ internal static class WorkflowEndpoints
             .WithDescription("Stops a running or waiting run; its pending approvals are cancelled.");
         group.MapPost("/runs/{runId:guid}/retry", RetryRunAsync).RequireScope(WorkflowScopes.Write).WithName("RetryWorkflowRun")
             .WithDescription("Runs a failed run again from the node where it failed.");
+        app.MapGet("/v1.0/workflows/triggers", (TriggerCatalog catalog) => TypedResults.Ok<IReadOnlyList<TriggerDto>>([.. catalog.All.Select(t => new TriggerDto(t.Key, t.Description))]))
+            .RequireScope(WorkflowScopes.Read).WithTags("Workflows").WithName("ListWorkflowTriggers");
         app.MapGet("/v1.0/workflows/activities", Activities).RequireScope(WorkflowScopes.Read).WithTags("Workflows").WithName("ListWorkflowActivities");
     }
 
@@ -114,7 +119,8 @@ internal static class WorkflowEndpoints
     }
 
     /// <summary>The definition checked and normalized, or the validation problem.</summary>
-    private static (WorkflowSpec? Spec, ValidationProblem? Problem) Check(JsonObject? definition, IEnumerable<IWorkflowActivity> activities)
+    private static async Task<(WorkflowSpec? Spec, ValidationProblem? Problem)> CheckDefinitionAsync(
+        JsonObject? definition, IEnumerable<IWorkflowActivity> activities, TriggerCatalog catalog, TriggerTerms terms, Guid tenantId, CancellationToken cancellationToken)
     {
         if (definition is null)
         {
@@ -127,7 +133,12 @@ internal static class WorkflowEndpoints
             return (null, ApiErrors.Validation("definition", error ?? "Not a workflow definition."));
         }
 
-        var errors = DefinitionValidator.Validate(spec, activities.ToDictionary(a => a.Key, StringComparer.Ordinal));
+        var errors = DefinitionValidator.Validate(spec, activities.ToDictionary(a => a.Key, StringComparer.Ordinal), catalog);
+        if (errors.Count == 0)
+        {
+            errors.AddRange(await terms.CheckAsync(tenantId, spec, cancellationToken));
+        }
+
         return errors.Count > 0 ? (null, ApiErrors.Validation(new Dictionary<string, string[]> { ["definition"] = [.. errors] })) : (spec, null);
     }
 
@@ -167,7 +178,7 @@ internal static class WorkflowEndpoints
 
     private static async Task<Results<Created<WorkflowDto>, ValidationProblem, ProblemHttpResult>> CreateAsync(
         Guid workspaceId, CreateWorkflowRequest body, Caller caller, IWorkspaceAccess workspaces, WorkflowsDbContext db, IEnumerable<IWorkflowActivity> activities,
-        TimeProvider time, CancellationToken cancellationToken)
+        TriggerCatalog catalog, TriggerTerms terms, TimeProvider time, CancellationToken cancellationToken)
     {
         if (await CheckAsync(caller, workspaceId, WorkspaceAccessLevel.Manage, workspaces, cancellationToken) is { } denied)
         {
@@ -180,7 +191,7 @@ internal static class WorkflowEndpoints
             return ApiErrors.Validation("name", "A name of 1 to 200 characters is required.");
         }
 
-        var (spec, problem) = Check(body.Definition, activities);
+        var (spec, problem) = await CheckDefinitionAsync(body.Definition, activities, catalog, terms, caller.TenantId, cancellationToken);
         if (problem is not null)
         {
             return problem;
@@ -230,7 +241,7 @@ internal static class WorkflowEndpoints
 
     private static async Task<Results<Ok<WorkflowDto>, ValidationProblem, ProblemHttpResult>> UpdateAsync(
         Guid workspaceId, Guid workflowId, UpdateWorkflowRequest body, HttpContext http, Caller caller, IWorkspaceAccess workspaces, WorkflowsDbContext db,
-        IEnumerable<IWorkflowActivity> activities, TimeProvider time, CancellationToken cancellationToken)
+        IEnumerable<IWorkflowActivity> activities, TriggerCatalog catalog, TriggerTerms terms, TimeProvider time, CancellationToken cancellationToken)
     {
         if (await CheckAsync(caller, workspaceId, WorkspaceAccessLevel.Manage, workspaces, cancellationToken) is { } denied)
         {
@@ -273,7 +284,7 @@ internal static class WorkflowEndpoints
         WorkflowVersion? version;
         if (body.Definition is not null)
         {
-            var (spec, problem) = Check(body.Definition, activities);
+            var (spec, problem) = await CheckDefinitionAsync(body.Definition, activities, catalog, terms, caller.TenantId, cancellationToken);
             if (problem is not null)
             {
                 return problem;
@@ -322,7 +333,12 @@ internal static class WorkflowEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<Results<Accepted<RunDto>, ValidationProblem, ProblemHttpResult>> StartAsync(
+    /// <summary>
+    /// Starts a manual workflow: on an item (202 with the run), on several selected items (<c>itemIds</c>: 200 with the runs)
+    /// or without an item. When the manual trigger names a list, items of that list are required. <c>inputs</c> are checked
+    /// against the trigger's <c>inputs</c> schema and become run variables.
+    /// </summary>
+    private static async Task<Results<Accepted<RunDto>, Ok<List<RunDto>>, ValidationProblem, ProblemHttpResult>> StartAsync(
         Guid workspaceId, Guid workflowId, StartRunRequest body, Caller caller, IWorkspaceAccess workspaces, WorkflowsDbContext db, WorkflowStarter starter,
         IListItemStore items, CancellationToken cancellationToken)
     {
@@ -338,15 +354,50 @@ internal static class WorkflowEndpoints
         }
 
         var spec = WorkflowJson.Deserialize(version.Definition);
-        if (!workflow.Enabled || !spec.AllTriggers.Any(t => t.Type == WorkflowTriggers.Manual))
+        var manual = spec.AllTriggers.FirstOrDefault(t => t.Type == WorkflowTriggers.Manual);
+        if (!workflow.Enabled || manual is null)
         {
             return ApiErrors.Conflict("notManual", "The workflow is turned off or has no manual trigger.");
         }
 
-        // The caller must be able to read the item the run works on.
-        if (body.ItemId is { } itemId && (body.ListId is not { } listId || await items.GetAsync(workspaceId, listId, itemId, cancellationToken) is null))
+        if (WorkflowInputs.Check(manual.Inputs, body.Inputs) is { } inputError)
         {
-            return ApiErrors.Validation("itemId", "The item was not found in the list (give listId and itemId).");
+            return ApiErrors.Validation("inputs", inputError);
+        }
+
+        IReadOnlyList<Guid> selected = body.ItemIds ?? (body.ItemId is { } single ? [single] : []);
+        if (selected.Count > WorkflowStarter.MaxItemsPerStart)
+        {
+            return ApiErrors.Validation("itemIds", $"At most {WorkflowStarter.MaxItemsPerStart} items can be selected.");
+        }
+
+        if (manual.List is { } listName && selected.Count == 0)
+        {
+            return ApiErrors.Validation("itemIds", $"The workflow runs on items of the list '{listName}': select items.");
+        }
+
+        // The caller must be able to read the items the runs work on, in the trigger's list.
+        if (selected.Count > 0)
+        {
+            if (body.ListId is not { } listId || await items.GetListAsync(workspaceId, listId, cancellationToken) is not { } list
+                || (manual.List is { } wanted && list.Name != wanted))
+            {
+                return ApiErrors.Validation("listId", "Give the listId of the items (the list the trigger names).");
+            }
+
+            foreach (var itemId in selected.Distinct())
+            {
+                if (await items.GetAsync(workspaceId, listId, itemId, cancellationToken) is null)
+                {
+                    return ApiErrors.Validation("itemIds", $"The item {itemId} was not found in the list.");
+                }
+            }
+        }
+
+        if (body.ItemIds is not null)
+        {
+            var runs = await starter.StartManualAsync(workflow, spec, body.ListId, [.. selected.Distinct().Select(id => (Guid?)id)], body.Inputs, caller.UserId, cancellationToken);
+            return TypedResults.Ok(runs.Select(ToDto).ToList());
         }
 
         var run = await starter.StartManualAsync(workflow, spec, body.ItemId is null ? null : body.ListId, body.ItemId, body.Inputs, caller.UserId, cancellationToken);

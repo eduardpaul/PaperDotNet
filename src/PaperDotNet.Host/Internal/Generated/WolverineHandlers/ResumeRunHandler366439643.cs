@@ -56,7 +56,7 @@ namespace Internal.Generated.WolverineHandlers
             * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Contracts.IWorkflowRecipients Lifetime: Scoped ImplementationType: PaperDotNet.Workflows.Features.WorkflowRecipientResolver
             * Concrete type PaperDotNet.Workflows.Features.WorkflowRecipientResolver is not public, so requires service location
             * 
-            * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Features.RunService Lifetime: Scoped ImplementationFactory: PaperDotNet.Workflows.WorkflowsModule+<>c.<AddServices>b__4_0
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Workflows.Features.RunService Lifetime: Scoped ImplementationFactory: PaperDotNet.Workflows.WorkflowsModule+<>c.<AddServices>b__4_2
             * The service registration for PaperDotNet.Workflows.Features.RunService is an 'opaque' lambda factory with the Scoped lifetime and requires service location
             */
             var workflowInterpreter = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Workflows.Features.WorkflowInterpreter>(serviceScope.ServiceProvider);

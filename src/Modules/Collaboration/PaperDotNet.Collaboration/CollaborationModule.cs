@@ -8,6 +8,7 @@ using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Collaboration.Features;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Collaboration;
 
@@ -39,6 +40,7 @@ public sealed class CollaborationModule : IModule
         services.AddModuleDbContext<CollaborationDbContext>();
         services.AddScoped<IItemActivity>(sp => new ItemActivity(sp.GetRequiredService<CollaborationDbContext>(), sp.GetRequiredService<TimeProvider>()));
         services.AddScoped<IItemSearchContributor>(sp => new CommentSearchContent(sp.GetRequiredService<CollaborationDbContext>()));
+        services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggerKeys.CommentAdded, "A comment was added to an item (data: commentId, text, author, reply)."));
         services.AddScopes(CollaborationScopes.All);
     }
 

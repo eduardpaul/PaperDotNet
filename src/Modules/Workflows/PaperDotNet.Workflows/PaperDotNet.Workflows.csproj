@@ -10,11 +10,14 @@
     <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
     <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
+    <ProjectReference Include="..\..\Taxonomy\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
     <ProjectReference Include="..\..\Notifications\PaperDotNet.Notifications.Contracts\PaperDotNet.Notifications.Contracts.csproj" />
     <ProjectReference Include="..\..\Collaboration\PaperDotNet.Collaboration.Contracts\PaperDotNet.Collaboration.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Script steps: sandboxed JavaScript; runs under Native AOT without .NET interop (ADR-0039). -->
     <PackageReference Include="Jint" />
+    <!-- Schedule triggers (cron), as the job scheduler (Jobs). -->
+    <PackageReference Include="Cronos" />
   </ItemGroup>
 </Project>

@@ -129,4 +129,11 @@ public static class WorkflowServiceCollectionExtensions
         services.AddSingleton<IWorkflowActivity, T>();
         return services;
     }
+
+    /// <summary>A trigger the module raises with <see cref="IWorkflowTriggers"/>, offered in the trigger catalog.</summary>
+    public static IServiceCollection AddWorkflowTrigger(this IServiceCollection services, WorkflowTriggerDefinition trigger)
+    {
+        services.AddSingleton(trigger);
+        return services;
+    }
 }

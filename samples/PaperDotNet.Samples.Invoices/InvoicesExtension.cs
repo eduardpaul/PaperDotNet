@@ -12,6 +12,7 @@ using PaperDotNet.Extensions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Samples.Invoices;
+using PaperDotNet.Workflows.Contracts;
 
 [assembly: PaperDotNetExtension(typeof(InvoicesExtension))]
 
@@ -62,6 +63,8 @@ public sealed class InvoicesExtension : IExtension
         builder.AddWorkflowActivity<ApproveInvoiceAction>();
         builder.AddWorkflowActivity<AwaitPaymentActivity>();
         builder.AddEventSubscriber<ItemUpdated, PaymentReceived>();
+        builder.AddWorkflowTrigger(new WorkflowTriggerDefinition(ApprovalNeededTrigger.Key, "An invoice above the approval threshold was added (data: amount)."));
+        builder.AddEventSubscriber<ItemAdded, ApprovalNeededTrigger>();
         builder.AddRecurringJob<ReminderJob>($"{Id}.reminders", "* * * * * *");
         builder.MapEndpoints(api => api.MapGet("/stats", (InvoiceStats stats, Caller caller) => TypedResults.Ok(stats.For(caller.TenantId).Snapshot()))
             .RequireScope($"{Id}.read"));

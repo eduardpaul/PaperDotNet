@@ -8,29 +8,6 @@ using PaperDotNet.Workflows.Contracts;
 namespace PaperDotNet.Samples.Invoices;
 
 /// <summary>
-/// Raises the trigger <c>samples.invoices.approvalNeeded</c> (EVT-09) when an invoice above the threshold is added,
-/// so that workflows can react, e.g. with an approval. Raised for the item event (its id and depth), so a redelivered event
-/// starts nothing twice.
-/// </summary>
-public sealed class ApprovalNeededTrigger(IListItemStore items, IWorkflowTriggers triggers) : IEventSubscriber<ItemAdded>
-{
-    public const string Key = $"{InvoicesExtension.Id}.approvalNeeded";
-
-    public async Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken)
-    {
-        var store = items.AsSystem();
-        var item = await store.GetAsync(integrationEvent.WorkspaceId, integrationEvent.ListId, integrationEvent.ItemId, cancellationToken);
-        if (item?.Fields["status"]?.GetValue<string>() != "pendingApproval")
-        {
-            return;
-        }
-
-        await triggers.RaiseAsync(Key, integrationEvent.WorkspaceId, new WorkflowItem(item.WorkspaceId, item.ListId, item.Id),
-            new JsonObject { ["amount"] = item.Fields["amount"]?.DeepClone() }, integrationEvent, cancellationToken);
-    }
-}
-
-/// <summary>
 /// The extension's built-in workflow <c>samples.invoices.approveAndCollect</c> (EVT-12), added with
 /// <c>builder.AddWorkflow</c> like the product's own: an invoice above the threshold is approved by <c>approvers</c>, marked
 /// approved (<see cref="ApproveInvoiceAction"/>), and the run waits for the payment (<see cref="AwaitPaymentActivity"/>);

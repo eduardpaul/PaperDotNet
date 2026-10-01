@@ -34,6 +34,8 @@ public sealed class ExtensionContributions
 
     public List<string> WorkflowActivities { get; } = [];
 
+    public List<string> WorkflowTriggers { get; } = [];
+
     public List<string> Tables { get; } = [];
 
     public bool Endpoints { get; set; }
@@ -244,6 +246,19 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         services.TryAddScoped<THandler>();
         services.AddScoped<Provisioning.Contracts.ITemplateHandler>(sp => new Features.GatedTemplateHandler(id, sp.GetRequiredService<THandler>(), sp.GetRequiredService<IExtensionState>()));
         extension.Contributions.TemplateSections.Add(typeof(THandler).Name);
+        return this;
+    }
+
+    public IExtensionBuilder AddWorkflowTrigger(WorkflowTriggerDefinition trigger)
+    {
+        ArgumentNullException.ThrowIfNull(trigger);
+        if (!trigger.Key.StartsWith($"{extension.Id}.", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"The trigger '{trigger.Key}' of the extension '{extension.Id}' must start with '{extension.Id}.'.");
+        }
+
+        services.AddSingleton(trigger);
+        extension.Contributions.WorkflowTriggers.Add(trigger.Key);
         return this;
     }
 

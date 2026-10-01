@@ -55,3 +55,26 @@ public sealed class PaymentReceived(IListItemStore items, IWorkflowBookmarks boo
         }
     }
 }
+
+/// <summary>
+/// Raises the trigger <c>samples.invoices.approvalNeeded</c> (EVT-09) when an invoice above the threshold is added, so
+/// that workflows can react, e.g. with an approval. Raised for the item event (an id made from it and its depth), so a
+/// redelivered event starts nothing twice.
+/// </summary>
+public sealed class ApprovalNeededTrigger(IListItemStore items, IWorkflowTriggers triggers) : IEventSubscriber<ItemAdded>
+{
+    public const string Key = $"{InvoicesExtension.Id}.approvalNeeded";
+
+    public async Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken)
+    {
+        var actor = new ChangeActor(integrationEvent.TenantId, null, integrationEvent.Depth);
+        var item = await items.AsSystem(actor).GetAsync(integrationEvent.WorkspaceId, integrationEvent.ListId, integrationEvent.ItemId, cancellationToken);
+        if (item?.Fields["status"] is not JsonValue status || !status.TryGetValue<string>(out var value) || value != "pendingApproval")
+        {
+            return;
+        }
+
+        await triggers.RaiseAsync(Key, integrationEvent.WorkspaceId, new WorkflowItem(item.WorkspaceId, item.ListId, item.Id),
+            new JsonObject { ["amount"] = item.Fields["amount"]?.DeepClone() }, integrationEvent, cancellationToken);
+    }
+}
