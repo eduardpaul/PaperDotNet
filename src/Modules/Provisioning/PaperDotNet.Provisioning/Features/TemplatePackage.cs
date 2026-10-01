@@ -24,7 +24,7 @@ internal sealed class ZipTemplatePackage : ITemplatePackage, IAsyncDisposable
     private readonly Stream _stream;
     private readonly bool _leaveOpen;
     private readonly ZipArchive _zip;
-    private readonly HashSet<string> _files = [with(StringComparer.Ordinal)];
+    private readonly HashSet<string> _files = []; // Default string equality is ordinal.
 
     private ZipTemplatePackage(Stream stream, ZipArchiveMode mode, bool leaveOpen = false)
     {

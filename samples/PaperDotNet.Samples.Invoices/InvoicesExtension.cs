@@ -60,6 +60,8 @@ public sealed class InvoicesExtension : IExtension
         });
         builder.AddEventSubscriber<ItemAdded, InvoiceCounter>();
         builder.AddWorkflowActivity<ApproveInvoiceAction>();
+        builder.AddWorkflowActivity<AwaitPaymentActivity>();
+        builder.AddEventSubscriber<ItemUpdated, PaymentReceived>();
         builder.AddRecurringJob<ReminderJob>($"{Id}.reminders", "* * * * * *");
         builder.MapEndpoints(api => api.MapGet("/stats", (InvoiceStats stats, Caller caller) => TypedResults.Ok(stats.For(caller.TenantId).Snapshot()))
             .RequireScope($"{Id}.read"));

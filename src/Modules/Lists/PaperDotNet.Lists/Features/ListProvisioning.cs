@@ -16,9 +16,9 @@ internal sealed class ListsTemplateState
 {
     private const string Key = "lists.contentTypes";
 
-    public Dictionary<string, ContentType> ByName { get; } = [with(StringComparer.Ordinal)];
+    public Dictionary<string, ContentType> ByName { get; } = []; // Default string equality is ordinal.
 
-    public Dictionary<string, ContentType> ByKey { get; } = [with(StringComparer.Ordinal)];
+    public Dictionary<string, ContentType> ByKey { get; } = []; // Default string equality is ordinal.
 
     public static ListsTemplateState Of(TemplateContext context)
     {

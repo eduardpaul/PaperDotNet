@@ -19,7 +19,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T11 | M | Tasks and Calendar | done (steps below); Ical.Net works under AOT with its assembly rooted |
 | T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | done (steps below; semantic search is T12e, after the AI workflows of T14). AOT smoke with smart folders: idle 138 MB (close to the 150 MB budget: watch it), 226 MB under load |
 | T13 | M | Provisioning and templates | done (steps below); built-in workflows in templates come with T14, documents in packages with T15 |
-| T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | |
+| T14 | L | Workflows parity (waits, approvals, schedules, `forEach`, `event.raise`, `steps`, built-ins, the `comment.added` trigger) and AI workflows | in progress (steps below) |
 | T15 | XL | Documents (PDF libraries, page images, OCR) | |
 | T16 | M | MCP, admin CLI, backup and restore, Papermerge import, the audit log across modules | |
 | T17 | XL | PostgreSQL build, SDK regeneration, web UI (with the authorization-code flow, passkeys, OAuth client applications and reverse-proxy sign-in) | |
@@ -85,7 +85,7 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 
 | Step | Task | Status |
 |---|---|---|
-| T14a | Waits: bookmarks (`WorkflowActivityResult.Wait`/`WaitAndRunAgain`, `IWorkflowBookmarks`), time-outs and the `delay` activity, approvals (`approval` with approvers, escalation and outcome ports) | |
+| T14a | Waits: bookmarks (`WorkflowActivityResult.Wait`/`WaitAndRunAgain`, `IWorkflowBookmarks`), time-outs and the `delay` activity, approvals (`approval` with approvers, escalation and outcome ports) | done. Bookmarks and approvals have their own tables (times as Unix ms); `IWorkflowBookmarks` names the tenant; the minute job (`workflows.timers`) ends due waits and escalates; runs can be cancelled and retried; `/v1.0/me/approvals`. The Invoices sample's `awaitPayment` works again. Retry policies of nodes come with T14b, `approval.decided` with T14c |
 | T14b | Flow parity: the `steps` form, `forEach`, retries, `event.raise` and `wf.{key}.completed/failed` triggers, restored-item triggers, run cleanup, concurrency per item | |
 | T14c | Triggers: schedules (cron), date fields, several triggers, module triggers through `IWorkflowTriggers` (`task.completed`, `comment.added`), extension triggers (`AddWorkflowTrigger`), term filters, manual inputs and selections | |
 | T14d | Built-in and shipped workflows (`AddWorkflow`, `Scope = Library`), extension workflows, `BuiltIn` elements in templates | |

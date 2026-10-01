@@ -23,6 +23,7 @@ public sealed partial class WorkflowInterpreter(
     ItemConditions conditions,
     TokenExpander tokens,
     ScriptRunner scripts,
+    IWorkflowRecipients recipients,
     TimeProvider time,
     ILogger<WorkflowInterpreter> logger)
 {
@@ -35,7 +36,7 @@ public sealed partial class WorkflowInterpreter(
 
     public async Task RunAsync(Guid tenantId, Guid runId, CancellationToken ct)
     {
-        if (await FindRunAsync(db, tenantId, runId, ct) is not { Status: RunStatus.Running } run
+        if (await FindRunAsync(db, tenantId, runId, ct) is not { Status: RunStatus.Running or RunStatus.Waiting } run
             || await WorkflowVersions.FindAsync(db, tenantId, run.WorkflowId, run.WorkflowVersion, ct) is not { } version)
         {
             return;
@@ -94,6 +95,33 @@ public sealed partial class WorkflowInterpreter(
             run.StepExecutionId = null;
             await SaveAsync();
             return true;
+        }
+
+        // Stops the run on a bookmark (saved with the run, and with messages, e.g. the one that resumes a completed wait).
+        Task WaitAsync(WorkflowBookmark bookmark, IReadOnlyCollection<object>? messages = null)
+        {
+            run.Status = RunStatus.Waiting;
+            run.WaitingOn = bookmark.Id;
+            return SaveAsync(messages);
+        }
+
+        WorkflowBookmark NewBookmark(string node, string kind, string key, DateTimeOffset? resumeAt)
+        {
+            var now = time.GetUtcNow();
+            var bookmark = new WorkflowBookmark
+            {
+                Id = Ids.New(),
+                TenantId = run.TenantId,
+                RunId = run.Id,
+                Node = node,
+                Kind = kind,
+                Key = key,
+                ResumeAtUnixMs = resumeAt?.ToUnixTimeMilliseconds(),
+                CreatedAt = now,
+                CreatedAtUnixMs = now.ToUnixTimeMilliseconds(),
+            };
+            db.Bookmarks.Add(bookmark);
+            return bookmark;
         }
 
         // A failed node continues on its error port if connected; else the run fails there.
@@ -212,6 +240,45 @@ public sealed partial class WorkflowInterpreter(
             await SaveAsync();
         }
 
+        if (run.Status == RunStatus.Waiting)
+        {
+            var bookmark = run.WaitingOn is { } waitingOn ? await WaitQueries.BookmarkByIdAsync(db, run.TenantId, waitingOn, ct) : null;
+            if (bookmark is null)
+            {
+                await FailAsync("The wait of the run no longer exists.", run.Node);
+                return;
+            }
+
+            if (bookmark.CompletedAtUnixMs is null)
+            {
+                return; // Not over yet (e.g. a duplicate message).
+            }
+
+            run.Status = RunStatus.Running;
+            run.WaitingOn = null;
+            if (bookmark.RunAgain || bookmark.Kind == BookmarkKinds.Retry)
+            {
+                // The node runs again (same execution id); a run-again activity looks up what it waited for itself.
+                Log($"{bookmark.Node}: running again");
+                await SaveAsync();
+            }
+            else
+            {
+                var payload = bookmark.Payload is { } text ? JsonNode.Parse(text) as JsonObject ?? [] : [];
+                outputs[bookmark.Node] = payload;
+                var outcome = payload["outcome"] is JsonValue value && value.TryGetValue<string>(out var named) ? named : "done";
+                if (bookmark.Kind != BookmarkKinds.Delay)
+                {
+                    Log($"{bookmark.Node}: {outcome}");
+                }
+
+                if (!await ContinueAsync(bookmark.Node, outcome))
+                {
+                    return;
+                }
+            }
+        }
+
         for (var executed = 0; ; executed++)
         {
             if (run.NodesRun >= MaxNodesPerRun)
@@ -300,6 +367,28 @@ public sealed partial class WorkflowInterpreter(
                     running = await ScriptAsync(id, node);
                     break;
 
+                case FlowActivities.Delay:
+                    var wait = TimeSpan.FromHours(ActivityInputs.Number(inputs, "hours") ?? 0) + TimeSpan.FromMinutes(ActivityInputs.Number(inputs, "minutes") ?? 0);
+                    Log($"{id}: waiting {wait}");
+                    await WaitAsync(NewBookmark(id, BookmarkKinds.Delay, $"{run.Id:N}:{run.StepExecutionId:N}", time.GetUtcNow() + wait));
+                    return;
+
+                case FlowActivities.Approval:
+                    if (await ApprovalAsync(id, node) is not { } approval)
+                    {
+                        running = await FailedAsync(id, node, "No assignee could be found.");
+                        break;
+                    }
+
+                    // The request, the wait and the notification are saved together: a decision always finds the run
+                    // waiting for it, and the assignees are always told.
+                    var key = RunService.ApprovalKey(approval.Id);
+                    var waitFor = await WaitQueries.BookmarkAsync(db, run.TenantId, BookmarkKinds.Approval, key, ct)
+                        ?? NewBookmark(id, BookmarkKinds.Approval, key, null);
+                    Log($"{id}: waiting for approval");
+                    await WaitAsync(waitFor, [new NotifyApproval(run.TenantId, approval.Id, false)]);
+                    return;
+
                 default:
                     running = await ActionAsync(id, node);
                     break;
@@ -314,6 +403,62 @@ public sealed partial class WorkflowInterpreter(
             scope = null;
         }
 
+        // The pending request of the node (reused when it runs again), or a new one (saved with the wait).
+        async Task<ApprovalRequest?> ApprovalAsync(string id, FlowNode node)
+        {
+            if (await WaitQueries.PendingOfNodeAsync(db, run.TenantId, run.Id, id, ct) is { } existing)
+            {
+                return existing;
+            }
+
+            var inputs = node.Inputs ?? [];
+            var context = Context(node, null);
+            var assignees = (await recipients.ResolveAsync(ActivityInputs.Texts(inputs, "assignees") ?? [], context, ct)).Users;
+            if (assignees.Count == 0)
+            {
+                return null;
+            }
+
+            var escalateTo = (await recipients.ResolveAsync(ActivityInputs.Texts(inputs, "escalateTo") ?? [], context, ct)).Users;
+            var title = tokens.Expand(ActivityInputs.Text(inputs, "title") ?? $"Approve {{title}} ({id})", await ScopeAsync());
+            DateTimeOffset? due = ActivityInputs.Number(inputs, "dueInHours") is { } hours ? time.GetUtcNow().AddHours(hours) : null;
+            var approval = new ApprovalRequest
+            {
+                Id = Ids.New(),
+                TenantId = run.TenantId,
+                RunId = run.Id,
+                Node = id,
+                WorkspaceId = run.WorkspaceId,
+                ListId = run.ListId,
+                ItemId = run.ItemId,
+                Title = title.Length > 1000 ? title[..1000] : title,
+                Assignees = UserIds.ToJson(assignees),
+                EscalateTo = UserIds.ToJson(escalateTo.Except(assignees)),
+                DueAt = due,
+                DueAtUnixMs = due?.ToUnixTimeMilliseconds(),
+                Status = ApprovalStatus.Pending,
+            };
+            db.Approvals.Add(approval);
+            return approval;
+        }
+
+        WorkflowActivityContext Context(FlowNode node, WorkflowResumedWait? resumed) => new()
+        {
+            TenantId = run.TenantId,
+            WorkspaceId = run.WorkspaceId,
+            RunId = run.Id,
+            ListId = run.ListId,
+            ItemId = run.ItemId,
+            Inputs = node.Inputs ?? [],
+            ExecutionId = run.StepExecutionId!.Value,
+            Actor = actor,
+            StartedBy = run.StartedBy,
+            Services = services,
+            Resumed = resumed,
+            ExpandAsync = async (template, _) => tokens.Expand(template, await ScopeAsync()),
+            ResolveAsync = async (template, _) => tokens.Value(template, await ScopeAsync()),
+        };
+
         async Task<bool> ActionAsync(string id, FlowNode node)
         {
             if (!_actions.TryGetValue(node.Activity, out var action))
@@ -322,22 +467,11 @@ public sealed partial class WorkflowInterpreter(
                 return false;
             }
 
-            var context = new WorkflowActivityContext
-            {
-                TenantId = run.TenantId,
-                WorkspaceId = run.WorkspaceId,
-                RunId = run.Id,
-                ListId = run.ListId,
-                ItemId = run.ItemId,
-                Inputs = node.Inputs ?? [],
-                ExecutionId = run.StepExecutionId!.Value,
-                Actor = actor,
-                StartedBy = run.StartedBy,
-                Services = services,
-                ExpandAsync = async (template, _) => tokens.Expand(template, await ScopeAsync()),
-                ResolveAsync = async (template, _) => tokens.Value(template, await ScopeAsync()),
-            };
-
+            // A run-again wait of this node that ended is handed back to the activity until the node moves on.
+            var resumed = await WaitQueries.ResumedAsync(db, run.TenantId, run.Id, id, ct);
+            var context = Context(node, resumed is null ? null : new WorkflowResumedWait(
+                resumed.Kind, resumed.Key, resumed.Data is { } data ? JsonNode.Parse(data) as JsonObject : null,
+                resumed.Payload is { } payload ? JsonNode.Parse(payload) as JsonObject : null));
             WorkflowActivityResult result;
             try
             {
@@ -349,14 +483,78 @@ public sealed partial class WorkflowInterpreter(
                 result = WorkflowActivityResult.Fail(exception.Message);
             }
 
+            void Consumed()
+            {
+                if (resumed is not null)
+                {
+                    db.Bookmarks.Remove(resumed);
+                }
+            }
+
             if (!result.Succeeded)
             {
+                Consumed();
                 return await FailedAsync(id, node, result.Error ?? "failed");
             }
 
+            if (result.Waiting is { } wait)
+            {
+                return await WaitForAsync(id, node, wait, resumed);
+            }
+
+            Consumed();
             outputs[id] = result.Output ?? [];
             Log($"{id}: {node.Activity} done");
             return await ContinueAsync(id, result.Outcome ?? "done");
+        }
+
+        // The activity waits for something else to complete (kind, key): a bookmark of this node. A completion that came
+        // first (unclaimed) is taken over and resumes the run right away. False: the run stopped.
+        async Task<bool> WaitForAsync(string id, FlowNode node, WorkflowWait wait, WorkflowBookmark? resumed)
+        {
+            try
+            {
+                WorkflowBookmarks.CheckWait(wait.Kind, wait.Key);
+            }
+            catch (ArgumentException exception)
+            {
+                return await FailedAsync(id, node, exception.Message);
+            }
+
+            var existing = await WaitQueries.BookmarkAsync(db, run.TenantId, wait.Kind, wait.Key, ct);
+            if (existing is not null && existing.RunId != WorkflowBookmarks.Unclaimed && !(existing.RunId == run.Id && existing.Node == id))
+            {
+                return await FailedAsync(id, node, $"The wait {wait.Kind} '{wait.Key}' belongs to another run.");
+            }
+
+            if (resumed is not null && resumed != existing)
+            {
+                db.Bookmarks.Remove(resumed);
+            }
+
+            var waitOn = existing ?? NewBookmark(id, wait.Kind, wait.Key, wait.ResumeAt);
+            if (existing is { CompletedAtUnixMs: not null } && existing.RunId == run.Id)
+            {
+                // The node ran again and waits for the same thing again (e.g. the next poll): wait anew.
+                existing.CompletedAt = null;
+                existing.CompletedAtUnixMs = null;
+                existing.Payload = null;
+                existing.ResumeAtUnixMs = wait.ResumeAt?.ToUnixTimeMilliseconds();
+            }
+
+            waitOn.RunId = run.Id;
+            waitOn.Node = id;
+            waitOn.RunAgain = wait.RunAgain;
+            waitOn.Data = wait.Data?.ToJsonString();
+            if (waitOn.Data?.Length > MaxStateLength)
+            {
+                await FailAsync($"{id}: the data of the wait is too large.", id);
+                return false;
+            }
+
+            Log($"{id}: waiting ({wait.Kind})");
+            await WaitAsync(waitOn, waitOn.CompletedAtUnixMs is null ? null : [new ResumeRun(run.TenantId, run.Id)]);
+            return false;
         }
     }
 

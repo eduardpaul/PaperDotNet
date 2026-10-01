@@ -42,6 +42,7 @@ public sealed class TicketsExtension : IExtension
         builder.AddEventSubscriber<ItemAdded, TicketCounter>();
         builder.AddRecurringJob<TicketJob>($"{Id}.tick", "* * * * * *");
         builder.AddWorkflowActivity<EchoActivity>();
+        builder.AddWorkflowActivity<AwaitSignalActivity>();
         builder.AddTemplateSection<TicketMarkerSection>();
         builder.MapEndpoints(api => api.MapGet("/stats", (Caller caller) => TypedResults.Ok(new TicketStats(TicketCounter.Count(caller.TenantId))))
             .RequireScope($"{Id}.read"));
@@ -110,6 +111,24 @@ public sealed class EchoActivity : IWorkflowActivity
 
     public Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken) =>
         Task.FromResult(WorkflowActivityResult.Ok(new JsonObject { ["echo"] = context.Inputs["text"]?.DeepClone() }));
+}
+
+/// <summary>Waits for a signal about the run's item (completed by the tests), or <c>days</c> (default 30): ports signalled and timeout.</summary>
+public sealed class AwaitSignalActivity : IWorkflowActivity
+{
+    public const string WaitKind = $"{TicketsExtension.Id}.signal";
+
+    public string Key => $"{TicketsExtension.Id}.await";
+
+    public string Description => "Waits for a signal about the item.";
+
+    public IReadOnlyList<string> Outcomes => ["signalled", "timeout"];
+
+    public Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken) =>
+        Task.FromResult(context.ItemId is { } itemId
+            ? WorkflowActivityResult.Wait(WaitKind, itemId.ToString("N"), DateTimeOffset.UtcNow.AddDays(ActivityInputs.Number(context.Inputs, "days") ?? 30),
+                new JsonObject { ["about"] = itemId.ToString() })
+            : WorkflowActivityResult.Fail("An item is required."));
 }
 
 public sealed record TicketStats(int Added);

@@ -67,6 +67,10 @@ internal static class WorkflowEndpoints
         group.MapPost("/{workflowId:guid}/runs", StartAsync).RequireScope(WorkflowScopes.Write).WithName("StartWorkflowRun");
         group.MapGet("/{workflowId:guid}/runs", ListRunsAsync).RequireScope(WorkflowScopes.Read).WithName("ListWorkflowRuns");
         group.MapGet("/runs/{runId:guid}", GetRunAsync).RequireScope(WorkflowScopes.Read).WithName("GetWorkflowRun");
+        group.MapPost("/runs/{runId:guid}/cancel", CancelRunAsync).RequireScope(WorkflowScopes.Write).WithName("CancelWorkflowRun")
+            .WithDescription("Stops a running or waiting run; its pending approvals are cancelled.");
+        group.MapPost("/runs/{runId:guid}/retry", RetryRunAsync).RequireScope(WorkflowScopes.Write).WithName("RetryWorkflowRun")
+            .WithDescription("Runs a failed run again from the node where it failed.");
         app.MapGet("/v1.0/workflows/activities", Activities).RequireScope(WorkflowScopes.Read).WithTags("Workflows").WithName("ListWorkflowActivities");
     }
 
@@ -385,5 +389,54 @@ internal static class WorkflowEndpoints
         return await db.WorkflowRuns.Where(r => r.TenantId == tenant && r.WorkspaceId == workspace && r.Id == id).FirstOrDefaultAsync(ct) is { } run
             ? TypedResults.Ok(ToDto(run))
             : ApiErrors.NotFound();
+    }
+
+    private static Task<WorkflowRun?> FindRunAsync(WorkflowsDbContext database, Guid tenantId, Guid workspaceId, Guid runId, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = tenantId;
+        var workspace = workspaceId;
+        var id = runId;
+        var ct = cancellationToken;
+        return db.WorkflowRuns.Where(r => r.TenantId == tenant && r.WorkspaceId == workspace && r.Id == id).FirstOrDefaultAsync(ct);
+    }
+
+    private static async Task<Results<Ok<RunDto>, ProblemHttpResult>> CancelRunAsync(
+        Guid workspaceId, Guid runId, Caller caller, IWorkspaceAccess workspaces, WorkflowsDbContext db, RunService runs, CancellationToken cancellationToken)
+    {
+        if (await CheckAsync(caller, workspaceId, WorkspaceAccessLevel.Manage, workspaces, cancellationToken) is { } problem)
+        {
+            return problem;
+        }
+
+        if (await FindRunAsync(db, caller.TenantId, workspaceId, runId, cancellationToken) is not { } run)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        if (run.Status is RunStatus.Running or RunStatus.Waiting)
+        {
+            await runs.CancelAsync(run, cancellationToken);
+        }
+
+        return TypedResults.Ok(ToDto(run));
+    }
+
+    private static async Task<Results<Ok<RunDto>, ProblemHttpResult>> RetryRunAsync(
+        Guid workspaceId, Guid runId, Caller caller, IWorkspaceAccess workspaces, WorkflowsDbContext db, RunService runs, CancellationToken cancellationToken)
+    {
+        if (await CheckAsync(caller, workspaceId, WorkspaceAccessLevel.Manage, workspaces, cancellationToken) is { } problem)
+        {
+            return problem;
+        }
+
+        if (await FindRunAsync(db, caller.TenantId, workspaceId, runId, cancellationToken) is not { } run)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        return await runs.RetryAsync(run, cancellationToken)
+            ? TypedResults.Ok(ToDto(run))
+            : ApiErrors.Conflict("notRetryable", "Only failed runs that stopped at a node can be retried.");
     }
 }

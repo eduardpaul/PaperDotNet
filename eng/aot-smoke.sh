@@ -191,6 +191,17 @@ for _ in $(seq 1 50); do
   [[ "$RUN" == completed:* ]] && break; sleep 0.2
 done
 [[ "$RUN" == "completed:4" ]] || fail "workflow run: $RUN"
+# An approval: the run waits until the assignee decides, then continues on the approved port.
+APPROVAL_FLOW=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/workflows" -d '{"name":"Approve","definition":{
+  "trigger":{"type":"manual"},"flow":{"start":"ask","nodes":{
+    "ask":{"activity":"approval","inputs":{"assignees":["admin"],"title":"Approve {title}"},"next":{"approved":"mark"}},
+    "mark":{"activity":"item.update","inputs":{"fields":{"paid":true}}}}}}}' | json 'd["id"]') || fail "create approval workflow"
+APPROVAL_RUN=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/workspaces/$WS/workflows/$APPROVAL_FLOW/runs" -d "{\"listId\":\"$LIST\",\"itemId\":\"$ITEM\"}" | json 'd["id"]') || fail "start approval run"
+for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/me/approvals?status=pending" | json 'len(d["value"])') == 1 ]] && break; sleep 0.2; done
+APPROVAL=$(curl -sf "${AUTH[@]}" "$BASE/v1.0/me/approvals?status=pending" | json 'd["value"][0]["id"]') || fail "pending approval"
+curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/me/approvals/$APPROVAL/decision" -d '{"outcome":"approved"}' -o /dev/null || fail "decide approval"
+for _ in $(seq 1 50); do [[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/workflows/runs/$APPROVAL_RUN" | json 'd["status"]') == completed ]] && break; sleep 0.2; done
+[[ $(curl -sf "${AUTH[@]}" "$BASE/v1.0/workspaces/$WS/workflows/runs/$APPROVAL_RUN" | json 'd["status"]') == completed ]] || fail "approval run"
 
 # Identity: a member in a group inside a group gets a role's scope; preferences; an API token limited to one scope.
 MEMBER=$(curl -sf "${AUTH[@]}" "${JSON[@]}" "$BASE/v1.0/users" -d '{"userName":"member","password":"member-password-1"}' | json 'd["id"]') || fail "create user"

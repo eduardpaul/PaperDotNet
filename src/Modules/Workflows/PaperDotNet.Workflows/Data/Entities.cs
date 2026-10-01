@@ -60,6 +60,9 @@ public class WorkflowVersion : ITenantOwned
 public static class RunStatus
 {
     public const string Running = "running";
+
+    /// <summary>Waiting for a bookmark (an approval, a delay, or something another module completes).</summary>
+    public const string Waiting = "waiting";
     public const string Completed = "completed";
     public const string Failed = "failed";
     public const string Cancelled = "cancelled";
@@ -85,6 +88,9 @@ public class WorkflowRun : ITenantOwned, IVersioned
 
     /// <summary>Id of the current node's execution, saved before it runs, so a repeat after a crash is recognized.</summary>
     public Guid? StepExecutionId { get; set; }
+
+    /// <summary>The bookmark a waiting run waits on.</summary>
+    public Guid? WaitingOn { get; set; }
 
     /// <summary>Nodes run so far (loop guard).</summary>
     public int NodesRun { get; set; }
@@ -116,6 +122,127 @@ public class WorkflowRun : ITenantOwned, IVersioned
     public DateTimeOffset StartedAt { get; set; }
 
     public DateTimeOffset? CompletedAt { get; set; }
+
+    [ConcurrencyCheck]
+    public uint Version { get; set; }
+}
+
+/// <summary>Kinds of bookmarks the engine creates itself; other modules complete bookmarks of their own kinds.</summary>
+public static class BookmarkKinds
+{
+    public const string Approval = "approval";
+    public const string Delay = "delay";
+
+    /// <summary>A failed node waits before it runs again (its retry policy).</summary>
+    public const string Retry = "retry";
+
+    public static readonly string[] Reserved = [Approval, Delay, Retry];
+}
+
+/// <summary>
+/// A durable wait of a run (ADR-0036): an approval, a delay, or anything another module completes. It is completed with
+/// a payload, together with the message that resumes the run; bookmarks with a resume time are completed by the minute
+/// job when their time has come. A completion that arrives before any run waits for it has no run yet (<see cref="RunId"/>
+/// empty) and is taken over by the run that starts waiting for it.
+/// </summary>
+public class WorkflowBookmark : ITenantOwned, IVersioned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid RunId { get; set; }
+
+    /// <summary>The node that waits.</summary>
+    public string Node { get; set; } = "";
+
+    public string Kind { get; set; } = "";
+
+    /// <summary>What completes it, unique per kind in the tenant (e.g. the approval id).</summary>
+    public string Key { get; set; } = "";
+
+    /// <summary>When the wait ends by itself (Unix milliseconds: SQLite compares numbers, not dates, ADR-0039).</summary>
+    public long? ResumeAtUnixMs { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public long CreatedAtUnixMs { get; set; }
+
+    public DateTimeOffset? CompletedAt { get; set; }
+
+    public long? CompletedAtUnixMs { get; set; }
+
+    /// <summary>What completed it as a JSON object; becomes the node's output (its <c>outcome</c> picks the port).</summary>
+    public string? Payload { get; set; }
+
+    /// <summary>What the wait is about as a JSON object, from the activity.</summary>
+    public string? Data { get; set; }
+
+    /// <summary>When completed, the node runs again instead of taking the payload as its output.</summary>
+    public bool RunAgain { get; set; }
+
+    [ConcurrencyCheck]
+    public uint Version { get; set; }
+}
+
+/// <summary>States of an approval request (text, ADR-0039).</summary>
+public static class ApprovalStatus
+{
+    public const string Pending = "pending";
+    public const string Approved = "approved";
+    public const string Rejected = "rejected";
+    public const string Cancelled = "cancelled";
+
+    public static readonly string[] All = [Pending, Approved, Rejected, Cancelled];
+}
+
+/// <summary>An approval node waiting for a decision of one of its assignees.</summary>
+public class ApprovalRequest : ITenantOwned, IAuditable, IVersioned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid RunId { get; set; }
+
+    /// <summary>The approval node.</summary>
+    public string Node { get; set; } = "";
+
+    public Guid WorkspaceId { get; set; }
+
+    public Guid? ListId { get; set; }
+
+    public Guid? ItemId { get; set; }
+
+    public string Title { get; set; } = "";
+
+    /// <summary>Who may decide, as a JSON array of user ids (found with <c>Contains("\"id\"")</c>).</summary>
+    public string Assignees { get; set; } = "[]";
+
+    /// <summary>Added as assignees (and notified) when the request is overdue, as a JSON array of user ids.</summary>
+    public string EscalateTo { get; set; } = "[]";
+
+    public DateTimeOffset? DueAt { get; set; }
+
+    public long? DueAtUnixMs { get; set; }
+
+    public bool Escalated { get; set; }
+
+    public string Status { get; set; } = ApprovalStatus.Pending;
+
+    public Guid? DecidedBy { get; set; }
+
+    public DateTimeOffset? DecidedAt { get; set; }
+
+    public string? Comment { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Guid? CreatedBy { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public Guid? UpdatedBy { get; set; }
 
     [ConcurrencyCheck]
     public uint Version { get; set; }

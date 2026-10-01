@@ -128,6 +128,8 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
 - **Enums are not stored** as enums: EF Core's compiled model calls `Enum.GetValues(Type)` for them. Use string
   constants (e.g. `RunStatus`).
 - **`dotnet format` may add `[RequiresUnreferencedCode]`** as its fix for a trim warning. Never keep it: fix the call.
+- **No C# 15 collection arguments (`[with(…)]`) in modules:** EF Core's query precompiler compiles each module again
+  with its own, older Roslyn at publish, which fails on them. Use a constructor (`new(comparer)`) or the default comparer.
 - **Extensions build like modules** (ADR-0014): an extension project imports `src/Extensions/Extension.props` (AOT
   analyzers, request delegate generator, EF Core compiled model and precompiled queries at publish). The host finds the
   extensions it references with its source generator (`ReferencedExtensions`); a build adds them as references

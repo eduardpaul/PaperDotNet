@@ -75,7 +75,17 @@ public static class FlowActivities
     /// <summary>Ends the run as failed with <c>message</c>.</summary>
     public const string Fail = "fail";
 
-    public static readonly string[] All = [If, SetVariable, Script, End, Fail];
+    /// <summary>Waits <c>hours</c> and/or <c>minutes</c>, then continues with <c>done</c>.</summary>
+    public const string Delay = "delay";
+
+    /// <summary>
+    /// Asks <c>assignees</c> (people inputs) to approve: <c>title</c> (tokens), optional <c>dueInHours</c> and
+    /// <c>escalateTo</c> (added when overdue). Continues with <c>approved</c> or <c>rejected</c>; the output holds the
+    /// <c>outcome</c>, <c>decidedBy</c> and <c>comment</c>.
+    /// </summary>
+    public const string Approval = "approval";
+
+    public static readonly string[] All = [If, SetVariable, Script, End, Fail, Delay, Approval];
 
     /// <summary>The outcome ports of an activity; actions have <c>done</c> and <c>error</c> (and their own outcomes).</summary>
     public static IReadOnlySet<string> Ports(string activity, IWorkflowActivity? action) => activity switch
@@ -84,6 +94,8 @@ public static class FlowActivities
         SetVariable => new HashSet<string>(["done"], StringComparer.Ordinal),
         Script => new HashSet<string>(["done", "error"], StringComparer.Ordinal),
         End or Fail => new HashSet<string>([], StringComparer.Ordinal),
+        Delay => new HashSet<string>(["done"], StringComparer.Ordinal),
+        Approval => new HashSet<string>(["approved", "rejected", "done"], StringComparer.Ordinal),
         _ => new HashSet<string>(["done", "error", .. action?.Outcomes ?? []], StringComparer.Ordinal),
     };
 }
@@ -210,6 +222,10 @@ internal static class DefinitionValidator
                 FlowActivities.SetVariable => Text(inputs, "name") is null ? ["setVariable needs name."] : [],
                 FlowActivities.Script => ScriptRunner.Check(ScriptRunner.Code(inputs)) is { } problem ? [problem] : [],
                 FlowActivities.End or FlowActivities.Fail => [],
+                FlowActivities.Delay => ActivityInputs.Number(inputs, "hours") is null && ActivityInputs.Number(inputs, "minutes") is null
+                    ? ["delay needs hours or minutes (numbers)."]
+                    : [],
+                FlowActivities.Approval => ActivityInputs.Texts(inputs, "assignees") is { Count: > 0 } ? [] : ["approval needs assignees."],
                 _ => action!.Validate(inputs),
             }).Select(e => $"{id}: {e}"));
         }

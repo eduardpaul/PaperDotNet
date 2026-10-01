@@ -123,4 +123,55 @@ public sealed class InvoicesExtensionTests(InvoicesHost host)
         // Members get the read scope of the manifest.
         Assert.Equal(HttpStatusCode.OK, (await member.GetAsync($"/v1.0/ext/{InvoicesExtension.Id}/stats", Ct)).StatusCode);
     }
+
+    [Fact]
+    public async Task A_run_waits_until_the_invoice_is_paid()
+    {
+        var tenant = await host.CreateTenantAsync(cancellationToken: Ct);
+        using var admin = await tenant.CreateClientAsync(cancellationToken: Ct);
+        var (ws, list) = await CreateInvoiceListAsync(admin);
+        var workflow = await admin.PostAsJsonAsync($"/v1.0/workspaces/{ws}/workflows", new
+        {
+            name = "Chase payment",
+            definition = JsonNode.Parse("""
+                {
+                  "trigger": { "type": "manual", "list": "Invoices" },
+                  "flow": { "start": "wait", "nodes": {
+                    "wait": { "activity": "samples.invoices.awaitPayment", "inputs": { "days": 14 }, "next": { "paid": "thanks" } },
+                    "thanks": { "activity": "item.update", "inputs": { "fields": { "title": "Paid" } } }
+                  } }
+                }
+                """),
+        }, Ct);
+        Assert.Equal(HttpStatusCode.Created, workflow.StatusCode);
+        var workflowId = (await workflow.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        var item = await tenant.RunAsync(services => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin)
+            .CreateAsync(ws, list, new JsonObject { ["title"] = "INV-2", ["amount"] = 10 }, null, Ct), Ct);
+        var started = await admin.PostAsJsonAsync($"/v1.0/workspaces/{ws}/workflows/{workflowId}/runs", new { listId = list, itemId = item.Item!.Id }, Ct);
+        Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+        var run = $"/v1.0/workspaces/{ws}/workflows/runs/{(await started.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid()}";
+
+        async Task<string> StatusAsync(string wanted)
+        {
+            for (var attempt = 0; attempt < 300; attempt++)
+            {
+                var status = (await (await admin.GetAsync(run, Ct)).Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("status").GetString()!;
+                if (status == wanted)
+                {
+                    return status;
+                }
+
+                await Task.Delay(100, Ct);
+            }
+
+            return "timed out waiting for " + wanted;
+        }
+
+        Assert.Equal("waiting", await StatusAsync("waiting"));
+        await tenant.RunAsync(services => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin)
+            .UpdateAsync(ws, list, item.Item.Id, new JsonObject { ["status"] = "paid" }, null, Ct), Ct);
+        Assert.Equal("completed", await StatusAsync("completed"));
+        var paid = await tenant.RunAsync(services => services.GetRequiredService<IListItemStore>().ActingAs(tenant.Admin).GetAsync(ws, list, item.Item.Id, Ct), Ct);
+        Assert.Equal("Paid", paid!.Fields["title"]!.GetValue<string>());
+    }
 }

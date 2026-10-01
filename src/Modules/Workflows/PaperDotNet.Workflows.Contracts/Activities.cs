@@ -5,10 +5,36 @@ using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Workflows.Contracts;
 
-/// <summary>Outcome of an activity: done with an output (and optionally another outcome port than <c>done</c>), or failed.</summary>
+/// <summary>
+/// Outcome of an activity: done with an output (and optionally another outcome port than <c>done</c>), failed, or waiting
+/// for something else to complete it (<see cref="Waiting"/>).
+/// </summary>
 public sealed record WorkflowActivityResult(bool Succeeded, string? Error = null, JsonObject? Output = null, string? Outcome = null)
 {
+    /// <summary>The durable wait the run enters; null when the activity is done.</summary>
+    public WorkflowWait? Waiting { get; init; }
+
     public static WorkflowActivityResult Ok(JsonObject? output = null) => new(true, Output: output);
+
+    /// <summary>Done, continuing with the port <paramref name="outcome"/>.</summary>
+    public static WorkflowActivityResult Ok(string outcome, JsonObject? output = null) => new(true, Output: output, Outcome: outcome);
+
+    /// <summary>
+    /// Suspends the run until <see cref="IWorkflowBookmarks.CompleteAsync"/> completes the wait (<paramref name="kind"/>,
+    /// <paramref name="key"/>), or until <paramref name="resumeAt"/> if given (then with the outcome <c>timeout</c>). The
+    /// completion's payload becomes the node's output, and its <c>outcome</c> (default <c>done</c>) picks the port.
+    /// <paramref name="data"/> is kept with the wait (what it is about), for whoever completes it.
+    /// </summary>
+    public static WorkflowActivityResult Wait(string kind, string key, DateTimeOffset? resumeAt = null, JsonObject? data = null) =>
+        new(true) { Waiting = new WorkflowWait(kind, key, resumeAt) { Data = data } };
+
+    /// <summary>
+    /// Suspends the run like <see cref="Wait"/>, but when the wait ends the activity runs again with the same execution id
+    /// and gets the wait back as <see cref="WorkflowActivityContext.Resumed"/> (its data and the completion's payload): for
+    /// activities that finish the work themselves or keep state between polls in the wait's data.
+    /// </summary>
+    public static WorkflowActivityResult WaitAndRunAgain(string kind, string key, DateTimeOffset? resumeAt = null, JsonObject? data = null) =>
+        new(true) { Waiting = new WorkflowWait(kind, key, resumeAt) { Data = data, RunAgain = true } };
 
     public static WorkflowActivityResult Fail(string error) => new(false, error);
 }
@@ -44,6 +70,9 @@ public sealed class WorkflowActivityContext
     public Guid? StartedBy { get; init; }
 
     public required IServiceProvider Services { get; init; }
+
+    /// <summary>The wait this execution is back from, when the activity waited with <c>WaitAndRunAgain</c>; else null.</summary>
+    public WorkflowResumedWait? Resumed { get; init; }
 
     /// <summary>Expands tokens in a text (<c>{title}</c>, <c>{var:name}</c>, <c>{step:node.path}</c>, …).</summary>
     public required Func<string, CancellationToken, Task<string>> ExpandAsync { get; init; }

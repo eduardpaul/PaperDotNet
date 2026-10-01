@@ -22,6 +22,10 @@ public class WorkflowsDbContext : DbContext
 
     public DbSet<WorkflowRun> WorkflowRuns { get; set; } = null!;
 
+    public DbSet<WorkflowBookmark> Bookmarks { get; set; } = null!;
+
+    public DbSet<ApprovalRequest> Approvals { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Runs are started through the outbox (ResumeRun messages) in the same transaction.
@@ -49,6 +53,28 @@ public class WorkflowsDbContext : DbContext
             run.HasIndex(r => new { r.TenantId, r.WorkflowId, r.Id });
             run.HasIndex(r => new { r.TenantId, r.WorkspaceId, r.Id });
             run.HasOne<WorkflowDefinition>().WithMany().HasForeignKey(r => r.WorkflowId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkflowBookmark>(bookmark =>
+        {
+            bookmark.ToTable("workflow_bookmarks");
+            bookmark.Property(b => b.Kind).HasMaxLength(100);
+            bookmark.Property(b => b.Key).HasMaxLength(200);
+            bookmark.Property(b => b.Node).HasMaxLength(200);
+            bookmark.HasIndex(b => new { b.TenantId, b.Kind, b.Key }).IsUnique();
+            bookmark.HasIndex(b => new { b.TenantId, b.RunId });
+            bookmark.HasIndex(b => new { b.TenantId, b.ResumeAtUnixMs });
+        });
+
+        modelBuilder.Entity<ApprovalRequest>(approval =>
+        {
+            approval.ToTable("workflow_approvals");
+            approval.Property(a => a.Title).HasMaxLength(1000);
+            approval.Property(a => a.Status).HasMaxLength(16);
+            approval.Property(a => a.Node).HasMaxLength(200);
+            approval.Property(a => a.Comment).HasMaxLength(2000);
+            approval.HasIndex(a => new { a.TenantId, a.RunId });
+            approval.HasIndex(a => new { a.TenantId, a.Status, a.DueAtUnixMs });
         });
     }
 }

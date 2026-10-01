@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
+using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Workflows.Contracts;
@@ -33,13 +34,22 @@ public sealed class WorkflowsModule : IModule
         services.AddScoped<ScriptRunner>();
         services.AddScoped<WorkflowStarter>();
         services.AddScoped<WorkflowInterpreter>();
+        services.AddScoped(sp => new RunService(
+            sp.GetRequiredService<WorkflowsDbContext>(), sp.GetRequiredService<PaperDotNet.Messaging.IOutbox>(),
+            sp.GetRequiredService<PaperDotNet.Collaboration.Contracts.IItemActivity>(), sp.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<IWorkflowBookmarks>(sp => new WorkflowBookmarks(sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<TimeProvider>()));
+        services.AddTenantRecurringJob<WorkflowTimerJob>(WorkflowTimerJob.Name, WorkflowTimerJob.Schedule);
         services.AddScoped<ITemplateHandler>(sp => new WorkflowTemplateHandler(
             sp.GetRequiredService<WorkflowsDbContext>(), sp.GetServices<IWorkflowActivity>(), sp.GetRequiredService<TimeProvider>()));
         services.AddWorkflowActivity<ItemCreateActivity>();
         services.AddWorkflowActivity<ItemUpdateActivity>();
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) => WorkflowEndpoints.Map(endpoints);
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        WorkflowEndpoints.Map(endpoints);
+        ApprovalEndpoints.Map(endpoints);
+    }
 }
 
 /// <summary>Every type the Workflows API and its messages serialize (Native AOT, ADR-0039).</summary>
@@ -53,4 +63,8 @@ public sealed class WorkflowsModule : IModule
 [JsonSerializable(typeof(Page<RunDto>))]
 [JsonSerializable(typeof(IReadOnlyList<ActivityDto>))]
 [JsonSerializable(typeof(ResumeRun))]
+[JsonSerializable(typeof(NotifyApproval))]
+[JsonSerializable(typeof(ApprovalDto))]
+[JsonSerializable(typeof(Page<ApprovalDto>))]
+[JsonSerializable(typeof(ApprovalDecisionRequest))]
 internal sealed partial class WorkflowsJson : JsonSerializerContext;

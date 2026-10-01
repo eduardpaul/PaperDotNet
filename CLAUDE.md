@@ -79,6 +79,7 @@ eng/openapi.sh                                              # endpoint change: s
 - Workflows: activities implement `IWorkflowActivity` (Workflows.Contracts, `AddWorkflowActivity<T>()`); Jint host
   functions are `ClrFunction`s over JSON values only.
 - Never keep `[RequiresUnreferencedCode]`/`[RequiresDynamicCode]` that `dotnet format` adds as a "fix": fix the call.
+- No `[with(…)]` collection arguments in modules: EF Core's query precompiler (publish) uses an older Roslyn.
 - Prefer plain defaults over memory tuning; only tune when `eng/aot-smoke.sh` is over budget.
 
 ## Code conventions

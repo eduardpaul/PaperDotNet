@@ -30,6 +30,12 @@ namespace Internal.Generated.WolverineHandlers
             * 
             * Dependency: Descriptor: ServiceType: PaperDotNet.Jobs.Contracts.IOperationHandler Lifetime: Scoped ImplementationType: PaperDotNet.Search.Features.ReindexOperation
             * Concrete type PaperDotNet.Search.Features.ReindexOperation is not public, so requires service location
+            * 
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Jobs.Contracts.IOperationHandler Lifetime: Scoped ImplementationType: PaperDotNet.Provisioning.Features.ExportOperation
+            * Concrete type PaperDotNet.Provisioning.Features.ExportOperation is not public, so requires service location
+            * 
+            * Dependency: Descriptor: ServiceType: PaperDotNet.Jobs.Contracts.IOperationHandler Lifetime: Scoped ImplementationType: PaperDotNet.Provisioning.Features.ImportOperation
+            * Concrete type PaperDotNet.Provisioning.Features.ImportOperation is not public, so requires service location
             */
             var operationRunner = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Jobs.Features.OperationRunner>(serviceScope.ServiceProvider);
             // The actual message body
