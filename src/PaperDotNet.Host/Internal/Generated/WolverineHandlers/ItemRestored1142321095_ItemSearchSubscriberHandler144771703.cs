@@ -4,13 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Internal.Generated.WolverineHandlers
 {
-    // START: CompleteFolderScopeChangeHandler983869399
+    // START: ItemRestored1142321095_ItemSearchSubscriberHandler144771703
     [global::System.CodeDom.Compiler.GeneratedCode("JasperFx", "1.0.0")]
-    public sealed class CompleteFolderScopeChangeHandler983869399 : Wolverine.Runtime.Handlers.MessageHandler
+    public sealed class ItemRestored1142321095_ItemSearchSubscriberHandler144771703 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
 
-        public CompleteFolderScopeChangeHandler983869399(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
+        public ItemRestored1142321095_ItemSearchSubscriberHandler144771703(Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
         {
             _serviceScopeFactory = serviceScopeFactory;
         }
@@ -26,25 +26,20 @@ namespace Internal.Generated.WolverineHandlers
             * The service registration for PaperDotNet.Lists.Features.ItemSearchDocuments is an 'opaque' lambda factory with the Scoped lifetime and requires service location
             */
             var itemSearchDocuments = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Lists.Features.ItemSearchDocuments>(serviceScope.ServiceProvider);
-            
-            /*
-            * The service registration for PaperDotNet.Lists.Features.ScopeMover is an 'opaque' lambda factory with the Scoped lifetime and requires service location
-            */
-            var scopeMover = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<PaperDotNet.Lists.Features.ScopeMover>(serviceScope.ServiceProvider);
             // The actual message body
-            var completeFolderScopeChange = (PaperDotNet.Lists.Features.CompleteFolderScopeChange)context.Envelope.Message;
+            var itemRestored = (PaperDotNet.Lists.Contracts.ItemRestored)context.Envelope.Message;
 
-            System.Diagnostics.Activity.Current?.SetTag("message.handler", "PaperDotNet.Lists.Features.FolderScopeSubscriber");
-            System.Diagnostics.Activity.Current?.SetTag("handler.type", "PaperDotNet.Lists.Features.FolderScopeSubscriber");
+            System.Diagnostics.Activity.Current?.SetTag("message.handler", "PaperDotNet.Lists.Features.ItemSearchSubscriber");
+            System.Diagnostics.Activity.Current?.SetTag("handler.type", "PaperDotNet.Lists.Features.ItemSearchSubscriber");
             
             // The actual message execution
-            await PaperDotNet.Lists.Features.FolderScopeSubscriber.Handle(completeFolderScopeChange, scopeMover, itemSearchDocuments, cancellation).ConfigureAwait(false);
+            await PaperDotNet.Lists.Features.ItemSearchSubscriber.Handle(itemRestored, itemSearchDocuments, cancellation).ConfigureAwait(false);
 
         }
 
     }
 
-    // END: CompleteFolderScopeChangeHandler983869399
+    // END: ItemRestored1142321095_ItemSearchSubscriberHandler144771703
     
     
 }

@@ -1,30 +1,30 @@
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Persistence;
 using PaperDotNet.Search.Contracts;
 using PaperDotNet.Search.Data;
 
 namespace PaperDotNet.Search.Features;
 
-internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
+/// <summary>Writes the index: documents and passages with EF Core, bulk removals and scope moves with provider SQL.</summary>
+internal sealed class SearchIndex(SearchDbContext db, ISearchQueries queries) : ISearchIndex
 {
-    /// <summary>Body text beyond this is not indexed (keeps rows and FTS indexes reasonable).</summary>
+    /// <summary>Body text beyond this is not indexed (keeps rows and full-text indexes reasonable).</summary>
     public const int MaxBodyLength = 200_000;
 
-    public async Task UpsertAsync(IReadOnlyCollection<SearchDocumentData> documents, CancellationToken cancellationToken)
+    public async Task UpsertAsync(Guid tenantId, IReadOnlyCollection<SearchDocumentData> documents, CancellationToken cancellationToken)
     {
         if (documents.Count == 0)
         {
             return;
         }
 
-        // The same item can be indexed from two places at once (e.g. an event subscriber and a request): the loser of
-        // the race hits a key conflict and simply writes again on top of the winner.
+        // The same item can be indexed from two places at once (e.g. two events): the loser of the race hits a key
+        // conflict and simply writes again on top of the winner.
         for (var attempt = 1; ; attempt++)
         {
             try
             {
-                await WriteAsync(documents, cancellationToken);
+                await WriteAsync(tenantId, documents, cancellationToken);
                 return;
             }
             catch (DbUpdateException) when (attempt < 3)
@@ -34,19 +34,20 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
         }
     }
 
-    private async Task WriteAsync(IReadOnlyCollection<SearchDocumentData> documents, CancellationToken cancellationToken)
+    private async Task WriteAsync(Guid tenantId, IReadOnlyCollection<SearchDocumentData> documents, CancellationToken cancellationToken)
     {
-        var ids = documents.Select(d => d.Id).ToList();
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        await db.Tags.Where(t => ids.Contains(t.DocumentId)).ExecuteDeleteAsync(cancellationToken);
-        var existing = await db.Documents.Where(d => ids.Contains(d.Id)).ToDictionaryAsync(d => d.Id, cancellationToken);
-        var passages = (await db.Passages.Where(p => ids.Contains(p.DocumentId)).ToListAsync(cancellationToken)).ToLookup(p => p.DocumentId);
-        foreach (var data in documents)
+        foreach (var data in documents.DistinctBy(d => d.Id))
         {
-            if (!existing.TryGetValue(data.Id, out var document))
+            var context = db;
+            var tenant = tenantId;
+            var id = data.Id;
+            var ct = cancellationToken;
+            var document = await context.Documents.FirstOrDefaultAsync(d => d.TenantId == tenant && d.Id == id, ct);
+            if (document is null)
             {
-                document = new SearchDocument { Id = data.Id, SourceType = data.SourceType, Title = data.Title };
-                db.Documents.Add(document);
+                document = new SearchDocument { Id = data.Id, TenantId = tenantId };
+                context.Documents.Add(document);
             }
 
             document.SourceType = data.SourceType;
@@ -54,15 +55,18 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
             document.ContainerId = data.ContainerId;
             document.ContentTypeId = data.ContentTypeId;
             document.ScopeId = data.ScopeId;
-            document.Title = data.Title.Length > 1024 ? data.Title[..1024] : data.Title;
+            document.Title = Truncate(data.Title, 1024);
             var body = data.Pages.Count == 0 ? data.Body : $"{data.Body}\n{string.Join('\n', data.Pages)}";
-            document.Body = body.Length > MaxBodyLength ? body[..MaxBodyLength] : body;
-            document.Keywords = data.Keywords.Length > MaxBodyLength ? data.Keywords[..MaxBodyLength] : data.Keywords;
-            document.Language = FullTextLanguages.All.Contains(data.Language ?? string.Empty) ? data.Language : null;
+            document.Body = Truncate(body, MaxBodyLength);
+            document.Keywords = Truncate(data.Keywords, MaxBodyLength);
+            document.Language = data.Language is { Length: <= 20 } language ? language : null;
             document.CreatedBy = data.CreatedBy;
-            document.UpdatedAt = data.UpdatedAt;
-            db.Tags.AddRange(data.TermIds.Distinct().Select(t => new SearchTag { DocumentId = data.Id, TermId = t }));
-            UpdatePassages(data, document.Title, document.Language, passages[data.Id]);
+            document.UpdatedAt = data.UpdatedAt.ToUnixTimeMilliseconds();
+
+            context.Tags.RemoveRange(await context.Tags.Where(t => t.TenantId == tenant && t.DocumentId == id).ToListAsync(ct));
+            context.Tags.AddRange(data.TermIds.Distinct().Select(t => new SearchTag { DocumentId = data.Id, TermId = t, TenantId = tenantId }));
+            var passages = await context.Passages.Where(p => p.TenantId == tenant && p.DocumentId == id).ToListAsync(ct);
+            UpdatePassages(tenantId, data, document.Title, passages);
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -70,11 +74,8 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
         db.ChangeTracker.Clear();
     }
 
-    /// <summary>
-    /// Replaces the document's passages. A passage whose embedded text is unchanged keeps its row and embedding
-    /// (moved to its new position), so re-indexing does not embed it again.
-    /// </summary>
-    private void UpdatePassages(SearchDocumentData data, string title, string? language, IEnumerable<SearchPassage> current)
+    /// <summary>Replaces the document's passages; a passage whose text is unchanged keeps its row (moved to its new position).</summary>
+    private void UpdatePassages(Guid tenantId, SearchDocumentData data, string title, List<SearchPassage> current)
     {
         var reusable = current.GroupBy(p => p.ContentHash).ToDictionary(g => g.Key, g => new Queue<SearchPassage>(g));
         foreach (var (passage, ordinal) in Passages.Split(data).Select((p, i) => (p, i)))
@@ -84,18 +85,17 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
             {
                 kept.Ordinal = ordinal;
                 kept.Page = passage.Page;
-                kept.Language = language;
                 continue;
             }
 
             db.Passages.Add(new SearchPassage
             {
                 Id = Ids.New(),
+                TenantId = tenantId,
                 DocumentId = data.Id,
                 Ordinal = ordinal,
                 Page = passage.Page,
                 Text = passage.Text,
-                Language = language,
                 ContentHash = hash,
             });
         }
@@ -103,61 +103,29 @@ internal sealed class SearchIndex(SearchDbContext db) : ISearchIndex
         db.Passages.RemoveRange(reusable.Values.SelectMany(q => q));
     }
 
-    public async Task DeleteAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
-    {
-        await db.Passages.Where(p => ids.Contains(p.DocumentId)).ExecuteDeleteAsync(cancellationToken);
-        await db.Tags.Where(t => ids.Contains(t.DocumentId)).ExecuteDeleteAsync(cancellationToken);
-        await db.Documents.Where(d => ids.Contains(d.Id)).ExecuteDeleteAsync(cancellationToken);
-    }
+    public Task DeleteAsync(Guid tenantId, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) =>
+        ids.Count == 0 ? Task.CompletedTask : queries.DeleteAsync(tenantId, ids, null, null, cancellationToken);
 
-    public async Task SetScopesAsync(IReadOnlyDictionary<Guid, Guid> scopes, CancellationToken cancellationToken)
+    public async Task SetScopesAsync(Guid tenantId, IReadOnlyDictionary<Guid, Guid> scopes, CancellationToken cancellationToken)
     {
         foreach (var group in scopes.GroupBy(s => s.Value, s => s.Key))
         {
-            var scopeId = group.Key;
-            foreach (var chunk in group.Chunk(1000))
-            {
-                await db.Documents.Where(d => chunk.Contains(d.Id) && d.ScopeId != scopeId)
-                    .ExecuteUpdateAsync(u => u.SetProperty(d => d.ScopeId, scopeId), cancellationToken);
-            }
+            await queries.SetScopeAsync(tenantId, group.Key, [.. group], cancellationToken);
         }
     }
 
-    public async Task DeleteContainerAsync(Guid containerId, CancellationToken cancellationToken) =>
-        await DeleteWhereAsync(db.Documents.Where(d => d.ContainerId == containerId), cancellationToken);
+    public Task DeleteContainerAsync(Guid tenantId, Guid containerId, CancellationToken cancellationToken) =>
+        queries.DeleteAsync(tenantId, null, containerId, null, cancellationToken);
 
-    public async Task DeleteSourceAsync(string sourceType, CancellationToken cancellationToken) =>
-        await DeleteWhereAsync(db.Documents.Where(d => d.SourceType == sourceType), cancellationToken);
+    public Task DeleteSourceAsync(Guid tenantId, string sourceType, CancellationToken cancellationToken) =>
+        queries.DeleteAsync(tenantId, null, null, sourceType, cancellationToken);
 
-    private async Task DeleteWhereAsync(IQueryable<SearchDocument> documents, CancellationToken ct)
-    {
-        await db.Passages.Where(p => documents.Any(d => d.Id == p.DocumentId)).ExecuteDeleteAsync(ct);
-        await db.Tags.Where(t => documents.Any(d => d.Id == t.DocumentId)).ExecuteDeleteAsync(ct);
-        await documents.ExecuteDeleteAsync(ct);
-    }
+    private static string Truncate(string text, int length) => text.Length > length ? text[..length] : text;
 }
 
 /// <summary>Counts tag usage from the index (one row per document and term).</summary>
-internal sealed class TermUsage(SearchDbContext db) : ITermUsage
+internal sealed class TermUsage(ISearchQueries queries) : ITermUsage
 {
-    private const int ChunkSize = 500;
-
-    public async Task<IReadOnlyDictionary<Guid, int>> CountAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken)
-    {
-        var result = new Dictionary<Guid, int>();
-        foreach (var chunk in termIds.Distinct().Chunk(ChunkSize))
-        {
-            var counts = await db.Tags.AsNoTracking()
-                .Where(t => chunk.Contains(t.TermId))
-                .GroupBy(t => t.TermId)
-                .Select(g => new { g.Key, Count = g.Count() })
-                .ToListAsync(cancellationToken);
-            foreach (var count in counts)
-            {
-                result[count.Key] = count.Count;
-            }
-        }
-
-        return result;
-    }
+    public Task<IReadOnlyDictionary<Guid, int>> CountAsync(Guid tenantId, IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken) =>
+        queries.CountTermsAsync(tenantId, [.. termIds.Distinct()], cancellationToken);
 }

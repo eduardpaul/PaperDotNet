@@ -5,10 +5,15 @@ using Microsoft.VisualBasic.FileIO;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Messaging;
+using PaperDotNet.Search.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Taxonomy.Data;
 
 namespace PaperDotNet.Taxonomy.Features;
+
+public sealed record PopularKeyword(Guid Id, string Name, int Usage);
+
+public sealed record PopularKeywordsResponse(IReadOnlyList<PopularKeyword> Value);
 
 /// <summary>Promotes a keyword into <c>termSetId</c> (under <c>parentId</c>, optional).</summary>
 public sealed record PromoteKeywordRequest(Guid TermSetId, Guid? ParentId);
@@ -21,20 +26,42 @@ public sealed record TermSetImportResponse(Guid TermSetId, bool Created, int Ter
 /// <summary>
 /// Keyword curation (TAX-05) and term set import (TAX-11). Promoting keeps tagged items valid: the keyword
 /// moves into the term set (same id) or, when a term of that name exists there, is merged into it; either
-/// way the term stays usable in keywords fields. Popular keywords come with Search (they count tagged items).
+/// way the term stays usable in keywords fields. Popular keywords are counted from the search index.
 /// </summary>
 internal static class TermSetImport
 {
     public const int MaxImportBytes = 1024 * 1024;
     private const int MaxLevels = 7;
+    private const int DefaultPopular = 50;
 
     public static void Map(IEndpointRouteBuilder app)
     {
         var store = app.MapGroup("/v1.0/termStore").WithTags("Term store");
+        store.MapGet("/keywords/popular", PopularAsync).RequireScope(TaxonomyScopes.Manage).WithName("ListPopularKeywords")
+            .WithDescription("Active keywords by the number of items tagged with them (most used first; ?top=, default 50).");
         store.MapPost("/keywords/{termId:guid}/promote", PromoteAsync).RequireScope(TaxonomyScopes.Manage).WithName("PromoteKeyword");
         store.MapPost("/groups/{groupId:guid}/import", ImportAsync).RequireScope(TaxonomyScopes.Manage).WithName("ImportTermSet")
             .Accepts<string>("text/csv")
             .WithDescription("Imports a term set from CSV in the SharePoint format (up to 1 MB). Additive: an existing set of that name gets the missing terms.");
+    }
+
+    private static async Task<Ok<PopularKeywordsResponse>> PopularAsync(int? top, Caller caller, TaxonomyDbContext database, ITermUsage usage, CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = caller.TenantId;
+        var ct = cancellationToken;
+        var setId = (await TermStore.EnsureKeywordsSetAsync(db, tenant, ct)).Id;
+        var keywords = await db.Terms.AsNoTracking()
+            .Where(t => t.TenantId == tenant && t.TermSetId == setId && t.MergedIntoId == null && !t.IsDeprecated)
+            .Select(t => new { t.Id, t.Name })
+            .ToListAsync(ct);
+        var counts = await usage.CountAsync(tenant, [.. keywords.Select(k => k.Id)], ct);
+        var result = keywords
+            .Select(k => new PopularKeyword(k.Id, k.Name, counts.GetValueOrDefault(k.Id)))
+            .OrderByDescending(k => k.Usage).ThenBy(k => k.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(top ?? DefaultPopular, 1, 500))
+            .ToList();
+        return TypedResults.Ok(new PopularKeywordsResponse(result));
     }
 
     private static async Task<Results<Ok<PromoteKeywordResponse>, ValidationProblem, ProblemHttpResult>> PromoteAsync(

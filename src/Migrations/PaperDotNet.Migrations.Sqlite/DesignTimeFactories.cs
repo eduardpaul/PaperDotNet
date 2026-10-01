@@ -9,6 +9,7 @@ using PaperDotNet.Lists.Data;
 using PaperDotNet.Notes.Data;
 using PaperDotNet.Notifications.Data;
 using PaperDotNet.Persistence.Sqlite;
+using PaperDotNet.Search.Data;
 using PaperDotNet.Tasks.Data;
 using PaperDotNet.Taxonomy.Data;
 using PaperDotNet.Workflows.Data;
@@ -81,4 +82,9 @@ internal sealed class CalendarFactory : IDesignTimeDbContextFactory<CalendarDbCo
 internal sealed class TaxonomyFactory : IDesignTimeDbContextFactory<TaxonomyDbContext>
 {
     public TaxonomyDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<TaxonomyDbContext>());
+}
+
+internal sealed class SearchFactory : IDesignTimeDbContextFactory<SearchDbContext>
+{
+    public SearchDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<SearchDbContext>());
 }

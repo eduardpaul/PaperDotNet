@@ -376,11 +376,19 @@ internal static class PermissionEndpoints
 /// </summary>
 public sealed record CompleteFolderScopeChange(Guid TenantId, Guid ListId, Guid FolderId, Guid OldScopeId, Guid NewScopeId);
 
-/// <summary>Wolverine handler of <see cref="CompleteFolderScopeChange"/> (generated ahead of time).</summary>
+/// <summary>
+/// Wolverine handler of <see cref="CompleteFolderScopeChange"/> (generated ahead of time): completes the move, then gives
+/// the search documents of the moved items their new scope.
+/// </summary>
 public static class FolderScopeSubscriber
 {
-    public static Task Handle(CompleteFolderScopeChange message, ScopeMover mover, CancellationToken cancellationToken) =>
-        mover.CompleteAsync(message, cancellationToken);
+    public static async Task Handle(CompleteFolderScopeChange message, ScopeMover mover, ItemSearchDocuments search, CancellationToken cancellationToken)
+    {
+        if (await mover.CompleteAsync(message, cancellationToken))
+        {
+            await search.RefreshScopesAsync(message.TenantId, message.ListId, message.NewScopeId, cancellationToken);
+        }
+    }
 }
 
 /// <summary>
@@ -409,13 +417,7 @@ public sealed class ScopeMover
     /// </summary>
     internal async Task SaveScopeChangeAsync(IOutbox outbox, ListItem item, Guid oldScope, CancellationToken cancellationToken)
     {
-        if (!item.IsFolder)
-        {
-            await _db.SaveChangesAsync(cancellationToken);
-            await RemoveIfUnusedAsync(item.TenantId, item.ListId, oldScope, cancellationToken);
-            return;
-        }
-
+        // The message also moves the item's search document (and those of a folder's contents) to the new scope.
         var message = new CompleteFolderScopeChange(item.TenantId, item.ListId, item.Id, oldScope, item.ScopeId);
         await outbox.SaveChangesAsync(_db, [], [message], cancellationToken);
         await MoveAndCleanUpAsync(message, inline: true, cancellationToken);
@@ -431,12 +433,16 @@ public sealed class ScopeMover
         return await context.Items.AsNoTracking().Where(i => i.TenantId == tenant && i.Id == id).Select(i => (Guid?)i.ScopeId).FirstOrDefaultAsync(ct);
     }
 
-    internal async Task CompleteAsync(CompleteFolderScopeChange message, CancellationToken cancellationToken)
+    /// <summary>Completes the move; false when the item has changed scope again since (a later message handles it).</summary>
+    internal async Task<bool> CompleteAsync(CompleteFolderScopeChange message, CancellationToken cancellationToken)
     {
-        if (await ScopeOfAsync(message.TenantId, message.FolderId, cancellationToken) == message.NewScopeId)
+        if (await ScopeOfAsync(message.TenantId, message.FolderId, cancellationToken) != message.NewScopeId)
         {
-            await MoveAndCleanUpAsync(message, inline: false, cancellationToken);
+            return false;
         }
+
+        await MoveAndCleanUpAsync(message, inline: false, cancellationToken);
+        return true;
     }
 
     private async Task MoveAndCleanUpAsync(CompleteFolderScopeChange change, bool inline, CancellationToken cancellationToken)

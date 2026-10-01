@@ -6,6 +6,7 @@ using PaperDotNet.Api;
 using PaperDotNet.Collaboration.Contracts;
 using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Collaboration.Features;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Collaboration;
@@ -37,6 +38,7 @@ public sealed class CollaborationModule : IModule
     {
         services.AddModuleDbContext<CollaborationDbContext>();
         services.AddScoped<IItemActivity>(sp => new ItemActivity(sp.GetRequiredService<CollaborationDbContext>(), sp.GetRequiredService<TimeProvider>()));
+        services.AddScoped<IItemSearchContributor>(sp => new CommentSearchContent(sp.GetRequiredService<CollaborationDbContext>()));
         services.AddScopes(CollaborationScopes.All);
     }
 

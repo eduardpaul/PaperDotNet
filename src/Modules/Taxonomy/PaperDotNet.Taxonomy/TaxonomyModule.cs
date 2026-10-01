@@ -54,5 +54,6 @@ public sealed class TaxonomyModule : IModule
 [JsonSerializable(typeof(PromoteKeywordRequest))]
 [JsonSerializable(typeof(PromoteKeywordResponse))]
 [JsonSerializable(typeof(TermSetImportResponse))]
+[JsonSerializable(typeof(PopularKeywordsResponse))]
 [JsonSerializable(typeof(TermMerged))]
 internal sealed partial class TaxonomyJson : JsonSerializerContext;

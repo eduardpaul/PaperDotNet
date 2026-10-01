@@ -215,7 +215,7 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
 /// them) and the role principals of their workspaces (<see cref="WorkspaceRolePrincipals"/>). Cached for a minute per
 /// tenant access generation (<see cref="AccessGeneration"/>).
 /// </summary>
-internal sealed class ItemAccess(ListsDbContext db, IUserDirectory users, IWorkspaceAccess workspaces, IMemoryCache cache) : IPrincipalSet
+internal sealed class ItemAccess(ListsDbContext db, IUserDirectory users, IWorkspaceAccess workspaces, IMemoryCache cache) : IPrincipalSet, IItemAccess
 {
     private static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(1);
 
@@ -235,6 +235,26 @@ internal sealed class ItemAccess(ListsDbContext db, IUserDirectory users, IWorks
 
     public async Task<IReadOnlyList<Guid>> GetPrincipalIdsAsync(ListCaller caller, CancellationToken cancellationToken) =>
         caller.UserId is { } userId ? await GetPrincipalsAsync(caller.TenantId, userId, cancellationToken) : [];
+
+    /// <summary>What the user may read in the whole tenant: managed workspaces in full, else the scopes their principals reach.</summary>
+    public async Task<ReadableScopes> GetReadableAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken)
+    {
+        var memberships = await workspaces.GetMembershipsAsync(tenantId, userId, cancellationToken);
+        var full = memberships.Where(m => m.Level == WorkspaceAccessLevel.Manage).Select(m => m.WorkspaceId).ToHashSet();
+        var member = memberships.Select(m => m.WorkspaceId).ToHashSet();
+        var scopes = new HashSet<Guid>();
+        var read = (int)WorkspaceAccessLevel.Read;
+        foreach (var principal in await GetPrincipalsAsync(tenantId, userId, cancellationToken))
+        {
+            var context = db;
+            var tenant = tenantId;
+            var id = principal;
+            var ct = cancellationToken;
+            scopes.UnionWith(await context.AclEntries.AsNoTracking().Where(e => e.TenantId == tenant && e.PrincipalId == id && e.Level >= read).Select(e => e.ScopeId).ToListAsync(ct));
+        }
+
+        return new ReadableScopes(full, member, scopes);
+    }
 
     /// <summary>The permission scopes of the list the caller reaches, with the highest level of their principals.</summary>
     public async Task<IReadOnlyDictionary<Guid, WorkspaceAccessLevel>> GetScopesAsync(ListCaller caller, Guid listId, CancellationToken cancellationToken)

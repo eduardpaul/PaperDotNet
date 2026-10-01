@@ -6,9 +6,10 @@
   <Import Project="..\..\AotModule.props" />
   <ItemGroup>
     <ProjectReference Include="..\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
+    <ProjectReference Include="..\..\Search\PaperDotNet.Search.Contracts\PaperDotNet.Search.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Template sections come with Provisioning (T13); popular keywords need usage counts from Search (T12c). -->
+    <!-- Template sections come with Provisioning (T13). -->
     <Compile Remove="Features/TaxonomyTemplates.cs" />
     <None Include="Features/TaxonomyTemplates.cs" />
   </ItemGroup>

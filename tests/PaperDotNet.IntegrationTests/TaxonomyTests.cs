@@ -174,26 +174,56 @@ public sealed class TaxonomyTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Keywords_are_promoted_into_a_term_set()
+    public async Task Popular_keywords_are_promoted_into_a_term_set_without_breaking_items()
     {
         var group = await PostIdAsync(_client, "/v1.0/termStore/groups", new { name = "Knowledge" });
         var topics = await PostIdAsync(_client, "/v1.0/termStore/sets", new { groupId = group, name = "Topics" });
         var existingBeta = await PostIdAsync(_client, $"/v1.0/termStore/sets/{topics}/terms", new { name = "Beta" });
-        var alpha = await PostIdAsync(_client, "/v1.0/termStore/keywords", new { name = "alpha" });
-        var beta = await PostIdAsync(_client, "/v1.0/termStore/keywords", new { name = "beta" });
+        var ws = await Api.CreateWorkspaceAsync(_client, "Wiki");
+        var list = (await Api.CreateListAsync(_client, ws, "Pages", new object[]
+        {
+            new { name = "keywords", displayName = "Keywords", type = "keywords", allowMultiple = true },
+            new { name = "topic", displayName = "Topic", type = "managedMetadata", termSetId = topics },
+        })).Id();
+        var first = await Api.CreateItemAsync(_client, ws, list, new { title = "One", keywords = new[] { "alpha", "beta" } });
+        await Api.CreateItemAsync(_client, ws, list, new { title = "Two", keywords = new[] { "alpha" } });
 
-        // Moved: same id, now in Topics.
+        // Usage comes from the search index (filled in the background).
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        List<JsonElement> popular;
+        while ((popular = [.. (await GetAsync(_client, "/v1.0/termStore/keywords/popular")).GetProperty("value").EnumerateArray()]) is not [{ } top, ..]
+               || top.GetProperty("usage").GetInt32() < 2 || popular.Single(k => k.GetProperty("name").GetString() == "beta").GetProperty("usage").GetInt32() < 1)
+        {
+            Assert.True(DateTime.UtcNow < deadline, string.Join(", ", popular));
+            await Task.Delay(100, Ct);
+        }
+
+        Assert.Equal("alpha", popular[0].GetProperty("name").GetString());
+        var alpha = popular[0].Id();
+        var beta = popular.Single(k => k.GetProperty("name").GetString() == "beta").Id();
+
+        // Moved: same id, now in Topics and still usable as a keyword.
         using var move = await _client.PostAsJsonAsync($"/v1.0/termStore/keywords/{alpha}/promote", new { termSetId = topics }, Ct);
         var moved = await move.JsonAsync(HttpStatusCode.OK);
         Assert.False(moved.GetProperty("merged").GetBoolean());
         Assert.Equal(alpha, moved.GetProperty("termId").GetString());
         Assert.Equal(["Beta", "alpha"], await TermNamesAsync(_client, $"/v1.0/termStore/sets/{topics}/terms"));
+        var third = await Api.CreateItemAsync(_client, ws, list, new { title = "Three", keywords = new[] { "Alpha" }, topic = "alpha" });
+        Assert.Equal(alpha, third.GetProperty("fields").GetProperty("keywords")[0].GetString());
+        Assert.Equal(alpha, third.GetProperty("fields").GetProperty("topic").GetString());
 
-        // A term of that name exists: the keyword is merged into it.
+        // A term of that name exists: the keyword is merged into it and items are rewritten.
         using var merge = await _client.PostAsJsonAsync($"/v1.0/termStore/keywords/{beta}/promote", new { termSetId = topics }, Ct);
         var merged = await merge.JsonAsync(HttpStatusCode.OK);
         Assert.True(merged.GetProperty("merged").GetBoolean());
         Assert.Equal(existingBeta, merged.GetProperty("termId").GetString());
+        var url = $"{Api.Items(ws, list)}/{first.Id()}";
+        deadline = DateTime.UtcNow.AddSeconds(30);
+        while (!(await GetAsync(_client, url)).GetProperty("fields").GetProperty("keywords").EnumerateArray().Any(k => k.GetString() == existingBeta))
+        {
+            Assert.True(DateTime.UtcNow < deadline);
+            await Task.Delay(100, Ct);
+        }
 
         using var notKeyword = await _client.PostAsJsonAsync($"/v1.0/termStore/keywords/{existingBeta}/promote", new { termSetId = topics }, Ct);
         Assert.Equal(HttpStatusCode.NotFound, notKeyword.StatusCode);
@@ -236,6 +266,7 @@ public sealed class TaxonomyTests : IAsyncLifetime
         // Another tenant cannot import into this group.
         var other = await _host.CreateTenantAsync("tax-import-b");
         await ImportAsync(other, regions, HttpStatusCode.NotFound);
+        Assert.Empty((await GetAsync(other, "/v1.0/termStore/keywords/popular")).GetProperty("value").EnumerateArray());
     }
 
     private async Task<List<string>> TitlesAsync(string workspace, string list, string filter) =>

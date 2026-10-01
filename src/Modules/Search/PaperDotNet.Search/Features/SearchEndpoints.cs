@@ -1,122 +1,69 @@
 using System.Globalization;
-using System.Linq.Expressions;
-using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
-using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
-using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
-using PaperDotNet.Persistence;
 using PaperDotNet.Search.Contracts;
-using PaperDotNet.Search.Data;
-using PaperDotNet.Taxonomy.Contracts;
-using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Search.Features;
 
-/// <summary>
-/// A search result. <see cref="Snippet"/> comes from the passage that matched best and <see cref="Page"/> is its page
-/// (SRC-09; null when the match is not on a page). <see cref="MatchedBy"/> says how it was found:
-/// <c>keyword</c>, <c>semantic</c> or both.
-/// </summary>
-public sealed record SearchHit(
-    Guid Id,
-    string SourceType,
-    Guid WorkspaceId,
-    Guid? ContainerId,
-    Guid? ContentTypeId,
-    string Title,
-    string? Snippet,
-    double Rank,
-    Guid? CreatedBy,
-    DateTimeOffset UpdatedAt)
-{
-    public int? Page { get; init; }
+public sealed record ReindexResponse(Guid Id, string Status);
 
-    public IReadOnlyList<string> MatchedBy { get; init; } = [];
-}
+public sealed record ReindexPayload;
 
-public sealed record FacetValue(Guid Value, int Count);
+public sealed record ReindexResult(IReadOnlyList<string> Sources);
 
-public sealed record SearchFacets(
-    IReadOnlyList<FacetValue> Workspace, IReadOnlyList<FacetValue> Container, IReadOnlyList<FacetValue> ContentType, IReadOnlyList<FacetValue> Term);
-
-/// <summary>
-/// Results; <c>mode</c> is how they were found. In <c>semantic</c> and <c>hybrid</c> mode the count and facets cover the
-/// best candidates only (see <c>Search:CandidateLimit</c>).
-/// </summary>
-public sealed record SearchResponse(
-    [property: JsonPropertyName("value")] IReadOnlyList<SearchHit> Value,
-    [property: JsonPropertyName("@odata.count")] int Count,
-    [property: JsonPropertyName("facets")] SearchFacets Facets,
-    [property: JsonPropertyName("@odata.nextLink")] string? NextLink,
-    [property: JsonPropertyName("mode")] SearchMode Mode);
-
-public sealed record ReindexResponse(Guid Id, OperationStatus Status);
-
-/// <summary>Unified search (SRC-01…04, SRC-07…09): full text and meaning, filters with facets, only what the caller may read.</summary>
+/// <summary>Unified search (SRC-01…04, SRC-09): full text with filters and facets, only what the caller may read.</summary>
 internal static class SearchEndpoints
 {
-    public static void Map(IEndpointRouteBuilder endpoints)
+    public static void Map(IEndpointRouteBuilder app)
     {
-        var group = endpoints.MapV1Group("search", "Search");
+        var group = app.MapGroup("/v1.0/search").WithTags("Search");
         group.MapGet("", SearchAsync).RequireScope(SearchScopes.Read).WithName("Search")
-            .WithQueryOptions(QueryOptions.Top | QueryOptions.Skip);
-        group.MapPost("/reindex", ReindexAsync).RequireScope(SearchScopes.Manage).WithName("ReindexSearch");
+            .WithDescription("q: words, \"phrases\", OR, -exclude, prefix* (optional when filtering). Filters: workspaceId, containerId (list), "
+                + "contentTypeId, termId (includes child terms), createdBy, updatedFrom/updatedTo. Paging with $top/$skip.");
+        group.MapPost("/reindex", ReindexAsync).RequireScope(SearchScopes.Manage).WithName("ReindexSearch")
+            .WithDescription("Rebuilds the organization's index from every source, in the background: 202 with the operation to poll.");
     }
 
-    /// <summary>
-    /// <c>q</c>: words, <c>"phrases"</c>, <c>OR</c>, <c>-exclude</c>, <c>prefix*</c> (optional when filtering).
-    /// <c>mode</c>: <c>keyword</c>, <c>semantic</c> (by meaning) or <c>hybrid</c> (both; the default when semantic search
-    /// is configured). Filters: <c>workspaceId</c>, <c>containerId</c> (list), <c>contentTypeId</c>, <c>termId</c> (includes
-    /// child terms), <c>createdBy</c>, <c>updatedFrom</c>/<c>updatedTo</c>. Paging with <c>$top</c>/<c>$skip</c>.
-    /// </summary>
     private static async Task<Results<Ok<SearchResponse>, ValidationProblem>> SearchAsync(
         string? q, string? mode, Guid? workspaceId, Guid? containerId, Guid? contentTypeId, Guid? termId, Guid? createdBy,
-        DateTimeOffset? updatedFrom, DateTimeOffset? updatedTo, HttpRequest http, SearchService search, CancellationToken ct)
+        DateTimeOffset? updatedFrom, DateTimeOffset? updatedTo, HttpRequest http, Caller caller, SearchService search, CancellationToken ct)
     {
-        SearchMode? parsedMode = null;
-        if (!string.IsNullOrWhiteSpace(mode))
+        if (!string.IsNullOrWhiteSpace(mode) && !string.Equals(mode, SearchService.KeywordMatch, StringComparison.OrdinalIgnoreCase))
         {
-            if (!Enum.TryParse<SearchMode>(mode, ignoreCase: true, out var value) || !Enum.IsDefined(value))
-            {
-                return ApiErrors.Validation(new Dictionary<string, string[]> { ["mode"] = ["Use keyword, semantic or hybrid."] });
-            }
-
-            parsedMode = value;
+            return ApiErrors.Validation("mode", mode is "semantic" or "hybrid"
+                ? "Semantic search is not configured on this server (AI:Embeddings)."
+                : "Use keyword, semantic or hybrid.");
         }
 
         var top = ParseInt(http, "$top", SearchService.DefaultTop, 1, SearchService.MaxTop);
         var skip = ParseInt(http, "$skip", 0, 0, int.MaxValue);
         var (result, parameter, error) = await search.SearchAsync(
-            new SearchRequest(q, parsedMode, workspaceId, containerId, contentTypeId, termId, createdBy, updatedFrom, updatedTo, top, skip), ct);
+            caller.TenantId, caller.UserId, new SearchRequest(q, workspaceId, containerId, contentTypeId, termId, createdBy, updatedFrom, updatedTo, top, skip), ct);
         if (result is null)
         {
-            return ApiErrors.Validation(new Dictionary<string, string[]> { [parameter!] = [error!] });
+            return ApiErrors.Validation(parameter!, error!);
         }
 
         string? nextLink = null;
         if (skip + top < result.Count)
         {
-            var queryString = http.Query
+            var query = http.Query
                 .Where(p => p.Key is not "$skip")
                 .Select(p => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value.ToString())}")
                 .Append($"$skip={(skip + top).ToString(CultureInfo.InvariantCulture)}");
-            nextLink = $"{http.Scheme}://{http.Host}{http.PathBase}{http.Path}?{string.Join('&', queryString)}";
+            nextLink = $"{http.Scheme}://{http.Host}{http.PathBase}{http.Path}?{string.Join('&', query)}";
         }
 
-        return TypedResults.Ok(new SearchResponse(result.Hits, result.Count, result.Facets!, nextLink, result.Mode));
+        return TypedResults.Ok(new SearchResponse(result.Hits, result.Count, result.Facets!, nextLink, SearchService.KeywordMatch));
     }
 
-    /// <summary>Rebuilds the index of the tenant from every source, as an operation (admins).</summary>
-    private static async Task<Accepted<ReindexResponse>> ReindexAsync(IOperations operations, CancellationToken ct)
+    private static async Task<Accepted<ReindexResponse>> ReindexAsync(Caller caller, IOperations operations, CancellationToken ct)
     {
-        var id = await operations.StartAsync(ReindexOperation.OperationType, new ReindexPayload(), ct);
-        return TypedResults.Accepted($"{ApiRoutes.V1}/operations/{id}", new ReindexResponse(id, OperationStatus.NotStarted));
+        var id = await operations.StartAsync(caller.Actor, ReindexOperation.OperationType, new ReindexPayload(), SearchJson.Default.ReindexPayload, ct);
+        return TypedResults.Accepted($"/v1.0/operations/{id}", new ReindexResponse(id, "notStarted"));
     }
 
     private static int ParseInt(HttpRequest http, string name, int fallback, int min, int max) =>
@@ -125,27 +72,22 @@ internal static class SearchEndpoints
             : fallback;
 }
 
-public sealed record ReindexPayload;
-
-/// <summary>
-/// Clears and refills the current tenant's index from every <see cref="ISearchSource"/> (SRC-10).
-/// Used by the reindex operation and by <c>paperdotnet reindex</c>.
-/// </summary>
+/// <summary>Clears and refills a tenant's index from every <see cref="ISearchSource"/> (SRC-10).</summary>
 public sealed class SearchReindexer(IEnumerable<ISearchSource> sources, ISearchIndex index)
 {
     /// <summary>Rebuilds the index; <paramref name="progress"/> receives 0–100. Returns the source types.</summary>
-    public async Task<IReadOnlyList<string>> ReindexAsync(Func<int, Task> progress, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<string>> ReindexAsync(Guid tenantId, Func<int, Task> progress, CancellationToken cancellationToken)
     {
         var all = sources.ToList();
         for (var i = 0; i < all.Count; i++)
         {
             var done = i;
-            await index.DeleteSourceAsync(all[i].SourceType, cancellationToken);
-            await all[i].ReindexAsync(index, fraction => progress((int)((done + fraction) * 100 / all.Count)), cancellationToken);
+            await index.DeleteSourceAsync(tenantId, all[i].SourceType, cancellationToken);
+            await all[i].ReindexAsync(tenantId, index, fraction => progress((int)((done + fraction) * 100 / all.Count)), cancellationToken);
         }
 
         await progress(100);
-        return all.Select(s => s.SourceType).ToList();
+        return [.. all.Select(s => s.SourceType)];
     }
 }
 
@@ -156,6 +98,11 @@ internal sealed class ReindexOperation(SearchReindexer reindexer) : OperationHan
 
     public override string Type => OperationType;
 
-    protected override async Task<object?> ExecuteAsync(ReindexPayload payload, IOperationProgress progress, CancellationToken cancellationToken) =>
-        new { sources = await reindexer.ReindexAsync(percent => progress.ReportAsync(percent, cancellationToken), cancellationToken) };
+    protected override JsonTypeInfo<ReindexPayload> PayloadJson => SearchJson.Default.ReindexPayload;
+
+    protected override async Task<JsonNode?> ExecuteAsync(ReindexPayload payload, OperationContext context, CancellationToken cancellationToken)
+    {
+        var sources = await reindexer.ReindexAsync(context.Actor.TenantId, percent => context.Progress.ReportAsync(percent, cancellationToken), cancellationToken);
+        return System.Text.Json.JsonSerializer.SerializeToNode(new ReindexResult(sources), SearchJson.Default.ReindexResult);
+    }
 }

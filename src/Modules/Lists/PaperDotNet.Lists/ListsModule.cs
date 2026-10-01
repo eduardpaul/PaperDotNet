@@ -10,6 +10,8 @@ using PaperDotNet.Lists.Fields;
 using PaperDotNet.Lists.Querying;
 using PaperDotNet.Lists.Templates;
 using PaperDotNet.Persistence;
+using PaperDotNet.Search.Contracts;
+using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.Lists;
 
@@ -54,6 +56,10 @@ public sealed class ListsModule : IModule
         services.AddScoped<IContentTypeProvisioning>(sp => sp.GetRequiredService<ContentTypeProvisioner>());
         services.AddScoped<ItemAccess>();
         services.AddScoped<IPrincipalSet>(sp => sp.GetRequiredService<ItemAccess>());
+        services.AddScoped<IItemAccess>(sp => sp.GetRequiredService<ItemAccess>());
+        services.AddScoped(sp => new ItemSearchDocuments(
+            sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ITermStore>(), sp.GetRequiredService<ISearchIndex>(), sp.GetServices<IItemSearchContributor>()));
+        services.AddScoped<ISearchSource>(sp => sp.GetRequiredService<ItemSearchDocuments>());
         services.AddScoped<ListSchemaLoader>();
         services.AddScoped<ItemWriter>();
         services.AddOperationHandler<BulkUpdateOperation>();

@@ -269,11 +269,12 @@ public sealed class PermissionTests : IAsyncLifetime
         await db.Items.Where(i => i.Id == child).ExecuteUpdateAsync(u => u.SetProperty(i => i.ScopeId, list), Ct);
         var message = new CompleteFolderScopeChange(tenantId, list, Guid.Parse(moved), list, folderScope);
         var mover = scope.ServiceProvider.GetRequiredService<ScopeMover>();
-        await FolderScopeSubscriber.Handle(message, mover, Ct);
+        var search = scope.ServiceProvider.GetRequiredService<ItemSearchDocuments>();
+        await FolderScopeSubscriber.Handle(message, mover, search, Ct);
         Assert.Equal(folderScope, (await db.Items.AsNoTracking().SingleAsync(i => i.Id == child, Ct)).ScopeId);
 
         // A stale message (the folder moved again since) changes nothing.
-        await FolderScopeSubscriber.Handle(message with { NewScopeId = Guid.NewGuid() }, mover, Ct);
+        await FolderScopeSubscriber.Handle(message with { NewScopeId = Guid.NewGuid() }, mover, search, Ct);
         Assert.Equal(folderScope, (await db.Items.AsNoTracking().SingleAsync(i => i.Id == child, Ct)).ScopeId);
     }
 }

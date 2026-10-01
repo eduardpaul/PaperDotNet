@@ -1,19 +1,28 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Persistence;
+using PaperDotNet.Persistence.Sqlite;
 
 namespace PaperDotNet.Search.Data;
 
+#pragma warning disable CA1852 // Entities stay unsealed: EF Core's precompiled queries cannot use sealed entity types (ADR-0039).
+
 /// <summary>One searchable document of any data type (SRC-01), maintained by the owning module.</summary>
-[NotAudited]
-public sealed class SearchDocument : ITenantOwned
+public class SearchDocument : ITenantOwned
 {
+    /// <summary>
+    /// Integer key: the row id of the full-text index. Declared, so it never changes (SQLite may renumber the implicit
+    /// row ids of a table without one, e.g. on <c>VACUUM</c>).
+    /// </summary>
+    public long Key { get; set; }
+
     public Guid Id { get; set; }
 
     public Guid TenantId { get; set; }
 
     /// <summary>E.g. <c>listItem</c>.</summary>
-    public required string SourceType { get; set; }
+    public string SourceType { get; set; } = "";
 
     public Guid WorkspaceId { get; set; }
 
@@ -25,24 +34,24 @@ public sealed class SearchDocument : ITenantOwned
     /// <summary>Permission scope (ADR-0035): the document is found by callers who can read this scope.</summary>
     public Guid ScopeId { get; set; }
 
-    public required string Title { get; set; }
+    public string Title { get; set; } = "";
 
     /// <summary>High-weight text (SRC-06).</summary>
-    public string Keywords { get; set; } = string.Empty;
+    public string Keywords { get; set; } = "";
 
-    public string Body { get; set; } = string.Empty;
+    public string Body { get; set; } = "";
 
-    /// <summary>Language of the text for stemming (SRC-05), e.g. <c>english</c>; null = exact words only.</summary>
+    /// <summary>Language of the text (SRC-05), e.g. <c>english</c>, or null.</summary>
     public string? Language { get; set; }
 
     public Guid? CreatedBy { get; set; }
 
-    public DateTimeOffset UpdatedAt { get; set; }
+    /// <summary>When the content changed, as Unix milliseconds (ordered and compared in SQL).</summary>
+    public long UpdatedAt { get; set; }
 }
 
-/// <summary>A term (tag) of a document, for facets and hierarchical tag filters (SRC-03).</summary>
-[NotAudited]
-public sealed class SearchTag : ITenantOwned
+/// <summary>A term (tag) of a document, for facets, hierarchical tag filters (SRC-03) and term usage.</summary>
+public class SearchTag : ITenantOwned
 {
     public Guid DocumentId { get; set; }
 
@@ -53,12 +62,13 @@ public sealed class SearchTag : ITenantOwned
 
 /// <summary>
 /// A passage of a document (SRC-07, SRC-09): a window of its text with the page it is on (null for text that is not
-/// on a page, like the title and fields). Passages have their own full-text index, so keyword hits can point to a
-/// page, and an embedding for semantic search, computed in the background.
+/// on a page, like the fields). Passages have their own full-text index, so keyword hits can point to a page.
 /// </summary>
-[NotAudited]
-public sealed class SearchPassage : ITenantOwned
+public class SearchPassage : ITenantOwned
 {
+    /// <summary>Integer key: the row id of the passages' full-text index (see <see cref="SearchDocument.Key"/>).</summary>
+    public long Key { get; set; }
+
     public Guid Id { get; set; }
 
     public Guid TenantId { get; set; }
@@ -71,67 +81,66 @@ public sealed class SearchPassage : ITenantOwned
     /// <summary>1-based page number, or null.</summary>
     public int? Page { get; set; }
 
-    public string Text { get; set; } = string.Empty;
+    public string Text { get; set; } = "";
 
-    public string? Language { get; set; }
-
-    /// <summary>SHA-256 (hex) of the text that is embedded (title and passage): an unchanged passage keeps its embedding.</summary>
-    public required string ContentHash { get; set; }
-
-    /// <summary>The normalized embedding as little-endian float32 values, or null until computed.</summary>
-    public byte[]? Embedding { get; set; }
-
-    /// <summary>The model <see cref="Embedding"/> comes from; a different configured model means it is embedded again.</summary>
-    public string? EmbeddingModel { get; set; }
-
-    /// <summary>When the embedding was stored (UTC ticks), so vector indexes in memory load only what changed.</summary>
-    public long VectorStamp { get; set; }
+    /// <summary>SHA-256 (hex) of the title and passage text: an unchanged passage keeps its row (and, later, its embedding).</summary>
+    public string ContentHash { get; set; } = "";
 }
 
-public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, ITenantContext tenant)
-    : DbContext(options), ITenantScopedDbContext
+/// <summary>
+/// The search index. The full-text tables (FTS5, <c>search_documents_fts</c> and <c>search_passages_fts</c>) are kept
+/// by triggers created in the migration; queries are SQL per provider (<c>ISearchQueries</c>).
+/// </summary>
+public class SearchDbContext : DbContext
 {
-    public const string Schema = "search";
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "The model comes from the compiled model generated at publish (ADR-0039).")]
+    public SearchDbContext(DbContextOptions<SearchDbContext> options)
+        : base(options)
+    {
+    }
 
-    public Guid? CurrentTenantId => tenant.TenantId;
+    public DbSet<SearchDocument> Documents { get; set; } = null!;
 
-    public DbSet<SearchDocument> Documents => Set<SearchDocument>();
+    public DbSet<SearchTag> Tags { get; set; } = null!;
 
-    public DbSet<SearchTag> Tags => Set<SearchTag>();
-
-    public DbSet<SearchPassage> Passages => Set<SearchPassage>();
+    public DbSet<SearchPassage> Passages { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema(Schema);
         modelBuilder.Entity<SearchDocument>(b =>
         {
-            b.ToTable("documents");
+            b.ToTable("search_documents");
+            b.HasKey(d => d.Key);
+            b.Property(d => d.Key).ValueGeneratedOnAdd();
+            b.HasIndex(d => d.Id).IsUnique();
             b.Property(d => d.SourceType).HasMaxLength(50);
             b.Property(d => d.Title).HasMaxLength(1024);
-            b.HasIndex(d => new { d.TenantId, d.ContainerId });
-            b.HasIndex(d => new { d.ScopeId, d.Id });
             b.Property(d => d.Language).HasMaxLength(20);
-            b.HasFullTextIndex(nameof(SearchDocument.Title), nameof(SearchDocument.Keywords), nameof(SearchDocument.Body));
-            b.HasFullTextLanguage(nameof(SearchDocument.Language));
+            b.HasIndex(d => new { d.TenantId, d.ContainerId });
+            b.HasIndex(d => new { d.TenantId, d.SourceType });
+            b.HasIndex(d => new { d.TenantId, d.ScopeId });
         });
         modelBuilder.Entity<SearchTag>(b =>
         {
-            b.ToTable("document_tags");
+            b.ToTable("search_tags");
             b.HasKey(t => new { t.DocumentId, t.TermId });
-            b.HasIndex(t => new { t.TermId, t.DocumentId });
+            b.HasIndex(t => new { t.TenantId, t.TermId });
         });
         modelBuilder.Entity<SearchPassage>(b =>
         {
-            b.ToTable("passages");
-            b.Property(p => p.Language).HasMaxLength(20);
+            b.ToTable("search_passages");
+            b.HasKey(p => p.Key);
+            b.Property(p => p.Key).ValueGeneratedOnAdd();
+            b.HasIndex(p => p.Id).IsUnique();
             b.Property(p => p.ContentHash).HasMaxLength(64);
-            b.Property(p => p.EmbeddingModel).HasMaxLength(200);
             b.HasIndex(p => new { p.TenantId, p.DocumentId });
-            b.HasIndex(p => new { p.TenantId, p.EmbeddingModel, p.VectorStamp });
-            b.HasFullTextIndex(nameof(SearchPassage.Text));
-            b.HasFullTextLanguage(nameof(SearchPassage.Language));
         });
-        modelBuilder.ApplyPaperDotNetConventions(this);
     }
+}
+
+/// <summary>For the EF Core tools: the compiled model, precompiled queries and migrations.</summary>
+internal sealed class SearchDesignTimeFactory : IDesignTimeDbContextFactory<SearchDbContext>
+{
+    public SearchDbContext CreateDbContext(string[] args) => new(SqliteDesignTime.Options<SearchDbContext>());
 }

@@ -207,4 +207,7 @@ public interface IListItemStore
 
     /// <summary>Moves the item to the recycle bin.</summary>
     Task<ListItemResult> DeleteAsync(Guid workspaceId, Guid listId, Guid itemId, uint? expectedVersion, CancellationToken cancellationToken);
+
+    /// <summary>Indexes the item of the store's tenant again for search (e.g. after its <see cref="IItemSearchContributor"/> content changed).</summary>
+    Task ReindexAsync(Guid itemId, CancellationToken cancellationToken);
 }

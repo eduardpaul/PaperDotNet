@@ -16,15 +16,15 @@ namespace PaperDotNet.Lists.Features;
 /// </summary>
 internal sealed class ListItemStore(
     ListsDbContext db, ListSchemaLoader loader, ItemQueryRunner runner, ItemWriter writer, IWorkspaceAccess workspaces, ICurrentUser user,
-    ListCaller? bound = null)
+    ItemSearchDocuments search, ListCaller? bound = null)
     : IListItemStore
 {
     private ListCaller Caller => bound ?? new ListCaller(
         user.TenantId ?? throw new InvalidOperationException("The item store needs a caller: use ActingAs or AsSystem outside a request."), user.UserId);
 
-    public IListItemStore ActingAs(ChangeActor actor) => new ListItemStore(db, loader, runner, writer, workspaces, user, ListCaller.From(actor));
+    public IListItemStore ActingAs(ChangeActor actor) => new ListItemStore(db, loader, runner, writer, workspaces, user, search, ListCaller.From(actor));
 
-    public IListItemStore AsSystem(ChangeActor actor) => new ListItemStore(db, loader, runner, writer, workspaces, user, ListCaller.From(actor, system: true));
+    public IListItemStore AsSystem(ChangeActor actor) => new ListItemStore(db, loader, runner, writer, workspaces, user, search, ListCaller.From(actor, system: true));
 
     public IListItemStore AsSystem() => AsSystem(Caller.Actor);
 
@@ -382,4 +382,6 @@ internal sealed class ListItemStore(
     {
         Access = schema.Access.Level(item.ScopeId),
     };
+
+    public Task ReindexAsync(Guid itemId, CancellationToken cancellationToken) => search.IndexItemAsync(Caller.TenantId, itemId, cancellationToken);
 }

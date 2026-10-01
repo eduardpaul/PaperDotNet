@@ -69,7 +69,8 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 |---|---|---|
 | T12a | Taxonomy: term groups, sets and hierarchical terms (labels, synonyms, colors), keywords, merges (`TermMerged`), promotion, SharePoint CSV import, `ITermStore` and `ITermSetProvisioning` with the tenant named | done. Popular keywords come with T12c (they count tagged items); the template section with T13 |
 | T12b | Lists: `managedMetadata` and `keywords` fields (term resolution, hierarchical filters), the `TermMerged` subscriber, note `#tags`, extension term sets (`AddTermSet`) | done. Filters on a term match its subtree (looked up before the SQL is built); merges rewrite values through the item store, so versions, events and the delta follow; the documents content type has its keywords field again |
-| T12c | Search: SQLite FTS5 index from item events, access trimming by scope, page hits, comments, `ITermUsage` and popular keywords, optional semantic search | |
+| T12c | Search: SQLite FTS5 index from item events, access trimming by scope, page hits, comments, `ITermUsage` and popular keywords | done. FTS5 tables keyed on declared integer keys (row ids survive `VACUUM`), SQL per provider (`ISearchQueries`), id sets as one `json_each` parameter; permission moves refresh document scopes after the folder move completes |
+| T12e | Semantic and hybrid search (embeddings, `AI:Embeddings`), the search MCP tool with T16 | |
 | T12d | Smart folders (from T08g): saved term filters that assign terms | |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).

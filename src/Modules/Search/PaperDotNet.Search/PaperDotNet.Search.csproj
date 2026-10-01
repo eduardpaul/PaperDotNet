@@ -1,21 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Search over all data types with security trimming and facets (SRC-01…04); semantic and hybrid search with page hits (SRC-07…09). -->
+  <!--
+    Search over all data types with permission trimming and facets (SRC-01…04), page hits (SRC-09): SQLite FTS5 tables
+    kept by triggers, queried with SQL built per provider (ISearchQueries, ADR-0039).
+  -->
+  <Import Project="..\..\AotModule.props" />
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
-    <PackageReference Include="System.Numerics.Tensors" />
     <ProjectReference Include="..\PaperDotNet.Search.Contracts\PaperDotNet.Search.Contracts.csproj" />
-    <ProjectReference Include="..\..\Identity\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Lists\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />
     <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
     <ProjectReference Include="..\..\Taxonomy\PaperDotNet.Taxonomy.Contracts\PaperDotNet.Taxonomy.Contracts.csproj" />
-    <ProjectReference Include="..\..\Workspaces\PaperDotNet.Workspaces.Contracts\PaperDotNet.Workspaces.Contracts.csproj" />
-    <ProjectReference Include="..\..\Mcp\PaperDotNet.Mcp.Contracts\PaperDotNet.Mcp.Contracts.csproj" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
-    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
-    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+    <!-- Semantic and hybrid search (SRC-07, SRC-08) and the MCP tool come later (T12e, T16). -->
+    <Compile Remove="Features/Semantic.cs;Features/SearchTool.cs" />
+    <None Include="Features/Semantic.cs;Features/SearchTool.cs" />
   </ItemGroup>
 </Project>

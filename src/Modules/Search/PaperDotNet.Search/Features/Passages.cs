@@ -36,7 +36,7 @@ internal static class Passages
         return passages.Count > MaxPerDocument ? passages[..MaxPerDocument] : passages;
     }
 
-    /// <summary>What is embedded for a passage: the title gives context to every passage of the document.</summary>
+    /// <summary>What identifies a passage's content (and is embedded, with semantic search): the title gives context to every passage.</summary>
     public static string EmbeddingInput(string title, string text) => $"{title}\n\n{text}";
 
     public static string Hash(string input) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)));

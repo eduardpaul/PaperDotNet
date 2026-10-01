@@ -156,6 +156,8 @@ internal static class CommentEndpoints
         db.Activity.Add(ItemActivity.Create(tenant, workspaceId, listId, itemId, ActivityKinds.Commented, caller.UserId, Excerpt(comment.Text), [], $"comment:{comment.Id:N}", time.GetUtcNow()));
         await db.SaveChangesAsync(ct);
 
+        // Comments are part of the item's search document.
+        await items.ReindexAsync(itemId, ct);
         await NotifyAsync(items, sender, caller, item, comment, mentions, ct);
         ETags.Set(response, comment.Version);
         return TypedResults.Created($"/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/comments/{comment.Id}", CommentResponse.From(comment));
@@ -206,6 +208,7 @@ internal static class CommentEndpoints
             return ApiErrors.PreconditionFailed();
         }
 
+        await items.ReindexAsync(itemId, ct);
         await NotifyAsync(items, sender, caller, item, comment, added, ct);
         ETags.Set(response, comment.Version);
         return TypedResults.Ok(CommentResponse.From(comment));
@@ -233,6 +236,7 @@ internal static class CommentEndpoints
         db.Comments.RemoveRange(await db.Comments.Where(c => c.TenantId == tenant && c.ParentId == parent).ToListAsync(ct));
         db.Comments.Remove(comment);
         await db.SaveChangesAsync(ct);
+        await items.ReindexAsync(itemId, ct);
         return TypedResults.NoContent();
     }
 

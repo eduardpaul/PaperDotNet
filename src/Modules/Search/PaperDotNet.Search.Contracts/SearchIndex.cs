@@ -3,7 +3,7 @@ namespace PaperDotNet.Search.Contracts;
 /// <summary>
 /// A searchable document, pushed by the module that owns the content. <see cref="ScopeId"/> is its permission scope
 /// (ADR-0035): search only returns documents whose scope the caller can read (SRC-04), so permission changes do not
-/// touch the index.
+/// touch the text.
 /// </summary>
 public sealed record SearchDocumentData(
     Guid Id,
@@ -22,8 +22,8 @@ public sealed record SearchDocumentData(
     public string Keywords { get; init; } = string.Empty;
 
     /// <summary>
-    /// Language of the text, for stemming (SRC-05): a name like <c>english</c> or <c>german</c>
-    /// (see <c>FullTextLanguages.FromCode</c> for ISO codes); null = exact words only.
+    /// Language of the text (SRC-05), e.g. <c>english</c>; kept for providers that stem per language (SQLite stems
+    /// English for all documents).
     /// </summary>
     public string? Language { get; init; }
 
@@ -34,30 +34,30 @@ public sealed record SearchDocumentData(
     public IReadOnlyList<string> Pages { get; init; } = [];
 }
 
-/// <summary>The search index of the current tenant.</summary>
+/// <summary>The search index. The tenant is named in every call (no ambient tenant, ADR-0039).</summary>
 public interface ISearchIndex
 {
-    Task UpsertAsync(IReadOnlyCollection<SearchDocumentData> documents, CancellationToken cancellationToken);
+    Task UpsertAsync(Guid tenantId, IReadOnlyCollection<SearchDocumentData> documents, CancellationToken cancellationToken);
 
-    Task DeleteAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+    Task DeleteAsync(Guid tenantId, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Moves documents to other permission scopes (document id → scope id), keeping their text, passages and
-    /// embeddings. Unknown ids are skipped.
+    /// Moves documents to other permission scopes (document id → scope id), keeping their text and passages. Unknown ids
+    /// are skipped.
     /// </summary>
-    Task SetScopesAsync(IReadOnlyDictionary<Guid, Guid> scopes, CancellationToken cancellationToken);
+    Task SetScopesAsync(Guid tenantId, IReadOnlyDictionary<Guid, Guid> scopes, CancellationToken cancellationToken);
 
     /// <summary>Removes every document of a container (e.g. a list), before re-indexing it or when it is deleted.</summary>
-    Task DeleteContainerAsync(Guid containerId, CancellationToken cancellationToken);
+    Task DeleteContainerAsync(Guid tenantId, Guid containerId, CancellationToken cancellationToken);
 
-    Task DeleteSourceAsync(string sourceType, CancellationToken cancellationToken);
+    Task DeleteSourceAsync(Guid tenantId, string sourceType, CancellationToken cancellationToken);
 }
 
-/// <summary>How often terms are used as tags in the tenant's search index (e.g. popular keywords, TAX-05).</summary>
+/// <summary>How often terms are used as tags in a tenant's search index (e.g. popular keywords, TAX-05).</summary>
 public interface ITermUsage
 {
     /// <summary>Number of indexed items tagged with each term (terms without use are omitted).</summary>
-    Task<IReadOnlyDictionary<Guid, int>> CountAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
+    Task<IReadOnlyDictionary<Guid, int>> CountAsync(Guid tenantId, IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);
 }
 
 /// <summary>A module that can push all of its content again (reindex, SRC-10).</summary>
@@ -65,6 +65,6 @@ public interface ISearchSource
 {
     string SourceType { get; }
 
-    /// <summary>Writes every document of this source to <paramref name="index"/>, reporting progress (0 to 1).</summary>
-    Task ReindexAsync(ISearchIndex index, Func<double, Task> progress, CancellationToken cancellationToken);
+    /// <summary>Writes every document of this source in the tenant to <paramref name="index"/>, reporting progress (0 to 1).</summary>
+    Task ReindexAsync(Guid tenantId, ISearchIndex index, Func<double, Task> progress, CancellationToken cancellationToken);
 }
