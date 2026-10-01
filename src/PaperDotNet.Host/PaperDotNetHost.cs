@@ -18,6 +18,7 @@ using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Storage;
 using PaperDotNet.Workflows;
 using PaperDotNet.Workspaces;
+using Weasel.Sqlite;
 using Wolverine;
 using Wolverine.Sqlite;
 
@@ -63,7 +64,7 @@ internal static class PaperDotNetHost
 
         builder.Host.UseWolverine(options =>
         {
-            options.PersistMessagesWithSqlite(connectionString);
+            options.PersistMessagesWithSqlite(new SqliteDataSource(connectionString, MessageStorePragmas()));
             options.UsePaperDotNetDefaults(json, generatingCode);
             foreach (var module in Modules)
             {
@@ -71,6 +72,19 @@ internal static class PaperDotNetHost
             }
         });
         return builder;
+    }
+
+    /// <summary>
+    /// SQLite settings of the message store's connections: Weasel's defaults with SQLite's own page cache (2 MB per
+    /// connection, not 64 MB) and no memory-mapped I/O (not 256 MB of the database file mapped into the process), like
+    /// the modules' connections. With Weasel's values, resident memory grew with the size of the database under load.
+    /// </summary>
+    private static SqlitePragmaSettings MessageStorePragmas()
+    {
+        var settings = SqlitePragmaSettings.Default;
+        settings.CacheSize = -2000;
+        settings.MmapSize = 0;
+        return settings;
     }
 
     public static WebApplication UsePaperDotNet(this WebApplication app)

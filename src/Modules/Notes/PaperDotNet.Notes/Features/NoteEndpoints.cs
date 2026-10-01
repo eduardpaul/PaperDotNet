@@ -61,9 +61,10 @@ internal static class NoteEndpoints
         var db = database;
         var tenant = caller.TenantId;
         var target = itemId;
+        var limit = MaxBacklinks * 4; // Constants are copied too: precompiled queries see locals only (ADR-0039).
         var ct = cancellationToken;
         var sources = (await db.Links.AsNoTracking().Where(l => l.TenantId == tenant && l.TargetItemId == target && l.SourceItemId != target)
-                .OrderBy(l => l.Id).Take(MaxBacklinks * 4).ToListAsync(ct))
+                .OrderBy(l => l.Id).Take(limit).ToListAsync(ct))
             .Select(l => l.SourceItemId).Distinct().Take(MaxBacklinks);
         var notes = await VisibleAsync(items, db, tenant, sources, ct);
         return TypedResults.Ok(new BacklinksResponse([.. notes.Values.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase).ThenBy(n => n.ItemId)]));

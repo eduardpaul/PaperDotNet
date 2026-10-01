@@ -183,7 +183,8 @@ PEAK=$(rss_mb)
 seq 1 500 | xargs -P 16 -I{} curl -sf -o /dev/null "${AUTH[@]}" -G "$ITEMS" \
   --data-urlencode '$filter=fields/amount gt {}' --data-urlencode '$top=50' || fail "read burst"
 PEAK=$(( $(rss_mb) > PEAK ? $(rss_mb) : PEAK ))
-sleep 3
+# Subscribers work off the burst's events for a while after it: measure that too.
+for _ in $(seq 1 10); do sleep 1; PEAK=$(( $(rss_mb) > PEAK ? $(rss_mb) : PEAK )); done
 AFTER=$(rss_mb)
 PEAK=$(( AFTER > PEAK ? AFTER : PEAK ))
 

@@ -165,6 +165,10 @@ schedules, the web UI and the SDKs. Each follows the rules above and brings its 
 - The idle budget started at 100 MB. With Jobs and Identity ported the server idled at 104 MB; the standard GC
   settings saved at most 6 MB (gen0 size), because most idle memory is code and runtime structures that grow with each
   module. We raised the idle budget to 150 MB and kept plain defaults, rather than tune the GC or make modules opt-in.
+- The message store's SQLite connections (Weasel, through Wolverine) come with a 64 MB page cache each and 256 MB of
+  memory-mapped I/O. Resident memory then grew with the database while subscribers worked off a burst (up to 570 MB).
+  The host passes Weasel's settings with SQLite's own page cache (2 MB) and no memory-mapped I/O, as on the modules'
+  connections; under load it stays near 220 MB. The smoke test measures for ten seconds after the burst.
 - OpenIddict (authorization code flow, passkeys) and ASP.NET Core OData are not used any more. Other dependencies are
   not checked under AOT yet (the MCP SDK, PDF and OCR libraries). Each
   is tested when its module is ported, with the same best-effort rule: keep it if it works, otherwise find a standard

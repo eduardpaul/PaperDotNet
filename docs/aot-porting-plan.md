@@ -15,7 +15,7 @@ Goal: every module of the .NET 10 server working in the Native AOT server. Order
 | T07 | L | Lists parity 2: versions and history, recycle bin, item mutators, full item events | done: item versions (list, get, restore), the recycle bin (list, restore, purge) with a daily cleanup job, mutators (`IItemMutator` in DI), restored and purged events in the audit log. The audit log across modules (`/v1.0/auditLog` by entity type) comes with T16 |
 | T08 | XL | Lists parity 3: permissions (ADR-0035), indexed fields, views, templates, smart folders, delta, bulk | done (steps below; smart folders moved to T12) |
 | T09 | M | Extension SDK, extension host and generator | done (steps below): term sets, template sections, workflow triggers and shipped workflows, MCP tools come with T12, T13, T14 and T16 |
-| T10 | S-M | Notes, Collaboration, Notifications | in progress (steps below) |
+| T10 | S-M | Notes, Collaboration, Notifications | done (steps below); the message store keeps SQLite's own cache and no mmap (ADR-0039) |
 | T11 | M | Tasks and Calendar | |
 | T12 | L | Taxonomy and Search (SQLite FTS5, optional semantic search), then smart folders (from T08g), note `#tags` and comments in search (from T10) | |
 | T13 | M | Provisioning and templates | |
@@ -51,9 +51,9 @@ Status values: empty = not started; "in progress"; "done" (with what moved to a 
 
 | Step | Task | Status |
 |---|---|---|
-| T10a | Notifications: inbox, settings, webhooks (signed, retried, quiet hours), follows with alerts and digests, the `notify` activity (with `IWorkflowRecipients`) | done (AOT smoke run pending). Posts name the tenant by id (`tenantId`); reminders come with T11 |
-| T10b | Change subscriptions (API-06): validation handshake, signed deliveries, cleanup | done (AOT smoke run pending) |
-| T10c | Collaboration: comments with mentions, the activity timeline (`IItemActivity`); comments in search come with T12, the `comment.added` trigger with T14 | done (AOT smoke run pending). `IItemActivity.RecordAsync` takes the actor (tenant explicit) |
-| T10d | Notes: content type and template, wiki links and backlinks, link updates on renames; `#tags` as keywords come with T12 | done (AOT smoke run pending) |
+| T10a | Notifications: inbox, settings, webhooks (signed, retried, quiet hours), follows with alerts and digests, the `notify` activity (with `IWorkflowRecipients`) | done. Posts name the tenant by id (`tenantId`); reminders come with T11 |
+| T10b | Change subscriptions (API-06): validation handshake, signed deliveries, cleanup | done |
+| T10c | Collaboration: comments with mentions, the activity timeline (`IItemActivity`); comments in search come with T12, the `comment.added` trigger with T14 | done. `IItemActivity.RecordAsync` takes the actor (tenant explicit) |
+| T10d | Notes: content type and template, wiki links and backlinks, link updates on renames; `#tags` as keywords come with T12 | done |
 
 Done before this plan: building blocks, Identity (sign-in slice), Lists (slice), Audit (slice), Workflows (flow slice).
