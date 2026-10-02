@@ -31,7 +31,7 @@ class CalendarSourceResponse(AdditionalDataHolder, Parsable):
     removed: Optional[int] = None
     # The updated property
     updated: Optional[int] = None
-    
+
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> CalendarSourceResponse:
         """
@@ -42,7 +42,7 @@ class CalendarSourceResponse(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return CalendarSourceResponse()
-    
+
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -61,7 +61,7 @@ class CalendarSourceResponse(AdditionalDataHolder, Parsable):
             "updated": lambda n : setattr(self, 'updated', n.get_int_value()),
         }
         return fields
-    
+
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -81,5 +81,3 @@ class CalendarSourceResponse(AdditionalDataHolder, Parsable):
         writer.write_int_value("removed", self.removed)
         writer.write_int_value("updated", self.updated)
         writer.write_additional_data_value(self.additional_data)
-    
-
