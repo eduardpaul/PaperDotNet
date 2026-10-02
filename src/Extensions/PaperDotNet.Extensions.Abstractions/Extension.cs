@@ -14,6 +14,7 @@ namespace PaperDotNet.Extensions;
 /// <summary>Version of the extension SDK implemented by this host (major.minor).</summary>
 public static class ExtensionSdk
 {
+    // Keep the SDK at 1.0 until the first release.
     public static readonly Version Version = new(1, 0);
 
     /// <summary>Logical name of the embedded manifest resource.</summary>

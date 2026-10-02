@@ -214,6 +214,14 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | CAL-04 | iCal import/export & feeds | As a **Member**, I want to import `.ics` files and subscribe to a read-only calendar feed, so that I can exchange calendars with other tools | Core | P4 | AV §3.2 |
 | CAL-05 | CalDAV (events & tasks) | As a **Member**, I want my calendars and task lists to sync two-way with iOS, Android (DAVx⁵) and Thunderbird, so that I can use native apps offline | Core | P7 | #0019 |
 | CAL-06 | CardDAV (contacts) | As a **Member**, I want a contacts list that syncs with my phone's address book, so that contacts live in the same system | Ext | P7 | #0019 |
+| CAL-07 | iCalendar URL replication | As a **Member**, I want to add multiple iCalendar URLs to any calendar list, reuse the same URL in different lists, and obtain events directly from those sources, so that external calendars stay available in PaperDotNet without manual copying | Ext | P7 | [#0024](../ideas/0024-ical-url-replication.md) |
+
+iCalendar URL replication is implemented in the Calendar module, including
+API, SDK and list-settings UI ([guide](calendar-sources.md), [ADR-0042](adr/0042-ical-source-replication.md)). The feed is authoritative and refreshes flow into
+PaperDotNet; Google's secret iCal URL is one example. See
+[idea 0024](../ideas/0024-ical-url-replication.md) for scope and acceptance criteria.
+CAL-04 supplies the existing file importer and outbound feeds; CAL-07 adds
+an automatically refreshed inbound subscription.
 
 ## 10. Notifications (NTF)
 
@@ -300,7 +308,7 @@ Configuration only by default; data portability is PLT-13.
 | **P4 Tasks, calendar & notifications** | Productivity suite | TSK-01…06, CAL-01…04, NTF-01…05 (NTF-04: webhook) |
 | **P5 Collaboration, automation & integrations** | Share, automate, connect | PRV-01…03, PRV-05 (first), EVT-07…09 (automations), TAX-05, TAX-08…11, DOC-14, LST-17, API-03…06, API-08, API-09; deferred: IAM-04, PLT-06, NTF-04 (email, ntfy, Gotify), NTF-06, DOC-05, DOC-06, DOC-15 (S3) |
 | **P6 AI & semantic search** | Understand documents | AI-01…06, SRC-07…09, DOC-12, IAM-08…12 (sharing, moved from P5) |
-| **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PLT-15, PLT-17, PLT-18, IAM-14, IAM-15, LST-19, DOC-16, DOC-17, API-13, PRV-04, API-10 (WebDAV), CAL-05 (CalDAV), CAL-06 (CardDAV) |
+| **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PLT-15, PLT-17, PLT-18, IAM-14, IAM-15, LST-19, DOC-16, DOC-17, API-13, PRV-04, API-10 (WebDAV), CAL-05 (CalDAV), CAL-06 (CardDAV), CAL-07 (iCalendar URL replication) |
 | **P8 Web UI** | The first-party web app on the SDK | Screens for the features above, in slices 8a–8h ([frontend.md](frontend.md)) |
 | **P9 Workflows as the core** | One engine for built-in and user-defined processes ([ADR-0036](adr/0036-workflows-as-the-core.md)) | EVT-07…15, AI-01…04, AI-06…08, PLT-06 (limits), in slices 9a–9g |
 
@@ -417,6 +425,7 @@ Content and portability first; the rest of P7 (extensions in other languages, sy
 | **7f Document gaps** | Guide [documents.md](documents.md). DOC-05 `PUT …/file/pages` (delete, reorder, rotate in one request) and DOC-06 `…/file/pages/extract` (one document or one per page, optionally removed from the source) and `…/file/pages/move` (append, prepend, replace; moving all pages merges and recycles the source), with PDFsharp: new file versions, page texts carried over (no OCR). DOC-17 `languages` on uploads (and, until 9d4, `…/file/process`), kept by new versions (file → library → uploader → organization). DOC-16 `/v1.0/groups/{id}/inbox` (a library as the group's inbox, uploads by members, `/v1.0/me/inboxes`, `GroupInbox` in templates). LST-19 folders hold values of their content type's fields (not required, no defaults), exported in packages | ✅ |
 | **7g Access at the edge** | IAM-15 sign-in through an authenticating reverse proxy ([ADR-0031](adr/0031-reverse-proxy-sign-in.md), [accounts-and-preferences.md](accounts-and-preferences.md#sign-in-through-a-reverse-proxy)): off by default, headers only from `TrustedProxies` (the direct peer, captured before forwarded headers) and only at `/connect/authorize`; users created without a password, name, e-mail and existing groups taken over. API-13 client CLI `pdn` on the C# SDK ([cli.md](cli.md)): `workspaces`, `libraries`, `upload` (files or folder trees into library folders or the Inbox), `download`, `search`; library uploads accept `folderId` | ✅ |
 | **7h SDK for our own frontend** | [ADR-0032](adr/0032-sdk-for-first-party-clients.md), [sdk/README.md](../sdk/README.md). API-03 follow-up: complete OpenAPI (OData query options, `ApiProblem` for every error, documented raw-JSON bodies, files, event streams, multipart forms, `JsonObject` as a dictionary, any-JSON and numbers typed; guarded by `SdkContractTests`); `@odata.etag` in bodies; optional `Cors:Origins`. TypeScript runtime: `OAuthSession` (PKCE, refresh, sign-out), client with tenant and 401 retry, problems, `ifMatch`, paging, fields, uploads/downloads, live events, operations; end-to-end tests against a real server (`npm run test:e2e`) | ✅ |
+| **7i Calendar sources** | CAL-07: multiple iCalendar URLs per event-capable list, reuse across lists, source-scoped identities, safe refresh/removal/restoration, recurrence reconciliation, status and per-source controls; Calendar module on SDK 1.0, existing scheduled workflow and operations. [Guide](calendar-sources.md), [ADR-0042](adr/0042-ical-source-replication.md) | ✅ |
 
 ## Phase 8 status
 

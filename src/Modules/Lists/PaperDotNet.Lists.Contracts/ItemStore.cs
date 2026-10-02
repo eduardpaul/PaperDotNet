@@ -200,6 +200,13 @@ public interface IListItemStore
     /// </summary>
     Task<(Guid? FolderId, ListItemResult? Problem)> EnsureFolderAsync(Guid workspaceId, Guid listId, IReadOnlyList<string> path, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Restores a recycled item through the normal permissions, version, search and event pipeline.
+    /// An already active item is returned unchanged; the tenant filter is always retained.
+    /// </summary>
+    Task<ListItemResult> RestoreAsync(Guid workspaceId, Guid listId, Guid itemId, uint? expectedVersion, CancellationToken cancellationToken) =>
+        Task.FromResult(new ListItemResult(ListItemStatus.Rejected, Message: "This store does not support restoring recycled items."));
+
     /// <summary>Moves the item (or folder) into <paramref name="folderId"/> (null: the list root) in the same list.</summary>
     Task<ListItemResult> MoveAsync(Guid workspaceId, Guid listId, Guid itemId, Guid? folderId, CancellationToken cancellationToken);
 

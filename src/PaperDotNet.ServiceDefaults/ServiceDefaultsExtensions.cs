@@ -35,7 +35,8 @@ public static class ServiceDefaultsExtensions
             .WithTracing(tracing => tracing
                 .AddSource(builder.Environment.ApplicationName)
                 .AddAspNetCoreInstrumentation(o => o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/health"))
-                .AddHttpClientInstrumentation()
+                .AddHttpClientInstrumentation(o => o.FilterHttpRequestMessage = request =>
+                    !request.Options.TryGetValue(new HttpRequestOptionsKey<bool>("PaperDotNet.PrivateHttpRequest"), out var sensitive) || !sensitive)
                 .AddNpgsql());
 
         // Export only when an OTLP endpoint is configured: nothing extra is required to self-host.

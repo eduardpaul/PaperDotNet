@@ -74,7 +74,7 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
         var ids = events.Select(e => e.Id).ToList();
         var recurrences = await db.Recurrences.AsNoTracking().Where(r => ids.Contains(r.ItemId)).ToDictionaryAsync(r => r.ItemId, ct);
         var exceptions = await db.OccurrenceChanges.AsNoTracking().Where(e => ids.Contains(e.MasterItemId)).ToListAsync(ct);
-        var uids = await db.Sources.AsNoTracking().Where(s => ids.Contains(s.ItemId)).ToDictionaryAsync(s => s.ItemId, s => s.Uid, ct);
+        var uids = await db.Sources.AsNoTracking().Where(s => ids.Contains(s.ItemId) && s.SubscriptionId == null).ToDictionaryAsync(s => s.ItemId, s => s.Uid, ct);
         var overrides = exceptions.Where(e => e.OverrideItemId is not null).ToDictionary(e => e.OverrideItemId!.Value);
 
         string UidOf(Guid itemId) => uids.TryGetValue(itemId, out var uid) && !uid.Contains('#', StringComparison.Ordinal) ? uid : $"{itemId:N}{UidSuffix}";
@@ -180,7 +180,7 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
     }
 
     /// <summary>True when created, false when updated, null when skipped.</summary>
-    private async Task<bool?> ImportEventAsync(ListData list, CalendarEvent vevent, CancellationToken ct)
+    internal async Task<bool?> ImportEventAsync(ListData list, CalendarEvent vevent, CancellationToken ct, Guid? subscriptionId = null)
     {
         if (string.IsNullOrWhiteSpace(vevent.Uid) || vevent.Uid.Length > 200 || vevent.DtStart is null)
         {
@@ -205,7 +205,7 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
         var key = vevent.Uid;
         if (vevent.RecurrenceIdentifier?.StartTime is { } recurrenceId)
         {
-            masterSource = await db.Sources.FirstOrDefaultAsync(s => s.ListId == list.Id && s.Uid == vevent.Uid, ct);
+            masterSource = await db.Sources.FirstOrDefaultAsync(s => s.ListId == list.Id && s.Uid == vevent.Uid && s.SubscriptionId == subscriptionId, ct);
             masterRecurrence = masterSource is null ? null : await db.Recurrences.FirstOrDefaultAsync(r => r.ItemId == masterSource.ItemId, ct);
             if (masterRecurrence is null)
             {
@@ -215,12 +215,38 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
             key = $"{vevent.Uid}#{Instant(recurrenceId):O}";
         }
 
-        var source = await db.Sources.FirstOrDefaultAsync(s => s.ListId == list.Id && s.Uid == key, ct);
+        var source = await db.Sources.FirstOrDefaultAsync(s => s.ListId == list.Id && s.Uid == key && s.SubscriptionId == subscriptionId, ct);
         ListItemData item;
         var isNew = source is null || await items.GetAsync(list.WorkspaceId, list.Id, source.ItemId, ct) is null;
         if (isNew)
         {
-            var result = await items.CreateAsync(list.WorkspaceId, list.Id, fields, null, ct);
+            var eventType = list.ContentTypes.FirstOrDefault(t => t.Key == CalendarService.EventKey)?.Id;
+            ListItemResult result;
+            if (subscriptionId is not null)
+            {
+                if (source is null)
+                {
+                    source = new EventSource { Id = Ids.New(), ListId = list.Id, Uid = key, ItemId = Ids.New(), SubscriptionId = subscriptionId };
+                    db.Sources.Add(source);
+                    // Save identity before the cross-module write: a crash can safely retry the same item id.
+                    await db.SaveChangesAsync(ct);
+                }
+
+                result = await items.AsSystem().RestoreAsync(list.WorkspaceId, list.Id, source.ItemId, null, ct);
+                if (result.Status == ListItemStatus.NotFound)
+                {
+                    result = await items.AsSystem().CreateAsync(list.WorkspaceId, list.Id, source.ItemId, fields, eventType, ct);
+                }
+
+                if (result.Succeeded)
+                {
+                    result = await items.AsSystem().UpdateAsync(list.WorkspaceId, list.Id, source.ItemId, fields, result.Item!.Version, ct);
+                }
+            }
+            else
+            {
+                result = await items.CreateAsync(list.WorkspaceId, list.Id, fields, eventType, ct);
+            }
             if (!result.Succeeded)
             {
                 return null;
@@ -229,7 +255,7 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
             item = result.Item!;
             if (source is null)
             {
-                source = new EventSource { Id = Ids.New(), ListId = list.Id, Uid = key, ItemId = item.Id };
+                source = new EventSource { Id = Ids.New(), ListId = list.Id, Uid = key, ItemId = item.Id, SubscriptionId = subscriptionId };
                 db.Sources.Add(source);
             }
 
@@ -237,7 +263,8 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
         }
         else
         {
-            var result = await items.UpdateAsync(list.WorkspaceId, list.Id, source!.ItemId, fields, null, ct);
+            var store = subscriptionId is null ? items : items.AsSystem();
+            var result = await store.UpdateAsync(list.WorkspaceId, list.Id, source!.ItemId, fields, null, ct);
             if (!result.Succeeded)
             {
                 return null;
@@ -298,7 +325,7 @@ internal sealed class ICalendarService(IListItemStore items, CalendarDbContext d
     }
 
     /// <summary>A UTC instant: all-day values are midnight UTC of the date.</summary>
-    private static DateTimeOffset Instant(CalDateTime value) => value.HasTime
+    internal static DateTimeOffset Instant(CalDateTime value) => value.HasTime
         ? new DateTimeOffset(value.AsUtc, TimeSpan.Zero)
         : new DateTimeOffset(value.Date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
 

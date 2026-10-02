@@ -156,7 +156,8 @@ test('folders organize items and the search finds titles', async ({ page }) => {
 });
 
 test('a task assigned with the people picker shows on Home and opens from there', async ({ page }) => {
-  await createList(page, 'Tasks', 'Mine');
+  // Workspace names can contain "home"; navigation must select the exact Home link.
+  await createList(page, 'Tasks', 'Mine', unique('Workspace home'));
   const title = unique('Call the bank');
   await page.getByRole('button', { name: 'New task' }).click();
   const panel = page.getByRole('dialog');
@@ -170,7 +171,7 @@ test('a task assigned with the people picker shows on Home and opens from there'
   await page.keyboard.press('Escape');
   await expect(page.getByRole('row', { name: new RegExp(title) })).toContainText('Administrator');
 
-  await page.getByRole('link', { name: 'Home' }).click();
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Home', exact: true }).click();
   await page.getByRole('tab', { name: 'All mine' }).click();
   await page.getByRole('link', { name: new RegExp(title) }).click();
   await expect(page.getByRole('dialog').getByLabel('Title')).toHaveValue(title);

@@ -86,6 +86,13 @@ public sealed record WorkflowOpenWait(string Key, Guid RunId, JsonObject? Data, 
 /// <summary>What the engine knows about workflows, for activities that work across runs (e.g. a batch).</summary>
 public interface IWorkflowDirectory
 {
+    /// <summary>
+    /// Enables a registered workspace built-in workflow with its existing/default parameters.
+    /// Modules must authorize the configuration action before calling; returns false when unavailable or invalid.
+    /// Only registered definitions in the current tenant can be activated; repeated calls are harmless.
+    /// </summary>
+    Task<bool> EnableBuiltInAsync(Guid workspaceId, string key, CancellationToken cancellationToken) => Task.FromResult(false);
+
     /// <summary>Whether an enabled workflow of the workspace uses the activity (e.g. whether something answers a kind of wait).</summary>
     Task<bool> IsActivityUsedAsync(Guid workspaceId, string activityKey, CancellationToken cancellationToken);
 

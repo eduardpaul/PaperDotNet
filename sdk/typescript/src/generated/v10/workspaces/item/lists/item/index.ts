@@ -8,6 +8,8 @@ import { CalendarRequestBuilderNavigationMetadata, CalendarRequestBuilderRequest
 // @ts-ignore
 import { CalendarIcsRequestBuilderRequestsMetadata, type CalendarIcsRequestBuilder } from './calendarIcs/index.js';
 // @ts-ignore
+import { CalendarSourcesRequestBuilderNavigationMetadata, CalendarSourcesRequestBuilderRequestsMetadata, type CalendarSourcesRequestBuilder } from './calendarSources/index.js';
+// @ts-ignore
 import { ContentTypesRequestBuilderNavigationMetadata, ContentTypesRequestBuilderRequestsMetadata, type ContentTypesRequestBuilder } from './contentTypes/index.js';
 // @ts-ignore
 import { DocumentsRequestBuilderRequestsMetadata, type DocumentsRequestBuilder } from './documents/index.js';
@@ -38,6 +40,10 @@ export interface WithListItemRequestBuilder extends BaseRequestBuilder<WithListI
      * The calendarIcs property
      */
     get calendarIcs(): CalendarIcsRequestBuilder;
+    /**
+     * The calendarSources property
+     */
+    get calendarSources(): CalendarSourcesRequestBuilder;
     /**
      * The contentTypes property
      */
@@ -120,6 +126,10 @@ export const WithListItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     },
     calendarIcs: {
         requestsMetadata: CalendarIcsRequestBuilderRequestsMetadata,
+    },
+    calendarSources: {
+        requestsMetadata: CalendarSourcesRequestBuilderRequestsMetadata,
+        navigationMetadata: CalendarSourcesRequestBuilderNavigationMetadata,
     },
     contentTypes: {
         requestsMetadata: ContentTypesRequestBuilderRequestsMetadata,

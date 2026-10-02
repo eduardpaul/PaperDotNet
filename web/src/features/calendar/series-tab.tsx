@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { keys } from '@/api/keys';
 import { Alert, Skeleton } from '@/components/ui/feedback';
 import type { ItemPanelContext } from '@/extensibility/item-panels';
+import { itemCalendarSourceQuery } from './source-queries';
 import { RepeatEditor } from '@/features/tasks/repeat-editor';
 import { listBuilder } from '@/features/lists/queries';
 import { problemMessage } from '@/lib/errors';
@@ -11,6 +12,7 @@ import { useFormat } from '@/lib/preferences';
 /** Repeats an event (CAL-02) in the user's time zone; skipped and moved occurrences are listed. */
 export function SeriesTab({ workspaceId, list, item }: ItemPanelContext) {
   const format = useFormat();
+  const { data: source } = useQuery(itemCalendarSourceQuery(workspaceId, list.id!, item.id!));
   const queryClient = useQueryClient();
   const builder = listBuilder(workspaceId, list.id!).items.byItemId(item.id!).series;
   const key = [...keys.item(workspaceId, list.id!, item.id!), 'series'];
@@ -40,13 +42,17 @@ export function SeriesTab({ workspaceId, list, item }: ItemPanelContext) {
   return (
     <div className="flex flex-col gap-4 p-5">
       {save.isError && <Alert>{problemMessage(save.error)}</Alert>}
-      <RepeatEditor
-        key={data?.rule ?? 'none'}
-        rule={data?.rule ?? undefined}
-        busy={save.isPending || remove.isPending}
-        onSave={(rule) => save.mutate(rule)}
-        onRemove={() => remove.mutate()}
-      />
+      {source?.sourceId ? (
+        <Alert tone="warning">Recurrence is managed by {source.name}. Edit it in the source calendar.</Alert>
+      ) : (
+        <RepeatEditor
+          key={data?.rule ?? 'none'}
+          rule={data?.rule ?? undefined}
+          busy={save.isPending || remove.isPending}
+          onSave={(rule) => save.mutate(rule)}
+          onRemove={() => remove.mutate()}
+        />
+      )}
       {data && <p className="text-xs text-muted">Times are in {data.timeZone}.</p>}
       {!!data?.cancelled?.length && (
         <section>

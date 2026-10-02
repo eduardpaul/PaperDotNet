@@ -8,7 +8,7 @@ structure. Later, each idea gets reviewed and mapped to one or more features
 ## How to add an idea
 
 1. Copy [`_template.md`](_template.md) to a new file named
-   `NNNN-short-title.md`. Use the next free number, e.g. `0022-my-idea.md`.
+   `NNNN-short-title.md`. Use the next free number, e.g. `0025-my-idea.md`.
 2. Fill in at least **Title** and **The idea**. Every other section is optional.
    A single sentence is fine.
 3. Add a row to the index below.
@@ -54,6 +54,7 @@ It will be turned into a file during review.
 | [0021](0021-portable-configuration-templates.md) | Portable configuration templates (export/import as XML, like PnP provisioning) | Lists/Platform | mapped | PRV-01…05 |
 | [0022](0022-llm-extraction-workflow-step.md) | LLM extraction workflow step, scoped to a content type/tag (structured output mapped to fields; sample: supermarket receipts) | AI / Automation | mapped | AI-07 |
 | [0023](0023-pluggable-search-indexing-pipeline.md) | Separate indexing/embedding/query, event-driven, pluggable search backend | Search / Platform | mapped | SRC-11 |
+| [0024](0024-ical-url-replication.md) | Replicate events from an iCalendar URL into any calendar list | Calendar / Integrations | done | CAL-07 |
 
 ## Quick ideas
 

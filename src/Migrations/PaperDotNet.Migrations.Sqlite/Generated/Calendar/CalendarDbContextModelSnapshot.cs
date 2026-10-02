@@ -84,6 +84,122 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Calendar
                     b.ToTable("calendar_feeds", (string)null);
                 });
 
+            modelBuilder.Entity("PaperDotNet.Calendar.Data.CalendarSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Created")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("error");
+
+                    b.Property<string>("HttpETag")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("http_e_tag");
+
+                    b.Property<long?>("HttpLastModified")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("http_last_modified");
+
+                    b.Property<long?>("LastSuccess")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("last_success");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("lease_id");
+
+                    b.Property<long?>("LeaseUntil")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("lease_until");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("list_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("name");
+
+                    b.Property<bool>("Paused")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("paused");
+
+                    b.Property<string>("ProtectedUrl")
+                        .IsRequired()
+                        .HasMaxLength(8192)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("protected_url");
+
+                    b.Property<int>("Removed")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("removed");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int>("Updated")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("updated");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("UrlHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("url_hash");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_calendar_subscriptions");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_calendar_subscriptions_tenant_id");
+
+                    b.HasIndex("WorkspaceId")
+                        .HasDatabaseName("ix_calendar_subscriptions_workspace_id");
+
+                    b.HasIndex("ListId", "UrlHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_calendar_subscriptions_list_id_url_hash");
+
+                    b.ToTable("calendar_subscriptions", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Calendar.Data.EventRecurrence", b =>
                 {
                     b.Property<Guid>("Id")
@@ -171,6 +287,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Calendar
                         .HasColumnType("TEXT")
                         .HasColumnName("list_id");
 
+                    b.Property<Guid?>("SubscriptionId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("subscription_id");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
@@ -192,7 +312,13 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Calendar
 
                     b.HasIndex("ListId", "Uid")
                         .IsUnique()
-                        .HasDatabaseName("ix_calendar_sources_list_id_uid");
+                        .HasDatabaseName("ix_calendar_sources_list_id_uid")
+                        .HasFilter("\"subscription_id\" IS NULL");
+
+                    b.HasIndex("SubscriptionId", "Uid")
+                        .IsUnique()
+                        .HasDatabaseName("ix_calendar_sources_subscription_id_uid")
+                        .HasFilter("\"subscription_id\" IS NOT NULL");
 
                     b.ToTable("calendar_sources", (string)null);
                 });

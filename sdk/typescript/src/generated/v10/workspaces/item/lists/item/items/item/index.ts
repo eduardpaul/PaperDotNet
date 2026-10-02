@@ -8,6 +8,8 @@ import { ActivityRequestBuilderRequestsMetadata, type ActivityRequestBuilder } f
 // @ts-ignore
 import { BacklinksRequestBuilderRequestsMetadata, type BacklinksRequestBuilder } from './backlinks/index.js';
 // @ts-ignore
+import { CalendarSourceRequestBuilderRequestsMetadata, type CalendarSourceRequestBuilder } from './calendarSource/index.js';
+// @ts-ignore
 import { ChecklistRequestBuilderRequestsMetadata, type ChecklistRequestBuilder } from './checklist/index.js';
 // @ts-ignore
 import { ChildrenRequestBuilderRequestsMetadata, type ChildrenRequestBuilder } from './children/index.js';
@@ -46,6 +48,10 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      * The backlinks property
      */
     get backlinks(): BacklinksRequestBuilder;
+    /**
+     * The calendarSource property
+     */
+    get calendarSource(): CalendarSourceRequestBuilder;
     /**
      * The checklist property
      */
@@ -143,6 +149,9 @@ export const WithItemItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     },
     backlinks: {
         requestsMetadata: BacklinksRequestBuilderRequestsMetadata,
+    },
+    calendarSource: {
+        requestsMetadata: CalendarSourceRequestBuilderRequestsMetadata,
     },
     checklist: {
         requestsMetadata: ChecklistRequestBuilderRequestsMetadata,

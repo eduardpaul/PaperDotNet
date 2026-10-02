@@ -1,6 +1,6 @@
 import type { ItemResponse, ListResponse } from '@paperdotnet/client';
 import { fields as fieldValues, fieldsOf, ifMatch, isStatus, jsonOf, validationErrors } from '@paperdotnet/client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, Save } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { keys } from '@/api/keys';
@@ -16,6 +16,7 @@ import { withLinkedValues } from '@/features/fields/linked';
 import { changes, normalize } from '@/features/fields/values';
 import { problemMessage } from '@/lib/errors';
 import { listBuilder } from './queries';
+import { itemCalendarSourceQuery } from '@/features/calendar/source-queries';
 import { contentTypeOf, fieldLabel, withTitle } from './schema';
 
 /**
@@ -47,6 +48,10 @@ export function ItemForm({
   const [contentTypeId, setContentTypeId] = useState(item?.contentTypeId ?? list.contentTypes?.[0]?.id ?? undefined);
   const contentType = contentTypeOf(list, contentTypeId);
   const fields = useMemo(() => withTitle(contentType?.fields ?? list.columns), [contentType, list.columns]);
+  const { data: source } = useQuery({
+    ...itemCalendarSourceQuery(workspaceId, list.id!, item?.id ?? ''),
+    enabled: !!item && contentType?.key === 'event',
+  });
   // The version the user's edits start from: its values are compared and its ETag is sent with the save.
   const [base, setBase] = useState(item);
   const original = useMemo(() => (base ? fieldsOf(base) : {}), [base]);
@@ -172,6 +177,9 @@ export function ItemForm({
               </span>
             </Alert>
           )}
+          {source?.sourceId && (
+            <Alert tone="warning">Imported from {source.name}. Edit calendar fields in the source calendar.</Alert>
+          )}
           {save.isError && !conflict && Object.keys(errors).length === 0 && <Alert>{problemMessage(save.error)}</Alert>}
           {general.map(([key, messages]) => (
             <Alert key={key}>{messages.join(' ')}</Alert>
@@ -199,7 +207,9 @@ export function ItemForm({
                     {field.required && <span className="ml-0.5 text-danger">*</span>}
                   </Label>
                 )}
-                {contentType?.key === 'note' && field.name === 'body' ? (
+                {source?.managedFields?.includes(field.name!) ? (
+                  <FieldValue field={field} value={values[field.name!]} />
+                ) : contentType?.key === 'note' && field.name === 'body' ? (
                   <NoteEditor
                     id={id}
                     value={String(values.body ?? '')}

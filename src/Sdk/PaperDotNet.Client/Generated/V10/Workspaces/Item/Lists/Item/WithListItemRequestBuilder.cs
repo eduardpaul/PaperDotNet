@@ -6,6 +6,7 @@ using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Calendar;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.CalendarIcs;
+using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.CalendarSources;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.ContentTypes;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.DocumentSettings;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Documents;
@@ -36,6 +37,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.CalendarIcs.CalendarIcsRequestBuilder CalendarIcs
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.CalendarIcs.CalendarIcsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The calendarSources property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.CalendarSources.CalendarSourcesRequestBuilder CalendarSources
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.CalendarSources.CalendarSourcesRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The contentTypes property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.ContentTypes.ContentTypesRequestBuilder ContentTypes

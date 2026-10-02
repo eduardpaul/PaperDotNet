@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from ......models.update_list_request import UpdateListRequest
     from .calendar.calendar_request_builder import CalendarRequestBuilder
     from .calendar_ics.calendar_ics_request_builder import CalendarIcsRequestBuilder
+    from .calendar_sources.calendar_sources_request_builder import CalendarSourcesRequestBuilder
     from .content_types.content_types_request_builder import ContentTypesRequestBuilder
     from .documents.documents_request_builder import DocumentsRequestBuilder
     from .document_settings.document_settings_request_builder import DocumentSettingsRequestBuilder
@@ -40,7 +41,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         Returns: None
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}", path_parameters)
-    
+
     async def delete(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> None:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -55,9 +56,9 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
             "XXX": ApiProblem,
         }
         if not self.request_adapter:
-            raise Exception("Http core is null") 
+            raise Exception("Http core is null")
         return await self.request_adapter.send_no_response_content_async(request_info, error_mapping)
-    
+
     async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ListResponse]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -72,11 +73,11 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
             "XXX": ApiProblem,
         }
         if not self.request_adapter:
-            raise Exception("Http core is null") 
+            raise Exception("Http core is null")
         from ......models.list_response import ListResponse
 
         return await self.request_adapter.send_async(request_info, ListResponse, error_mapping)
-    
+
     async def patch(self,body: UpdateListRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ListResponse]:
         """
         param body: The request body
@@ -95,11 +96,11 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
             "XXX": ApiProblem,
         }
         if not self.request_adapter:
-            raise Exception("Http core is null") 
+            raise Exception("Http core is null")
         from ......models.list_response import ListResponse
 
         return await self.request_adapter.send_async(request_info, ListResponse, error_mapping)
-    
+
     def to_delete_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -109,7 +110,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/problem+json")
         return request_info
-    
+
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -119,7 +120,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/json")
         return request_info
-    
+
     def to_patch_request_information(self,body: UpdateListRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param body: The request body
@@ -133,7 +134,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         request_info.headers.try_add("Accept", "application/json")
         request_info.set_content_from_parsable(self.request_adapter, "application/json", body)
         return request_info
-    
+
     def with_url(self,raw_url: str) -> WithListItemRequestBuilder:
         """
         Returns a request builder with the provided arbitrary URL. Using this method means any other path or query parameters are ignored.
@@ -143,7 +144,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
         return WithListItemRequestBuilder(self.request_adapter, raw_url)
-    
+
     @property
     def calendar(self) -> CalendarRequestBuilder:
         """
@@ -152,7 +153,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .calendar.calendar_request_builder import CalendarRequestBuilder
 
         return CalendarRequestBuilder(self.request_adapter, self.path_parameters)
-    
+
     @property
     def calendar_ics(self) -> CalendarIcsRequestBuilder:
         """
@@ -161,7 +162,16 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .calendar_ics.calendar_ics_request_builder import CalendarIcsRequestBuilder
 
         return CalendarIcsRequestBuilder(self.request_adapter, self.path_parameters)
-    
+
+    @property
+    def calendar_sources(self) -> CalendarSourcesRequestBuilder:
+        """
+        The calendarSources property
+        """
+        from .calendar_sources.calendar_sources_request_builder import CalendarSourcesRequestBuilder
+
+        return CalendarSourcesRequestBuilder(self.request_adapter, self.path_parameters)
+
     @property
     def content_types(self) -> ContentTypesRequestBuilder:
         """
@@ -170,7 +180,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .content_types.content_types_request_builder import ContentTypesRequestBuilder
 
         return ContentTypesRequestBuilder(self.request_adapter, self.path_parameters)
-    
+
     @property
     def document_settings(self) -> DocumentSettingsRequestBuilder:
         """
@@ -179,7 +189,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .document_settings.document_settings_request_builder import DocumentSettingsRequestBuilder
 
         return DocumentSettingsRequestBuilder(self.request_adapter, self.path_parameters)
-    
+
     @property
     def documents(self) -> DocumentsRequestBuilder:
         """
@@ -188,7 +198,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .documents.documents_request_builder import DocumentsRequestBuilder
 
         return DocumentsRequestBuilder(self.request_adapter, self.path_parameters)
-    
+
     @property
     def items(self) -> ItemsRequestBuilder:
         """
@@ -197,7 +207,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .items.items_request_builder import ItemsRequestBuilder
 
         return ItemsRequestBuilder(self.request_adapter, self.path_parameters)
-    
+
     @property
     def permissions(self) -> PermissionsRequestBuilder:
         """
@@ -206,7 +216,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .permissions.permissions_request_builder import PermissionsRequestBuilder
 
         return PermissionsRequestBuilder(self.request_adapter, self.path_parameters)
-    
+
     @property
     def recycle_bin(self) -> RecycleBinRequestBuilder:
         """
@@ -215,7 +225,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .recycle_bin.recycle_bin_request_builder import RecycleBinRequestBuilder
 
         return RecycleBinRequestBuilder(self.request_adapter, self.path_parameters)
-    
+
     @property
     def views(self) -> ViewsRequestBuilder:
         """
@@ -224,7 +234,7 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .views.views_request_builder import ViewsRequestBuilder
 
         return ViewsRequestBuilder(self.request_adapter, self.path_parameters)
-    
+
     @property
     def workflows(self) -> WorkflowsRequestBuilder:
         """
@@ -233,26 +243,24 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .workflows.workflows_request_builder import WorkflowsRequestBuilder
 
         return WorkflowsRequestBuilder(self.request_adapter, self.path_parameters)
-    
+
     @dataclass
     class WithListItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """
         warn("This class is deprecated. Please use the generic RequestConfiguration class generated by the generator.", DeprecationWarning)
-    
+
     @dataclass
     class WithListItemRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """
         warn("This class is deprecated. Please use the generic RequestConfiguration class generated by the generator.", DeprecationWarning)
-    
+
     @dataclass
     class WithListItemRequestBuilderPatchRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """
         warn("This class is deprecated. Please use the generic RequestConfiguration class generated by the generator.", DeprecationWarning)
-    
-

@@ -72,6 +72,9 @@ public sealed class EventSource : ITenantOwned
 
     public required string Uid { get; set; }
 
+    /// <summary>Null for manual file imports; otherwise scoped to a URL subscription.</summary>
+    public Guid? SubscriptionId { get; set; }
+
     public Guid ItemId { get; set; }
 }
 
@@ -113,6 +116,8 @@ public sealed class CalendarDbContext(DbContextOptions<CalendarDbContext> option
 
     public DbSet<EventSource> Sources => Set<EventSource>();
 
+    public DbSet<CalendarSubscription> Subscriptions => Set<CalendarSubscription>();
+
     public DbSet<CalendarFeed> Feeds => Set<CalendarFeed>();
 
     protected override void ConfigureModel(ModelBuilder modelBuilder)
@@ -135,8 +140,20 @@ public sealed class CalendarDbContext(DbContextOptions<CalendarDbContext> option
         {
             b.ToTable("sources");
             b.Property(s => s.Uid).HasMaxLength(255);
-            b.HasIndex(s => new { s.ListId, s.Uid }).IsUnique();
+            b.HasIndex(s => new { s.ListId, s.Uid }).IsUnique().HasFilter("\"subscription_id\" IS NULL");
+            b.HasIndex(s => new { s.SubscriptionId, s.Uid }).IsUnique().HasFilter("\"subscription_id\" IS NOT NULL");
             b.HasIndex(s => s.ItemId);
+        });
+        modelBuilder.Entity<CalendarSubscription>(b =>
+        {
+            b.ToTable("subscriptions");
+            b.Property(s => s.Name).HasMaxLength(200);
+            b.Property(s => s.ProtectedUrl).HasMaxLength(8192);
+            b.Property(s => s.UrlHash).HasMaxLength(64);
+            b.Property(s => s.Error).HasMaxLength(500);
+            b.Property(s => s.HttpETag).HasMaxLength(500);
+            b.HasIndex(s => new { s.ListId, s.UrlHash }).IsUnique();
+            b.HasIndex(s => s.WorkspaceId);
         });
         modelBuilder.Entity<CalendarFeed>(b =>
         {
