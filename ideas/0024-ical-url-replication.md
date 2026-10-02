@@ -18,7 +18,7 @@ This is a proposed feature, not implemented behavior.
 
 ## Proposed first release
 
-**CAL-07: iCalendar URL replication** covers adding a source URL, initial
+**CAL-07: iCalendar URL replication** covers adding multiple source URLs, initial
 import, scheduled refresh, Refresh now, status, pause and source removal.
 The external feed is the source of truth. No Google API project, OAuth,
 calendar picker, outbound writes or two-way conflict resolution is needed.
@@ -27,18 +27,25 @@ Any list supporting the built-in `event` content type can receive a source,
 including custom lists rather than only Calendar-template lists. There are
 no additional workspace-owner, Google-owner or shared-calendar requirements;
 use ordinary list configuration and item-access permissions. The same URL
-can populate multiple lists independently. Start with one source URL per
-list to keep the first version simple.
+can populate multiple lists independently. Both are first-release requirements:
+
+- **Multiple iCalendar URLs can be added to the same calendar list.**
+- **The same iCalendar URL can be used in different calendar lists.**
+
+Each list/source subscription has independent event identities, refresh state
+and controls. Refreshing, pausing or removing one subscription cannot change
+events imported by another subscription, even when they share a URL or UID.
 
 ### User flow
 
-1. Open **List settings → Calendar source**, paste an HTTPS iCalendar URL
-   and save. Fetch and validate it before activating the subscription.
+1. Open **List settings → Calendar sources**, paste an HTTPS iCalendar URL
+   and save. Repeat to add more URLs to the same list. Fetch and validate each
+   source before activating its subscription.
 2. Events appear in the list and its calendar views, marked as imported.
    Imports inherit the destination list's normal permissions.
 3. Refresh automatically on a proposed 15-minute schedule, plus **Refresh
-   now**. Show last success, created/updated/removed counts and fetch errors.
-4. Pause, replace an expired URL, or remove the source. Removing it stops
+   now**. Show last success, created/updated/removed counts and fetch errors per source.
+4. Pause, replace an expired URL, or remove an individual source. Removing it stops
    refreshing and retains imported events as local items. Replacing the URL
    for the same feed preserves identities; switching to a different feed is
    an explicit replacement that keeps the old events as local items.
@@ -121,10 +128,13 @@ a one-time file import does not satisfy the requirement.
 
 1. A user can add a Google secret iCal URL or another compatible HTTPS feed
    to any event-capable list with ordinary list permissions and no Google
-   API setup or calendar-ownership check.
+   API setup or calendar-ownership check. Multiple URLs can be added to the
+   same list, and the same URL can be added to different lists.
 2. Initial/later refreshes and crash recovery produce no duplicates. The same
    URL populates two lists independently; matching UIDs from manual imports
-   do not overwrite unrelated items.
+   do not overwrite unrelated items. Two sources in one list with matching
+   UIDs remain independent; refreshing, pausing or removing either source
+   leaves the other source and subscriptions in other lists unchanged.
 3. All-day dates, DST-sensitive series, removed recurrence rules, moved
    instances and added/removed cancellations match the feed.
 4. Complete snapshots reconcile only source-linked replicas. Partial,

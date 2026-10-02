@@ -214,7 +214,7 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | CAL-04 | iCal import/export & feeds | As a **Member**, I want to import `.ics` files and subscribe to a read-only calendar feed, so that I can exchange calendars with other tools | Core | P4 | AV §3.2 |
 | CAL-05 | CalDAV (events & tasks) | As a **Member**, I want my calendars and task lists to sync two-way with iOS, Android (DAVx⁵) and Thunderbird, so that I can use native apps offline | Core | P7 | #0019 |
 | CAL-06 | CardDAV (contacts) | As a **Member**, I want a contacts list that syncs with my phone's address book, so that contacts live in the same system | Ext | P7 | #0019 |
-| CAL-07 | iCalendar URL replication | As a **Member**, I want to add an iCalendar URL to any calendar list and obtain its events directly from the source, so that external calendars stay available in PaperDotNet without manual copying | Ext | P7 | [#0024](../ideas/0024-ical-url-replication.md) |
+| CAL-07 | iCalendar URL replication | As a **Member**, I want to add multiple iCalendar URLs to any calendar list, reuse the same URL in different lists, and obtain events directly from those sources, so that external calendars stay available in PaperDotNet without manual copying | Ext | P7 | [#0024](../ideas/0024-ical-url-replication.md) |
 
 iCalendar URL replication is a proposed backlog feature, including API, SDK
 and list-settings UI. The feed is authoritative and refreshes flow into
