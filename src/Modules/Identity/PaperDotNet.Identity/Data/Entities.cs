@@ -36,6 +36,9 @@ public sealed class Group : ITenantOwned, IAuditable, IVersioned
 
     public string? Description { get; set; }
 
+    /// <summary>Who manages the members: people in PaperDotNet, or an authenticating reverse proxy (ADR-0043).</summary>
+    public GroupSource Source { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
@@ -45,6 +48,15 @@ public sealed class Group : ITenantOwned, IAuditable, IVersioned
     public Guid? UpdatedBy { get; set; }
 
     public uint Version { get; set; }
+}
+
+public enum GroupSource
+{
+    /// <summary>Members are added and removed in PaperDotNet.</summary>
+    Local = 0,
+
+    /// <summary>Created by the reverse proxy; with group sync, members follow the proxy's groups at each sign-in.</summary>
+    Proxy = 1,
 }
 
 public sealed class GroupMember : ITenantOwned

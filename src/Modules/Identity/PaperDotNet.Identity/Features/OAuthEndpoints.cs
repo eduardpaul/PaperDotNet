@@ -11,6 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Api;
 using PaperDotNet.Identity.Authentication;
 using PaperDotNet.Identity.Data;
 using static OpenIddict.Abstractions.OpenIddictConstants;
@@ -32,10 +33,45 @@ internal static class OAuthEndpoints
         connect.MapPost("/token", TokenAsync);
         connect.MapMethods("/userinfo", [HttpMethods.Get, HttpMethods.Post], UserInfoAsync);
         connect.MapMethods("/logout", [HttpMethods.Get, HttpMethods.Post], (Delegate)LogoutAsync);
+        endpoints.MapGet(ReverseProxySignIn.SignInPath, ProxySignInAsync).AllowAnonymous().ExcludeFromDescription();
+    }
+
+    /// <summary>
+    /// Sign-in through the reverse proxy (ADR-0043): the proxy authenticates only this path, outside <c>/connect/</c>,
+    /// so basic-auth credentials never reach the OAuth endpoints. Starts the sign-in session and continues the
+    /// authorization request in <paramref name="returnUrl"/> (only this server's <c>/connect/authorize</c>).
+    /// </summary>
+    private static async Task<IResult> ProxySignInAsync(
+        HttpContext http, ITenantContext tenant, ReverseProxySignIn proxy, IOptions<AuthOptions> options, TimeProvider time, string? returnUrl)
+    {
+        if (tenant.TenantId is null)
+        {
+            return ApiErrors.Problem(StatusCodes.Status404NotFound, "tenantNotFound", "No active tenant matches this request.");
+        }
+
+        var authorize = $"{http.Request.PathBase}/connect/authorize";
+        var target = returnUrl is not null
+                     && (returnUrl.Equals(authorize, StringComparison.OrdinalIgnoreCase) || returnUrl.StartsWith(authorize + "?", StringComparison.OrdinalIgnoreCase))
+            ? returnUrl
+            : null;
+        if (await proxy.AuthenticateAsync(http, http.RequestAborted) is { } user)
+        {
+            await AuthEndpoints.SignInSessionAsync(http, user, tenant, ReverseProxySignIn.Method, time.GetUtcNow());
+            return Results.Redirect(target ?? $"{http.Request.PathBase}/");
+        }
+
+        // The proxy named nobody (or is not trusted): the password sign-in, when there is one, is the way in.
+        if (options.Value.LoginUrl is { Length: > 0 } loginUrl)
+        {
+            var separator = loginUrl.Contains('?', StringComparison.Ordinal) ? '&' : '?';
+            return Results.Redirect(target is null ? loginUrl : $"{loginUrl}{separator}returnUrl={Uri.EscapeDataString(target)}");
+        }
+
+        return ApiErrors.Problem(StatusCodes.Status401Unauthorized, "proxySignInFailed", "The reverse proxy did not sign anyone in.");
     }
 
     private static async Task<IResult> AuthorizeAsync(
-        HttpContext http, ITenantContext tenant, UserManager<User> users, IOptions<AuthOptions> options, ReverseProxySignIn proxy)
+        HttpContext http, ITenantContext tenant, UserManager<User> users, IOptions<AuthOptions> options, ReverseProxySignIn proxy, TimeProvider time)
     {
         var request = http.GetOpenIddictServerRequest() ?? throw new InvalidOperationException("Not an OpenID Connect request.");
         if (tenant.TenantId is not { } tenantId)
@@ -48,23 +84,32 @@ internal static class OAuthEndpoints
             ? await users.FindByIdAsync(session.Principal.FindFirstValue(PaperDotNetClaims.UserId)!)
             : null;
         // An authenticating reverse proxy (IAM-15) vouches for the user; its identity replaces the session's.
+        var now = time.GetUtcNow();
         if (await proxy.AuthenticateAsync(http, http.RequestAborted) is { } proxied)
         {
-            await AuthEndpoints.SignInSessionAsync(http, proxied, tenant, "proxy");
-            return SignIn(Principal(proxied, tenant, request.GetScopes()));
+            await AuthEndpoints.SignInSessionAsync(http, proxied, tenant, ReverseProxySignIn.Method, now);
+            return SignIn(ProxyPrincipal(Principal(proxied, tenant, request.GetScopes()), now, options.Value, now)!);
         }
 
+        // A session the proxy started lasts only as long as a proxy sign-in (ADR-0043); then the proxy is asked again.
+        var proxySignedInAt = ReverseProxySignIn.SignedInAt(session.Principal);
         if (user is null || !CanSignIn(user) || request.HasPromptValue(PromptValues.Login)
-            || session.Principal!.FindFirstValue(AuthEndpoints.SessionStampClaim) != user.SecurityStamp)
+            || session.Principal!.FindFirstValue(AuthEndpoints.SessionStampClaim) != user.SecurityStamp
+            || (proxySignedInAt is { } at && ProxyTimeLeft(at, options.Value, now) <= TimeSpan.Zero))
         {
             if (request.HasPromptValue(PromptValues.None))
             {
                 return Error(Errors.LoginRequired, "The user is not signed in.");
             }
 
+            var returnUrl = $"{http.Request.PathBase}{http.Request.Path}{http.Request.QueryString}";
+            if (options.Value.ReverseProxy.Enabled)
+            {
+                return Results.Redirect($"{http.Request.PathBase}{ReverseProxySignIn.SignInPath}?returnUrl={Uri.EscapeDataString(returnUrl)}");
+            }
+
             if (options.Value.LoginUrl is { Length: > 0 } loginUrl)
             {
-                var returnUrl = $"{http.Request.PathBase}{http.Request.Path}{http.Request.QueryString}";
                 var separator = loginUrl.Contains('?', StringComparison.Ordinal) ? '&' : '?';
                 return Results.Redirect($"{loginUrl}{separator}returnUrl={Uri.EscapeDataString(returnUrl)}");
             }
@@ -72,11 +117,39 @@ internal static class OAuthEndpoints
             return Results.Challenge(authenticationSchemes: [AuthSchemes.Session]);
         }
 
-        return SignIn(Principal(user, tenant, request.GetScopes()));
+        var principal = Principal(user, tenant, request.GetScopes());
+        return SignIn(proxySignedInAt is { } signedInAt ? ProxyPrincipal(principal, signedInAt, options.Value, now)! : principal);
+    }
+
+    private static TimeSpan ProxyTimeLeft(DateTimeOffset signedInAt, AuthOptions options, DateTimeOffset now) =>
+        signedInAt + options.ReverseProxy.RefreshTokenLifetime - now;
+
+    /// <summary>
+    /// Marks the grant as a proxy sign-in and limits its tokens to what is left of it, so refreshing never outlives
+    /// <see cref="ReverseProxyAuthOptions.RefreshTokenLifetime"/>; null when nothing is left.
+    /// </summary>
+    private static ClaimsPrincipal? ProxyPrincipal(ClaimsPrincipal principal, DateTimeOffset signedInAt, AuthOptions options, DateTimeOffset now)
+    {
+        var left = ProxyTimeLeft(signedInAt, options, now);
+        if (left <= TimeSpan.Zero)
+        {
+            return null;
+        }
+
+        // Without destinations: kept in authorization codes and refresh tokens, never in access or identity tokens.
+        ((ClaimsIdentity)principal.Identity!).AddClaim(ReverseProxySignIn.SignedInAtClaimFor(signedInAt));
+        principal.SetRefreshTokenLifetime(left);
+        if (left < options.AccessTokenLifetime)
+        {
+            principal.SetAccessTokenLifetime(left);
+        }
+
+        return principal;
     }
 
     private static async Task<IResult> TokenAsync(
-        HttpContext http, ITenantContext tenant, UserManager<User> users, IOpenIddictApplicationManager applications, IOptions<AuthOptions> options)
+        HttpContext http, ITenantContext tenant, UserManager<User> users, IOpenIddictApplicationManager applications, IOptions<AuthOptions> options,
+        TimeProvider time)
     {
         var request = http.GetOpenIddictServerRequest() ?? throw new InvalidOperationException("Not an OpenID Connect request.");
         if (tenant.TenantId is not { } tenantId)
@@ -106,9 +179,21 @@ internal static class OAuthEndpoints
                 : null;
 
             // Claims are rebuilt, so name changes and disabled accounts take effect on refresh.
-            return user is null || user.IsDisabled
-                ? Error(Errors.InvalidGrant, "The grant is no longer valid.")
-                : SignIn(Principal(user, tenant, granted!.GetScopes()));
+            if (user is null || user.IsDisabled)
+            {
+                return Error(Errors.InvalidGrant, "The grant is no longer valid.");
+            }
+
+            var principal = Principal(user, tenant, granted!.GetScopes());
+            if (ReverseProxySignIn.SignedInAt(granted) is not { } signedInAt)
+            {
+                return SignIn(principal);
+            }
+
+            // A proxy sign-in ends at the same time however often it is refreshed (ADR-0043).
+            return ProxyPrincipal(principal, signedInAt, options.Value, time.GetUtcNow()) is { } proxied
+                ? SignIn(proxied)
+                : Error(Errors.InvalidGrant, "The sign-in through the proxy has ended; sign in again.");
         }
 
         if (request.IsClientCredentialsGrantType())
@@ -140,10 +225,20 @@ internal static class OAuthEndpoints
         });
     }
 
-    /// <summary>Ends the sign-in session and redirects to the client's registered post-logout URI.</summary>
-    private static async Task<IResult> LogoutAsync(HttpContext http)
+    /// <summary>
+    /// Ends the sign-in session and redirects to the client's registered post-logout URI; after a proxy sign-in, to the
+    /// proxy's logout page when one is configured, since the proxy would otherwise sign the user straight back in.
+    /// </summary>
+    private static async Task<IResult> LogoutAsync(HttpContext http, IOptions<AuthOptions> options)
     {
+        var session = await http.AuthenticateAsync(AuthSchemes.Session);
         await http.SignOutAsync(AuthSchemes.Session);
+        if (options.Value.ReverseProxy is { Enabled: true, LogoutUrl: { Length: > 0 } logoutUrl }
+            && session.Principal?.FindFirstValue("amr") == ReverseProxySignIn.Method)
+        {
+            return Results.Redirect(logoutUrl);
+        }
+
         return Results.SignOut(authenticationSchemes: [OpenIddictServerAspNetCoreDefaults.AuthenticationScheme]);
     }
 

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Jobs.Contracts;
@@ -181,15 +182,77 @@ internal static class OperationEndpoints
     /// processing, and other live notifications. Clients reconnect when the stream ends.
     /// </summary>
     private static Results<ServerSentEventsResult<object>, ProblemHttpResult> Events(
-        ILiveEvents live, ITenantScopeFactory scopes, TimeProvider time, ITenantContext tenant, ICurrentUser user, CancellationToken ct)
+        ILiveEvents live, ITenantScopeFactory scopes, TimeProvider time, ITenantContext tenant, ICurrentUser user, IOptions<JobsOptions> options,
+        CancellationToken ct)
     {
         if (tenant.TenantId is not { } tenantId || tenant.TenantIdentifier is not { } identifier || user.UserId is not { } userId)
         {
             return ApiErrors.Problem(StatusCodes.Status403Forbidden, "userRequired", "Live events need a signed-in user.");
         }
 
-        return TypedResults.ServerSentEvents(Stream(live, scopes, time, tenantId, identifier, userId, ct));
+        return TypedResults.ServerSentEvents(
+            WithKeepAlive(Stream(live, scopes, time, tenantId, identifier, userId, ct), options.Value.LiveEventsKeepAlive, time, ct));
     }
+
+    /// <summary>
+    /// The events of <paramref name="events"/>, with a <c>keepalive</c> event after each quiet <paramref name="interval"/>
+    /// so proxies do not end the stream for being idle (ADR-0043). Clients ignore event types they do not listen to.
+    /// </summary>
+    private static async IAsyncEnumerable<SseItem<object>> WithKeepAlive(
+        IAsyncEnumerable<SseItem<object>> events, TimeSpan interval, TimeProvider time, [EnumeratorCancellation] CancellationToken ct)
+    {
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        await using var enumerator = events.GetAsyncEnumerator(stop.Token);
+        var next = enumerator.MoveNextAsync().AsTask();
+        try
+        {
+            while (true)
+            {
+                using (var quiet = CancellationTokenSource.CreateLinkedTokenSource(stop.Token))
+                {
+                    var delay = Task.Delay(interval, time, quiet.Token);
+                    if (await Task.WhenAny(next, delay) != next)
+                    {
+                        if (ct.IsCancellationRequested)
+                        {
+                            yield break;
+                        }
+
+                        yield return new SseItem<object>(KeepAlive, "keepalive");
+                        continue;
+                    }
+
+                    await quiet.CancelAsync();
+                }
+
+                if (!await next)
+                {
+                    yield break;
+                }
+
+                var current = enumerator.Current;
+                next = enumerator.MoveNextAsync().AsTask();
+                yield return current;
+            }
+        }
+        finally
+        {
+            // The pending read must end before the enumerator can be disposed.
+            await stop.CancelAsync();
+            if (!next.IsCompleted)
+            {
+                try
+                {
+                    await next;
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+        }
+    }
+
+    private static readonly object KeepAlive = new { };
 
     /// <summary>How long the caller's principals are reused before an event with an audience loads them again.</summary>
     private static readonly TimeSpan PrincipalsRefresh = TimeSpan.FromMinutes(1);

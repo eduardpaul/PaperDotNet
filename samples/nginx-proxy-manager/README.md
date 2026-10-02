@@ -3,8 +3,9 @@
 A Docker Compose setup that runs PaperDotNet behind
 [Nginx Proxy Manager](https://nginxproxymanager.com/) (NPM):
 - NPM handles TLS (Let's Encrypt) and signs people in.
-- PaperDotNet takes the user, and optionally their groups, from the proxy
-  (IAM-15, [ADR-0031](../../docs/adr/0031-reverse-proxy-sign-in.md)).
+- PaperDotNet takes the user and their groups from the proxy (IAM-15,
+  [ADR-0031](../../docs/adr/0031-reverse-proxy-sign-in.md),
+  [ADR-0043](../../docs/adr/0043-generic-reverse-proxies.md)).
 - Tokens, MCP, groups and live events work as without a proxy.
 
 There are two ways to sign in. Pick one:
@@ -17,10 +18,7 @@ There are two ways to sign in. Pick one:
 | Groups | a map in `npm/http_top.conf` | Authelia's groups |
 | Two-factor, passkeys | no | yes |
 | Single sign-on with other apps | no | yes |
-| Signing out | the browser keeps the password until it closes | Authelia's logout |
-
-The design changes that would make this simpler and safer are in
-[ADR-0043](../../docs/adr/0043-generic-reverse-proxies.md).
+| Signing out | the browser keeps the password until it closes | Authelia's logout (`PROXY_LOGOUT_URL`) |
 
 ## What works through the proxy
 
@@ -29,8 +27,8 @@ The design changes that would make this simpler and safer are in
 | Web UI | Opening it signs you in through the proxy. There is no PaperDotNet password page. |
 | API, SDKs, `pdn` CLI | `Authorization: Bearer` with an OAuth access token from `/connect/token`, or an API token (`pdn_…`). |
 | MCP (`/v1.0/mcp`) | An API token with `mcp.use` in the client's headers (see [MCP clients](#mcp-clients)). |
-| Groups | The proxy names groups at sign-in; users join existing PaperDotNet groups of those names. Roles given to a group apply to its members. |
-| Live events (`/v1.0/me/events`) | Server-sent events, with buffering off for that path. |
+| Groups | The proxy names groups at sign-in. PaperDotNet creates missing ones and keeps memberships in sync. Roles given to a group apply to its members. |
+| Live events (`/v1.0/me/events`) | Server-sent events. PaperDotNet turns off NPM's buffering for them and sends a keep-alive every 30 s. |
 | Uploads | Up to 2000 MB (NPM's limit), within PaperDotNet's own upload limits. |
 | Passkeys, OIDC discovery | Use the public host name, since NPM forwards the scheme and keeps the `Host` header. |
 
@@ -45,53 +43,46 @@ NPM, Authelia or another identity provider. That is external OIDC login
 ```
 browser ──https──▶ NPM ──http──▶ paperdotnet:8080
                     │
-                    ├─ /connect/authorize ─▶ access list or Authelia ─▶ adds Remote-User / -Groups / -Name / -Email
-                    ├─ /v1.0/me/events, /v1.0/mcp ─▶ no buffering, 1 h read timeout
-                    └─ everything else ─▶ Remote-* headers removed, tokens only
+                    ├─ /auth/proxy/ ─▶ access list or Authelia ─▶ adds Remote-User / -Groups / -Name / -Email
+                    │                                              and the secret (X-PaperDotNet-Proxy)
+                    └─ everything else ─▶ passed on as is; tokens only
 ```
 
-- **Sign-in path only.** NPM authenticates only the sign-in path
-  (`/connect/authorize`). There it tells PaperDotNet who the user is, and
-  PaperDotNet issues its usual tokens. The API never reads the proxy's
-  headers, so cross-site requests that carry the proxy's cookie cannot act
-  as the user.
-- **NPM's address only.** PaperDotNet trusts these headers only from NPM's
-  address on the shared network (`NPM_IP`, `Auth:ReverseProxy:TrustedProxies`).
-  The PaperDotNet container publishes no port, so NPM is the only way in.
-- **The pasted config replaces NPM's default location.** It defines the
-  locations itself, so NPM leaves out its own `location /`. In the other
-  locations, the `Remote-*` headers are set to empty values. Without that,
-  anyone could send `Remote-User: admin` to `/CONNECT/AUTHORIZE`. That path
-  is spelled differently from `location = /connect/authorize`, but
-  PaperDotNet still treats it as the sign-in endpoint. A test showed that it
-  then signs in as the administrator without a password. The sample's
-  sign-in location is case-insensitive and allows a trailing slash.
+1. A signed-out browser opens the web UI. The UI starts the OAuth sign-in at
+   `/connect/authorize`.
+2. PaperDotNet sends the browser to `/auth/proxy/sign-in`. That is the only
+   path NPM protects.
+3. NPM asks for the password, or sends the browser to Authelia. It then
+   passes on the request with the user's name, groups and the **proxy
+   secret**.
+4. PaperDotNet starts a sign-in session and continues the OAuth flow. The
+   web UI then gets its usual tokens.
 
-## Pitfalls this sample avoids
+**Why this is safe:**
+- **The user headers need two things.** They count only from NPM's address
+  (`NPM_IP`) and only with the secret (`PROXY_SECRET`). NPM sends the secret
+  only after authenticating, in that one location. If someone sends
+  `Remote-User: admin` any other way, PaperDotNet ignores it.
+- **The API never reads these headers.** Cross-site requests that carry the
+  proxy's cookie cannot act as the user.
+- **NPM is the only way in.** The PaperDotNet container publishes no port.
+  Forwarded headers (scheme, host, client address) count only from NPM's
+  address.
+- **A proxy sign-in lasts a day** (`PROXY_SIGN_IN_LIFETIME`). Then the
+  browser goes through the proxy again, so users removed at the proxy lose
+  access and group changes arrive.
 
-1. **No access list on the whole proxy host.** With basic auth on `location /`:
-   - NPM removes the `Authorization` header (unless "Pass Auth to Host" is
-     on), so no token reaches PaperDotNet.
-   - Clients would have to send basic auth and a token in the same header.
-
-   The web UI, the API and MCP all break.
-2. **Basic auth re-sent to `/connect/token`.** After signing in at
-   `/connect/authorize`, browsers send the access list's password again to
-   every path below `/connect/`. OpenIddict reads it as client credentials
-   and rejects the web UI's token request (`invalid_client`). The map in
-   `npm/http_top.conf` removes it from browser requests. Browsers send
-   `Sec-Fetch-Site`; server-side OAuth clients don't, so they keep their own
-   Basic credentials.
-3. **Live events need buffering off.** NPM buffers responses, so server-sent
-   events only arrive when the buffer fills. Its 90 s read timeout also ends
-   quiet streams.
-4. **Turn off "Block Common Exploits".** It answers 403 to query strings
-   that contain, for example:
-   - `concat(`, which OData filters can contain;
-   - `union … select (`, which search terms can contain;
-   - `=http://`, as in an unencoded loopback `redirect_uri`.
-5. **Leave "Cache Assets" off.** PaperDotNet sets its own cache headers
-   (hashed files are cached for a year, everything else is revalidated).
+**Things to avoid in NPM:**
+- **An access list on the whole proxy host.** NPM would remove the
+  `Authorization` header, so tokens could not reach PaperDotNet. Protect only
+  `/auth/proxy/`, as the Advanced configs here do.
+- **"Block Common Exploits".** It answers 403 to query strings that
+  contain, for example:
+  - `concat(`, which OData filters can contain;
+  - `union … select (`, which search terms can contain;
+  - `=http://`, as in an unencoded loopback `redirect_uri`.
+- **"Cache Assets".** PaperDotNet sets its own cache headers (hashed files
+  are cached for a year, everything else is revalidated).
 
 ## Setup
 
@@ -99,7 +90,7 @@ browser ──https──▶ NPM ──http──▶ paperdotnet:8080
 
 ```bash
 cd samples/nginx-proxy-manager
-cp .env.example .env    # host names, admin password, NPM address; for Authelia: AUTH_HOST, COOKIE_DOMAIN, secrets
+cp .env.example .env    # host names, admin password, PROXY_SECRET; for Authelia: AUTH_HOST, COOKIE_DOMAIN, secrets
 docker compose up -d    # builds the PaperDotNet image from this repository on the first run
 ```
 
@@ -110,6 +101,7 @@ docker compose up -d    # builds the PaperDotNet image from this repository on t
 
 The DNS names (`PAPERDOTNET_HOST`, and `AUTH_HOST` for Authelia) must point
 to this server, and ports 80 and 443 must be reachable for Let's Encrypt.
+Create `PROXY_SECRET` with `openssl rand -hex 32`.
 
 ### 2. Create the proxy host in NPM
 
@@ -120,7 +112,7 @@ admin account. Then go to **Hosts → Proxy Hosts → Add Proxy Host**:
 |---|---|
 | Details | Domain names: `PAPERDOTNET_HOST`. Scheme `http`, forward hostname `paperdotnet`, port `8080`. **Cache Assets: off. Block Common Exploits: off.** Websockets Support: either (not used). Access List: **Publicly Accessible** |
 | SSL | Request a new certificate. **Force SSL: on.** HTTP/2: on. HSTS: as you like |
-| Advanced | Paste one of the files below |
+| Advanced | Paste one of the files below and replace `PROXY_SECRET` with the value from `.env` |
 
 **A. NPM access list:**
 1. Under **Access Lists → Add Access List**, add the users under
@@ -137,10 +129,13 @@ admin account. Then go to **Hosts → Proxy Hosts → Add Proxy Host**:
    port `9091`, with SSL and Force SSL. It needs no Advanced config.
 2. Paste [`npm/advanced-authelia.conf`](npm/advanced-authelia.conf) into the
    **Advanced** tab of the PaperDotNet proxy host.
-3. Users and groups live in
+3. Set `PROXY_LOGOUT_URL=https://AUTH_HOST/logout` in `.env`, so signing out
+   of PaperDotNet signs you out of Authelia too, then run
+   `docker compose up -d`.
+4. Users and groups live in
    [`authelia/users_database.yml`](authelia/users_database.yml). Both demo
    users have the password `change-me-demo`.
-4. Two-factor sign-in: set `policy: two_factor` in
+5. Two-factor sign-in: set `policy: two_factor` in
    [`authelia/configuration.yml`](authelia/configuration.yml). Registration
    e-mails are written to a file: `docker compose exec authelia cat /var/lib/authelia/notification.txt`.
 
@@ -151,18 +146,21 @@ admin account. Then go to **Hosts → Proxy Hosts → Add Proxy Host**:
      with the same name are the same account.
    - Every other user gets an account as a Member on first sign-in
      (`CREATE_USERS=true`).
-2. As `admin`, create the groups the proxy names (Admin → Groups), for
-   example **Admins** and **Finance**. PaperDotNet never creates groups
-   itself.
-3. Give roles to groups instead of people. For example, assign the
-   *Administrator* role to the group *Admins*.
-4. Users join their groups at their next sign-in through the proxy.
-   - Users are **never removed** from groups by the proxy. Remove them in
-     PaperDotNet.
-   - A user removed from the proxy keeps their refresh token (14 days) and
-     API tokens. **Disable** them in PaperDotNet to end access at once.
-   - [ADR-0043](../../docs/adr/0043-generic-reverse-proxies.md) proposes
-     group sync and shorter sessions for proxy sign-ins.
+2. Groups the proxy names (`Admins`, `Finance`) are created at the first
+   sign-in that names them (`CREATE_GROUPS=true`). The signed-in user joins
+   them.
+3. As `admin`, give roles to groups (Admin → Roles). For example, assign
+   *Administrator* to the group *Admins*. Then everyone the proxy puts in
+   *Admins* is an administrator.
+4. With `GROUP_SYNC=Sync`, users leave proxy-created groups at their next
+   sign-in through the proxy once the proxy stops naming them.
+   - Groups you create yourself in PaperDotNet are never changed by the
+     proxy; they only gain members it names.
+   - The last administrator is never removed.
+5. Removing a user at the proxy ends their web sign-in within
+   `PROXY_SIGN_IN_LIFETIME`. Their API tokens keep working until you
+   **disable** the user in PaperDotNet, which also ends everything else at
+   once.
 
 ### 4. MCP clients
 
@@ -222,24 +220,22 @@ To allow only proxy sign-ins, set `PAPERDOTNET__Auth__AllowPasswordGrant=false`.
    For a quick test without editing it:
    `docker network connect --ip 172.30.10.2 paperdotnet-proxy <npm-container>`.
    This does not survive recreating the container.
-3. Access-list mode only: copy [`npm/http_top.conf`](npm/http_top.conf) to
+3. Access-list mode with groups only: copy
+   [`npm/http_top.conf`](npm/http_top.conf) to
    `/data/nginx/custom/http_top.conf` in NPM's data folder, or append it to
    the file if you already have one. Then restart NPM.
 4. Continue with [step 2](#2-create-the-proxy-host-in-npm).
-
-Do not trust the whole subnet (`172.30.10.0/24`) unless only NPM and
-PaperDotNet are on that network. Any container on a trusted network could
-name a user.
 
 ## Checking the setup
 
 ```bash
 H=docs.example.com
-curl -sI "https://$H/connect/authorize" | head -n 1          # 401 (access list) or 302 to Authelia
-curl -s -o /dev/null -w '%{http_code}\n' -H 'Remote-User: admin' \
-  "https://$H/CONNECT/AUTHORIZE?client_id=paperdotnet"        # 401/302 as well: the header does not get through
+curl -sI "https://$H/auth/proxy/sign-in" | head -n 1      # 401 (access list) or 302 to Authelia
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' -H 'Remote-User: admin' \
+  "https://$H/connect/authorize?client_id=paperdotnet"    # a redirect to /auth/proxy/sign-in: the header alone does nothing
 curl -s "https://$H/.well-known/openid-configuration" | grep -o '"issuer":"[^"]*"'   # https://docs.example.com/
 curl -sN -H "Authorization: Bearer pdn_…" "https://$H/v1.0/me/events" | head -n 2   # "event: connected" at once
+docker compose logs paperdotnet | grep -i "warn.*proxy"  # nothing: secret set, forwarded headers limited to NPM
 ```
 
 **How this sample was tested:**
@@ -249,22 +245,21 @@ curl -sN -H "Authorization: Bearer pdn_…" "https://$H/v1.0/me/events" | head -
 - What passed:
   - sign-in with the access list and with Authelia;
   - name, e-mail and groups taken over;
-  - the token exchange, including a browser that re-sends basic auth;
+  - the token exchange;
   - the API;
-  - live events and MCP (`initialize`, `tools/list`);
+  - live events and MCP;
   - the issuer in OIDC discovery;
-  - forged `Remote-User` headers on all spellings of the sign-in path were
-    rejected.
-- `compose.yml` was checked with `docker compose config` for every profile.
+  - forged `Remote-User` headers without the secret were ignored.
+- `compose.yml` was checked with `docker compose config`.
 
 ## Files
 
 | File | What it is |
 |---|---|
 | `compose.yml` | NPM (profile `npm`), PaperDotNet, Authelia (profile `authelia`) on the network `paperdotnet-proxy` |
-| `.env.example` | Host names, secrets, NPM address, profiles |
-| `npm/advanced-access-list.conf` | Advanced config for mode A |
-| `npm/advanced-authelia.conf` | Advanced config for mode B |
-| `npm/http_top.conf` | Http-level maps for mode A: groups per user, and removing basic auth from browser requests to `/connect/` |
+| `.env.example` | Host names, secrets, NPM address, group and sign-in settings, profiles |
+| `npm/advanced-access-list.conf` | Advanced config for mode A: `/auth/proxy/` with the access list |
+| `npm/advanced-authelia.conf` | Advanced config for mode B: `/auth/proxy/` through Authelia |
+| `npm/http_top.conf` | Groups per access-list user (mode A) |
 | `authelia/configuration.yml` | Authelia: file users, one access rule, session cookie for `COOKIE_DOMAIN` |
 | `authelia/users_database.yml` | Demo users `admin` (Admins) and `alice` (Finance) |

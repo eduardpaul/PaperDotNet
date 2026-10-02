@@ -1,6 +1,6 @@
 # ADR-0043: Running behind general-purpose reverse proxies (Nginx Proxy Manager)
 
-- **Status:** Proposed
+- **Status:** Accepted (implemented)
 - **Date:** 2026-10-02
 
 ## Context
@@ -55,71 +55,85 @@ tests used nginx with NPM's `proxy.conf`, its http settings and Authelia 4.39.
 ## Decision
 
 1. **A shared secret proves that the proxy authenticated the request.**
-   - New settings: `Auth:ReverseProxy:Secret` and `SecretHeader` (default
-     `X-PaperDotNet-Proxy`).
+   - New settings: `Auth:ReverseProxy:Secret` (at least 16 characters) and
+     `SecretHeader` (default `X-PaperDotNet-Proxy`).
    - When a secret is set, the identity headers count only if this header
-     matches it (constant-time comparison), in addition to the trusted peer
-     address.
+     matches it, in addition to the trusted peer address. The comparison
+     takes constant time.
    - The proxy adds the header only in the location where it authenticated
-     the user. A request that reaches the sign-in path any other way has no
+     the user. A request that reaches a sign-in path any other way has no
      secret and is ignored, so mistakes fail closed.
    - When the proxy is enabled without a secret, a startup warning names
-     this risk. The secret may become required in a later version.
+     this risk.
 2. **A sign-in path of its own, outside `/connect/`.**
    - `GET /auth/proxy/sign-in?returnUrl=…` reads the proxy's headers,
-     starts the sign-in session (as `/connect/authorize` does today) and
-     redirects to `returnUrl`. Only the local `/connect/authorize…` is
-     accepted there, so there are no open redirects.
+     starts the sign-in session and redirects to `returnUrl`. Only this
+     server's `/connect/authorize…` is accepted there, otherwise it
+     redirects to `/`, so there are no open redirects.
+   - If the proxy names nobody, the path sends the browser to the password
+     sign-in (`Auth:LoginUrl`, the web UI's `/login`), or answers
+     `401 proxySignInFailed` when there is none.
    - When the proxy is enabled, `/connect/authorize` sends signed-out users
      to this path instead of `/login`.
    - The proxy protects only `/auth/proxy/`, so basic-auth credentials are
-     never sent to the OAuth endpoints. In NPM that is one custom location
-     with an access list, or an `auth_request` there. No server-wide
-     Advanced config is needed.
+     never sent to the OAuth endpoints. In NPM that is one location with an
+     access list or an `auth_request`.
    - Login CSRF is harmless: the endpoint can only sign the visitor in as
      whoever the proxy says they are.
    - `/connect/authorize` keeps reading the headers, so proxies that
      authenticate every path (ADR-0031) keep working. Both paths check the
      peer address and the secret.
 3. **Forwarded headers only from known proxies.**
-   - New settings: `ForwardedHeaders:KnownProxies` (addresses or CIDR,
-     validated at startup, like `TrustedProxies`) and
+   - New settings: `ForwardedHeaders:KnownProxies` (addresses or CIDR) and
      `ForwardedHeaders:ForwardLimit` (default 1; 2 for Cloudflare → NPM).
    - Without `KnownProxies`, `Auth:ReverseProxy:TrustedProxies` is used.
-     Without either, any peer is trusted as today, with a startup warning.
+     Without either, any peer is trusted as before, with a startup warning.
+   - An entry that is neither an address nor a network stops the startup.
 4. **Streams that pass through buffering proxies.**
-   - Server-sent event responses (live events and MCP's streamed
-     responses) send `X-Accel-Buffering: no`.
-   - Live events send a comment line every 30 s, below NPM's 90 s and
-     Cloudflare's 100 s timeouts.
+   - Responses of type `text/event-stream` to requests that accept event
+     streams send `X-Accel-Buffering: no`. This covers live events and MCP's
+     streamed responses.
+   - A quiet live event stream sends a `keepalive` event every 30 s
+     (`Jobs:LiveEventsKeepAlive`), below NPM's 90 s and Cloudflare's 100 s
+     timeouts. It is an event, not a comment, because `SseItem` cannot
+     write comments. `EventSource` clients ignore event types they do not
+     listen to.
    - Proxies then need no special location for streams.
 5. **Group sync, opt-in.**
-   - `Auth:ReverseProxy:GroupSync` is either `Add` (default, today's
-     behavior) or `Sync`.
-   - Groups get a `Source` (`local` or `proxy`); this needs a migration for
-     both providers. `CreateGroups` (default off) creates groups the proxy
-     names, with `Source = proxy`.
+   - `Auth:ReverseProxy:GroupSync` is either `Add` (default, the behavior
+     before this ADR) or `Sync`.
+   - Groups have a `Source`, `Local` or `Proxy`; the migration covers both
+     providers. With `CreateGroups` (default off), groups the proxy names
+     that do not exist yet are created with `Source = Proxy`.
    - With `Sync`, each proxy sign-in adds the user to the named groups and
-     removes them from proxy-sourced groups the proxy did not name. Local
-     groups are never touched.
-   - Changes go through the same membership code as the admin endpoints,
-     with the same cache invalidation.
+     removes them from proxy groups the proxy no longer names. An empty or
+     missing groups header names none. Local groups only ever gain members.
+   - The groups header may now be up to 8 KB, up to 100 groups. Before, it
+     was ignored above 256 characters.
+   - Membership changes invalidate the same caches as the admin endpoints.
    - The last-administrator rule applies. A sync that would remove the last
      administrator keeps that membership and logs a warning.
+   - The source is not part of the API yet. Groups created by
+     administrators stay local even if the proxy names them.
 6. **Proxy sign-ins are re-checked daily.**
-   - `Auth:ReverseProxy:RefreshTokenLifetime` (default 1 day) applies to
-     grants that began with a proxy sign-in. It is set on the principal, as
-     OpenIddict allows per token.
-   - When it ends, the web UI goes through `/connect/authorize` again. This
-     re-reads the user, the groups and whether the proxy still admits them.
-     With a live proxy session, that is a redirect without a prompt.
+   - `Auth:ReverseProxy:RefreshTokenLifetime` (default 1 day, at least 5
+     minutes) limits sign-ins the proxy started.
+   - The sign-in time travels in the sign-in session, the authorization
+     code and the refresh tokens. It is never put in access or identity
+     tokens.
+   - Each refresh issues tokens that end when that time is up, never later,
+     however often the user refreshes. The sign-in session does not
+     continue it either.
+   - Afterwards, the web UI goes through the proxy again. This re-reads the
+     user, the groups and whether the proxy still admits them. With a live
+     proxy session, that is a redirect without a prompt.
    - API tokens are not affected. Disabling the user in PaperDotNet still
      ends all access at once.
 7. **Signing out goes to the proxy.**
    - `Auth:ReverseProxy:LogoutUrl` (for example
-     `https://auth.example.com/logout`) is where the end-session endpoint
-     sends the browser after ending PaperDotNet's session.
-   - The web UI's signed-out page does not start a new sign-in by itself.
+     `https://auth.example.com/logout`) is where `/connect/logout` sends the
+     browser after ending a session the proxy started. Other sessions keep
+     the client's post-logout redirect.
    - Basic auth has no logout. The sample documents that.
 
 ## Not decided here
@@ -139,24 +153,24 @@ tests used nginx with NPM's `proxy.conf`, its http settings and Authelia 4.39.
 
 ## Consequences
 
-- NPM setups get simpler and fail closed:
-  - one protected custom location (`/auth/proxy/`) that sets the user
-    headers and the secret;
-  - no `http_top.conf` maps;
-  - no stream location;
-  - no need to clear the `Remote-*` headers in every location.
-
-  The sample is updated when this is built. Until then, its config is the
-  supported way.
-- The Identity module gets new options, a `Group.Source` column (migrations
-  for SQLite and PostgreSQL), and one anonymous endpoint, which needs a
-  tenant-isolation test.
-- Tests are needed for:
-  - a missing or wrong secret;
-  - spellings of both sign-in paths;
-  - forwarded headers from unknown peers;
-  - the `X-Accel-Buffering` header and the keep-alive;
-  - sync adding and removing members, including the last administrator;
-  - the shorter refresh token after a proxy sign-in.
-- Existing ADR-0031 setups keep working unchanged. Until they add a secret,
-  they see a startup warning.
+- NPM setups are simpler and fail closed. The
+  [sample](../../samples/nginx-proxy-manager/README.md) needs one
+  `location /auth/proxy/` that authenticates and sets the user headers and
+  the secret. It no longer needs:
+  - the maps for `Authorization` headers;
+  - a location for streams;
+  - clearing the `Remote-*` headers everywhere.
+- The Identity module has new options, a `Group.Source` column with
+  migrations for SQLite and PostgreSQL, and the anonymous `/auth/proxy/sign-in`
+  endpoint. Its tenant is the request's, like `/connect/authorize`'s.
+- Integration tests (`ReverseProxyTests`) cover:
+  - a missing or wrong secret, and an untrusted peer;
+  - the sign-in path and `returnUrl`;
+  - token lifetimes through a refresh;
+  - the proxy logout;
+  - group sync, including local groups and the last administrator;
+  - the no-buffering header and keep-alives;
+  - which proxies forwarded headers count from.
+- Existing ADR-0031 setups keep working. Two things change:
+  - signed-out browsers now go to `/auth/proxy/sign-in` instead of `/login`;
+  - they see a startup warning until they add a secret.

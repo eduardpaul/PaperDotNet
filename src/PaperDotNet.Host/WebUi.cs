@@ -11,7 +11,7 @@ namespace PaperDotNet.Host;
 internal static class WebUi
 {
     /// <summary>Paths that belong to the server; unknown paths below them are 404s, never the app.</summary>
-    private static readonly string[] ServerPaths = ["/v1.0", "/connect", "/.well-known", "/health", "/openapi", "/version"];
+    private static readonly string[] ServerPaths = ["/v1.0", "/connect", "/auth/proxy", "/.well-known", "/health", "/openapi", "/version"];
 
     // The app loads only its own scripts; Radix positions popovers with inline styles; previews use blob: URLs.
     private const string ContentSecurityPolicy =

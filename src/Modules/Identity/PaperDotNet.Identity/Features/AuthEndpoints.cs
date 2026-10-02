@@ -213,7 +213,8 @@ internal static class AuthEndpoints
     /// <summary>The user's security stamp at sign-in: a password change or reset ends the session (IAM-14).</summary>
     internal const string SessionStampClaim = "stamp";
 
-    internal static async Task SignInSessionAsync(HttpContext http, User user, ITenantContext tenant, string method)
+    /// <summary>Starts the sign-in session; <paramref name="proxySignedInAt"/> marks a session the reverse proxy started (ADR-0043).</summary>
+    internal static async Task SignInSessionAsync(HttpContext http, User user, ITenantContext tenant, string method, DateTimeOffset? proxySignedInAt = null)
     {
         var identity = new ClaimsIdentity(
             [
@@ -227,6 +228,11 @@ internal static class AuthEndpoints
             AuthSchemes.Session,
             PaperDotNetClaims.Name,
             "role");
+        if (proxySignedInAt is { } signedInAt)
+        {
+            identity.AddClaim(ReverseProxySignIn.SignedInAtClaimFor(signedInAt));
+        }
+
         await http.SignInAsync(AuthSchemes.Session, new ClaimsPrincipal(identity));
     }
 

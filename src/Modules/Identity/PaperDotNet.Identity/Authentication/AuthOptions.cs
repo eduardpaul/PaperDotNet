@@ -41,13 +41,25 @@ public sealed class AuthOptions
 }
 
 /// <summary>
-/// Configuration section <c>Auth:ReverseProxy</c>: an authenticating proxy (Authelia, Authentik, oauth2-proxy) names
-/// the signed-in user in request headers. They are trusted only from <see cref="TrustedProxies"/>, and only at
-/// <c>/connect/authorize</c>, which then starts a sign-in session; the API itself keeps using tokens.
+/// Configuration section <c>Auth:ReverseProxy</c>: an authenticating proxy (Authelia, Authentik, oauth2-proxy, Nginx
+/// Proxy Manager) names the signed-in user in request headers. They are trusted only from <see cref="TrustedProxies"/>,
+/// with the <see cref="Secret"/> when one is set, and only at <c>/auth/proxy/sign-in</c> and <c>/connect/authorize</c>,
+/// which start a sign-in session; the API itself keeps using tokens (ADR-0031, ADR-0043).
 /// </summary>
 public sealed class ReverseProxyAuthOptions
 {
+    /// <summary>Shortest accepted <see cref="Secret"/>.</summary>
+    public const int MinSecretLength = 16;
+
     public bool Enabled { get; set; }
+
+    /// <summary>
+    /// A secret the proxy sends in <see cref="SecretHeader"/> only where it authenticated the user. When set, headers
+    /// without it are ignored, so a request that reaches the sign-in some other way cannot name a user.
+    /// </summary>
+    public string? Secret { get; set; }
+
+    public string SecretHeader { get; set; } = "X-PaperDotNet-Proxy";
 
     /// <summary>Addresses or networks (CIDR) of the proxies whose headers are trusted, e.g. <c>172.18.0.0/16</c>. Required when enabled.</summary>
     public List<string> TrustedProxies { get; set; } = [];
@@ -63,6 +75,31 @@ public sealed class ReverseProxyAuthOptions
 
     /// <summary>Create unknown users (without a password) on their first sign-in.</summary>
     public bool CreateUsers { get; set; } = true;
+
+    /// <summary><see cref="ProxyGroupSync.Add"/> only adds members; <see cref="ProxyGroupSync.Sync"/> also removes them from proxy groups the proxy no longer names.</summary>
+    public ProxyGroupSync GroupSync { get; set; } = ProxyGroupSync.Add;
+
+    /// <summary>Create groups the proxy names that do not exist yet (as proxy groups).</summary>
+    public bool CreateGroups { get; set; }
+
+    /// <summary>
+    /// How long a proxy sign-in lasts before the web UI goes through the proxy again (refresh tokens and the sign-in
+    /// session end then), so removed users and group changes take effect.
+    /// </summary>
+    public TimeSpan RefreshTokenLifetime { get; set; } = TimeSpan.FromDays(1);
+
+    /// <summary>Where signing out sends the browser after a proxy sign-in, e.g. the proxy's own logout page.</summary>
+    public string? LogoutUrl { get; set; }
+}
+
+/// <summary>How the groups the proxy names change memberships.</summary>
+public enum ProxyGroupSync
+{
+    /// <summary>Users join existing groups the proxy names; they are never removed.</summary>
+    Add,
+
+    /// <summary>Users also leave proxy groups (created by the proxy) that it no longer names; local groups are never changed.</summary>
+    Sync,
 }
 
 public static class AuthSchemes
