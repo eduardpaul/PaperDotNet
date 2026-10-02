@@ -14,7 +14,7 @@ public sealed record ReindexPayload;
 
 public sealed record ReindexResult(IReadOnlyList<string> Sources);
 
-/// <summary>Unified search (SRC-01…04, SRC-09): full text with filters and facets, only what the caller may read.</summary>
+/// <summary>Unified search (SRC-01…04, SRC-07…09): full text, semantic or hybrid, with filters and facets, only what the caller may read.</summary>
 internal static class SearchEndpoints
 {
     public static void Map(IEndpointRouteBuilder app)
@@ -22,7 +22,8 @@ internal static class SearchEndpoints
         var group = app.MapGroup("/v1.0/search").WithTags("Search");
         group.MapGet("", SearchAsync).RequireScope(SearchScopes.Read).WithName("Search")
             .WithDescription("q: words, \"phrases\", OR, -exclude, prefix* (optional when filtering). Filters: workspaceId, containerId (list), "
-                + "contentTypeId, termId (includes child terms), createdBy, updatedFrom/updatedTo. Paging with $top/$skip.");
+                + "contentTypeId, termId (includes child terms), createdBy, updatedFrom/updatedTo. Paging with $top/$skip. mode: keyword, semantic "
+                + "(by meaning) or hybrid (both, fused); semantic and hybrid need AI:Embeddings, the default is hybrid then, else keyword.");
         group.MapPost("/reindex", ReindexAsync).RequireScope(SearchScopes.Manage).WithName("ReindexSearch")
             .WithDescription("Rebuilds the organization's index from every source, in the background: 202 with the operation to poll.");
     }
@@ -31,17 +32,10 @@ internal static class SearchEndpoints
         string? q, string? mode, Guid? workspaceId, Guid? containerId, Guid? contentTypeId, Guid? termId, Guid? createdBy,
         DateTimeOffset? updatedFrom, DateTimeOffset? updatedTo, HttpRequest http, Caller caller, SearchService search, CancellationToken ct)
     {
-        if (!string.IsNullOrWhiteSpace(mode) && !string.Equals(mode, SearchService.KeywordMatch, StringComparison.OrdinalIgnoreCase))
-        {
-            return ApiErrors.Validation("mode", mode is "semantic" or "hybrid"
-                ? "Semantic search is not configured on this server (AI:Embeddings)."
-                : "Use keyword, semantic or hybrid.");
-        }
-
         var top = ParseInt(http, "$top", SearchService.DefaultTop, 1, SearchService.MaxTop);
         var skip = ParseInt(http, "$skip", 0, 0, int.MaxValue);
         var (result, parameter, error) = await search.SearchAsync(
-            caller.TenantId, caller.UserId, new SearchRequest(q, workspaceId, containerId, contentTypeId, termId, createdBy, updatedFrom, updatedTo, top, skip), ct);
+            caller.TenantId, caller.UserId, new SearchRequest(q, workspaceId, containerId, contentTypeId, termId, createdBy, updatedFrom, updatedTo, top, skip, Mode: mode), ct);
         if (result is null)
         {
             return ApiErrors.Validation(parameter!, error!);
@@ -57,7 +51,7 @@ internal static class SearchEndpoints
             nextLink = $"{http.Scheme}://{http.Host}{http.PathBase}{http.Path}?{string.Join('&', query)}";
         }
 
-        return TypedResults.Ok(new SearchResponse(result.Hits, result.Count, result.Facets!, nextLink, SearchService.KeywordMatch));
+        return TypedResults.Ok(new SearchResponse(result.Hits, result.Count, result.Facets!, nextLink, result.Mode));
     }
 
     private static async Task<Accepted<ReindexResponse>> ReindexAsync(Caller caller, IOperations operations, CancellationToken ct)

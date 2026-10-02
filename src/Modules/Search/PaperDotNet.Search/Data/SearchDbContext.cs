@@ -85,6 +85,15 @@ public class SearchPassage : ITenantOwned, INotAudited
 
     /// <summary>SHA-256 (hex) of the title and passage text: an unchanged passage keeps its row (and, later, its embedding).</summary>
     public string ContentHash { get; set; } = "";
+
+    /// <summary>The passage's embedding (normalized little-endian float32), with semantic search (ADR-0027).</summary>
+    public byte[]? Embedding { get; set; }
+
+    /// <summary>The model the embedding comes from (<c>provider:model:dimensions</c>); another model embeds again.</summary>
+    public string? EmbeddingModel { get; set; }
+
+    /// <summary>When the embedding was stored (Unix ms): servers load only newer embeddings into memory.</summary>
+    public long VectorStamp { get; set; }
 }
 
 /// <summary>
@@ -134,7 +143,9 @@ public class SearchDbContext : DbContext
             b.Property(p => p.Key).ValueGeneratedOnAdd();
             b.HasIndex(p => p.Id).IsUnique();
             b.Property(p => p.ContentHash).HasMaxLength(64);
+            b.Property(p => p.EmbeddingModel).HasMaxLength(200);
             b.HasIndex(p => new { p.TenantId, p.DocumentId });
+            b.HasIndex(p => new { p.TenantId, p.EmbeddingModel, p.VectorStamp });
         });
     }
 }

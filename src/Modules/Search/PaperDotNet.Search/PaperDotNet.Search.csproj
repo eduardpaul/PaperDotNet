@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     Search over all data types with permission trimming and facets (SRC-01…04), page hits (SRC-09): SQLite FTS5 tables
-    kept by triggers, queried with SQL built per provider (ISearchQueries, ADR-0039).
+    kept by triggers, queried with SQL built per provider (ISearchQueries, ADR-0039); semantic and hybrid search (SRC-07, SRC-08)
+    over embeddings of passages, in memory.
   -->
   <Import Project="..\..\AotModule.props" />
   <ItemGroup>
@@ -12,8 +13,8 @@
     <ProjectReference Include="..\..\Mcp\PaperDotNet.Mcp.Contracts\PaperDotNet.Mcp.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Semantic and hybrid search (SRC-07, SRC-08) and the MCP tool come later (T12e, T16). -->
-    <Compile Remove="Features/Semantic.cs" />
-    <None Include="Features/Semantic.cs" />
+    <!-- Semantic search (SRC-07, ADR-0027): IEmbeddingGenerator, registered by PaperDotNet.AI when AI:Embeddings is set. -->
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+    <PackageReference Include="System.Numerics.Tensors" />
   </ItemGroup>
 </Project>

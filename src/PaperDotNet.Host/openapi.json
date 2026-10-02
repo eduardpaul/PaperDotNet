@@ -8593,7 +8593,7 @@
         "tags": [
           "Search"
         ],
-        "description": "q: words, \"phrases\", OR, -exclude, prefix* (optional when filtering). Filters: workspaceId, containerId (list), contentTypeId, termId (includes child terms), createdBy, updatedFrom/updatedTo. Paging with $top/$skip.",
+        "description": "q: words, \"phrases\", OR, -exclude, prefix* (optional when filtering). Filters: workspaceId, containerId (list), contentTypeId, termId (includes child terms), createdBy, updatedFrom/updatedTo. Paging with $top/$skip. mode: keyword, semantic (by meaning) or hybrid (both, fused); semantic and hybrid need AI:Embeddings, the default is hybrid then, else keyword.",
         "operationId": "Search",
         "parameters": [
           {
@@ -15080,7 +15080,7 @@
             }
           }
         },
-        "description": "A search result. string? SearchHit.Snippet comes from the passage that matched best and int? SearchHit.Page is its page\n(SRC-09; null when the match is not on a page). IReadOnlyList&lt;string&gt; SearchHit.MatchedBy says how it was found (`keyword`)."
+        "description": "A search result. string? SearchHit.Snippet comes from the passage that matched best and int? SearchHit.Page is its page\n(SRC-09; null when the match is not on a page). IReadOnlyList&lt;string&gt; SearchHit.MatchedBy says how it was found (`keyword`, `semantic`)."
       },
       "SearchResponse": {
         "required": [
@@ -15119,7 +15119,7 @@
             "type": "string"
           }
         },
-        "description": "Results; `mode` is how they were found (`keyword`; semantic and hybrid search come later)."
+        "description": "Results; `mode` is how they were found (`keyword`, `semantic` or `hybrid`)."
       },
       "SetBuiltInRequest": {
         "required": [

@@ -10,7 +10,8 @@ namespace PaperDotNet.Search.Features;
 
 /// <summary>
 /// Which documents a search looks at: the tenant, what the caller may read (null: everything, for system callers) and
-/// the filters. <see cref="Terms"/> holds a term with its descendants (any of them matches).
+/// the filters. <see cref="Terms"/> holds a term with its descendants (any of them matches); <see cref="Ids"/> limits the
+/// search to these documents (semantic candidates).
 /// </summary>
 internal sealed record SearchFilter(
     Guid TenantId,
@@ -21,7 +22,8 @@ internal sealed record SearchFilter(
     IReadOnlyCollection<Guid>? Terms = null,
     Guid? CreatedBy = null,
     long? UpdatedFrom = null,
-    long? UpdatedTo = null);
+    long? UpdatedTo = null,
+    IReadOnlyCollection<Guid>? Ids = null);
 
 internal sealed record SearchRow(
     Guid Id, string SourceType, Guid WorkspaceId, Guid? ContainerId, Guid? ContentTypeId, string Title, string Body, Guid? CreatedBy, long UpdatedAt, double Rank);
@@ -44,6 +46,9 @@ internal interface ISearchQueries
 
     /// <summary>The passages of <paramref name="documentIds"/> matching <paramref name="match"/>, with their rank.</summary>
     Task<IReadOnlyList<PassageRow>> PassagesAsync(Guid tenantId, string match, IReadOnlyCollection<Guid> documentIds, CancellationToken cancellationToken);
+
+    /// <summary>The passages with <paramref name="passageIds"/> (semantic matches; rank 0).</summary>
+    Task<IReadOnlyList<PassageRow>> PassagesByIdAsync(Guid tenantId, IReadOnlyCollection<Guid> passageIds, CancellationToken cancellationToken);
 
     /// <summary>Removes documents (with their tags and passages): by id, container or source type.</summary>
     Task DeleteAsync(Guid tenantId, IReadOnlyCollection<Guid>? ids, Guid? containerId, string? sourceType, CancellationToken cancellationToken);
@@ -164,6 +169,11 @@ internal sealed class SqliteSearchQueries(SearchDbContext db) : ISearchQueries
             where.Append($" AND \"d\".\"UpdatedAt\" < {sql.Parameter(updatedTo)}");
         }
 
+        if (filter.Ids is { } ids)
+        {
+            where.Append($" AND \"d\".\"Id\" IN (SELECT \"value\" FROM json_each({sql.Ids(ids)}))");
+        }
+
         if (filter.Terms is { } terms)
         {
             where.Append($" AND EXISTS (SELECT 1 FROM \"search_tags\" AS \"t\" WHERE \"t\".\"DocumentId\" = \"d\".\"Id\" "
@@ -193,6 +203,30 @@ internal sealed class SqliteSearchQueries(SearchDbContext db) : ISearchQueries
             while (await reader.ReadAsync(cancellationToken))
             {
                 rows.Add(new PassageRow(GuidOf(reader, 0)!.Value, reader.GetInt32(1), reader.IsDBNull(2) ? null : reader.GetInt32(2), reader.GetString(3), reader.GetDouble(4)));
+            }
+
+            return rows;
+        }, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PassageRow>> PassagesByIdAsync(Guid tenantId, IReadOnlyCollection<Guid> passageIds, CancellationToken cancellationToken)
+    {
+        if (passageIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await RunAsync<IReadOnlyList<PassageRow>>(async command =>
+        {
+            var sql = new Sql(command);
+            command.CommandText =
+                "SELECT \"DocumentId\", \"Ordinal\", \"Page\", \"Text\" FROM \"search_passages\" "
+                + $"WHERE \"TenantId\" = {sql.Parameter(GuidText(tenantId))} AND \"Id\" IN (SELECT \"value\" FROM json_each({sql.Ids(passageIds)}))";
+            var rows = new List<PassageRow>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                rows.Add(new PassageRow(GuidOf(reader, 0)!.Value, reader.GetInt32(1), reader.IsDBNull(2) ? null : reader.GetInt32(2), reader.GetString(3), 0));
             }
 
             return rows;

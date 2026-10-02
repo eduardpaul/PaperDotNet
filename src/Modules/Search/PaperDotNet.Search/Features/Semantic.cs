@@ -3,11 +3,8 @@ using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using PaperDotNet.Abstractions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Search.Data;
 
@@ -18,8 +15,8 @@ public sealed class SearchOptions
 {
     public const string Section = "Search";
 
-    /// <summary>Mode when a request names none: <c>hybrid</c> when embeddings are configured, else <c>keyword</c>.</summary>
-    public SearchMode? DefaultMode { get; set; }
+    /// <summary>Mode when a request names none (<c>keyword</c>, <c>semantic</c>, <c>hybrid</c>): hybrid when embeddings are configured, else keyword.</summary>
+    public string? DefaultMode { get; set; }
 
     /// <summary>Passages less similar than this (cosine, -1 to 1) are not semantic matches. Depends on the model.</summary>
     public float MinSimilarity { get; set; } = 0.3f;
@@ -37,17 +34,26 @@ public sealed class SearchOptions
     public string EmbeddingSchedule { get; set; } = "* * * * *";
 }
 
-/// <summary>How results are found (SRC-08).</summary>
-public enum SearchMode
+/// <summary>How results are found (SRC-08), as in <c>mode</c>.</summary>
+internal static class SearchModes
 {
     /// <summary>Full-text search only.</summary>
-    Keyword,
+    public const string Keyword = "keyword";
 
     /// <summary>Embeddings only: documents by meaning.</summary>
-    Semantic,
+    public const string Semantic = "semantic";
 
     /// <summary>Both, fused with reciprocal rank fusion.</summary>
-    Hybrid,
+    public const string Hybrid = "hybrid";
+
+    /// <summary>The mode named by <paramref name="value"/> (any case), or null.</summary>
+    public static string? Parse(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        Keyword => Keyword,
+        Semantic => Semantic,
+        Hybrid => Hybrid,
+        _ => null,
+    };
 }
 
 /// <summary>A semantic match: the document and its most similar passage.</summary>
@@ -59,17 +65,17 @@ internal sealed record SemanticMatch(Guid DocumentId, Guid PassageId, float Simi
 /// are applied afterwards in SQL by the caller. Available only when an embedding provider is configured.
 /// </summary>
 internal sealed class SemanticSearch(
-    SearchDbContext db, VectorIndex vectors, HybridCache cache, IOptions<SearchOptions> options, ITenantContext tenant, IServiceProvider services)
+    SearchDbContext db, VectorIndex vectors, IMemoryCache cache, IOptions<SearchOptions> options, IEmbeddingGenerator<string, Embedding<float>>? generator)
 {
     /// <summary>Passages looked at per query; several may belong to one document.</summary>
     private const int PassageCandidates = 1000;
 
-    public IEmbeddingGenerator<string, Embedding<float>>? Generator { get; } = services.GetService(typeof(IEmbeddingGenerator<string, Embedding<float>>)) as IEmbeddingGenerator<string, Embedding<float>>;
+    public IEmbeddingGenerator<string, Embedding<float>>? Generator => generator;
 
-    public bool Enabled => Generator is not null;
+    public bool Enabled => generator is not null;
 
     /// <summary>Identifies the model (and vector size) embeddings come from; stored with each embedding.</summary>
-    public string ModelKey => ModelKeyOf(Generator!);
+    public string ModelKey => ModelKeyOf(generator!);
 
     public static string ModelKeyOf(IEmbeddingGenerator<string, Embedding<float>> generator)
     {
@@ -78,17 +84,19 @@ internal sealed class SemanticSearch(
         return key.Length > 200 ? key[..200] : key;
     }
 
-    /// <summary>The documents most similar to <paramref name="text"/>, best first, optionally only in a workspace or container.</summary>
-    public async Task<List<SemanticMatch>> SearchAsync(string text, Guid? workspaceId, Guid? containerId, CancellationToken ct)
+    /// <summary>The documents of the tenant most similar to <paramref name="text"/>, best first, optionally only in a workspace or container.</summary>
+    public async Task<List<SemanticMatch>> SearchAsync(Guid tenantId, string text, Guid? workspaceId, Guid? containerId, CancellationToken ct)
     {
         var model = ModelKey;
-        var query = await cache.GetOrCreateAsync(
-            $"search:query:{model}:{Passages.Hash(text)}",
-            async token => (await Generator!.GenerateAsync([text], cancellationToken: token))[0].Vector.ToArray(),
-            new HybridCacheEntryOptions { Expiration = TimeSpan.FromMinutes(30) },
-            cancellationToken: ct);
-        Vectors.Normalize(query);
-        var snapshot = await vectors.GetAsync(db, tenant.TenantId!.Value, model, ct);
+        var key = $"search:query:{model}:{Passages.Hash(text)}";
+        if (!cache.TryGetValue(key, out float[]? query) || query is null)
+        {
+            query = (await generator!.GenerateAsync([text], cancellationToken: ct))[0].Vector.ToArray();
+            Vectors.Normalize(query);
+            cache.Set(key, query, new MemoryCacheEntryOptions { SlidingExpiration = TimeSpan.FromMinutes(10) });
+        }
+
+        var snapshot = await vectors.GetAsync(db, tenantId, model, ct);
         var best = new Dictionary<Guid, SemanticMatch>();
         foreach (var match in snapshot.Nearest(query, PassageCandidates, options.Value.MinSimilarity, workspaceId, containerId))
         {
@@ -124,15 +132,18 @@ internal static class Vectors
     public static float[] FromBytes(byte[] bytes) => MemoryMarshal.Cast<byte, float>(bytes).ToArray();
 }
 
+/// <summary>A stored embedding with where its document is.</summary>
+internal sealed record VectorRow(Guid PassageId, Guid DocumentId, Guid WorkspaceId, Guid? ContainerId, byte[]? Embedding);
+
 /// <summary>
-/// The embeddings of a tenant in memory (ADR-0027), shared by all requests of this server. A read first checks the
+/// The embeddings of each tenant in memory (ADR-0027), shared by all requests of this server. A read first checks the
 /// database for changes (count and newest stamp of the model's embeddings) and loads only what changed, so every
 /// server stays current without messages. Unused tenants are dropped after 30 minutes.
 /// </summary>
 internal sealed class VectorIndex(IMemoryCache cache)
 {
-    /// <summary>Embeddings stored within this window before the newest known one are read again (clock skew between servers).</summary>
-    private static readonly long SkewTicks = TimeSpan.FromSeconds(30).Ticks;
+    /// <summary>Embeddings stored within this window (ms) before the newest known one are read again (clock skew between servers).</summary>
+    private const long SkewMilliseconds = 30_000;
 
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _locks = new();
 
@@ -145,16 +156,17 @@ internal sealed class VectorIndex(IMemoryCache cache)
         {
             var current = cache.Get<VectorSnapshot>(key);
             current = current?.Model == model ? current : VectorSnapshot.Empty(model);
-            var state = await db.Passages.AsNoTracking()
-                .Where(p => p.EmbeddingModel == model && p.Embedding != null)
-                .GroupBy(_ => 1)
-                .Select(g => new { Count = g.Count(), Newest = g.Max(p => p.VectorStamp) })
-                .FirstOrDefaultAsync(ct);
-            var count = state?.Count ?? 0;
-            var newest = state?.Newest ?? 0;
+            var database = db;
+            var tenant = tenantId;
+            var name = model;
+            var count = await database.Passages.AsNoTracking()
+                .CountAsync(p => p.TenantId == tenant && p.EmbeddingModel == name && p.Embedding != null, ct);
+            var newest = await database.Passages.AsNoTracking()
+                .Where(p => p.TenantId == tenant && p.EmbeddingModel == name && p.Embedding != null)
+                .MaxAsync(p => (long?)p.VectorStamp, ct) ?? 0;
             if (count != current.Count || newest != current.Newest)
             {
-                current = await RefreshAsync(db, current, count, newest, ct);
+                current = await RefreshAsync(db, tenantId, current, count, newest, ct);
             }
 
             cache.Set(key, current, new MemoryCacheEntryOptions { SlidingExpiration = TimeSpan.FromMinutes(30) });
@@ -166,24 +178,31 @@ internal sealed class VectorIndex(IMemoryCache cache)
         }
     }
 
-    private static async Task<VectorSnapshot> RefreshAsync(SearchDbContext db, VectorSnapshot current, int count, long newest, CancellationToken ct)
+    private static async Task<VectorSnapshot> RefreshAsync(SearchDbContext db, Guid tenantId, VectorSnapshot current, int count, long newest, CancellationToken ct)
     {
         var entries = current.Entries.ToDictionary(e => e.PassageId);
-        var since = current.Newest - SkewTicks;
-        var changed = await (from p in db.Passages.AsNoTracking()
-                             where p.EmbeddingModel == current.Model && p.Embedding != null && p.VectorStamp > since
-                             join d in db.Documents.AsNoTracking() on p.DocumentId equals d.Id
-                             select new { p.Id, p.DocumentId, d.WorkspaceId, d.ContainerId, p.Embedding })
+        var database = db;
+        var tenant = tenantId;
+        var model = current.Model;
+        var since = current.Newest - SkewMilliseconds;
+        var changed = await (from p in database.Passages.AsNoTracking()
+                             where p.TenantId == tenant && p.EmbeddingModel == model && p.Embedding != null && p.VectorStamp > since
+                             join d in database.Documents.AsNoTracking() on p.DocumentId equals d.Id
+                             where d.TenantId == tenant
+                             select new VectorRow(p.Id, p.DocumentId, d.WorkspaceId, d.ContainerId, p.Embedding))
             .ToListAsync(ct);
         foreach (var row in changed)
         {
-            entries[row.Id] = new VectorEntry(row.Id, row.DocumentId, row.WorkspaceId, row.ContainerId, Vectors.FromBytes(row.Embedding!));
+            entries[row.PassageId] = new VectorEntry(row.PassageId, row.DocumentId, row.WorkspaceId, row.ContainerId, Vectors.FromBytes(row.Embedding!));
         }
 
         if (entries.Count != count)
         {
             // Passages were deleted (or documents are gone): keep only what still exists.
-            var ids = (await db.Passages.AsNoTracking().Where(p => p.EmbeddingModel == current.Model && p.Embedding != null).Select(p => p.Id).ToListAsync(ct)).ToHashSet();
+            var ids = (await database.Passages.AsNoTracking()
+                .Where(p => p.TenantId == tenant && p.EmbeddingModel == model && p.Embedding != null)
+                .Select(p => p.Id)
+                .ToListAsync(ct)).ToHashSet();
             foreach (var id in entries.Keys.Where(id => !ids.Contains(id)).ToList())
             {
                 entries.Remove(id);
@@ -234,6 +253,9 @@ internal sealed record VectorSnapshot(string Model, VectorEntry[] Entries, int C
     }
 }
 
+/// <summary>A passage to embed with its document's title.</summary>
+internal sealed record PendingPassage(long Key, string Title, string Text);
+
 /// <summary>
 /// Embeds passages that have no embedding of the configured model yet (SRC-07): new or changed text, or all passages
 /// after the model changed. Runs per tenant on <see cref="SearchOptions.EmbeddingSchedule"/>; when the provider fails
@@ -244,7 +266,7 @@ internal sealed partial class EmbeddingJob(
 {
     public const string Name = "search.embeddings";
 
-    public async Task RunAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         if (!semantic.Enabled)
         {
@@ -253,15 +275,20 @@ internal sealed partial class EmbeddingJob(
 
         var model = semantic.ModelKey;
         var batchSize = Math.Clamp(options.Value.EmbeddingBatchSize, 1, 2048);
+        var database = db;
+        var tenant = tenantId;
+        var ct = cancellationToken;
         for (var done = 0; done < options.Value.EmbeddingsPerRun;)
         {
-            var batch = await (from p in db.Passages
-                               where p.EmbeddingModel != model
-                               join d in db.Documents on p.DocumentId equals d.Id
-                               orderby p.Id
-                               select new { Passage = p, d.Title })
-                .Take(batchSize)
-                .ToListAsync(cancellationToken);
+            var size = batchSize;
+            var batch = await (from p in database.Passages.AsNoTracking()
+                               where p.TenantId == tenant && p.EmbeddingModel != model
+                               join d in database.Documents.AsNoTracking() on p.DocumentId equals d.Id
+                               where d.TenantId == tenant
+                               orderby p.Key
+                               select new PendingPassage(p.Key, d.Title, p.Text))
+                .Take(size)
+                .ToListAsync(ct);
             if (batch.Count == 0)
             {
                 return;
@@ -270,26 +297,34 @@ internal sealed partial class EmbeddingJob(
             GeneratedEmbeddings<Embedding<float>> embeddings;
             try
             {
-                embeddings = await semantic.Generator!.GenerateAsync(
-                    batch.Select(b => Passages.EmbeddingInput(b.Title, b.Passage.Text)), cancellationToken: cancellationToken);
+                embeddings = await semantic.Generator!.GenerateAsync(batch.Select(b => Passages.EmbeddingInput(b.Title, b.Text)), cancellationToken: ct);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
             {
                 // Any provider failure (network, quota, bad response): try again on the next run.
                 LogEmbeddingFailed(ex, model);
                 return;
             }
 
-            var stamp = time.GetUtcNow().UtcTicks;
+            var stamp = time.GetUtcNow().ToUnixTimeMilliseconds();
+            var keys = batch.Select(b => b.Key).ToList();
+            var first = keys[0];
+            var last = keys[^1];
+            var passages = (await database.Passages
+                .Where(p => p.TenantId == tenant && p.Key >= first && p.Key <= last)
+                .ToListAsync(ct)).ToDictionary(p => p.Key);
             foreach (var (item, embedding) in batch.Zip(embeddings))
             {
-                item.Passage.Embedding = Vectors.ToBytes(embedding.Vector.Span);
-                item.Passage.EmbeddingModel = model;
-                item.Passage.VectorStamp = stamp;
+                if (passages.TryGetValue(item.Key, out var passage))
+                {
+                    passage.Embedding = Vectors.ToBytes(embedding.Vector.Span);
+                    passage.EmbeddingModel = model;
+                    passage.VectorStamp = stamp;
+                }
             }
 
-            await db.SaveChangesAsync(cancellationToken);
-            db.ChangeTracker.Clear();
+            await database.SaveChangesAsync(ct);
+            database.ChangeTracker.Clear();
             done += batch.Count;
         }
     }
