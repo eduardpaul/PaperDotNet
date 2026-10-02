@@ -219,14 +219,14 @@ internal sealed class ItemWriter(
         return new ItemWriteResult(item);
     }
 
-    /// <summary>Stores one symmetric relationship. Callers authorize both endpoints before invoking it.</summary>
-    internal async Task<bool> RelateItemsAsync(ListSchema sourceSchema, ListItem source, ListSchema targetSchema, ListItem target, bool add, CancellationToken ct)
+    /// <summary>Stores one relationship. Callers authorize both endpoints before invoking it.</summary>
+    internal async Task<bool> RelateItemsAsync(ListSchema sourceSchema, ListItem source, ListSchema targetSchema, ListItem target, bool add, CancellationToken ct, Guid typeId = default, bool directed = false)
     {
         var itemId = source.Id;
         var otherId = target.Id;
-        var first = itemId.CompareTo(otherId) < 0 ? itemId : otherId;
+        var first = directed || itemId.CompareTo(otherId) < 0 ? itemId : otherId;
         var second = first == itemId ? otherId : itemId;
-        var relation = await db.Relations.FirstOrDefaultAsync(r => r.FirstItemId == first && r.SecondItemId == second, ct);
+        var relation = await db.Relations.FirstOrDefaultAsync(r => r.FirstItemId == first && r.SecondItemId == second && r.TypeId == typeId && r.Directed == directed, ct);
         if (add == (relation is not null))
         {
             return true;
@@ -234,7 +234,7 @@ internal sealed class ItemWriter(
 
         if (add)
         {
-            db.Relations.Add(new ItemRelation { Id = Ids.New(), FirstItemId = first, SecondItemId = second });
+            db.Relations.Add(new ItemRelation { Id = Ids.New(), FirstItemId = first, SecondItemId = second, TypeId = typeId, Directed = directed });
         }
         else
         {
@@ -257,7 +257,7 @@ internal sealed class ItemWriter(
         {
             db.ChangeTracker.Clear();
             // A concurrent identical operation is already satisfied. Other conflicts need a fresh authorized read.
-            var exists = await db.Relations.AnyAsync(r => r.FirstItemId == first && r.SecondItemId == second, ct);
+            var exists = await db.Relations.AnyAsync(r => r.FirstItemId == first && r.SecondItemId == second && r.TypeId == typeId && r.Directed == directed, ct);
             if (exists == add)
             {
                 return true;

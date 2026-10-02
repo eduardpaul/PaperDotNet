@@ -26,6 +26,8 @@ public sealed class ListsDbContext(
 
     public DbSet<ItemRelation> Relations => Set<ItemRelation>();
 
+    public DbSet<ItemRelationshipType> RelationshipTypes => Set<ItemRelationshipType>();
+
     public DbSet<ListView> Views => Set<ListView>();
 
     public DbSet<ItemVersion> ItemVersions => Set<ItemVersion>();
@@ -272,10 +274,16 @@ public sealed class ListsDbContext(
         modelBuilder.Entity<ItemRelation>(b =>
         {
             b.ToTable("item_relations");
-            b.HasIndex(r => new { r.TenantId, r.FirstItemId, r.SecondItemId }).IsUnique();
+            b.HasIndex(r => new { r.TenantId, r.FirstItemId, r.SecondItemId, r.TypeId, r.Directed }).IsUnique();
             b.HasIndex(r => new { r.TenantId, r.SecondItemId });
             b.HasOne<ListItem>().WithMany().HasForeignKey(r => r.FirstItemId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne<ListItem>().WithMany().HasForeignKey(r => r.SecondItemId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ItemRelationshipType>(b =>
+        {
+            b.ToTable("item_relationship_types");
+            b.Property(t => t.InverseLabel).HasMaxLength(256);
         });
 
         modelBuilder.Entity<ContentType>(b =>

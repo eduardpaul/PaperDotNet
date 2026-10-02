@@ -16,10 +16,10 @@ namespace PaperDotNet.Lists.Features;
 /// </summary>
 internal sealed class ListItemStore(
     ListsDbContext db, ListSchemaLoader loader, ItemQueryRunner runner, ItemWriter writer, IWorkspaceAccess workspaces,
-    ListItemSearchDocuments search, ContentTypeProvisioner contentTypes, ListTemplateRegistry templates, bool system = false)
+    ListItemSearchDocuments search, ContentTypeProvisioner contentTypes, ListTemplateRegistry templates, RelationshipTypes relationshipTypes, bool system = false)
     : IListItemStore
 {
-    public IListItemStore AsSystem() => system ? this : new ListItemStore(db, loader, runner, writer, workspaces, search, contentTypes, templates, system: true);
+    public IListItemStore AsSystem() => system ? this : new ListItemStore(db, loader, runner, writer, workspaces, search, contentTypes, templates, relationshipTypes, system: true);
 
     public Task ReindexAsync(Guid itemId, CancellationToken cancellationToken) => search.IndexItemAsync(itemId, cancellationToken);
 
@@ -156,6 +156,109 @@ internal sealed class ListItemStore(
         return await writer.RelateItemsAsync(source!, item!, target!, targetItem!, related, cancellationToken)
             ? new ListItemResult(ListItemStatus.Ok, ToData(source!, item!))
             : new ListItemResult(ListItemStatus.VersionMismatch);
+    }
+
+    public Task<IReadOnlyList<RelationshipTypeData>> GetRelationshipTypesAsync(CancellationToken ct) => relationshipTypes.ListAsync(ct);
+
+    public Task<RelationshipTypeData> EnsureRelationshipTypeAsync(RelationshipTypeOptions options, CancellationToken ct) => relationshipTypes.EnsureAsync(options, ct);
+
+    public async Task<ItemRelationshipPage?> GetRelationshipsAsync(Guid itemId, string? type, string? direction, int top, Guid? after, CancellationToken ct)
+    {
+        if (await GetByIdAsync(itemId, ct) is not { IsFolder: false }) return null;
+        if (direction is not (null or "both" or "incoming" or "outgoing")) throw new ArgumentException("direction must be both, incoming or outgoing.");
+        var typeId = type is null ? (Guid?)null : await relationshipTypes.ResolveAsync(type, false, ct);
+        if (type is not null && typeId is null) return new ItemRelationshipPage([], null);
+        top = Math.Clamp(top, 1, Api.PageRequest.MaxTop);
+        var lists = await GetListsAsync(null, null, ct);
+        var schemas = await loader.LoadManyAsync(lists.Select(l => l.Id).ToArray(), system, ct);
+        var byList = schemas.ToDictionary(s => s.List.Id);
+        var listIds = byList.Keys.ToArray();
+        var fullLists = schemas.Where(s => s.Access.FullControl).Select(s => s.List.Id).ToArray();
+        var scopes = schemas.SelectMany(s => s.Access.Scopes(WorkspaceAccessLevel.Read)).Distinct().ToArray();
+        var edges = await db.Relations.AsNoTracking().Where(r =>
+            (r.FirstItemId == itemId || r.SecondItemId == itemId)
+            && (typeId == null || r.TypeId == typeId)
+            && (direction == null || direction == "both" || (r.Directed && (direction == "outgoing" ? r.FirstItemId == itemId : r.SecondItemId == itemId)))
+            && (after == null || r.Id.CompareTo(after.Value) > 0)
+            && db.Items.Any(i => i.Id == (r.FirstItemId == itemId ? r.SecondItemId : r.FirstItemId)
+                && !i.IsFolder && EF.Parameter(listIds).Contains(i.ListId)
+                && (EF.Parameter(fullLists).Contains(i.ListId) || EF.Parameter(scopes).Contains(i.ScopeId))))
+            .OrderBy(r => r.Id).Take(top + 1).ToListAsync(ct);
+        var next = edges.Count > top ? Api.PageRequest.EncodeCursor(edges[top - 1].Id) : null;
+        edges = edges.Take(top).ToList();
+        var peerIds = edges.Select(r => r.FirstItemId == itemId ? r.SecondItemId : r.FirstItemId).Distinct().ToArray();
+        var peers = await db.Items.AsNoTracking().Where(i => EF.Parameter(peerIds).Contains(i.Id)).ToDictionaryAsync(i => i.Id, ct);
+        var types = await relationshipTypes.DescribeAsync(edges.Select(r => r.TypeId).Where(id => id != Guid.Empty).Distinct().ToArray(), ct);
+        return new ItemRelationshipPage(edges.Where(r =>
+        {
+            var peerId = r.FirstItemId == itemId ? r.SecondItemId : r.FirstItemId;
+            return peers.TryGetValue(peerId, out var peer) && byList.TryGetValue(peer.ListId, out var schema)
+                && schema.Access.Level(peer.ScopeId) >= WorkspaceAccessLevel.Read;
+        }).Select(r =>
+        {
+            var peer = peers[r.FirstItemId == itemId ? r.SecondItemId : r.FirstItemId];
+            return new ItemRelationshipData(r.Id, r.FirstItemId, r.SecondItemId, r.Directed, types.GetValueOrDefault(r.TypeId), ToData(byList[peer.ListId], peer));
+        }).ToList(), next);
+    }
+
+    public async Task<ListItemResult> AddRelationshipAsync(Guid itemId, Guid otherId, RelationshipOptions options, CancellationToken ct)
+    {
+        var current = await GetByIdAsync(itemId, ct);
+        var other = await GetByIdAsync(otherId, ct);
+        if (current is null || other is null || current.IsFolder || other.IsFolder) return new(ListItemStatus.NotFound);
+        if (itemId == otherId) return new(ListItemStatus.Invalid, Message: "An item cannot relate to itself.");
+        var (source, item, problem) = await LoadForChangeAsync(current.WorkspaceId, current.ListId, itemId, null, ct);
+        if (problem is not null) return problem;
+        var (target, peer, targetProblem) = await LoadForChangeAsync(other.WorkspaceId, other.ListId, otherId, null, ct);
+        if (targetProblem is not null) return targetProblem;
+        var typeId = Guid.Empty;
+        RelationshipTypeData? definition = null;
+        if (!string.IsNullOrWhiteSpace(options.Type))
+        {
+            var resolved = await relationshipTypes.ResolveAsync(options.Type, false, ct);
+            if (resolved is null)
+            {
+                if (Guid.TryParse(options.Type, out _)) return new(ListItemStatus.Invalid, Message: "The relationship type is unknown or deprecated.");
+                definition = await relationshipTypes.EnsureAsync(new(options.Type, options.Directed ?? false), ct);
+                typeId = definition.Id;
+            }
+            else
+            {
+                typeId = resolved.Value;
+                definition = (await relationshipTypes.DescribeAsync([typeId], ct)).GetValueOrDefault(typeId);
+            }
+        }
+        var directed = options.Directed ?? definition?.Directed ?? false;
+        if (definition is not null && directed != definition.Directed)
+            return new(ListItemStatus.Invalid, Message: "The direction must match the relationship type.");
+        var first = directed || itemId.CompareTo(otherId) < 0 ? itemId : otherId;
+        var second = first == itemId ? otherId : itemId;
+        var exists = await db.Relations.AnyAsync(r => r.FirstItemId == first && r.SecondItemId == second && r.TypeId == typeId && r.Directed == directed, ct);
+        if (!exists && directed && definition is not null)
+        {
+            if (definition.MaxIncoming is { } maxIn && await db.Relations.CountAsync(r => r.Directed && r.TypeId == typeId && r.SecondItemId == otherId, ct) >= maxIn
+                || definition.MaxOutgoing is { } maxOut && await db.Relations.CountAsync(r => r.Directed && r.TypeId == typeId && r.FirstItemId == itemId, ct) >= maxOut)
+                return new(ListItemStatus.Rejected, Message: "The relationship type's endpoint limit has been reached.");
+        }
+        return await writer.RelateItemsAsync(source!, item!, target!, peer!, true, ct, typeId, directed)
+            ? new(ListItemStatus.Ok, ToData(source!, item!)) : new(ListItemStatus.VersionMismatch);
+    }
+
+    public async Task<ListItemResult> RemoveRelationshipAsync(Guid itemId, Guid relationshipId, CancellationToken ct)
+    {
+        var current = await GetByIdAsync(itemId, ct);
+        if (current is null) return new(ListItemStatus.NotFound);
+        var edge = await db.Relations.AsNoTracking().FirstOrDefaultAsync(r => r.Id == relationshipId && (r.FirstItemId == itemId || r.SecondItemId == itemId), ct);
+        if (edge is null) return new(ListItemStatus.NotFound);
+        var first = await GetByIdAsync(edge.FirstItemId, ct);
+        var second = await GetByIdAsync(edge.SecondItemId, ct);
+        if (first is null || second is null) return new(ListItemStatus.NotFound);
+        var (source, item, problem) = await LoadForChangeAsync(first.WorkspaceId, first.ListId, first.Id, null, ct);
+        if (problem is not null) return problem;
+        var (target, peer, targetProblem) = await LoadForChangeAsync(second.WorkspaceId, second.ListId, second.Id, null, ct);
+        if (targetProblem is not null) return targetProblem;
+        return await writer.RelateItemsAsync(source!, item!, target!, peer!, false, ct, edge.TypeId, edge.Directed)
+            ? new(ListItemStatus.Ok, ToData(source!, item!)) : new(ListItemStatus.VersionMismatch);
     }
 
     public async Task<ListItemResult> MoveToAsync(Guid itemId, Guid workspaceId, Guid listId, Guid? folderId, uint? expectedVersion, CancellationToken cancellationToken)

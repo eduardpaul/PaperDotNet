@@ -16,12 +16,12 @@ in the list **Receipt lines**.
 ([template.xml](template.xml)), which you can apply to any organization,
 export, and change:
 - the tags, the content types and the views;
-- the library, and the lines list with its lookup to the receipt;
+- the library and lines list, connected through directed global relationships;
 - the OCR languages;
 - the workflows.
 
 The workflows cover the AI part too: the prompt, the JSON schema of the answer,
-batch execution and images. A script node of about ten lines of JavaScript,
+batch execution and images. A small JavaScript script node,
 inside the workflow's JSON, saves the answer into the lists. It runs in the
 server's sandbox, so the package needs no extension.
 
@@ -37,7 +37,8 @@ leaves OCR off, because the model reads the receipt from its images.
 |---|---|
 | Term set `Receipts/Tags` | **ticket** (synonym *receipt*) with Groceries, Restaurant and Fuel below it; Warranty |
 | Content type **Receipt** | `tags`, `status` (New, Read, Needs review), `store`, `purchaseDate`, `currency`, `total` |
-| Content type **Receipt line** | `receipt` (lookup to the library), `quantity`, `unitPrice`, `amount`; the title is the description |
+| Content type **Receipt line** | `quantity`, `unitPrice`, `amount`; the title is the description |
+| Relationship type **contains receipt line** | Directed; inverse **belongs to receipt**; at most one receipt per line |
 | Workspace **Receipts** (parameter `Workspace`) | The library **Receipts** (views: All receipts, Needs review) and the list **Receipt lines** |
 | Workflow **Read receipts** | Two triggers: when a receipt's tags change to one at or below *ticket*, and when a file with the tag is added |
 | Library workflows | "Read the text" off (as is "Recognize text"); "Make thumbnails" and "Render pages" on |
@@ -61,8 +62,13 @@ tagged after the upload (the tags change), or added with the tag
    - writes the store, date, currency and total, and sets the status to *Read*;
    - removes the lines of an earlier reading (the receipt can be read again
      by tagging it again);
-   - creates one item in *Receipt lines* per line, with the receipt as its
-     lookup.
+   - creates one item in *Receipt lines* per line and links it with
+     **contains receipt line** (inverse: **belongs to receipt**).
+
+   The script pages through `items.related`, then plans `items.unrelate`,
+   `items.deleteById`, and `items.relate` writes. Membership follows item ids,
+   so moving a receipt or a line to a compatible list does not break the link.
+   Quantity and price belong to a purchase line, rather than a reusable product.
 
    The writes are applied after the script, safely: a retry never creates a
    line twice.
@@ -127,3 +133,28 @@ workflow with `runWorkflowScript` from the TypeScript SDK.
   same script API on the server and in the SDK.
 - [OpenAiBatchClientTests](../../tests/PaperDotNet.UnitTests/OpenAiBatchClientTests.cs)
   checks the requests the batch client sends and how it reads the answers.
+
+## Upgrading an older lookup-based installation
+
+The package is additive: it does not remove existing columns or silently rewrite existing lines. If the earlier
+package is installed, pause **Read receipts** before reapplying this version. Make the **Receipt line / receipt**
+lookup optional in the content type editor; new graph-based lines do not populate that column. Reapply the package,
+then backfill each existing line's receipt id as a **contains receipt line** relationship before resuming readings.
+This preserves its membership so the next reading can remove the earlier generated lines.
+
+With an authenticated TypeScript SDK client and the existing lines-list builder, the backfill is:
+
+```ts
+for await (const line of all(lines.items)) {
+  const receipt = fieldsOf(line).receipt;
+  if (typeof receipt === 'string') {
+    await client.api.v10.items.byItemId(receipt).relationships.post({
+      otherId: line.id,
+      type: 'contains receipt line',
+    });
+  }
+}
+```
+
+`all` and `fieldsOf` come from `@paperdotnet/client`. Repeating this backfill does not duplicate links. Keep the old
+lookup column until any views, scripts or integrations that use it have been updated.

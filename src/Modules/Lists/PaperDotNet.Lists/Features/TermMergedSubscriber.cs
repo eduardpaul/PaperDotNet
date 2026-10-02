@@ -27,6 +27,8 @@ internal sealed class TermMergedSubscriber(ListsDbContext db, ITermStore terms, 
             return;
         }
 
+        await MergeRelationshipsAsync(integrationEvent, cancellationToken);
+
         var fieldsByContentType = (await db.ContentTypes.AsNoTracking().ToListAsync(cancellationToken))
             .Select(c => (c.Id, Fields: c.Fields.Where(f => Uses(f, set)).ToList()))
             .Where(c => c.Fields.Count > 0)
@@ -78,6 +80,53 @@ internal sealed class TermMergedSubscriber(ListsDbContext db, ITermStore terms, 
                 await outbox.SaveChangesAsync(db, events, cancellationToken: cancellationToken);
                 db.ChangeTracker.Clear();
             }
+        }
+    }
+
+    private async Task MergeRelationshipsAsync(TermMerged e, CancellationToken ct)
+    {
+        var definition = await db.RelationshipTypes.FirstOrDefaultAsync(t => t.Id == e.SourceTermId, ct);
+        if (definition is not null)
+        {
+            if (!await db.RelationshipTypes.AnyAsync(t => t.Id == e.TargetTermId, ct))
+                db.RelationshipTypes.Add(new ItemRelationshipType
+                {
+                    Id = e.TargetTermId,
+                    Directed = definition.Directed,
+                    InverseLabel = definition.InverseLabel,
+                    MaxIncoming = definition.MaxIncoming,
+                    MaxOutgoing = definition.MaxOutgoing
+                });
+            db.RelationshipTypes.Remove(definition);
+            await db.SaveChangesAsync(ct);
+        }
+        while (true)
+        {
+            var edges = await db.Relations.Where(r => r.TypeId == e.SourceTermId).OrderBy(r => r.Id).Take(BatchSize).ToListAsync(ct);
+            if (edges.Count == 0) break;
+            foreach (var edge in edges)
+            {
+                if (await db.Relations.AnyAsync(r => r.TypeId == e.TargetTermId && r.FirstItemId == edge.FirstItemId
+                    && r.SecondItemId == edge.SecondItemId && r.Directed == edge.Directed, ct)) db.Relations.Remove(edge);
+                else edge.TypeId = e.TargetTermId;
+            }
+            var ids = edges.SelectMany(r => new[] { r.FirstItemId, r.SecondItemId }).Distinct().ToArray();
+            var items = await db.Items.Where(i => EF.Parameter(ids).Contains(i.Id)).ToListAsync(ct);
+            var listIds = items.Select(i => i.ListId).Distinct().ToArray();
+            var workspaces = await db.Lists.Where(l => EF.Parameter(listIds).Contains(l.Id)).ToDictionaryAsync(l => l.Id, l => l.WorkspaceId, ct);
+            foreach (var item in items) db.Entry(item).Property(i => i.UpdatedAt).IsModified = true;
+            await outbox.SaveChangesAsync(db, items.Select(i => (IntegrationEvent)new ItemUpdated
+            {
+                TenantId = e.TenantId,
+                TenantIdentifier = e.TenantIdentifier,
+                UserId = e.UserId,
+                WorkspaceId = workspaces[i.ListId],
+                ListId = i.ListId,
+                ItemId = i.Id,
+                ContentTypeId = i.ContentTypeId,
+                ChangedFields = ["relatedItems"]
+            }).ToList(), cancellationToken: ct);
+            db.ChangeTracker.Clear();
         }
     }
 

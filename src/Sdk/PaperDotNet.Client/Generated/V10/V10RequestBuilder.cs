@@ -20,6 +20,7 @@ using PaperDotNet.Client.V10.Operations;
 using PaperDotNet.Client.V10.Organization;
 using PaperDotNet.Client.V10.Portability;
 using PaperDotNet.Client.V10.Provisioning;
+using PaperDotNet.Client.V10.RelationshipTypes;
 using PaperDotNet.Client.V10.Roles;
 using PaperDotNet.Client.V10.Scopes;
 using PaperDotNet.Client.V10.Search;
@@ -129,6 +130,11 @@ namespace PaperDotNet.Client.V10
         public global::PaperDotNet.Client.V10.Provisioning.ProvisioningRequestBuilder Provisioning
         {
             get => new global::PaperDotNet.Client.V10.Provisioning.ProvisioningRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The relationshipTypes property</summary>
+        public global::PaperDotNet.Client.V10.RelationshipTypes.RelationshipTypesRequestBuilder RelationshipTypes
+        {
+            get => new global::PaperDotNet.Client.V10.RelationshipTypes.RelationshipTypesRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The roles property</summary>
         public global::PaperDotNet.Client.V10.Roles.RolesRequestBuilder Roles

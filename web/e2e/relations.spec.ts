@@ -70,3 +70,51 @@ test('items of different types have symmetric links that survive moving between 
   await panel.getByRole('tab', { name: 'Related', exact: true }).click();
   await expect(panel.getByText('No related items you can access.')).toBeVisible();
 });
+
+test('a user creates a directed taxonomy type, filters edges and sees its inverse label', async ({ page, request }) => {
+  await signIn(page);
+  const url = await createList(page, 'Tasks', unique('Graph tasks'));
+  const path = new URL(url).pathname.split('/');
+  const headers = await adminHeaders(request);
+  const firstTitle = unique('Source node');
+  const secondTitle = unique('Target node');
+  const create = async (title: string) => {
+    const response = await request.post(`/v1.0/workspaces/${path[2]}/lists/${path[4]}/items`, {
+      headers,
+      data: { fields: { title } },
+    });
+    expect(response.ok()).toBeTruthy();
+    return (await response.json()).id as string;
+  };
+  const first = await create(firstTitle);
+  const second = await create(secondTitle);
+  const predicate = unique('Contains');
+  await page.goto(`/i/${first}`);
+  const panel = page.getByRole('dialog');
+  await panel.getByRole('tab', { name: 'Related', exact: true }).click();
+  await panel.locator('#relationship-type').click();
+  await page.getByPlaceholder('Search…', { exact: true }).fill(predicate);
+  await page.getByRole('option', { name: `Add “${predicate}”` }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create relationship type' });
+  await dialog.getByLabel('Direction', { exact: true }).selectOption('outgoing');
+  await dialog.getByLabel('Inverse label (optional)').fill('Belongs to');
+  await dialog.getByLabel('Maximum incoming links per item (optional)').fill('1');
+  await dialog.getByRole('button', { name: 'Create type', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(panel.locator('#relationship-type')).toContainText(predicate);
+  await panel.getByLabel('Link another item').fill(secondTitle);
+  await panel
+    .getByRole('list', { name: 'Items to link' })
+    .getByRole('button', { name: new RegExp(secondTitle) })
+    .click();
+  await expect(panel.getByRole('list', { name: 'Related items' })).toContainText(predicate);
+  await panel.getByLabel('Filter by direction').selectOption('incoming');
+  await expect(panel.getByText('No related items you can access.')).toBeVisible();
+  await panel.getByLabel('Filter by direction').selectOption('outgoing');
+  await expect(panel.getByRole('list', { name: 'Related items' })).toContainText(secondTitle);
+  await page.goto(`/i/${second}`);
+  await panel.getByRole('tab', { name: 'Related', exact: true }).click();
+  await expect(panel.getByRole('list', { name: 'Related items' })).toContainText('Belongs to');
+  await panel.getByRole('button', { name: `Unlink ${firstTitle}`, exact: true }).click();
+  await expect(panel.getByText('No related items you can access.')).toBeVisible();
+});

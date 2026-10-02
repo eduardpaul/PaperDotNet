@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from ....models.located_item_response import LocatedItemResponse
     from .move.move_request_builder import MoveRequestBuilder
     from .relations.relations_request_builder import RelationsRequestBuilder
+    from .relationships.relationships_request_builder import RelationshipsRequestBuilder
 
 class WithItemItemRequestBuilder(BaseRequestBuilder):
     """
@@ -88,6 +89,15 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .relations.relations_request_builder import RelationsRequestBuilder
 
         return RelationsRequestBuilder(self.request_adapter, self.path_parameters)
+
+    @property
+    def relationships(self) -> RelationshipsRequestBuilder:
+        """
+        The relationships property
+        """
+        from .relationships.relationships_request_builder import RelationshipsRequestBuilder
+
+        return RelationshipsRequestBuilder(self.request_adapter, self.path_parameters)
 
     @dataclass
     class WithItemItemRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):

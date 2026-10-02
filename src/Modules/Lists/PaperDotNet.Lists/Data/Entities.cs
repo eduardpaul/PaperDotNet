@@ -16,12 +16,33 @@ public sealed class ItemRelation : ITenantOwned, IAuditable
 
     public Guid SecondItemId { get; set; }
 
+    /// <summary>The taxonomy term identifying the predicate; empty for an untyped link.</summary>
+    public Guid TypeId { get; set; }
+
+    /// <summary>For directed edges FirstItemId is the source; otherwise endpoints are canonically ordered.</summary>
+    public bool Directed { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
 
+    public Guid? UpdatedBy { get; set; }
+}
+
+/// <summary>Behavior of a taxonomy-backed relationship type. Labels and synonyms live in the term store.</summary>
+public sealed class ItemRelationshipType : ITenantOwned, IAuditable
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public bool Directed { get; set; }
+    public string? InverseLabel { get; set; }
+    public int? MaxIncoming { get; set; }
+    public int? MaxOutgoing { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
     public Guid? UpdatedBy { get; set; }
 }
 

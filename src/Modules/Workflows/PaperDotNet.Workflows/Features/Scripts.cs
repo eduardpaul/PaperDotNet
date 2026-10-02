@@ -60,6 +60,10 @@ internal sealed partial class ScriptRunner(IListItemStore items, IOptions<Workfl
           create: async (list, fields) => __items_write('create', list, null, fields),
           update: async (list, id, fields) => __items_write('update', list, id, fields),
           delete: async (list, id) => __items_write('delete', list, id, null),
+          related: async (id, options) => __items_related(id, options === undefined ? null : options),
+          relate: async (id, otherId, type) => __items_graph('relate', id, otherId, type === undefined ? null : type),
+          unrelate: async (id, relationshipId) => __items_graph('unrelate', id, relationshipId, null),
+          deleteById: async (id) => __items_graph('deleteGlobal', id, null, null),
         });
         const log = (text) => __log(text);
         """;
@@ -205,6 +209,52 @@ internal sealed partial class ScriptRunner(IListItemStore items, IOptions<Workfl
                 ["fields"] = values,
             });
             return op == "create" ? itemId.ToString() : JsValue.Undefined;
+        }));
+        engine.SetValue("__items_related", new Func<JsValue, JsValue, JsValue>((id, queryOptions) =>
+        {
+            Read();
+            var query = queryOptions.IsNull() ? new JsonObject() : FromJs(queryOptions) as JsonObject ?? throw Error("The relationship options must be an object.");
+            string? Text(string name) => query[name] switch
+            {
+                null => null,
+                JsonValue value when value.TryGetValue<string>(out var text) => text,
+                _ => throw Error($"{name} must be a string.")
+            };
+            var direction = Text("direction");
+            if (direction is not (null or "both" or "incoming" or "outgoing")) throw Error("direction must be both, incoming or outgoing.");
+            Guid? after = null;
+            if (Text("cursor") is { } cursor)
+            {
+                if (!PaperDotNet.Api.PageRequest.TryDecodeCursor(cursor, out var decoded)) throw Error("The relationship cursor is invalid.");
+                after = decoded;
+            }
+            var top = query["top"] switch { null => 100, JsonValue value when value.TryGetValue<double>(out var n) => Math.Clamp((int)n, 1, 500), _ => throw Error("top must be a number.") };
+            var page = store.GetRelationshipsAsync(Id(id), Text("type"), direction, top, after, ct).GetAwaiter().GetResult();
+            if (page is null) throw Error("The item was not found.");
+            return ToJs(new JsonObject
+            {
+                ["value"] = new JsonArray([.. page.Items.Select(edge => (JsonNode)new JsonObject {
+                ["id"] = edge.Id.ToString(), ["sourceId"] = edge.SourceItemId.ToString(), ["targetId"] = edge.TargetItemId.ToString(),
+                ["directed"] = edge.Directed, ["type"] = edge.Type?.Name,
+                ["item"] = ItemJson(edge.RelatedItem, store.GetListAsync(edge.RelatedItem.WorkspaceId, edge.RelatedItem.ListId, ct).GetAwaiter().GetResult()?.Name)
+            })]),
+                ["nextCursor"] = page.NextCursor
+            });
+        }));
+        engine.SetValue("__items_graph", new Func<JsValue, JsValue, JsValue, JsValue, JsValue>((kind, id, other, type) =>
+        {
+            if (plan.Count >= limits.MaxWrites) throw Error($"A script writes at most {limits.MaxWrites} items.");
+            if (!type.IsNull() && !type.IsString()) throw Error("type must be a string.");
+            var op = kind.AsString();
+            plan.Add(new JsonObject
+            {
+                ["op"] = op,
+                ["list"] = "global items",
+                ["listId"] = Guid.Empty.ToString(),
+                ["id"] = Id(id).ToString(),
+                ["fields"] = new JsonObject { ["otherId"] = other.IsNull() ? null : Id(other).ToString(), ["type"] = type.IsNull() ? null : type.AsString() }
+            });
+            return JsValue.Undefined;
         }));
         engine.SetValue("__log", new Action<JsValue>(text => log.Add(text.IsString() ? text.AsString() : text.ToString())));
 

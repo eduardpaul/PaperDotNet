@@ -24,7 +24,7 @@ namespace PaperDotNet.Lists.Features;
 /// </summary>
 internal sealed class ListItemsTemplateHandler(
     ListsDbContext db, ListSchemaLoader loader, ItemWriter writer, ListTemplateLookups lookups, ITermStore terms, IUserDirectory users,
-    AuditOverrides stamps) : ITemplateHandler
+    AuditOverrides stamps, IListItemStore itemStore) : ITemplateHandler
 {
     public const string Kind = "items";
 
@@ -68,6 +68,7 @@ internal sealed class ListItemsTemplateHandler(
         var itemIds = items.Select(i => i.Id).ToArray();
         var relations = await db.Relations.AsNoTracking()
             .Where(r => EF.Parameter(itemIds).Contains(r.FirstItemId) || EF.Parameter(itemIds).Contains(r.SecondItemId)).ToListAsync(cancellationToken);
+        var relationTypes = await terms.GetTermPathsAsync(relations.Select(r => r.TypeId).Where(id => id != Guid.Empty).Distinct().ToArray(), cancellationToken);
         var relatedIds = relations.SelectMany(r => new[] { r.FirstItemId, r.SecondItemId }).Distinct().ToArray();
         var targets = await db.Items.AsNoTracking().Where(i => EF.Parameter(relatedIds).Contains(i.Id)).ToDictionaryAsync(i => i.Id, cancellationToken);
         var targetListIds = targets.Values.Select(i => i.ListId).Distinct().ToArray();
@@ -123,7 +124,15 @@ internal sealed class ListItemsTemplateHandler(
                         continue;
                     }
 
-                    related.Add(new JsonObject { ["list"] = targetPath, ["key"] = Key(target.Id) });
+                    var reference = new JsonObject { ["list"] = targetPath, ["key"] = Key(target.Id) };
+                    if (relation.TypeId != Guid.Empty && relationTypes.TryGetValue(relation.TypeId, out var typePath))
+                    {
+                        reference["type"] = typePath;
+                        var parts = typePath.Split('/');
+                        context.Require(TemplateKinds.TermSet, $"{parts[0]}/{parts[1]}");
+                    }
+                    if (relation.Directed) reference["direction"] = relation.FirstItemId == item.Id ? "outgoing" : "incoming";
+                    related.Add(reference);
                 }
             }
 
@@ -375,13 +384,19 @@ internal sealed class ListItemsTemplateHandler(
                     continue;
                 }
 
-                var first = id.CompareTo(otherId) < 0 ? id : otherId;
-                var second = first == id ? otherId : id;
-                if (!await db.Relations.AnyAsync(r => r.FirstItemId == first && r.SecondItemId == second, ct))
+                var typePath = reference["type"]?.ToString();
+                var typeId = typePath is null ? (Guid?)null : await terms.FindTermByPathAsync(typePath, ct);
+                if (typePath is not null && typeId is null)
                 {
-                    db.Relations.Add(new ItemRelation { Id = PaperDotNet.Abstractions.Ids.New(), FirstItemId = first, SecondItemId = second });
-                    await db.SaveChangesAsync(ct);
+                    context.Warn($"Relationship type '{typePath}' was left out: the term was not imported.");
+                    continue;
                 }
+                var incoming = reference["direction"]?.ToString() == "incoming";
+                var directed = reference["direction"] is not null;
+                var result = await itemStore.AsSystem().AddRelationshipAsync(incoming ? otherId : id, incoming ? id : otherId,
+                    new RelationshipOptions(typeId?.ToString(), directed), ct);
+                if (!result.Succeeded) throw new TemplateException($"Relationship could not be imported: {result.Describe()}");
+
             }
         }
     }

@@ -46,6 +46,12 @@ public sealed class McpTests(PaperDotNetApiFactory factory)
         var second = (await admin.CreateItemAsync(destination, targetList, new { fields = new { title = "Second" } })).GetProperty("id").GetGuid();
         await using var mcp = await ConnectAsync(admin);
         await CallAsync(mcp, "relate_items", new() { ["itemId"] = first.ToString(), ["otherId"] = second.ToString() });
+        await CallAsync(mcp, "create_relationship_type", new() { ["name"] = "contains", ["directed"] = true, ["inverseLabel"] = "belongs to", ["maxIncoming"] = 1 });
+        await CallAsync(mcp, "relate_items", new() { ["itemId"] = first.ToString(), ["otherId"] = second.ToString(), ["type"] = "contains" });
+        var graph = await CallAsync(mcp, "list_item_relationships", new() { ["itemId"] = second.ToString(), ["direction"] = "incoming", ["type"] = "contains" });
+        var edge = Assert.Single(graph.GetProperty("value").EnumerateArray());
+        Assert.True(edge.GetProperty("directed").GetBoolean());
+        await CallAsync(mcp, "remove_item_relationship", new() { ["itemId"] = second.ToString(), ["relationshipId"] = edge.GetProperty("id").GetString() });
         var inverse = await CallAsync(mcp, "list_related_items", new() { ["itemId"] = second.ToString() });
         Assert.Equal(first, Assert.Single(inverse.GetProperty("items").EnumerateArray()).GetProperty("id").GetGuid());
         var item = await CallAsync(mcp, "get_global_item", new() { ["itemId"] = first.ToString() });

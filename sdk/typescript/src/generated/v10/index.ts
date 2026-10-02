@@ -38,6 +38,8 @@ import { PortabilityRequestBuilderNavigationMetadata, type PortabilityRequestBui
 // @ts-ignore
 import { ProvisioningRequestBuilderNavigationMetadata, type ProvisioningRequestBuilder } from './provisioning/index.js';
 // @ts-ignore
+import { RelationshipTypesRequestBuilderRequestsMetadata, type RelationshipTypesRequestBuilder } from './relationshipTypes/index.js';
+// @ts-ignore
 import { RolesRequestBuilderNavigationMetadata, RolesRequestBuilderRequestsMetadata, type RolesRequestBuilder } from './roles/index.js';
 // @ts-ignore
 import { ScopesRequestBuilderRequestsMetadata, type ScopesRequestBuilder } from './scopes/index.js';
@@ -132,6 +134,10 @@ export interface V10RequestBuilder extends BaseRequestBuilder<V10RequestBuilder>
      * The provisioning property
      */
     get provisioning(): ProvisioningRequestBuilder;
+    /**
+     * The relationshipTypes property
+     */
+    get relationshipTypes(): RelationshipTypesRequestBuilder;
     /**
      * The roles property
      */
@@ -234,6 +240,9 @@ export const V10RequestBuilderNavigationMetadata: Record<Exclude<keyof V10Reques
     },
     provisioning: {
         navigationMetadata: ProvisioningRequestBuilderNavigationMetadata,
+    },
+    relationshipTypes: {
+        requestsMetadata: RelationshipTypesRequestBuilderRequestsMetadata,
     },
     roles: {
         requestsMetadata: RolesRequestBuilderRequestsMetadata,

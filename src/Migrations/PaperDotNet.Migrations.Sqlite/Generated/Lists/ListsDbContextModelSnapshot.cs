@@ -248,6 +248,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasColumnType("TEXT")
                         .HasColumnName("created_by");
 
+                    b.Property<bool>("Directed")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("directed");
+
                     b.Property<Guid>("FirstItemId")
                         .HasColumnType("TEXT")
                         .HasColumnName("first_item_id");
@@ -259,6 +263,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("TypeId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("type_id");
 
                     b.Property<long>("UpdatedAt")
                         .HasColumnType("INTEGER")
@@ -283,11 +291,64 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                     b.HasIndex("TenantId", "SecondItemId")
                         .HasDatabaseName("ix_lists_item_relations_tenant_id_second_item_id");
 
-                    b.HasIndex("TenantId", "FirstItemId", "SecondItemId")
+                    b.HasIndex("TenantId", "FirstItemId", "SecondItemId", "TypeId", "Directed")
                         .IsUnique()
-                        .HasDatabaseName("ix_lists_item_relations_tenant_id_first_item_id_second_item_id");
+                        .HasDatabaseName("ix_lists_item_relations_tenant_id_first_item_id_second_item_id_type_id_directed");
 
                     b.ToTable("lists_item_relations", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Lists.Data.ItemRelationshipType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("Directed")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("directed");
+
+                    b.Property<string>("InverseLabel")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("inverse_label");
+
+                    b.Property<int?>("MaxIncoming")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("max_incoming");
+
+                    b.Property<int?>("MaxOutgoing")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("max_outgoing");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_lists_item_relationship_types");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_lists_item_relationship_types_tenant_id");
+
+                    b.ToTable("lists_item_relationship_types", (string)null);
                 });
 
             modelBuilder.Entity("PaperDotNet.Lists.Data.ItemValue", b =>

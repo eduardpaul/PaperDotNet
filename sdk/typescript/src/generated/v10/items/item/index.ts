@@ -8,6 +8,8 @@ import { MoveRequestBuilderRequestsMetadata, type MoveRequestBuilder } from './m
 // @ts-ignore
 import { RelationsRequestBuilderNavigationMetadata, RelationsRequestBuilderRequestsMetadata, type RelationsRequestBuilder } from './relations/index.js';
 // @ts-ignore
+import { RelationshipsRequestBuilderNavigationMetadata, RelationshipsRequestBuilderRequestsMetadata, type RelationshipsRequestBuilder } from './relationships/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -22,6 +24,10 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      * The relations property
      */
     get relations(): RelationsRequestBuilder;
+    /**
+     * The relationships property
+     */
+    get relationships(): RelationshipsRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<LocatedItemResponse>}
@@ -48,6 +54,10 @@ export const WithItemItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     relations: {
         requestsMetadata: RelationsRequestBuilderRequestsMetadata,
         navigationMetadata: RelationsRequestBuilderNavigationMetadata,
+    },
+    relationships: {
+        requestsMetadata: RelationshipsRequestBuilderRequestsMetadata,
+        navigationMetadata: RelationshipsRequestBuilderNavigationMetadata,
     },
 };
 /**

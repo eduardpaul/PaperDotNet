@@ -6,6 +6,7 @@ using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
 using PaperDotNet.Client.V10.Items.Item.Move;
 using PaperDotNet.Client.V10.Items.Item.Relations;
+using PaperDotNet.Client.V10.Items.Item.Relationships;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -28,6 +29,11 @@ namespace PaperDotNet.Client.V10.Items.Item
         public global::PaperDotNet.Client.V10.Items.Item.Relations.RelationsRequestBuilder Relations
         {
             get => new global::PaperDotNet.Client.V10.Items.Item.Relations.RelationsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The relationships property</summary>
+        public global::PaperDotNet.Client.V10.Items.Item.Relationships.RelationshipsRequestBuilder Relationships
+        {
+            get => new global::PaperDotNet.Client.V10.Items.Item.Relationships.RelationshipsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Items.Item.WithItemItemRequestBuilder"/> and sets the default values.

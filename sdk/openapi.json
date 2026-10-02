@@ -5963,6 +5963,283 @@
         }
       }
     },
+    "/v1.0/relationshipTypes": {
+      "get": {
+        "tags": [
+          "Relationship types"
+        ],
+        "operationId": "ListRelationshipTypes",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RelationshipTypeData"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Relationship types"
+        ],
+        "operationId": "CreateRelationshipType",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelationshipTypeOptions"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelationshipTypeData"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/items/{itemId}/relationships": {
+      "get": {
+        "tags": [
+          "Item relationships"
+        ],
+        "operationId": "ListItemRelationships",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "$top",
+            "in": "query",
+            "description": "Page size.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "$skiptoken",
+            "in": "query",
+            "description": "Continuation token from @odata.nextLink.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfItemRelationshipResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Item relationships"
+        ],
+        "operationId": "AddItemRelationship",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddItemRelationshipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/items/{itemId}/relationships/{relationshipId}": {
+      "delete": {
+        "tags": [
+          "Item relationships"
+        ],
+        "operationId": "RemoveItemRelationship",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "relationshipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/delta": {
       "get": {
         "tags": [
@@ -15703,6 +15980,30 @@
           }
         }
       },
+      "AddItemRelationshipRequest": {
+        "required": [
+          "otherId"
+        ],
+        "type": "object",
+        "properties": {
+          "otherId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "directed": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
       "AddLinkRequest": {
         "required": [
           "kind",
@@ -18735,6 +19036,47 @@
         },
         "description": "A page of items in Graph/OData shape."
       },
+      "ItemRelationshipResponse": {
+        "required": [
+          "id",
+          "sourceItemId",
+          "targetItemId",
+          "directed",
+          "type",
+          "relatedItem"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "directed": {
+            "type": "boolean"
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RelationshipTypeData"
+              }
+            ]
+          },
+          "relatedItem": {
+            "$ref": "#/components/schemas/LocatedItemResponse"
+          }
+        }
+      },
       "ItemResponse": {
         "required": [
           "id",
@@ -19842,6 +20184,28 @@
         },
         "description": "A page of results in Graph/OData shape."
       },
+      "PageOfItemRelationshipResponse": {
+        "required": [
+          "value",
+          "@odata.nextLink"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemRelationshipResponse"
+            }
+          },
+          "@odata.nextLink": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "A page of results in Graph/OData shape."
+      },
       "PageOfItemVersionResponse": {
         "required": [
           "value",
@@ -20579,6 +20943,85 @@
           },
           "status": {
             "$ref": "#/components/schemas/OperationStatus"
+          }
+        }
+      },
+      "RelationshipTypeData": {
+        "required": [
+          "id",
+          "name",
+          "directed",
+          "inverseLabel",
+          "maxIncoming",
+          "maxOutgoing"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "directed": {
+            "type": "boolean"
+          },
+          "inverseLabel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "maxIncoming": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "maxOutgoing": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        },
+        "description": "A taxonomy-backed predicate; constraints apply to directed edges, including recycled endpoints."
+      },
+      "RelationshipTypeOptions": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "directed": {
+            "type": "boolean",
+            "default": false
+          },
+          "inverseLabel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "maxIncoming": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "maxOutgoing": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -23086,6 +23529,12 @@
     },
     {
       "name": "Global items"
+    },
+    {
+      "name": "Relationship types"
+    },
+    {
+      "name": "Item relationships"
     },
     {
       "name": "Smart folders"

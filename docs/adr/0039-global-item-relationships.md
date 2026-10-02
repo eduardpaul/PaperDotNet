@@ -34,3 +34,6 @@ delta sync. Search follows the saved update asynchronously.
 Packages serialize relations using list paths and item keys, then resolve them after all items are imported. Workspace
 exports omit relationships outside that workspace with a warning. Imports remap endpoints to destination identities;
 missing targets are warned about and skipped. Reapplying a package is additive and does not duplicate relationships.
+
+[ADR-0040](0040-typed-item-relationships.md) extends this model with taxonomy-backed predicates, direction, endpoint
+limits and graph-aware workflow scripts. The symmetric, untyped behavior described here remains the default.

@@ -50,6 +50,10 @@ public sealed partial class McpModule : IModule
         services.AddScoped<IMcpTool, GetItemTool>();
         services.AddScoped<IMcpTool, GetGlobalItemTool>();
         services.AddScoped<IMcpTool, RelatedItemsTool>();
+        services.AddScoped<IMcpTool, ItemRelationshipsTool>();
+        services.AddScoped<IMcpTool, RemoveItemRelationshipTool>();
+        services.AddScoped<IMcpTool, RelationshipTypesTool>();
+        services.AddScoped<IMcpTool, CreateRelationshipTypeTool>();
         services.AddScoped<IMcpTool, RelateItemsTool>();
         services.AddScoped<IMcpTool, MoveItemToListTool>();
         services.AddScoped<IMcpTool, CreateItemTool>();
@@ -68,6 +72,7 @@ public sealed partial class McpModule : IModule
                     "Start with get_home or list_workspaces, then list_lists and describe_list for columns and content types. " +
                     "Read items with query_items (pass cursor back while nextCursor is returned) or search, and one item with get_item. " +
                     "Stable identities: get_global_item, list_related_items, relate_items and move_item_to_list work across lists and workspaces. " +
+                    "Graph predicates: list_relationship_types and create_relationship_type define taxonomy-backed types; list_item_relationships filters edges by type/direction; remove_item_relationship removes one edge. " +
                     "Folders: list_children, create_folder and ensure_folder. " +
                     "Files belong to libraries (isLibrary): upload_document, get_file, read_document and replace_document. " +
                     "Everything runs with the permissions of the signed-in user.";

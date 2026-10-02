@@ -59,7 +59,7 @@ async function onServer(world, scenario) {
     return JSON.parse(text);
   };
   const workflow = await post(`${base}/workflows`, {
-    name: 'Script',
+    name: unique('Script'),
     trigger: { type: 'manual', list: 'Orders' },
     variables: scenario.vars,
     flow: { start: 'run', nodes: { run: { activity: 'script', inputs: { code: scenario.code } } } },
@@ -168,4 +168,31 @@ for (const scenario of cases) {
       }
     });
   }
+}
+
+for (const runner of [inNode, onServer]) {
+  test(`typed graph scripts create, read and remove links (${runner === inNode ? 'SDK' : 'server'})`, async () => {
+    const world = await setup({});
+    const predicate = unique('Script contains');
+    await client.api.v10.relationshipTypes.post({ name: predicate, directed: true, inverseLabel: 'belongs to', maxIncoming: 1 });
+    const create = await runner(world, { code: [
+      "const id = await items.create('Lines', { title: 'Graph line', qty: 2, price: 3 });",
+      `await items.relate(item.id, id, ${JSON.stringify(predicate)});`,
+      `await items.relate(item.id, id, ${JSON.stringify(predicate)});`,
+      'return true;',
+    ] });
+    assert.equal(create.result, true);
+    const edges = await client.api.v10.items.byItemId(world.item.id).relationships.get();
+    assert.equal(edges.value.length, 1);
+    assert.equal(edges.value[0].directed, true);
+    const peer = edges.value[0].targetItemId;
+    const remove = await runner(world, { code: [
+      `const page = await items.related(item.id, { type: ${JSON.stringify(predicate)}, direction: 'outgoing' });`,
+      'for (const edge of page.value) { await items.unrelate(item.id, edge.id); await items.deleteById(edge.item.id); }',
+      'return { count: page.value.length, cursor: page.nextCursor };',
+    ] });
+    assert.deepEqual(remove.result, { count: 1, cursor: null });
+    assert.equal((await client.api.v10.items.byItemId(world.item.id).relationships.get()).value.length, 0);
+    await assert.rejects(() => client.api.v10.items.byItemId(peer).get());
+  });
 }

@@ -651,9 +651,12 @@ internal sealed partial class WorkflowInterpreter(
                 {
                     "create" => await store.CreateAsync(run.WorkspaceId, listId, target, (JsonObject)write["fields"]!.DeepClone(), null, ct),
                     "update" => await store.UpdateAsync(run.WorkspaceId, listId, target, (JsonObject)write["fields"]!.DeepClone(), null, ct),
+                    "relate" => await store.AddRelationshipAsync(target, Guid.Parse(write["fields"]!["otherId"]!.GetValue<string>()), new RelationshipOptions(write["fields"]!["type"]?.GetValue<string>()), ct),
+                    "unrelate" => await store.RemoveRelationshipAsync(target, Guid.Parse(write["fields"]!["otherId"]!.GetValue<string>()), ct),
+                    "deleteGlobal" => await DeleteGlobalAsync(target),
                     _ => await store.DeleteAsync(run.WorkspaceId, listId, target, null, ct),
                 };
-                if (!result.Succeeded && !(op == "delete" && result.Status == ListItemStatus.NotFound))
+                if (!result.Succeeded && !(op is "delete" or "deleteGlobal" or "unrelate" && result.Status == ListItemStatus.NotFound))
                 {
                     return await FailedAsync(id, node, $"write {index + 1} ({op} in {write["list"]}): {result.Describe()}");
                 }
@@ -665,6 +668,12 @@ internal sealed partial class WorkflowInterpreter(
                     await SaveAsync();
                 }
 
+                async Task<ListItemResult> DeleteGlobalAsync(Guid itemId)
+                {
+                    var current = await store.GetByIdAsync(itemId, ct);
+                    return current is null ? new ListItemResult(ListItemStatus.NotFound) : await store.DeleteAsync(current.WorkspaceId, current.ListId, itemId, null, ct);
+                }
+
                 void Count()
                 {
                     switch (op)
@@ -674,6 +683,9 @@ internal sealed partial class WorkflowInterpreter(
                             break;
                         case "update":
                             updated++;
+                            break;
+                        case "relate":
+                        case "unrelate":
                             break;
                         default:
                             deleted++;

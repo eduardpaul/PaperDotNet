@@ -231,11 +231,18 @@ saves the AI's answer with one script node:
 ```js
 const receipt = steps.read.json;
 await items.update(item.list, item.id, { store: receipt.store, total: receipt.total, status: 'Read' });
-for (const old of await items.query('Receipt lines', { filter: `fields/receipt eq ${item.id}`, top: 1000 })) {
-  await items.delete('Receipt lines', old.id);
-}
+let cursor;
+do {
+  const page = await items.related(item.id, { type: 'contains receipt line', direction: 'outgoing', cursor });
+  for (const edge of page.value) {
+    await items.unrelate(item.id, edge.id);
+    await items.deleteById(edge.item.id);
+  }
+  cursor = page.nextCursor;
+} while (cursor);
 for (const line of receipt.lines) {
-  await items.create('Receipt lines', { title: line.description, amount: line.amount, receipt: item.id });
+  const id = await items.create('Receipt lines', { title: line.description, amount: line.amount });
+  await items.relate(item.id, id, 'contains receipt line');
 }
 return { lines: receipt.lines.length };
 ```
@@ -252,11 +259,15 @@ return { lines: receipt.lines.length };
     (default 100 items, at most 1000);
   - `create(list, fields)` gives the new item's id;
   - `update(list, id, fields)` merges the fields (null removes a value);
-  - `delete(list, id)` moves the item to the recycle bin.
+  - `delete(list, id)` moves the item to the recycle bin;
+  - `related(id, { type, direction, top, cursor })` reads a page of global graph edges (`value`, `nextCursor`), with a readable peer in each edge's `item`;
+  - `relate(id, otherId, type?)` plans an idempotent link; direction defaults to the predicate;
+  - `unrelate(id, relationshipId)` plans removal of one edge from either endpoint;
+  - `deleteById(id)` plans deletion using the item's current list and workspace.
 - `log(text)`: adds a line to the run's log.
 
 **Writes are planned, then applied.**
-- Reads happen right away. `create`, `update` and `delete` only add to a plan,
+- Reads happen right away. Item and relationship writes only add to a plan,
   so a read does not see them.
 - When the script has returned, the plan is saved with the run and applied in
   order through the normal write path (validation, events, search).

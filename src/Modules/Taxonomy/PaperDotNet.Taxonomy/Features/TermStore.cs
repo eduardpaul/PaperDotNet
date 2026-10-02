@@ -91,7 +91,7 @@ internal sealed class TermStore(TaxonomyDbContext db) : ITermStore
 
     public async Task<IReadOnlyList<TermInfo>> ListTermsAsync(Guid termSetId, CancellationToken cancellationToken) =>
         await db.Terms.AsNoTracking()
-            .Where(t => t.TermSetId == termSetId && !t.IsDeprecated)
+            .Where(t => t.TermSetId == termSetId && !t.IsDeprecated && t.MergedIntoId == null)
             .OrderBy(t => t.Name)
             .Join(db.TermSets, t => t.TermSetId, s => s.Id, (t, s) => new TermInfo(t.Id, t.TermSetId, t.Name, s.IsKeywords || t.AvailableAsKeyword, t.IsDeprecated))
             .ToListAsync(cancellationToken);

@@ -27,6 +27,11 @@ public sealed class GlobalRelationPackageTests(PaperDotNetApiFactory factory)
         (await source.PutAsync($"/v1.0/items/{first}/relations/{second}", null, Ct)).EnsureSuccessStatusCode();
         (await source.PutAsync($"/v1.0/items/{first}/relations/{third}", null, Ct)).EnsureSuccessStatusCode();
 
+        var typeResponse = await source.PostAsJsonAsync("/v1.0/relationshipTypes", new { name = "contains", directed = true, inverseLabel = "belongs to", maxIncoming = 1 }, Ct);
+        typeResponse.EnsureSuccessStatusCode();
+        var predicate = (await typeResponse.ReadJsonAsync()).GetProperty("id").GetGuid();
+        (await source.PostAsJsonAsync($"/v1.0/items/{first}/relationships", new { otherId = third, type = predicate }, Ct)).EnsureSuccessStatusCode();
+
         // A workspace package includes its internal relationship, without references to outside workspaces.
         var workspaceExport = await source.GetAsync($"/v1.0/provisioning/export?workspaceId={ws}&includeContent=true", Ct);
         workspaceExport.EnsureSuccessStatusCode();
@@ -35,7 +40,7 @@ public sealed class GlobalRelationPackageTests(PaperDotNetApiFactory factory)
             var content = zip.Entries.Single(e => e.FullName.StartsWith("content/items-", StringComparison.Ordinal));
             using var document = await JsonDocument.ParseAsync(content.Open(), cancellationToken: Ct);
             var entry = document.RootElement.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("title").GetString() == "First record");
-            Assert.Equal(third.ToString("N"), Assert.Single(entry.GetProperty("relatedItems").EnumerateArray()).GetProperty("key").GetString());
+            Assert.Equal(third.ToString("N"), entry.GetProperty("relatedItems").EnumerateArray().Single(e => !e.TryGetProperty("type", out _)).GetProperty("key").GetString());
         }
 
         // A tenant package carries the cross-workspace relationship too.
@@ -60,5 +65,12 @@ public sealed class GlobalRelationPackageTests(PaperDotNetApiFactory factory)
         Assert.Equal(2, links.GetProperty("value").GetArrayLength());
         var inverse = await (await target.GetAsync($"/v1.0/items/{items["Second record"]}/relations", Ct)).ReadJsonAsync();
         Assert.Equal(items["First record"], Assert.Single(inverse.GetProperty("value").EnumerateArray()).GetProperty("item").GetProperty("id").GetGuid());
+        var typed = await (await target.GetAsync($"/v1.0/items/{items["First record"]}/relationships?type=contains&direction=outgoing", Ct)).ReadJsonAsync();
+        var edge = Assert.Single(typed.GetProperty("value").EnumerateArray());
+        Assert.Equal(items["Third record"], edge.GetProperty("targetItemId").GetGuid());
+        Assert.NotEqual(predicate, edge.GetProperty("type").GetProperty("id").GetGuid());
+        Assert.Equal("belongs to", edge.GetProperty("type").GetProperty("inverseLabel").GetString());
+        Assert.Equal(1, edge.GetProperty("type").GetProperty("maxIncoming").GetInt32());
+        Assert.Equal(3, (await (await target.GetAsync($"/v1.0/items/{items["First record"]}/relationships", Ct)).ReadJsonAsync()).GetProperty("value").GetArrayLength());
     }
 }

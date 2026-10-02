@@ -183,7 +183,7 @@ internal static class GlobalItemEndpoints
         }
     }
 
-    private static LocatedItemResponse Located(ListSchema schema, ListItem item, IReadOnlyDictionary<Guid, string> names) =>
+    internal static LocatedItemResponse Located(ListSchema schema, ListItem item, IReadOnlyDictionary<Guid, string> names) =>
         new(ItemResponse.From(item), schema.List.WorkspaceId, names.GetValueOrDefault(schema.List.WorkspaceId) ?? "",
             schema.List.Name, schema.FindContentType(item.ContentTypeId)?.Name ?? "Item",
             schema.Access.Level(item.ScopeId) >= WorkspaceAccessLevel.Contribute);

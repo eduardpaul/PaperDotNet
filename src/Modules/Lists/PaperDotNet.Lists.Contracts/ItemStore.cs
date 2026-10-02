@@ -215,6 +215,19 @@ public interface IListItemStore
     /// <summary>Adds/removes a symmetric relationship; requires Contribute on both endpoints.</summary>
     Task<ListItemResult> RelateAsync(Guid itemId, Guid otherId, bool related, CancellationToken cancellationToken);
 
+    /// <summary>Graph edges filtered by predicate (id or label) and direction (both, incoming, outgoing).</summary>
+    Task<ItemRelationshipPage?> GetRelationshipsAsync(Guid itemId, string? type, string? direction, int top, Guid? after, CancellationToken cancellationToken);
+
+    /// <summary>Adds an idempotent typed edge, checking both endpoints and type cardinality.</summary>
+    Task<ListItemResult> AddRelationshipAsync(Guid itemId, Guid otherId, RelationshipOptions options, CancellationToken cancellationToken);
+
+    /// <summary>Removes one edge by its identity, checking both endpoints.</summary>
+    Task<ListItemResult> RemoveRelationshipAsync(Guid itemId, Guid relationshipId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<RelationshipTypeData>> GetRelationshipTypesAsync(CancellationToken cancellationToken);
+
+    Task<RelationshipTypeData> EnsureRelationshipTypeAsync(RelationshipTypeOptions options, CancellationToken cancellationToken);
+
     /// <summary>Indexes the item again for search (e.g. after its <see cref="IItemSearchContributor"/> content changed).</summary>
     Task ReindexAsync(Guid itemId, CancellationToken cancellationToken);
 
