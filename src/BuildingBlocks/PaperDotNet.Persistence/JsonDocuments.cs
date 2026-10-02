@@ -29,6 +29,11 @@ public static class JsonFunctions
     /// <summary>True when the top-level property exists.</summary>
     public static bool HasProperty(string document, string property) => throw ClientSide();
 
+    /// <summary>Scalar extraction returning null for missing properties or a different JSON type.</summary>
+    public static string? ScalarText(string document, string property) => throw ClientSide();
+    public static double? ScalarNumber(string document, string property) => throw ClientSide();
+    public static bool? ScalarBoolean(string document, string property) => throw ClientSide();
+
     private static NotSupportedException ClientSide() =>
         new("JsonFunctions can only be used in database queries.");
 }

@@ -61,9 +61,11 @@ internal sealed partial class ScriptRunner(IListItemStore items, IOptions<Workfl
           update: async (list, id, fields) => __items_write('update', list, id, fields),
           delete: async (list, id) => __items_write('delete', list, id, null),
           related: async (id, options) => __items_related(id, options === undefined ? null : options),
-          relate: async (id, otherId, type) => __items_graph('relate', id, otherId, type === undefined ? null : type),
-          unrelate: async (id, relationshipId) => __items_graph('unrelate', id, relationshipId, null),
-          deleteById: async (id) => __items_graph('deleteGlobal', id, null, null),
+          relate: async (id, otherId, type, attributes) => __items_graph('relate', id, otherId, type === undefined ? null : type, attributes === undefined ? null : attributes, null),
+          relationships: async (options) => __items_relationships(options === undefined ? null : options),
+          updateRelationship: async (id, relationshipId, attributes, version) => __items_graph('updateRelationship', id, relationshipId, null, attributes, version),
+          unrelate: async (id, relationshipId) => __items_graph('unrelate', id, relationshipId, null, null, null),
+          deleteById: async (id) => __items_graph('deleteGlobal', id, null, null, null, null),
         });
         const log = (text) => __log(text);
         """;
@@ -235,24 +237,56 @@ internal sealed partial class ScriptRunner(IListItemStore items, IOptions<Workfl
             {
                 ["value"] = new JsonArray([.. page.Items.Select(edge => (JsonNode)new JsonObject {
                 ["id"] = edge.Id.ToString(), ["sourceId"] = edge.SourceItemId.ToString(), ["targetId"] = edge.TargetItemId.ToString(),
-                ["directed"] = edge.Directed, ["type"] = edge.Type?.Name,
+                ["directed"] = edge.Directed, ["type"] = edge.Type?.Name, ["attributes"] = edge.Attributes.DeepClone(), ["version"] = edge.Version,
                 ["item"] = ItemJson(edge.RelatedItem, store.GetListAsync(edge.RelatedItem.WorkspaceId, edge.RelatedItem.ListId, ct).GetAwaiter().GetResult()?.Name)
             })]),
                 ["nextCursor"] = page.NextCursor
             });
         }));
-        engine.SetValue("__items_graph", new Func<JsValue, JsValue, JsValue, JsValue, JsValue>((kind, id, other, type) =>
+        engine.SetValue("__items_relationships", new Func<JsValue, JsValue>(options =>
+        {
+            Read();
+            var q = options.IsNull() ? new JsonObject() : FromJs(options) as JsonObject ?? throw Error("relationship options must be an object.");
+            string? Text(string name) => q[name] is null ? null : q[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : throw Error($"{name} must be a string.");
+            Guid? after = null;
+            if (Text("cursor") is { } cursor)
+            {
+                if (!PaperDotNet.Api.PageRequest.TryDecodeCursor(cursor, out var parsed)) throw Error("The relationship cursor is invalid.");
+                after = parsed;
+            }
+            bool? directed = q["directed"] is null ? null : q["directed"] is JsonValue flag && flag.TryGetValue<bool>(out var direction) ? direction : throw Error("directed must be a boolean.");
+            var top = q["top"] is null ? 100 : q["top"] is JsonValue count && count.TryGetValue<double>(out var number) ? (int)Math.Clamp(number, 1, 500) : throw Error("top must be a number.");
+            WorkspaceRelationshipPage? page;
+            try { page = store.QueryRelationshipsAsync(workspaceId, Text("type"), directed, Text("filter"), top, after, ct).GetAwaiter().GetResult(); }
+            catch (ArgumentException ex) { throw Error(ex.Message); }
+            if (page is null) throw Error("The workspace was not found.");
+            JsonObject Located(ListItemData data) => ItemJson(data, store.GetListAsync(data.WorkspaceId, data.ListId, ct).GetAwaiter().GetResult()?.Name);
+            return ToJs(new JsonObject
+            {
+                ["value"] = new JsonArray([.. page.Items.Select(edge => (JsonNode)new JsonObject {
+                ["id"] = edge.Id.ToString(), ["directed"] = edge.Directed, ["type"] = edge.Type?.Name,
+                ["attributes"] = edge.Attributes.DeepClone(), ["version"] = edge.Version,
+                ["sourceItem"] = Located(edge.SourceItem), ["targetItem"] = Located(edge.TargetItem)
+            })]),
+                ["nextCursor"] = page.NextCursor
+            });
+        }));
+        engine.SetValue("__items_graph", new Func<JsValue, JsValue, JsValue, JsValue, JsValue, JsValue, JsValue>((kind, id, other, type, attributes, version) =>
         {
             if (plan.Count >= limits.MaxWrites) throw Error($"A script writes at most {limits.MaxWrites} items.");
             if (!type.IsNull() && !type.IsString()) throw Error("type must be a string.");
             var op = kind.AsString();
+            var bag = attributes.IsNull() ? null : FromJs(attributes) as JsonObject ?? throw Error("attributes must be an object.");
+            if (op == "updateRelationship" && bag is null) throw Error("attributes must be an object.");
+            if (op == "updateRelationship" && (!version.IsNumber() || version.AsNumber() < 1 || version.AsNumber() > uint.MaxValue || version.AsNumber() != Math.Truncate(version.AsNumber())))
+                throw Error("version must be a positive relationship version.");
             plan.Add(new JsonObject
             {
                 ["op"] = op,
                 ["list"] = "global items",
                 ["listId"] = Guid.Empty.ToString(),
                 ["id"] = Id(id).ToString(),
-                ["fields"] = new JsonObject { ["otherId"] = other.IsNull() ? null : Id(other).ToString(), ["type"] = type.IsNull() ? null : type.AsString() }
+                ["fields"] = new JsonObject { ["otherId"] = other.IsNull() ? null : Id(other).ToString(), ["type"] = type.IsNull() ? null : type.AsString(), ["attributes"] = bag, ["version"] = version.IsNull() ? null : (uint)version.AsNumber() }
             });
             return JsValue.Undefined;
         }));

@@ -240,6 +240,12 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
 
+                    b.Property<string>("Attributes")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("attributes")
+                        .HasAnnotation("PaperDotNet:JsonDocument", true);
+
                     b.Property<long>("CreatedAt")
                         .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
@@ -275,6 +281,11 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("TEXT")
                         .HasColumnName("updated_by");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("version");
 
                     b.HasKey("Id")
                         .HasName("pk_lists_item_relations");

@@ -6,6 +6,7 @@ using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists;
 using PaperDotNet.Client.V10.Workspaces.Item.Members;
+using PaperDotNet.Client.V10.Workspaces.Item.Relationships;
 using PaperDotNet.Client.V10.Workspaces.Item.Workflows;
 using System.Collections.Generic;
 using System.IO;
@@ -29,6 +30,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Members.MembersRequestBuilder Members
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Members.MembersRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The relationships property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Relationships.RelationshipsRequestBuilder Relationships
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Relationships.RelationshipsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The workflows property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.WorkflowsRequestBuilder Workflows

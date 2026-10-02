@@ -106,8 +106,15 @@ internal sealed class TermMergedSubscriber(ListsDbContext db, ITermStore terms, 
             if (edges.Count == 0) break;
             foreach (var edge in edges)
             {
-                if (await db.Relations.AnyAsync(r => r.TypeId == e.TargetTermId && r.FirstItemId == edge.FirstItemId
-                    && r.SecondItemId == edge.SecondItemId && r.Directed == edge.Directed, ct)) db.Relations.Remove(edge);
+                var duplicate = await db.Relations.FirstOrDefaultAsync(r => r.TypeId == e.TargetTermId && r.FirstItemId == edge.FirstItemId
+                    && r.SecondItemId == edge.SecondItemId && r.Directed == edge.Directed, ct);
+                if (duplicate is not null)
+                {
+                    var merged = RelationshipAttributes.Merge(RelationshipAttributes.Parse(duplicate.Attributes), RelationshipAttributes.Parse(edge.Attributes))
+                        ?? throw new InvalidOperationException("Concurrent relationship attributes conflict; resolve them before retrying the term merge.");
+                    duplicate.Attributes = merged.ToJsonString();
+                    db.Relations.Remove(edge);
+                }
                 else edge.TypeId = e.TargetTermId;
             }
             var ids = edges.SelectMany(r => new[] { r.FirstItemId, r.SecondItemId }).Distinct().ToArray();

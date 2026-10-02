@@ -224,6 +224,12 @@ public interface IListItemStore
     /// <summary>Removes one edge by its identity, checking both endpoints.</summary>
     Task<ListItemResult> RemoveRelationshipAsync(Guid itemId, Guid relationshipId, CancellationToken cancellationToken);
 
+    Task<ItemRelationshipData?> GetRelationshipAsync(Guid itemId, Guid relationshipId, CancellationToken cancellationToken);
+
+    Task<ListItemResult> UpdateRelationshipAsync(Guid itemId, Guid relationshipId, JsonObject attributes, uint expectedVersion, CancellationToken cancellationToken);
+
+    Task<WorkspaceRelationshipPage?> QueryRelationshipsAsync(Guid workspaceId, string? type, bool? directed, string? filter, int top, Guid? after, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<RelationshipTypeData>> GetRelationshipTypesAsync(CancellationToken cancellationToken);
 
     Task<RelationshipTypeData> EnsureRelationshipTypeAsync(RelationshipTypeOptions options, CancellationToken cancellationToken);

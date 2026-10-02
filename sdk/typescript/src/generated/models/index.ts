@@ -68,6 +68,10 @@ export interface AddGroupMemberRequest extends AdditionalDataHolder, Parsable {
 }
 export interface AddItemRelationshipRequest extends AdditionalDataHolder, Parsable {
     /**
+     * The attributes property
+     */
+    attributes?: JsonObject | null;
+    /**
      * The directed property
      */
     directed?: boolean | null;
@@ -2200,6 +2204,15 @@ export function createPageOfUserResponseFromDiscriminatorValue(parseNode: ParseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PageOfWorkspaceRelationshipResponse}
+ */
+// @ts-ignore
+export function createPageOfWorkspaceRelationshipResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageOfWorkspaceRelationshipResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PageOfWorkspaceResponse}
  */
 // @ts-ignore
@@ -2811,6 +2824,15 @@ export function createUpdateGroupRequestFromDiscriminatorValue(parseNode: ParseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UpdateItemRelationshipRequest}
+ */
+// @ts-ignore
+export function createUpdateItemRelationshipRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUpdateItemRelationshipRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {UpdateItemRequest}
  */
 // @ts-ignore
@@ -2988,6 +3010,15 @@ export function createWorkflowTriggerFromDiscriminatorValue(parseNode: ParseNode
 export function createWorkspaceMemberResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoWorkspaceMemberResponse;
 }
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {WorkspaceRelationshipResponse}
+ */
+// @ts-ignore
+export function createWorkspaceRelationshipResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoWorkspaceRelationshipResponse;
+}
 export interface CreateWorkspaceRequest extends AdditionalDataHolder, Parsable {
     /**
      * The description property
@@ -3140,6 +3171,7 @@ export function deserializeIntoAddGroupMemberRequest(addGroupMemberRequest: Part
 // @ts-ignore
 export function deserializeIntoAddItemRelationshipRequest(addItemRelationshipRequest: Partial<AddItemRelationshipRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "attributes": n => { addItemRelationshipRequest.attributes = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "directed": n => { addItemRelationshipRequest.directed = n.getBooleanValue(); },
         "otherId": n => { addItemRelationshipRequest.otherId = n.getGuidValue(); },
         "type": n => { addItemRelationshipRequest.type = n.getStringValue(); },
@@ -4376,12 +4408,14 @@ export function deserializeIntoItemPage(itemPage: Partial<ItemPage> | undefined 
 // @ts-ignore
 export function deserializeIntoItemRelationshipResponse(itemRelationshipResponse: Partial<ItemRelationshipResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "attributes": n => { itemRelationshipResponse.attributes = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "directed": n => { itemRelationshipResponse.directed = n.getBooleanValue(); },
         "id": n => { itemRelationshipResponse.id = n.getGuidValue(); },
         "relatedItem": n => { itemRelationshipResponse.relatedItem = n.getObjectValue<LocatedItemResponse>(createLocatedItemResponseFromDiscriminatorValue); },
         "sourceItemId": n => { itemRelationshipResponse.sourceItemId = n.getGuidValue(); },
         "targetItemId": n => { itemRelationshipResponse.targetItemId = n.getGuidValue(); },
         "type": n => { itemRelationshipResponse.type = n.getObjectValue<RelationshipTypeData>(createRelationshipTypeDataFromDiscriminatorValue); },
+        "version": n => { itemRelationshipResponse.version = n.getNumberValue(); },
     }
 }
 /**
@@ -5002,6 +5036,18 @@ export function deserializeIntoPageOfUserResponse(pageOfUserResponse: Partial<Pa
     return {
         "@odata.nextLink": n => { pageOfUserResponse.odataNextLink = n.getStringValue(); },
         "value": n => { pageOfUserResponse.value = n.getCollectionOfObjectValues<UserResponse>(createUserResponseFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PageOfWorkspaceRelationshipResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPageOfWorkspaceRelationshipResponse(pageOfWorkspaceRelationshipResponse: Partial<PageOfWorkspaceRelationshipResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "@odata.nextLink": n => { pageOfWorkspaceRelationshipResponse.odataNextLink = n.getStringValue(); },
+        "value": n => { pageOfWorkspaceRelationshipResponse.value = n.getCollectionOfObjectValues<WorkspaceRelationshipResponse>(createWorkspaceRelationshipResponseFromDiscriminatorValue); },
     }
 }
 /**
@@ -5870,6 +5916,17 @@ export function deserializeIntoUpdateGroupRequest(updateGroupRequest: Partial<Up
 }
 /**
  * The deserialization information for the current model
+ * @param UpdateItemRelationshipRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUpdateItemRelationshipRequest(updateItemRelationshipRequest: Partial<UpdateItemRelationshipRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "attributes": n => { updateItemRelationshipRequest.attributes = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param UpdateItemRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -6158,6 +6215,23 @@ export function deserializeIntoWorkspaceMemberResponse(workspaceMemberResponse: 
     return {
         "role": n => { workspaceMemberResponse.role = n.getEnumValue<WorkspaceRole>(WorkspaceRoleObject); },
         "userId": n => { workspaceMemberResponse.userId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param WorkspaceRelationshipResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoWorkspaceRelationshipResponse(workspaceRelationshipResponse: Partial<WorkspaceRelationshipResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "attributes": n => { workspaceRelationshipResponse.attributes = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "directed": n => { workspaceRelationshipResponse.directed = n.getBooleanValue(); },
+        "id": n => { workspaceRelationshipResponse.id = n.getGuidValue(); },
+        "sourceItem": n => { workspaceRelationshipResponse.sourceItem = n.getObjectValue<LocatedItemResponse>(createLocatedItemResponseFromDiscriminatorValue); },
+        "targetItem": n => { workspaceRelationshipResponse.targetItem = n.getObjectValue<LocatedItemResponse>(createLocatedItemResponseFromDiscriminatorValue); },
+        "type": n => { workspaceRelationshipResponse.type = n.getObjectValue<RelationshipTypeData>(createRelationshipTypeDataFromDiscriminatorValue); },
+        "version": n => { workspaceRelationshipResponse.version = n.getNumberValue(); },
     }
 }
 /**
@@ -6871,6 +6945,10 @@ export interface ItemPage extends AdditionalDataHolder, Parsable {
 }
 export interface ItemRelationshipResponse extends AdditionalDataHolder, Parsable {
     /**
+     * The attributes property
+     */
+    attributes?: JsonObject | null;
+    /**
      * The directed property
      */
     directed?: boolean | null;
@@ -6894,6 +6972,10 @@ export interface ItemRelationshipResponse extends AdditionalDataHolder, Parsable
      * The type property
      */
     type?: RelationshipTypeData | null;
+    /**
+     * The version property
+     */
+    version?: number | null;
 }
 /**
  * A list item as returned by the API. `fields` contains `title` and all field values.
@@ -7758,6 +7840,19 @@ export interface PageOfUserResponse extends AdditionalDataHolder, Parsable {
 /**
  * A page of results in Graph/OData shape.
  */
+export interface PageOfWorkspaceRelationshipResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The OdataNextLink property
+     */
+    odataNextLink?: string | null;
+    /**
+     * The value property
+     */
+    value?: WorkspaceRelationshipResponse[] | null;
+}
+/**
+ * A page of results in Graph/OData shape.
+ */
 export interface PageOfWorkspaceResponse extends AdditionalDataHolder, Parsable {
     /**
      * The OdataNextLink property
@@ -8435,6 +8530,7 @@ export function serializeAddGroupMemberRequest(writer: SerializationWriter, addG
 // @ts-ignore
 export function serializeAddItemRelationshipRequest(writer: SerializationWriter, addItemRelationshipRequest: Partial<AddItemRelationshipRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!addItemRelationshipRequest || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<JsonObject>("attributes", addItemRelationshipRequest.attributes, serializeJsonObject);
     writer.writeBooleanValue("directed", addItemRelationshipRequest.directed);
     writer.writeGuidValue("otherId", addItemRelationshipRequest.otherId);
     writer.writeStringValue("type", addItemRelationshipRequest.type);
@@ -9757,12 +9853,14 @@ export function serializeItemPage(writer: SerializationWriter, itemPage: Partial
 // @ts-ignore
 export function serializeItemRelationshipResponse(writer: SerializationWriter, itemRelationshipResponse: Partial<ItemRelationshipResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!itemRelationshipResponse || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<JsonObject>("attributes", itemRelationshipResponse.attributes, serializeJsonObject);
     writer.writeBooleanValue("directed", itemRelationshipResponse.directed);
     writer.writeGuidValue("id", itemRelationshipResponse.id);
     writer.writeObjectValue<LocatedItemResponse>("relatedItem", itemRelationshipResponse.relatedItem, serializeLocatedItemResponse);
     writer.writeGuidValue("sourceItemId", itemRelationshipResponse.sourceItemId);
     writer.writeGuidValue("targetItemId", itemRelationshipResponse.targetItemId);
     writer.writeObjectValue<RelationshipTypeData>("type", itemRelationshipResponse.type, serializeRelationshipTypeData);
+    writer.writeNumberValue("version", itemRelationshipResponse.version);
     writer.writeAdditionalData(itemRelationshipResponse.additionalData);
 }
 /**
@@ -10429,6 +10527,19 @@ export function serializePageOfUserResponse(writer: SerializationWriter, pageOfU
     writer.writeStringValue("@odata.nextLink", pageOfUserResponse.odataNextLink);
     writer.writeCollectionOfObjectValues<UserResponse>("value", pageOfUserResponse.value, serializeUserResponse);
     writer.writeAdditionalData(pageOfUserResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PageOfWorkspaceRelationshipResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePageOfWorkspaceRelationshipResponse(writer: SerializationWriter, pageOfWorkspaceRelationshipResponse: Partial<PageOfWorkspaceRelationshipResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageOfWorkspaceRelationshipResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("@odata.nextLink", pageOfWorkspaceRelationshipResponse.odataNextLink);
+    writer.writeCollectionOfObjectValues<WorkspaceRelationshipResponse>("value", pageOfWorkspaceRelationshipResponse.value, serializeWorkspaceRelationshipResponse);
+    writer.writeAdditionalData(pageOfWorkspaceRelationshipResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -11358,6 +11469,18 @@ export function serializeUpdateGroupRequest(writer: SerializationWriter, updateG
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UpdateItemRelationshipRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUpdateItemRelationshipRequest(writer: SerializationWriter, updateItemRelationshipRequest: Partial<UpdateItemRelationshipRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!updateItemRelationshipRequest || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<JsonObject>("attributes", updateItemRelationshipRequest.attributes, serializeJsonObject);
+    writer.writeAdditionalData(updateItemRelationshipRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param UpdateItemRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -11664,6 +11787,24 @@ export function serializeWorkspaceMemberResponse(writer: SerializationWriter, wo
     writer.writeEnumValue<WorkspaceRole>("role", workspaceMemberResponse.role);
     writer.writeGuidValue("userId", workspaceMemberResponse.userId);
     writer.writeAdditionalData(workspaceMemberResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param WorkspaceRelationshipResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeWorkspaceRelationshipResponse(writer: SerializationWriter, workspaceRelationshipResponse: Partial<WorkspaceRelationshipResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!workspaceRelationshipResponse || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<JsonObject>("attributes", workspaceRelationshipResponse.attributes, serializeJsonObject);
+    writer.writeBooleanValue("directed", workspaceRelationshipResponse.directed);
+    writer.writeGuidValue("id", workspaceRelationshipResponse.id);
+    writer.writeObjectValue<LocatedItemResponse>("sourceItem", workspaceRelationshipResponse.sourceItem, serializeLocatedItemResponse);
+    writer.writeObjectValue<LocatedItemResponse>("targetItem", workspaceRelationshipResponse.targetItem, serializeLocatedItemResponse);
+    writer.writeObjectValue<RelationshipTypeData>("type", workspaceRelationshipResponse.type, serializeRelationshipTypeData);
+    writer.writeNumberValue("version", workspaceRelationshipResponse.version);
+    writer.writeAdditionalData(workspaceRelationshipResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -12280,6 +12421,12 @@ export interface UpdateGroupRequest extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
 }
+export interface UpdateItemRelationshipRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The attributes property
+     */
+    attributes?: JsonObject | null;
+}
 /**
  * PATCH body (documented shape; the handler reads raw JSON to tell a missing `parentId` from null): `fields`are merged (null removes a value), `parentId` moves the item (null: the list root).
  */
@@ -12792,6 +12939,36 @@ export interface WorkspaceMemberResponse extends AdditionalDataHolder, Parsable 
      * The userId property
      */
     userId?: Guid | null;
+}
+export interface WorkspaceRelationshipResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The attributes property
+     */
+    attributes?: JsonObject | null;
+    /**
+     * The directed property
+     */
+    directed?: boolean | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * An item resolved by stable identity, with its current location and the caller's relationship access.
+     */
+    sourceItem?: LocatedItemResponse | null;
+    /**
+     * An item resolved by stable identity, with its current location and the caller's relationship access.
+     */
+    targetItem?: LocatedItemResponse | null;
+    /**
+     * The type property
+     */
+    type?: RelationshipTypeData | null;
+    /**
+     * The version property
+     */
+    version?: number | null;
 }
 export interface WorkspaceResponse extends AdditionalDataHolder, Parsable {
     /**

@@ -29,6 +29,8 @@ export interface ScriptRelationship {
   directed: boolean;
   type: string | null;
   item: ScriptItem;
+  attributes: Record<string, unknown>;
+  version: number;
 }
 export interface ScriptRelationshipQuery {
   type?: string;
@@ -38,6 +40,27 @@ export interface ScriptRelationshipQuery {
 }
 export interface ScriptRelationshipPage {
   value: ScriptRelationship[];
+  nextCursor: string | null;
+}
+
+export interface ScriptWorkspaceRelationshipQuery {
+  type?: string;
+  directed?: boolean;
+  filter?: string;
+  top?: number;
+  cursor?: string;
+}
+export interface ScriptWorkspaceRelationship {
+  id: string;
+  directed: boolean;
+  type: string | null;
+  attributes: Record<string, unknown>;
+  version: number;
+  sourceItem: ScriptItem;
+  targetItem: ScriptItem;
+}
+export interface ScriptWorkspaceRelationshipPage {
+  value: ScriptWorkspaceRelationship[];
   nextCursor: string | null;
 }
 
@@ -52,7 +75,9 @@ export interface ScriptItems {
   update(list: string, id: string, fields: Record<string, unknown>): Promise<void>;
   delete(list: string, id: string): Promise<void>;
   related(id: string, options?: ScriptRelationshipQuery): Promise<ScriptRelationshipPage>;
-  relate(id: string, otherId: string, type?: string): Promise<void>;
+  relate(id: string, otherId: string, type?: string, attributes?: Record<string, unknown>): Promise<void>;
+  relationships(options?: ScriptWorkspaceRelationshipQuery): Promise<ScriptWorkspaceRelationshipPage>;
+  updateRelationship(id: string, relationshipId: string, attributes: Record<string, unknown>, version: number): Promise<void>;
   unrelate(id: string, relationshipId: string): Promise<void>;
   deleteById(id: string): Promise<void>;
 }
@@ -74,7 +99,7 @@ export interface ScriptGlobals {
 
 /** A planned write. */
 export interface ScriptWrite {
-  op: 'create' | 'update' | 'delete' | 'relate' | 'unrelate' | 'deleteGlobal';
+  op: 'create' | 'update' | 'delete' | 'relate' | 'unrelate' | 'deleteGlobal' | 'updateRelationship';
   list: string;
   listId: string;
   id: string;
@@ -94,8 +119,11 @@ export const scriptLimits = {
 export const scriptDeclarations = `
 interface ScriptItem { id: string; list: string; [field: string]: unknown }
 interface ScriptQuery { filter?: string; orderBy?: string; top?: number }
-interface ScriptRelationship { id: string; sourceId: string; targetId: string; directed: boolean; type: string | null; item: ScriptItem }
+interface ScriptRelationship { id: string; sourceId: string; targetId: string; directed: boolean; type: string | null; item: ScriptItem; attributes: Record<string, unknown>; version: number }
 interface ScriptRelationshipQuery { type?: string; direction?: 'both' | 'incoming' | 'outgoing'; top?: number; cursor?: string }
+interface ScriptWorkspaceRelationshipQuery { type?: string; directed?: boolean; filter?: string; top?: number; cursor?: string }
+interface ScriptWorkspaceRelationship { id: string; directed: boolean; type: string | null; attributes: Record<string, unknown>; version: number; sourceItem: ScriptItem; targetItem: ScriptItem }
+interface ScriptWorkspaceRelationshipPage { value: ScriptWorkspaceRelationship[]; nextCursor: string | null }
 interface ScriptRelationshipPage { value: ScriptRelationship[]; nextCursor: string | null }
 /** The run's item, or null. */
 declare const item: ScriptItem | null;
@@ -113,7 +141,9 @@ declare const items: {
   update(list: string, id: string, fields: Record<string, unknown>): Promise<void>;
   delete(list: string, id: string): Promise<void>;
   related(id: string, options?: ScriptRelationshipQuery): Promise<ScriptRelationshipPage>;
-  relate(id: string, otherId: string, type?: string): Promise<void>;
+  relate(id: string, otherId: string, type?: string, attributes?: Record<string, unknown>): Promise<void>;
+  relationships(options?: ScriptWorkspaceRelationshipQuery): Promise<ScriptWorkspaceRelationshipPage>;
+  updateRelationship(id: string, relationshipId: string, attributes: Record<string, unknown>, version: number): Promise<void>;
   unrelate(id: string, relationshipId: string): Promise<void>;
   deleteById(id: string): Promise<void>;
 };
@@ -224,9 +254,19 @@ export async function runWorkflowScript(client: PaperDotNetClient, options: RunS
     return entry.id;
   };
 
-  const graphWrite = (op: 'relate' | 'unrelate' | 'deleteGlobal', id: string, otherId?: string, type?: string) => {
+  const graphWrite = (
+    op: 'relate' | 'unrelate' | 'deleteGlobal' | 'updateRelationship',
+    id: string,
+    otherId?: string,
+    type?: string,
+    attributes?: Record<string, unknown>,
+    version?: number,
+  ) => {
     if (plan.length >= scriptLimits.maxWrites) fail(`A script writes at most ${scriptLimits.maxWrites} items.`);
     if (type !== undefined && type !== null && typeof type !== 'string') fail('type must be a string.');
+    if ((op === 'updateRelationship' || attributes != null) && !isObject(attributes)) fail('attributes must be an object.');
+    if (op === 'updateRelationship' && (!Number.isInteger(version) || version! < 1 || version! > 4294967295))
+      fail('version must be a positive relationship version.');
     plan.push({
       op,
       list: 'global items',
@@ -235,6 +275,8 @@ export async function runWorkflowScript(client: PaperDotNetClient, options: RunS
       fields: {
         otherId: otherId == null ? null : itemId(otherId),
         type: type ?? null,
+        attributes: attributes == null ? null : json(attributes),
+        version: version ?? null,
       },
     });
   };
@@ -301,6 +343,8 @@ export async function runWorkflowScript(client: PaperDotNetClient, options: RunS
             targetId: edge.targetItemId!,
             directed: edge.directed ?? false,
             type: edge.type?.name ?? null,
+            attributes: edge.attributes?.additionalData ?? {},
+            version: edge.version ?? 1,
             item: asItem(edge.relatedItem?.item ?? undefined, edge.relatedItem?.listName ?? '')!,
           })),
           nextCursor: page?.odataNextLink ? new URL(page.odataNextLink).searchParams.get('$skiptoken') : null,
@@ -309,8 +353,41 @@ export async function runWorkflowScript(client: PaperDotNetClient, options: RunS
         return fail(describe(error));
       }
     },
-    relate: async (id: string, otherId: string, type?: string) => {
-      graphWrite('relate', id, otherId, type);
+    relate: async (id: string, otherId: string, type?: string, attributes?: Record<string, unknown>) => {
+      graphWrite('relate', id, otherId, type, attributes);
+    },
+    updateRelationship: async (id: string, relationshipId: string, attributes: Record<string, unknown>, version: number) => {
+      graphWrite('updateRelationship', id, relationshipId, undefined, attributes, version);
+    },
+    relationships: async (queryOptions?: ScriptWorkspaceRelationshipQuery) => {
+      read();
+      const q = queryOptions == null ? {} : isObject(queryOptions) ? queryOptions : fail('relationship options must be an object.');
+      const text = (name: 'type' | 'filter' | 'cursor') =>
+        q[name] == null ? undefined : typeof q[name] === 'string' ? q[name] : fail(`${name} must be a string.`);
+      const directed = q.directed == null ? undefined : typeof q.directed === 'boolean' ? q.directed : fail('directed must be a boolean.');
+      const cursor = text('cursor');
+      if (cursor !== undefined && !/^[A-Za-z0-9_-]{22}$/.test(cursor)) fail('The relationship cursor is invalid.');
+      const top =
+        q.top == null ? 100 : typeof q.top === 'number' ? Math.min(Math.max(Math.trunc(q.top), 1), 500) : fail('top must be a number.');
+      try {
+        const page = await client.api.v10.workspaces
+          .byWorkspaceId(options.workspaceId)
+          .relationships.get({ queryParameters: { type: text('type'), directed, filter: text('filter'), top, skiptoken: cursor } });
+        return {
+          value: (page?.value ?? []).map((edge) => ({
+            id: edge.id!,
+            directed: edge.directed ?? false,
+            type: edge.type?.name ?? null,
+            attributes: edge.attributes?.additionalData ?? {},
+            version: edge.version ?? 1,
+            sourceItem: asItem(edge.sourceItem?.item ?? undefined, edge.sourceItem?.listName ?? '')!,
+            targetItem: asItem(edge.targetItem?.item ?? undefined, edge.targetItem?.listName ?? '')!,
+          })),
+          nextCursor: page?.odataNextLink ? new URL(page.odataNextLink).searchParams.get('$skiptoken') : null,
+        };
+      } catch (error) {
+        return fail(describe(error));
+      }
     },
     unrelate: async (id: string, relationshipId: string) => {
       graphWrite('unrelate', id, relationshipId);
@@ -384,9 +461,28 @@ export async function applyScriptPlan(
               client.api.v10.items.byItemId(write.id).relationships.post({
                 otherId: String(write.fields?.otherId),
                 type: write.fields?.type as string | undefined,
+                attributes: write.fields?.attributes == null ? undefined : fieldValues(write.fields.attributes as Record<string, unknown>),
               }),
           );
           break;
+        case 'updateRelationship': {
+          const target = client.api.v10.items.byItemId(write.id).relationships.byRelationshipId(String(write.fields?.otherId));
+          const attributes = write.fields!.attributes as Record<string, unknown>;
+          const version = Number(write.fields!.version);
+          try {
+            await target.patch({ attributes: fieldValues(attributes) }, { headers: { 'If-Match': `"${version}"` } });
+          } catch (error) {
+            if (!isStatus(error, 412)) throw error;
+            const edge = await target.get();
+            const current = edge?.attributes?.additionalData ?? {};
+            if (
+              edge?.version !== version + 1 ||
+              !Object.entries(attributes).every(([key, value]) => (value == null ? !(key in current) : current[key] === value))
+            )
+              throw error;
+          }
+          break;
+        }
         case 'unrelate':
           try {
             await client.api.v10.items.byItemId(write.id).relationships.byRelationshipId(String(write.fields?.otherId)).delete();

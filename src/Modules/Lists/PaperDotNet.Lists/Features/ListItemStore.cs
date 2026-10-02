@@ -14,7 +14,7 @@ namespace PaperDotNet.Lists.Features;
 /// <see cref="IListItemStore"/> over the same loader, query runner and writer as the items API,
 /// so code gets the API's validation, mutators, versions and events.
 /// </summary>
-internal sealed class ListItemStore(
+internal sealed partial class ListItemStore(
     ListsDbContext db, ListSchemaLoader loader, ItemQueryRunner runner, ItemWriter writer, IWorkspaceAccess workspaces,
     ListItemSearchDocuments search, ContentTypeProvisioner contentTypes, ListTemplateRegistry templates, RelationshipTypes relationshipTypes, bool system = false)
     : IListItemStore
@@ -197,12 +197,13 @@ internal sealed class ListItemStore(
         }).Select(r =>
         {
             var peer = peers[r.FirstItemId == itemId ? r.SecondItemId : r.FirstItemId];
-            return new ItemRelationshipData(r.Id, r.FirstItemId, r.SecondItemId, r.Directed, types.GetValueOrDefault(r.TypeId), ToData(byList[peer.ListId], peer));
+            return new ItemRelationshipData(r.Id, r.FirstItemId, r.SecondItemId, r.Directed, types.GetValueOrDefault(r.TypeId), ToData(byList[peer.ListId], peer), RelationshipAttributes.Parse(r.Attributes), r.Version);
         }).ToList(), next);
     }
 
     public async Task<ListItemResult> AddRelationshipAsync(Guid itemId, Guid otherId, RelationshipOptions options, CancellationToken ct)
     {
+        RelationshipAttributes.Validate(options.Attributes);
         var current = await GetByIdAsync(itemId, ct);
         var other = await GetByIdAsync(otherId, ct);
         if (current is null || other is null || current.IsFolder || other.IsFolder) return new(ListItemStatus.NotFound);
@@ -240,7 +241,7 @@ internal sealed class ListItemStore(
                 || definition.MaxOutgoing is { } maxOut && await db.Relations.CountAsync(r => r.Directed && r.TypeId == typeId && r.FirstItemId == itemId, ct) >= maxOut)
                 return new(ListItemStatus.Rejected, Message: "The relationship type's endpoint limit has been reached.");
         }
-        return await writer.RelateItemsAsync(source!, item!, target!, peer!, true, ct, typeId, directed)
+        return await writer.RelateItemsAsync(source!, item!, target!, peer!, true, ct, typeId, directed, options.Attributes)
             ? new(ListItemStatus.Ok, ToData(source!, item!)) : new(ListItemStatus.VersionMismatch);
     }
 

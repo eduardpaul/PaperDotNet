@@ -11,6 +11,18 @@ internal sealed class RelationshipTermMergeValidator(ListsDbContext db) : ITermM
     {
         var source = await db.RelationshipTypes.AsNoTracking().FirstOrDefaultAsync(t => t.Id == sourceId, ct);
         var target = await db.RelationshipTypes.AsNoTracking().FirstOrDefaultAsync(t => t.Id == targetId, ct);
+        var sourceEdges = await db.Relations.AsNoTracking().Where(r => r.TypeId == sourceId).ToListAsync(ct);
+        foreach (var edge in sourceEdges)
+        {
+            var duplicate = await db.Relations.AsNoTracking().FirstOrDefaultAsync(r => r.TypeId == targetId && r.FirstItemId == edge.FirstItemId && r.SecondItemId == edge.SecondItemId && r.Directed == edge.Directed, ct);
+            if (duplicate is null) continue;
+            try
+            {
+                if (RelationshipAttributes.Merge(RelationshipAttributes.Parse(duplicate.Attributes), RelationshipAttributes.Parse(edge.Attributes)) is null)
+                    return "Matching relationships have conflicting attributes. Resolve the conflicts before merging predicates.";
+            }
+            catch (ArgumentException ex) { return ex.Message; }
+        }
         if (source is null && target is null) return null;
         if (source is not null && target is not null && (source.Directed != target.Directed
             || source.MaxIncoming != target.MaxIncoming || source.MaxOutgoing != target.MaxOutgoing))

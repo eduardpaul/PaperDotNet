@@ -6188,6 +6188,125 @@
       }
     },
     "/v1.0/items/{itemId}/relationships/{relationshipId}": {
+      "get": {
+        "tags": [
+          "Item relationships"
+        ],
+        "operationId": "GetItemRelationship",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "relationshipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemRelationshipResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Item relationships"
+        ],
+        "operationId": "UpdateItemRelationship",
+        "parameters": [
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "relationshipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemRelationshipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Item relationships"
@@ -6216,6 +6335,95 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/relationships": {
+      "get": {
+        "tags": [
+          "Workspace relationships"
+        ],
+        "operationId": "QueryWorkspaceRelationships",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "directed",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "$filter",
+            "in": "query",
+            "description": "OData filter, e.g. fields/amount gt 100 and fields/status eq \u0027open\u0027.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "$top",
+            "in": "query",
+            "description": "Page size.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "$skiptoken",
+            "in": "query",
+            "description": "Continuation token from @odata.nextLink.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfWorkspaceRelationshipResponse"
+                }
+              }
+            }
           },
           "4XX": {
             "description": "Client error",
@@ -16001,6 +16209,16 @@
               "null",
               "boolean"
             ]
+          },
+          "attributes": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
           }
         }
       },
@@ -19043,7 +19261,9 @@
           "targetItemId",
           "directed",
           "type",
-          "relatedItem"
+          "relatedItem",
+          "attributes",
+          "version"
         ],
         "type": "object",
         "properties": {
@@ -19074,6 +19294,13 @@
           },
           "relatedItem": {
             "$ref": "#/components/schemas/LocatedItemResponse"
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "version": {
+            "type": "integer",
+            "format": "uint32"
           }
         }
       },
@@ -20437,6 +20664,28 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/UserResponse"
+            }
+          },
+          "@odata.nextLink": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "A page of results in Graph/OData shape."
+      },
+      "PageOfWorkspaceRelationshipResponse": {
+        "required": [
+          "value",
+          "@odata.nextLink"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceRelationshipResponse"
             }
           },
           "@odata.nextLink": {
@@ -22456,6 +22705,17 @@
           }
         }
       },
+      "UpdateItemRelationshipRequest": {
+        "required": [
+          "attributes"
+        ],
+        "type": "object",
+        "properties": {
+          "attributes": {
+            "$ref": "#/components/schemas/JsonObject"
+          }
+        }
+      },
       "UpdateItemRequest": {
         "required": [
           "contentTypeId",
@@ -23418,6 +23678,50 @@
           }
         }
       },
+      "WorkspaceRelationshipResponse": {
+        "required": [
+          "id",
+          "directed",
+          "type",
+          "attributes",
+          "version",
+          "sourceItem",
+          "targetItem"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "directed": {
+            "type": "boolean"
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RelationshipTypeData"
+              }
+            ]
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "version": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "sourceItem": {
+            "$ref": "#/components/schemas/LocatedItemResponse"
+          },
+          "targetItem": {
+            "$ref": "#/components/schemas/LocatedItemResponse"
+          }
+        }
+      },
       "WorkspaceResponse": {
         "required": [
           "id",
@@ -23535,6 +23839,9 @@
     },
     {
       "name": "Item relationships"
+    },
+    {
+      "name": "Workspace relationships"
     },
     {
       "name": "Smart folders"

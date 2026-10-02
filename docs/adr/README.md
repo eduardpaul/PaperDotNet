@@ -45,3 +45,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0038](0038-documents-composed-from-workflows.md) | Documents composed from workflows: upload only stores (`document.added`); text, thumbnails, page images and OCR are built-in workflows per library; workflows have keys and raise `wf.<key>.<event>` events other workflows follow | Accepted |
 | [0039](0039-global-item-relationships.md) | Stable item identity, symmetric relationships across lists/workspaces and identity-preserving moves | Accepted (implemented) |
 | [0040](0040-typed-item-relationships.md) | Taxonomy-backed predicates, directed graph edges, endpoint limits and graph-aware receipt workflows | Accepted (implemented) |
+| [0041](0041-relationship-attributes-and-workspace-queries.md) | Flat relationship attributes, versioned patches and permission-trimmed workspace graph queries returning both endpoints | Accepted (implemented) |

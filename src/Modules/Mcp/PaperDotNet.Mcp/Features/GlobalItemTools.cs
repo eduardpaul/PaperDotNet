@@ -47,12 +47,13 @@ internal sealed class RelateItemsTool(IListItemStore items) : BuiltInTool(
         ("otherId", "string", "Other content item's stable id.", true),
         ("related", "boolean", "true to add, false to remove an untyped link (default true).", false),
         ("type", "string", "Optional relationship type id or label (open vocabulary).", false),
-        ("directed", "boolean", "Optional direction; must match the selected type.", false)), "list.write", false)
+        ("directed", "boolean", "Optional direction; must match the selected type.", false),
+        ("attributes", "object", "Optional flat relationship attributes (strings, numbers, booleans).", false)), "list.write", false)
 {
     public override async Task<McpToolResult> CallAsync(McpArguments arguments, CancellationToken cancellationToken) =>
         FromResult(arguments.GetBoolean("related") == false
             ? await items.RelateAsync(arguments.GetRequiredGuid("itemId"), arguments.GetRequiredGuid("otherId"), false, cancellationToken)
-            : await items.AddRelationshipAsync(arguments.GetRequiredGuid("itemId"), arguments.GetRequiredGuid("otherId"), new RelationshipOptions(arguments.GetString("type"), arguments.GetBoolean("directed")), cancellationToken));
+            : await items.AddRelationshipAsync(arguments.GetRequiredGuid("itemId"), arguments.GetRequiredGuid("otherId"), new RelationshipOptions(arguments.GetString("type"), arguments.GetBoolean("directed"), arguments.GetObject("attributes")), cancellationToken));
 }
 
 internal sealed class MoveItemToListTool(IListItemStore items) : BuiltInTool(
@@ -125,6 +126,50 @@ internal sealed class CreateRelationshipTypeTool(IListItemStore items) : BuiltIn
         {
             return McpToolResult.FromJson(await items.EnsureRelationshipTypeAsync(new RelationshipTypeOptions(args.GetRequiredString("name"), args.GetBoolean("directed") ?? false,
             args.GetString("inverseLabel"), args.GetInt32("maxIncoming"), args.GetInt32("maxOutgoing")), ct));
+        }
+        catch (ArgumentException ex) { return McpToolResult.Error(ex.Message); }
+    }
+}
+
+internal sealed class QueryWorkspaceRelationshipsTool(IListItemStore items) : BuiltInTool(
+    "query_workspace_relationships", "Queries readable workspace graph edges and both current item endpoints. Either endpoint must belong to the workspace. Filters run before paging.",
+    McpSchema.ObjectSchema(("workspaceId", "string", "Workspace id.", true), ("type", "string", "Optional predicate id or label.", false),
+        ("directed", "boolean", "Optional direction flag.", false), ("filter", "string", "OData scalar filter, e.g. attributes/confidence le 0.7.", false),
+        ("top", "integer", "Page size (maximum 500).", false), ("cursor", "string", "Previous nextCursor.", false)), "list.read", true)
+{
+    public override async Task<McpToolResult> CallAsync(McpArguments args, CancellationToken ct)
+    {
+        Guid? after = null;
+        if (args.GetString("cursor") is { } cursor)
+        {
+            if (!PageRequest.TryDecodeCursor(cursor, out var id)) return McpToolResult.Error("The cursor is invalid.");
+            after = id;
+        }
+        try
+        {
+            var page = await items.QueryRelationshipsAsync(args.GetRequiredGuid("workspaceId"), args.GetString("type"), args.GetBoolean("directed"), args.GetString("filter"), args.GetInt32("top") ?? DefaultPageSize, after, ct);
+            return page is null ? McpToolResult.Error("The workspace was not found.") : McpToolResult.FromJson(new { value = page.Items, nextCursor = page.NextCursor });
+        }
+        catch (ArgumentException ex) { return McpToolResult.Error(ex.Message); }
+    }
+}
+
+internal sealed class UpdateRelationshipAttributesTool(IListItemStore items) : BuiltInTool(
+    "update_relationship_attributes", "Patches one edge's attributes using its current version. Null removes a key. Requires write access to both endpoints.",
+    McpSchema.ObjectSchema(("itemId", "string", "Either endpoint's id.", true), ("relationshipId", "string", "Edge id.", true),
+        ("attributes", "object", "Flat attribute patch.", true), ("version", "integer", "Current relationship version.", true)), "list.write", false)
+{
+    public override async Task<McpToolResult> CallAsync(McpArguments args, CancellationToken ct)
+    {
+        if (Version(args) is not { } version) return McpToolResult.Error("Pass the current relationship version.");
+        try
+        {
+            var itemId = args.GetRequiredGuid("itemId");
+            var edgeId = args.GetRequiredGuid("relationshipId");
+            var result = await items.UpdateRelationshipAsync(itemId, edgeId, args.GetRequiredObject("attributes"), version, ct);
+            if (!result.Succeeded) return FromResult(result);
+            var updated = await items.GetRelationshipAsync(itemId, edgeId, ct);
+            return updated is null ? McpToolResult.FromJson(new { updated = true }) : McpToolResult.FromJson(updated);
         }
         catch (ArgumentException ex) { return McpToolResult.Error(ex.Message); }
     }

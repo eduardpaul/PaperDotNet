@@ -53,6 +53,8 @@ public sealed partial class McpModule : IModule
         services.AddScoped<IMcpTool, ItemRelationshipsTool>();
         services.AddScoped<IMcpTool, RemoveItemRelationshipTool>();
         services.AddScoped<IMcpTool, RelationshipTypesTool>();
+        services.AddScoped<IMcpTool, QueryWorkspaceRelationshipsTool>();
+        services.AddScoped<IMcpTool, UpdateRelationshipAttributesTool>();
         services.AddScoped<IMcpTool, CreateRelationshipTypeTool>();
         services.AddScoped<IMcpTool, RelateItemsTool>();
         services.AddScoped<IMcpTool, MoveItemToListTool>();

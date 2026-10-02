@@ -274,6 +274,8 @@ public sealed class ListsDbContext(
         modelBuilder.Entity<ItemRelation>(b =>
         {
             b.ToTable("item_relations");
+            b.Property(r => r.Attributes).IsJsonDocument();
+            b.HasIndex(r => r.Attributes).IsJsonContainmentIndex();
             b.HasIndex(r => new { r.TenantId, r.FirstItemId, r.SecondItemId, r.TypeId, r.Directed }).IsUnique();
             b.HasIndex(r => new { r.TenantId, r.SecondItemId });
             b.HasOne<ListItem>().WithMany().HasForeignKey(r => r.FirstItemId).OnDelete(DeleteBehavior.Cascade);

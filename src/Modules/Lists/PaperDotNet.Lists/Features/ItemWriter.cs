@@ -220,7 +220,7 @@ internal sealed class ItemWriter(
     }
 
     /// <summary>Stores one relationship. Callers authorize both endpoints before invoking it.</summary>
-    internal async Task<bool> RelateItemsAsync(ListSchema sourceSchema, ListItem source, ListSchema targetSchema, ListItem target, bool add, CancellationToken ct, Guid typeId = default, bool directed = false)
+    internal async Task<bool> RelateItemsAsync(ListSchema sourceSchema, ListItem source, ListSchema targetSchema, ListItem target, bool add, CancellationToken ct, Guid typeId = default, bool directed = false, JsonObject? attributes = null)
     {
         var itemId = source.Id;
         var otherId = target.Id;
@@ -234,7 +234,7 @@ internal sealed class ItemWriter(
 
         if (add)
         {
-            db.Relations.Add(new ItemRelation { Id = Ids.New(), FirstItemId = first, SecondItemId = second, TypeId = typeId, Directed = directed });
+            db.Relations.Add(new ItemRelation { Id = Ids.New(), FirstItemId = first, SecondItemId = second, TypeId = typeId, Directed = directed, Attributes = RelationshipAttributes.Initial(attributes).ToJsonString() });
         }
         else
         {
@@ -265,6 +265,21 @@ internal sealed class ItemWriter(
 
             return false;
         }
+    }
+
+    internal async Task<bool> UpdateRelationshipAsync(ItemRelation relation, JsonObject attributes, ListSchema sourceSchema, ListItem source, ListSchema targetSchema, ListItem target, CancellationToken ct)
+    {
+        relation.Attributes = RelationshipAttributes.Patch(RelationshipAttributes.Parse(relation.Attributes), attributes).ToJsonString();
+        db.Entry(relation).Property(r => r.Attributes).IsModified = true;
+        foreach (var endpoint in new[] { source, target }) db.Entry(endpoint).Property(i => i.UpdatedAt).IsModified = true;
+        try
+        {
+            await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Updating, source, sourceSchema, ["relatedItems"]), Event(ItemEventKind.Updating, target, targetSchema, ["relatedItems"])], cancellationToken: ct);
+            await PublishChangedAsync("related", sourceSchema, source, ct);
+            await PublishChangedAsync("related", targetSchema, target, ct);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException) { db.ChangeTracker.Clear(); return false; }
     }
 
     public async Task<ItemWriteResult> DeleteAsync(ListSchema schema, ListItem item, CancellationToken ct)

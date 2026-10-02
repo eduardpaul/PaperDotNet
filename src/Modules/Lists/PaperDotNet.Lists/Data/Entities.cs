@@ -5,8 +5,8 @@ using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Data;
 
-/// <summary>A symmetric relationship between two content items. Endpoints are ordered by Guid.CompareTo.</summary>
-public sealed class ItemRelation : ITenantOwned, IAuditable
+/// <summary>A global relationship with optional direction and attributes; symmetric endpoints are canonically ordered.</summary>
+public sealed class ItemRelation : ITenantOwned, IAuditable, IVersioned
 {
     public Guid Id { get; set; }
 
@@ -21,6 +21,10 @@ public sealed class ItemRelation : ITenantOwned, IAuditable
 
     /// <summary>For directed edges FirstItemId is the source; otherwise endpoints are canonically ordered.</summary>
     public bool Directed { get; set; }
+
+    public string Attributes { get; set; } = "{}";
+
+    public uint Version { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

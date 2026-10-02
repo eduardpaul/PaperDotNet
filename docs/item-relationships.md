@@ -73,3 +73,46 @@ MCP adds `list_item_relationships`, `list_relationship_types`, `create_relations
 The [receipts package](../samples/receipts-package/README.md) demonstrates paged `items.related` reads and planned
 `items.relate`, `items.unrelate` and `items.deleteById` writes. Its lines carry purchase details; global relationships
 carry receipt membership. See [ADR-0040](adr/0040-typed-item-relationships.md).
+
+
+## Relationship attributes and workspace queries
+
+Edges accept an optional flat `attributes` object. Values can be strings, finite numbers or booleans; keys must be ASCII
+identifiers (use `receiptReader_confidence` for extension prefixes). Limits: 64 keys, 128 characters per key, 16 KiB total.
+They describe the connection, and are shared by both endpoints. Item fields still describe each item.
+
+```http
+POST /v1.0/items/{sourceId}/relationships
+Content-Type: application/json
+
+{"otherId":"{targetId}","type":"references","attributes":{"confidence":0.6,"origin":"reader"}}
+```
+
+Repeated POST leaves an existing edge unchanged. Read `/v1.0/items/{eitherEndpointId}/relationships/{edgeId}` for its ETag,
+then PATCH the same URL with `If-Match: "{version}"` and `{"attributes":{"confidence":0.9,"origin":null}}`.
+Null removes a key. Missing/malformed If-Match returns 428; a stale version returns 412. Update requires Contribute on both
+endpoints. All graph responses include `attributes` and `version`.
+
+```http
+GET /v1.0/workspaces/{workspaceId}/relationships?$filter=attributes/confidence le 0.7
+GET /v1.0/workspaces/{workspaceId}/relationships?type=references&directed=true&$top=50
+```
+
+Each workspace result contains `id`, `type`, `directed`, `attributes`, `version`, `sourceItem` and `targetItem`. Both item
+objects use the global located-item shape. Either endpoint must currently belong to the workspace, and both must be readable.
+Symmetric edges appear once; source/target identify canonical storage order, without implying direction. Cross-workspace edges
+appear in either workspace's query. Moving items changes workspace query membership without changing the edge or its attributes.
+Recycled endpoints exclude their edges from queries until restored.
+
+Filters support eq/ne, numeric lt/le/gt/ge, and/or/not, and `id`/`directed`. Strings/booleans support eq/ne. Non-null comparisons,
+including ne, do not match missing keys or a different JSON value type. `attributes/key eq null` matches missing keys. Nested
+paths, functions and property-to-property comparisons return 400. Filters are limited to 4096 characters. Filters and permissions
+are applied in the database before paging; follow `@odata.nextLink`, which preserves query options. Edge-id ordering is fixed.
+
+Extensions use `IListItemStore.QueryRelationshipsAsync`, `GetRelationshipAsync` and `UpdateRelationshipAsync`. Workflows use
+`items.relationships({filter: 'attributes/confidence le 0.7'})`, `items.relate(sourceId, targetId, type, attributes)`, and
+`items.updateRelationship(sourceId, edgeId, attributes, version)`. MCP exposes `query_workspace_relationships` and
+`update_relationship_attributes`, and `relate_items` accepts attributes. The UI continues to show links and predicates.
+
+Export/import preserves attribute bags. Merging taxonomy predicates merges disjoint/equal keys on duplicate edges and rejects
+conflicting values; it never silently chooses one bag. See [ADR-0041](adr/0041-relationship-attributes-and-workspace-queries.md).

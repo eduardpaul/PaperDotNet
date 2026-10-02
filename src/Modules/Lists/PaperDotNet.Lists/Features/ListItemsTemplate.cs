@@ -132,6 +132,7 @@ internal sealed class ListItemsTemplateHandler(
                         context.Require(TemplateKinds.TermSet, $"{parts[0]}/{parts[1]}");
                     }
                     if (relation.Directed) reference["direction"] = relation.FirstItemId == item.Id ? "outgoing" : "incoming";
+                    if (relation.Attributes != "{}") reference["attributes"] = RelationshipAttributes.Parse(relation.Attributes);
                     related.Add(reference);
                 }
             }
@@ -394,7 +395,7 @@ internal sealed class ListItemsTemplateHandler(
                 var incoming = reference["direction"]?.ToString() == "incoming";
                 var directed = reference["direction"] is not null;
                 var result = await itemStore.AsSystem().AddRelationshipAsync(incoming ? otherId : id, incoming ? id : otherId,
-                    new RelationshipOptions(typeId?.ToString(), directed), ct);
+                    new RelationshipOptions(typeId?.ToString(), directed, reference["attributes"] as JsonObject), ct);
                 if (!result.Succeeded) throw new TemplateException($"Relationship could not be imported: {result.Describe()}");
 
             }

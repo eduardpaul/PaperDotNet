@@ -216,9 +216,11 @@ public sealed class GlobalItemTests(PaperDotNetApiFactory factory)
         (await reader.PostAsJsonAsync($"/v1.0/items/{setup.First}/relationships", new { otherId = setup.Second, type = "references" }, Ct)).EnsureSuccessStatusCode();
         var graph = (await (await reader.GetAsync($"/v1.0/items/{setup.First}/relationships", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray().ToList();
         Assert.Equal(2, graph.Count);
+        Assert.Equal(2, (await (await reader.GetAsync($"/v1.0/workspaces/{setup.Workspace}/relationships?$top=2", Ct)).ReadJsonAsync()).GetProperty("value").GetArrayLength());
         var typedEdge = graph.Single(e => e.TryGetProperty("type", out _)).GetProperty("id").GetGuid();
         var targetUrl = $"/v1.0/workspaces/{setup.DestinationWorkspace}/lists/{setup.DestinationList}/items/{setup.Second}";
         (await setup.Client.PostAsJsonAsync($"{targetUrl}/permissions/breakInheritance", new { copyGrants = false }, Ct)).EnsureSuccessStatusCode();
+        Assert.Empty((await (await reader.GetAsync($"/v1.0/workspaces/{setup.Workspace}/relationships?$top=1", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray());
         Assert.Empty(await RelatedAsync(reader, setup.First));
         Assert.Empty((await (await reader.GetAsync($"/v1.0/items/{setup.First}/relationships?$top=1", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray());
         Assert.Equal(HttpStatusCode.NotFound, (await reader.DeleteAsync($"/v1.0/items/{setup.First}/relationships/{typedEdge}", Ct)).StatusCode);
@@ -231,6 +233,7 @@ public sealed class GlobalItemTests(PaperDotNetApiFactory factory)
         Assert.Single(await RelatedAsync(reader, setup.First));
         Assert.Equal(HttpStatusCode.Forbidden, (await reader.DeleteAsync(setup.RelationUrl, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await reader.DeleteAsync($"/v1.0/items/{setup.First}/relationships/{typedEdge}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await reader.SendWithEtagAsync(HttpMethod.Patch, $"/v1.0/items/{setup.First}/relationships/{typedEdge}", "\"1\"", new { attributes = new { confidence = 0.1 } })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await reader.PostAsJsonAsync($"/v1.0/items/{setup.First}/relationships", new { otherId = setup.Second, type = "supports" }, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await reader.PutAsync(setup.RelationUrl, null, Ct)).StatusCode);
         var writable = await (await reader.GetAsync("/v1.0/items?writable=true", Ct)).ReadJsonAsync();

@@ -47,10 +47,20 @@ public sealed class McpTests(PaperDotNetApiFactory factory)
         await using var mcp = await ConnectAsync(admin);
         await CallAsync(mcp, "relate_items", new() { ["itemId"] = first.ToString(), ["otherId"] = second.ToString() });
         await CallAsync(mcp, "create_relationship_type", new() { ["name"] = "contains", ["directed"] = true, ["inverseLabel"] = "belongs to", ["maxIncoming"] = 1 });
-        await CallAsync(mcp, "relate_items", new() { ["itemId"] = first.ToString(), ["otherId"] = second.ToString(), ["type"] = "contains" });
+        await CallAsync(mcp, "relate_items", new() { ["itemId"] = first.ToString(), ["otherId"] = second.ToString(), ["type"] = "contains", ["attributes"] = new Dictionary<string, object> { ["confidence"] = 0.6 } });
         var graph = await CallAsync(mcp, "list_item_relationships", new() { ["itemId"] = second.ToString(), ["direction"] = "incoming", ["type"] = "contains" });
         var edge = Assert.Single(graph.GetProperty("value").EnumerateArray());
         Assert.True(edge.GetProperty("directed").GetBoolean());
+        var workspaceGraph = await CallAsync(mcp, "query_workspace_relationships", new() { ["workspaceId"] = ws.ToString(), ["filter"] = "attributes/confidence le 0.7" });
+        Assert.Equal(second, Assert.Single(workspaceGraph.GetProperty("value").EnumerateArray()).GetProperty("targetItem").GetProperty("id").GetGuid());
+        await CallAsync(mcp, "update_relationship_attributes", new()
+        {
+            ["itemId"] = first.ToString(),
+            ["relationshipId"] = edge.GetProperty("id").GetString(),
+            ["version"] = edge.GetProperty("version").GetInt32(),
+            ["attributes"] = new Dictionary<string, object> { ["confidence"] = 0.95 }
+        });
+        Assert.Empty((await CallAsync(mcp, "query_workspace_relationships", new() { ["workspaceId"] = ws.ToString(), ["filter"] = "attributes/confidence le 0.7" })).GetProperty("value").EnumerateArray());
         await CallAsync(mcp, "remove_item_relationship", new() { ["itemId"] = second.ToString(), ["relationshipId"] = edge.GetProperty("id").GetString() });
         var inverse = await CallAsync(mcp, "list_related_items", new() { ["itemId"] = second.ToString() });
         Assert.Equal(first, Assert.Single(inverse.GetProperty("items").EnumerateArray()).GetProperty("id").GetGuid());

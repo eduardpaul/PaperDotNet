@@ -91,7 +91,7 @@ public sealed class TypedRelationshipTests(PaperDotNetApiFactory factory)
     {
         var (client, first, second, _) = await SetupAsync("typed-merge");
         foreach (var name in new[] { "references", "cites" })
-            (await client.PostAsJsonAsync($"/v1.0/items/{first}/relationships", new { otherId = second, type = name }, Ct)).EnsureSuccessStatusCode();
+            (await client.PostAsJsonAsync($"/v1.0/items/{first}/relationships", new { otherId = second, type = name, attributes = new Dictionary<string, object> { [name] = true } }, Ct)).EnsureSuccessStatusCode();
         var types = (await (await client.GetAsync("/v1.0/relationshipTypes", Ct)).ReadJsonAsync()).EnumerateArray().ToDictionary(t => t.GetProperty("name").GetString()!, t => t.GetProperty("id").GetGuid());
         var term = Assert.Single((await (await client.GetAsync($"/v1.0/termStore/terms?ids={types["references"]}", Ct)).ReadJsonAsync()).EnumerateArray());
         var set = term.GetProperty("termSetId").GetGuid();
@@ -99,7 +99,9 @@ public sealed class TypedRelationshipTests(PaperDotNetApiFactory factory)
         await Eventually.WaitForAsync<bool>(async () => (await EdgesAsync(client, first)).Count == 1 ? true : null);
         Assert.Equal("cites", Assert.Single(await EdgesAsync(client, second)).GetProperty("type").GetProperty("name").GetString());
         (await client.PostAsJsonAsync($"/v1.0/items/{first}/relationships", new { otherId = second, type = "references" }, Ct)).EnsureSuccessStatusCode();
-        Assert.Single(await EdgesAsync(client, first));
+        var mergedAttributes = Assert.Single(await EdgesAsync(client, first)).GetProperty("attributes");
+        Assert.True(mergedAttributes.GetProperty("references").GetBoolean());
+        Assert.True(mergedAttributes.GetProperty("cites").GetBoolean());
         Assert.Single((await (await client.GetAsync("/v1.0/relationshipTypes", Ct)).ReadJsonAsync()).EnumerateArray());
     }
 

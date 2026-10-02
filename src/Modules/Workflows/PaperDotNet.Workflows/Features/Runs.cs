@@ -651,7 +651,8 @@ internal sealed partial class WorkflowInterpreter(
                 {
                     "create" => await store.CreateAsync(run.WorkspaceId, listId, target, (JsonObject)write["fields"]!.DeepClone(), null, ct),
                     "update" => await store.UpdateAsync(run.WorkspaceId, listId, target, (JsonObject)write["fields"]!.DeepClone(), null, ct),
-                    "relate" => await store.AddRelationshipAsync(target, Guid.Parse(write["fields"]!["otherId"]!.GetValue<string>()), new RelationshipOptions(write["fields"]!["type"]?.GetValue<string>()), ct),
+                    "relate" => await store.AddRelationshipAsync(target, Guid.Parse(write["fields"]!["otherId"]!.GetValue<string>()), new RelationshipOptions(write["fields"]!["type"]?.GetValue<string>(), Attributes: write["fields"]!["attributes"] as JsonObject), ct),
+                    "updateRelationship" => await UpdateEdgeAsync(),
                     "unrelate" => await store.RemoveRelationshipAsync(target, Guid.Parse(write["fields"]!["otherId"]!.GetValue<string>()), ct),
                     "deleteGlobal" => await DeleteGlobalAsync(target),
                     _ => await store.DeleteAsync(run.WorkspaceId, listId, target, null, ct),
@@ -666,6 +667,20 @@ internal sealed partial class WorkflowInterpreter(
                 if ((index + 1) % ScriptSaveEvery == 0)
                 {
                     await SaveAsync();
+                }
+
+                async Task<ListItemResult> UpdateEdgeAsync()
+                {
+                    var edgeId = Guid.Parse(write["fields"]!["otherId"]!.GetValue<string>());
+                    var attributes = write["fields"]!["attributes"]!.AsObject();
+                    var version = write["fields"]!["version"]!.GetValue<uint>();
+                    var result = await store.UpdateRelationshipAsync(target, edgeId, attributes, version, ct);
+                    if (result.Status != ListItemStatus.VersionMismatch) return result;
+                    var edge = await store.GetRelationshipAsync(target, edgeId, ct);
+                    // A resumed plan may repeat the write after it saved but before its checkpoint saved.
+                    if (edge?.Version == version + 1 && attributes.All(p => p.Value is null ? !edge.Attributes.ContainsKey(p.Key)
+                        : edge.Attributes.TryGetPropertyValue(p.Key, out var current) && JsonNode.DeepEquals(current, p.Value))) return new(ListItemStatus.Ok);
+                    return result;
                 }
 
                 async Task<ListItemResult> DeleteGlobalAsync(Guid itemId)
@@ -684,6 +699,7 @@ internal sealed partial class WorkflowInterpreter(
                         case "update":
                             updated++;
                             break;
+                        case "updateRelationship":
                         case "relate":
                         case "unrelate":
                             break;

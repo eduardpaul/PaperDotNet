@@ -9,7 +9,7 @@ namespace PaperDotNet.Client.Models
 {
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     #pragma warning disable CS1591
-    public partial class ItemRelationshipResponse : IAdditionalDataHolder, IParsable
+    public partial class WorkspaceRelationshipResponse : IAdditionalDataHolder, IParsable
     #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
@@ -29,15 +29,19 @@ namespace PaperDotNet.Client.Models
         /// <summary>An item resolved by stable identity, with its current location and the caller&apos;s relationship access.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public global::PaperDotNet.Client.Models.LocatedItemResponse? RelatedItem { get; set; }
+        public global::PaperDotNet.Client.Models.LocatedItemResponse? SourceItem { get; set; }
 #nullable restore
 #else
-        public global::PaperDotNet.Client.Models.LocatedItemResponse RelatedItem { get; set; }
+        public global::PaperDotNet.Client.Models.LocatedItemResponse SourceItem { get; set; }
 #endif
-        /// <summary>The sourceItemId property</summary>
-        public Guid? SourceItemId { get; set; }
-        /// <summary>The targetItemId property</summary>
-        public Guid? TargetItemId { get; set; }
+        /// <summary>An item resolved by stable identity, with its current location and the caller&apos;s relationship access.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.LocatedItemResponse? TargetItem { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.LocatedItemResponse TargetItem { get; set; }
+#endif
         /// <summary>The type property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -49,21 +53,21 @@ namespace PaperDotNet.Client.Models
         /// <summary>The version property</summary>
         public int? Version { get; set; }
         /// <summary>
-        /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.ItemRelationshipResponse"/> and sets the default values.
+        /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.WorkspaceRelationshipResponse"/> and sets the default values.
         /// </summary>
-        public ItemRelationshipResponse()
+        public WorkspaceRelationshipResponse()
         {
             AdditionalData = new Dictionary<string, object>();
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
         /// </summary>
-        /// <returns>A <see cref="global::PaperDotNet.Client.Models.ItemRelationshipResponse"/></returns>
+        /// <returns>A <see cref="global::PaperDotNet.Client.Models.WorkspaceRelationshipResponse"/></returns>
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
-        public static global::PaperDotNet.Client.Models.ItemRelationshipResponse CreateFromDiscriminatorValue(IParseNode parseNode)
+        public static global::PaperDotNet.Client.Models.WorkspaceRelationshipResponse CreateFromDiscriminatorValue(IParseNode parseNode)
         {
             if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
-            return new global::PaperDotNet.Client.Models.ItemRelationshipResponse();
+            return new global::PaperDotNet.Client.Models.WorkspaceRelationshipResponse();
         }
         /// <summary>
         /// The deserialization information for the current model
@@ -76,9 +80,8 @@ namespace PaperDotNet.Client.Models
                 { "attributes", n => { Attributes = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "directed", n => { Directed = n.GetBoolValue(); } },
                 { "id", n => { Id = n.GetGuidValue(); } },
-                { "relatedItem", n => { RelatedItem = n.GetObjectValue<global::PaperDotNet.Client.Models.LocatedItemResponse>(global::PaperDotNet.Client.Models.LocatedItemResponse.CreateFromDiscriminatorValue); } },
-                { "sourceItemId", n => { SourceItemId = n.GetGuidValue(); } },
-                { "targetItemId", n => { TargetItemId = n.GetGuidValue(); } },
+                { "sourceItem", n => { SourceItem = n.GetObjectValue<global::PaperDotNet.Client.Models.LocatedItemResponse>(global::PaperDotNet.Client.Models.LocatedItemResponse.CreateFromDiscriminatorValue); } },
+                { "targetItem", n => { TargetItem = n.GetObjectValue<global::PaperDotNet.Client.Models.LocatedItemResponse>(global::PaperDotNet.Client.Models.LocatedItemResponse.CreateFromDiscriminatorValue); } },
                 { "type", n => { Type = n.GetObjectValue<global::PaperDotNet.Client.Models.RelationshipTypeData>(global::PaperDotNet.Client.Models.RelationshipTypeData.CreateFromDiscriminatorValue); } },
                 { "version", n => { Version = n.GetIntValue(); } },
             };
@@ -93,9 +96,8 @@ namespace PaperDotNet.Client.Models
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("attributes", Attributes);
             writer.WriteBoolValue("directed", Directed);
             writer.WriteGuidValue("id", Id);
-            writer.WriteObjectValue<global::PaperDotNet.Client.Models.LocatedItemResponse>("relatedItem", RelatedItem);
-            writer.WriteGuidValue("sourceItemId", SourceItemId);
-            writer.WriteGuidValue("targetItemId", TargetItemId);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.LocatedItemResponse>("sourceItem", SourceItem);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.LocatedItemResponse>("targetItem", TargetItem);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.RelationshipTypeData>("type", Type);
             writer.WriteIntValue("version", Version);
             writer.WriteAdditionalData(AdditionalData);

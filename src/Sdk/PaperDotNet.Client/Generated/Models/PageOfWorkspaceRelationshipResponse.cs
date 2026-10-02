@@ -7,49 +7,46 @@ using System.IO;
 using System;
 namespace PaperDotNet.Client.Models
 {
+    /// <summary>
+    /// A page of results in Graph/OData shape.
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
-    public partial class AddItemRelationshipRequest : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
+    public partial class PageOfWorkspaceRelationshipResponse : IAdditionalDataHolder, IParsable
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The attributes property</summary>
+        /// <summary>The OdataNextLink property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public global::PaperDotNet.Client.Models.JsonObject? Attributes { get; set; }
+        public string? OdataNextLink { get; set; }
 #nullable restore
 #else
-        public global::PaperDotNet.Client.Models.JsonObject Attributes { get; set; }
+        public string OdataNextLink { get; set; }
 #endif
-        /// <summary>The directed property</summary>
-        public bool? Directed { get; set; }
-        /// <summary>The otherId property</summary>
-        public Guid? OtherId { get; set; }
-        /// <summary>The type property</summary>
+        /// <summary>The value property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public string? Type { get; set; }
+        public List<global::PaperDotNet.Client.Models.WorkspaceRelationshipResponse>? Value { get; set; }
 #nullable restore
 #else
-        public string Type { get; set; }
+        public List<global::PaperDotNet.Client.Models.WorkspaceRelationshipResponse> Value { get; set; }
 #endif
         /// <summary>
-        /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.AddItemRelationshipRequest"/> and sets the default values.
+        /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.PageOfWorkspaceRelationshipResponse"/> and sets the default values.
         /// </summary>
-        public AddItemRelationshipRequest()
+        public PageOfWorkspaceRelationshipResponse()
         {
             AdditionalData = new Dictionary<string, object>();
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
         /// </summary>
-        /// <returns>A <see cref="global::PaperDotNet.Client.Models.AddItemRelationshipRequest"/></returns>
+        /// <returns>A <see cref="global::PaperDotNet.Client.Models.PageOfWorkspaceRelationshipResponse"/></returns>
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
-        public static global::PaperDotNet.Client.Models.AddItemRelationshipRequest CreateFromDiscriminatorValue(IParseNode parseNode)
+        public static global::PaperDotNet.Client.Models.PageOfWorkspaceRelationshipResponse CreateFromDiscriminatorValue(IParseNode parseNode)
         {
             if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
-            return new global::PaperDotNet.Client.Models.AddItemRelationshipRequest();
+            return new global::PaperDotNet.Client.Models.PageOfWorkspaceRelationshipResponse();
         }
         /// <summary>
         /// The deserialization information for the current model
@@ -59,10 +56,8 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
-                { "attributes", n => { Attributes = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
-                { "directed", n => { Directed = n.GetBoolValue(); } },
-                { "otherId", n => { OtherId = n.GetGuidValue(); } },
-                { "type", n => { Type = n.GetStringValue(); } },
+                { "@odata.nextLink", n => { OdataNextLink = n.GetStringValue(); } },
+                { "value", n => { Value = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkspaceRelationshipResponse>(global::PaperDotNet.Client.Models.WorkspaceRelationshipResponse.CreateFromDiscriminatorValue)?.AsList(); } },
             };
         }
         /// <summary>
@@ -72,10 +67,8 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
-            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("attributes", Attributes);
-            writer.WriteBoolValue("directed", Directed);
-            writer.WriteGuidValue("otherId", OtherId);
-            writer.WriteStringValue("type", Type);
+            writer.WriteStringValue("@odata.nextLink", OdataNextLink);
+            writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkspaceRelationshipResponse>("value", Value);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

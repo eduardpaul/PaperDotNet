@@ -669,3 +669,21 @@ way.
 See `docs/extensions.md` and the sample `samples.invoices` (trigger
 `approvalNeeded`, actions `approve` and `awaitPayment`, which waits until the
 invoice is paid or times out).
+
+
+Relationship scripts also support a workspace graph query and edge attributes (ADR-0041):
+
+```js
+const page = await items.relationships({ type: 'references', filter: 'attributes/confidence le 0.7', top: 100 });
+for (const edge of page.value) {
+  await items.updateRelationship(edge.sourceItem.id, edge.id, { reviewed: true }, edge.version);
+}
+// Follow page.nextCursor with the same query to read further pages.
+```
+
+Each result has both `sourceItem` and `targetItem`, plus `id`, `type`, `directed`, `attributes` and `version`.
+`items.related` includes attributes/version too. Create initial attributes with
+`items.relate(sourceId, targetId, type, { confidence: 0.6 })`. Repeated linking preserves the existing bag; explicit
+`items.updateRelationship` patches it and null removes a key. Updates require the read edge version and are planned,
+so further reads in the same script still see the old attributes. Workflows execute with their existing system access;
+SDK scripts execute with the caller's permissions. Item fields and edge attributes have separate versions.

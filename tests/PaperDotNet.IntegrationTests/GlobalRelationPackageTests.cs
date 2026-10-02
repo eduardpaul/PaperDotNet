@@ -30,7 +30,7 @@ public sealed class GlobalRelationPackageTests(PaperDotNetApiFactory factory)
         var typeResponse = await source.PostAsJsonAsync("/v1.0/relationshipTypes", new { name = "contains", directed = true, inverseLabel = "belongs to", maxIncoming = 1 }, Ct);
         typeResponse.EnsureSuccessStatusCode();
         var predicate = (await typeResponse.ReadJsonAsync()).GetProperty("id").GetGuid();
-        (await source.PostAsJsonAsync($"/v1.0/items/{first}/relationships", new { otherId = third, type = predicate }, Ct)).EnsureSuccessStatusCode();
+        (await source.PostAsJsonAsync($"/v1.0/items/{first}/relationships", new { otherId = third, type = predicate, attributes = new { confidence = 0.6, origin = "package" } }, Ct)).EnsureSuccessStatusCode();
 
         // A workspace package includes its internal relationship, without references to outside workspaces.
         var workspaceExport = await source.GetAsync($"/v1.0/provisioning/export?workspaceId={ws}&includeContent=true", Ct);
@@ -71,6 +71,7 @@ public sealed class GlobalRelationPackageTests(PaperDotNetApiFactory factory)
         Assert.NotEqual(predicate, edge.GetProperty("type").GetProperty("id").GetGuid());
         Assert.Equal("belongs to", edge.GetProperty("type").GetProperty("inverseLabel").GetString());
         Assert.Equal(1, edge.GetProperty("type").GetProperty("maxIncoming").GetInt32());
+        Assert.Equal(0.6, edge.GetProperty("attributes").GetProperty("confidence").GetDouble());
         Assert.Equal(3, (await (await target.GetAsync($"/v1.0/items/{items["First record"]}/relationships", Ct)).ReadJsonAsync()).GetProperty("value").GetArrayLength());
     }
 }

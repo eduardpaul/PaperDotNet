@@ -48,4 +48,4 @@ list-constrained receipt lookup. Reapplying a package remains additive; existing
 compatibility; upgrading the earlier sample requires making its lookup optional and backfilling existing edges, as documented in its guide. New readings populate relationships. Product catalogs remain separate from purchase occurrences.
 
 This provides a graph stored through provider-neutral EF on SQLite and PostgreSQL. Graph visualization, arbitrary
-multi-hop query languages, required relationships and relationship property bags are separate future capabilities.
+multi-hop query languages and required relationships are separate future capabilities. Relationship property bags and workspace queries are implemented by ADR-0041.
