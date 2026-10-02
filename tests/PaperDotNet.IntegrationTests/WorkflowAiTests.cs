@@ -577,4 +577,124 @@ public sealed class WorkflowAiTests
             await Task.Delay(200, Ct);
         }
     }
+
+    /// <summary>
+    /// The sample package <c>samples/receipts-package</c>: applied as it ships, it reads a receipt tagged "ticket" in the AI
+    /// batch window and fills its fields and lines, with workflow JSON only (typed tokens, forEach, item.create, item.delete).
+    /// </summary>
+    [Fact]
+    public async Task The_receipts_package_reads_tagged_receipts_in_the_batch_window()
+    {
+        const string reading = """
+            {"store": "LIDL", "date": "2026-09-28", "currency": "EUR", "total": 6.19,
+             "lines": [{"description": "Milk", "quantity": 1, "unitPrice": 1.19, "amount": 1.19},
+                       {"description": "Bread", "quantity": 2, "unitPrice": 2.50, "amount": 5.00}]}
+            """;
+        var api = new BatchApi();
+        var client = api.Client!;
+        client.Answer = line => line.Images is { Count: > 0 } ? reading : "{}"; // the "model" reads the receipt from its image
+        await using var s = await Setup.CreateAsync(api);
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "PaperDotNet.slnx")))
+        {
+            root = root.Parent;
+        }
+
+        // The package as it ships, with a batch schedule that does not come by itself during the test.
+        var template = await File.ReadAllTextAsync(Path.Combine(root!.FullName, "samples", "receipts-package", "template.xml"), Ct);
+        var applyUrl = $"/v1.0/provisioning/apply?parameters[BatchSchedule]={Uri.EscapeDataString("0 0 1 1 *")}";
+        using (var apply = await s.Admin.PostAsync(applyUrl, new StringContent(template, System.Text.Encoding.UTF8, "application/xml"), Ct))
+        {
+            Assert.Empty((await apply.JsonAsync(HttpStatusCode.OK)).GetProperty("warnings").EnumerateArray());
+        }
+
+        using (var again = await s.Admin.PostAsync(applyUrl, new StringContent(template, System.Text.Encoding.UTF8, "application/xml"), Ct))
+        {
+            Assert.Empty((await again.JsonAsync(HttpStatusCode.OK)).GetProperty("changes").EnumerateArray());
+        }
+
+        JsonElement.ArrayEnumerator Values(JsonElement e) => (e.ValueKind == JsonValueKind.Array ? e : e.GetProperty("value")).EnumerateArray();
+        var ws = Values(await (await s.Admin.GetAsync("/v1.0/workspaces", Ct)).JsonAsync(HttpStatusCode.OK)).Single(w => w.GetProperty("name").GetString() == "Receipts").Id();
+        var lists = Values(await (await s.Admin.GetAsync($"/v1.0/workspaces/{ws}/lists", Ct)).JsonAsync(HttpStatusCode.OK)).ToDictionary(l => l.GetProperty("name").GetString()!, l => l.Id());
+        var workflows = Values(await (await s.Admin.GetAsync($"/v1.0/workspaces/{ws}/workflows", Ct)).JsonAsync(HttpStatusCode.OK))
+            .ToDictionary(w => w.GetProperty("name").GetString()!, w => w.Id());
+        Assert.Equal(["AI batch", "Read receipts"], workflows.Keys.Where(k => !k.EndsWith("(Receipts)", StringComparison.Ordinal)).Order(StringComparer.Ordinal));
+
+        // The library makes thumbnails and page images, but reads no text and runs no OCR.
+        var receipts = $"/v1.0/workspaces/{ws}/lists/{lists["Receipts"]}";
+        var builtIns = Values(await (await s.Admin.GetAsync($"{receipts}/workflows/builtIns", Ct)).JsonAsync(HttpStatusCode.OK))
+            .ToDictionary(w => w.GetProperty("key").GetString()!, w => w.GetProperty("enabled").GetBoolean());
+        Assert.False(builtIns["documents.text"]);
+        Assert.False(builtIns["documents.ocr"]);
+        Assert.True(builtIns["documents.pages"]);
+
+        // A receipt is uploaded (its images are made), then tagged "ticket": its reading waits for the batch.
+        using var upload = await s.Admin.PostAsync($"{receipts}/documents",
+            new MultipartFormDataContent { { new ByteArrayContent(DocumentProcessingTests.TextPdf("LIDL", "28.09.2026", "Milk 1 x 1.19", "Bread 2 x 2.50 5.00", "TOTAL EUR 6.19")), "file", "lidl.pdf" } }, Ct);
+        var receipt = (await upload.JsonAsync(HttpStatusCode.Created)).GetProperty("itemId").GetString()!;
+        async Task<List<JsonElement>> ReadRunsAsync(Func<List<JsonElement>, bool> done)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(60);
+            while (true)
+            {
+                var runs = (await (await s.Admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?itemId={receipt}", Ct)).JsonAsync(HttpStatusCode.OK))
+                    .GetProperty("value").EnumerateArray().Where(r => r.GetProperty("workflowId").GetString() == workflows["Read receipts"]).ToList();
+                if (done(runs))
+                {
+                    return runs;
+                }
+
+                Assert.True(DateTime.UtcNow < deadline, string.Join(", ", runs.Select(r => r.GetProperty("status").GetString())));
+                await Task.Delay(200, Ct);
+            }
+        }
+
+        var item = $"{receipts}/items/{receipt}";
+        async Task TagAsync(string tag)
+        {
+            var etag = (await s.Admin.GetAsync(item, Ct)).Headers.ETag!.Tag;
+            using var tagged = await s.Admin.SendAsync(Api.Patch(item, new { fields = new { tags = new[] { tag } } }, etag), Ct);
+            await tagged.JsonAsync(HttpStatusCode.OK);
+        }
+
+        await TagAsync("ticket");
+        await ReadRunsAsync(r => r.Count == 1 && r[0].GetProperty("status").GetString() == "waiting");
+        Assert.Empty(client.Submitted);
+
+        // The batch window: the schedule comes due, the batch is sent, and polling collects its answers.
+        await s.TriggerBatchAsync(workflows["AI batch"]);
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (client.Submitted.Count == 0 || (await OpenWaitsAsync(s, "ai.batch.poll")).Count == 0)
+        {
+            Assert.True(DateTime.UtcNow < deadline, $"{client.Submitted.Count} batches");
+            await Task.Delay(100, Ct);
+        }
+
+        await s.ElapseAsync("ai.batch.poll");
+        var done = (await ReadRunsAsync(r => r.Count == 1 && r[0].GetProperty("status").GetString() is "completed" or "failed"))[0];
+        Assert.True(done.GetProperty("status").GetString() == "completed", done.ToString());
+        var line = Assert.Single(Assert.Single(client.Submitted).Lines);
+        Assert.DoesNotContain("LIDL", line.Input, StringComparison.Ordinal); // no text: the model reads the image
+        Assert.Equal("image/jpeg", Assert.Single(line.Images!).MediaType);
+
+        // The receipt's fields and one item per line, linked to the receipt.
+        var fields = (await (await s.Admin.GetAsync(item, Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("fields");
+        Assert.Equal("LIDL", fields.GetProperty("store").GetString());
+        Assert.Equal("2026-09-28", fields.GetProperty("purchaseDate").GetString());
+        Assert.Equal(6.19m, fields.GetProperty("total").GetDecimal());
+        Assert.Equal("Read", fields.GetProperty("status").GetString());
+        var lineItems = Values(await (await s.Admin.GetAsync(Api.Items(ws, lists["Receipt lines"]), Ct)).JsonAsync(HttpStatusCode.OK)).ToList();
+        var saved = lineItems.Select(i => i.GetProperty("fields")).OrderBy(f => f.GetProperty("title").GetString()).ToList();
+        Assert.Equal(["Bread", "Milk"], saved.Select(f => f.GetProperty("title").GetString()));
+        Assert.Equal([5.00m, 1.19m], saved.Select(f => f.GetProperty("amount").GetDecimal()));
+        Assert.All(saved, f => Assert.Equal(receipt, f.GetProperty("receipt").GetString()));
+
+        // Tagged again: the same question is answered from the cache at once, and the lines are replaced, not added.
+        await TagAsync("Groceries");
+        await ReadRunsAsync(r => r.Count == 2 && r.All(x => x.GetProperty("status").GetString() == "completed"));
+        Assert.Single(client.Submitted);
+        var replaced = Values(await (await s.Admin.GetAsync(Api.Items(ws, lists["Receipt lines"]), Ct)).JsonAsync(HttpStatusCode.OK)).ToList();
+        Assert.Equal(2, replaced.Count);
+        Assert.Empty(replaced.Select(i => i.Id()).Intersect(lineItems.Select(i => i.Id())));
+    }
 }

@@ -12,11 +12,12 @@ namespace PaperDotNet.Workflows.Features;
 /// Workspace section <c>Workflows</c> in <c>urn:paperdotnet:workflow:1</c>: the workspace's workflows with their
 /// definitions as JSON (they refer to lists and users by name, so they are portable). Workflows are matched by name; a
 /// changed definition becomes a new version (ADR-0036: workflows travel with lists and libraries). Built-in workflows
-/// (EVT-12) travel as their key (<c>BuiltIn</c>), on or off, with their parameters as JSON; copies keep <c>CopiedFrom</c>.
-/// A built-in workflow this server does not have is skipped with a warning.
+/// (EVT-12) travel as their key (<c>BuiltIn</c>), on or off, with their parameters as JSON, per library with <c>List</c>;
+/// copies keep <c>CopiedFrom</c>. A built-in workflow this server does not have is skipped with a warning.
 /// </summary>
 internal sealed class WorkflowTemplateHandler(
-    WorkflowsDbContext db, IEnumerable<IWorkflowActivity> activities, TriggerCatalog triggers, BuiltInWorkflows builtIns, TimeProvider time) : ITemplateHandler
+    WorkflowsDbContext db, IEnumerable<IWorkflowActivity> activities, TriggerCatalog triggers, BuiltInWorkflows builtIns, WorkflowItems items, TimeProvider time)
+    : ITemplateHandler
 {
     public static readonly XNamespace Ns = "urn:paperdotnet:workflow:1";
 
@@ -37,14 +38,21 @@ internal sealed class WorkflowTemplateHandler(
         var section = new XElement(Element);
         foreach (var workflow in workflows.OrderBy(w => w.Name, StringComparer.Ordinal))
         {
-            if (workflow.ListId is not null)
-            {
-                continue; // Per-library built-in workflows follow their library (documents section, T15).
-            }
-
             if (workflow.BuiltInKey is { } builtIn)
             {
-                section.Add(new XElement(Ns + "Workflow", workflow.Parameters ?? "{}").With("Name", workflow.Name).With("BuiltIn", builtIn).With("Enabled", workflow.Enabled));
+                // A library's built-in workflow names its library.
+                var list = workflow.ListId is { } listId ? await items.FindListAsync(context.Actor, workflow.WorkspaceId, listId, cancellationToken) : null;
+                if (workflow.ListId is null || list is not null)
+                {
+                    section.Add(new XElement(Ns + "Workflow", workflow.Parameters ?? "{}")
+                        .With("Name", workflow.Name).With("BuiltIn", builtIn).With("List", list?.Name).With("Enabled", workflow.Enabled));
+                }
+
+                continue;
+            }
+
+            if (workflow.ListId is not null)
+            {
                 continue;
             }
 
@@ -151,11 +159,17 @@ internal sealed class WorkflowTemplateHandler(
     /// <summary>A built-in workflow: turned on or off with the template's parameters (a dry run only checks them).</summary>
     private async Task ApplyBuiltInAsync(XElement element, string name, string key, List<WorkflowDefinition> existing, TemplateContext context, CancellationToken ct)
     {
-        if (await builtIns.FindAsync(context.TenantId, key, ct) is not { Scope: BuiltInScope.Workspace } workflow)
+        var listName = element.Attr("List");
+        if (await builtIns.FindAsync(context.TenantId, key, ct) is not { } workflow || (workflow.Scope == BuiltInScope.Library) != (listName is not null))
         {
             context.Warn($"Workflow '{name}': the built-in workflow '{key}' is not available on this server; skipped.", element);
             return;
         }
+
+        // A library's: the list may be created by this template (then it has no row yet).
+        var list = listName is not null && context.WorkspaceId is { } targetWorkspace && !context.IsPlanned
+            ? await items.FindListByNameAsync(context.Actor, targetWorkspace, listName, ct)
+            : null;
 
         JsonObject? parameters;
         try
@@ -169,7 +183,7 @@ internal sealed class WorkflowTemplateHandler(
 
         var enabled = element.BoolAttr("Enabled", true);
         var prefix = context.WorkspaceName;
-        var row = existing.FirstOrDefault(w => w.BuiltInKey == key && w.ListId is null);
+        var row = existing.FirstOrDefault(w => w.BuiltInKey == key && w.ListId == list?.Id && (listName is null || list is not null));
         var (_, values, _) = BuiltInWorkflows.Resolve(workflow, parameters);
         if (row is not null && row.Enabled == enabled && row.Parameters == values.ToJsonString())
         {
@@ -195,7 +209,15 @@ internal sealed class WorkflowTemplateHandler(
         var workspaceId = context.WorkspaceId!.Value;
         context.Defer(async deferredCt =>
         {
-            var (_, errors, _) = await builtIns.SetAsync(context.TenantId, workspaceId, workflow, enabled, parameters ?? [], deferredCt);
+            var target = listName is null ? null : await items.FindListByNameAsync(context.Actor, workspaceId, listName, deferredCt)
+                ?? throw new TemplateException($"Workflow '{name}': the list '{listName}' does not exist in the workspace.", element);
+            if (target is not null)
+            {
+                // Its library's defaults first, so the template's setting is the last word.
+                await builtIns.EnsureDefaultsAsync(context.TenantId, target, deferredCt);
+            }
+
+            var (_, errors, _) = await builtIns.SetAsync(context.TenantId, workspaceId, workflow, enabled, parameters ?? [], deferredCt, target);
             if (errors.Count > 0)
             {
                 throw new TemplateException($"Workflow '{name}' ({key}): {string.Join(" ", errors)}", element);

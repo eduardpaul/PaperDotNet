@@ -50,7 +50,8 @@ public sealed class WorkflowsModule : IModule
         services.Configure<WorkflowOptions>(configuration.GetSection(WorkflowOptions.Section));
         services.AddTenantRecurringJob<WorkflowRunCleanupJob>(WorkflowRunCleanupJob.Name, WorkflowRunCleanupJob.Schedule);
         services.AddScoped<ITemplateHandler>(sp => new WorkflowTemplateHandler(
-            sp.GetRequiredService<WorkflowsDbContext>(), sp.GetServices<IWorkflowActivity>(), sp.GetRequiredService<TriggerCatalog>(), sp.GetRequiredService<BuiltInWorkflows>(), sp.GetRequiredService<TimeProvider>()));
+            sp.GetRequiredService<WorkflowsDbContext>(), sp.GetServices<IWorkflowActivity>(), sp.GetRequiredService<TriggerCatalog>(), sp.GetRequiredService<BuiltInWorkflows>(),
+            sp.GetRequiredService<WorkflowItems>(), sp.GetRequiredService<TimeProvider>()));
         services.AddWorkflowActivity<ItemCreateActivity>();
         services.AddWorkflowActivity<ItemUpdateActivity>();
         services.AddWorkflowActivity<ItemGetActivity>();
