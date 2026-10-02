@@ -37,6 +37,7 @@ public sealed class WorkflowsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<WorkflowsDbContext>(WorkflowsDbContext.Schema);
+        services.AddScoped<IItemMoveParticipant, WorkflowsItemMoveParticipant>();
         services.AddScoped<TokenExpander>();
         services.AddScoped<RecipientResolver>();
         services.AddScoped<ActionCatalog>();

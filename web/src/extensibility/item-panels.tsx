@@ -31,7 +31,7 @@ const isEvent = ({ list, item }: ItemPanelContext) =>
 
 export const itemPanels: ItemPanel[] = [
   { key: 'checklist', label: 'Checklist', applies: isTask, component: ChecklistTab },
-  { key: 'related', label: 'Related', applies: isTask, component: RelatedTab },
+  { key: 'task-links', label: 'Task links', applies: isTask, component: RelatedTab },
   { key: 'repeat', label: 'Repeat', applies: isTask, component: TaskRepeatTab },
   { key: 'series', label: 'Repeat', applies: isEvent, component: SeriesTab },
   { key: 'links', label: 'Links', applies: isNote, component: NoteLinksTab },

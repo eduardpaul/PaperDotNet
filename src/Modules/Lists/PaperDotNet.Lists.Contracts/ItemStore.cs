@@ -203,6 +203,18 @@ public interface IListItemStore
     /// <summary>Moves the item (or folder) into <paramref name="folderId"/> (null: the list root) in the same list.</summary>
     Task<ListItemResult> MoveAsync(Guid workspaceId, Guid listId, Guid itemId, Guid? folderId, CancellationToken cancellationToken);
 
+    /// <summary>Resolves an item by immutable identity in its current list and workspace, checking current access.</summary>
+    Task<ListItemData?> GetByIdAsync(Guid itemId, CancellationToken cancellationToken);
+
+    /// <summary>Moves a content item to a compatible list, preserving identity, history and links.</summary>
+    Task<ListItemResult> MoveToAsync(Guid itemId, Guid workspaceId, Guid listId, Guid? folderId, uint? expectedVersion, CancellationToken cancellationToken);
+
+    /// <summary>One page of readable related content items, resolved at their current locations.</summary>
+    Task<ListItemPage?> GetRelatedAsync(Guid itemId, int top, Guid? after, CancellationToken cancellationToken);
+
+    /// <summary>Adds/removes a symmetric relationship; requires Contribute on both endpoints.</summary>
+    Task<ListItemResult> RelateAsync(Guid itemId, Guid otherId, bool related, CancellationToken cancellationToken);
+
     /// <summary>Indexes the item again for search (e.g. after its <see cref="IItemSearchContributor"/> content changed).</summary>
     Task ReindexAsync(Guid itemId, CancellationToken cancellationToken);
 

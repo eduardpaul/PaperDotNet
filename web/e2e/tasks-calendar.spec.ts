@@ -24,7 +24,7 @@ test('My tasks adds, opens and completes tasks with a checklist, subtasks and a 
   await panel.getByRole('checkbox', { name: 'Find the old passport' }).check();
   await expect(panel.getByText('1 of 2')).toBeVisible();
 
-  await panel.getByRole('tab', { name: 'Related' }).click();
+  await panel.getByRole('tab', { name: 'Task links' }).click();
   await panel.getByLabel('New subtask').fill('Take photos');
   await panel.getByRole('button', { name: 'Add' }).click();
   await expect(panel.getByRole('link', { name: 'Take photos' })).toBeVisible();

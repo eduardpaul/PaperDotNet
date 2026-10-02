@@ -24,6 +24,8 @@ public sealed class ListsDbContext(
 
     public DbSet<ListItem> Items => Set<ListItem>();
 
+    public DbSet<ItemRelation> Relations => Set<ItemRelation>();
+
     public DbSet<ListView> Views => Set<ListView>();
 
     public DbSet<ItemVersion> ItemVersions => Set<ItemVersion>();
@@ -70,7 +72,8 @@ public sealed class ListsDbContext(
         }
 
         var saved = ChangeTracker.Entries<ListItem>()
-            .Where(e => e.State == EntityState.Added || (e.State == EntityState.Modified && e.Property(nameof(ListItem.Fields)).IsModified))
+            .Where(e => e.State == EntityState.Added || (e.State == EntityState.Modified
+                && (e.Property(nameof(ListItem.Fields)).IsModified || e.Property(nameof(ListItem.ListId)).IsModified)))
             .ToList();
         if (saved.Count == 0)
         {
@@ -91,6 +94,18 @@ public sealed class ListsDbContext(
         var desired = new Dictionary<Guid, (ListItem Item, Dictionary<short, HashSet<Guid>> Values)>();
         foreach (var entry in saved)
         {
+            if (entry.State == EntityState.Modified && entry.Property(nameof(ListItem.ListId)).IsModified)
+            {
+                // Slot assignments belong to a list; clear the source's slots before indexing the destination.
+                foreach (var kind in new[] { IndexKind.Text, IndexKind.Number, IndexKind.Date })
+                {
+                    for (var n = 1; n <= FieldIndex.SlotsPerKind; n++)
+                    {
+                        entry.Property(FieldIndex.ColumnName(kind, n)).CurrentValue = null;
+                    }
+                }
+            }
+
             if (lists.GetValueOrDefault(entry.Entity.ListId) is { } list)
             {
                 desired[entry.Entity.Id] = (entry.Entity, FieldIndex.Apply(entry.Entity, list.IndexedFields));
@@ -105,13 +120,20 @@ public sealed class ListsDbContext(
         IReadOnlyCollection<ListItem> existingItems, Dictionary<Guid, (ListItem Item, Dictionary<short, HashSet<Guid>> Values)> desired,
         IReadOnlyDictionary<Guid, ListDefinition> lists, CancellationToken ct)
     {
-        var withValues = existingItems.Where(i => lists.GetValueOrDefault(i.ListId)?.IndexedFields.Any(f => f.Kind == IndexKind.Values) == true)
+        var withValues = existingItems.Where(i => lists.GetValueOrDefault(i.ListId)?.IndexedFields.Any(f => f.Kind == IndexKind.Values) == true
+                || Entry(i).Property(nameof(ListItem.ListId)).IsModified)
             .Select(i => i.Id).ToArray();
         var existing = (withValues.Length == 0 ? [] : await ItemValues.Where(v => EF.Parameter(withValues).Contains(v.ItemId)).ToListAsync(ct))
+            .Where(v => Entry(v).State != EntityState.Deleted)
             .ToLookup(v => v.ItemId);
         foreach (var (itemId, (item, values)) in desired)
         {
             var current = existing[itemId].ToList();
+            foreach (var row in current)
+            {
+                row.ListId = item.ListId;
+            }
+
             ItemValues.RemoveRange(current.Where(v => !values.TryGetValue(v.Field, out var set) || !set.Contains(v.Value)));
             foreach (var (field, set) in values)
             {
@@ -214,6 +236,18 @@ public sealed class ListsDbContext(
                         Kind = deleted ? ItemChangeKind.Deleted : ItemChangeKind.Upserted,
                         At = now,
                     };
+                    var location = entry.Property(nameof(ListItem.ListId));
+                    if (entry.State == EntityState.Modified && location.IsModified)
+                    {
+                        ItemChanges.Add(new ItemChange
+                        {
+                            ListId = (Guid)location.OriginalValue!,
+                            ItemId = item.Id,
+                            ScopeId = (Guid)scope.OriginalValue!,
+                            Kind = ItemChangeKind.Deleted,
+                            At = now,
+                        });
+                    }
                     break;
                 case AclEntry acl when entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted:
                     scopes[acl.ScopeId] = acl.ListId;
@@ -234,6 +268,15 @@ public sealed class ListsDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
+
+        modelBuilder.Entity<ItemRelation>(b =>
+        {
+            b.ToTable("item_relations");
+            b.HasIndex(r => new { r.TenantId, r.FirstItemId, r.SecondItemId }).IsUnique();
+            b.HasIndex(r => new { r.TenantId, r.SecondItemId });
+            b.HasOne<ListItem>().WithMany().HasForeignKey(r => r.FirstItemId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<ListItem>().WithMany().HasForeignKey(r => r.SecondItemId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<ContentType>(b =>
         {

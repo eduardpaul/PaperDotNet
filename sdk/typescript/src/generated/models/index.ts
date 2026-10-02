@@ -1871,6 +1871,15 @@ export function createListTemplateResponseFromDiscriminatorValue(parseNode: Pars
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {LocatedItemResponse}
+ */
+// @ts-ignore
+export function createLocatedItemResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoLocatedItemResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {LoginRequest}
  */
 // @ts-ignore
@@ -1894,6 +1903,15 @@ export function createMeResponseFromDiscriminatorValue(parseNode: ParseNode | un
 // @ts-ignore
 export function createMergeTermRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoMergeTermRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {MoveItemRequest}
+ */
+// @ts-ignore
+export function createMoveItemRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoMoveItemRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2047,6 +2065,15 @@ export function createPageOfGroupResponseFromDiscriminatorValue(parseNode: Parse
 // @ts-ignore
 export function createPageOfItemVersionResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoPageOfItemVersionResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PageOfLocatedItemResponse}
+ */
+// @ts-ignore
+export function createPageOfLocatedItemResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageOfLocatedItemResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -4461,6 +4488,22 @@ export function deserializeIntoListTemplateResponse(listTemplateResponse: Partia
 }
 /**
  * The deserialization information for the current model
+ * @param LocatedItemResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoLocatedItemResponse(locatedItemResponse: Partial<LocatedItemResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "canRelate": n => { locatedItemResponse.canRelate = n.getBooleanValue(); },
+        "contentTypeName": n => { locatedItemResponse.contentTypeName = n.getStringValue(); },
+        "item": n => { locatedItemResponse.item = n.getObjectValue<ItemResponse>(createItemResponseFromDiscriminatorValue); },
+        "listName": n => { locatedItemResponse.listName = n.getStringValue(); },
+        "workspaceId": n => { locatedItemResponse.workspaceId = n.getGuidValue(); },
+        "workspaceName": n => { locatedItemResponse.workspaceName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param LoginRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -4497,6 +4540,19 @@ export function deserializeIntoMeResponse(meResponse: Partial<MeResponse> | unde
 export function deserializeIntoMergeTermRequest(mergeTermRequest: Partial<MergeTermRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "targetTermId": n => { mergeTermRequest.targetTermId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param MoveItemRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoMoveItemRequest(moveItemRequest: Partial<MoveItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "listId": n => { moveItemRequest.listId = n.getGuidValue(); },
+        "parentId": n => { moveItemRequest.parentId = n.getGuidValue(); },
+        "workspaceId": n => { moveItemRequest.workspaceId = n.getGuidValue(); },
     }
 }
 /**
@@ -4726,6 +4782,18 @@ export function deserializeIntoPageOfItemVersionResponse(pageOfItemVersionRespon
     return {
         "@odata.nextLink": n => { pageOfItemVersionResponse.odataNextLink = n.getStringValue(); },
         "value": n => { pageOfItemVersionResponse.value = n.getCollectionOfObjectValues<ItemVersionResponse>(createItemVersionResponseFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PageOfLocatedItemResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPageOfLocatedItemResponse(pageOfLocatedItemResponse: Partial<PageOfLocatedItemResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "@odata.nextLink": n => { pageOfLocatedItemResponse.odataNextLink = n.getStringValue(); },
+        "value": n => { pageOfLocatedItemResponse.value = n.getCollectionOfObjectValues<LocatedItemResponse>(createLocatedItemResponseFromDiscriminatorValue); },
     }
 }
 /**
@@ -6997,6 +7065,35 @@ export interface ListTemplateResponse extends AdditionalDataHolder, Parsable {
     views?: string[] | null;
 }
 export type ListVersioning = (typeof ListVersioningObject)[keyof typeof ListVersioningObject];
+/**
+ * An item resolved by stable identity, with its current location and the caller's relationship access.
+ */
+export interface LocatedItemResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The canRelate property
+     */
+    canRelate?: boolean | null;
+    /**
+     * The contentTypeName property
+     */
+    contentTypeName?: string | null;
+    /**
+     * A list item as returned by the API. `fields` contains `title` and all field values.
+     */
+    item?: ItemResponse | null;
+    /**
+     * The listName property
+     */
+    listName?: string | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
+    /**
+     * The workspaceName property
+     */
+    workspaceName?: string | null;
+}
 export interface LoginRequest extends AdditionalDataHolder, Parsable {
     /**
      * The password property
@@ -7042,6 +7139,20 @@ export interface MergeTermRequest extends AdditionalDataHolder, Parsable {
      * The targetTermId property
      */
     targetTermId?: Guid | null;
+}
+export interface MoveItemRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The listId property
+     */
+    listId?: Guid | null;
+    /**
+     * The parentId property
+     */
+    parentId?: Guid | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: Guid | null;
 }
 /**
  * Moves pages (all when omitted) into another document (DOC-06): `append` (default), `prepend`, or `replace`its pages. A source left without pages goes to the recycle bin, so moving all pages merges two documents.
@@ -7343,6 +7454,19 @@ export interface PageOfItemVersionResponse extends AdditionalDataHolder, Parsabl
      * The value property
      */
     value?: ItemVersionResponse[] | null;
+}
+/**
+ * A page of results in Graph/OData shape.
+ */
+export interface PageOfLocatedItemResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The OdataNextLink property
+     */
+    odataNextLink?: string | null;
+    /**
+     * The value property
+     */
+    value?: LocatedItemResponse[] | null;
 }
 /**
  * A page of results in Graph/OData shape.
@@ -9594,6 +9718,23 @@ export function serializeListTemplateResponse(writer: SerializationWriter, listT
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param LocatedItemResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeLocatedItemResponse(writer: SerializationWriter, locatedItemResponse: Partial<LocatedItemResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!locatedItemResponse || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("canRelate", locatedItemResponse.canRelate);
+    writer.writeStringValue("contentTypeName", locatedItemResponse.contentTypeName);
+    writer.writeObjectValue<ItemResponse>("item", locatedItemResponse.item, serializeItemResponse);
+    writer.writeStringValue("listName", locatedItemResponse.listName);
+    writer.writeGuidValue("workspaceId", locatedItemResponse.workspaceId);
+    writer.writeStringValue("workspaceName", locatedItemResponse.workspaceName);
+    writer.writeAdditionalData(locatedItemResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param LoginRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -9633,6 +9774,20 @@ export function serializeMergeTermRequest(writer: SerializationWriter, mergeTerm
     if (!mergeTermRequest || isSerializingDerivedType) { return; }
     writer.writeGuidValue("targetTermId", mergeTermRequest.targetTermId);
     writer.writeAdditionalData(mergeTermRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param MoveItemRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeMoveItemRequest(writer: SerializationWriter, moveItemRequest: Partial<MoveItemRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!moveItemRequest || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("listId", moveItemRequest.listId);
+    writer.writeGuidValue("parentId", moveItemRequest.parentId);
+    writer.writeGuidValue("workspaceId", moveItemRequest.workspaceId);
+    writer.writeAdditionalData(moveItemRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -9879,6 +10034,19 @@ export function serializePageOfItemVersionResponse(writer: SerializationWriter, 
     writer.writeStringValue("@odata.nextLink", pageOfItemVersionResponse.odataNextLink);
     writer.writeCollectionOfObjectValues<ItemVersionResponse>("value", pageOfItemVersionResponse.value, serializeItemVersionResponse);
     writer.writeAdditionalData(pageOfItemVersionResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PageOfLocatedItemResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePageOfLocatedItemResponse(writer: SerializationWriter, pageOfLocatedItemResponse: Partial<PageOfLocatedItemResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageOfLocatedItemResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("@odata.nextLink", pageOfLocatedItemResponse.odataNextLink);
+    writer.writeCollectionOfObjectValues<LocatedItemResponse>("value", pageOfLocatedItemResponse.value, serializeLocatedItemResponse);
+    writer.writeAdditionalData(pageOfLocatedItemResponse.additionalData);
 }
 /**
  * Serializes information the current object

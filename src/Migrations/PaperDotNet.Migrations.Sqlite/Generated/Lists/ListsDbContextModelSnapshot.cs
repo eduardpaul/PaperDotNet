@@ -233,6 +233,63 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                     b.ToTable("lists_item_changes", (string)null);
                 });
 
+            modelBuilder.Entity("PaperDotNet.Lists.Data.ItemRelation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("FirstItemId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("first_item_id");
+
+                    b.Property<Guid>("SecondItemId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("second_item_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_lists_item_relations");
+
+                    b.HasIndex("FirstItemId")
+                        .HasDatabaseName("ix_lists_item_relations_first_item_id");
+
+                    b.HasIndex("SecondItemId")
+                        .HasDatabaseName("ix_lists_item_relations_second_item_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_lists_item_relations_tenant_id");
+
+                    b.HasIndex("TenantId", "SecondItemId")
+                        .HasDatabaseName("ix_lists_item_relations_tenant_id_second_item_id");
+
+                    b.HasIndex("TenantId", "FirstItemId", "SecondItemId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_lists_item_relations_tenant_id_first_item_id_second_item_id");
+
+                    b.ToTable("lists_item_relations", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Lists.Data.ItemValue", b =>
                 {
                     b.Property<Guid>("ItemId")
@@ -1031,6 +1088,23 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Lists
                         .HasDatabaseName("ix_lists_audit_log_tenant_id_at");
 
                     b.ToTable("lists_audit_log", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Lists.Data.ItemRelation", b =>
+                {
+                    b.HasOne("PaperDotNet.Lists.Data.ListItem", null)
+                        .WithMany()
+                        .HasForeignKey("FirstItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_lists_item_relations_items_first_item_id");
+
+                    b.HasOne("PaperDotNet.Lists.Data.ListItem", null)
+                        .WithMany()
+                        .HasForeignKey("SecondItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_lists_item_relations_items_second_item_id");
                 });
 #pragma warning restore 612, 618
         }

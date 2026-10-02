@@ -104,6 +104,7 @@ public sealed class ListsModule : IModule
         ContentTypeEndpoints.Map(endpoints);
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
+        GlobalItemEndpoints.Map(endpoints);
         DeltaEndpoints.Map(endpoints);
         ItemCountEndpoints.Map(endpoints);
         SmartFolders.Map(endpoints);

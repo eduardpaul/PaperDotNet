@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
@@ -39,7 +40,8 @@ internal sealed class ItemWriter(
     EventCausation causation,
     TimeProvider time,
     ILiveEvents live,
-    ScopeMover mover) : IFieldValidationContext
+    ScopeMover mover,
+    IEnumerable<IItemMoveParticipant> moveParticipants) : IFieldValidationContext
 {
     public const int TitleMaxLength = 1024;
     private const int MaxFolderDepth = 64;
@@ -217,6 +219,54 @@ internal sealed class ItemWriter(
         return new ItemWriteResult(item);
     }
 
+    /// <summary>Stores one symmetric relationship. Callers authorize both endpoints before invoking it.</summary>
+    internal async Task<bool> RelateItemsAsync(ListSchema sourceSchema, ListItem source, ListSchema targetSchema, ListItem target, bool add, CancellationToken ct)
+    {
+        var itemId = source.Id;
+        var otherId = target.Id;
+        var first = itemId.CompareTo(otherId) < 0 ? itemId : otherId;
+        var second = first == itemId ? otherId : itemId;
+        var relation = await db.Relations.FirstOrDefaultAsync(r => r.FirstItemId == first && r.SecondItemId == second, ct);
+        if (add == (relation is not null))
+        {
+            return true;
+        }
+
+        if (add)
+        {
+            db.Relations.Add(new ItemRelation { Id = Ids.New(), FirstItemId = first, SecondItemId = second });
+        }
+        else
+        {
+            db.Relations.Remove(relation!);
+        }
+
+        // Touch both endpoints: concurrent moves/deletes cannot make this write authorize a stale location.
+        source.UpdatedAt = time.GetUtcNow();
+        target.UpdatedAt = source.UpdatedAt;
+        db.Entry(source).Property(i => i.UpdatedAt).IsModified = true;
+        db.Entry(target).Property(i => i.UpdatedAt).IsModified = true;
+        try
+        {
+            await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Updating, source, sourceSchema, ["relatedItems"]), Event(ItemEventKind.Updating, target, targetSchema, ["relatedItems"])], cancellationToken: ct);
+            await PublishChangedAsync("related", sourceSchema, source, ct);
+            await PublishChangedAsync("related", targetSchema, target, ct);
+            return true;
+        }
+        catch (DbUpdateException)
+        {
+            db.ChangeTracker.Clear();
+            // A concurrent identical operation is already satisfied. Other conflicts need a fresh authorized read.
+            var exists = await db.Relations.AnyAsync(r => r.FirstItemId == first && r.SecondItemId == second, ct);
+            if (exists == add)
+            {
+                return true;
+            }
+
+            return false;
+        }
+    }
+
     public async Task<ItemWriteResult> DeleteAsync(ListSchema schema, ListItem item, CancellationToken ct)
     {
         if (item.IsFolder && await db.Items.AnyAsync(i => i.ParentId == item.Id, ct))
@@ -235,6 +285,91 @@ internal sealed class ItemWriter(
         db.Items.Remove(item);
         await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Deleting, item, schema, [])], cancellationToken: ct);
         await PublishChangedAsync("deleted", schema, item, ct);
+        return new ItemWriteResult(item);
+    }
+
+    /// <summary>Moves an item to a compatible list without replacing its identity or dropping its fields.</summary>
+    public async Task<ItemWriteResult> MoveAcrossListsAsync(ListSchema source, ListSchema destination, ListItem item, Guid? parentId, CancellationToken ct)
+    {
+        if (source.List.Id == destination.List.Id)
+        {
+            return await UpdateAsync(source, item, null, Optional<Guid?>.Of(parentId), null, ct);
+        }
+
+        if (item.IsFolder)
+        {
+            return ItemWriteResult.Invalid("itemId", "Move folders within their list; cross-list moves support content items.");
+        }
+
+        if (source.List.Kind != destination.List.Kind || destination.FindContentType(item.ContentTypeId) is null)
+        {
+            return ItemWriteResult.Invalid("listId", "The destination must have the same list kind and support this item's content type.");
+        }
+
+        var (error, scopeId) = await ValidateParentAsync(destination, parentId, null, ct);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        var before = Values(item);
+        var values = (JsonObject)before.DeepClone();
+        var definitions = destination.FindContentType(item.ContentTypeId)!.Fields;
+        var errors = new Dictionary<string, string[]>();
+        var context = new ItemMutationContext
+        {
+            Kind = ItemEventKind.Updating,
+            Scope = Scope(destination, item),
+            ItemId = item.Id,
+            UserId = currentUser.UserId,
+            Before = before,
+            After = values,
+        };
+        if (await MutateAsync(context, ct) is { } cancelled)
+        {
+            return cancelled;
+        }
+
+        // Revalidate all values against the destination, including values changed by its mutators.
+        using var document = JsonDocument.Parse(context.After!.ToJsonString());
+        values = await NormalizeAsync(definitions, document.RootElement, [], false, true, errors, ct);
+        CheckIndexedValues(destination, values, errors);
+        if (errors.Count > 0)
+        {
+            return new ItemWriteResult(null, errors);
+        }
+
+        var oldScopeId = item.ScopeId;
+        var sourceAudience = await db.AclEntries.AsNoTracking().Where(e => e.ScopeId == oldScopeId).Select(e => e.PrincipalId).ToArrayAsync(ct);
+        var move = new ItemMove(item.Id, source.List.WorkspaceId, source.List.Id, destination.List.WorkspaceId, destination.List.Id);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        item.ListId = destination.List.Id;
+        item.ParentId = parentId;
+        // A move inherits destination access; it never carries source workspace grants into another workspace.
+        item.ScopeId = scopeId;
+        item.HasUniquePermissions = false;
+        db.AclEntries.RemoveRange(await db.AclEntries.Where(e => e.ScopeId == item.Id).ToListAsync(ct));
+        ApplyValues(item, values);
+        foreach (var version in await db.ItemVersions.Where(v => v.ItemId == item.Id).ToListAsync(ct))
+        {
+            version.ListId = destination.List.Id;
+        }
+
+        var changedFields = ChangedFields(before, values);
+        if (changedFields.Count > 0)
+        {
+            await AddVersionAsync(destination, item, changedFields, ct);
+        }
+
+        foreach (var participant in moveParticipants)
+        {
+            await participant.MoveAsync(move, transaction.GetDbTransaction(), ct);
+        }
+
+        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Updating, item, destination, ["listId", "parentId", .. changedFields])], cancellationToken: ct);
+        // IOutbox saves the item/messages and commits the enrolled transaction.
+        await PublishChangedAsync("moved", source, item, ct, sourceAudience);
+        await PublishChangedAsync("moved", destination, item, ct);
         return new ItemWriteResult(item);
     }
 
@@ -522,7 +657,7 @@ internal sealed class ItemWriter(
     }
 
     /// <summary>Tells connected clients who can read the item (the principals of its scope, ADR-0035) that it changed.</summary>
-    private async Task PublishChangedAsync(string kind, ListSchema schema, ListItem item, CancellationToken ct)
+    internal async Task PublishChangedAsync(string kind, ListSchema schema, ListItem item, CancellationToken ct, Guid[]? audienceOverride = null)
     {
         if (tenant.TenantId is not { } tenantId)
         {
@@ -530,7 +665,7 @@ internal sealed class ItemWriter(
         }
 
         var scopeId = item.ScopeId;
-        var audience = await db.AclEntries.AsNoTracking().Where(e => e.ScopeId == scopeId).Select(e => e.PrincipalId).ToArrayAsync(ct);
+        var audience = audienceOverride ?? await db.AclEntries.AsNoTracking().Where(e => e.ScopeId == scopeId).Select(e => e.PrincipalId).ToArrayAsync(ct);
         live.Publish(new LiveEvent("item.changed", tenantId, null, new
         {
             Kind = kind,

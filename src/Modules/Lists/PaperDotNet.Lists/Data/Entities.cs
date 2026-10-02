@@ -5,6 +5,26 @@ using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Lists.Data;
 
+/// <summary>A symmetric relationship between two content items. Endpoints are ordered by Guid.CompareTo.</summary>
+public sealed class ItemRelation : ITenantOwned, IAuditable
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid FirstItemId { get; set; }
+
+    public Guid SecondItemId { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Guid? CreatedBy { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public Guid? UpdatedBy { get; set; }
+}
+
 /// <summary>A reusable, tenant-wide schema: an ordered set of fields (SharePoint content type).</summary>
 public sealed class ContentType : ITenantOwned, IAuditable, IVersioned
 {

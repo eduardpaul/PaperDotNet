@@ -24,6 +24,8 @@ import { FieldTypesRequestBuilderRequestsMetadata, type FieldTypesRequestBuilder
 // @ts-ignore
 import { GroupsRequestBuilderNavigationMetadata, GroupsRequestBuilderRequestsMetadata, type GroupsRequestBuilder } from './groups/index.js';
 // @ts-ignore
+import { ItemsRequestBuilderNavigationMetadata, ItemsRequestBuilderRequestsMetadata, type ItemsRequestBuilder } from './items/index.js';
+// @ts-ignore
 import { ListTemplatesRequestBuilderRequestsMetadata, type ListTemplatesRequestBuilder } from './listTemplates/index.js';
 // @ts-ignore
 import { MeRequestBuilderNavigationMetadata, MeRequestBuilderRequestsMetadata, type MeRequestBuilder } from './me/index.js';
@@ -102,6 +104,10 @@ export interface V10RequestBuilder extends BaseRequestBuilder<V10RequestBuilder>
      * The groups property
      */
     get groups(): GroupsRequestBuilder;
+    /**
+     * The items property
+     */
+    get items(): ItemsRequestBuilder;
     /**
      * The listTemplates property
      */
@@ -204,6 +210,10 @@ export const V10RequestBuilderNavigationMetadata: Record<Exclude<keyof V10Reques
     groups: {
         requestsMetadata: GroupsRequestBuilderRequestsMetadata,
         navigationMetadata: GroupsRequestBuilderNavigationMetadata,
+    },
+    items: {
+        requestsMetadata: ItemsRequestBuilderRequestsMetadata,
+        navigationMetadata: ItemsRequestBuilderNavigationMetadata,
     },
     listTemplates: {
         requestsMetadata: ListTemplatesRequestBuilderRequestsMetadata,

@@ -34,6 +34,7 @@ public sealed class TasksModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<TasksDbContext>(TasksDbContext.Schema);
+        services.AddScoped<IItemMoveParticipant, TasksItemMoveParticipant>();
         services.AddSingleton(TaskTemplates.ContentType);
         services.AddSingleton(TaskTemplates.List);
         services.AddScoped<TaskAccess>();

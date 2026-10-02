@@ -65,6 +65,23 @@ internal sealed class ListItemsTemplateHandler(
             cancellationToken);
         var groups = await users.GetGroupNamesAsync([.. grants.Where(g => g.PrincipalType == AclPrincipalType.Group).Select(g => g.PrincipalId).Distinct()], cancellationToken);
         var exported = new JsonArray();
+        var itemIds = items.Select(i => i.Id).ToArray();
+        var relations = await db.Relations.AsNoTracking()
+            .Where(r => EF.Parameter(itemIds).Contains(r.FirstItemId) || EF.Parameter(itemIds).Contains(r.SecondItemId)).ToListAsync(cancellationToken);
+        var relatedIds = relations.SelectMany(r => new[] { r.FirstItemId, r.SecondItemId }).Distinct().ToArray();
+        var targets = await db.Items.AsNoTracking().Where(i => EF.Parameter(relatedIds).Contains(i.Id)).ToDictionaryAsync(i => i.Id, cancellationToken);
+        var targetListIds = targets.Values.Select(i => i.ListId).Distinct().ToArray();
+        var targetLists = await db.Lists.AsNoTracking().Where(l => EF.Parameter(targetListIds).Contains(l.Id))
+            .ToDictionaryAsync(l => l.Id, cancellationToken);
+        var paths = new Dictionary<Guid, string>();
+        foreach (var targetList in targets.Values.Select(i => i.ListId).Distinct())
+        {
+            if (await lookups.ListPathAsync(targetList, cancellationToken) is { } targetPath)
+            {
+                paths[targetList] = targetPath;
+            }
+        }
+
         foreach (var item in ordered)
         {
             var contentType = schema.FindContentType(item.ContentTypeId);
@@ -94,6 +111,26 @@ internal sealed class ListItemsTemplateHandler(
             entry["createdBy"] = item.CreatedBy is { } creator ? people.GetValueOrDefault(creator) : null;
             entry["modified"] = item.UpdatedAt;
             entry["modifiedBy"] = item.UpdatedBy is { } editor ? people.GetValueOrDefault(editor) : null;
+            var related = new JsonArray();
+            foreach (var relation in relations.Where(r => r.FirstItemId == item.Id || r.SecondItemId == item.Id))
+            {
+                var otherId = relation.FirstItemId == item.Id ? relation.SecondItemId : relation.FirstItemId;
+                if (targets.GetValueOrDefault(otherId) is { } target && paths.TryGetValue(target.ListId, out var targetPath))
+                {
+                    if (context.Scope != TemplateScope.Tenant && targetLists[target.ListId].WorkspaceId != context.WorkspaceId)
+                    {
+                        context.Warn($"A relationship of '{item.Title}' was left out because its target is outside the exported workspace.");
+                        continue;
+                    }
+
+                    related.Add(new JsonObject { ["list"] = targetPath, ["key"] = Key(target.Id) });
+                }
+            }
+
+            if (related.Count > 0)
+            {
+                entry["relatedItems"] = related;
+            }
             if (item.HasUniquePermissions)
             {
                 // Workspace roles by name (owners are implied), people and groups by name.
@@ -267,6 +304,7 @@ internal sealed class ListItemsTemplateHandler(
 
         var schema = (await loader.LoadAsSystemAsync(context.WorkspaceId!.Value, listId, cancellationToken))!;
         var lookupsToSet = new List<(Guid Id, JsonObject Values)>();
+        var relationsToSet = new List<(Guid Id, JsonArray References)>();
         foreach (var entry in missing)
         {
             var key = entry["key"]!.ToString();
@@ -302,12 +340,49 @@ internal sealed class ListItemsTemplateHandler(
             {
                 lookupsToSet.Add((id, lookupValues));
             }
+
+            if (entry["relatedItems"] is JsonArray references)
+            {
+                relationsToSet.Add((id, references));
+            }
         }
 
         if (lookupsToSet.Count > 0)
         {
             var workspaceId = context.WorkspaceId!.Value;
             context.Defer(ct => SetLookupsAsync(workspaceId, listId, name, lookupsToSet, context, ct));
+        }
+
+        if (relationsToSet.Count > 0)
+        {
+            context.Defer(ct => SetRelationsAsync(relationsToSet, context, ct));
+        }
+    }
+
+    private async Task SetRelationsAsync(List<(Guid Id, JsonArray References)> items, TemplateContext context, CancellationToken ct)
+    {
+        foreach (var (id, references) in items)
+        {
+            foreach (var reference in references.OfType<JsonObject>())
+            {
+                var path = reference["list"]?.ToString();
+                var key = reference["key"]?.ToString();
+                var targetList = path is null ? null : await lookups.ListAsync(path, context, ct);
+                var other = targetList is { } list && key is not null ? TemplateContent.ItemId(list, key) : (Guid?)null;
+                if (other is not { } otherId || otherId == id || !await db.Items.AnyAsync(i => i.Id == otherId && !i.IsFolder, ct))
+                {
+                    context.Warn($"Relationship from {id} to {path}/{key} was left out: the target was not imported.");
+                    continue;
+                }
+
+                var first = id.CompareTo(otherId) < 0 ? id : otherId;
+                var second = first == id ? otherId : id;
+                if (!await db.Relations.AnyAsync(r => r.FirstItemId == first && r.SecondItemId == second, ct))
+                {
+                    db.Relations.Add(new ItemRelation { Id = PaperDotNet.Abstractions.Ids.New(), FirstItemId = first, SecondItemId = second });
+                    await db.SaveChangesAsync(ct);
+                }
+            }
         }
     }
 

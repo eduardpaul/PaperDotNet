@@ -97,6 +97,97 @@ internal sealed class ListItemStore(
         return item is null || schema!.Access.Level(item.ScopeId) < WorkspaceAccessLevel.Read ? null : ToData(schema, item);
     }
 
+    public async Task<ListItemData?> GetByIdAsync(Guid itemId, CancellationToken cancellationToken)
+    {
+        var item = await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId, cancellationToken);
+        var list = item is null ? null : await db.Lists.AsNoTracking().FirstOrDefaultAsync(l => l.Id == item.ListId, cancellationToken);
+        return list is null ? null : await GetAsync(list.WorkspaceId, list.Id, itemId, cancellationToken);
+    }
+
+    public async Task<ListItemPage?> GetRelatedAsync(Guid itemId, int top, Guid? after, CancellationToken cancellationToken)
+    {
+        if (await GetByIdAsync(itemId, cancellationToken) is not { IsFolder: false })
+        {
+            return null;
+        }
+
+        top = Math.Clamp(top, 1, Api.PageRequest.MaxTop);
+        var lists = await GetListsAsync(null, null, cancellationToken);
+        var schemas = await loader.LoadManyAsync(lists.Select(l => l.Id).ToArray(), system, cancellationToken);
+        var byList = schemas.ToDictionary(s => s.List.Id);
+        var listIds = byList.Keys.ToArray();
+        var fullLists = schemas.Where(s => s.Access.FullControl).Select(s => s.List.Id).ToArray();
+        var scopes = schemas.SelectMany(s => s.Access.Scopes(WorkspaceAccessLevel.Read)).Distinct().ToArray();
+        var items = await db.Items.AsNoTracking().Where(i => !i.IsFolder && EF.Parameter(listIds).Contains(i.ListId)
+            && (EF.Parameter(fullLists).Contains(i.ListId) || EF.Parameter(scopes).Contains(i.ScopeId))
+            && (after == null || i.Id.CompareTo(after.Value) > 0)
+            && db.Relations.Any(r => (r.FirstItemId == itemId && r.SecondItemId == i.Id) || (r.SecondItemId == itemId && r.FirstItemId == i.Id)))
+            .OrderBy(i => i.Id).Take(top + 1).ToListAsync(cancellationToken);
+        return new ListItemPage(items.Take(top).Select(i => ToData(byList[i.ListId], i)).ToList(),
+            items.Count > top ? Api.PageRequest.EncodeCursor(items[top - 1].Id) : null);
+    }
+
+    public async Task<ListItemResult> RelateAsync(Guid itemId, Guid otherId, bool related, CancellationToken cancellationToken)
+    {
+        var current = await GetByIdAsync(itemId, cancellationToken);
+        var other = await GetByIdAsync(otherId, cancellationToken);
+        if (current is null || other is null || current.IsFolder || other.IsFolder)
+        {
+            return new ListItemResult(ListItemStatus.NotFound);
+        }
+
+        if (itemId == otherId)
+        {
+            return new ListItemResult(ListItemStatus.Invalid, Message: "An item cannot relate to itself.");
+        }
+
+        var (source, item, problem) = await LoadForChangeAsync(current.WorkspaceId, current.ListId, itemId, null, cancellationToken);
+        if (problem is not null)
+        {
+            return problem;
+        }
+
+        var (target, targetItem, targetProblem) = await LoadForChangeAsync(other.WorkspaceId, other.ListId, otherId, null, cancellationToken);
+        if (targetProblem is not null)
+        {
+            return targetProblem;
+        }
+
+        return await writer.RelateItemsAsync(source!, item!, target!, targetItem!, related, cancellationToken)
+            ? new ListItemResult(ListItemStatus.Ok, ToData(source!, item!))
+            : new ListItemResult(ListItemStatus.VersionMismatch);
+    }
+
+    public async Task<ListItemResult> MoveToAsync(Guid itemId, Guid workspaceId, Guid listId, Guid? folderId, uint? expectedVersion, CancellationToken cancellationToken)
+    {
+        var current = await GetByIdAsync(itemId, cancellationToken);
+        if (current is null)
+        {
+            return new ListItemResult(ListItemStatus.NotFound);
+        }
+
+        var (source, item, problem) = await LoadForChangeAsync(current.WorkspaceId, current.ListId, itemId, expectedVersion, cancellationToken);
+        if (problem is not null)
+        {
+            return problem;
+        }
+
+        var destination = await LoadAsync(workspaceId, listId, cancellationToken);
+        if (destination is null)
+        {
+            return new ListItemResult(ListItemStatus.NotFound);
+        }
+
+        try
+        {
+            return ToResult(destination, await writer.MoveAcrossListsAsync(source!, destination, item!, folderId, cancellationToken));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new ListItemResult(ListItemStatus.VersionMismatch);
+        }
+    }
+
     public async Task<(IReadOnlyList<ListItemData> Items, string? Error)> QueryAsync(
         Guid workspaceId, Guid listId, ListItemQuery query, CancellationToken cancellationToken)
     {

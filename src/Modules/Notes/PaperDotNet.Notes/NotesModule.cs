@@ -30,6 +30,7 @@ public sealed class NotesModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<NotesDbContext>(NotesDbContext.Schema);
+        services.AddScoped<IItemMoveParticipant, NotesItemMoveParticipant>();
         services.AddSingleton(NoteTemplates.ContentType);
         services.AddSingleton(NoteTemplates.List);
         services.AddScoped<IItemMutator, NoteTagsMutator>();

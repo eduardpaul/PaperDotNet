@@ -38,6 +38,7 @@ public sealed class NotificationsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<NotificationsDbContext>(NotificationsDbContext.Schema);
+        services.AddScoped<IItemMoveParticipant, NotificationsItemMoveParticipant>();
         services.AddOptions<NotificationsOptions>().BindConfiguration(NotificationsOptions.Section);
         services.AddScoped<INotificationSender, NotificationSender>();
         services.AddKeyedSingleton<HttpMessageHandler>(WebhookDispatcher.HandlerKey, (sp, _) => WebhookNetwork.CreateHandler(sp.GetRequiredService<IOptions<NotificationsOptions>>()));

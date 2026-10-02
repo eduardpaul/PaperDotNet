@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from .extensions.extensions_request_builder import ExtensionsRequestBuilder
     from .field_types.field_types_request_builder import FieldTypesRequestBuilder
     from .groups.groups_request_builder import GroupsRequestBuilder
+    from .items.items_request_builder import ItemsRequestBuilder
     from .list_templates.list_templates_request_builder import ListTemplatesRequestBuilder
     from .me.me_request_builder import MeRequestBuilder
     from .operations.operations_request_builder import OperationsRequestBuilder
@@ -143,6 +144,15 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .groups.groups_request_builder import GroupsRequestBuilder
 
         return GroupsRequestBuilder(self.request_adapter, self.path_parameters)
+
+    @property
+    def items(self) -> ItemsRequestBuilder:
+        """
+        The items property
+        """
+        from .items.items_request_builder import ItemsRequestBuilder
+
+        return ItemsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def list_templates(self) -> ListTemplatesRequestBuilder:
