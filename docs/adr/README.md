@@ -47,3 +47,4 @@ New decisions get the next number. Superseded records stay, marked as such.
 | [0040](0040-typed-item-relationships.md) | Taxonomy-backed predicates, directed graph edges, endpoint limits and graph-aware receipt workflows | Accepted (implemented) |
 | [0041](0041-relationship-attributes-and-workspace-queries.md) | Flat relationship attributes, versioned patches and permission-trimmed workspace graph queries returning both endpoints | Accepted (implemented) |
 | [0042](0042-ical-source-replication.md) | iCalendar source replication in Calendar, independent subscriptions, existing workflows and SDK 1.0 restore/activation capabilities | Accepted |
+| [0043](0043-search-indexing-as-workflows-over-a-search-store.md) | Search indexing as workflows over a pluggable search store: metadata in code, file content through `search.*` activities and chunkers per library, `ISearchStore` backend in its own database, embeddings computed once | Proposed |
