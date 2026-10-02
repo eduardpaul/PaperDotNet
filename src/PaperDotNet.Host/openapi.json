@@ -754,6 +754,180 @@
         }
       }
     },
+    "/v1.0/auth/passkeys/options": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "description": "Request options for navigator.credentials.get(); without a user name the authenticator offers its discoverable passkeys.",
+        "operationId": "PasskeyLoginOptions",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PasskeyLoginOptionsRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOptionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/auth/passkeys/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "PasskeyLogin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/me/passkeys": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "operationId": "ListMyPasskeys",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PasskeyResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Me"
+        ],
+        "operationId": "RegisterPasskey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/me/passkeys/options": {
+      "post": {
+        "tags": [
+          "Me"
+        ],
+        "operationId": "PasskeyCreationOptions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyOptionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/me/passkeys/{id}": {
+      "delete": {
+        "tags": [
+          "Me"
+        ],
+        "operationId": "RemovePasskey",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/v1.0/me": {
       "get": {
         "tags": [
@@ -15069,6 +15243,103 @@
           }
         },
         "description": "A page of the result: its number in the current file, turned clockwise by `rotate` degrees (0, 90, 180, 270)."
+      },
+      "PasskeyLoginOptionsRequest": {
+        "required": [
+          "userName"
+        ],
+        "type": "object",
+        "properties": {
+          "userName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PasskeyLoginRequest": {
+        "required": [
+          "credential",
+          "state"
+        ],
+        "type": "object",
+        "properties": {
+          "credential": {
+            "$ref": "#/components/schemas/JsonElement"
+          },
+          "state": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PasskeyOptionsResponse": {
+        "required": [
+          "options",
+          "state"
+        ],
+        "type": "object",
+        "properties": {
+          "options": {
+            "$ref": "#/components/schemas/JsonElement"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "description": "WebAuthn options for `navigator.credentials.create/get`, and an opaque state to send back with the answer."
+      },
+      "PasskeyRegistrationRequest": {
+        "required": [
+          "credential",
+          "state",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "credential": {
+            "$ref": "#/components/schemas/JsonElement"
+          },
+          "state": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PasskeyResponse": {
+        "required": [
+          "id",
+          "name",
+          "createdAt",
+          "isBackedUp"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isBackedUp": {
+            "type": "boolean"
+          }
+        }
       },
       "PermissionGrantDto": {
         "required": [

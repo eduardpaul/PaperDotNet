@@ -33,6 +33,15 @@ public sealed class AuthOptions
 
     /// <summary>Redirect URIs of the first-party client (e.g. the web UI's callback): turns on its authorization code grant.</summary>
     public List<string> FirstPartyRedirectUris { get; set; } = [];
+
+    /// <summary>The relying party id of passkeys (the web UI's domain); the request's host when not set.</summary>
+    public string? PasskeyServerDomain { get; set; }
+
+    /// <summary>Origins that may use passkeys (e.g. <c>https://docs.example.com</c>); the request's origin when empty.</summary>
+    public List<string> PasskeyOrigins { get; set; } = [];
+
+    /// <summary>Sign-in through an authenticating reverse proxy (IAM-15), off by default.</summary>
+    public Authentication.ReverseProxyAuthOptions ReverseProxy { get; set; } = new();
 }
 
 /// <summary>OAuth 2.0 token response (RFC 6749 §5.1), with an OpenID Connect identity token when <c>openid</c> was granted.</summary>

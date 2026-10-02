@@ -1,35 +1,44 @@
 using System.Buffers.Text;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 
 namespace PaperDotNet.IntegrationTests;
 
 /// <summary>Sign-in through an authenticating reverse proxy (IAM-15).</summary>
-public sealed class ReverseProxyTests(PaperDotNetApiFactory factory)
+public sealed class ReverseProxyTests : IAsyncLifetime
 {
-    /// <summary>The test factory trusts proxies in this network (<c>Auth:ReverseProxy:TrustedProxies</c>).</summary>
+    /// <summary>The host trusts proxies in this network (<c>Auth:ReverseProxy:TrustedProxies</c>).</summary>
     public const string TrustedNetwork = "10.9.9.0/24";
 
     private const string Callback = "https://app.example/callback";
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    private readonly TestHost _host = new(settings: new Dictionary<string, string>
+    {
+        ["Tenancy:AllowHeader"] = "true",
+        ["Auth:ReverseProxy:Enabled"] = "true",
+        ["Auth:ReverseProxy:TrustedProxies:0"] = TrustedNetwork,
+    });
+
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+
+    public ValueTask DisposeAsync() => _host.DisposeAsync();
+
     /// <summary>A client whose requests come from <paramref name="peer"/> (the proxy's address), without following redirects.</summary>
     private HttpClient From(string tenant, string peer)
     {
-        var handler = factory.Server.CreateHandler(context => context.Connection.RemoteIpAddress = IPAddress.Parse(peer));
-        var client = new HttpClient(handler) { BaseAddress = factory.Server.BaseAddress };
+        var handler = _host.Server.CreateHandler(context => context.Connection.RemoteIpAddress = IPAddress.Parse(peer));
+        var client = new HttpClient(handler) { BaseAddress = _host.Server.BaseAddress };
         client.DefaultRequestHeaders.Add("X-Tenant", tenant);
         return client;
     }
 
     private static async Task<(string ClientId, string Authorize, string Verifier)> AppAsync(HttpClient admin)
     {
-        var created = await admin.PostAsJsonAsync("/v1.0/applications", new
+        using var created = await admin.PostAsJsonAsync("/v1.0/applications", new
         {
             displayName = "Web UI",
             clientType = "public",
@@ -37,8 +46,7 @@ public sealed class ReverseProxyTests(PaperDotNetApiFactory factory)
             scopes = new[] { "openid", "api" },
             redirectUris = new[] { Callback },
         }, Ct);
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var clientId = (await created.ReadJsonAsync()).GetProperty("application").GetProperty("clientId").GetString()!;
+        var clientId = (await created.JsonAsync(HttpStatusCode.Created)).GetProperty("application").GetProperty("clientId").GetString()!;
         var verifier = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
         var challenge = Base64Url.EncodeToString(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
         var authorize = $"/connect/authorize?response_type=code&client_id={clientId}&redirect_uri={Uri.EscapeDataString(Callback)}" +
@@ -72,7 +80,7 @@ public sealed class ReverseProxyTests(PaperDotNetApiFactory factory)
     {
         Assert.Equal(HttpStatusCode.Redirect, redirect.StatusCode);
         var code = System.Web.HttpUtility.ParseQueryString(redirect.Headers.Location!.Query)["code"]!;
-        var tokens = await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+        using var tokens = await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["grant_type"] = "authorization_code",
             ["client_id"] = clientId,
@@ -80,16 +88,27 @@ public sealed class ReverseProxyTests(PaperDotNetApiFactory factory)
             ["redirect_uri"] = Callback,
             ["code_verifier"] = verifier,
         }), Ct);
-        Assert.Equal(HttpStatusCode.OK, tokens.StatusCode);
-        return (await tokens.ReadJsonAsync()).GetProperty("access_token").GetString()!;
+        return (await tokens.JsonAsync(HttpStatusCode.OK)).GetProperty("access_token").GetString()!;
+    }
+
+    private HttpClient WithToken(string tenant, string token)
+    {
+        var client = _host.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Tenant", tenant);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 
     [Fact]
     public async Task A_trusted_proxy_signs_users_in_and_creates_them()
     {
-        await factory.CreateTenantAsync("proxy-auth");
-        var admin = await ApiClient.CreateAsync(factory, "proxy-auth");
-        var team = (await (await admin.PostAsJsonAsync("/v1.0/groups", new { name = "Team" }, Ct)).ReadJsonAsync()).GetProperty("id").GetGuid();
+        var admin = await _host.CreateTenantAsync("proxy-auth");
+        string team;
+        using (var group = await admin.PostAsJsonAsync("/v1.0/groups", new { name = "Team" }, Ct))
+        {
+            team = (await group.JsonAsync(HttpStatusCode.Created)).Id();
+        }
+
         var (clientId, authorize, verifier) = await AppAsync(admin);
 
         // Headers from anyone but a trusted proxy are ignored.
@@ -98,47 +117,54 @@ public sealed class ReverseProxyTests(PaperDotNetApiFactory factory)
 
         var proxy = From("proxy-auth", "10.9.9.2");
         var redirect = await proxy.SendAsync(Authorize(authorize, "hanna", "Hanna Proxy", "hanna@example.com", "Team, Nonexistent"), Ct);
-        var token = await ExchangeAsync(proxy, redirect, clientId, verifier);
-
-        var hanna = factory.CreateClient();
-        hanna.DefaultRequestHeaders.Add("X-Tenant", "proxy-auth");
-        hanna.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var me = await (await hanna.GetAsync("/v1.0/me", Ct)).ReadJsonAsync();
+        var hanna = WithToken("proxy-auth", await ExchangeAsync(proxy, redirect, clientId, verifier));
+        var me = await (await hanna.GetAsync("/v1.0/me", Ct)).JsonAsync(HttpStatusCode.OK);
         Assert.Equal("hanna", me.GetProperty("userName").GetString());
         Assert.Equal("Hanna Proxy", me.GetProperty("displayName").GetString());
         Assert.Equal("hanna@example.com", me.GetProperty("email").GetString());
-        var members = (await (await admin.GetAsync($"/v1.0/groups/{team}/members", Ct)).ReadJsonAsync()).EnumerateArray();
-        Assert.Contains(members, m => m.GetProperty("userName").GetString() == "hanna");
+        var members = await (await admin.GetAsync($"/v1.0/groups/{team}/members", Ct)).JsonAsync(HttpStatusCode.OK);
+        Assert.Contains("hanna", members.ToString(), StringComparison.Ordinal);
         Assert.Equal(HttpStatusCode.OK, (await hanna.GetAsync("/v1.0/workspaces", Ct)).StatusCode);
 
         // Users created by the proxy have no password, and disabled users cannot sign in through it.
-        var anonymous = await ApiClient.CreateAsync(factory, "proxy-auth", userName: null);
-        Assert.False((await ApiClient.RequestTokenAsync(anonymous, "hanna", "")).IsSuccessStatusCode);
-        var id = me.GetProperty("id").GetGuid();
-        var disable = new HttpRequestMessage(HttpMethod.Patch, $"/v1.0/users/{id}") { Content = JsonContent.Create(new { isDisabled = true }) };
-        Assert.Equal(HttpStatusCode.OK, (await admin.SendAsync(disable, Ct)).StatusCode);
+        using (var password = await _host.CreateClient().PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["grant_type"] = "password",
+            ["tenant"] = "proxy-auth",
+            ["username"] = "hanna",
+            ["password"] = "",
+        }), Ct))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, password.StatusCode);
+        }
+
+        var id = me.GetProperty("id").GetString();
+        using (var disable = await admin.SendAsync(Api.Patch($"/v1.0/users/{id}", new { isDisabled = true }, null), Ct))
+        {
+            Assert.True(disable.IsSuccessStatusCode, await disable.Content.ReadAsStringAsync(Ct));
+        }
+
         Assert.Equal(HttpStatusCode.Unauthorized, (await From("proxy-auth", "10.9.9.3").SendAsync(Authorize(authorize, "hanna"), Ct)).StatusCode);
     }
 
     [Fact]
     public async Task The_proxy_identity_stays_in_its_tenant()
     {
-        await factory.CreateTenantAsync("proxy-iso-a");
-        await factory.CreateTenantAsync("proxy-iso-b");
-        var a = await ApiClient.CreateAsync(factory, "proxy-iso-a");
-        await a.PostAsJsonAsync("/v1.0/users", new { userName = "ivan", password = "ivan-password-1" }, Ct);
-        var b = await ApiClient.CreateAsync(factory, "proxy-iso-b");
+        var a = await _host.CreateTenantAsync("proxy-iso-a");
+        using (var created = await a.PostAsJsonAsync("/v1.0/users", new { userName = "ivan", password = "ivan-password-1" }, Ct))
+        {
+            await created.JsonAsync(HttpStatusCode.Created);
+        }
+
+        var b = await _host.CreateTenantAsync("proxy-iso-b");
         var (clientId, authorize, verifier) = await AppAsync(b);
 
         // "ivan" of tenant A is a different, new user in tenant B.
         var proxy = From("proxy-iso-b", "10.9.9.2");
-        var token = await ExchangeAsync(proxy, await proxy.SendAsync(Authorize(authorize, "ivan"), Ct), clientId, verifier);
-        var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Tenant", "proxy-iso-b");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var me = await (await client.GetAsync("/v1.0/me", Ct)).ReadJsonAsync();
-        var usersA = (await (await a.GetAsync("/v1.0/users", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray();
-        Assert.DoesNotContain(usersA, u => u.GetProperty("id").GetGuid() == me.GetProperty("id").GetGuid());
+        var client = WithToken("proxy-iso-b", await ExchangeAsync(proxy, await proxy.SendAsync(Authorize(authorize, "ivan"), Ct), clientId, verifier));
+        var me = await (await client.GetAsync("/v1.0/me", Ct)).JsonAsync(HttpStatusCode.OK);
+        var usersA = await (await a.GetAsync("/v1.0/users", Ct)).JsonAsync(HttpStatusCode.OK);
+        Assert.DoesNotContain(usersA.GetProperty("value").EnumerateArray(), u => u.GetProperty("id").GetString() == me.GetProperty("id").GetString());
         Assert.Equal("proxy-iso-b", me.GetProperty("tenantIdentifier").GetString());
     }
 }

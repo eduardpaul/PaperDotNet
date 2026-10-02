@@ -50,5 +50,12 @@ namespace PaperDotNet.Identity;
 [JsonSerializable(typeof(List<ApplicationResponse>))]
 [JsonSerializable(typeof(CreateApplicationRequest))]
 [JsonSerializable(typeof(ApplicationSecretResponse))]
+[JsonSerializable(typeof(PasskeyLoginOptionsRequest))]
+[JsonSerializable(typeof(PasskeyOptionsResponse))]
+[JsonSerializable(typeof(PasskeyLoginRequest))]
+[JsonSerializable(typeof(PasskeyRegistrationRequest))]
+[JsonSerializable(typeof(PasskeyResponse))]
+[JsonSerializable(typeof(List<PasskeyResponse>))]
+[JsonSerializable(typeof(PasskeyStatePayload))]
 [JsonSerializable(typeof(PrincipalDeleted))]
 internal sealed partial class IdentityJson : JsonSerializerContext;

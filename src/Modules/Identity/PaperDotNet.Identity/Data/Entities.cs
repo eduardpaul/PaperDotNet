@@ -346,3 +346,41 @@ public class ServerKey : INotAudited
 
     public DateTimeOffset CreatedAt { get; set; }
 }
+
+/// <summary>
+/// A passkey of a user (IAM-01, WebAuthn): the credential's public key and what the authenticator reported, checked by
+/// ASP.NET Core Identity's passkey handler.
+/// </summary>
+public class UserPasskey : ITenantOwned
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid UserId { get; set; }
+
+    /// <summary>The credential id, base64url.</summary>
+    public string CredentialId { get; set; } = "";
+
+    public string Name { get; set; } = "";
+
+    public byte[] PublicKey { get; set; } = [];
+
+    /// <summary>The authenticator's signature counter (a counter that goes back means a cloned key).</summary>
+    public long SignCount { get; set; }
+
+    /// <summary>Transports (<c>internal</c>, <c>usb</c>, …), space separated.</summary>
+    public string Transports { get; set; } = "";
+
+    public bool IsUserVerified { get; set; }
+
+    public bool IsBackupEligible { get; set; }
+
+    public bool IsBackedUp { get; set; }
+
+    public byte[] AttestationObject { get; set; } = [];
+
+    public byte[] ClientDataJson { get; set; } = [];
+
+    public DateTimeOffset CreatedAt { get; set; }
+}

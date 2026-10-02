@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
+using PaperDotNet.Identity.Authentication;
 using PaperDotNet.Identity.Data;
 
 namespace PaperDotNet.Identity.Features;
@@ -209,7 +210,8 @@ internal static class OpenIdConnect
     }
 
     private static async Task<IResult> AuthorizeAsync(
-        HttpContext http, IdentityDbContext db, TenantResolver tenants, IOptions<AuthOptions> options, TimeProvider time, CancellationToken cancellationToken)
+        HttpContext http, IdentityDbContext db, TenantResolver tenants, ReverseProxySignIn proxy, IOptions<AuthOptions> options, TimeProvider time,
+        CancellationToken cancellationToken)
     {
         var parameters = http.Request.HasFormContentType ? (await http.Request.ReadFormAsync(cancellationToken)).ToDictionary() : http.Request.Query.ToDictionary();
         string? Parameter(string name) => parameters.TryGetValue(name, out var value) && value.ToString() is { Length: > 0 } text ? text : null;
@@ -258,6 +260,13 @@ internal static class OpenIdConnect
 
         var prompt = OAuth.Split(Parameter("prompt") ?? "");
         var user = prompt.Contains("login") ? null : await SignInSession.UserAsync(http, db, tenantId);
+
+        // An authenticating reverse proxy (IAM-15) vouches for the user; its identity replaces the session's.
+        if (await proxy.AuthenticateAsync(http, tenantId, cancellationToken) is { } proxied)
+        {
+            await SignInSession.SignInAsync(http, proxied, "proxy");
+            user = proxied;
+        }
         if (user is null)
         {
             if (prompt.Contains("none"))

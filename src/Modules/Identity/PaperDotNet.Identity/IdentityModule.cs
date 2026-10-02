@@ -50,6 +50,33 @@ public sealed class IdentityModule : IModule
         services.AddScoped<ITemplateHandler>(sp => new RoleTemplateHandler(sp.GetRequiredService<IdentityDbContext>(), sp.GetRequiredService<IScopeCatalog>()));
         services.AddSingleton<TokenIssuer>();
         services.AddSingleton<ServerKeys>();
+        if (!ReverseProxySignIn.IsValid(auth.ReverseProxy))
+        {
+            throw new InvalidOperationException("Auth:ReverseProxy needs TrustedProxies (addresses or CIDR networks) and a UserHeader when enabled.");
+        }
+
+        services.AddScoped(sp => new ReverseProxySignIn(
+            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AuthOptions>>(), sp.GetRequiredService<IdentityDbContext>(),
+            sp.GetRequiredService<IUserDirectory>(), sp.GetRequiredService<ILogger<ReverseProxySignIn>>()));
+
+        // Passkeys: ASP.NET Core Identity's WebAuthn handler on a user manager over this module's users and passkeys.
+        services.AddScoped<PasskeyTenant>();
+        services.AddSingleton<PasskeyState>();
+        services.AddScoped(sp => new PasskeyUserStore(sp.GetRequiredService<IdentityDbContext>(), sp.GetRequiredService<PasskeyTenant>(), sp.GetRequiredService<TimeProvider>()));
+        services.AddScoped(sp => new UserManager<User>(
+            sp.GetRequiredService<PasskeyUserStore>(), Microsoft.Extensions.Options.Options.Create(new IdentityOptions()), sp.GetRequiredService<IPasswordHasher<User>>(),
+            [], [], new UpperInvariantLookupNormalizer(), new IdentityErrorDescriber(), sp, sp.GetRequiredService<ILogger<UserManager<User>>>()));
+        services.Configure<IdentityPasskeyOptions>(options =>
+        {
+            options.ServerDomain = auth.PasskeyServerDomain;
+            if (auth.PasskeyOrigins.Count > 0)
+            {
+                var origins = auth.PasskeyOrigins.Select(o => o.TrimEnd('/')).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                options.ValidateOrigin = context => ValueTask.FromResult(!context.CrossOrigin && origins.Contains(context.Origin));
+            }
+        });
+        services.AddScoped<IPasskeyHandler<User>>(sp => new PasskeyHandler<User>(
+            sp.GetRequiredService<UserManager<User>>(), sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<IdentityPasskeyOptions>>()));
         services.AddTenantRecurringJob<OAuthCodeCleanupJob>(OAuthCodeCleanupJob.Name, OAuthCodeCleanupJob.Schedule);
         services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 
@@ -103,6 +130,7 @@ public sealed class IdentityModule : IModule
         TokenEndpoint.Map(endpoints);
         OpenIdConnect.Map(endpoints);
         Applications.Map(endpoints);
+        Passkeys.Map(endpoints);
         Me.Map(endpoints);
         Users.Map(endpoints);
         Groups.Map(endpoints);

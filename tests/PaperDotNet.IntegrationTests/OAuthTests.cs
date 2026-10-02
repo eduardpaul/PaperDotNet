@@ -13,14 +13,19 @@ using PaperDotNet.Identity.Data;
 
 namespace PaperDotNet.IntegrationTests;
 
-/// <summary>OAuth 2.0 / OpenID Connect (IAM-02) and sign-in sessions (IAM-01).</summary>
+/// <summary>OAuth 2.0 / OpenID Connect (IAM-02), sign-in sessions and passkeys (IAM-01).</summary>
 public sealed class OAuthTests : IAsyncLifetime
 {
     private const string Callback = "https://app.example/callback";
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private readonly TestHost _host = new(settings: new Dictionary<string, string> { ["Tenancy:AllowHeader"] = "true" });
+    private readonly TestHost _host = new(settings: new Dictionary<string, string>
+    {
+        ["Tenancy:AllowHeader"] = "true",
+        ["Auth:FirstPartyRedirectUris:0"] = Callback,
+        ["Auth:PasskeyOrigins:0"] = "http://localhost",
+    });
 
     public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
@@ -312,5 +317,66 @@ public sealed class OAuthTests : IAsyncLifetime
 
         var member = await _host.SignInAsync("member", "member-password-1", "oauth-apps-a");
         Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync("/v1.0/applications", Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Passkeys_can_be_registered_and_used_to_sign_in()
+    {
+        var admin = await _host.CreateTenantAsync("oauth-passkey");
+        using var authenticator = new SoftwareAuthenticator();
+
+        var creation = await (await admin.PostAsync("/v1.0/me/passkeys/options", null, Ct)).JsonAsync(HttpStatusCode.OK);
+        using (var registered = await admin.PostAsJsonAsync("/v1.0/me/passkeys", new
+        {
+            credential = authenticator.Create(creation.GetProperty("options")),
+            state = creation.GetProperty("state").GetString(),
+            name = "Laptop",
+        }, Ct))
+        {
+            Assert.Equal("Laptop", (await registered.JsonAsync(HttpStatusCode.Created)).GetProperty("name").GetString());
+        }
+
+        var passkeys = await (await admin.GetAsync("/v1.0/me/passkeys", Ct)).JsonAsync(HttpStatusCode.OK);
+        Assert.Equal("Laptop", Assert.Single(passkeys.EnumerateArray()).GetProperty("name").GetString());
+
+        // Sign in without a password (discoverable credential); the session then serves /connect/authorize.
+        var browser = Browser("oauth-passkey");
+        var request = await (await browser.PostAsJsonAsync("/v1.0/auth/passkeys/options", new { }, Ct)).JsonAsync(HttpStatusCode.OK);
+        using (var login = await browser.PostAsJsonAsync("/v1.0/auth/passkeys/login", new
+        {
+            credential = authenticator.Get(request.GetProperty("options")),
+            state = request.GetProperty("state").GetString(),
+        }, Ct))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, login.StatusCode);
+        }
+
+        var verifier = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
+        var challenge = Base64Url.EncodeToString(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
+        var authorize = await browser.GetAsync($"/connect/authorize?response_type=code&client_id=paperdotnet&redirect_uri={Uri.EscapeDataString(Callback)}&code_challenge={challenge}&code_challenge_method=S256", Ct);
+        Assert.Equal(HttpStatusCode.Redirect, authorize.StatusCode);
+        Assert.Contains("code=", authorize.Headers.Location!.Query, StringComparison.Ordinal);
+
+        // A tampered state, or the state of another tenant, is rejected.
+        using (var tampered = await browser.PostAsJsonAsync("/v1.0/auth/passkeys/login", new
+        {
+            credential = authenticator.Get(request.GetProperty("options")),
+            state = "tampered",
+        }, Ct))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, tampered.StatusCode);
+        }
+
+        using (var foreign = await Browser("default").PostAsJsonAsync("/v1.0/auth/passkeys/login", new
+        {
+            credential = authenticator.Get(request.GetProperty("options")),
+            state = request.GetProperty("state").GetString(),
+        }, Ct))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, foreign.StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/v1.0/me/passkeys/{authenticator.CredentialId}", Ct)).StatusCode);
+        Assert.Empty((await (await admin.GetAsync("/v1.0/me/passkeys", Ct)).JsonAsync(HttpStatusCode.OK)).EnumerateArray());
     }
 }

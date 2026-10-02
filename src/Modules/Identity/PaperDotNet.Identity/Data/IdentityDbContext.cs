@@ -48,6 +48,8 @@ public class IdentityDbContext : DbContext
 
     public DbSet<ServerKey> ServerKeys { get; set; } = null!;
 
+    public DbSet<UserPasskey> Passkeys { get; set; } = null!;
+
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         var tenants = ChangeTracker.Entries()
@@ -230,6 +232,16 @@ public class IdentityDbContext : DbContext
             key.ToTable("server_keys");
             key.Property(k => k.Use).HasMaxLength(8);
             key.HasIndex(k => k.Use);
+        });
+
+        modelBuilder.Entity<UserPasskey>(passkey =>
+        {
+            passkey.ToTable("user_passkeys");
+            passkey.HasIndex(p => new { p.TenantId, p.CredentialId }).IsUnique();
+            passkey.HasIndex(p => new { p.TenantId, p.UserId });
+            passkey.Property(p => p.CredentialId).HasMaxLength(1400);
+            passkey.Property(p => p.Name).HasMaxLength(100);
+            passkey.Property(p => p.Transports).HasMaxLength(200);
         });
 
         modelBuilder.Entity<Preferences>(preferences =>
