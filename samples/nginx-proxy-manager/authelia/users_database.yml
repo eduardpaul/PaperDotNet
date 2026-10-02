@@ -1,0 +1,17 @@
+# Users of the demo. The password of both is "change-me-demo": change it on first sign-in, or set a new
+# hash with `docker compose run --rm authelia authelia crypto hash generate argon2`.
+# Groups go to PaperDotNet as Remote-Groups: users join existing PaperDotNet groups of the same name.
+users:
+  # The same name as PaperDotNet's first administrator: this user signs in as that administrator.
+  admin:
+    displayname: Administrator
+    email: admin@example.com
+    password: "$argon2id$v=19$m=65536,t=3,p=4$rvGw0imaOcpIDKw3wP+bvA$4s5kowwy0aouweI4Z7v7Tt3elgg6cOt8uYvoO3Wrr+w"
+    groups:
+      - Admins
+  alice:
+    displayname: Alice Example
+    email: alice@example.com
+    password: "$argon2id$v=19$m=65536,t=3,p=4$rvGw0imaOcpIDKw3wP+bvA$4s5kowwy0aouweI4Z7v7Tt3elgg6cOt8uYvoO3Wrr+w"
+    groups:
+      - Finance

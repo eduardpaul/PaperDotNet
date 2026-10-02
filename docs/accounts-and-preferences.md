@@ -71,6 +71,10 @@ Behind Authelia, Authentik or oauth2-proxy, the proxy can sign users in
   name and e-mail follow the headers.
 - **Groups:** users are added to existing groups listed in the groups header.
 
+A tested setup for Nginx Proxy Manager, with an NPM access list or Authelia, is in
+[samples/nginx-proxy-manager](../samples/nginx-proxy-manager/README.md). Planned changes for
+general-purpose proxies are in [ADR-0043](adr/0043-generic-reverse-proxies.md).
+
 ## Preferences
 
 `GET /v1.0/me/preferences` returns the effective values and lists the ones
