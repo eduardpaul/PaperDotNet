@@ -1,4 +1,4 @@
-# ADR-0039: iCalendar source replication in the Calendar module
+# ADR-0042: iCalendar source replication in the Calendar module
 
 - **Status:** Accepted
 - **Date:** 2026-10-02

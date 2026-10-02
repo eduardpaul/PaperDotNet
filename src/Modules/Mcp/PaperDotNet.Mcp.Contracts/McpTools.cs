@@ -76,6 +76,10 @@ public sealed class McpArguments(IReadOnlyDictionary<string, JsonElement> values
 
     public Guid GetRequiredGuid(string name) => GetGuid(name) ?? throw Missing(name);
 
+    public bool? GetBoolean(string name) => Has(name)
+        ? Values[name].ValueKind is JsonValueKind.True or JsonValueKind.False ? Values[name].GetBoolean() : throw Invalid(name, "a boolean")
+        : null;
+
     public int? GetInt32(string name) => Has(name)
         ? Values[name].ValueKind == JsonValueKind.Number && Values[name].TryGetInt32(out var number) ? number
             : Values[name].ValueKind == JsonValueKind.String && int.TryParse(Values[name].GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out number) ? number

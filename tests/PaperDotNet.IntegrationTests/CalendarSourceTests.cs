@@ -60,6 +60,49 @@ public sealed class CalendarSourceTests(PaperDotNetApiFactory factory)
         (await (await client.GetAsync(root + "/items", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray().ToList();
 
     [Fact]
+    public async Task Subscribed_events_stay_in_their_list_until_the_source_is_removed()
+    {
+        await factory.CreateTenantAsync("cal-source-moves");
+        var client = await ApiClient.CreateAsync(factory, "cal-source-moves");
+        var ws = await client.CreateWorkspaceAsync("Team");
+        var list = await ListAsync(client, ws, "Source");
+        var destinationWorkspace = await client.CreateWorkspaceAsync("Destination");
+        var destination = await ListAsync(client, destinationWorkspace, "Events");
+        var root = Root(ws, list);
+        const string url = "https://calendar.example/moves.ics";
+        CalendarFeedTransport.Feeds[url] = (HttpStatusCode.OK, Feed("Imported"));
+        var source = await AddAsync(client, root, "Source", url);
+        var item = Assert.Single(await ItemsAsync(client, root));
+        var id = item.GetProperty("id").GetGuid();
+
+        async Task<HttpResponseMessage> MoveAsync(JsonElement current)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, $"/v1.0/items/{id}/move")
+            {
+                Content = JsonContent.Create(new { workspaceId = destinationWorkspace, listId = destination }),
+            };
+            request.Headers.TryAddWithoutValidation("If-Match", current.GetProperty("@odata.etag").GetString());
+            return await client.SendAsync(request, Ct);
+        }
+
+        Assert.Equal(HttpStatusCode.Conflict, (await MoveAsync(item)).StatusCode);
+        Assert.Single(await ItemsAsync(client, root));
+        Assert.Empty(await ItemsAsync(client, Root(destinationWorkspace, destination)));
+        await RefreshAsync(client, root, source.GetProperty("id").GetGuid());
+        Assert.Equal(id, Assert.Single(await ItemsAsync(client, root)).GetProperty("id").GetGuid());
+
+        var currentSource = (await (await client.GetAsync(root + "/calendarSources", Ct)).ReadJsonAsync()).EnumerateArray().Single();
+        var remove = new HttpRequestMessage(HttpMethod.Delete, $"{root}/calendarSources/{source.GetProperty("id").GetGuid()}");
+        remove.Headers.TryAddWithoutValidation("If-Match", currentSource.GetProperty("@odata.etag").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, (await client.SendAsync(remove, Ct)).StatusCode);
+        item = Assert.Single(await ItemsAsync(client, root));
+        Assert.Equal(HttpStatusCode.OK, (await MoveAsync(item)).StatusCode);
+        Assert.Empty(await ItemsAsync(client, root));
+        Assert.Equal(id, Assert.Single(await ItemsAsync(client, Root(destinationWorkspace, destination))).GetProperty("id").GetGuid());
+        Assert.Single((await (await client.GetAsync(Root(destinationWorkspace, destination) + "/calendar?start=2026-10-01T00:00:00Z&end=2026-11-01T00:00:00Z", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray());
+    }
+
+    [Fact]
     public async Task Multiple_sources_and_lists_have_independent_identities_and_restore_returning_events()
     {
         await factory.CreateTenantAsync("cal-sources");

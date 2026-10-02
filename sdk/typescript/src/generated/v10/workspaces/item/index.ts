@@ -8,6 +8,8 @@ import { ListsRequestBuilderNavigationMetadata, ListsRequestBuilderRequestsMetad
 // @ts-ignore
 import { MembersRequestBuilderNavigationMetadata, MembersRequestBuilderRequestsMetadata, type MembersRequestBuilder } from './members/index.js';
 // @ts-ignore
+import { RelationshipsRequestBuilderRequestsMetadata, type RelationshipsRequestBuilder } from './relationships/index.js';
+// @ts-ignore
 import { type WorkflowsRequestBuilder, WorkflowsRequestBuilderNavigationMetadata, WorkflowsRequestBuilderRequestsMetadata } from './workflows/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
@@ -24,6 +26,10 @@ export interface WithWorkspaceItemRequestBuilder extends BaseRequestBuilder<With
      * The members property
      */
     get members(): MembersRequestBuilder;
+    /**
+     * The relationships property
+     */
+    get relationships(): RelationshipsRequestBuilder;
     /**
      * The workflows property
      */
@@ -79,6 +85,9 @@ export const WithWorkspaceItemRequestBuilderNavigationMetadata: Record<Exclude<k
     members: {
         requestsMetadata: MembersRequestBuilderRequestsMetadata,
         navigationMetadata: MembersRequestBuilderNavigationMetadata,
+    },
+    relationships: {
+        requestsMetadata: RelationshipsRequestBuilderRequestsMetadata,
     },
     workflows: {
         requestsMetadata: WorkflowsRequestBuilderRequestsMetadata,

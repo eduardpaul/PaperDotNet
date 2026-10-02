@@ -36,6 +36,7 @@ public sealed class CalendarModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<CalendarDbContext>(CalendarDbContext.Schema);
+        services.AddScoped<IItemMoveParticipant, CalendarItemMoveParticipant>();
         services.AddSingleton(CalendarTemplates.ContentType);
         services.AddSingleton(CalendarTemplates.List);
         services.AddScoped<CalendarService>();

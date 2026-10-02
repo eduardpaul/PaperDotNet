@@ -33,6 +33,55 @@ public sealed class McpTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task Global_tools_link_items_and_move_them_without_changing_identity()
+    {
+        await factory.CreateTenantAsync("mcp-global");
+        var admin = await ApiClient.CreateAsync(factory, "mcp-global");
+        var ws = await admin.CreateWorkspaceAsync("Before");
+        var destination = await admin.CreateWorkspaceAsync("After");
+        var type = await admin.CreateContentTypeAsync("Record", []);
+        var sourceList = await admin.CreateListAsync(ws, "Records", type);
+        var targetList = await admin.CreateListAsync(destination, "Records", type);
+        var first = (await admin.CreateItemAsync(ws, sourceList, new { fields = new { title = "First" } })).GetProperty("id").GetGuid();
+        var second = (await admin.CreateItemAsync(destination, targetList, new { fields = new { title = "Second" } })).GetProperty("id").GetGuid();
+        await using var mcp = await ConnectAsync(admin);
+        await CallAsync(mcp, "relate_items", new() { ["itemId"] = first.ToString(), ["otherId"] = second.ToString() });
+        await CallAsync(mcp, "create_relationship_type", new() { ["name"] = "contains", ["directed"] = true, ["inverseLabel"] = "belongs to", ["maxIncoming"] = 1 });
+        await CallAsync(mcp, "relate_items", new() { ["itemId"] = first.ToString(), ["otherId"] = second.ToString(), ["type"] = "contains", ["attributes"] = new Dictionary<string, object> { ["confidence"] = 0.6 } });
+        var graph = await CallAsync(mcp, "list_item_relationships", new() { ["itemId"] = second.ToString(), ["direction"] = "incoming", ["type"] = "contains" });
+        var edge = Assert.Single(graph.GetProperty("value").EnumerateArray());
+        Assert.True(edge.GetProperty("directed").GetBoolean());
+        var workspaceGraph = await CallAsync(mcp, "query_workspace_relationships", new() { ["workspaceId"] = ws.ToString(), ["filter"] = "attributes/confidence le 0.7" });
+        Assert.Equal(second, Assert.Single(workspaceGraph.GetProperty("value").EnumerateArray()).GetProperty("targetItem").GetProperty("id").GetGuid());
+        await CallAsync(mcp, "update_relationship_attributes", new()
+        {
+            ["itemId"] = first.ToString(),
+            ["relationshipId"] = edge.GetProperty("id").GetString(),
+            ["version"] = edge.GetProperty("version").GetInt32(),
+            ["attributes"] = new Dictionary<string, object> { ["confidence"] = 0.95 }
+        });
+        Assert.Empty((await CallAsync(mcp, "query_workspace_relationships", new() { ["workspaceId"] = ws.ToString(), ["filter"] = "attributes/confidence le 0.7" })).GetProperty("value").EnumerateArray());
+        await CallAsync(mcp, "remove_item_relationship", new() { ["itemId"] = second.ToString(), ["relationshipId"] = edge.GetProperty("id").GetString() });
+        var inverse = await CallAsync(mcp, "list_related_items", new() { ["itemId"] = second.ToString() });
+        Assert.Equal(first, Assert.Single(inverse.GetProperty("items").EnumerateArray()).GetProperty("id").GetGuid());
+        var item = await CallAsync(mcp, "get_global_item", new() { ["itemId"] = first.ToString() });
+        var moved = await CallAsync(mcp, "move_item_to_list", new()
+        {
+            ["itemId"] = first.ToString(),
+            ["workspaceId"] = destination.ToString(),
+            ["listId"] = targetList.ToString(),
+            ["version"] = item.GetProperty("version").GetInt32(),
+        });
+        Assert.Equal(first, moved.GetProperty("id").GetGuid());
+        Assert.Equal(destination, moved.GetProperty("workspaceId").GetGuid());
+        var located = await CallAsync(mcp, "get_global_item", new() { ["itemId"] = first.ToString() });
+        Assert.Equal(targetList, located.GetProperty("listId").GetGuid());
+        await CallAsync(mcp, "relate_items", new() { ["itemId"] = second.ToString(), ["otherId"] = first.ToString(), ["related"] = false });
+        var removed = await CallAsync(mcp, "list_related_items", new() { ["itemId"] = first.ToString() });
+        Assert.Empty(removed.GetProperty("items").EnumerateArray());
+    }
+
+    [Fact]
     public async Task Assistants_search_read_and_change_items_with_the_callers_permissions()
     {
         await factory.CreateTenantAsync("mcp-basic");

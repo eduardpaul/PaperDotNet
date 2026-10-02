@@ -24,6 +24,13 @@ internal sealed class CalendarSourceMutator(CalendarDbContext db, CalendarImport
             return;
         }
 
+        if (await db.Sources.AnyAsync(s => s.ItemId == context.ItemId && s.SubscriptionId != null
+            && s.ListId != context.Scope.ListId && db.Subscriptions.Any(p => p.Id == s.SubscriptionId), cancellationToken))
+        {
+            context.Cancel("Remove the source subscription before moving this event to another list.");
+            return;
+        }
+
         if (Fields.Any(f => !JsonNode.DeepEquals(context.Before?[f], context.After?[f])))
         {
             context.Cancel("This event is replicated from a calendar source. Edit its calendar fields in the source calendar.");

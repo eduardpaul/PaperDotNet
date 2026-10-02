@@ -13,7 +13,7 @@ import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { itemPanels, type ItemPanelContext } from '@/extensibility/item-panels';
 import { FollowButton } from '@/features/collaboration/follow-button';
-import { MoveDocumentDialog } from '@/features/documents/move-dialog';
+import { MoveItemDialog } from '@/features/documents/move-dialog';
 import { useItemAccess, useListAccess } from '@/features/list-settings/queries';
 import { AddToFolderDialog } from '@/features/smart-folders/add-dialog';
 import { CreateTaskDialog } from '@/features/tasks/create-task-dialog';
@@ -21,6 +21,7 @@ import { useFormat } from '@/lib/preferences';
 import { ItemForm } from './item-form';
 import { itemQuery, listBuilder } from './queries';
 import { contentTypeOf } from './schema';
+import { RelatedItems } from './related-items';
 
 /**
  * The item panel next to a list (frontend.md): details and the other tabs of an item, or a new item. Its state is in
@@ -99,9 +100,9 @@ export function ItemPanel({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {list.kind === 'library' && !item.isFolder && (
-                  <DropdownMenuItem onSelect={() => setMoving(true)}>
-                    <FolderInput /> File in a library…
+                {!item.isFolder && (
+                  <DropdownMenuItem disabled={!!source?.sourceId} onSelect={() => setMoving(true)}>
+                    <FolderInput /> {list.kind === 'library' ? 'File in a library…' : 'Move to a list…'}
                   </DropdownMenuItem>
                 )}
                 {list.kind === 'library' && !item.isFolder && (
@@ -140,6 +141,7 @@ export function ItemPanel({
           <Tabs value={tab} onValueChange={onTab} className="flex min-h-0 flex-1 flex-col">
             <TabsList>
               <TabsTrigger value="details">Details</TabsTrigger>
+              {!item.isFolder && <TabsTrigger value="related">Related</TabsTrigger>}
               {panels.map((panel) => (
                 <TabsTrigger key={panel.key} value={panel.key}>
                   {panel.label}
@@ -157,6 +159,11 @@ export function ItemPanel({
                 onCancel={onClose}
               />
             </TabsContent>
+            {!item.isFolder && (
+              <TabsContent value="related" className="min-h-0 flex-1 overflow-y-auto">
+                <RelatedItems item={item} canWrite={canWrite} />
+              </TabsContent>
+            )}
             {panels.map((panel) => (
               <TabsContent key={panel.key} value={panel.key} className="min-h-0 flex-1 overflow-y-auto">
                 <panel.component {...context!} />
@@ -184,7 +191,7 @@ export function ItemPanel({
           />
         )}
         {item && moving && (
-          <MoveDocumentDialog
+          <MoveItemDialog
             workspaceId={workspaceId}
             list={list}
             item={item}

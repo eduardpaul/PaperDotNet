@@ -77,3 +77,6 @@ Per-source leases serialize refresh and configuration changes across servers.
 A lost worker's lease expires, while stable pre-saved item identities make
 interrupted imports repeatable. The implementation lives in Calendar and
 uses the public extension SDK for list writes and workflow activation.
+
+Subscribed events stay in their subscription’s list. Remove the source first to
+move its retained events to another list; moves within the same list are allowed.

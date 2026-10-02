@@ -241,6 +241,142 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                     b.ToTable("item_changes", "lists");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Lists.Data.ItemRelation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Attributes")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("attributes")
+                        .HasAnnotation("PaperDotNet:JsonDocument", true);
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("Directed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("directed");
+
+                    b.Property<Guid>("FirstItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("first_item_id");
+
+                    b.Property<Guid>("SecondItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("second_item_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("TypeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("type_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_item_relations");
+
+                    b.HasIndex("Attributes")
+                        .HasDatabaseName("ix_item_relations_attributes")
+                        .HasAnnotation("PaperDotNet:JsonContainmentIndex", true);
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Attributes"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Attributes"), new[] { "jsonb_path_ops" });
+
+                    b.HasIndex("FirstItemId")
+                        .HasDatabaseName("ix_item_relations_first_item_id");
+
+                    b.HasIndex("SecondItemId")
+                        .HasDatabaseName("ix_item_relations_second_item_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_item_relations_tenant_id");
+
+                    b.HasIndex("TenantId", "SecondItemId")
+                        .HasDatabaseName("ix_item_relations_tenant_id_second_item_id");
+
+                    b.HasIndex("TenantId", "FirstItemId", "SecondItemId", "TypeId", "Directed")
+                        .IsUnique()
+                        .HasDatabaseName("ix_item_relations_tenant_id_first_item_id_second_item_id_type_");
+
+                    b.ToTable("item_relations", "lists");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Lists.Data.ItemRelationshipType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("Directed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("directed");
+
+                    b.Property<string>("InverseLabel")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("inverse_label");
+
+                    b.Property<int?>("MaxIncoming")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_incoming");
+
+                    b.Property<int?>("MaxOutgoing")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_outgoing");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_item_relationship_types");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_item_relationship_types_tenant_id");
+
+                    b.ToTable("item_relationship_types", "lists");
+                });
+
             modelBuilder.Entity("PaperDotNet.Lists.Data.ItemValue", b =>
                 {
                     b.Property<Guid>("ItemId")
@@ -1046,6 +1182,23 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Lists
                         .HasDatabaseName("ix_audit_log_tenant_id_at");
 
                     b.ToTable("audit_log", "lists");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Lists.Data.ItemRelation", b =>
+                {
+                    b.HasOne("PaperDotNet.Lists.Data.ListItem", null)
+                        .WithMany()
+                        .HasForeignKey("FirstItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_item_relations_items_first_item_id");
+
+                    b.HasOne("PaperDotNet.Lists.Data.ListItem", null)
+                        .WithMany()
+                        .HasForeignKey("SecondItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_item_relations_items_second_item_id");
                 });
 #pragma warning restore 612, 618
         }

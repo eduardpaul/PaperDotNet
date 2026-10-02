@@ -38,6 +38,7 @@ public sealed class DocumentsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<DocumentsDbContext>(DocumentsDbContext.Schema);
+        services.AddScoped<IItemMoveParticipant, DocumentsItemMoveParticipant>();
         services.AddOptions<DocumentsOptions>().BindConfiguration(DocumentsOptions.Section);
         services.AddHttpClient(GlmOcr.HttpClientName, (sp, client) =>
         {

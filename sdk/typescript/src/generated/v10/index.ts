@@ -24,6 +24,8 @@ import { FieldTypesRequestBuilderRequestsMetadata, type FieldTypesRequestBuilder
 // @ts-ignore
 import { GroupsRequestBuilderNavigationMetadata, GroupsRequestBuilderRequestsMetadata, type GroupsRequestBuilder } from './groups/index.js';
 // @ts-ignore
+import { ItemsRequestBuilderNavigationMetadata, ItemsRequestBuilderRequestsMetadata, type ItemsRequestBuilder } from './items/index.js';
+// @ts-ignore
 import { ListTemplatesRequestBuilderRequestsMetadata, type ListTemplatesRequestBuilder } from './listTemplates/index.js';
 // @ts-ignore
 import { MeRequestBuilderNavigationMetadata, MeRequestBuilderRequestsMetadata, type MeRequestBuilder } from './me/index.js';
@@ -35,6 +37,8 @@ import { OrganizationRequestBuilderNavigationMetadata, OrganizationRequestBuilde
 import { PortabilityRequestBuilderNavigationMetadata, type PortabilityRequestBuilder } from './portability/index.js';
 // @ts-ignore
 import { ProvisioningRequestBuilderNavigationMetadata, type ProvisioningRequestBuilder } from './provisioning/index.js';
+// @ts-ignore
+import { RelationshipTypesRequestBuilderRequestsMetadata, type RelationshipTypesRequestBuilder } from './relationshipTypes/index.js';
 // @ts-ignore
 import { RolesRequestBuilderNavigationMetadata, RolesRequestBuilderRequestsMetadata, type RolesRequestBuilder } from './roles/index.js';
 // @ts-ignore
@@ -103,6 +107,10 @@ export interface V10RequestBuilder extends BaseRequestBuilder<V10RequestBuilder>
      */
     get groups(): GroupsRequestBuilder;
     /**
+     * The items property
+     */
+    get items(): ItemsRequestBuilder;
+    /**
      * The listTemplates property
      */
     get listTemplates(): ListTemplatesRequestBuilder;
@@ -126,6 +134,10 @@ export interface V10RequestBuilder extends BaseRequestBuilder<V10RequestBuilder>
      * The provisioning property
      */
     get provisioning(): ProvisioningRequestBuilder;
+    /**
+     * The relationshipTypes property
+     */
+    get relationshipTypes(): RelationshipTypesRequestBuilder;
     /**
      * The roles property
      */
@@ -205,6 +217,10 @@ export const V10RequestBuilderNavigationMetadata: Record<Exclude<keyof V10Reques
         requestsMetadata: GroupsRequestBuilderRequestsMetadata,
         navigationMetadata: GroupsRequestBuilderNavigationMetadata,
     },
+    items: {
+        requestsMetadata: ItemsRequestBuilderRequestsMetadata,
+        navigationMetadata: ItemsRequestBuilderNavigationMetadata,
+    },
     listTemplates: {
         requestsMetadata: ListTemplatesRequestBuilderRequestsMetadata,
     },
@@ -224,6 +240,9 @@ export const V10RequestBuilderNavigationMetadata: Record<Exclude<keyof V10Reques
     },
     provisioning: {
         navigationMetadata: ProvisioningRequestBuilderNavigationMetadata,
+    },
+    relationshipTypes: {
+        requestsMetadata: RelationshipTypesRequestBuilderRequestsMetadata,
     },
     roles: {
         requestsMetadata: RolesRequestBuilderRequestsMetadata,

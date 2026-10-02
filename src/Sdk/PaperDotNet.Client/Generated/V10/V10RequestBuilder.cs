@@ -13,12 +13,14 @@ using PaperDotNet.Client.V10.Ext;
 using PaperDotNet.Client.V10.Extensions;
 using PaperDotNet.Client.V10.FieldTypes;
 using PaperDotNet.Client.V10.Groups;
+using PaperDotNet.Client.V10.Items;
 using PaperDotNet.Client.V10.ListTemplates;
 using PaperDotNet.Client.V10.Me;
 using PaperDotNet.Client.V10.Operations;
 using PaperDotNet.Client.V10.Organization;
 using PaperDotNet.Client.V10.Portability;
 using PaperDotNet.Client.V10.Provisioning;
+using PaperDotNet.Client.V10.RelationshipTypes;
 using PaperDotNet.Client.V10.Roles;
 using PaperDotNet.Client.V10.Scopes;
 using PaperDotNet.Client.V10.Search;
@@ -94,6 +96,11 @@ namespace PaperDotNet.Client.V10
         {
             get => new global::PaperDotNet.Client.V10.Groups.GroupsRequestBuilder(PathParameters, RequestAdapter);
         }
+        /// <summary>The items property</summary>
+        public global::PaperDotNet.Client.V10.Items.ItemsRequestBuilder Items
+        {
+            get => new global::PaperDotNet.Client.V10.Items.ItemsRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The listTemplates property</summary>
         public global::PaperDotNet.Client.V10.ListTemplates.ListTemplatesRequestBuilder ListTemplates
         {
@@ -123,6 +130,11 @@ namespace PaperDotNet.Client.V10
         public global::PaperDotNet.Client.V10.Provisioning.ProvisioningRequestBuilder Provisioning
         {
             get => new global::PaperDotNet.Client.V10.Provisioning.ProvisioningRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The relationshipTypes property</summary>
+        public global::PaperDotNet.Client.V10.RelationshipTypes.RelationshipTypesRequestBuilder RelationshipTypes
+        {
+            get => new global::PaperDotNet.Client.V10.RelationshipTypes.RelationshipTypesRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The roles property</summary>
         public global::PaperDotNet.Client.V10.Roles.RolesRequestBuilder Roles

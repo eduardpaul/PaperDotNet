@@ -90,3 +90,9 @@ public interface ITermSetProvisioning
     /// <summary>Provisions the term sets of an extension (when a tenant enables it).</summary>
     Task ProvisionExtensionAsync(string extensionId, CancellationToken cancellationToken);
 }
+
+/// <summary>Consumers may reject a merge that would violate the semantics of their stored references.</summary>
+public interface ITermMergeValidator
+{
+    Task<string?> ValidateAsync(Guid sourceId, Guid targetId, CancellationToken cancellationToken);
+}
