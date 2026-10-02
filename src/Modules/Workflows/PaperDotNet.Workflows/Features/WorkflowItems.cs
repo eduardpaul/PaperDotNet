@@ -41,6 +41,13 @@ public sealed class WorkflowItems(IListItemStore store)
     public Task<ListItemResult> UpdateAsync(ChangeActor actor, Guid workspaceId, Guid listId, Guid itemId, JsonObject fields, CancellationToken cancellationToken) =>
         store.AsSystem(actor).UpdateAsync(workspaceId, listId, itemId, fields, null, cancellationToken);
 
+    public Task<(Guid? FolderId, ListItemResult? Problem)> EnsureFolderAsync(
+        ChangeActor actor, Guid workspaceId, Guid listId, IReadOnlyList<string> path, CancellationToken cancellationToken) =>
+        store.AsSystem(actor).EnsureFolderAsync(workspaceId, listId, path, cancellationToken);
+
+    public Task<ListItemResult> MoveAsync(ChangeActor actor, Guid workspaceId, Guid listId, Guid itemId, Guid? folderId, CancellationToken cancellationToken) =>
+        store.AsSystem(actor).MoveAsync(workspaceId, listId, itemId, folderId, cancellationToken);
+
     public Task<ListItemResult> DeleteAsync(ChangeActor actor, Guid workspaceId, Guid listId, Guid itemId, CancellationToken cancellationToken) =>
         store.AsSystem(actor).DeleteAsync(workspaceId, listId, itemId, null, cancellationToken);
 }

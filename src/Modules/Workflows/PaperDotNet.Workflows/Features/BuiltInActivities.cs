@@ -45,7 +45,9 @@ internal sealed class ItemUpdateActivity : IWorkflowActivity
 
     public string Description => "Changes values of the run's item, or of the item id in list (fields).";
 
-    public IEnumerable<string> Validate(JsonObject inputs) => inputs["fields"] is JsonObject ? [] : ["fields must be an object."];
+    public IEnumerable<string> Validate(JsonObject inputs) =>
+        (inputs["fields"] is JsonObject ? Array.Empty<string>() : ["fields must be an object."])
+            .Concat((DefinitionValidator.Text(inputs, "list") is null) == (DefinitionValidator.Text(inputs, "id") is null) ? [] : ["list and id go together."]);
 
     public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
     {

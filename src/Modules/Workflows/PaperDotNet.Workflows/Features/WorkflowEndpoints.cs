@@ -350,7 +350,7 @@ internal static class WorkflowEndpoints
     /// </summary>
     private static async Task<Results<Accepted<RunDto>, Ok<List<RunDto>>, ValidationProblem, ProblemHttpResult>> StartAsync(
         Guid workspaceId, Guid workflowId, StartRunRequest body, Caller caller, IWorkspaceAccess workspaces, WorkflowsDbContext db, WorkflowStarter starter,
-        IListItemStore items, CancellationToken cancellationToken)
+        IListItemStore items, ItemConditions conditions, CancellationToken cancellationToken)
     {
         if (await CheckAsync(caller, workspaceId, WorkspaceAccessLevel.Contribute, workspaces, cancellationToken) is { } denied)
         {
@@ -400,6 +400,13 @@ internal static class WorkflowEndpoints
                 if (await items.GetAsync(workspaceId, listId, itemId, cancellationToken) is null)
                 {
                     return ApiErrors.Validation("itemIds", $"The item {itemId} was not found in the list.");
+                }
+
+                // The workflow's condition holds for manual starts too.
+                if (spec.Condition is { Length: > 0 } condition
+                    && !(await conditions.MatchesAsync(caller.TenantId, workspaceId, listId, itemId, condition, cancellationToken)).Matches)
+                {
+                    return ApiErrors.Validation("itemIds", $"The item {itemId} does not match the workflow's condition.");
                 }
             }
         }

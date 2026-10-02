@@ -53,6 +53,10 @@ public sealed class WorkflowsModule : IModule
             sp.GetRequiredService<WorkflowsDbContext>(), sp.GetServices<IWorkflowActivity>(), sp.GetRequiredService<TriggerCatalog>(), sp.GetRequiredService<BuiltInWorkflows>(), sp.GetRequiredService<TimeProvider>()));
         services.AddWorkflowActivity<ItemCreateActivity>();
         services.AddWorkflowActivity<ItemUpdateActivity>();
+        services.AddWorkflowActivity<ItemGetActivity>();
+        services.AddWorkflowActivity<ItemsQueryActivity>();
+        services.AddWorkflowActivity<ItemDeleteActivity>();
+        services.AddWorkflowActivity<ItemFileActivity>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

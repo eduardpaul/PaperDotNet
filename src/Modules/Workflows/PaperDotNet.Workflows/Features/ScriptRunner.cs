@@ -139,7 +139,7 @@ public sealed partial class ScriptRunner(WorkflowItems items, IOptions<WorkflowS
                 lists[listName] = list;
             }
 
-            return list ?? throw Error($"The list '{listName}' does not exist.");
+            return list ?? throw Error($"The list '{listName}' does not exist in the workspace.");
         }
 
         Guid Id(JsValue id) => id.IsString() && Guid.TryParse(id.AsString(), out var value) ? value : throw Error("id must be the id of an item.");
@@ -230,7 +230,8 @@ public sealed partial class ScriptRunner(WorkflowItems items, IOptions<WorkflowS
         }
         catch (PromiseRejectedException ex)
         {
-            return Failed(failure ?? Describe(ex.RejectedValue));
+            // The rejected error carries the script line; a failed call the script did not await has only its message.
+            return Failed(Describe(ex.RejectedValue));
         }
         catch (JavaScriptException ex)
         {

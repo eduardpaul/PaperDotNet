@@ -86,8 +86,9 @@ public sealed class TenantResolver(IServiceScopeFactory scopes, IMemoryCache cac
         return label.Contains('.', StringComparison.Ordinal) ? null : label;
     }
 
+    /// <summary>The tenant mapped to a custom host; misses are cached too (most requests come on the server's own host).</summary>
     private Task<RequestedTenant?> HostTenantAsync(string host, CancellationToken cancellationToken) =>
-        CachedAsync($"host:{host}", async db =>
+        CachedAsync($"host:{host}", cacheMisses: true, async db =>
         {
             var context = db;
             var name = host;
@@ -100,7 +101,7 @@ public sealed class TenantResolver(IServiceScopeFactory scopes, IMemoryCache cac
         });
 
     private async Task<Guid?> TenantIdAsync(string identifier, CancellationToken cancellationToken) =>
-        (await CachedAsync($"identifier:{identifier}", async db =>
+        (await CachedAsync($"identifier:{identifier}", cacheMisses: false, async db =>
         {
             var context = db;
             var id = identifier;
@@ -110,24 +111,29 @@ public sealed class TenantResolver(IServiceScopeFactory scopes, IMemoryCache cac
             return tenant is null ? null : new RequestedTenant(tenant.Identifier, tenant.Id);
         }))?.Id;
 
-    /// <summary>Found tenants are cached briefly; misses are not (a tenant created a moment ago resolves at once).</summary>
-    private async Task<RequestedTenant?> CachedAsync(string name, Func<IdentityDbContext, Task<RequestedTenant?>> load)
+    /// <summary>
+    /// Lookups are cached briefly. Unknown identifiers are not (a tenant created a moment ago resolves at once); unknown
+    /// hosts are (host mappings change through <see cref="Forget"/>).
+    /// </summary>
+    private async Task<RequestedTenant?> CachedAsync(string name, bool cacheMisses, Func<IdentityDbContext, Task<RequestedTenant?>> load)
     {
         var key = $"tenancy:{Volatile.Read(ref _generation)}:{name}";
-        if (cache.TryGetValue(key, out RequestedTenant? cached))
+        if (cache.TryGetValue(key, out Lookup? cached))
         {
-            return cached;
+            return cached!.Tenant;
         }
 
         await using var scope = scopes.CreateAsyncScope();
         var tenant = await load(scope.ServiceProvider.GetRequiredService<IdentityDbContext>());
-        if (tenant is not null)
+        if (tenant is not null || cacheMisses)
         {
-            cache.Set(key, tenant, CacheTime);
+            cache.Set(key, new Lookup(tenant), CacheTime);
         }
 
         return tenant;
     }
+
+    private sealed record Lookup(RequestedTenant? Tenant);
 }
 
 /// <summary>

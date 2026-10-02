@@ -301,4 +301,46 @@ public sealed class WorkflowFlowTests : IAsyncLifetime
         using var invalid = await _admin.PostAsJsonAsync(Workflows, new { name = "Invalid", definition = JsonNode.Parse(definition.Replace("{0}", "queue", StringComparison.Ordinal)) }, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
     }
+
+    [Fact]
+    public async Task Workflows_need_write_access_and_manual_starts_follow_their_trigger()
+    {
+        using (var created = await _admin.PostAsJsonAsync("/v1.0/users", new { userName = "carol", password = "carol-password-1" }, Ct))
+        {
+            var carolId = (await created.JsonAsync(HttpStatusCode.Created)).Id();
+            Assert.Equal(HttpStatusCode.NoContent, (await _admin.PostAsJsonAsync($"/v1.0/workspaces/{_workspace}/members", new { userId = carolId, role = "member" }, Ct)).StatusCode);
+        }
+
+        var carol = await _host.SignInAsync("carol", "carol-password-1");
+        const string notify = """{ "trigger": { "type": "itemAdded", "list": "Bills" }, "steps": [ { "type": "action", "action": "notify", "inputs": { "to": ["admin"], "title": "New: {title}" } } ] }""";
+        using (var denied = await carol.PostAsJsonAsync(Workflows, new { name = "Notify", definition = JsonNode.Parse(notify) }, Ct))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        }
+
+        var automatic = (await CreateWorkflowAsync("Notify", notify)).Id();
+        using (var duplicate = await _admin.PostAsJsonAsync(Workflows, new { name = "Notify", definition = JsonNode.Parse(notify) }, Ct))
+        {
+            Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+        }
+
+        Assert.Single((await (await carol.GetAsync(Workflows, Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray());
+
+        // Only manual workflows are started by people, and only where their trigger allows.
+        var bill = (await Api.CreateItemAsync(_admin, _workspace, _bills, new { title = "Bill", amount = 1 })).Id();
+        async Task<string> StartFailsAsync(HttpClient client, string workflow)
+        {
+            using var response = await client.PostAsJsonAsync($"{Workflows}/{workflow}/runs", new { listId = _bills, itemId = bill }, Ct);
+            Assert.True(response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict, response.StatusCode.ToString());
+            return await response.Content.ReadAsStringAsync(Ct);
+        }
+
+        Assert.Contains("manual", await StartFailsAsync(_admin, automatic), StringComparison.Ordinal);
+        var tasksOnly = (await CreateWorkflowAsync("Tasks only", """{ "trigger": { "type": "manual", "list": "Tasks" }, "steps": [ { "type": "action", "action": "notify", "inputs": { "to": ["admin"], "title": "t" } } ] }""")).Id();
+        Assert.Contains("the list the trigger names", await StartFailsAsync(_admin, tasksOnly), StringComparison.Ordinal);
+        var bigOnly = (await CreateWorkflowAsync("Big only",
+            """{ "trigger": { "type": "manual", "list": "Bills" }, "condition": "fields/amount gt 100", "steps": [ { "type": "action", "action": "notify", "inputs": { "to": ["admin"], "title": "t" } } ] }""")).Id();
+        Assert.Contains("does not match", await StartFailsAsync(_admin, bigOnly), StringComparison.Ordinal);
+        Assert.Contains("does not match", await StartFailsAsync(carol, bigOnly), StringComparison.Ordinal); // members may start them
+    }
 }

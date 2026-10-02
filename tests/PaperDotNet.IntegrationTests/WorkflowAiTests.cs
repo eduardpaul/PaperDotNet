@@ -548,4 +548,33 @@ public sealed class WorkflowAiTests
         Assert.Equal("waiting", (await s.RunAsync(expiredRun, "waiting")).GetProperty("status").GetString());
         Assert.DoesNotContain("batchRun", Assert.Single(await OpenWaitsAsync(s, "ai.batch")).Data, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task The_extract_fields_workflow_reads_new_documents_of_a_library()
+    {
+        await using var s = await Setup.CreateAsync();
+        using var created = await s.Admin.PostAsJsonAsync($"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Scans", templateKey = "documents" }, Ct);
+        var library = (await created.JsonAsync(HttpStatusCode.Created)).Id();
+        using (var set = await s.Admin.PutAsJsonAsync($"{s.Workflows}/builtIns/documents.extract",
+            new { enabled = true, parameters = new { library = "Scans", fields = new[] { "description" } } }, Ct))
+        {
+            Assert.True(set.IsSuccessStatusCode, await set.Content.ReadAsStringAsync(Ct));
+        }
+
+        using var upload = await s.Admin.PostAsync($"/v1.0/workspaces/{s.Workspace}/lists/{library}/documents",
+            new MultipartFormDataContent { { new ByteArrayContent(DocumentProcessingTests.TextPdf("description: Invoice for the walrus")), "file", "walrus.pdf" } }, Ct);
+        var document = (await upload.JsonAsync(HttpStatusCode.Created)).GetProperty("itemId").GetString();
+        var deadline = DateTime.UtcNow.AddSeconds(60);
+        while (true)
+        {
+            var fields = (await (await s.Admin.GetAsync($"{Api.Items(s.Workspace, library)}/{document}", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("fields");
+            if (fields.TryGetProperty("description", out var value) && value.GetString() == "Invoice for the walrus")
+            {
+                break;
+            }
+
+            Assert.True(DateTime.UtcNow < deadline, fields.ToString());
+            await Task.Delay(200, Ct);
+        }
+    }
 }
