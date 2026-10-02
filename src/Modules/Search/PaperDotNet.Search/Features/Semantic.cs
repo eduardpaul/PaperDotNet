@@ -159,11 +159,12 @@ internal sealed class VectorIndex(IMemoryCache cache)
             var database = db;
             var tenant = tenantId;
             var name = model;
+            var token = ct;
             var count = await database.Passages.AsNoTracking()
-                .CountAsync(p => p.TenantId == tenant && p.EmbeddingModel == name && p.Embedding != null, ct);
+                .CountAsync(p => p.TenantId == tenant && p.EmbeddingModel == name && p.Embedding != null, token);
             var newest = await database.Passages.AsNoTracking()
                 .Where(p => p.TenantId == tenant && p.EmbeddingModel == name && p.Embedding != null)
-                .MaxAsync(p => (long?)p.VectorStamp, ct) ?? 0;
+                .MaxAsync(p => (long?)p.VectorStamp, token) ?? 0;
             if (count != current.Count || newest != current.Newest)
             {
                 current = await RefreshAsync(db, tenantId, current, count, newest, ct);
@@ -185,12 +186,15 @@ internal sealed class VectorIndex(IMemoryCache cache)
         var tenant = tenantId;
         var model = current.Model;
         var since = current.Newest - SkewMilliseconds;
-        var changed = await (from p in database.Passages.AsNoTracking()
-                             where p.TenantId == tenant && p.EmbeddingModel == model && p.Embedding != null && p.VectorStamp > since
-                             join d in database.Documents.AsNoTracking() on p.DocumentId equals d.Id
-                             where d.TenantId == tenant
-                             select new VectorRow(p.Id, p.DocumentId, d.WorkspaceId, d.ContainerId, p.Embedding))
-            .ToListAsync(ct);
+        var token = ct;
+        var changed = await database.Passages.AsNoTracking()
+            .Where(p => p.TenantId == tenant && p.EmbeddingModel == model && p.Embedding != null && p.VectorStamp > since)
+            .Join(
+                database.Documents.AsNoTracking().Where(d => d.TenantId == tenant),
+                p => p.DocumentId,
+                d => d.Id,
+                (p, d) => new VectorRow(p.Id, p.DocumentId, d.WorkspaceId, d.ContainerId, p.Embedding))
+            .ToListAsync(token);
         foreach (var row in changed)
         {
             entries[row.PassageId] = new VectorEntry(row.PassageId, row.DocumentId, row.WorkspaceId, row.ContainerId, Vectors.FromBytes(row.Embedding!));
@@ -202,7 +206,7 @@ internal sealed class VectorIndex(IMemoryCache cache)
             var ids = (await database.Passages.AsNoTracking()
                 .Where(p => p.TenantId == tenant && p.EmbeddingModel == model && p.Embedding != null)
                 .Select(p => p.Id)
-                .ToListAsync(ct)).ToHashSet();
+                .ToListAsync(token)).ToHashSet();
             foreach (var id in entries.Keys.Where(id => !ids.Contains(id)).ToList())
             {
                 entries.Remove(id);
@@ -281,12 +285,13 @@ internal sealed partial class EmbeddingJob(
         for (var done = 0; done < options.Value.EmbeddingsPerRun;)
         {
             var size = batchSize;
-            var batch = await (from p in database.Passages.AsNoTracking()
-                               where p.TenantId == tenant && p.EmbeddingModel != model
-                               join d in database.Documents.AsNoTracking() on p.DocumentId equals d.Id
-                               where d.TenantId == tenant
-                               orderby p.Key
-                               select new PendingPassage(p.Key, d.Title, p.Text))
+            var batch = await database.Passages.AsNoTracking()
+                .Where(p => p.TenantId == tenant && p.EmbeddingModel != model)
+                .OrderBy(p => p.Key)
+                .Select(p => new PendingPassage(
+                    p.Key,
+                    database.Documents.Where(d => d.TenantId == tenant && d.Id == p.DocumentId).Select(d => d.Title).FirstOrDefault() ?? "",
+                    p.Text))
                 .Take(size)
                 .ToListAsync(ct);
             if (batch.Count == 0)

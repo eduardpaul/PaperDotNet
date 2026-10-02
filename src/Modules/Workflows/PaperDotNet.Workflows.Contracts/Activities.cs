@@ -92,13 +92,27 @@ public sealed class WorkflowActivityContext
         return result;
     }
 
-    private async Task<JsonNode?> ResolveNodeAsync(JsonNode? value, CancellationToken cancellationToken) => value switch
+    private async Task<JsonNode?> ResolveNodeAsync(JsonNode? value, CancellationToken cancellationToken)
     {
-        JsonValue text when text.TryGetValue<string>(out var template) => await ResolveAsync(template, cancellationToken),
-        JsonObject obj => await ResolveObjectAsync(obj, cancellationToken),
-        JsonArray array => new JsonArray([.. await Task.WhenAll(array.Select(e => ResolveNodeAsync(e, cancellationToken)))]),
-        _ => value?.DeepClone(),
-    };
+        switch (value)
+        {
+            case JsonValue text when text.TryGetValue<string>(out var template):
+                return await ResolveAsync(template, cancellationToken);
+            case JsonObject obj:
+                return await ResolveObjectAsync(obj, cancellationToken);
+            case JsonArray array:
+                // One element after the other: tokens may read the item through the run's (not thread-safe) DbContexts.
+                var resolved = new JsonArray();
+                foreach (var element in array)
+                {
+                    resolved.Add(await ResolveNodeAsync(element, cancellationToken));
+                }
+
+                return resolved;
+            default:
+                return value?.DeepClone();
+        }
+    }
 }
 
 /// <summary>
