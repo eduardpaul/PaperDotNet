@@ -302,7 +302,9 @@ them startup stops with a message naming the missing assembly.
 Tests and custom hosts can also add instances to
 `PaperDotNetHost.AdditionalExtensions` before the host is built.
 
-## SDK 1.1 additions
+## SDK 1.0 additions
+
+The SDK remains at version 1.0 until the first release.
 
 `IListItemStore.RestoreAsync` restores a recycled item through the normal tenant,
 permission, version, search and event pipeline. Repeating a restoration of an

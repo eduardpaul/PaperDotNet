@@ -32,7 +32,8 @@ Feed parsing uses Ical.Net; unsupported or incomplete snapshots are rejected
 rather than treating unrecognized events as removed. Feed date-window limits
 are inherited from the publisher.
 
-SDK 1.1 adds two generic capabilities:
+The SDK remains at version 1.0 until the first release. This change adds two
+generic capabilities:
 
 - `IListItemStore.RestoreAsync`: tenant- and permission-checked, idempotent
   restoration through Lists' existing writer, events and search pipeline.
