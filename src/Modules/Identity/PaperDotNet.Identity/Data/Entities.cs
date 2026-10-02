@@ -57,6 +57,9 @@ public class User : ITenantOwned, IVersioned
 
     public bool IsDisabled { get; set; }
 
+    /// <summary>The account of an OAuth client (client credentials): no password, no interactive sign-in.</summary>
+    public bool IsServiceAccount { get; set; }
+
     /// <summary>When the user was deleted (IAM-14): the row stays so references resolve, but it is anonymized.</summary>
     public DateTimeOffset? DeletedAt { get; set; }
 
@@ -247,4 +250,99 @@ internal static class ScopeList
     public static string[] Parse(string scopes) => scopes.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
     public static string Format(IEnumerable<string> scopes) => string.Join(' ', scopes.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal));
+}
+
+/// <summary>Stored values of <see cref="OAuthClient.ClientType"/>.</summary>
+public static class OAuthClientTypes
+{
+    /// <summary>Has a secret (server-side apps, services).</summary>
+    public const string Confidential = "confidential";
+
+    /// <summary>No secret (browser and native apps): authorization code with PKCE only.</summary>
+    public const string Public = "public";
+}
+
+/// <summary>
+/// An OAuth client registered in a tenant (IAM-02). Clients are trusted by the organization that registers them, so
+/// there is no consent screen. <c>paperdotnet</c> is the built-in first-party client of every tenant.
+/// </summary>
+public class OAuthClient : ITenantOwned
+{
+    public const string FirstPartyClientId = "paperdotnet";
+
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public string ClientId { get; set; } = "";
+
+    public string DisplayName { get; set; } = "";
+
+    /// <summary><see cref="OAuthClientTypes"/>.</summary>
+    public string ClientType { get; set; } = OAuthClientTypes.Public;
+
+    /// <summary>SHA-256 (hex) of the secret of a confidential client (a random 256-bit value, so a fast hash is enough).</summary>
+    public string? SecretHash { get; set; }
+
+    /// <summary>Allowed grant types, space separated.</summary>
+    public string GrantTypes { get; set; } = "";
+
+    /// <summary>Scopes the client may request, space separated.</summary>
+    public string Scopes { get; set; } = "";
+
+    /// <summary>Exact redirect URIs, space separated.</summary>
+    public string RedirectUris { get; set; } = "";
+
+    /// <summary>Where <c>/connect/logout</c> may return to, space separated.</summary>
+    public string PostLogoutRedirectUris { get; set; } = "";
+
+    /// <summary>The account the client acts as with the client credentials grant.</summary>
+    public Guid? ServiceUserId { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>An authorization code (single use, minutes long): stored as the hash of the code.</summary>
+public class OAuthCode : ITenantOwned, INotAudited
+{
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public string CodeHash { get; set; } = "";
+
+    public string ClientId { get; set; } = "";
+
+    public Guid UserId { get; set; }
+
+    public string RedirectUri { get; set; } = "";
+
+    /// <summary>The PKCE challenge (S256).</summary>
+    public string CodeChallenge { get; set; } = "";
+
+    public string Scope { get; set; } = "";
+
+    public string? Nonce { get; set; }
+
+    /// <summary>The user's security stamp when the code was issued: a password change in between voids it.</summary>
+    public string SecurityStamp { get; set; } = "";
+
+    /// <summary>Unix milliseconds (compared in SQL).</summary>
+    public long ExpiresAt { get; set; }
+}
+
+/// <summary>
+/// The RSA key that signs identity tokens (published at <c>/.well-known/jwks</c>), shared by every server; the private
+/// key is protected with Data Protection.
+/// </summary>
+public class ServerKey : INotAudited
+{
+    public Guid Id { get; set; }
+
+    /// <summary><c>sig</c>.</summary>
+    public string Use { get; set; } = "";
+
+    public string ProtectedKey { get; set; } = "";
+
+    public DateTimeOffset CreatedAt { get; set; }
 }

@@ -42,6 +42,12 @@ public class IdentityDbContext : DbContext
 
     public DbSet<Preferences> Preferences { get; set; } = null!;
 
+    public DbSet<OAuthClient> OAuthClients { get; set; } = null!;
+
+    public DbSet<OAuthCode> OAuthCodes { get; set; } = null!;
+
+    public DbSet<ServerKey> ServerKeys { get; set; } = null!;
+
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         var tenants = ChangeTracker.Entries()
@@ -198,6 +204,32 @@ public class IdentityDbContext : DbContext
             token.HasIndex(t => new { t.TenantId, t.UserId });
             token.Property(t => t.Name).HasMaxLength(200);
             token.Property(t => t.Prefix).HasMaxLength(16);
+        });
+
+        modelBuilder.Entity<OAuthClient>(client =>
+        {
+            client.ToTable("oauth_clients");
+            client.HasIndex(c => new { c.TenantId, c.ClientId }).IsUnique();
+            client.Property(c => c.ClientId).HasMaxLength(64);
+            client.Property(c => c.DisplayName).HasMaxLength(200);
+            client.Property(c => c.ClientType).HasMaxLength(16);
+            client.Property(c => c.SecretHash).HasMaxLength(64);
+        });
+        modelBuilder.Entity<OAuthCode>(code =>
+        {
+            code.ToTable("oauth_codes");
+            code.HasIndex(c => c.CodeHash).IsUnique();
+            code.HasIndex(c => c.ExpiresAt);
+            code.Property(c => c.CodeHash).HasMaxLength(64);
+            code.Property(c => c.ClientId).HasMaxLength(64);
+            code.Property(c => c.CodeChallenge).HasMaxLength(128);
+            code.Property(c => c.Nonce).HasMaxLength(256);
+        });
+        modelBuilder.Entity<ServerKey>(key =>
+        {
+            key.ToTable("server_keys");
+            key.Property(k => k.Use).HasMaxLength(8);
+            key.HasIndex(k => k.Use);
         });
 
         modelBuilder.Entity<Preferences>(preferences =>

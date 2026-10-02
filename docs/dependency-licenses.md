@@ -92,6 +92,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `Microsoft.Extensions.AI.Abstractions` | MIT | AI abstractions (`IEmbeddingGenerator`); also a dependency of the MCP SDK |
 | `Microsoft.Extensions.AI`, `Microsoft.Extensions.AI.OpenAI` (+ `OpenAI`, `System.ClientModel`) | MIT | Embedding providers for semantic search: any OpenAI-compatible API, e.g. Ollama or OpenAI (ADR-0027) |
 | `System.Numerics.Tensors` | MIT | Vector similarity (`TensorPrimitives`) for semantic search |
+| `Microsoft.IdentityModel.JsonWebTokens` (+ `.Tokens`, `.Logging`, `.Abstractions`) | MIT | Signs OpenID Connect identity tokens of the AOT server's own OAuth endpoints (IAM-02, ADR-0039: OpenIddict is not AOT-compatible) |
 | `Microsoft.Kiota.Bundle` (+ `.Abstractions`, `.Http.HttpClientLibrary`, `.Serialization.*`) | MIT | Runtime of the generated C# SDK (API-03) |
 | `Microsoft.OpenApi.Kiota` (.NET tool) | MIT | Generates the SDKs; build time only |
 | `@microsoft/kiota-bundle` (npm), `microsoft-kiota-bundle` (PyPI, with `httpx`: BSD-3-Clause) | MIT | Runtime of the TypeScript and Python SDKs (separate packages, not in the server) |

@@ -1,12 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Tenants, users and sign-in (ADR-0039 slice): OAuth 2.0 password and refresh-token grants on /connect/token with
-    ASP.NET Core bearer tokens (OpenIddict is not AOT-compatible), users and their scopes, first-start bootstrap.
+    Tenants, users and sign-in: OAuth 2.0 and OpenID Connect (authorization code with PKCE, client credentials, password
+    and refresh-token grants) with ASP.NET Core bearer tokens and signed identity tokens (OpenIddict is not AOT-compatible,
+    ADR-0039), sign-in sessions, OAuth clients, users and their scopes, first-start bootstrap.
   -->
   <Import Project="..\..\AotModule.props" />
   <ItemGroup>
     <ProjectReference Include="..\PaperDotNet.Identity.Contracts\PaperDotNet.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Tenancy\PaperDotNet.Tenancy.Contracts\PaperDotNet.Tenancy.Contracts.csproj" />
     <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
+    <ProjectReference Include="..\..\Jobs\PaperDotNet.Jobs.Contracts\PaperDotNet.Jobs.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
   </ItemGroup>
 </Project>

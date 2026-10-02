@@ -9,6 +9,7 @@ using PaperDotNet.Identity.Authentication;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Identity.Features;
+using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Tenancy.Contracts;
@@ -16,9 +17,10 @@ using PaperDotNet.Tenancy.Contracts;
 namespace PaperDotNet.Identity;
 
 /// <summary>
-/// Tenants, users, groups (nested), roles and sign-in (Identity and, for now, Tenancy): bearer tokens protected with
-/// Data Protection (keys in <c>{Storage:DataPath}/keys</c>), password hashing from ASP.NET Core Identity, a rate limit
-/// and lockout on sign-in, scopes from roles checked on every request.
+/// Tenants, users, groups (nested), roles and sign-in (Identity and, for now, Tenancy): OAuth 2.0 and OpenID Connect
+/// (authorization code with PKCE through a sign-in session, client credentials, password and refresh grants, registered
+/// clients), bearer tokens protected with Data Protection (keys in <c>{Storage:DataPath}/keys</c>), password hashing
+/// from ASP.NET Core Identity, a rate limit and lockout on sign-in, scopes from roles checked on every request.
 /// </summary>
 public sealed class IdentityModule : IModule
 {
@@ -47,6 +49,8 @@ public sealed class IdentityModule : IModule
         services.AddScoped<ITemplateHandler>(sp => new GroupTemplateHandler(sp.GetRequiredService<IdentityDbContext>()));
         services.AddScoped<ITemplateHandler>(sp => new RoleTemplateHandler(sp.GetRequiredService<IdentityDbContext>(), sp.GetRequiredService<IScopeCatalog>()));
         services.AddSingleton<TokenIssuer>();
+        services.AddSingleton<ServerKeys>();
+        services.AddTenantRecurringJob<OAuthCodeCleanupJob>(OAuthCodeCleanupJob.Name, OAuthCodeCleanupJob.Schedule);
         services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 
         services.AddDataProtection()
@@ -62,6 +66,26 @@ public sealed class IdentityModule : IModule
             {
                 options.ForwardChallenge = BearerTokenDefaults.AuthenticationScheme;
                 options.ForwardForbid = BearerTokenDefaults.AuthenticationScheme;
+            })
+            .AddCookie(SignInSession.Scheme, options =>
+            {
+                // The sign-in session of /connect/authorize: never a redirect of its own, the endpoint decides.
+                options.Cookie.Name = "pdn.session";
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                options.ExpireTimeSpan = auth.SessionLifetime;
+                options.SlidingExpiration = true;
+                options.Events.OnRedirectToLogin = context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return Task.CompletedTask;
+                };
+                options.Events.OnRedirectToAccessDenied = context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return Task.CompletedTask;
+                };
             });
         // Sign-ins per client address and minute (Identity:SignInsPerMinute, default 20).
         var signInsPerMinute = int.TryParse(configuration["Identity:SignInsPerMinute"], System.Globalization.CultureInfo.InvariantCulture, out var limit) && limit > 0 ? limit : 20;
@@ -77,6 +101,8 @@ public sealed class IdentityModule : IModule
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         TokenEndpoint.Map(endpoints);
+        OpenIdConnect.Map(endpoints);
+        Applications.Map(endpoints);
         Me.Map(endpoints);
         Users.Map(endpoints);
         Groups.Map(endpoints);

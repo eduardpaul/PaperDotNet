@@ -11,6 +11,7 @@ public static class IdentityScopes
     public const string RoleRead = "role.read";
     public const string RoleManage = "role.manage";
     public const string OrganizationManage = "organization.manage";
+    public const string ApplicationManage = "application.manage";
 
     public static readonly ScopeDefinition[] All =
     [
@@ -21,5 +22,6 @@ public static class IdentityScopes
         new(RoleRead, "See roles and their assignments."),
         new(RoleManage, "Create, change and delete roles and assign them to users and groups."),
         new(OrganizationManage, "Change the organization's default preferences."),
+        new(ApplicationManage, "Register OAuth applications and rotate their secrets."),
     ];
 }

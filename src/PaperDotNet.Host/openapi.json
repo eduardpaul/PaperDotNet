@@ -15,7 +15,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "OAuth 2.0 token endpoint: password and refresh_token grants (form encoded).",
+        "summary": "OAuth 2.0 token endpoint: authorization_code, refresh_token, client_credentials and password grants (form encoded).",
         "responses": {
           "200": {
             "description": "OK",
@@ -36,6 +36,145 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/.well-known/openid-configuration": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "OpenIdConfiguration",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryDocument"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/jwks": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "JsonWebKeySet",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonWebKeySetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/connect/authorize": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "OAuth 2.0 authorization endpoint: response_type=code with PKCE (S256), for the signed-in session's user.",
+        "operationId": "Authorize",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "OAuth 2.0 authorization endpoint: response_type=code with PKCE (S256), for the signed-in session's user.",
+        "operationId": "Authorize",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/connect/userinfo": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "UserInfo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserInfoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "UserInfo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserInfoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/connect/logout": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Ends the sign-in session; returns to post_logout_redirect_uri when the client registered it.",
+        "operationId": "EndSession",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Ends the sign-in session; returns to post_logout_redirect_uri when the client registered it.",
+        "operationId": "EndSession",
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -428,6 +567,189 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v1.0/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "description": "Starts a sign-in session (cookie) for /connect/authorize. The tenant comes from the host or header, else the default.",
+        "operationId": "Login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Logout",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/applications": {
+      "get": {
+        "tags": [
+          "Applications"
+        ],
+        "operationId": "ListApplications",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApplicationResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Applications"
+        ],
+        "operationId": "CreateApplication",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApplicationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationSecretResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/applications/{id}": {
+      "get": {
+        "tags": [
+          "Applications"
+        ],
+        "operationId": "GetApplication",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Applications"
+        ],
+        "operationId": "DeleteApplication",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/v1.0/applications/{id}/secret": {
+      "post": {
+        "tags": [
+          "Applications"
+        ],
+        "description": "A new secret for a confidential client; the old one stops working.",
+        "operationId": "RotateApplicationSecret",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationSecretResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -10282,6 +10604,89 @@
           }
         }
       },
+      "ApplicationResponse": {
+        "required": [
+          "id",
+          "clientId",
+          "displayName",
+          "clientType",
+          "grantTypes",
+          "scopes",
+          "redirectUris",
+          "postLogoutRedirectUris",
+          "serviceUserId",
+          "isFirstParty"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "clientType": {
+            "type": "string"
+          },
+          "grantTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "redirectUris": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "postLogoutRedirectUris": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "serviceUserId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "isFirstParty": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApplicationSecretResponse": {
+        "required": [
+          "application",
+          "clientSecret"
+        ],
+        "type": "object",
+        "properties": {
+          "application": {
+            "$ref": "#/components/schemas/ApplicationResponse"
+          },
+          "clientSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "Returned once, at creation or rotation: the only time the secret is visible."
+      },
       "ApprovalDecisionRequest": {
         "required": [
           "outcome",
@@ -11209,6 +11614,68 @@
           }
         }
       },
+      "CreateApplicationRequest": {
+        "required": [
+          "displayName",
+          "clientType",
+          "grantTypes",
+          "scopes",
+          "redirectUris",
+          "postLogoutRedirectUris"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "clientType": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "grantTypes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "scopes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "redirectUris": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "postLogoutRedirectUris": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "A new OAuth client. `clientType`: `confidential` (has a secret) or `public` (browser and native apps,\nPKCE only). `grantTypes`: `authorization_code`, `refresh_token`, `client_credentials`\n(confidential only: the client acts as its own service account). `scopes`: permission scopes, `api` for\nfull access as the user, and `openid`, `profile`, `offline_access`."
+      },
       "CreateGroupRequest": {
         "required": [
           "name",
@@ -11702,6 +12169,87 @@
             "type": "string"
           }
         }
+      },
+      "DiscoveryDocument": {
+        "required": [
+          "issuer",
+          "authorization_endpoint",
+          "token_endpoint",
+          "userinfo_endpoint",
+          "end_session_endpoint",
+          "jwks_uri",
+          "response_types_supported",
+          "grant_types_supported",
+          "code_challenge_methods_supported",
+          "scopes_supported",
+          "subject_types_supported",
+          "id_token_signing_alg_values_supported",
+          "token_endpoint_auth_methods_supported"
+        ],
+        "type": "object",
+        "properties": {
+          "issuer": {
+            "type": "string"
+          },
+          "authorization_endpoint": {
+            "type": "string"
+          },
+          "token_endpoint": {
+            "type": "string"
+          },
+          "userinfo_endpoint": {
+            "type": "string"
+          },
+          "end_session_endpoint": {
+            "type": "string"
+          },
+          "jwks_uri": {
+            "type": "string"
+          },
+          "response_types_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "grant_types_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "code_challenge_methods_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scopes_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subject_types_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id_token_signing_alg_values_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "token_endpoint_auth_methods_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "OpenID Connect discovery (the fields this server supports)."
       },
       "DocumentResponse": {
         "required": [
@@ -13000,6 +13548,51 @@
       "JsonObject": {
         "type": "object"
       },
+      "JsonWebKeyData": {
+        "required": [
+          "kty",
+          "use",
+          "kid",
+          "alg",
+          "n",
+          "e"
+        ],
+        "type": "object",
+        "properties": {
+          "kty": {
+            "type": "string"
+          },
+          "use": {
+            "type": "string"
+          },
+          "kid": {
+            "type": "string"
+          },
+          "alg": {
+            "type": "string"
+          },
+          "n": {
+            "type": "string"
+          },
+          "e": {
+            "type": "string"
+          }
+        }
+      },
+      "JsonWebKeySetResponse": {
+        "required": [
+          "keys"
+        ],
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JsonWebKeyData"
+            }
+          }
+        }
+      },
       "KeywordRequest": {
         "required": [
           "name"
@@ -13334,6 +13927,27 @@
             }
           },
           "extensionId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "LoginRequest": {
+        "required": [
+          "userName",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "userName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "password": {
             "type": [
               "null",
               "string"
@@ -16080,13 +16694,22 @@
             "format": "int64"
           },
           "refresh_token": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "scope": {
             "type": "string"
+          },
+          "id_token": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         },
-        "description": "OAuth 2.0 token response (RFC 6749 \u00a75.1)."
+        "description": "OAuth 2.0 token response (RFC 6749 \u00a75.1), with an OpenID Connect identity token when `openid` was granted."
       },
       "TriggerDto": {
         "required": [
@@ -16426,6 +17049,40 @@
         },
         "description": "PATCH body: only the properties sent are changed."
       },
+      "UserInfoResponse": {
+        "required": [
+          "sub",
+          "name",
+          "preferred_username",
+          "email",
+          "tid",
+          "tenant"
+        ],
+        "type": "object",
+        "properties": {
+          "sub": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "preferred_username": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tid": {
+            "type": "string"
+          },
+          "tenant": {
+            "type": "string"
+          }
+        }
+      },
       "UserResponse": {
         "required": [
           "id",
@@ -16761,6 +17418,9 @@
   "tags": [
     {
       "name": "Activity"
+    },
+    {
+      "name": "Applications"
     },
     {
       "name": "Audit"

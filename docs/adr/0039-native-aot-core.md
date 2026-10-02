@@ -208,7 +208,11 @@ schedules, the web UI and the SDKs. Each follows the rules above and brings its 
 - Ical.Net (RRULE, iCalendar) creates its types with `Activator.CreateInstance`. The host roots the assembly for the
   trimmer (`TrimmerRootAssembly`); a Native AOT spike and the smoke test check RRULE expansion across DST, VTIMEZONE
   serialization and loading.
-- OpenIddict (authorization code flow, passkeys) and ASP.NET Core OData are not used any more. Other dependencies are
+- OpenIddict (authorization code flow, passkeys) and ASP.NET Core OData are not used any more. The OAuth endpoints are
+  the server's own (T17d): client registrations, single-use authorization codes with PKCE (S256 only) and a signing key
+  are rows of the Identity schema, access and refresh tokens stay ASP.NET Core bearer tokens, and identity tokens are
+  JWTs signed with `Microsoft.IdentityModel.JsonWebTokens` (the library of ASP.NET Core's JWT bearer authentication,
+  AOT-compatible) rather than hand-written. Other dependencies are
   not checked under AOT yet (the MCP SDK). PdfPig, PDFtoImage (PDFium, SkiaSharp: native libraries next to the binary),
   PDFsharp, CliWrap (the Tesseract CLI) and the OpenAI SDK work with trim warnings of their own at most. Each
   is tested when its module is ported, with the same best-effort rule: keep it if it works, otherwise find a standard

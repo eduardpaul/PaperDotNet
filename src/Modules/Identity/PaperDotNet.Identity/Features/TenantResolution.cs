@@ -58,6 +58,11 @@ public sealed class TenantResolver(IServiceScopeFactory scopes, IMemoryCache cac
         return null;
     }
 
+    /// <summary>The tenant the request names, else the default tenant (sign-in without a token); <c>Id</c> is null when it is not active.</summary>
+    public async Task<RequestedTenant> ResolveOrDefaultAsync(HttpRequest request, CancellationToken cancellationToken) =>
+        await ResolveAsync(request, cancellationToken)
+        ?? new RequestedTenant(options.Value.DefaultTenant, await TenantIdAsync(options.Value.DefaultTenant, cancellationToken));
+
     /// <summary>Forgets cached lookups (a tenant's hosts or status changed).</summary>
     public void Forget() => Interlocked.Increment(ref _generation);
 

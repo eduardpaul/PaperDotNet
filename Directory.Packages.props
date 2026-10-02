@@ -47,6 +47,8 @@
     <!-- Only the URI parser ($filter/$orderby), translated to SQL (ADR-0039); ASP.NET Core OData is not AOT-compatible. -->
     <PackageVersion Include="Microsoft.OData.Core" Version="9.0.0" />
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
+    <!-- Signs OpenID Connect identity tokens (the JWT format ASP.NET Core JWT bearer authentication uses; AOT-compatible). -->
+    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.14.0" />
     <PackageVersion Include="Microsoft.Kiota.Bundle" Version="2.1.2" />
   </ItemGroup>
   <ItemGroup Label="Messaging and jobs">
