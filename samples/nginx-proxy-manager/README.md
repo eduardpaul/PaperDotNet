@@ -19,6 +19,8 @@ There are two ways to sign in. Pick one:
 | Two-factor, passkeys | no | yes |
 | Single sign-on with other apps | no | yes |
 | Signing out | the browser keeps the password until it closes | Authelia's logout (`PROXY_LOGOUT_URL`) |
+| Password guessing | rate limit per address (6 a minute) | users banned after 3 failures in 2 minutes |
+| On the internet | only with long, unique passwords | yes (the recommended mode) |
 
 ## What works through the proxy
 
@@ -29,7 +31,7 @@ There are two ways to sign in. Pick one:
 | MCP (`/v1.0/mcp`) | An API token with `mcp.use` in the client's headers (see [MCP clients](#mcp-clients)). |
 | Groups | The proxy names groups at sign-in. PaperDotNet creates missing ones and keeps memberships in sync. Roles given to a group apply to its members. |
 | Live events (`/v1.0/me/events`) | Server-sent events. PaperDotNet turns off NPM's buffering for them and sends a keep-alive every 30 s. |
-| Uploads | Up to 2000 MB (NPM's limit), within PaperDotNet's own upload limits. |
+| Uploads | Up to 520 MB at NPM (the sample's limit), within PaperDotNet's own limits (100 MB per document). |
 | Passkeys, OIDC discovery | Use the public host name, since NPM forwards the scheme and keeps the `Host` header. |
 
 About "JWT": PaperDotNet issues its own tokens. Its access tokens are
@@ -68,9 +70,20 @@ browser ──https──▶ NPM ──http──▶ paperdotnet:8080
 - **NPM is the only way in.** The PaperDotNet container publishes no port.
   Forwarded headers (scheme, host, client address) count only from NPM's
   address.
+- **Only the proxy signs people in** (`LOCAL_SIGN_IN=false`). PaperDotNet
+  refuses passwords and passkeys of its own, including `ADMIN_PASSWORD`.
+  Nobody can skip Authelia's second factor, its bans, or the removal of a
+  user by signing in to PaperDotNet directly. API tokens keep working.
 - **A proxy sign-in lasts a day** (`PROXY_SIGN_IN_LIFETIME`). Then the
   browser goes through the proxy again, so users removed at the proxy lose
   access and group changes arrive.
+- **Password guessing is slowed down.** Authelia bans a user after 3
+  failures in 2 minutes. The access list allows 6 attempts a minute per
+  address.
+- **Nothing known ships.** `.env.example` has no passwords or secrets, and
+  compose refuses to start without them. The Authelia users have no
+  password, and Authelia refuses to start until you set real hashes. NPM's
+  admin UI listens on `127.0.0.1` only.
 
 **Things to avoid in NPM:**
 - **An access list on the whole proxy host.** NPM would remove the
@@ -90,8 +103,16 @@ browser ──https──▶ NPM ──http──▶ paperdotnet:8080
 
 ```bash
 cd samples/nginx-proxy-manager
-cp .env.example .env    # host names, admin password, PROXY_SECRET; for Authelia: AUTH_HOST, COOKIE_DOMAIN, secrets
+cp .env.example .env    # host names, ADMIN_PASSWORD, PROXY_SECRET; for Authelia: AUTH_HOST, COOKIE_DOMAIN, secrets
 docker compose up -d    # builds the PaperDotNet image from this repository on the first run
+```
+
+Generate every secret instead of typing one:
+
+```bash
+for v in PROXY_SECRET AUTHELIA_SESSION_SECRET AUTHELIA_STORAGE_ENCRYPTION_KEY AUTHELIA_RESET_PASSWORD_JWT_SECRET; do
+  sed -i "s|^$v=.*|$v=$(openssl rand -hex 32)|" .env; done
+sed -i "s|^ADMIN_PASSWORD=.*|ADMIN_PASSWORD=$(openssl rand -hex 24)|" .env
 ```
 
 `COMPOSE_PROFILES` in `.env` selects what starts:
@@ -101,17 +122,18 @@ docker compose up -d    # builds the PaperDotNet image from this repository on t
 
 The DNS names (`PAPERDOTNET_HOST`, and `AUTH_HOST` for Authelia) must point
 to this server, and ports 80 and 443 must be reachable for Let's Encrypt.
-Create `PROXY_SECRET` with `openssl rand -hex 32`.
 
 ### 2. Create the proxy host in NPM
 
-Open NPM at `http://<server>:81`. The first start asks you to create an NPM
-admin account. Then go to **Hosts → Proxy Hosts → Add Proxy Host**:
+Open NPM's admin UI through an SSH tunnel: `ssh -L 8181:127.0.0.1:81 <server>`,
+then `http://localhost:8181`. It listens on `127.0.0.1` only (`NPM_ADMIN_BIND`).
+The first start asks you to create an NPM admin account; give it a long,
+unique password. Then go to **Hosts → Proxy Hosts → Add Proxy Host**:
 
 | Tab | Setting |
 |---|---|
 | Details | Domain names: `PAPERDOTNET_HOST`. Scheme `http`, forward hostname `paperdotnet`, port `8080`. **Cache Assets: off. Block Common Exploits: off.** Websockets Support: either (not used). Access List: **Publicly Accessible** |
-| SSL | Request a new certificate. **Force SSL: on.** HTTP/2: on. HSTS: as you like |
+| SSL | Request a new certificate. **Force SSL: on.** HTTP/2: on. **HSTS: on** (with subdomains only if every subdomain has HTTPS) |
 | Advanced | Paste one of the files below and replace `PROXY_SECRET` with the value from `.env` |
 
 **A. NPM access list:**
@@ -133,11 +155,17 @@ admin account. Then go to **Hosts → Proxy Hosts → Add Proxy Host**:
    of PaperDotNet signs you out of Authelia too, then run
    `docker compose up -d`.
 4. Users and groups live in
-   [`authelia/users_database.yml`](authelia/users_database.yml). Both demo
-   users have the password `change-me-demo`.
-5. Two-factor sign-in: set `policy: two_factor` in
-   [`authelia/configuration.yml`](authelia/configuration.yml). Registration
-   e-mails are written to a file: `docker compose exec authelia cat /var/lib/authelia/notification.txt`.
+   [`authelia/users_database.yml`](authelia/users_database.yml). No password
+   ships with the sample, and Authelia does not start until every user has
+   one. For each user, run
+   `docker compose run --rm authelia authelia crypto hash generate argon2`
+   and paste the digest as the user's `password`.
+5. Sign-in needs a second factor (`policy: two_factor` in
+   [`authelia/configuration.yml`](authelia/configuration.yml)). At the first
+   sign-in each user registers a one-time-code app or a passkey. The
+   confirmation e-mails are written to a file:
+   `docker compose exec authelia cat /var/lib/authelia/notification.txt`.
+   For real users, configure an SMTP notifier.
 
 ### 3. First sign-in, groups and roles
 
@@ -195,8 +223,11 @@ pdn workspaces
 ```
 
 Server-side apps can use client credentials at `/connect/token`
-(Admin → Applications). The local `admin` can still use the password grant.
-To allow only proxy sign-ins, set `PAPERDOTNET__Auth__AllowPasswordGrant=false`.
+(Admin → Applications). The password grant is off with `LOCAL_SIGN_IN=false`.
+
+**Break-glass:** if the proxy or Authelia is down and you must get in, set
+`LOCAL_SIGN_IN=true`, run `docker compose up -d`, and sign in as `admin` with
+`ADMIN_PASSWORD` at `/login`. Set it back to `false` afterwards.
 
 ## Using the NPM you already run
 
@@ -220,11 +251,61 @@ To allow only proxy sign-ins, set `PAPERDOTNET__Auth__AllowPasswordGrant=false`.
    For a quick test without editing it:
    `docker network connect --ip 172.30.10.2 paperdotnet-proxy <npm-container>`.
    This does not survive recreating the container.
-3. Access-list mode with groups only: copy
-   [`npm/http_top.conf`](npm/http_top.conf) to
+3. Access-list mode only: copy
+   [`npm/http_top.conf`](npm/http_top.conf) (rate limit and groups) to
    `/data/nginx/custom/http_top.conf` in NPM's data folder, or append it to
    the file if you already have one. Then restart NPM.
 4. Continue with [step 2](#2-create-the-proxy-host-in-npm).
+
+## Before you expose it to the internet
+
+**Defaults the sample already sets:**
+- Only ports 80 and 443 are published. NPM's admin UI is on `127.0.0.1`, and
+  PaperDotNet and Authelia publish no port.
+- TLS is handled by NPM (Force SSL, HSTS).
+- Only the proxy signs people in (`LOCAL_SIGN_IN=false`).
+- The proxy's headers need the secret and NPM's address.
+- There is a second factor and bans in Authelia mode, and a rate limit in
+  access-list mode.
+- Uploads are limited to 520 MB.
+- The PaperDotNet container runs as a non-root user without Linux
+  capabilities (`cap_drop: ALL`, `no-new-privileges`).
+
+**Your part:**
+1. **Firewall:** allow only 80 and 443 from the internet, plus SSH from your
+   own addresses.
+2. **Secrets:** generate them (step 1). Never reuse the ones from the README
+   or another installation.
+3. **Users:** use Authelia for anything reachable from the internet, with
+   SMTP for its e-mails. If your identity provider lets people sign
+   themselves up, set `CREATE_USERS=false`. Otherwise anyone who registers
+   gets an account. The provider must not let users pick a name that
+   already exists in PaperDotNet (such as `admin`): the same name is the
+   same account.
+4. **Client addresses:** check NPM's access log
+   (`docker compose exec npm tail /data/logs/proxy-host-1_access.log`). It
+   should show real client addresses, not a Docker address like
+   `172.x.0.1`.
+   - NPM trusts `X-Real-IP` from private networks.
+   - If Docker's userland proxy hides the client address (rootless Docker,
+     some IPv6 setups), clients could choose their own address. That
+     defeats the rate limits.
+   - Fix it with `"userland-proxy": false` in Docker's `daemon.json`, or
+     run NPM with `network_mode: host`.
+5. **Updates:** pin image versions you have checked (`jc21/nginx-proxy-manager`,
+   `authelia/authelia`, PaperDotNet) and update them regularly.
+6. **Backups contain keys.** They hold:
+   - PaperDotNet's data volume: the database with the keys that protect
+     tokens and cookies;
+   - NPM's data (certificates, and the proxy secret in the Advanced config);
+   - Authelia's data.
+
+   Store backups encrypted.
+7. **Removing someone:** disable them in Authelia (or the access list) *and*
+   in PaperDotNet. The proxy ends their web sign-in within a day, but only
+   PaperDotNet can end their API tokens at once.
+8. **Watch the logs:** `docker compose logs paperdotnet | grep -i warn`
+   should show no proxy warnings, and Authelia logs bans.
 
 ## Checking the setup
 
@@ -236,6 +317,9 @@ curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' -H 'Remote-User: admin'
 curl -s "https://$H/.well-known/openid-configuration" | grep -o '"issuer":"[^"]*"'   # https://docs.example.com/
 curl -sN -H "Authorization: Bearer pdn_…" "https://$H/v1.0/me/events" | head -n 2   # "event: connected" at once
 docker compose logs paperdotnet | grep -i "warn.*proxy"  # nothing: secret set, forwarded headers limited to NPM
+curl -s -o /dev/null -w '%{http_code}\n' -X POST "https://$H/connect/token" \
+  -d grant_type=password -d client_id=paperdotnet -d username=admin -d password=x   # 400: no password sign-in
+nc -zv -w 3 <server-ip> 81                               # from outside: must fail (admin UI not reachable)
 ```
 
 **How this sample was tested:**
@@ -250,7 +334,16 @@ docker compose logs paperdotnet | grep -i "warn.*proxy"  # nothing: secret set, 
   - live events and MCP;
   - the issuer in OIDC discovery;
   - forged `Remote-User` headers without the secret were ignored.
-- `compose.yml` was checked with `docker compose config`.
+- Security checks that passed:
+  - the admin's local password was refused at `/v1.0/auth/login` and by
+    the password grant;
+  - the access list answered 429 after a few wrong passwords;
+  - Authelia mode needed the second factor;
+  - a declared 600 MB body got 413;
+  - a 300 MB anonymous upload got 401;
+  - Authelia refused to start with the shipped placeholder passwords.
+- `compose.yml` was checked with `docker compose config`. Without secrets
+  in `.env`, it refuses to start.
 
 ## Files
 

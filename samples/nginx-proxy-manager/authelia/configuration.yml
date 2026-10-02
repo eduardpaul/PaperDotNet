@@ -20,10 +20,25 @@ access_control:
   rules:
     # NPM asks Authelia only for PaperDotNet's sign-in path (npm/advanced-authelia.conf).
     - domain: '{{ env "PAPERDOTNET_HOST" }}'
-      # two_factor: a one-time code or a passkey before PaperDotNet.
-      policy: one_factor
+      # A password and a second factor (one-time code or passkey). one_factor only for a closed network.
+      policy: two_factor
       # Only members of a group may use PaperDotNet:
       # subject: 'group:paperdotnet'
+
+# Brute force: after 3 failed sign-ins within 2 minutes, the user is banned for 15 minutes.
+regulation:
+  max_retries: 3
+  find_time: 2m
+  ban_time: 15m
+
+# New passwords (resets) must be strong.
+password_policy:
+  zxcvbn:
+    enabled: true
+    min_score: 3
+
+totp:
+  issuer: '{{ env "PAPERDOTNET_HOST" }}'
 
 session:
   cookies:
@@ -35,7 +50,8 @@ storage:
   local:
     path: /var/lib/authelia/db.sqlite3
 
-# Password-reset and two-factor registration mails land in this file (docker compose exec authelia cat …).
+# Password-reset and two-factor registration mails land in this file
+# (docker compose exec authelia cat /var/lib/authelia/notification.txt). Use an SMTP notifier for real users.
 notifier:
   filesystem:
     filename: /var/lib/authelia/notification.txt

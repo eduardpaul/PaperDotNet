@@ -22,6 +22,8 @@ public sealed class IdentityModule : IModule
         services.AddOptions<AuthOptions>().BindConfiguration(AuthOptions.Section).ValidateDataAnnotations()
             .Validate(o => ReverseProxySignIn.IsValid(o.ReverseProxy),
                 "Auth:ReverseProxy needs TrustedProxies (addresses or CIDR networks) and a UserHeader when it is enabled.")
+            .Validate(o => o.LocalSignIn || o.ReverseProxy.Enabled,
+                "Auth:LocalSignIn can be turned off only when Auth:ReverseProxy signs people in; otherwise nobody could sign in.")
             .ValidateOnStart();
         services.AddHttpContextAccessor();
         services.AddModuleDbContext<IdentityDbContext>(IdentityDbContext.Schema);

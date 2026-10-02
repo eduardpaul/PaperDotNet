@@ -14,8 +14,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      # NPM's admin UI. Bind it to 127.0.0.1 (or remove it) once the proxy hosts are set up.
-      - "${NPM_ADMIN_PORT:-81}:81"
+      # NPM's admin UI, only on this machine: open it through an SSH tunnel (README.md), never from the internet.
+      - "${NPM_ADMIN_BIND:-127.0.0.1}:${NPM_ADMIN_PORT:-81}:81"
     volumes:
       - npm-data:/data
       - npm-letsencrypt:/etc/letsencrypt
@@ -33,6 +33,10 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     # No published port: only NPM reaches PaperDotNet. A port here would let clients skip the proxy.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       PAPERDOTNET__Bootstrap__AdminPassword: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       PAPERDOTNET__Tenancy__DefaultTenant: ${DEFAULT_TENANT:-default}
@@ -46,6 +50,9 @@ services:
       PAPERDOTNET__Auth__ReverseProxy__Enabled: "true"
       PAPERDOTNET__Auth__ReverseProxy__TrustedProxies__0: ${NPM_IP:-172.30.10.2}
       PAPERDOTNET__Auth__ReverseProxy__Secret: ${PROXY_SECRET:?set PROXY_SECRET in .env}
+      # Only the proxy signs people in: no passwords or passkeys stored in PaperDotNet, so nobody can skip the
+      # proxy's rules (two-factor, bans, removed users). API tokens keep working. true only for a break-glass sign-in.
+      PAPERDOTNET__Auth__LocalSignIn: ${LOCAL_SIGN_IN:-false}
       # Unknown users are created as Members on their first sign-in; false admits only existing users.
       PAPERDOTNET__Auth__ReverseProxy__CreateUsers: ${CREATE_USERS:-true}
       # Groups: create the ones the proxy names, and remove members the proxy no longer lists in them.
@@ -64,6 +71,8 @@ services:
     image: authelia/authelia:4.39
     profiles: [authelia]
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       # configuration.yml reads the host names below with {{ env "…" }}.
       X_AUTHELIA_CONFIG_FILTERS: template

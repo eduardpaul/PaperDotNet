@@ -98,6 +98,15 @@ the browser goes through the proxy again.
 - `LogoutUrl` is where signing out of a proxy session sends the browser.
   Without it, the proxy would sign the user straight back in.
 
+**Local sign-in:** with `"Auth": { "LocalSignIn": false }`, only the
+proxy signs people in.
+- Passwords and passkeys stored in PaperDotNet are refused, as is the
+  password grant (`403 localSignInDisabled`). This includes the first
+  administrator's password.
+- Nobody can skip the proxy's second factor, bans or removed users.
+- API tokens and client credentials keep working.
+- Turn it on again for a moment for a break-glass sign-in.
+
 **Forwarded headers** (scheme, host, client address) count only from
 `ForwardedHeaders:KnownProxies`, or else from the sign-in proxies.
 `ForwardLimit` is the number of proxies in a chain. Event streams send

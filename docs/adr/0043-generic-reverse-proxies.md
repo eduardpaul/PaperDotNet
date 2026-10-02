@@ -136,6 +136,23 @@ tests used nginx with NPM's `proxy.conf`, its http settings and Authelia 4.39.
      the client's post-logout redirect.
    - Basic auth has no logout. The sample documents that.
 
+8. **Local sign-in can be turned off.**
+   - The security review for exposing the sample on the internet found a
+     bypass. Even behind Authelia with two-factor, the first administrator's
+     local password (`Bootstrap:AdminPassword`) still worked at
+     `/v1.0/auth/login` and through the password grant. So did passkeys
+     users registered in PaperDotNet, even after the proxy removed them.
+     This skipped the proxy's second factor, its bans and deprovisioning.
+   - `Auth:LocalSignIn` (default true) turns this off. Password sign-in,
+     passkey sign-in and the password grant are then refused
+     (`403 localSignInDisabled`). `/connect/authorize` ignores sign-in
+     sessions the proxy did not start, and the proxy sign-in path no longer
+     falls back to the password page.
+   - API tokens and client credentials keep working.
+   - It can only be off while the proxy is enabled; otherwise nobody could
+     sign in. The NPM sample turns it off. For a break-glass sign-in, turn
+     it back on for a moment.
+
 ## Not decided here
 
 - **OAuth for MCP clients that cannot send a static header.** This needs
@@ -163,14 +180,15 @@ tests used nginx with NPM's `proxy.conf`, its http settings and Authelia 4.39.
 - The Identity module has new options, a `Group.Source` column with
   migrations for SQLite and PostgreSQL, and the anonymous `/auth/proxy/sign-in`
   endpoint. Its tenant is the request's, like `/connect/authorize`'s.
-- Integration tests (`ReverseProxyTests`) cover:
+- Integration tests (`ReverseProxyTests`, `LocalSignInTests`) cover:
   - a missing or wrong secret, and an untrusted peer;
   - the sign-in path and `returnUrl`;
   - token lifetimes through a refresh;
   - the proxy logout;
   - group sync, including local groups and the last administrator;
   - the no-buffering header and keep-alives;
-  - which proxies forwarded headers count from.
+  - which proxies forwarded headers count from;
+  - refusing local sign-in when it is turned off.
 - Existing ADR-0031 setups keep working. Two things change:
   - signed-out browsers now go to `/auth/proxy/sign-in` instead of `/login`;
   - they see a startup warning until they add a secret.

@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Identity.Authentication;
@@ -40,10 +42,10 @@ internal static class AuthEndpoints
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var auth = endpoints.MapGroup($"{ApiRoutes.V1}/auth").WithTags("Authentication").AllowAnonymous();
-        auth.MapPost("/login", LoginAsync).WithName("Login");
+        auth.MapPost("/login", LoginAsync).WithName("Login").AddEndpointFilter(LocalSignIn.Filter);
         auth.MapPost("/logout", (Delegate)LogoutAsync).WithName("Logout");
-        auth.MapPost("/passkeys/options", PasskeyLoginOptionsAsync).WithName("PasskeyLoginOptions");
-        auth.MapPost("/passkeys/login", PasskeyLoginAsync).WithName("PasskeyLogin");
+        auth.MapPost("/passkeys/options", PasskeyLoginOptionsAsync).WithName("PasskeyLoginOptions").AddEndpointFilter(LocalSignIn.Filter);
+        auth.MapPost("/passkeys/login", PasskeyLoginAsync).WithName("PasskeyLogin").AddEndpointFilter(LocalSignIn.Filter);
 
         var me = endpoints.MapV1Group("me/passkeys", "Me");
         me.MapGet("", ListPasskeysAsync).WithName("ListMyPasskeys");
@@ -282,4 +284,16 @@ internal sealed class PasskeyState(IDataProtectionProvider dataProtection)
     }
 
     private sealed record Payload(Guid TenantId, Guid? UserId, string? State);
+}
+
+/// <summary>Turns password and passkey sign-in off when <see cref="AuthOptions.LocalSignIn"/> is false (ADR-0043).</summary>
+internal static class LocalSignIn
+{
+    public static ValueTask<object?> Filter(EndpointFilterInvocationContext context, EndpointFilterDelegate next) =>
+        context.HttpContext.RequestServices.GetRequiredService<IOptions<AuthOptions>>().Value.LocalSignIn
+            ? next(context)
+            : ValueTask.FromResult<object?>(Disabled());
+
+    public static ProblemHttpResult Disabled() =>
+        ApiErrors.Problem(StatusCodes.Status403Forbidden, "localSignInDisabled", "Sign-in with a password or passkey is turned off here; sign in through the proxy.");
 }

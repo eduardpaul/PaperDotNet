@@ -22,6 +22,14 @@ public sealed class AuthOptions
     public bool AllowPasswordGrant { get; set; } = true;
 
     /// <summary>
+    /// Sign-in with a password or a passkey stored in PaperDotNet (<c>/v1.0/auth/login</c>, passkey sign-in and the
+    /// password grant). Turn it off when an authenticating reverse proxy signs everyone in, so its rules (two-factor,
+    /// lockout, removed users) cannot be bypassed with a local password (ADR-0043). Requires <see cref="ReverseProxy"/>.
+    /// API tokens and client credentials keep working.
+    /// </summary>
+    public bool LocalSignIn { get; set; } = true;
+
+    /// <summary>
     /// Page of the (future) web UI that signs users in; <c>/connect/authorize</c>
     /// redirects there with <c>returnUrl</c> when there is no session. Without it, 401.
     /// </summary>

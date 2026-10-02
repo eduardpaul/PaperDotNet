@@ -61,7 +61,7 @@ internal static class OAuthEndpoints
         }
 
         // The proxy named nobody (or is not trusted): the password sign-in, when there is one, is the way in.
-        if (options.Value.LoginUrl is { Length: > 0 } loginUrl)
+        if (options.Value is { LocalSignIn: true, LoginUrl: { Length: > 0 } loginUrl })
         {
             var separator = loginUrl.Contains('?', StringComparison.Ordinal) ? '&' : '?';
             return Results.Redirect(target is null ? loginUrl : $"{loginUrl}{separator}returnUrl={Uri.EscapeDataString(target)}");
@@ -92,8 +92,10 @@ internal static class OAuthEndpoints
         }
 
         // A session the proxy started lasts only as long as a proxy sign-in (ADR-0043); then the proxy is asked again.
+        // Without local sign-in, only sessions the proxy started count (sessions from before the switch end here).
         var proxySignedInAt = ReverseProxySignIn.SignedInAt(session.Principal);
         if (user is null || !CanSignIn(user) || request.HasPromptValue(PromptValues.Login)
+            || (!options.Value.LocalSignIn && proxySignedInAt is null)
             || session.Principal!.FindFirstValue(AuthEndpoints.SessionStampClaim) != user.SecurityStamp
             || (proxySignedInAt is { } at && ProxyTimeLeft(at, options.Value, now) <= TimeSpan.Zero))
         {
@@ -159,6 +161,11 @@ internal static class OAuthEndpoints
 
         if (request.IsPasswordGrantType())
         {
+            if (!options.Value.LocalSignIn)
+            {
+                return Error(Errors.UnauthorizedClient, "Sign-in with a password is turned off here; use an API token or sign in through the proxy.");
+            }
+
             if (!options.Value.AllowPasswordGrant || request.ClientId != OAuthApplication.FirstPartyClientId)
             {
                 return Error(Errors.UnauthorizedClient, "The password grant is only available to the first-party client.");
