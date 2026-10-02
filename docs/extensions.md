@@ -301,3 +301,13 @@ them startup stops with a message naming the missing assembly.
 
 Tests and custom hosts can also add instances to
 `PaperDotNetHost.AdditionalExtensions` before the host is built.
+
+## SDK 1.1 additions
+
+`IListItemStore.RestoreAsync` restores a recycled item through the normal tenant,
+permission, version, search and event pipeline. Repeating a restoration of an
+active item returns it unchanged. `IWorkflowDirectory.EnableBuiltInAsync` enables
+a registered workspace built-in workflow with existing/default parameters. A
+module must authorize its configuration action before calling it; the API does
+not accept arbitrary workflow definitions. Both additions have defaults for
+older custom implementations; the host implements them.

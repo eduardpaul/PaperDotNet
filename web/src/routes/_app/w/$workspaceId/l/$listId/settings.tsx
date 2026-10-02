@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
-import { ArrowLeft, Columns3, FileCog, LayoutList, Settings2, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Columns3, FileCog, LayoutList, Settings2, ShieldCheck } from 'lucide-react';
 import { Page, PageHeader } from '@/components/page';
 import { SubNav, SubNavLayout, SubNavLink } from '@/components/sub-nav';
 import { Alert } from '@/components/ui/feedback';
@@ -51,6 +51,11 @@ function ListSettings() {
             {list?.kind === 'library' && (
               <SubNavLink to="/w/$workspaceId/l/$listId/settings/documents" params={params}>
                 <FileCog /> Documents
+              </SubNavLink>
+            )}
+            {list?.contentTypes?.some((type) => type.key === 'event') && (
+              <SubNavLink to="/w/$workspaceId/l/$listId/settings/calendar-sources" params={params}>
+                <CalendarDays /> Calendar sources
               </SubNavLink>
             )}
             <SubNavLink to="/w/$workspaceId/l/$listId/settings/permissions" params={params}>

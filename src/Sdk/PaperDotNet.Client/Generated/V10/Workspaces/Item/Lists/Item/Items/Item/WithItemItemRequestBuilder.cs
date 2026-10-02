@@ -6,6 +6,7 @@ using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Activity;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Backlinks;
+using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.CalendarSource;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Checklist;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Children;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Comments;
@@ -40,6 +41,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Backlinks.BacklinksRequestBuilder Backlinks
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Backlinks.BacklinksRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The calendarSource property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.CalendarSource.CalendarSourceRequestBuilder CalendarSource
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.CalendarSource.CalendarSourceRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The checklist property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Checklist.ChecklistRequestBuilder Checklist

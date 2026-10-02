@@ -8,6 +8,8 @@ using PaperDotNet.Calendar.Features;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Calendar;
 
@@ -39,13 +41,26 @@ public sealed class CalendarModule : IModule
         services.AddScoped<CalendarService>();
         services.AddScoped<ICalendarService>();
         services.AddScoped<CalendarAccess>();
+        services.AddSingleton<CalendarSourceHttp>();
+        services.AddScoped<CalendarImportScope>();
+        services.AddScoped<CalendarSourceReplication>();
+        services.AddScoped<ITemplateHandler, CalendarSourceTemplateHandler>();
+        services.AddScoped<CalendarSourceMutator>();
+        services.AddScoped<IItemMutator>(sp => sp.GetRequiredService<CalendarSourceMutator>());
+        services.AddOperationHandler<CalendarSourceOperation>();
+        services.AddWorkflowActivity<RefreshCalendarSources>();
+        services.AddWorkflow(CalendarSourceWorkflow.Definition);
         services.AddScoped<IItemMutator, EventTimesMutator>();
         services.AddEventSubscriber<ItemPurged, PurgedEventData>();
         services.AddTenantRecurringJob<EventReminderJob>(EventReminderJob.Name, EventReminderJob.Schedule);
         services.AddScopes(CalendarScopes.All);
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) => CalendarEndpoints.Map(endpoints);
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        CalendarEndpoints.Map(endpoints);
+        CalendarSourceEndpoints.Map(endpoints);
+    }
 }
 
 /// <summary>Removes the recurrence, exceptions and import sources of permanently deleted events.</summary>

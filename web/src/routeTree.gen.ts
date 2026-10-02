@@ -48,6 +48,7 @@ import { Route as AppWWorkspaceIdLListIdIndexRouteImport } from './routes/_app/w
 import { Route as AppWWorkspaceIdLListIdRecycleBinRouteImport } from './routes/_app/w/$workspaceId/l/$listId/recycle-bin'
 import { Route as AppWWorkspaceIdLListIdSettingsRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings'
 import { Route as AppWWorkspaceIdLListIdSettingsIndexRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings/index'
+import { Route as AppWWorkspaceIdLListIdSettingsCalendarSourcesRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings/calendar-sources'
 import { Route as AppWWorkspaceIdLListIdSettingsColumnsRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings/columns'
 import { Route as AppWWorkspaceIdLListIdSettingsDocumentsRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings/documents'
 import { Route as AppWWorkspaceIdLListIdSettingsPermissionsRouteImport } from './routes/_app/w/$workspaceId/l/$listId/settings/permissions'
@@ -257,6 +258,12 @@ const AppWWorkspaceIdLListIdSettingsIndexRoute =
     path: '/',
     getParentRoute: () => AppWWorkspaceIdLListIdSettingsRoute,
   } as any)
+const AppWWorkspaceIdLListIdSettingsCalendarSourcesRoute =
+  AppWWorkspaceIdLListIdSettingsCalendarSourcesRouteImport.update({
+    id: '/calendar-sources',
+    path: '/calendar-sources',
+    getParentRoute: () => AppWWorkspaceIdLListIdSettingsRoute,
+  } as any)
 const AppWWorkspaceIdLListIdSettingsColumnsRoute =
   AppWWorkspaceIdLListIdSettingsColumnsRouteImport.update({
     id: '/columns',
@@ -320,6 +327,7 @@ export interface FileRoutesByFullPath {
   '/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
   '/w/$workspaceId/l/$listId/settings': typeof AppWWorkspaceIdLListIdSettingsRouteWithChildren
   '/w/$workspaceId/l/$listId/': typeof AppWWorkspaceIdLListIdIndexRoute
+  '/w/$workspaceId/l/$listId/settings/calendar-sources': typeof AppWWorkspaceIdLListIdSettingsCalendarSourcesRoute
   '/w/$workspaceId/l/$listId/settings/columns': typeof AppWWorkspaceIdLListIdSettingsColumnsRoute
   '/w/$workspaceId/l/$listId/settings/documents': typeof AppWWorkspaceIdLListIdSettingsDocumentsRoute
   '/w/$workspaceId/l/$listId/settings/permissions': typeof AppWWorkspaceIdLListIdSettingsPermissionsRoute
@@ -360,6 +368,7 @@ export interface FileRoutesByTo {
   '/w/$workspaceId/settings': typeof AppWWorkspaceIdSettingsIndexRoute
   '/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
   '/w/$workspaceId/l/$listId': typeof AppWWorkspaceIdLListIdIndexRoute
+  '/w/$workspaceId/l/$listId/settings/calendar-sources': typeof AppWWorkspaceIdLListIdSettingsCalendarSourcesRoute
   '/w/$workspaceId/l/$listId/settings/columns': typeof AppWWorkspaceIdLListIdSettingsColumnsRoute
   '/w/$workspaceId/l/$listId/settings/documents': typeof AppWWorkspaceIdLListIdSettingsDocumentsRoute
   '/w/$workspaceId/l/$listId/settings/permissions': typeof AppWWorkspaceIdLListIdSettingsPermissionsRoute
@@ -406,6 +415,7 @@ export interface FileRoutesById {
   '/_app/w/$workspaceId/l/$listId/recycle-bin': typeof AppWWorkspaceIdLListIdRecycleBinRoute
   '/_app/w/$workspaceId/l/$listId/settings': typeof AppWWorkspaceIdLListIdSettingsRouteWithChildren
   '/_app/w/$workspaceId/l/$listId/': typeof AppWWorkspaceIdLListIdIndexRoute
+  '/_app/w/$workspaceId/l/$listId/settings/calendar-sources': typeof AppWWorkspaceIdLListIdSettingsCalendarSourcesRoute
   '/_app/w/$workspaceId/l/$listId/settings/columns': typeof AppWWorkspaceIdLListIdSettingsColumnsRoute
   '/_app/w/$workspaceId/l/$listId/settings/documents': typeof AppWWorkspaceIdLListIdSettingsDocumentsRoute
   '/_app/w/$workspaceId/l/$listId/settings/permissions': typeof AppWWorkspaceIdLListIdSettingsPermissionsRoute
@@ -452,6 +462,7 @@ export interface FileRouteTypes {
     | '/w/$workspaceId/l/$listId/recycle-bin'
     | '/w/$workspaceId/l/$listId/settings'
     | '/w/$workspaceId/l/$listId/'
+    | '/w/$workspaceId/l/$listId/settings/calendar-sources'
     | '/w/$workspaceId/l/$listId/settings/columns'
     | '/w/$workspaceId/l/$listId/settings/documents'
     | '/w/$workspaceId/l/$listId/settings/permissions'
@@ -492,6 +503,7 @@ export interface FileRouteTypes {
     | '/w/$workspaceId/settings'
     | '/w/$workspaceId/l/$listId/recycle-bin'
     | '/w/$workspaceId/l/$listId'
+    | '/w/$workspaceId/l/$listId/settings/calendar-sources'
     | '/w/$workspaceId/l/$listId/settings/columns'
     | '/w/$workspaceId/l/$listId/settings/documents'
     | '/w/$workspaceId/l/$listId/settings/permissions'
@@ -537,6 +549,7 @@ export interface FileRouteTypes {
     | '/_app/w/$workspaceId/l/$listId/recycle-bin'
     | '/_app/w/$workspaceId/l/$listId/settings'
     | '/_app/w/$workspaceId/l/$listId/'
+    | '/_app/w/$workspaceId/l/$listId/settings/calendar-sources'
     | '/_app/w/$workspaceId/l/$listId/settings/columns'
     | '/_app/w/$workspaceId/l/$listId/settings/documents'
     | '/_app/w/$workspaceId/l/$listId/settings/permissions'
@@ -825,6 +838,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWWorkspaceIdLListIdSettingsIndexRouteImport
       parentRoute: typeof AppWWorkspaceIdLListIdSettingsRoute
     }
+    '/_app/w/$workspaceId/l/$listId/settings/calendar-sources': {
+      id: '/_app/w/$workspaceId/l/$listId/settings/calendar-sources'
+      path: '/calendar-sources'
+      fullPath: '/w/$workspaceId/l/$listId/settings/calendar-sources'
+      preLoaderRoute: typeof AppWWorkspaceIdLListIdSettingsCalendarSourcesRouteImport
+      parentRoute: typeof AppWWorkspaceIdLListIdSettingsRoute
+    }
     '/_app/w/$workspaceId/l/$listId/settings/columns': {
       id: '/_app/w/$workspaceId/l/$listId/settings/columns'
       path: '/columns'
@@ -928,6 +948,7 @@ const AppWWorkspaceIdSettingsRouteWithChildren =
   )
 
 interface AppWWorkspaceIdLListIdSettingsRouteChildren {
+  AppWWorkspaceIdLListIdSettingsCalendarSourcesRoute: typeof AppWWorkspaceIdLListIdSettingsCalendarSourcesRoute
   AppWWorkspaceIdLListIdSettingsColumnsRoute: typeof AppWWorkspaceIdLListIdSettingsColumnsRoute
   AppWWorkspaceIdLListIdSettingsDocumentsRoute: typeof AppWWorkspaceIdLListIdSettingsDocumentsRoute
   AppWWorkspaceIdLListIdSettingsPermissionsRoute: typeof AppWWorkspaceIdLListIdSettingsPermissionsRoute
@@ -937,6 +958,8 @@ interface AppWWorkspaceIdLListIdSettingsRouteChildren {
 
 const AppWWorkspaceIdLListIdSettingsRouteChildren: AppWWorkspaceIdLListIdSettingsRouteChildren =
   {
+    AppWWorkspaceIdLListIdSettingsCalendarSourcesRoute:
+      AppWWorkspaceIdLListIdSettingsCalendarSourcesRoute,
     AppWWorkspaceIdLListIdSettingsColumnsRoute:
       AppWWorkspaceIdLListIdSettingsColumnsRoute,
     AppWWorkspaceIdLListIdSettingsDocumentsRoute:

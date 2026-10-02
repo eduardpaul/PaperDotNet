@@ -1,3 +1,4 @@
+import { itemCalendarSourceQuery } from '@/features/calendar/source-queries';
 import type { ListResponse } from '@paperdotnet/client';
 import { fieldsOf, ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -56,6 +57,10 @@ export function ItemPanel({
   const format = useFormat();
   const queryClient = useQueryClient();
   const { data: item, isPending } = useQuery({ ...itemQuery(workspaceId, list.id!, itemId), enabled: !isNew });
+  const { data: source } = useQuery({
+    ...itemCalendarSourceQuery(workspaceId, list.id!, itemId),
+    enabled: !isNew && contentTypeOf(list, item?.contentTypeId)?.key === 'event',
+  });
   const remove = useMutation({
     mutationFn: () => listBuilder(workspaceId, list.id!).items.byItemId(itemId).delete(ifMatch(item)),
     onSuccess: async () => {
@@ -107,7 +112,7 @@ export function ItemPanel({
                 <DropdownMenuItem onSelect={() => setClassifying(true)}>
                   <FolderSearch /> Add to smart folder…
                 </DropdownMenuItem>
-                <DropdownMenuItem tone="danger" onSelect={() => remove.mutate()}>
+                <DropdownMenuItem tone="danger" disabled={!!source?.sourceId} onSelect={() => remove.mutate()}>
                   <Trash2 /> Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>

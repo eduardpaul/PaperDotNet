@@ -118,6 +118,7 @@ internal static class CalendarEndpoints
         {
             return CalendarAccess.Forbidden();
         }
+        if (await access.IsSourceManagedAsync(itemId, ct)) { return CalendarAccess.SourceManaged(); }
 
         var recurrence = await db.Recurrences.FirstOrDefaultAsync(r => r.ItemId == itemId, ct);
         if (recurrence is null)
@@ -146,6 +147,7 @@ internal static class CalendarEndpoints
             return CalendarAccess.Forbidden();
         }
 
+        if (await access.IsSourceManagedAsync(itemId, ct)) { return CalendarAccess.SourceManaged(); }
         await db.Recurrences.Where(r => r.ItemId == itemId).ExecuteDeleteAsync(ct);
         await db.OccurrenceChanges.Where(e => e.MasterItemId == itemId && e.OverrideItemId == null).ExecuteDeleteAsync(ct);
         return TypedResults.NoContent();
@@ -459,6 +461,11 @@ internal sealed class CalendarAccess(IListItemStore items, CalendarDbContext db)
     public static ProblemHttpResult Forbidden() =>
         ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "You do not have permission for this action in the workspace.");
 
+    public static ProblemHttpResult SourceManaged() => ApiErrors.Conflict("sourceManagedEvent", "Edit this event's recurrence in the source calendar.");
+
+    public Task<bool> IsSourceManagedAsync(Guid itemId, CancellationToken ct) => db.Sources.AnyAsync(s => s.ItemId == itemId
+        && s.SubscriptionId != null && db.Subscriptions.Any(p => p.Id == s.SubscriptionId), ct);
+
     /// <summary>The item when it is readable and its list has the event content type.</summary>
     public async Task<ListItemData?> EventAsync(Guid workspaceId, Guid listId, Guid itemId, CancellationToken ct)
     {
@@ -482,6 +489,7 @@ internal sealed class CalendarAccess(IListItemStore items, CalendarDbContext db)
             return (null, Forbidden());
         }
 
+        if (await IsSourceManagedAsync(itemId, ct)) { return (null, SourceManaged()); }
         var start = occurrenceStart.ToUniversalTime();
         return CalendarService.Occurrences(recurrence, times, start.AddTicks(1)).Contains(start)
             ? (series, null)

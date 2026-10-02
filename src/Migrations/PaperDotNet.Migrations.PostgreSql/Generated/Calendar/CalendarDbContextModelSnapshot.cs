@@ -91,6 +91,122 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Calendar
                     b.ToTable("feeds", "calendar");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Calendar.Data.CalendarSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Created")
+                        .HasColumnType("integer")
+                        .HasColumnName("created");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("error");
+
+                    b.Property<string>("HttpETag")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("http_e_tag");
+
+                    b.Property<DateTimeOffset?>("HttpLastModified")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("http_last_modified");
+
+                    b.Property<DateTimeOffset?>("LastSuccess")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_success");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lease_id");
+
+                    b.Property<DateTimeOffset?>("LeaseUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lease_until");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("list_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<bool>("Paused")
+                        .HasColumnType("boolean")
+                        .HasColumnName("paused");
+
+                    b.Property<string>("ProtectedUrl")
+                        .IsRequired()
+                        .HasMaxLength(8192)
+                        .HasColumnType("character varying(8192)")
+                        .HasColumnName("protected_url");
+
+                    b.Property<int>("Removed")
+                        .HasColumnType("integer")
+                        .HasColumnName("removed");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int>("Updated")
+                        .HasColumnType("integer")
+                        .HasColumnName("updated");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("UrlHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("url_hash");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_subscriptions");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_subscriptions_tenant_id");
+
+                    b.HasIndex("WorkspaceId")
+                        .HasDatabaseName("ix_subscriptions_workspace_id");
+
+                    b.HasIndex("ListId", "UrlHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_subscriptions_list_id_url_hash");
+
+                    b.ToTable("subscriptions", "calendar");
+                });
+
             modelBuilder.Entity("PaperDotNet.Calendar.Data.EventRecurrence", b =>
                 {
                     b.Property<Guid>("Id")
@@ -178,6 +294,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Calendar
                         .HasColumnType("uuid")
                         .HasColumnName("list_id");
 
+                    b.Property<Guid?>("SubscriptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subscription_id");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
@@ -199,7 +319,13 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Calendar
 
                     b.HasIndex("ListId", "Uid")
                         .IsUnique()
-                        .HasDatabaseName("ix_sources_list_id_uid");
+                        .HasDatabaseName("ix_sources_list_id_uid")
+                        .HasFilter("\"subscription_id\" IS NULL");
+
+                    b.HasIndex("SubscriptionId", "Uid")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sources_subscription_id_uid")
+                        .HasFilter("\"subscription_id\" IS NOT NULL");
 
                     b.ToTable("sources", "calendar");
                 });

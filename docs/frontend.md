@@ -83,7 +83,7 @@ Tailwind ([ADR-0033](adr/0033-web-frontend.md)). This page describes:
 | Admin: audit log | `/admin/audit` | LST-14 |
 | Admin: reindex, provisioning, export/import | `/admin/maintenance` | SRC-10, PRV-01…02, PLT-13 |
 
-Planned: **List settings → Calendar sources** (CAL-07, P7 backlog,
+Implemented: **List settings → Calendar sources** (CAL-07,
 [idea 0024](../ideas/0024-ical-url-replication.md)). Users paste an iCalendar
 URL, including Google's secret iCal address, to populate any event-capable
 list. Multiple URLs can populate the same list, and the same URL can be used
@@ -91,8 +91,8 @@ in different lists independently. The screen lists sources with their last
 refresh, import counts and errors, plus per-source Refresh now, pause, URL
 replacement and removal. Imported fields are marked
 as source-managed; users edit those fields in the source calendar. Use ordinary
-list permissions. This screen ships with the replication API and generated
-SDK and is not part of the completed Phase 8 UI.
+list permissions. The screen uses the Calendar module API and generated SDK;
+see [Calendar sources](calendar-sources.md).
 
 Known API gaps (the UI works around them, to be closed in the API):
 - **Columns for one list only**: columns come from content types, which belong to the organization, so

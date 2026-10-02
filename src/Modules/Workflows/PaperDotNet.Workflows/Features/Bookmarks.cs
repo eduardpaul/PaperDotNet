@@ -121,8 +121,43 @@ internal sealed class WorkflowBookmarks(ITenantScopeFactory scopes, ITenantConte
 }
 
 /// <summary>What activities may ask the engine about workflows and runs (<see cref="IWorkflowDirectory"/>).</summary>
-internal sealed class WorkflowDirectory(WorkflowsDbContext db) : IWorkflowDirectory
+internal sealed class WorkflowDirectory(WorkflowsDbContext db, IServiceProvider services, PaperDotNet.Lists.Contracts.IListItemStore items) : IWorkflowDirectory
 {
+    public async Task<bool> EnableBuiltInAsync(Guid workspaceId, string key, CancellationToken cancellationToken)
+    {
+        if (!(await items.AsSystem().GetListsAsync(workspaceId, null, cancellationToken)).Any())
+        {
+            return false;
+        }
+
+        var builtIns = services.GetRequiredService<BuiltInWorkflows>();
+        var workflow = await builtIns.FindAsync(key, cancellationToken);
+        if (workflow is null || workflow.Scope != BuiltInScope.Workspace || !builtIns.IsAvailable(workflow))
+        {
+            return false;
+        }
+
+        var existing = await builtIns.RowAsync(workspaceId, key, cancellationToken);
+        if (existing?.Enabled == true)
+        {
+            return true;
+        }
+
+        var (row, errors, _) = await builtIns.SetAsync(workspaceId, workflow, true, null, cancellationToken);
+        if (row is null || errors.Count != 0)
+        {
+            return false;
+        }
+
+        try { await db.SaveChangesAsync(cancellationToken); }
+        catch (DbUpdateException)
+        {
+            db.ChangeTracker.Clear();
+            return (await builtIns.RowAsync(workspaceId, key, cancellationToken))?.Enabled == true;
+        }
+        return true;
+    }
+
     /// <summary>The key as it appears in stored definitions (steps: <c>"action"</c>, flows: <c>"activity"</c>).</summary>
     public Task<bool> IsActivityUsedAsync(Guid workspaceId, string activityKey, CancellationToken cancellationToken)
     {

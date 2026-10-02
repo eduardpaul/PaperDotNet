@@ -1,9 +1,9 @@
 # 0024: Replicate events from an iCalendar URL into any calendar list
 
-- **Status:** mapped
+- **Status:** done
 - **Area:** Calendar / Integrations
 - **Date:** 2026-10-02
-- **Mapped to:** [features.md](../docs/features.md): CAL-07 (P7 backlog; API, SDK and web UI)
+- **Mapped to:** [features.md](../docs/features.md): CAL-07 (implemented; API, SDK and web UI)
 
 ## The idea
 
@@ -14,7 +14,7 @@ in PaperDotNet without maintaining a second copy manually.
 For example, paste Google Calendar's **Secret address in iCal format** into
 a list. PaperDotNet fetches the feed and replicates its events into that list.
 The feature also works with other providers publishing compatible feeds.
-This is a proposed feature, not implemented behavior.
+Implemented in the Calendar module; see [calendar-sources.md](../docs/calendar-sources.md).
 
 ## Proposed first release
 
@@ -43,7 +43,7 @@ events imported by another subscription, even when they share a URL or UID.
    source before activating its subscription.
 2. Events appear in the list and its calendar views, marked as imported.
    Imports inherit the destination list's normal permissions.
-3. Refresh automatically on a proposed 15-minute schedule, plus **Refresh
+3. Refresh automatically on a 15-minute schedule, plus **Refresh
    now**. Show last success, created/updated/removed counts and fetch errors per source.
 4. Pause, replace an expired URL, or remove an individual source. Removing it stops
    refreshing and retains imported events as local items. Replacing the URL
@@ -70,7 +70,9 @@ events imported by another subscription, even when they share a URL or UID.
   events restore without duplicates. Reconcile removed exceptions as well
   as newly added exceptions.
 - Failed downloads, invalid/truncated feeds, exceeded limits or partial
-  imports cannot trigger removal; retain the last successful replica.
+  imports cannot trigger removal. Fetch/parser failures retain the existing
+  replica; a mid-apply list validation failure can leave earlier updates visible
+  and is safely retried, without starting absence-based removals.
   Validate/stage the snapshot first and reconcile deletions only after its
   supported components are durably processed. A valid empty feed can remove
   previously imported events.

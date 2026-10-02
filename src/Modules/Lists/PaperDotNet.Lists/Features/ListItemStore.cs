@@ -312,6 +312,42 @@ internal sealed class ListItemStore(
         }
     }
 
+    public async Task<ListItemResult> RestoreAsync(Guid workspaceId, Guid listId, Guid itemId, uint? expectedVersion, CancellationToken cancellationToken)
+    {
+        var schema = await LoadAsync(workspaceId, listId, cancellationToken);
+        var item = schema is null ? null : await db.Items.IgnoreQueryFilters([QueryFilters.SoftDelete])
+            .FirstOrDefaultAsync(i => i.Id == itemId && i.ListId == listId, cancellationToken);
+        var level = item is null ? WorkspaceAccessLevel.None : schema!.Access.Level(item.ScopeId);
+        if (level < WorkspaceAccessLevel.Read)
+        {
+            return new ListItemResult(ListItemStatus.NotFound);
+        }
+
+        if (level < WorkspaceAccessLevel.Contribute)
+        {
+            return new ListItemResult(ListItemStatus.Forbidden);
+        }
+
+        if (expectedVersion is { } version && version != item!.Version)
+        {
+            return new ListItemResult(ListItemStatus.VersionMismatch);
+        }
+
+        try
+        {
+            if (item!.DeletedAt is not null)
+            {
+                await writer.RestoreAsync(schema!, item, cancellationToken);
+            }
+
+            return new ListItemResult(ListItemStatus.Ok, ToData(schema!, item));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new ListItemResult(ListItemStatus.VersionMismatch);
+        }
+    }
+
     private Task<ListSchema?> LoadAsync(Guid workspaceId, Guid listId, CancellationToken ct) =>
         system ? loader.LoadAsSystemAsync(workspaceId, listId, ct) : loader.LoadAsync(workspaceId, listId, ct);
 

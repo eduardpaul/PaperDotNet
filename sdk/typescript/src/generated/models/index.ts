@@ -572,11 +572,101 @@ export interface CalendarEntry extends AdditionalDataHolder, Parsable {
      */
     workspaceId?: Guid | null;
 }
+export interface CalendarRefreshResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The operationId property
+     */
+    operationId?: Guid | null;
+}
 export interface CalendarResponse extends AdditionalDataHolder, Parsable {
     /**
      * The value property
      */
     value?: CalendarEntry[] | null;
+}
+export interface CalendarSourceItemResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The managedFields property
+     */
+    managedFields?: string[] | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The sourceId property
+     */
+    sourceId?: Guid | null;
+}
+export interface CalendarSourceRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The url property
+     */
+    url?: string | null;
+}
+export interface CalendarSourceResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The created property
+     */
+    created?: number | null;
+    /**
+     * The error property
+     */
+    errorEscaped?: string | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The lastSuccess property
+     */
+    lastSuccess?: Date | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The OdataEtag property
+     */
+    odataEtag?: string | null;
+    /**
+     * The paused property
+     */
+    paused?: boolean | null;
+    /**
+     * The refreshing property
+     */
+    refreshing?: boolean | null;
+    /**
+     * The removed property
+     */
+    removed?: number | null;
+    /**
+     * The updated property
+     */
+    updated?: number | null;
+}
+export interface CalendarSourceUpdate extends AdditionalDataHolder, Parsable {
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The paused property
+     */
+    paused?: boolean | null;
+    /**
+     * The reset property
+     */
+    reset?: boolean | null;
+    /**
+     * The url property
+     */
+    url?: string | null;
 }
 export interface CatalogEntry extends AdditionalDataHolder, Parsable {
     /**
@@ -1141,11 +1231,56 @@ export function createCalendarEntryFromDiscriminatorValue(parseNode: ParseNode |
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CalendarRefreshResponse}
+ */
+// @ts-ignore
+export function createCalendarRefreshResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCalendarRefreshResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {CalendarResponse}
  */
 // @ts-ignore
 export function createCalendarResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoCalendarResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CalendarSourceItemResponse}
+ */
+// @ts-ignore
+export function createCalendarSourceItemResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCalendarSourceItemResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CalendarSourceRequest}
+ */
+// @ts-ignore
+export function createCalendarSourceRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCalendarSourceRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CalendarSourceResponse}
+ */
+// @ts-ignore
+export function createCalendarSourceResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCalendarSourceResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CalendarSourceUpdate}
+ */
+// @ts-ignore
+export function createCalendarSourceUpdateFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCalendarSourceUpdate;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -3405,6 +3540,17 @@ export function deserializeIntoCalendarEntry(calendarEntry: Partial<CalendarEntr
 }
 /**
  * The deserialization information for the current model
+ * @param CalendarRefreshResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCalendarRefreshResponse(calendarRefreshResponse: Partial<CalendarRefreshResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "operationId": n => { calendarRefreshResponse.operationId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param CalendarResponse The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -3412,6 +3558,65 @@ export function deserializeIntoCalendarEntry(calendarEntry: Partial<CalendarEntr
 export function deserializeIntoCalendarResponse(calendarResponse: Partial<CalendarResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "value": n => { calendarResponse.value = n.getCollectionOfObjectValues<CalendarEntry>(createCalendarEntryFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CalendarSourceItemResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCalendarSourceItemResponse(calendarSourceItemResponse: Partial<CalendarSourceItemResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "managedFields": n => { calendarSourceItemResponse.managedFields = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "name": n => { calendarSourceItemResponse.name = n.getStringValue(); },
+        "sourceId": n => { calendarSourceItemResponse.sourceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CalendarSourceRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCalendarSourceRequest(calendarSourceRequest: Partial<CalendarSourceRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "name": n => { calendarSourceRequest.name = n.getStringValue(); },
+        "url": n => { calendarSourceRequest.url = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CalendarSourceResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCalendarSourceResponse(calendarSourceResponse: Partial<CalendarSourceResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "created": n => { calendarSourceResponse.created = n.getNumberValue(); },
+        "error": n => { calendarSourceResponse.errorEscaped = n.getStringValue(); },
+        "id": n => { calendarSourceResponse.id = n.getGuidValue(); },
+        "lastSuccess": n => { calendarSourceResponse.lastSuccess = n.getDateValue(); },
+        "name": n => { calendarSourceResponse.name = n.getStringValue(); },
+        "@odata.etag": n => { calendarSourceResponse.odataEtag = n.getStringValue(); },
+        "paused": n => { calendarSourceResponse.paused = n.getBooleanValue(); },
+        "refreshing": n => { calendarSourceResponse.refreshing = n.getBooleanValue(); },
+        "removed": n => { calendarSourceResponse.removed = n.getNumberValue(); },
+        "updated": n => { calendarSourceResponse.updated = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CalendarSourceUpdate The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCalendarSourceUpdate(calendarSourceUpdate: Partial<CalendarSourceUpdate> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "name": n => { calendarSourceUpdate.name = n.getStringValue(); },
+        "paused": n => { calendarSourceUpdate.paused = n.getBooleanValue(); },
+        "reset": n => { calendarSourceUpdate.reset = n.getBooleanValue() ?? false; },
+        "url": n => { calendarSourceUpdate.url = n.getStringValue(); },
     }
 }
 /**
@@ -8465,6 +8670,18 @@ export function serializeCalendarEntry(writer: SerializationWriter, calendarEntr
 }
 /**
  * Serializes information the current object
+ * @param CalendarRefreshResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCalendarRefreshResponse(writer: SerializationWriter, calendarRefreshResponse: Partial<CalendarRefreshResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!calendarRefreshResponse || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("operationId", calendarRefreshResponse.operationId);
+    writer.writeAdditionalData(calendarRefreshResponse.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param CalendarResponse The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -8474,6 +8691,69 @@ export function serializeCalendarResponse(writer: SerializationWriter, calendarR
     if (!calendarResponse || isSerializingDerivedType) { return; }
     writer.writeCollectionOfObjectValues<CalendarEntry>("value", calendarResponse.value, serializeCalendarEntry);
     writer.writeAdditionalData(calendarResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CalendarSourceItemResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCalendarSourceItemResponse(writer: SerializationWriter, calendarSourceItemResponse: Partial<CalendarSourceItemResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!calendarSourceItemResponse || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("managedFields", calendarSourceItemResponse.managedFields);
+    writer.writeStringValue("name", calendarSourceItemResponse.name);
+    writer.writeGuidValue("sourceId", calendarSourceItemResponse.sourceId);
+    writer.writeAdditionalData(calendarSourceItemResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CalendarSourceRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCalendarSourceRequest(writer: SerializationWriter, calendarSourceRequest: Partial<CalendarSourceRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!calendarSourceRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("name", calendarSourceRequest.name);
+    writer.writeStringValue("url", calendarSourceRequest.url);
+    writer.writeAdditionalData(calendarSourceRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CalendarSourceResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCalendarSourceResponse(writer: SerializationWriter, calendarSourceResponse: Partial<CalendarSourceResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!calendarSourceResponse || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("created", calendarSourceResponse.created);
+    writer.writeStringValue("error", calendarSourceResponse.errorEscaped);
+    writer.writeGuidValue("id", calendarSourceResponse.id);
+    writer.writeDateValue("lastSuccess", calendarSourceResponse.lastSuccess);
+    writer.writeStringValue("name", calendarSourceResponse.name);
+    writer.writeStringValue("@odata.etag", calendarSourceResponse.odataEtag);
+    writer.writeBooleanValue("paused", calendarSourceResponse.paused);
+    writer.writeBooleanValue("refreshing", calendarSourceResponse.refreshing);
+    writer.writeNumberValue("removed", calendarSourceResponse.removed);
+    writer.writeNumberValue("updated", calendarSourceResponse.updated);
+    writer.writeAdditionalData(calendarSourceResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CalendarSourceUpdate The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCalendarSourceUpdate(writer: SerializationWriter, calendarSourceUpdate: Partial<CalendarSourceUpdate> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!calendarSourceUpdate || isSerializingDerivedType) { return; }
+    writer.writeStringValue("name", calendarSourceUpdate.name);
+    writer.writeBooleanValue("paused", calendarSourceUpdate.paused);
+    writer.writeBooleanValue("reset", calendarSourceUpdate.reset ?? false);
+    writer.writeStringValue("url", calendarSourceUpdate.url);
+    writer.writeAdditionalData(calendarSourceUpdate.additionalData);
 }
 /**
  * Serializes information the current object
