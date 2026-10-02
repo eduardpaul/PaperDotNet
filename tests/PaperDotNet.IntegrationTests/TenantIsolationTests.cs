@@ -57,4 +57,17 @@ public sealed class TenantIsolationTests : IAsyncLifetime
         Assert.Equal(1, unchanged.GetProperty("fields").GetProperty("amount").GetInt32());
         Assert.Single((await (await owner.GetAsync($"{listUri}/items")).JsonAsync(HttpStatusCode.OK)).GetProperty("value").EnumerateArray());
     }
+
+    [Fact]
+    public async Task User_names_are_unique_per_tenant_only()
+    {
+        var a = await _host.SignInAsync();
+        var b = await _host.CreateTenantAsync("names-b");
+        var sam = new { userName = "sam", password = "sam-password-123" };
+
+        Assert.Equal(HttpStatusCode.Created, (await a.PostAsJsonAsync("/v1.0/users", sam)).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await b.PostAsJsonAsync("/v1.0/users", sam)).StatusCode);
+        var duplicate = await a.PostAsJsonAsync("/v1.0/users", sam);
+        Assert.True(duplicate.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict, duplicate.StatusCode.ToString());
+    }
 }

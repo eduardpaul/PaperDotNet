@@ -23,30 +23,61 @@ internal static class AuditLogEndpoints
     {
         var page = PageRequest.Create(top, skipToken);
 
-        // One precompiled query: absent filters are null parameters (ADR-0039). Ids are time-ordered (UUIDv7).
-        var db = database;
-        var tenant = caller.TenantId;
-        var type = entityType;
-        var entity = entityId;
-        var user = userId;
-        var fromMs = from?.ToUnixTimeMilliseconds();
-        var toMs = to?.ToUnixTimeMilliseconds();
-        var hasAfter = page.After is not null;
-        var after = page.After ?? Guid.Empty;
-        var take = page.Top + 1;
-        var ct = cancellationToken;
-        var entries = await db.AuditLog.AsNoTracking()
-            .Where(a => a.TenantId == tenant
-                && (type == null || a.EntityType == type)
-                && (entity == null || a.EntityId == entity)
-                && (user == null || a.UserId == user)
-                && (fromMs == null || a.AtUnixMs >= fromMs)
-                && (toMs == null || a.AtUnixMs < toMs)
-                && (!hasAfter || a.Id.CompareTo(after) < 0))
-            .OrderByDescending(a => a.Id)
-            .Take(take)
-            .ToListAsync(ct);
+        var entries = await QueryAsync(database, caller.TenantId, entityType, entityId, userId,
+            from?.ToUnixTimeMilliseconds() ?? long.MinValue, to?.ToUnixTimeMilliseconds() ?? long.MaxValue, page.After ?? MaxId, page.Top + 1, cancellationToken);
         return TypedResults.Ok(Page.Create([.. entries.Select(ToResponse)], page, request, e => e.Id));
+    }
+
+    /// <summary>Above every UUID: the first page starts below it.</summary>
+    private static readonly Guid MaxId = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
+
+    /// <summary>
+    /// Newest first below <paramref name="before"/>. One static query per combination of the equality filters: optional
+    /// filters written as <c>(p == null || column == p)</c> do not precompile (ADR-0039); time bounds and the cursor are
+    /// always applied, with open values when absent.
+    /// </summary>
+    private static Task<List<AuditLogEntry>> QueryAsync(
+        AuditDbContext database, Guid tenantId, string? entityType, Guid? entityId, Guid? userId, long fromMs, long toMs, Guid before, int take,
+        CancellationToken cancellationToken)
+    {
+        var db = database;
+        var tenant = tenantId;
+        var type = entityType ?? "";
+        var entity = entityId ?? Guid.Empty;
+        var user = userId ?? Guid.Empty;
+        var start = fromMs;
+        var end = toMs;
+        var after = before;
+        var count = take;
+        var ct = cancellationToken;
+        return (entityType is not null, entityId is not null, userId is not null) switch
+        {
+            (false, false, false) => db.AuditLog.AsNoTracking()
+                .Where(a => a.TenantId == tenant && a.AtUnixMs >= start && a.AtUnixMs < end && a.Id.CompareTo(after) < 0)
+                .OrderByDescending(a => a.Id).Take(count).ToListAsync(ct),
+            (true, false, false) => db.AuditLog.AsNoTracking()
+                .Where(a => a.TenantId == tenant && a.EntityType == type && a.AtUnixMs >= start && a.AtUnixMs < end && a.Id.CompareTo(after) < 0)
+                .OrderByDescending(a => a.Id).Take(count).ToListAsync(ct),
+            (false, true, false) => db.AuditLog.AsNoTracking()
+                .Where(a => a.TenantId == tenant && a.EntityId == entity && a.AtUnixMs >= start && a.AtUnixMs < end && a.Id.CompareTo(after) < 0)
+                .OrderByDescending(a => a.Id).Take(count).ToListAsync(ct),
+            (false, false, true) => db.AuditLog.AsNoTracking()
+                .Where(a => a.TenantId == tenant && a.UserId == user && a.AtUnixMs >= start && a.AtUnixMs < end && a.Id.CompareTo(after) < 0)
+                .OrderByDescending(a => a.Id).Take(count).ToListAsync(ct),
+            (true, true, false) => db.AuditLog.AsNoTracking()
+                .Where(a => a.TenantId == tenant && a.EntityType == type && a.EntityId == entity && a.AtUnixMs >= start && a.AtUnixMs < end && a.Id.CompareTo(after) < 0)
+                .OrderByDescending(a => a.Id).Take(count).ToListAsync(ct),
+            (true, false, true) => db.AuditLog.AsNoTracking()
+                .Where(a => a.TenantId == tenant && a.EntityType == type && a.UserId == user && a.AtUnixMs >= start && a.AtUnixMs < end && a.Id.CompareTo(after) < 0)
+                .OrderByDescending(a => a.Id).Take(count).ToListAsync(ct),
+            (false, true, true) => db.AuditLog.AsNoTracking()
+                .Where(a => a.TenantId == tenant && a.EntityId == entity && a.UserId == user && a.AtUnixMs >= start && a.AtUnixMs < end && a.Id.CompareTo(after) < 0)
+                .OrderByDescending(a => a.Id).Take(count).ToListAsync(ct),
+            (true, true, true) => db.AuditLog.AsNoTracking()
+                .Where(a => a.TenantId == tenant && a.EntityType == type && a.EntityId == entity && a.UserId == user && a.AtUnixMs >= start && a.AtUnixMs < end
+                    && a.Id.CompareTo(after) < 0)
+                .OrderByDescending(a => a.Id).Take(count).ToListAsync(ct),
+        };
     }
 
     private static AuditLogEntryResponse ToResponse(AuditLogEntry e) => new(

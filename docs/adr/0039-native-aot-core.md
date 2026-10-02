@@ -73,8 +73,9 @@ limits and concurrency caps saved 10–20 MB more; we left them out as not worth
   (requests, responses, events, OpenAPI parameter types); the host combines them for HTTP and Wolverine.
 - **EF Core queries must precompile:**
   - one LINQ expression from a `DbSet` property to the terminal operator, never composed over several statements
-    (write two static queries instead of an `if`; optional filters can be null parameters in one query,
-    `(type == null || a.EntityType == type)`, as in `/v1.0/auditLog`);
+    (write two static queries instead of an `if`); optional filters written as `(p == null || a.Column == p)` build but
+    fail in the published binary ("unbound variable"): write one static query per combination, with open bounds
+    (`long.MinValue`, the largest UUID) for ranges and cursors, as `/v1.0/auditLog` does;
   - copy the DbContext and every value the query uses into locals first (EF Core cannot yet bind method, lambda or
     primary-constructor parameters, dotnet/efcore#35887), constants and static fields too (`.Take(batch)`, not
     `.Take(Batch)`: the precompiler fails with "unknown identifier");

@@ -248,4 +248,27 @@ public sealed class DocumentTests : IAsyncLifetime
     {
         public override DateTimeOffset GetUtcNow() => base.GetUtcNow() + offset;
     }
+
+    [Fact]
+    public async Task Libraries_without_their_own_ocr_languages_use_the_organizations_document_languages()
+    {
+        using (var defaults = await _admin.SendAsync(new HttpRequestMessage(HttpMethod.Patch, "/v1.0/organization/preferences")
+        { Content = JsonContent.Create(new { documentLanguages = "deu+eng" }) }, Ct))
+        {
+            Assert.Equal(HttpStatusCode.OK, defaults.StatusCode);
+        }
+
+        var (ws, list) = await LibraryAsync(_admin);
+        var url = $"/v1.0/workspaces/{ws}/lists/{list}/documentSettings";
+        var settings = await (await _admin.GetAsync(url, Ct)).JsonAsync(HttpStatusCode.OK);
+        Assert.Equal("deu+eng", settings.GetProperty("ocrLanguages").GetString());
+        Assert.True(settings.GetProperty("ocrLanguagesInherited").GetBoolean());
+
+        var own = await (await _admin.PutAsJsonAsync(url, new { ocrLanguages = "fra" }, Ct)).JsonAsync(HttpStatusCode.OK);
+        Assert.Equal("fra", own.GetProperty("ocrLanguages").GetString());
+        Assert.False(own.GetProperty("ocrLanguagesInherited").GetBoolean());
+        var back = await (await _admin.PutAsJsonAsync(url, new { ocrLanguages = "" }, Ct)).JsonAsync(HttpStatusCode.OK);
+        Assert.True(back.GetProperty("ocrLanguagesInherited").GetBoolean());
+        Assert.Equal("deu+eng", back.GetProperty("ocrLanguages").GetString());
+    }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization.Metadata;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using PaperDotNet.Abstractions;
 using PaperDotNet.AI;
 using PaperDotNet.AiWorkflows;
@@ -115,6 +116,8 @@ internal static class PaperDotNetHost
 
         Batch.Map(app);
         app.MapHealthChecks("/health");
+        app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+        app.MapHealthChecks("/health/ready");
         app.MapOpenApi();
         return app;
     }
