@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Extensions;
 using PaperDotNet.Jobs.Contracts;
@@ -41,6 +42,9 @@ public sealed class TicketsExtension : IExtension
         ]));
         builder.AddItemMutator<TicketPrefixMutator>(o => o.ContentTypes.Add("Ticket"));
         builder.AddEventSubscriber<ItemAdded, TicketCounter>();
+        builder.AddEventSubscriber<ItemAdded, EventRecorder>();
+        builder.AddEventSubscriber<ItemUpdated, EventRecorder>();
+        builder.AddEventSubscriber<ItemAdded, FailingSubscriber>();
         builder.AddRecurringJob<TicketJob>($"{Id}.tick", "* * * * * *");
         builder.AddWorkflowActivity<EchoActivity>();
         builder.AddWorkflowActivity<AwaitSignalActivity>();
@@ -89,6 +93,41 @@ public sealed class TicketCounter : IEventSubscriber<ItemAdded>
     {
         Counts.AddOrUpdate(integrationEvent.TenantId, 1, (_, count) => count + 1);
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>Records the item events it receives (event, tenant, changed fields).</summary>
+public sealed class EventRecorder : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>
+{
+    public static readonly ConcurrentQueue<IntegrationEvent> Received = new();
+
+    public Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken)
+    {
+        Received.Enqueue(integrationEvent);
+        return Task.CompletedTask;
+    }
+
+    public Task HandleAsync(ItemUpdated integrationEvent, CancellationToken cancellationToken)
+    {
+        Received.Enqueue(integrationEvent);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Always fails for items titled "Broken": the message is retried, the module subscribers are not affected.</summary>
+public sealed class FailingSubscriber : IEventSubscriber<ItemAdded>
+{
+    public static readonly ConcurrentDictionary<Guid, int> Attempts = new();
+
+    public Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken)
+    {
+        if (integrationEvent.Title != "Broken")
+        {
+            return Task.CompletedTask;
+        }
+
+        Attempts.AddOrUpdate(integrationEvent.ItemId, 1, (_, count) => count + 1);
+        throw new InvalidOperationException("This subscriber always fails.");
     }
 }
 

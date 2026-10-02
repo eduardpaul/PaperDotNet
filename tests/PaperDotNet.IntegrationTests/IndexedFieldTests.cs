@@ -106,6 +106,14 @@ public sealed class IndexedFieldTests : IAsyncLifetime
         Assert.Equal(["Alpha", "Gamma"], await TitlesAsync(list, $"$filter=fields/owners/any(o: o eq {_me})&$orderby=fields/title"));
         Assert.Equal(["Alpha", "Beta", "Gamma"], await TitlesAsync(list, "$filter=fields/labels/any()&$orderby=fields/title"));
 
+        // Counts per value: an item counts for each of its values; items without one count as null.
+        var counts = await (await _admin.GetAsync($"{Api.Items(_workspace, list)}/counts?field=labels", Ct)).JsonAsync(HttpStatusCode.OK);
+        Assert.Equal(["big:1", "hot:2", "null:1", "renewal:1"], counts.GetProperty("value").EnumerateArray()
+            .Select(c => $"{(c.TryGetProperty("value", out var v) ? v.GetString() : null) ?? "null"}:{c.GetProperty("count").GetInt64()}").Order(StringComparer.Ordinal));
+        var stages = await (await _admin.GetAsync($"{Api.Items(_workspace, list)}/counts?field=stage&$filter=fields/amount gt 60", Ct)).JsonAsync(HttpStatusCode.OK);
+        Assert.Equal(["lost:1", "won:2"], stages.GetProperty("value").EnumerateArray()
+            .Select(c => $"{c.GetProperty("value").GetString()}:{c.GetProperty("count").GetInt64()}").Order(StringComparer.Ordinal));
+
         // The queries read the column and the value table, not the JSON.
         await WriteColumnAsync(gamma, indexed["amount"].Column!, 5.0);
         Assert.Equal(["Alpha", "Delta"], await TitlesAsync(list, "$filter=fields/amount gt 60&$orderby=fields/title"));
@@ -191,5 +199,19 @@ public sealed class IndexedFieldTests : IAsyncLifetime
         Assert.DoesNotContain("code11", indexed.Keys);
         await Api.CreateItemAsync(_admin, _workspace, wide, new { title = "W", code1 = "x", code11 = "y" });
         Assert.Equal(["W"], await TitlesAsync(wide, "$filter=fields/code1 eq 'x' and fields/code11 eq 'y'"));
+    }
+
+    [Fact]
+    public async Task Task_lists_index_their_well_known_fields_in_the_same_columns()
+    {
+        foreach (var name in new[] { "Sprint", "Backlog" })
+        {
+            using var created = await _admin.PostAsJsonAsync($"/v1.0/workspaces/{_workspace}/lists", new { name, templateKey = "tasks" }, Ct);
+            var byName = await IndexedAsync((await created.JsonAsync(HttpStatusCode.Created)).Id());
+            Assert.Equal("Text1", byName["status"].Column);
+            Assert.Equal("Date1", byName["dueDate"].Column);
+            Assert.Null(byName["assignedTo"].Column);
+            Assert.All(byName.Values, f => Assert.True(f.Ready));
+        }
     }
 }

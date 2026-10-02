@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using PaperDotNet.IntegrationTests.Extension;
+using PaperDotNet.Lists.Contracts;
 
 namespace PaperDotNet.IntegrationTests;
 
@@ -256,5 +257,34 @@ public sealed class ExtensionTests : IAsyncLifetime
         var enabled = await RunAsync();
         Assert.Equal("completed", enabled.GetProperty("status").GetString());
         Assert.Equal("hello", enabled.GetProperty("outputs").GetProperty("a").GetProperty("echo").GetString());
+    }
+
+    [Fact]
+    public async Task Item_events_reach_subscribers_in_their_tenant_and_a_failing_one_affects_no_other()
+    {
+        var admin = await _host.SignInAsync();
+        Assert.Equal(HttpStatusCode.OK, (await EnableAsync(admin)).StatusCode);
+        var tenant = await TenantOfAsync(admin);
+        var ws = await Api.CreateWorkspaceAsync(admin, "Events");
+        var list = (await Api.CreateListAsync(admin, ws, "Plain", new[] { new { name = "amount", type = "number" } })).Id();
+        var item = await Api.CreateItemAsync(admin, ws, list, new { title = "Event me", amount = 1 });
+        Assert.Equal("Event me", item.GetProperty("fields").GetProperty("title").GetString()); // the ticket mutator runs only for tickets
+        var url = $"{Api.Items(ws, list)}/{item.Id()}";
+        using (var update = await admin.SendAsync(Api.Patch(url, new { fields = new { amount = 2 } }, item.ETag()), Ct))
+        {
+            await update.JsonAsync(HttpStatusCode.OK);
+        }
+
+        var id = Guid.Parse(item.Id());
+        var received = await EventuallyAsync(() => Task.FromResult(Extension.EventRecorder.Received.Where(e => e is ItemAdded a && a.ItemId == id || e is ItemUpdated u && u.ItemId == id).ToList()), r => r.Count >= 2);
+        Assert.All(received, e => Assert.Equal(tenant, e.TenantId));
+        Assert.Equal(["amount"], Assert.Single(received.OfType<ItemUpdated>()).ChangedFields);
+
+        // The failing subscriber is retried; the audit log (a module subscriber of its own) records the item once.
+        var broken = Guid.Parse((await Api.CreateItemAsync(admin, ws, list, new { title = "Broken" })).Id());
+        Assert.True(await EventuallyAsync(() => Task.FromResult(Extension.FailingSubscriber.Attempts.GetValueOrDefault(broken)), n => n >= 2) >= 2);
+        var audit = await EventuallyAsync(
+            async () => (await (await admin.GetAsync($"/v1.0/audit?targetId={broken}", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("value").GetArrayLength(), n => n >= 1);
+        Assert.Equal(1, audit);
     }
 }
