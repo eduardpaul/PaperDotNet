@@ -277,4 +277,40 @@ public sealed class PermissionTests : IAsyncLifetime
         await FolderScopeSubscriber.Handle(message with { NewScopeId = Guid.NewGuid() }, mover, search, Ct);
         Assert.Equal(folderScope, (await db.Items.AsNoTracking().SingleAsync(i => i.Id == child, Ct)).ScopeId);
     }
+
+    [Fact]
+    public async Task Every_user_has_a_private_home_with_documents_and_inbox()
+    {
+        var alice = await AsAsync("alice");
+        var home = await (await alice.GetAsync("/v1.0/me/home", Ct)).JsonAsync(HttpStatusCode.OK);
+        var again = await (await alice.GetAsync("/v1.0/me/home", Ct)).JsonAsync(HttpStatusCode.OK);
+        Assert.Equal(home.GetProperty("inboxListId").GetString(), again.GetProperty("inboxListId").GetString());
+        var ws = home.GetProperty("workspaceId").GetString();
+        var inbox = home.GetProperty("inboxListId").GetString();
+
+        using (var item = await alice.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists/{inbox}/items", new { fields = new { title = "scan.pdf" } }, Ct))
+        {
+            Assert.Equal(HttpStatusCode.Created, item.StatusCode);
+        }
+
+        Assert.True((await (await alice.GetAsync($"/v1.0/workspaces/{ws}", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("isPersonal").GetBoolean());
+
+        // Private to alice; the system libraries and the workspace itself cannot be deleted.
+        var bob = await AsAsync("bob");
+        Assert.Equal(HttpStatusCode.NotFound, (await bob.GetAsync($"/v1.0/workspaces/{ws}/lists/{inbox}/items", Ct)).StatusCode);
+        Assert.NotEqual(ws, (await (await bob.GetAsync("/v1.0/me/home", Ct)).JsonAsync(HttpStatusCode.OK)).GetProperty("workspaceId").GetString());
+        var listUrl = $"/v1.0/workspaces/{ws}/lists/{inbox}";
+        using (var delete = await alice.SendAsync(Api.WithETag(HttpMethod.Delete, listUrl, null, (await alice.GetAsync(listUrl, Ct)).Headers.ETag!.Tag), Ct))
+        {
+            Assert.Equal(HttpStatusCode.Conflict, delete.StatusCode);
+        }
+
+        var wsUrl = $"/v1.0/workspaces/{ws}";
+        using (var delete = await alice.SendAsync(Api.WithETag(HttpMethod.Delete, wsUrl, null, (await alice.GetAsync(wsUrl, Ct)).Headers.ETag!.Tag), Ct))
+        {
+            Assert.Equal(HttpStatusCode.Conflict, delete.StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.Conflict, (await alice.PostAsJsonAsync($"{wsUrl}/members", new { userId = _users["bob"] }, Ct)).StatusCode);
+    }
 }
