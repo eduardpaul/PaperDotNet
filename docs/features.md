@@ -214,6 +214,15 @@ Papermerge feature catalog. `AV` is the architecture vision.
 | CAL-04 | iCal import/export & feeds | As a **Member**, I want to import `.ics` files and subscribe to a read-only calendar feed, so that I can exchange calendars with other tools | Core | P4 | AV §3.2 |
 | CAL-05 | CalDAV (events & tasks) | As a **Member**, I want my calendars and task lists to sync two-way with iOS, Android (DAVx⁵) and Thunderbird, so that I can use native apps offline | Core | P7 | #0019 |
 | CAL-06 | CardDAV (contacts) | As a **Member**, I want a contacts list that syncs with my phone's address book, so that contacts live in the same system | Ext | P7 | #0019 |
+| CAL-07 | Google shared-calendar connection | As an **Owner**, I want to connect one workspace Calendar list to one existing Google calendar that my account can write to, including a shared calendar, so that the team can use its existing calendar | Ext | P7 | [#0024](../ideas/0024-google-shared-calendar-sync.md) |
+| CAL-08 | Two-way Google event sync | As a **Member**, I want events created, edited or deleted in either the connected list or Google calendar to sync both ways, including recurring series and occurrence exceptions, so that neither schedule needs manual updates | Ext | P7 | [#0024](../ideas/0024-google-shared-calendar-sync.md) |
+| CAL-09 | Calendar sync controls & conflicts | As an **Owner**, I want sync status, actionable errors, conflict resolution, retry, pause and reconnect controls, so that I can operate the connection without silently losing edits | Ext | P7 | [#0024](../ideas/0024-google-shared-calendar-sync.md) |
+
+Google connector CAL-07…09 is a proposed backlog feature, including API, SDK
+and list-settings UI. Two-way sync is required in its first release; see
+[idea 0024](../ideas/0024-google-shared-calendar-sync.md) for scope, delivery
+slices and acceptance criteria. CAL-04 feeds and CAL-05 CalDAV do not implement
+this connector.
 
 ## 10. Notifications (NTF)
 
@@ -300,7 +309,7 @@ Configuration only by default; data portability is PLT-13.
 | **P4 Tasks, calendar & notifications** | Productivity suite | TSK-01…06, CAL-01…04, NTF-01…05 (NTF-04: webhook) |
 | **P5 Collaboration, automation & integrations** | Share, automate, connect | PRV-01…03, PRV-05 (first), EVT-07…09 (automations), TAX-05, TAX-08…11, DOC-14, LST-17, API-03…06, API-08, API-09; deferred: IAM-04, PLT-06, NTF-04 (email, ntfy, Gotify), NTF-06, DOC-05, DOC-06, DOC-15 (S3) |
 | **P6 AI & semantic search** | Understand documents | AI-01…06, SRC-07…09, DOC-12, IAM-08…12 (sharing, moved from P5) |
-| **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PLT-15, PLT-17, PLT-18, IAM-14, IAM-15, LST-19, DOC-16, DOC-17, API-13, PRV-04, API-10 (WebDAV), CAL-05 (CalDAV), CAL-06 (CardDAV) |
+| **P7 Ecosystem** | Other languages, remote extensions, sync clients | EXT-08, EXT-09, LST-18, API-11, API-12, PLT-13, PLT-15, PLT-17, PLT-18, IAM-14, IAM-15, LST-19, DOC-16, DOC-17, API-13, PRV-04, API-10 (WebDAV), CAL-05 (CalDAV), CAL-06 (CardDAV), CAL-07…09 (Google shared-calendar two-way connector; backlog) |
 | **P8 Web UI** | The first-party web app on the SDK | Screens for the features above, in slices 8a–8h ([frontend.md](frontend.md)) |
 | **P9 Workflows as the core** | One engine for built-in and user-defined processes ([ADR-0036](adr/0036-workflows-as-the-core.md)) | EVT-07…15, AI-01…04, AI-06…08, PLT-06 (limits), in slices 9a–9g |
 

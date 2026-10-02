@@ -83,6 +83,15 @@ Tailwind ([ADR-0033](adr/0033-web-frontend.md)). This page describes:
 | Admin: audit log | `/admin/audit` | LST-14 |
 | Admin: reindex, provisioning, export/import | `/admin/maintenance` | SRC-10, PRV-01…02, PLT-13 |
 
+Planned: **List settings → Integrations → Google Calendar** (CAL-07…09,
+P7 backlog, [idea 0024](../ideas/0024-google-shared-calendar-sync.md)). A list
+manager authorizes Google, selects a writable shared calendar and previews the
+initial two-way merge. The same screen shows sync status, skipped events,
+conflicts (both versions and a choice of which to use), Sync now, pause,
+reconnect and disconnect. Explain the Google sharing boundary before activation.
+This screen ships with the connector API and generated SDK; it is not part of
+the completed Phase 8 UI.
+
 Known API gaps (the UI works around them, to be closed in the API):
 - **Columns for one list only**: columns come from content types, which belong to the organization, so
   adding a column to one list means a new content type (or changing a shared one for all its lists).
