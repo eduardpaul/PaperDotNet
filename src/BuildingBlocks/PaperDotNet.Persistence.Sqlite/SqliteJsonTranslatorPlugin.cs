@@ -29,6 +29,9 @@ internal sealed class SqliteJsonTranslatorPlugin(ISqlExpressionFactory factory) 
             var document = arguments[0];
             return method.Name switch
             {
+                nameof(JsonFunctions.ScalarText) => Scalar(document, arguments[1], typeof(string), "text"),
+                nameof(JsonFunctions.ScalarNumber) => Scalar(document, arguments[1], typeof(double), "integer", "real"),
+                nameof(JsonFunctions.ScalarBoolean) => Scalar(document, arguments[1], typeof(bool), "true", "false"),
                 nameof(JsonFunctions.Text) => Extract(document, arguments[1], typeof(string)),
                 nameof(JsonFunctions.Number) => Extract(document, arguments[1], typeof(double)),
                 nameof(JsonFunctions.Boolean) => Extract(document, arguments[1], typeof(bool)),
@@ -38,6 +41,13 @@ internal sealed class SqliteJsonTranslatorPlugin(ISqlExpressionFactory factory) 
                     sql.Constant(true)),
                 _ => null,
             };
+        }
+
+        private SqlExpression Scalar(SqlExpression document, SqlExpression property, Type type, params string[] kinds)
+        {
+            var jsonType = sql.Function("json_type", [document, Path(property)], nullable: true, PropagateNone, typeof(string));
+            var matches = kinds.Select(kind => sql.Equal(jsonType, sql.Constant(kind))).Aggregate(sql.OrElse);
+            return sql.Case([new CaseWhenClause(matches, Extract(document, property, type))], sql.Constant(null, type, null));
         }
 
         private SqlExpression Extract(SqlExpression document, SqlExpression property, Type type) =>

@@ -68,13 +68,16 @@ public sealed class ListsModule : IModule
         services.AddScoped<IListItemStore>(sp => new ListItemStore(
             sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ListSchemaLoader>(), sp.GetRequiredService<ItemQueryRunner>(),
             sp.GetRequiredService<ItemWriter>(), sp.GetRequiredService<IWorkspaceAccess>(), sp.GetRequiredService<ListItemSearchDocuments>(),
-            sp.GetRequiredService<ContentTypeProvisioner>(), sp.GetRequiredService<ListTemplateRegistry>()));
+            sp.GetRequiredService<ContentTypeProvisioner>(), sp.GetRequiredService<ListTemplateRegistry>(), sp.GetRequiredService<RelationshipTypes>()));
+        services.AddScoped<RelationshipTypes>();
+        services.AddScoped<ITermMergeValidator, RelationshipTermMergeValidator>();
         services.AddScoped<ITenantInitializer, ListsTenantInitializer>();
         services.AddScoped<ListTemplateLookups>();
         services.AddScoped<ITemplateHandler, ContentTypeTemplateHandler>();
         services.AddScoped<ITemplateContainer, ListTemplateContainer>();
         services.AddScoped<ITemplateHandler, SmartFolderTemplateHandler>();
         services.AddScoped<ITemplateHandler, ListItemsTemplateHandler>();
+        services.AddScoped<ITemplateHandler, RelationshipTypesTemplateHandler>();
         services.AddScopes(ListScopes.All);
         services.AddIntegrationEvent<ItemAdded>();
         services.AddIntegrationEvent<ItemUpdated>();
@@ -104,6 +107,8 @@ public sealed class ListsModule : IModule
         ContentTypeEndpoints.Map(endpoints);
         ListEndpoints.Map(endpoints);
         ItemEndpoints.Map(endpoints);
+        GlobalItemEndpoints.Map(endpoints);
+        ItemRelationshipEndpoints.Map(endpoints);
         DeltaEndpoints.Map(endpoints);
         ItemCountEndpoints.Map(endpoints);
         SmartFolders.Map(endpoints);

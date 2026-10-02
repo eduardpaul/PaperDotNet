@@ -41,7 +41,8 @@ internal sealed class NoteLinkIndexer(NotesDbContext db, IListItemStore items, E
         }
 
         var store = items.AsSystem();
-        var item = await store.GetAsync(integrationEvent.WorkspaceId, integrationEvent.ListId, integrationEvent.ItemId, ct);
+        // Queued events may describe the old location of an item that has since moved.
+        var item = await store.GetByIdAsync(integrationEvent.ItemId, ct);
         var list = item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
         if (item is null || list?.ContentTypes.FirstOrDefault(c => c.Id == item.ContentTypeId)?.Key != NoteTemplates.ContentTypeKey)
         {

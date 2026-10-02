@@ -203,6 +203,37 @@ public interface IListItemStore
     /// <summary>Moves the item (or folder) into <paramref name="folderId"/> (null: the list root) in the same list.</summary>
     Task<ListItemResult> MoveAsync(Guid workspaceId, Guid listId, Guid itemId, Guid? folderId, CancellationToken cancellationToken);
 
+    /// <summary>Resolves an item by immutable identity in its current list and workspace, checking current access.</summary>
+    Task<ListItemData?> GetByIdAsync(Guid itemId, CancellationToken cancellationToken);
+
+    /// <summary>Moves a content item to a compatible list, preserving identity, history and links.</summary>
+    Task<ListItemResult> MoveToAsync(Guid itemId, Guid workspaceId, Guid listId, Guid? folderId, uint? expectedVersion, CancellationToken cancellationToken);
+
+    /// <summary>One page of readable related content items, resolved at their current locations.</summary>
+    Task<ListItemPage?> GetRelatedAsync(Guid itemId, int top, Guid? after, CancellationToken cancellationToken);
+
+    /// <summary>Adds/removes a symmetric relationship; requires Contribute on both endpoints.</summary>
+    Task<ListItemResult> RelateAsync(Guid itemId, Guid otherId, bool related, CancellationToken cancellationToken);
+
+    /// <summary>Graph edges filtered by predicate (id or label) and direction (both, incoming, outgoing).</summary>
+    Task<ItemRelationshipPage?> GetRelationshipsAsync(Guid itemId, string? type, string? direction, int top, Guid? after, CancellationToken cancellationToken);
+
+    /// <summary>Adds an idempotent typed edge, checking both endpoints and type cardinality.</summary>
+    Task<ListItemResult> AddRelationshipAsync(Guid itemId, Guid otherId, RelationshipOptions options, CancellationToken cancellationToken);
+
+    /// <summary>Removes one edge by its identity, checking both endpoints.</summary>
+    Task<ListItemResult> RemoveRelationshipAsync(Guid itemId, Guid relationshipId, CancellationToken cancellationToken);
+
+    Task<ItemRelationshipData?> GetRelationshipAsync(Guid itemId, Guid relationshipId, CancellationToken cancellationToken);
+
+    Task<ListItemResult> UpdateRelationshipAsync(Guid itemId, Guid relationshipId, JsonObject attributes, uint expectedVersion, CancellationToken cancellationToken);
+
+    Task<WorkspaceRelationshipPage?> QueryRelationshipsAsync(Guid workspaceId, string? type, bool? directed, string? filter, int top, Guid? after, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<RelationshipTypeData>> GetRelationshipTypesAsync(CancellationToken cancellationToken);
+
+    Task<RelationshipTypeData> EnsureRelationshipTypeAsync(RelationshipTypeOptions options, CancellationToken cancellationToken);
+
     /// <summary>Indexes the item again for search (e.g. after its <see cref="IItemSearchContributor"/> content changed).</summary>
     Task ReindexAsync(Guid itemId, CancellationToken cancellationToken);
 

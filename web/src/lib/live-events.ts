@@ -30,6 +30,7 @@ export function useLiveEvents() {
         });
       },
       'item.changed': (event) => {
+        void queryClient.invalidateQueries({ queryKey: keys.globalItemResources });
         void queryClient.invalidateQueries({ queryKey: keys.item(event.workspaceId, event.listId, event.itemId) });
         void queryClient.invalidateQueries({ queryKey: keys.items(event.workspaceId, event.listId), exact: false });
         void queryClient.invalidateQueries({ queryKey: ['me', 'tasks'] });

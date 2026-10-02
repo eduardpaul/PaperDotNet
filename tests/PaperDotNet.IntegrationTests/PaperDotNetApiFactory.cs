@@ -113,6 +113,7 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.ConfigureTestServices(services =>
         {
             services.AddScoped<IItemMutator, TestMutator>();
+            services.AddScoped<IItemMoveParticipant, FailingMoveParticipant>();
             services.AddSingleton<Microsoft.Extensions.AI.IEmbeddingGenerator<string, Microsoft.Extensions.AI.Embedding<float>>>(ConceptEmbeddingGenerator.Instance);
             services.AddSingleton<Microsoft.Extensions.AI.IChatClient>(ReadingChatClient.Instance);
 

@@ -167,7 +167,10 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
         Assert.Equal(["Bread", "Milk"], saved.Select(f => f.GetProperty("title").GetString()));
         Assert.Equal([5.00m, 1.19m], saved.Select(f => f.GetProperty("amount").GetDecimal()));
         Assert.Equal(2.50m, saved[0].GetProperty("unitPrice").GetDecimal());
-        Assert.All(saved, f => Assert.Equal(receipt.ToString(), f.GetProperty("receipt").GetString()));
+        Assert.All(saved, f => Assert.False(f.TryGetProperty("receipt", out _)));
+        var edges = (await (await admin.GetAsync($"/v1.0/items/{receipt}/relationships?type=contains%20receipt%20line&direction=outgoing", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray().ToList();
+        Assert.Equal(firstLines.Order(), edges.Select(e => e.GetProperty("targetItemId").GetGuid()).Order());
+        Assert.All(edges, e => Assert.True(e.GetProperty("directed").GetBoolean()));
 
         // Tagged again, with a tag below "ticket": read again. The question is the same (the same image), so the answer comes
         // from the cache at once, without a batch; the lines are replaced, not added.

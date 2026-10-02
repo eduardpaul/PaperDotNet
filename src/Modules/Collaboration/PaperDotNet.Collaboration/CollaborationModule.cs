@@ -34,6 +34,7 @@ public sealed class CollaborationModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<CollaborationDbContext>(CollaborationDbContext.Schema);
+        services.AddScoped<IItemMoveParticipant, CollaborationItemMoveParticipant>();
         services.AddScoped<ItemActivity>();
         services.AddScoped<IItemActivity>(sp => sp.GetRequiredService<ItemActivity>());
         services.AddScoped<CommentMentions>();

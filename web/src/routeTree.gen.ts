@@ -31,6 +31,7 @@ import { Route as AppAdminRolesRouteImport } from './routes/_app/admin/roles'
 import { Route as AppAdminTermsRouteImport } from './routes/_app/admin/terms'
 import { Route as AppAdminUsersRouteImport } from './routes/_app/admin/users'
 import { Route as AppFFolderIdRouteImport } from './routes/_app/f/$folderId'
+import { Route as AppIItemIdRouteImport } from './routes/_app/i/$itemId'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsCalendarFeedsRouteImport } from './routes/_app/settings/calendar-feeds'
 import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/settings/notifications'
@@ -160,6 +161,11 @@ const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
 const AppFFolderIdRoute = AppFFolderIdRouteImport.update({
   id: '/f/$folderId',
   path: '/f/$folderId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIItemIdRoute = AppIItemIdRouteImport.update({
+  id: '/i/$itemId',
+  path: '/i/$itemId',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
@@ -303,6 +309,7 @@ export interface FileRoutesByFullPath {
   '/admin/terms': typeof AppAdminTermsRoute
   '/admin/users': typeof AppAdminUsersRoute
   '/f/$folderId': typeof AppFFolderIdRoute
+  '/i/$itemId': typeof AppIItemIdRoute
   '/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/preferences': typeof AppSettingsPreferencesRoute
@@ -345,6 +352,7 @@ export interface FileRoutesByTo {
   '/admin/terms': typeof AppAdminTermsRoute
   '/admin/users': typeof AppAdminUsersRoute
   '/f/$folderId': typeof AppFFolderIdRoute
+  '/i/$itemId': typeof AppIItemIdRoute
   '/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/preferences': typeof AppSettingsPreferencesRoute
@@ -389,6 +397,7 @@ export interface FileRoutesById {
   '/_app/admin/terms': typeof AppAdminTermsRoute
   '/_app/admin/users': typeof AppAdminUsersRoute
   '/_app/f/$folderId': typeof AppFFolderIdRoute
+  '/_app/i/$itemId': typeof AppIItemIdRoute
   '/_app/settings/calendar-feeds': typeof AppSettingsCalendarFeedsRoute
   '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
   '/_app/settings/preferences': typeof AppSettingsPreferencesRoute
@@ -435,6 +444,7 @@ export interface FileRouteTypes {
     | '/admin/terms'
     | '/admin/users'
     | '/f/$folderId'
+    | '/i/$itemId'
     | '/settings/calendar-feeds'
     | '/settings/notifications'
     | '/settings/preferences'
@@ -477,6 +487,7 @@ export interface FileRouteTypes {
     | '/admin/terms'
     | '/admin/users'
     | '/f/$folderId'
+    | '/i/$itemId'
     | '/settings/calendar-feeds'
     | '/settings/notifications'
     | '/settings/preferences'
@@ -520,6 +531,7 @@ export interface FileRouteTypes {
     | '/_app/admin/terms'
     | '/_app/admin/users'
     | '/_app/f/$folderId'
+    | '/_app/i/$itemId'
     | '/_app/settings/calendar-feeds'
     | '/_app/settings/notifications'
     | '/_app/settings/preferences'
@@ -704,6 +716,13 @@ declare module '@tanstack/react-router' {
       path: '/f/$folderId'
       fullPath: '/f/$folderId'
       preLoaderRoute: typeof AppFFolderIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/i/$itemId': {
+      id: '/_app/i/$itemId'
+      path: '/i/$itemId'
+      fullPath: '/i/$itemId'
+      preLoaderRoute: typeof AppIItemIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/settings/': {
@@ -965,6 +984,7 @@ interface AppRouteChildren {
   AppTasksRoute: typeof AppTasksRoute
   AppIndexRoute: typeof AppIndexRoute
   AppFFolderIdRoute: typeof AppFFolderIdRoute
+  AppIItemIdRoute: typeof AppIItemIdRoute
   AppWIndexRoute: typeof AppWIndexRoute
   AppWWorkspaceIdSettingsRoute: typeof AppWWorkspaceIdSettingsRouteWithChildren
   AppWWorkspaceIdIndexRoute: typeof AppWWorkspaceIdIndexRoute
@@ -984,6 +1004,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTasksRoute: AppTasksRoute,
   AppIndexRoute: AppIndexRoute,
   AppFFolderIdRoute: AppFFolderIdRoute,
+  AppIItemIdRoute: AppIItemIdRoute,
   AppWIndexRoute: AppWIndexRoute,
   AppWWorkspaceIdSettingsRoute: AppWWorkspaceIdSettingsRouteWithChildren,
   AppWWorkspaceIdIndexRoute: AppWWorkspaceIdIndexRoute,

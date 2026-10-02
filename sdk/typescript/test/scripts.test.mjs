@@ -59,7 +59,7 @@ async function onServer(world, scenario) {
     return JSON.parse(text);
   };
   const workflow = await post(`${base}/workflows`, {
-    name: 'Script',
+    name: unique('Script'),
     trigger: { type: 'manual', list: 'Orders' },
     variables: scenario.vars,
     flow: { start: 'run', nodes: { run: { activity: 'script', inputs: { code: scenario.code } } } },
@@ -133,6 +133,8 @@ const cases = [
   { name: 'ids must be item ids', code: ["await items.update('Orders', 'abc', { status: 'x' });"], error: 'id must be the id of an item.' },
   { name: 'fields must be an object', code: ["await items.create('Lines', [1, 2]);"], error: 'fields must be an object.' },
   { name: 'query options are checked', code: ["await items.query('Lines', { top: 'all' });"], error: 'top must be a number.' },
+  { name: 'relationship updates require an attribute object', code: ["await items.updateRelationship(item.id, item.id, null, 1);"], error: 'attributes must be an object.' },
+  { name: 'relationship updates require a version', code: ["await items.updateRelationship(item.id, item.id, {}, 0);"], error: 'version must be a positive relationship version.' },
   { name: 'reads are limited', code: ["for (let i = 0; i < 201; i++) await items.get('Orders', item.id);"], error: 'A script reads at most 200 times.' },
   { name: 'a thrown error fails the script with its line', code: ["await items.create('Lines', { title: 'Not kept' });", "throw new Error('boom');"], error: 'boom (line 2)' },
   { name: 'a write the list rejects fails the script', code: ["await items.create('Lines', { title: 'Bad', qty: 'many' });"], error: 'write 1 (create in Lines)' },
@@ -168,4 +170,42 @@ for (const scenario of cases) {
       }
     });
   }
+}
+
+for (const runner of [inNode, onServer]) {
+  test(`typed graph scripts create, read and remove links (${runner === inNode ? 'SDK' : 'server'})`, async () => {
+    const world = await setup({});
+    const predicate = unique('Script contains');
+    await client.api.v10.relationshipTypes.post({ name: predicate, directed: true, inverseLabel: 'belongs to', maxIncoming: 1 });
+    const create = await runner(world, { code: [
+      "const id = await items.create('Lines', { title: 'Graph line', qty: 2, price: 3 });",
+      `await items.relate(item.id, id, ${JSON.stringify(predicate)}, { confidence: 0.6, origin: "reader" });`,
+      `await items.relate(item.id, id, ${JSON.stringify(predicate)});`,
+      'return true;',
+    ] });
+    assert.equal(create.result, true);
+    const edges = await client.api.v10.items.byItemId(world.item.id).relationships.get();
+    assert.equal(edges.value.length, 1);
+    assert.equal(edges.value[0].directed, true);
+    const peer = edges.value[0].targetItemId;
+    assert.equal(edges.value[0].attributes.additionalData.confidence, 0.6);
+    const patch = await runner(world, { code: [
+      `const page = await items.relationships({ type: ${JSON.stringify(predicate)}, filter: 'attributes/confidence le 0.7' });`,
+      'for (const edge of page.value) await items.updateRelationship(edge.sourceItem.id, edge.id, { confidence: 0.95, origin: null }, edge.version);',
+      'return { count: page.value.length, title: page.value[0].targetItem.title };',
+    ] });
+    assert.deepEqual(patch.result, { count: 1, title: 'Graph line' });
+    const current = await client.api.v10.workspaces.byWorkspaceId(world.workspace.id).relationships.get({ queryParameters: { filter: 'attributes/confidence gt 0.7' } });
+    assert.equal(current.value.length, 1);
+    assert.equal(current.value[0].attributes.additionalData.confidence, 0.95);
+    assert.equal(current.value[0].attributes.additionalData.origin, undefined);
+    const remove = await runner(world, { code: [
+      `const page = await items.related(item.id, { type: ${JSON.stringify(predicate)}, direction: 'outgoing' });`,
+      'for (const edge of page.value) { await items.unrelate(item.id, edge.id); await items.deleteById(edge.item.id); }',
+      'return { count: page.value.length, cursor: page.nextCursor };',
+    ] });
+    assert.deepEqual(remove.result, { count: 1, cursor: null });
+    assert.equal((await client.api.v10.items.byItemId(world.item.id).relationships.get()).value.length, 0);
+    await assert.rejects(() => client.api.v10.items.byItemId(peer).get());
+  });
 }

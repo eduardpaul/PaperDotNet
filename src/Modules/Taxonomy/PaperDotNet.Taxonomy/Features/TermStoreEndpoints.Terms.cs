@@ -206,7 +206,7 @@ internal static partial class TermStoreEndpoints
     /// </summary>
     private static async Task<Results<Ok<TermResponse>, ValidationProblem, ProblemHttpResult>> MergeTermAsync(
         Guid setId, Guid termId, MergeTermRequest request, TaxonomyDbContext db, Messaging.IOutbox outbox,
-        ITenantContext tenant, ICurrentUser user, CancellationToken ct)
+        ITenantContext tenant, ICurrentUser user, IEnumerable<Contracts.ITermMergeValidator> mergeValidators, CancellationToken ct)
     {
         var source = await db.Terms.FirstOrDefaultAsync(t => t.Id == termId && t.TermSetId == setId, ct);
         if (source is null)
@@ -228,6 +228,12 @@ internal static partial class TermStoreEndpoints
         if (target.Path.StartsWith(source.Path, StringComparison.Ordinal))
         {
             return Invalid("targetTermId", "A term cannot be merged into one of its descendants.");
+        }
+
+        foreach (var validator in mergeValidators)
+        {
+            if (await validator.ValidateAsync(source.Id, target.Id, ct) is { } error)
+                return ApiErrors.Conflict("termMergeRejected", error);
         }
 
         foreach (var child in await db.Terms.Where(t => t.ParentId == source.Id && t.MergedIntoId == null).ToListAsync(ct))

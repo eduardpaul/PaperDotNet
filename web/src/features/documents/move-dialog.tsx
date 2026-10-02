@@ -1,9 +1,10 @@
 import type { ItemResponse, ListResponse } from '@paperdotnet/client';
-import { fields as fieldValues, fieldsOf, ifMatch } from '@paperdotnet/client';
+import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { api } from '@/api/client';
 import { keys } from '@/api/keys';
 import { listsQuery, workspacesQuery } from '@/api/queries';
 import { Button } from '@/components/ui/button';
@@ -19,16 +20,10 @@ import { Alert, Spinner } from '@/components/ui/feedback';
 import { Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { listBuilder } from '@/features/lists/queries';
-import { listFields } from '@/features/lists/schema';
 import { problemMessage } from '@/lib/errors';
-import { fileVersionsQuery } from './queries';
 
-/**
- * Files a document into another library. There is no cross-list move, so the pages are copied (text included, no new
- * OCR) and the fields the target library has are copied onto the new item. Versions, comments and links stay on the
- * original, which then goes to the recycle bin. If that last step fails, the user has a copy, never a loss.
- */
-export function MoveDocumentDialog({
+/** Files a document into a compatible library while preserving its identity, versions, comments and links. */
+export function MoveItemDialog({
   workspaceId,
   list,
   item,
@@ -43,15 +38,14 @@ export function MoveDocumentDialog({
   onOpenChange: (open: boolean) => void;
   onMoved?: () => void;
 }) {
+  const isLibrary = list.kind === 'library';
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { data: workspaces } = useQuery(workspacesQuery);
   const libraries = useQueries({ queries: (workspaces ?? []).map((w) => listsQuery(w.id!)) })
     .flatMap((q) => q.data ?? [])
-    .filter((l) => l.kind === 'library' && l.id !== list.id);
+    .filter((l) => l.kind === list.kind && l.id !== list.id);
   const workspaceName = new Map((workspaces ?? []).map((w) => [w.id, w.isPersonal ? 'My files' : w.name]));
-  const { data: versions } = useQuery({ ...fileVersionsQuery(workspaceId, list.id!, item.id!), enabled: open });
-  const pageCount = versions?.find((v) => v.isCurrent)?.pageCount ?? 0;
   const [target, setTarget] = useState('');
 
   const move = useMutation({
@@ -59,46 +53,28 @@ export function MoveDocumentDialog({
     mutationFn: async () => {
       const library = libraries.find((l) => l.id === target)!;
       const source = listBuilder(workspaceId, list.id!).items.byItemId(item.id!);
-      const result = await source.file.pages.extract.post({
-        pages: Array.from({ length: pageCount }, (_, i) => i + 1),
-        workspaceId: library.workspaceId,
-        listId: library.id,
-        title: String(fieldsOf(item).title ?? ''),
-      });
-      const created = result?.documents?.[0];
-      if (created?.itemId) {
-        const targetList = await listBuilder(library.workspaceId!, library.id!).get();
-        const allowed = new Set(listFields(targetList).map((field) => field.name));
-        const patch = Object.fromEntries(
-          Object.entries(fieldsOf(item)).filter(
-            ([name, value]) => name !== 'title' && allowed.has(name) && value !== undefined && value !== null,
-          ),
-        );
-        if (Object.keys(patch).length) {
-          await listBuilder(created.workspaceId!, created.listId!)
-            .items.byItemId(created.itemId)
-            .patch({ fields: fieldValues(patch) });
-        }
-      }
-      await source.delete(ifMatch(await source.get()));
-      return { library, created };
+      const moved = await api.v10.items
+        .byItemId(item.id!)
+        .move.post({ workspaceId: library.workspaceId, listId: library.id }, ifMatch(await source.get()));
+      return { library, moved };
     },
-    onSuccess: async ({ library, created }) => {
+    onSuccess: async ({ library, moved }) => {
       onOpenChange(false);
       onMoved?.();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: keys.list(workspaceId, list.id!) }),
         queryClient.invalidateQueries({ queryKey: keys.items(library.workspaceId!, library.id!) }),
+        queryClient.invalidateQueries({ queryKey: keys.globalItemResources }),
       ]);
-      toast.success(`Filed in ${library.name}.`, {
-        action: created
+      toast.success(`${isLibrary ? 'Filed in' : 'Moved to'} ${library.name}.`, {
+        action: moved
           ? {
               label: 'Open',
               onClick: () =>
                 void navigate({
                   to: '/w/$workspaceId/l/$listId',
                   params: { workspaceId: library.workspaceId!, listId: library.id! },
-                  search: { item: created.itemId! },
+                  search: { item: moved.item!.id! },
                 }),
             }
           : undefined,
@@ -116,17 +92,17 @@ export function MoveDocumentDialog({
       <DialogContent>
         <form onSubmit={onSubmit}>
           <DialogHeader>
-            <DialogTitle>File in a library</DialogTitle>
+            <DialogTitle>{isLibrary ? 'File in a library' : 'Move to a list'}</DialogTitle>
             <DialogDescription>
-              The file is copied, and so are the fields this library has. Versions, comments and links stay on the
-              original, which then goes to the recycle bin.
+              Versions, comments and links move with the item. The destination must support its content type. Access
+              will follow the destination.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 px-5 pb-5">
             {move.isError && <Alert>{problemMessage(move.error)}</Alert>}
-            <Label htmlFor="move-target">Library</Label>
+            <Label htmlFor="move-target">{isLibrary ? 'Library' : 'List'}</Label>
             <Select id="move-target" required value={target} onChange={(e) => setTarget(e.target.value)}>
-              <option value="">Choose a library…</option>
+              <option value="">{isLibrary ? 'Choose a library…' : 'Choose a list…'}</option>
               {libraries.map((l) => (
                 <option key={l.id} value={l.id!}>
                   {workspaceName.get(l.workspaceId)} › {l.name}
@@ -136,8 +112,8 @@ export function MoveDocumentDialog({
           </div>
           <DialogFooter>
             <Button onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" variant="primary" disabled={!target || !pageCount || move.isPending}>
-              {move.isPending && <Spinner className="text-current" />} File
+            <Button type="submit" variant="primary" disabled={!target || move.isPending}>
+              {move.isPending && <Spinner className="text-current" />} {isLibrary ? 'File' : 'Move'}
             </Button>
           </DialogFooter>
         </form>
