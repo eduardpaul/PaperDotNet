@@ -120,6 +120,25 @@ public sealed partial class ModuleBoundaryTests
         Assert.Empty(offenders);
     }
 
+    [Fact]
+    public void Search_stores_only_reference_the_search_contracts()
+    {
+        var references = Load("PaperDotNet.Search.Zvec").GetReferencedAssemblies().Select(a => a.Name!).Where(r => r.StartsWith("PaperDotNet.", StringComparison.Ordinal)).ToList();
+
+        Assert.Equal(["PaperDotNet.Abstractions", "PaperDotNet.Search.Contracts"], references.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void Only_the_zvec_store_calls_zvec()
+    {
+        var offenders = SourceFiles()
+            .Where(f => !f.Contains("PaperDotNet.Search.Zvec", StringComparison.Ordinal))
+            .Where(f => File.ReadAllText(f).Contains("zvec_", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
     private static Assembly Load(string name) => Assembly.Load(name);
 
     private static IEnumerable<string> SourceFiles()

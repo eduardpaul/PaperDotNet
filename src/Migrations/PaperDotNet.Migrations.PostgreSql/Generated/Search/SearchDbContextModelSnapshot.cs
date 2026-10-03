@@ -192,6 +192,53 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                         .HasAnnotation("PaperDotNet:FullTextLanguage", "Language");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Search.Data.SearchFieldValue", b =>
+                {
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("document_id");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("integer")
+                        .HasColumnName("ordinal");
+
+                    b.Property<double?>("Number")
+                        .HasColumnType("double precision")
+                        .HasColumnName("number");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("text");
+
+                    b.HasKey("DocumentId", "Name", "Kind", "Ordinal")
+                        .HasName("pk_document_fields");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_document_fields_tenant_id");
+
+                    b.HasIndex("TenantId", "Name", "Kind", "Number")
+                        .HasDatabaseName("ix_document_fields_tenant_id_name_kind_number");
+
+                    b.HasIndex("TenantId", "Name", "Kind", "Text")
+                        .HasDatabaseName("ix_document_fields_tenant_id_name_kind_text");
+
+                    b.ToTable("document_fields", "search");
+                });
+
             modelBuilder.Entity("PaperDotNet.Search.Data.SearchPassage", b =>
                 {
                     b.Property<Guid>("Id")

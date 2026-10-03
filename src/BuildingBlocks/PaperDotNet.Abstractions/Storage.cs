@@ -19,3 +19,20 @@ public interface IBlobStore
     /// <summary>Removes the content; missing keys are ignored.</summary>
     Task DeleteAsync(string key, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// A folder a backup (PLT-12) copies as it is, under <c>folders/{Name}/</c>: data kept outside the database and the
+/// blob store, such as the zvec search collections (ADR-0044). While frozen, its owner has closed its files and holds
+/// new users back, so the copy is consistent and a restore can replace the files.
+/// </summary>
+public interface IBackupFolder
+{
+    /// <summary>A short name, e.g. <c>search-zvec</c>.</summary>
+    string Name { get; }
+
+    /// <summary>The folder (it may not exist).</summary>
+    string Path { get; }
+
+    /// <summary>Closes the folder's files and holds new users until the returned handle is disposed.</summary>
+    Task<IAsyncDisposable> FreezeAsync(CancellationToken cancellationToken);
+}

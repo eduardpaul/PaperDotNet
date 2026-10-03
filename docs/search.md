@@ -12,6 +12,7 @@ their text, list items, tasks, events, comments): SRC-01…09. Design:
 | `q` | Words (all must match), `"exact phrase"`, `a OR b`, `-exclude` / `NOT word`, `prefix*`. Optional when a filter is given |
 | `mode` | `keyword`, `semantic` or `hybrid` (below) |
 | `workspaceId`, `containerId` (list), `contentTypeId`, `termId` (with child terms), `createdBy`, `updatedFrom`, `updatedTo` | Filters |
+| `$filter` | Conditions on the items' fields (below) |
 | `$top` (max 100), `$skip` | Paging (`@odata.nextLink`) |
 
 Each hit has:
@@ -23,6 +24,41 @@ Each hit has:
 
 The response also returns `facets` (workspace, list, content type, term),
 `@odata.count` and `mode`.
+
+## Filtering by fields
+
+`$filter` filters on the fields of items: their metadata is part of the search
+index ([ADR-0043](adr/0043-search-indexing-as-workflows-over-a-search-store.md)).
+
+```
+GET /v1.0/search?q=invoice&$filter=fields/amount gt 100 and fields/status in ('open', 'late')
+GET /v1.0/search?$filter=fields/due lt 2026-04-01 and fields/paid eq false
+```
+
+- **One search field per name.** A field name is one search field across all
+  lists, like a managed property: `amount` in two invoice lists is filtered
+  as one. If a name is used with different kinds (a number in one list, text
+  in another), each kind is addressed as `fields/{name}_{kind}`, e.g.
+  `fields/code_number`.
+- **Kinds and operators:**
+
+  | Field types | Kind | Operators |
+  |---|---|---|
+  | text, email, url, choice | keyword | `eq`, `ne`, `in` (exact value) |
+  | number, currency | number | `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `in` |
+  | date, dateTime | date, dateTime | same as number |
+  | boolean | boolean | `eq`, `ne` |
+  | person, lookup | reference | `eq`, `ne`, `in` (ids) |
+  | managed metadata, keywords | terms | `eq`, `ne`, `in` (term ids) |
+
+  Combine conditions with `and`, `or`, `not` and parentheses. Notes (long
+  text) are searched with `q` but not filtered.
+- **Multi-value fields** match when any value matches. `ne` matches when none
+  does. `eq null` finds items without a value.
+- **Unknown fields fail.** A field name is known once an item that has it is
+  indexed. Until then, filtering on it returns `400`.
+- **After upgrading,** run a reindex (`POST /v1.0/search/reindex` or
+  `paperdotnet reindex`) so that existing items get their fields in the index.
 
 ## Modes
 
@@ -38,6 +74,33 @@ The response also returns `facets` (workspace, list, content type, term),
 - **Candidates:** in `semantic` and `hybrid` mode, each side contributes its
   best `Search:CandidateLimit` (200) documents. The count, paging and facets
   cover those candidates only.
+
+## Search stores
+
+Where documents, passages and vectors live (`Search:Store`,
+[ADR-0043](adr/0043-search-indexing-as-workflows-over-a-search-store.md)):
+
+| Store | What it is | When to use it |
+|---|---|---|
+| `database` (default) | Tables in the app's database: SQLite FTS5 or PostgreSQL `tsvector`; vectors searched in memory | Every install, including several servers |
+| `zvec` (preview) | An in-process [zvec](https://github.com/alibaba/zvec) collection per tenant under `{Storage:DataPath}/search/zvec`: full text with BM25, HNSW vectors, filters on metadata and fields | One server, large semantic indexes; needs the zvec native library ([ADR-0044](adr/0044-zvec-search-store.md)) |
+
+**zvec settings** (`Search:Zvec` section):
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `LibraryPath` | none | `libzvec_c_api` file or folder, when it is not next to the app |
+| `Languages` | `english` | Languages with stemming. Each costs about 40 MB per open collection, and is fixed when a tenant's collection is created |
+| `PrefixSearch` | `true` | `word*` terms, through a trigram column (also about 40 MB). It matches inside words too |
+| `MaxOpenCollections` | 4 | Tenants kept open; the least recently used one is closed |
+| `MemoryLimitMb` | 1024 | zvec's memory limit |
+
+**Limits of `zvec`:**
+- **One server only:** zvec locks the collection's folder.
+- **Counts and facets** cover the first 10,000 matches
+  (`Search:Zvec:KeywordCandidates`).
+- **Changing the embedding model** starts a new collection. Run a reindex
+  afterwards.
 
 ## Setting up semantic search
 
@@ -71,6 +134,7 @@ PAPERDOTNET__AI__Embeddings__ApiKey=sk-…
 
 | Setting | Default | Meaning |
 |---|---|---|
+| `Store` | `database` | The search store ([ADR-0043](adr/0043-search-indexing-as-workflows-over-a-search-store.md)): where documents, passages and vectors live and how they are searched. `database` is the only one installed today |
 | `MinSimilarity` | 0.3 | Cosine similarity below which a passage is no match; tune it for your model |
 | `CandidateLimit` | 200 | Documents per side before fusion |
 | `EmbeddingBatchSize` | 64 | Passages per call to the model |

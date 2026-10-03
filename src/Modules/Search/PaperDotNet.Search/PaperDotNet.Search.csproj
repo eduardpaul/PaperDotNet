@@ -2,6 +2,7 @@
   <!-- Search over all data types with security trimming and facets (SRC-01…04); semantic and hybrid search with page hits (SRC-07…09). -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.OData" />
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
     <PackageReference Include="System.Numerics.Tensors" />
     <ProjectReference Include="..\PaperDotNet.Search.Contracts\PaperDotNet.Search.Contracts.csproj" />
