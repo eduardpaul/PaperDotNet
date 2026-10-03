@@ -44,7 +44,7 @@ Animated PNG is detected through its animation-control chunk because Skia's PNG
 codec exposes only its default frame. Animation is skipped before OCR.
 
 SkiaSharp applies all EXIF orientations and bicubic resampling. Small-text
-analysis defaults to PaddleOCR PP-OCRv4 mobile DBNet, running in-process on CPU
+analysis defaults to PaddleOCR PP-OCRv6 small DBNet, running in-process on CPU
 through RapidOcrNet and Microsoft.ML.OnnxRuntime. RapidOcrNet supplies detection
 preprocessing, contour scoring, minimum-area boxes and polygon expansion using
 SkiaSharp and Clipper2; OpenCV and additional services are unnecessary. The
@@ -56,6 +56,8 @@ complete notices and a pinned Eigen source reference.
 
 Analysis is capped at 2600 pixels on the longest dimension. DBNet receives BGR
 NCHW ImageNet-normalized pixels and dimensions rounded to multiples of 32.
+The v6 probability threshold is 0.2 and unclip ratio is 1.4, following its
+published inference configuration; the library box-confidence default remains 50%.
 Returned polygons are projected through the actual axis scales to the upright
 source. The shortest oriented side gives line height, including vertical text;
 box confidence and minimum 6px analysis height / 1.5 aspect ratio filter noise.
@@ -78,7 +80,7 @@ optimization work. `StorageOptimization:MaxPixels` and
 `StorageOptimization:OcrTimeoutSeconds` configure resource limits. The existing
 `Documents:TesseractPath` configures the optional CLI.
 `StorageOptimization:PaddleModelPath` overrides the bundled detector with a
-compatible PP-OCRv4 DBNet ONNX model. `StorageOptimization:PaddleThreads`
+compatible DBNet ONNX model. `StorageOptimization:PaddleThreads`
 (default 1, range 1–32) controls CPU inference threads. The session is lazily
 loaded once and disposed with the host; cancellation terminates ONNX inference.
 CPU arena allocation and memory-pattern caching are disabled because varying

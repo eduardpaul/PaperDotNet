@@ -7,6 +7,8 @@
     <!-- Detection only: do not ship the library's unrelated v5 recognition/classification models. -->
     <PackageReference Include="RapidOcrNet" ExcludeAssets="build;buildTransitive;contentFiles" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <Content Include="models/PP-OCRv6_small_det.onnx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="models/PP-OCRv6_small_det.inference.yml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="models/ch_PP-OCRv4_det.onnx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="models/LICENSE;models/README.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="licenses/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

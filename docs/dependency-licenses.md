@@ -115,7 +115,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `RapidOcrNet` 4.2.0 | Apache-2.0 | PaddleOCR DBNet detection using SkiaSharp; includes Apache-2.0 RapidOCR / PdfPig and MIT PContour code |
 | `Microsoft.ML.OnnxRuntime`, `.Managed` 1.29.0 | MIT; native Eigen MPL-2.0 | Requested DBNet / ONNX Runtime blueprint; specific exception to the no-MPL policy (2026-10-03). Complete notices and Eigen source reference shipped |
 | `Clipper2` 2.0.0 | BSL-1.0 | Polygon expansion for DBNet (via RapidOcrNet); permissive attribution license, accepted 2026-10-03 |
-| PaddleOCR PP-OCRv4 mobile detector, ONNX conversion by RapidOCR | Apache-2.0 | Bundled detector weights; pinned digest and license in extension models directory |
+| PaddleOCR PP-OCRv6 small detector and legacy PP-OCRv4 mobile detector | Apache-2.0 | Bundled detector weights; pinned digest and license in extension models directory |
 | `TngTech.ArchUnitNET` (+ `.xUnitV3`) | Apache-2.0 | Architecture tests |
 | `OpenIddict.EntityFrameworkCore` | Apache-2.0 | OpenIddict stores |
 | `Microsoft.AspNetCore.Identity.EntityFrameworkCore` | MIT | Identity stores |
@@ -186,7 +186,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 
 - **2026-10-03:** accepted Boost Software License 1.0 for Clipper2: unrestricted
   use and redistribution, no copyleft or fee; preserve its license notice.
-  RapidOcrNet excludes its v5 model assets; only the pinned v4 detector ships.
+  RapidOcrNet excludes its v5 model assets; only the pinned v6 and legacy v4 detectors ship.
 - **2026-10-03:** the requested PaddleOCR C# implementation explicitly uses
   Microsoft.ML.OnnxRuntime. Its native CPU package includes Eigen (MPL-2.0).
   This implementation records that specific user-requested exception rather

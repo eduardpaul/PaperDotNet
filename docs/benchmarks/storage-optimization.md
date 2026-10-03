@@ -1,9 +1,28 @@
 # Storage optimization benchmarks — 2026-10-03
 
-## DBNet default and same-container comparison
+## PP-OCRv6 small smoke measurement
 
-The current default is PaddleOCR PP-OCRv4 mobile DBNet, with the bundled model
-and production adapter. Both detectors were run sequentially in the same local
+The default is now the official `PP-OCRv6_small_det.onnx`, pinned to SHA-256
+`d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e`.
+A single cold CPU run of the production adapter on the 6000×8000, 48MiB
+synthetic receipt produced 20 line regions and a 335×447 WebP of 21,962 bytes
+(99.956% savings). Analysis took 9.57s; total including verification took 14.78s.
+Process peak was 1,226,502,144 bytes (about 1.14GiB). All 80 known words were
+accepted by verification OCR, with fifth-percentile glyph height **10px**.
+The 12px setting targets expanded line-box height, not glyph height; manager
+review remains necessary.
+
+This smoke run used local .NET/ONNX inference on the shared workstation while
+the solution was building, and the Docker-wrapped Tesseract verifier. It is not
+a throughput comparison with the historical same-container measurements below.
+The PNG is padded to 48MiB to exercise upload size; it is not a camera photo.
+Raw metrics: [v6 synthetic result](storage-optimization-dbnet-v6-synthetic.json).
+The private receipt dataset has not been rebenchmarked with v6.
+
+## PP-OCRv4 same-container comparison (historical)
+
+These measurements used PaddleOCR PP-OCRv4 mobile DBNet with the production
+adapter. The current default is PP-OCRv6 small; these results do not measure v6. Both detectors were run sequentially in the same local
 runtime container with SkiaSharp 4.150.1, RapidOcrNet 4.2.0, ONNX Runtime 1.29.0,
 Tesseract 5.3.4, English verification OCR, and the shipped tuning defaults.
 The shared workstation exposes four logical Intel i7-10870H CPUs; each detector

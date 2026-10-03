@@ -105,6 +105,7 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
         var metadata = await review.ReadJsonAsync();
         Assert.True(metadata.GetProperty("canDecide").GetBoolean());
         Assert.Equal("paddleocr", metadata.GetProperty("data").GetProperty("detector").GetString());
+        Assert.Equal("PP-OCRv6_small_det", metadata.GetProperty("data").GetProperty("model").GetString());
         Assert.Equal("line", metadata.GetProperty("data").GetProperty("strategy").GetString());
         var source = await client.GetByteArrayAsync($"/v1.0/me/approvals/{id}/review/content/source", Ct);
         var optimized = await client.GetByteArrayAsync($"/v1.0/me/approvals/{id}/review/content/candidate", Ct);

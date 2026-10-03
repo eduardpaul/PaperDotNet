@@ -104,8 +104,9 @@ Based on RapidAI / RapidOCR and parts of PdfPig (Apache-2.0), and PContour /
 PContourNet (MIT), copyright LingDong Huang / BobLd. See their notices:
 https://github.com/BobLd/RapidOcrNet/blob/master/NOTICE.txt
 
-PaddleOCR PP-OCRv4 detector weights (Apache-2.0), copyright PaddlePaddle /
-PaddleOCR contributors; converted to ONNX by RapidAI / RapidOCR. Model provenance
+PaddleOCR PP-OCRv6 small and legacy PP-OCRv4 detector weights (Apache-2.0), copyright PaddlePaddle /
+PaddleOCR contributors; v6 published by PaddlePaddle, v4 converted to ONNX by
+RapidAI / RapidOCR. Model provenance
 and complete license: src/Extensions/PaperDotNet.StorageOptimization/models/.
 
 Microsoft ONNX Runtime (MIT), copyright Microsoft Corporation:

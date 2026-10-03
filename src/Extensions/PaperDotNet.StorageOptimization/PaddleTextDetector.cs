@@ -9,7 +9,7 @@ namespace PaperDotNet.StorageOptimization;
 /// <summary>One lazily loaded CPU session per process, used under the optimization gate.</summary>
 internal sealed class PaddleTextDetector(IConfiguration configuration) : IDisposable
 {
-    internal const string ModelName = "ch_PP-OCRv4_det";
+    internal const string ModelName = "PP-OCRv6_small_det";
     private readonly string modelPath = configuration["StorageOptimization:PaddleModelPath"]
         ?? Path.Combine(AppContext.BaseDirectory, "models", ModelName + ".onnx");
     private TextDetector? detector;
@@ -39,7 +39,7 @@ internal sealed class PaddleTextDetector(IConfiguration configuration) : IDispos
             modelDigest = Convert.ToHexStringLower(SHA256.HashData(modelContent));
         }
         var boxes = detector.GetTextBoxes(bgr, scale, (float)(confidence / 100),
-            0.3f, 1.5f, cancellationToken)
+            0.2f, 1.4f, cancellationToken)
             ?? throw new InvalidOperationException("PaddleOCR DBNet inference or postprocessing failed; the source is retained.");
         cancellationToken.ThrowIfCancellationRequested();
         return boxes.Select(box => ProjectHeight(box.BoxPoints, box.Score, confidence,

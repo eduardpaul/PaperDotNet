@@ -54,8 +54,9 @@ public sealed class StorageOptimizationTests
         await using var skipped = await adapter.OptimizeAsync(blank, null, new(), TestContext.Current.CancellationToken);
         Assert.Null(skipped.Content);
         Assert.Equal("paddleocr", skipped.Metrics["detector"]!.GetValue<string>());
+        Assert.Equal("PP-OCRv6_small_det", skipped.Metrics["model"]!.GetValue<string>());
         Assert.Equal("line", skipped.Metrics["strategy"]!.GetValue<string>());
-        Assert.Equal("d2a7720d45a54257208b1e13e36a8479894cb74155a5efe29462512d42f49da9", skipped.Metrics["modelSha256"]!.GetValue<string>());
+        Assert.Equal("d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e", skipped.Metrics["modelSha256"]!.GetValue<string>());
         Assert.Contains("No reliable text", skipped.SkipReason!, StringComparison.Ordinal);
     }
 
