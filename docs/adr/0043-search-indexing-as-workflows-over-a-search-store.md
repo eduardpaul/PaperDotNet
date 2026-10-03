@@ -91,10 +91,21 @@ talks only to `ISearchStore`.
 ### 2. Metadata and content are indexed separately
 
 - **Metadata** holds the id, source type, workspace, list, content type,
-  title, keywords, field text, language, scope, terms, author and dates.
+  title, keywords, language, scope, terms, author and dates, **and the item's
+  fields as typed search fields**.
   - Producers build it in code on item events, as now.
   - It is cheap and always on: an item is searchable within seconds without
     any workflow.
+  - Metadata is part of the search store, not looked up elsewhere.
+    `SearchDocumentData.Fields` carries each field with a kind (`text`,
+    `keyword`, `number`, `date`, `boolean`, `reference`, `terms`). A field can be:
+    - **searchable:** its text is in full-text search with its `search` weight;
+    - **filterable:** a typed value the store filters on;
+    - **queryable:** `/v1.0/search` takes `$filter` on it (`fields/total gt 100`).
+  - A field name with one kind is one search field across all lists, like a
+    managed property. The same `total` number in two invoice lists is filtered
+    as one. `indexed: true` (ADR-0035) asks the store to index the field for
+    fast filters.
 - **Content** is the chunks of the item's file (later also other long text),
   with a `ContentVersion` (the file version, or a hash of the text).
   - Only the index pipeline writes it.
@@ -191,16 +202,20 @@ public interface ISearchStore
     Task<IReadOnlyDictionary<string, ReadOnlyMemory<float>>> FindVectorsAsync(string model, IReadOnlyCollection<string> inputHashes, CancellationToken ct);
     IAsyncEnumerable<SearchRecord> ExportAsync(CancellationToken ct);
 
-    // Queries: the parsed query and filters, never raw text.
-    Task<StoreKeywordResult> KeywordAsync(StoreQuery query, CancellationToken ct);
-    Task<IReadOnlyList<StoreVectorMatch>> NearestAsync(string model, ReadOnlyMemory<float> vector, StoreFilter filter, int limit, CancellationToken ct);
-    Task<SearchFacets> FacetsAsync(StoreFilter filter, IReadOnlyCollection<Guid>? within, CancellationToken ct);
+    // Queries: the parsed query, the query vector and the filters, never raw text.
+    // The store runs keyword, semantic or hybrid search itself. Capabilities say
+    // what SearchService must still do over the candidates (facets, sorting).
+    Task<StoreSearchResult> SearchAsync(StoreSearchQuery query, CancellationToken ct);
+    Task<IReadOnlyList<SearchFieldInfo>> GetFieldsAsync(CancellationToken ct);  // for $filter
 }
 ```
 
 - **`StoreFilter`** carries the readable scope ids, the workspace, list,
   content type, term ids (`SearchService` resolves the term subtree), author,
-  dates and excluded documents.
+  dates and excluded documents. It also carries a **`SearchFilter` tree** for
+  field conditions: the store-neutral form of `$filter`, parsed with
+  Microsoft.OData against the store's field list. Each store renders it in its
+  own language: LINQ for `database`, a filter expression for zvec.
 - **Every record and every query carries the tenant.** A shared conformance
   test suite (tenant isolation, trimming, facets, paging, page hits) runs
   against each store.
@@ -209,9 +224,11 @@ public interface ISearchStore
 - **Changing the store** runs the operation `POST /v1.0/search/migrate`. It
   copies with `ExportAsync` and computes nothing again. When the old store
   cannot be read, a reindex rebuilds the new one.
-- **External engines are optional packages** (Meilisearch, OpenSearch, Qdrant
-  + full text, pgvector). They are off by default, and each new dependency is
-  checked against the license policy.
+- **Other stores are optional packages,** off by default. Each new dependency
+  is checked against the license policy.
+  - **In process:** zvec ([ADR-0044](0044-zvec-search-store.md)).
+  - **External engines:** Meilisearch, OpenSearch, Qdrant with full text, or
+    pgvector.
 
 ### 5. The default store leaves the main database
 
