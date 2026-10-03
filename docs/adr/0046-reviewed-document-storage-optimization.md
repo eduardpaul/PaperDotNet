@@ -1,4 +1,4 @@
-# ADR-0045: Reviewed document storage optimization
+# ADR-0046: Reviewed document storage optimization
 
 Status: Accepted
 

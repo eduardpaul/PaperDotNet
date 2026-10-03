@@ -334,7 +334,7 @@ access. Implement metadata, content, and decision validation. The app's
 provider's descriptor. The included `imageComparison` renderer shows source and
 candidate content at native 100%. Unknown review renderers cannot enable decisions.
 
-See ADR-0045 and the compiled `PaperDotNet.StorageOptimization` extension for the
+See ADR-0046 and the compiled `PaperDotNet.StorageOptimization` extension for the
 complete example. Extension identifiers remain lowercase, including
 `paperdotnet.storageoptimization`.
 
