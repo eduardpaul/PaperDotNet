@@ -52,24 +52,70 @@ refused with `409 lastAdministrator`. This covers:
 
 ## Sign-in through a reverse proxy
 
-Behind Authelia, Authentik or oauth2-proxy, the proxy can sign users in
-(IAM-15, [ADR-0031](adr/0031-reverse-proxy-sign-in.md)):
+Behind Authelia, Authentik, oauth2-proxy or Nginx Proxy Manager, the proxy
+can sign users in. This is IAM-15, designed in
+[ADR-0031](adr/0031-reverse-proxy-sign-in.md) and
+[ADR-0045](adr/0045-generic-reverse-proxies.md).
 
 ```json
 "Auth": { "ReverseProxy": {
   "Enabled": true,
-  "TrustedProxies": ["172.18.0.0/16"],
+  "TrustedProxies": ["172.18.0.2"],
+  "Secret": "a long random value the proxy sends", "SecretHeader": "X-PaperDotNet-Proxy",
   "UserHeader": "Remote-User", "EmailHeader": "Remote-Email", "NameHeader": "Remote-Name", "GroupsHeader": "Remote-Groups",
-  "CreateUsers": true } }
+  "CreateUsers": true, "GroupSync": "Add", "CreateGroups": false,
+  "RefreshTokenLifetime": "1.00:00:00", "LogoutUrl": "https://auth.example.com/logout" } },
+"ForwardedHeaders": { "Enabled": true, "KnownProxies": ["172.18.0.2"], "ForwardLimit": 1 }
 ```
 
-**How it works:**
-- **Where headers count:** only from a trusted proxy (the direct peer, not
-  `X-Forwarded-For`), and only at `/connect/authorize`. There they start the
-  sign-in session of the OAuth flow; the API keeps using tokens.
-- **Users:** unknown users are created without a password as Members, and
-  name and e-mail follow the headers.
-- **Groups:** users are added to existing groups listed in the groups header.
+**Where the headers count:**
+- Only from a trusted proxy: the direct peer, not `X-Forwarded-For`.
+- Only with the `Secret`, when one is set. The proxy sends it only where it
+  authenticated the user, so mistakes in the proxy's routing fail closed.
+  Without a secret, the server logs a warning at startup.
+- Only at `/auth/proxy/sign-in` and `/connect/authorize`. Signed-out
+  browsers are sent to `/auth/proxy/sign-in?returnUrl=…`, which is the only
+  path the proxy needs to protect. Since it is outside `/connect/`, browsers
+  never send basic-auth credentials to the OAuth endpoints. There the
+  headers start the sign-in session; the API keeps using tokens. When the
+  proxy names nobody, the path falls back to the password sign-in.
+
+**Users:** unknown users are created without a password as Members. Their
+name and e-mail follow the headers.
+
+**Groups:** users join existing groups named in the groups header
+(comma-separated, up to 100).
+- `CreateGroups` creates missing groups as *proxy groups*.
+- With `GroupSync: "Sync"`, users also leave proxy groups the proxy no
+  longer names. Groups created in PaperDotNet only ever gain members.
+- The last administrator is never removed.
+
+**How long a proxy sign-in lasts:** at most `RefreshTokenLifetime`, then
+the browser goes through the proxy again.
+- Refreshing does not extend it.
+- Name, e-mail, groups, and whether the proxy still admits the user are
+  read again then.
+- `LogoutUrl` is where signing out of a proxy session sends the browser.
+  Without it, the proxy would sign the user straight back in.
+
+**Local sign-in:** with `"Auth": { "LocalSignIn": false }`, only the
+proxy signs people in.
+- Passwords and passkeys stored in PaperDotNet are refused, as is the
+  password grant (`403 localSignInDisabled`). This includes the first
+  administrator's password.
+- Nobody can skip the proxy's second factor, bans or removed users.
+- API tokens and client credentials keep working.
+- Turn it on again for a moment for a break-glass sign-in.
+
+**Forwarded headers** (scheme, host, client address) count only from
+`ForwardedHeaders:KnownProxies`, or else from the sign-in proxies.
+`ForwardLimit` is the number of proxies in a chain. Event streams send
+`X-Accel-Buffering: no`, and live events send a keep-alive every 30 s, so
+nginx-based proxies pass them on at once. `Jobs:LiveEventsKeepAlive` is checked
+at startup and must be between 1 and 4294967294 milliseconds.
+
+A tested setup for Nginx Proxy Manager, with an NPM access list or Authelia, is in
+[samples/nginx-proxy-manager](../samples/nginx-proxy-manager/README.md).
 
 ## Preferences
 

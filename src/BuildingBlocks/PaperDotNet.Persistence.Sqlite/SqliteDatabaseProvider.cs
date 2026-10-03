@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -13,6 +14,9 @@ internal sealed class SqliteDatabaseProvider(SqliteDatabaseSettings settings) : 
     public const string MigrationsAssembly = "PaperDotNet.Migrations.Sqlite";
 
     public string Name => ProviderName;
+
+    public bool IsUniqueConstraintViolation(DbUpdateException exception) =>
+        exception.InnerException is SqliteException { SqliteExtendedErrorCode: 2067 or 1555 };
 
     public void Configure(DbContextOptionsBuilder options, string schema, string? migrationsAssembly = null) =>
         Configure(options, settings.ConnectionString, schema, migrationsAssembly);

@@ -173,13 +173,10 @@ public static class PaperDotNetHost
                     _ => new FixedWindowRateLimiterOptions { PermitLimit = permitPerMinute, Window = TimeSpan.FromMinutes(1) }));
         });
         // Behind a reverse proxy, set ForwardedHeaders:Enabled=true. Off by default: forwarded
-        // headers influence scheme and host (and therefore host-based tenant resolution).
-        services.Configure<ForwardedHeadersOptions>(o =>
-        {
-            o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
-            o.KnownIPNetworks.Clear();
-            o.KnownProxies.Clear();
-        });
+        // headers influence scheme and host (and therefore host-based tenant resolution), so they
+        // count only from ForwardedHeaders:KnownProxies (or the sign-in proxies), ADR-0045.
+        services.Configure<ForwardedHeadersOptions>(o => ReverseProxySetup.ConfigureForwardedHeaders(o, builder.Configuration));
+        services.AddHostedService<ReverseProxyWarnings>();
 
 
         return builder;
@@ -197,6 +194,8 @@ public static class PaperDotNetHost
         {
             app.UseForwardedHeaders();
         }
+
+        ReverseProxySetup.UseEventStreamsThroughProxies(app);
         app.UseExceptionHandler();
         app.UseStatusCodePages();
 

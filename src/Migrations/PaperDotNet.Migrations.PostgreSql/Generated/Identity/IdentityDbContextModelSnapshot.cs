@@ -249,6 +249,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Identity
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
 
+                    b.Property<int>("Source")
+                        .HasColumnType("integer")
+                        .HasColumnName("source");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Hybrid;
 using OpenIddict.Abstractions;
 using PaperDotNet.Abstractions;
@@ -83,6 +84,7 @@ internal static class AccountEndpoints
             return invalid;
         }
 
+        await using var change = await AdministratorGuard.BeginChangeAsync(db, ct);
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id && u.DeletedAt == null && !u.IsServiceAccount, ct);
         if (user is null)
         {
@@ -113,6 +115,7 @@ internal static class AccountEndpoints
 
         user.IsDisabled = request.IsDisabled ?? user.IsDisabled;
         await db.SaveChangesAsync(ct);
+        await change.CommitAsync(ct);
         if (disabling)
         {
             await sessions.EndAsync(user, revokeApiTokens: true, ct);
@@ -134,6 +137,7 @@ internal static class AccountEndpoints
         Guid id, IdentityDbContext db, UserManager<User> userManager, ICurrentUser current, ITenantContext tenant,
         AccountSessions sessions, IOutbox outbox, TimeProvider time, CancellationToken ct)
     {
+        await using var change = await AdministratorGuard.BeginChangeAsync(db, ct);
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id && u.DeletedAt == null && !u.IsServiceAccount, ct);
         if (user is null)
         {
@@ -165,6 +169,11 @@ internal static class AccountEndpoints
         db.RemoveRange(await db.Set<IdentityUserPasskey<Guid>>().Where(p => p.UserId == id).ToListAsync(ct));
         db.RemoveRange(await db.Set<IdentityUserLogin<Guid>>().Where(l => l.UserId == id).ToListAsync(ct));
         await outbox.SaveChangesAsync(db, [Deleted(tenant, current, id, isGroup: false)], cancellationToken: ct);
+        // The transactional outbox may already have committed the guarded change.
+        if (db.Database.CurrentTransaction is not null)
+        {
+            await change.CommitAsync(ct);
+        }
         await sessions.EndAsync(user, revokeApiTokens: true, ct);
         return TypedResults.NoContent();
     }
@@ -274,6 +283,7 @@ internal static class AccountEndpoints
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteGroupAsync(
         Guid id, IdentityDbContext db, ICurrentUser current, ITenantContext tenant, AccountSessions sessions, IOutbox outbox, CancellationToken ct)
     {
+        await using var change = await AdministratorGuard.BeginChangeAsync(db, ct);
         var group = await db.Groups.FirstOrDefaultAsync(g => g.Id == id, ct);
         if (group is null)
         {
@@ -290,6 +300,10 @@ internal static class AccountEndpoints
         db.GroupNestings.RemoveRange(await db.GroupNestings.Where(n => n.GroupId == id || n.MemberGroupId == id).ToListAsync(ct));
         db.RoleAssignments.RemoveRange(await db.RoleAssignments.Where(a => a.PrincipalType == PrincipalType.Group && a.PrincipalId == id).ToListAsync(ct));
         await outbox.SaveChangesAsync(db, [Deleted(tenant, current, id, isGroup: true)], cancellationToken: ct);
+        if (db.Database.CurrentTransaction is not null)
+        {
+            await change.CommitAsync(ct);
+        }
         await sessions.InvalidateScopesAsync(ct);
         return TypedResults.NoContent();
     }
@@ -377,6 +391,7 @@ internal static class AccountEndpoints
     private static async Task<Results<NoContent, ProblemHttpResult>> RemoveAssignmentAsync(
         Guid id, Guid assignmentId, IdentityDbContext db, AccountSessions sessions, CancellationToken ct)
     {
+        await using var change = await AdministratorGuard.BeginChangeAsync(db, ct);
         var assignment = await db.RoleAssignments.FirstOrDefaultAsync(a => a.Id == assignmentId && a.RoleId == id, ct);
         if (assignment is null)
         {
@@ -390,6 +405,7 @@ internal static class AccountEndpoints
 
         db.RoleAssignments.Remove(assignment);
         await db.SaveChangesAsync(ct);
+        await change.CommitAsync(ct);
         await sessions.InvalidateScopesAsync(ct);
         return TypedResults.NoContent();
     }
@@ -414,6 +430,31 @@ internal static class AccountEndpoints
 /// <summary>Checks that enabled administrators remain after a change (IAM-14).</summary>
 internal static class AdministratorGuard
 {
+    /// <summary>
+    /// Serializes administrator changes across server instances. The unchanged built-in role is the tenant's
+    /// lock row; PostgreSQL holds its write lock until commit, and SQLite serializes writers for the transaction.
+    /// Acquire before reading memberships or accounts, and commit only after the guarded change is saved.
+    /// </summary>
+    public static async Task<IDbContextTransaction> BeginChangeAsync(IdentityDbContext db, CancellationToken ct)
+    {
+        var transaction = await db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            if (await db.Roles.Where(r => r.IsBuiltIn && r.Name == Role.Administrator)
+                    .ExecuteUpdateAsync(s => s.SetProperty(r => r.Name, r => r.Name), ct) != 1)
+            {
+                throw new InvalidOperationException("An administrator change requires the tenant's built-in Administrator role.");
+            }
+
+            return transaction;
+        }
+        catch
+        {
+            await transaction.DisposeAsync();
+            throw;
+        }
+    }
+
     /// <summary>
     /// True when at least one enabled user still holds a role that grants every scope once the given user,
     /// assignment, group, membership or nesting is gone (roles of a group reach the groups inside it).

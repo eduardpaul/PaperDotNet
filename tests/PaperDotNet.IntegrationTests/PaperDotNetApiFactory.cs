@@ -100,6 +100,12 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Tenancy:AllowHeader", "true");
         builder.UseSetting("Auth:ReverseProxy:Enabled", "true");
         builder.UseSetting("Auth:ReverseProxy:TrustedProxies:0", ReverseProxyTests.TrustedNetwork);
+        builder.UseSetting("Auth:ReverseProxy:Secret", ReverseProxyTests.Secret);
+        builder.UseSetting("Auth:ReverseProxy:GroupSync", "Sync");
+        builder.UseSetting("Auth:ReverseProxy:CreateGroups", "true");
+        builder.UseSetting("Auth:ReverseProxy:RefreshTokenLifetime", "00:05:00");
+        builder.UseSetting("Auth:ReverseProxy:LogoutUrl", ReverseProxyTests.ProxyLogoutUrl);
+        builder.UseSetting("Jobs:LiveEventsKeepAlive", "00:00:01");
         builder.UseSetting("Bootstrap:AdminPassword", AdminPassword);
         builder.UseSetting("Jobs:SchedulerInterval", "00:00:01");
         builder.UseSetting("Lists:DeltaSafetyWindow", "00:00:00");
