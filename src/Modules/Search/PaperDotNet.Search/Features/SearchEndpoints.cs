@@ -40,11 +40,6 @@ public sealed record SearchHit(
     public IReadOnlyList<string> MatchedBy { get; init; } = [];
 }
 
-public sealed record FacetValue(Guid Value, int Count);
-
-public sealed record SearchFacets(
-    IReadOnlyList<FacetValue> Workspace, IReadOnlyList<FacetValue> Container, IReadOnlyList<FacetValue> ContentType, IReadOnlyList<FacetValue> Term);
-
 /// <summary>
 /// Results; <c>mode</c> is how they were found. In <c>semantic</c> and <c>hybrid</c> mode the count and facets cover the
 /// best candidates only (see <c>Search:CandidateLimit</c>).
@@ -65,7 +60,7 @@ internal static class SearchEndpoints
     {
         var group = endpoints.MapV1Group("search", "Search");
         group.MapGet("", SearchAsync).RequireScope(SearchScopes.Read).WithName("Search")
-            .WithQueryOptions(QueryOptions.Top | QueryOptions.Skip);
+            .WithQueryOptions(QueryOptions.Top | QueryOptions.Skip | QueryOptions.Filter);
         group.MapPost("/reindex", ReindexAsync).RequireScope(SearchScopes.Manage).WithName("ReindexSearch");
     }
 
@@ -73,7 +68,8 @@ internal static class SearchEndpoints
     /// <c>q</c>: words, <c>"phrases"</c>, <c>OR</c>, <c>-exclude</c>, <c>prefix*</c> (optional when filtering).
     /// <c>mode</c>: <c>keyword</c>, <c>semantic</c> (by meaning) or <c>hybrid</c> (both; the default when semantic search
     /// is configured). Filters: <c>workspaceId</c>, <c>containerId</c> (list), <c>contentTypeId</c>, <c>termId</c> (includes
-    /// child terms), <c>createdBy</c>, <c>updatedFrom</c>/<c>updatedTo</c>. Paging with <c>$top</c>/<c>$skip</c>.
+    /// child terms), <c>createdBy</c>, <c>updatedFrom</c>/<c>updatedTo</c>, and <c>$filter</c> on the items' fields
+    /// (<c>fields/total gt 100 and fields/status in ('open', 'late')</c>). Paging with <c>$top</c>/<c>$skip</c>.
     /// </summary>
     private static async Task<Results<Ok<SearchResponse>, ValidationProblem>> SearchAsync(
         string? q, string? mode, Guid? workspaceId, Guid? containerId, Guid? contentTypeId, Guid? termId, Guid? createdBy,
@@ -93,7 +89,8 @@ internal static class SearchEndpoints
         var top = ParseInt(http, "$top", SearchService.DefaultTop, 1, SearchService.MaxTop);
         var skip = ParseInt(http, "$skip", 0, 0, int.MaxValue);
         var (result, parameter, error) = await search.SearchAsync(
-            new SearchRequest(q, parsedMode, workspaceId, containerId, contentTypeId, termId, createdBy, updatedFrom, updatedTo, top, skip), ct);
+            new SearchRequest(q, parsedMode, workspaceId, containerId, contentTypeId, termId, createdBy, updatedFrom, updatedTo, top, skip,
+                Filter: http.Query.TryGetValue("$filter", out var filter) ? filter.ToString() : null), ct);
         if (result is null)
         {
             return ApiErrors.Validation(new Dictionary<string, string[]> { [parameter!] = [error!] });

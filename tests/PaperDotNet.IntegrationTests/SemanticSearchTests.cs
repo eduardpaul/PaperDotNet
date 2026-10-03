@@ -79,6 +79,7 @@ public sealed class SemanticSearchTests(PaperDotNetApiFactory factory)
     [Fact]
     public async Task Documents_are_found_by_meaning_on_the_matching_page()
     {
+        SearchStoreUnderTest.RequireDatabase();
         var tenant = await factory.CreateTenantAsync("semantic-pages");
         var client = await ApiClient.CreateAsync(factory, "semantic-pages");
         var (ws, list) = await LibraryAsync(client, "Garage");
@@ -114,6 +115,7 @@ public sealed class SemanticSearchTests(PaperDotNetApiFactory factory)
     [Fact]
     public async Task Semantic_search_is_trimmed_validated_and_does_not_embed_unchanged_text_again()
     {
+        SearchStoreUnderTest.RequireDatabase();
         var tenant = await factory.CreateTenantAsync("semantic-acl");
         var admin = await ApiClient.CreateAsync(factory, "semantic-acl");
         var ws = await admin.CreateWorkspaceAsync("Clinic");
@@ -129,7 +131,8 @@ public sealed class SemanticSearchTests(PaperDotNetApiFactory factory)
         Assert.NotNull(Hit(await SearchAsync(admin, "doctor", "semantic"), note));
 
         // Re-indexing unchanged text keeps the embeddings.
-        var before = ConceptEmbeddingGenerator.Instance.Embedded;
+        var before = ConceptEmbeddingGenerator.Instance.Embedded("physician recommended rest");
+        Assert.NotEqual(0, before);
         await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier))
         {
             await scope.ServiceProvider.GetRequiredService<PaperDotNet.Lists.Contracts.IListItemStore>().ReindexAsync(note, Ct);
@@ -137,7 +140,7 @@ public sealed class SemanticSearchTests(PaperDotNetApiFactory factory)
             Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<SearchDbContext>().Passages.CountAsync(p => p.EmbeddingModel == null, Ct));
         }
 
-        Assert.Equal(before, ConceptEmbeddingGenerator.Instance.Embedded);
+        Assert.Equal(before, ConceptEmbeddingGenerator.Instance.Embedded("physician recommended rest"));
 
         // A user without access and another tenant see nothing.
         var created = await admin.PostAsJsonAsync("/v1.0/users", new { userName = "outsider", password = "outsider-password-1" }, Ct);

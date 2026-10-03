@@ -100,6 +100,16 @@ internal sealed class TestRecurringJob(ITenantContext tenant) : ITenantRecurring
     }
 }
 
+/// <summary>The search store the app runs on in this test run (PAPERDOTNET_TEST_SEARCH_STORE, default database).</summary>
+internal static class SearchStoreUnderTest
+{
+    public static string Name { get; } = Environment.GetEnvironmentVariable("PAPERDOTNET_TEST_SEARCH_STORE") is { Length: > 0 } store ? store : "database";
+
+    /// <summary>Skips a test that reads the database store's tables; the conformance suite covers the other stores.</summary>
+    public static void RequireDatabase() =>
+        Assert.SkipWhen(Name != "database", $"Checks the database store's tables; the {Name} store is covered by SearchStoreConformanceTests.");
+}
+
 internal static class Eventually
 {
     public static async Task<T> WaitForAsync<T>(Func<Task<T?>> probe, TimeSpan? timeout = null)

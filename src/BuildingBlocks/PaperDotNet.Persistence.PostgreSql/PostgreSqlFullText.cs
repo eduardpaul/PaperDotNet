@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using NpgsqlTypes;
+using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Persistence.PostgreSql;
 

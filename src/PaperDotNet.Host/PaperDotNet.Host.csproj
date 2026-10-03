@@ -31,6 +31,7 @@
     <ProjectReference Include="..\Modules\Audit\PaperDotNet.Audit\PaperDotNet.Audit.csproj" />
     <ProjectReference Include="..\Modules\Taxonomy\PaperDotNet.Taxonomy\PaperDotNet.Taxonomy.csproj" />
     <ProjectReference Include="..\Modules\Search\PaperDotNet.Search\PaperDotNet.Search.csproj" />
+    <ProjectReference Include="..\Modules\Search\PaperDotNet.Search.Zvec\PaperDotNet.Search.Zvec.csproj" />
     <ProjectReference Include="..\Modules\Documents\PaperDotNet.Documents\PaperDotNet.Documents.csproj" />
     <ProjectReference Include="..\Modules\Tasks\PaperDotNet.Tasks\PaperDotNet.Tasks.csproj" />
     <ProjectReference Include="..\Modules\AiWorkflows\PaperDotNet.AiWorkflows\PaperDotNet.AiWorkflows.csproj" />

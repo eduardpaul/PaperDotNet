@@ -68,6 +68,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | Garnet (`Microsoft.Garnet`) | MIT | Optional Redis-protocol cache server |
 | Keycloak | Apache-2.0 | Example external IdP |
 | OpenSearch / Qdrant / Meilisearch Community | Apache-2.0 / Apache-2.0 / MIT | Optional external search/vector engines |
+| zvec (`libzvec_c_api`, native, built from source; ADR-0044) | Apache-2.0; statically includes Apache-2.0, MIT, BSD-2/3 code, **zlib** (zlib License) and **Boost** (BSL-1.0) | Optional in-process search store. **Not shipped yet:** zlib and BSL-1.0 are not on the allow list; decision pending ([spike](performance-artifacts/zvec-spike/README.md)) |
 | SeaweedFS | Apache-2.0 | S3-compatible store for tests |
 | Ollama | MIT | Optional local LLM runtime; also the runtime of the optional GLM-OCR image (ADR-0034) |
 | GLM-OCR model (`glm-ocr`, weights) | MIT (project code Apache-2.0) | Optional OCR engine in `Dockerfile.glm`. Not in the default image |

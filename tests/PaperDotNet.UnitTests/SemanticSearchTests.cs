@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.AI;
 using PaperDotNet.Search.Contracts;
 using PaperDotNet.Search.Features;
+using PaperDotNet.Search.Stores.Database;
 
 namespace PaperDotNet.UnitTests;
 
@@ -80,6 +81,6 @@ public sealed class SemanticSearchTests
             ["AI:Embeddings:Model"] = "nomic-embed-text",
         }).GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>();
         Assert.Equal("nomic-embed-text", generator.GetService<EmbeddingGeneratorMetadata>()?.DefaultModelId);
-        Assert.StartsWith("openai:nomic-embed-text", SemanticSearch.ModelKeyOf(generator), StringComparison.Ordinal);
+        Assert.StartsWith("openai:nomic-embed-text", EmbeddingModel.ModelKeyOf(generator), StringComparison.Ordinal);
     }
 }

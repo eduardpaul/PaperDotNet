@@ -1,0 +1,117 @@
+# PaperDotNet behind Nginx Proxy Manager (NPM). Setup: README.md in this folder.
+#   cp .env.example .env      # then set the host names and the secrets
+#   docker compose up -d      # the services of the profiles in COMPOSE_PROFILES (.env)
+# Profiles:
+#   npm       a new NPM with this stack; leave it out to use the NPM you already run (README.md)
+#   authelia  Authelia for users, groups and two-factor sign-in; without it, an NPM access list signs people in
+name: paperdotnet-npm
+
+services:
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    profiles: [npm]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      # NPM's admin UI, only on this machine: open it through an SSH tunnel (README.md), never from the internet.
+      - "${NPM_ADMIN_BIND:-127.0.0.1}:${NPM_ADMIN_PORT:-81}:81"
+    volumes:
+      - npm-data:/data
+      - npm-letsencrypt:/etc/letsencrypt
+      # Groups per user for the access-list mode (README.md).
+      - ./npm/http_top.conf:/data/nginx/custom/http_top.conf:ro
+    networks:
+      proxy:
+        # PaperDotNet trusts sign-in headers and forwarded headers only from this address.
+        ipv4_address: ${NPM_IP:-172.30.10.2}
+
+  paperdotnet:
+    image: ${PAPERDOTNET_IMAGE:-paperdotnet:local}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # No published port: only NPM reaches PaperDotNet. A port here would let clients skip the proxy.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      PAPERDOTNET__Bootstrap__AdminPassword: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      PAPERDOTNET__Tenancy__DefaultTenant: ${DEFAULT_TENANT:-default}
+      # TLS ends at NPM, which forwards the scheme (X-Forwarded-Proto) and keeps the Host header.
+      PAPERDOTNET__ForwardedHeaders__Enabled: "true"
+      PAPERDOTNET__Auth__RequireHttps: "true"
+      # The web UI's sign-in returns to /callback on the public host name.
+      PAPERDOTNET__Auth__FirstPartyRedirectUris__0: https://${PAPERDOTNET_HOST:?set PAPERDOTNET_HOST in .env}/callback
+      # Sign-in through the proxy (IAM-15, ADR-0031, ADR-0045): NPM authenticates /auth/proxy/ only, names the
+      # user there and sends the secret. Forwarded headers count only from NPM's address, too.
+      PAPERDOTNET__Auth__ReverseProxy__Enabled: "true"
+      PAPERDOTNET__Auth__ReverseProxy__TrustedProxies__0: ${NPM_IP:-172.30.10.2}
+      PAPERDOTNET__Auth__ReverseProxy__Secret: ${PROXY_SECRET:?set PROXY_SECRET in .env}
+      # Only the proxy signs people in: no passwords or passkeys stored in PaperDotNet, so nobody can skip the
+      # proxy's rules (two-factor, bans, removed users). API tokens keep working. true only for a break-glass sign-in.
+      PAPERDOTNET__Auth__LocalSignIn: ${LOCAL_SIGN_IN:-false}
+      # Unknown users are created as Members on their first sign-in; false admits only existing users.
+      PAPERDOTNET__Auth__ReverseProxy__CreateUsers: ${CREATE_USERS:-true}
+      # Groups: create the ones the proxy names, and remove members the proxy no longer lists in them.
+      PAPERDOTNET__Auth__ReverseProxy__CreateGroups: ${CREATE_GROUPS:-true}
+      PAPERDOTNET__Auth__ReverseProxy__GroupSync: ${GROUP_SYNC:-Sync}
+      # A proxy sign-in lasts this long, then the browser goes through the proxy again.
+      PAPERDOTNET__Auth__ReverseProxy__RefreshTokenLifetime: ${PROXY_SIGN_IN_LIFETIME:-1.00:00:00}
+      # Where signing out goes afterwards (Authelia: https://AUTH_HOST/logout). Basic auth has no logout.
+      PAPERDOTNET__Auth__ReverseProxy__LogoutUrl: ${PROXY_LOGOUT_URL:-}
+    volumes:
+      - paperdotnet-data:/data
+    networks:
+      - proxy
+
+  authelia:
+    image: authelia/authelia:4.39
+    profiles: [authelia]
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # configuration.yml reads the host names below with {{ env "…" }}.
+      X_AUTHELIA_CONFIG_FILTERS: template
+      PAPERDOTNET_HOST: ${PAPERDOTNET_HOST}
+      AUTH_HOST: ${AUTH_HOST:-}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      AUTHELIA_SESSION_SECRET_FILE: /run/secrets/authelia_session_secret
+      AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE: /run/secrets/authelia_storage_encryption_key
+      AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE: /run/secrets/authelia_reset_password_jwt_secret
+    secrets:
+      - authelia_session_secret
+      - authelia_storage_encryption_key
+      - authelia_reset_password_jwt_secret
+    volumes:
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+      # Writable: Authelia stores password changes here.
+      - ./authelia/users_database.yml:/config/users_database.yml
+      - authelia-data:/var/lib/authelia
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    # A fixed name and subnet, so an NPM from another compose project can join with a fixed address (README.md).
+    name: paperdotnet-proxy
+    ipam:
+      config:
+        - subnet: ${PROXY_SUBNET:-172.30.10.0/24}
+
+volumes:
+  npm-data:
+  npm-letsencrypt:
+  paperdotnet-data:
+  authelia-data:
+
+secrets:
+  authelia_session_secret:
+    environment: AUTHELIA_SESSION_SECRET
+  authelia_storage_encryption_key:
+    environment: AUTHELIA_STORAGE_ENCRYPTION_KEY
+  authelia_reset_password_jwt_secret:
+    environment: AUTHELIA_RESET_PASSWORD_JWT_SECRET

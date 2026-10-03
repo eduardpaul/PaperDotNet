@@ -15,9 +15,10 @@ public sealed record BackupManifest(string Format, DateTimeOffset CreatedAt, str
 
 /// <summary>
 /// Backup and restore of a whole installation (PLT-12): one <c>.tar.gz</c> with <c>manifest.json</c>, a database
-/// snapshot (<see cref="IDatabaseBackup"/>) and the stored files under <c>blobs/</c>, without temporary files and
-/// cached page images. The snapshot is taken first: stored files are immutable and content-addressed, so every file
-/// it refers to exists when the files are copied, and a backup is safe while the server runs.
+/// snapshot (<see cref="IDatabaseBackup"/>), the stored files under <c>blobs/</c>, without temporary files and
+/// cached page images, and the <see cref="IBackupFolder"/>s under <c>folders/{name}/</c> (copied while frozen). The
+/// snapshot is taken first: stored files are immutable and content-addressed, so every file it refers to exists when
+/// the files are copied, and a backup is safe while the server runs.
 /// </summary>
 public sealed class BackupService(
     IDatabaseBackup database,
@@ -25,12 +26,14 @@ public sealed class BackupService(
     DatabaseMigrator migrator,
     IBlobStore blobs,
     ITenantDirectory tenants,
+    IEnumerable<IBackupFolder> folders,
     TimeProvider time)
 {
     public const string Format = "paperdotnet-backup/1";
 
     private const string ManifestName = "manifest.json";
     private const string BlobFolder = "blobs/";
+    private const string FoldersPrefix = "folders/";
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
@@ -63,6 +66,21 @@ public sealed class BackupService(
                     if (File.Exists(source))
                     {
                         await tar.WriteEntryAsync(source, BlobFolder + file, ct);
+                    }
+                }
+
+                foreach (var folder in folders)
+                {
+                    await using var frozen = await folder.FreezeAsync(ct);
+                    if (!Directory.Exists(folder.Path))
+                    {
+                        continue;
+                    }
+
+                    foreach (var file in Directory.EnumerateFiles(folder.Path, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+                    {
+                        var name = Path.GetRelativePath(folder.Path, file).Replace(Path.DirectorySeparatorChar, '/');
+                        await tar.WriteEntryAsync(file, $"{FoldersPrefix}{folder.Name}/{name}", ct);
                     }
                 }
             }
@@ -108,37 +126,78 @@ public sealed class BackupService(
 
         var restoredDatabase = false;
         var clearedFiles = false;
-        while (await tar.GetNextEntryAsync(copyData: false, ct) is { } entry)
+        var byName = folders.ToDictionary(f => f.Name, StringComparer.Ordinal);
+        var frozen = new Dictionary<string, IAsyncDisposable>(StringComparer.Ordinal);
+        try
         {
-            if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile) || entry.DataStream is null)
+            while (await tar.GetNextEntryAsync(copyData: false, ct) is { } entry)
             {
-                continue;
-            }
-
-            if (entry.Name == manifest.Database)
-            {
-                var snapshot = Path.Combine(Path.GetTempPath(), $"pdn_restore_{Guid.NewGuid():N}");
-                try
+                if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile))
                 {
-                    await entry.ExtractToFileAsync(snapshot, overwrite: false, ct);
-                    await database.RestoreAsync(snapshot, ct);
-                    restoredDatabase = true;
-                }
-                finally
-                {
-                    File.Delete(snapshot);
-                }
-            }
-            else if (entry.Name.StartsWith(BlobFolder, StringComparison.Ordinal) && IsStoredFile(entry.Name[BlobFolder.Length..]))
-            {
-                if (!clearedFiles)
-                {
-                    ClearStoredFiles(root);
-                    clearedFiles = true;
+                    continue;
                 }
 
-                // The blob store checks the key, so an entry cannot write outside the store.
-                await blobs.WriteAsync(entry.Name[BlobFolder.Length..], entry.DataStream, ct);
+                // Folders keep their empty files (zvec's LOCK files); the database and blobs never have any.
+                if (FolderEntry(entry.Name, byName) is { } target)
+                {
+                    if (!frozen.ContainsKey(target.Folder.Name))
+                    {
+                        frozen[target.Folder.Name] = await ClearAsync(target.Folder, ct);
+                    }
+
+                    Directory.CreateDirectory(Path.GetDirectoryName(target.File)!);
+                    await using var file = File.Create(target.File);
+                    if (entry.DataStream is { } content)
+                    {
+                        await content.CopyToAsync(file, ct);
+                    }
+
+                    continue;
+                }
+
+                if (entry.DataStream is null)
+                {
+                    continue;
+                }
+
+                if (entry.Name == manifest.Database)
+                {
+                    var snapshot = Path.Combine(Path.GetTempPath(), $"pdn_restore_{Guid.NewGuid():N}");
+                    try
+                    {
+                        await entry.ExtractToFileAsync(snapshot, overwrite: false, ct);
+                        await database.RestoreAsync(snapshot, ct);
+                        restoredDatabase = true;
+                    }
+                    finally
+                    {
+                        File.Delete(snapshot);
+                    }
+                }
+                else if (entry.Name.StartsWith(BlobFolder, StringComparison.Ordinal) && IsStoredFile(entry.Name[BlobFolder.Length..]))
+                {
+                    if (!clearedFiles)
+                    {
+                        ClearStoredFiles(root);
+                        clearedFiles = true;
+                    }
+
+                    // The blob store checks the key, so an entry cannot write outside the store.
+                    await blobs.WriteAsync(entry.Name[BlobFolder.Length..], entry.DataStream, ct);
+                }
+            }
+
+            // A folder the backup does not have would not match the restored database: it is emptied (a reindex fills it).
+            foreach (var folder in byName.Values.Where(f => !frozen.ContainsKey(f.Name)))
+            {
+                frozen[folder.Name] = await ClearAsync(folder, ct);
+            }
+        }
+        finally
+        {
+            foreach (var handle in frozen.Values)
+            {
+                await handle.DisposeAsync();
             }
         }
 
@@ -154,6 +213,31 @@ public sealed class BackupService(
 
         await migrator.MigrateAsync(ct);
         return manifest;
+    }
+
+    private static async Task<IAsyncDisposable> ClearAsync(IBackupFolder folder, CancellationToken ct)
+    {
+        var handle = await folder.FreezeAsync(ct);
+        if (Directory.Exists(folder.Path))
+        {
+            Directory.Delete(folder.Path, recursive: true);
+        }
+
+        return handle;
+    }
+
+    /// <summary>The folder and file an entry restores to; null for other entries and for names that leave the folder.</summary>
+    private static (IBackupFolder Folder, string File)? FolderEntry(string name, Dictionary<string, IBackupFolder> folders)
+    {
+        if (!name.StartsWith(FoldersPrefix, StringComparison.Ordinal) || name[FoldersPrefix.Length..].Split('/', 2) is not [var folderName, var relative]
+            || !folders.TryGetValue(folderName, out var folder) || relative.Length == 0)
+        {
+            return null;
+        }
+
+        var root = Path.GetFullPath(folder.Path) + Path.DirectorySeparatorChar;
+        var file = Path.GetFullPath(Path.Combine(root, relative));
+        return file.StartsWith(root, StringComparison.Ordinal) ? (folder, file) : null;
     }
 
     /// <summary>Stored files only: no temporary files, no cached page images (they are rendered again).</summary>

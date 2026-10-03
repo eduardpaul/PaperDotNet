@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.IntegrationTests;
 
@@ -25,10 +26,14 @@ internal sealed class ConceptEmbeddingGenerator : IEmbeddingGenerator<string, Em
         ["medic"] = "doctor",
     };
 
-    private int _embedded;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _embedded = new(StringComparer.Ordinal);
 
-    /// <summary>Texts embedded so far (all calls).</summary>
-    public int Embedded => Volatile.Read(ref _embedded);
+    /// <summary>
+    /// How often texts containing <paramref name="fragment"/> were embedded. Tests run in parallel against one
+    /// generator, so a test counts only its own texts.
+    /// </summary>
+    public int Embedded(string fragment) =>
+        _embedded.Where(e => e.Key.Contains(fragment, StringComparison.Ordinal)).Sum(e => e.Value);
 
     public Task<GeneratedEmbeddings<Embedding<float>>> GenerateAsync(
         IEnumerable<string> values, EmbeddingGenerationOptions? options = null, CancellationToken cancellationToken = default)
@@ -36,9 +41,9 @@ internal sealed class ConceptEmbeddingGenerator : IEmbeddingGenerator<string, Em
         var result = new GeneratedEmbeddings<Embedding<float>>();
         foreach (var text in values)
         {
-            Interlocked.Increment(ref _embedded);
+            _embedded.AddOrUpdate(text, 1, (_, count) => count + 1);
             var vector = new float[Dimensions];
-            foreach (var word in PaperDotNet.Persistence.FullTextQuery.Tokenize(text))
+            foreach (var word in FullTextQuery.Tokenize(text))
             {
                 vector[Axis(Concepts.GetValueOrDefault(word, word))] += 1;
             }

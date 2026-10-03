@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\src\Modules\Jobs\PaperDotNet.Jobs\PaperDotNet.Jobs.csproj" />
     <ProjectReference Include="..\..\src\Modules\Taxonomy\PaperDotNet.Taxonomy\PaperDotNet.Taxonomy.csproj" />
     <ProjectReference Include="..\..\src\Modules\Search\PaperDotNet.Search\PaperDotNet.Search.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Search\PaperDotNet.Search.Zvec\PaperDotNet.Search.Zvec.csproj" />
     <ProjectReference Include="..\..\src\Modules\ExtensionHost\PaperDotNet.ExtensionHost\PaperDotNet.ExtensionHost.csproj" />
     <ProjectReference Include="..\..\src\Modules\Documents\PaperDotNet.Documents\PaperDotNet.Documents.csproj" />
     <ProjectReference Include="..\..\src\Modules\Notifications\PaperDotNet.Notifications\PaperDotNet.Notifications.csproj" />

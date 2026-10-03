@@ -30,6 +30,12 @@ public sealed class JobsOptions
     public TimeSpan SchedulerInterval { get; set; } = TimeSpan.FromSeconds(30);
 
     public bool SchedulerEnabled { get; set; } = true;
+
+    /// <summary>
+    /// How often a quiet live event stream sends a <c>keepalive</c> event, below the idle timeouts of proxies
+    /// (Nginx Proxy Manager 90 s, Cloudflare 100 s), ADR-0045.
+    /// </summary>
+    public TimeSpan LiveEventsKeepAlive { get; set; } = TimeSpan.FromSeconds(30);
 }
 
 /// <summary>

@@ -1,9 +1,10 @@
 using PaperDotNet.Mcp.Contracts;
+using PaperDotNet.Search.Contracts;
 
 namespace PaperDotNet.Search.Features;
 
 /// <summary>The <c>search</c> MCP tool (API-08): keyword, semantic or hybrid search over what the caller may read.</summary>
-internal sealed class SearchTool(SearchService search, SemanticSearch semantic) : IMcpTool
+internal sealed class SearchTool(SearchService search) : IMcpTool
 {
     private const int MaxTop = 50;
 
@@ -12,13 +13,14 @@ internal sealed class SearchTool(SearchService search, SemanticSearch semantic) 
     public string Description =>
         "Search documents (including their text, with the matching page), tasks, events and list items you can read. " +
         "Query syntax: words, \"phrases\", OR, -exclude, prefix*. " +
-        (semantic.Enabled ? "By default it also finds matches by meaning (hybrid); mode can be keyword, semantic or hybrid. " : string.Empty) +
+        (search.SemanticEnabled ? "By default it also finds matches by meaning (hybrid); mode can be keyword, semantic or hybrid. " : string.Empty) +
         "Returns ids to read with get_item.";
 
     public System.Text.Json.JsonElement InputSchema { get; } = McpSchema.ObjectSchema(
         ("query", "string", "What to search for.", true),
         ("workspaceId", "string", "Only this workspace (id).", false),
         ("mode", "string", "keyword, semantic or hybrid (default: hybrid when available).", false),
+        ("filter", "string", "OData filter on item fields, e.g. fields/total gt 100 and fields/status eq 'open'.", false),
         ("top", "integer", "Maximum number of hits (1-50, default 10).", false));
 
     public string? RequiredScope => SearchScopes.Read;
@@ -40,7 +42,8 @@ internal sealed class SearchTool(SearchService search, SemanticSearch semantic) 
 
         var top = Math.Clamp(arguments.GetInt32("top") ?? 10, 1, MaxTop);
         var (result, _, error) = await search.SearchAsync(
-            new SearchRequest(arguments.GetRequiredString("query"), mode, arguments.GetGuid("workspaceId"), Top: top, WithFacets: false), cancellationToken);
+            new SearchRequest(arguments.GetRequiredString("query"), mode, arguments.GetGuid("workspaceId"), Top: top, WithFacets: false,
+                Filter: arguments.GetString("filter")), cancellationToken);
         if (result is null)
         {
             return McpToolResult.Error(error!);

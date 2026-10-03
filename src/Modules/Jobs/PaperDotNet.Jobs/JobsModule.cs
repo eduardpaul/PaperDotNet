@@ -15,7 +15,11 @@ public sealed class JobsModule : IModule
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddOptions<JobsOptions>().BindConfiguration(JobsOptions.Section);
+        services.AddOptions<JobsOptions>().BindConfiguration(JobsOptions.Section)
+            .Validate(o => o.LiveEventsKeepAlive >= TimeSpan.FromMilliseconds(1)
+                           && o.LiveEventsKeepAlive <= TimeSpan.FromMilliseconds(uint.MaxValue - 1),
+                "Jobs:LiveEventsKeepAlive must be between 1 millisecond and 4294967294 milliseconds.")
+            .ValidateOnStart();
         services.AddModuleDbContext<JobsDbContext>(JobsDbContext.Schema);
         services.AddScoped<IOperations, OperationService>();
         services.AddScoped<OperationRunner>();

@@ -1,0 +1,523 @@
+using Microsoft.Extensions.DependencyInjection;
+using PaperDotNet.Abstractions;
+using PaperDotNet.Search.Contracts;
+using PaperDotNet.Search.Features;
+using PaperDotNet.Search.Zvec.Native;
+using PaperDotNet.Tenancy.Contracts;
+
+namespace PaperDotNet.IntegrationTests;
+
+/// <summary>
+/// What every search store must do (ADR-0043, docs/search-zvec-plan.md WP1): the same tests run against each store
+/// through <see cref="ISearchStore"/> only, with synthetic documents in a fresh tenant. A store that cannot run here
+/// (e.g. without its native library) skips with the reason from <see cref="SkipReason"/>.
+/// </summary>
+public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
+{
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    /// <summary>The <c>Search:Store</c> name of the store under test.</summary>
+    protected abstract string StoreName { get; }
+
+    /// <summary>Why the store cannot be tested in this environment, or null.</summary>
+    protected virtual string? SkipReason => null;
+
+    private sealed class Context(PaperDotNetApiFactory factory, TenantSummary tenant, string storeName)
+    {
+        public TenantSummary Tenant => tenant;
+
+        public async Task<T> RunAsync<T>(Func<ISearchStore, Task<T>> action)
+        {
+            await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier);
+            return await action(scope.ServiceProvider.GetRequiredKeyedService<ISearchStore>(storeName));
+        }
+
+        /// <summary>The configured embedding model's key and an embedding of <paramref name="text"/> with it.</summary>
+        public async Task<(string Model, float[] Vector)> EmbedAsync(string text)
+        {
+            await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier);
+            var model = scope.ServiceProvider.GetRequiredService<EmbeddingModel>();
+            return (model.ModelKey, (await model.Generator!.GenerateAsync([text], cancellationToken: Ct))[0].Vector.ToArray());
+        }
+
+        public async Task RunAsync(Func<ISearchStore, Task> action)
+        {
+            await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier);
+            await action(scope.ServiceProvider.GetRequiredKeyedService<ISearchStore>(storeName));
+        }
+    }
+
+    private async Task<Context> NewTenantAsync()
+    {
+        Assert.SkipWhen(SkipReason is not null, SkipReason ?? string.Empty);
+        var tenant = await factory.CreateTenantAsync($"store-{StoreName}-{Guid.NewGuid():N}"[..40]);
+        return new Context(factory, tenant, StoreName);
+    }
+
+    private static SearchDocumentData Document(
+        Guid scope, string title, string body = "", Guid? workspace = null, Guid? container = null, IReadOnlyList<string>? pages = null,
+        IReadOnlyCollection<Guid>? terms = null, DateTimeOffset? updated = null, string source = "test", Guid? contentType = null, Guid? author = null) =>
+        new(PaperDotNet.Abstractions.Ids.New(), source, workspace ?? Guid.Empty, container, contentType, title, body, scope, terms ?? [], author, updated ?? DateTimeOffset.UnixEpoch)
+        {
+            Pages = pages ?? [],
+        };
+
+    private static StoreSearchQuery Keyword(string? text, StoreFilter filter, int top = 25, int skip = 0) =>
+        new(SearchMode.Keyword, text is null ? null : FullTextQuery.Parse(text, out _), filter, skip, top) { WithFacets = true };
+
+    private static StoreFilter Readable(params Guid[] scopes) => new(scopes);
+
+    private static List<Guid> Ids(StoreSearchResult result) => result.Hits.Select(h => h.Id).ToList();
+
+    [Fact]
+    public async Task Keyword_search_finds_title_body_keywords_and_pages()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var byTitle = Document(scope, "Quarterly zephyr report");
+        var byBody = Document(scope, "Notes", "the zephyr was strong");
+        var byKeywords = Document(scope, "Tagged") with { Keywords = "zephyr" };
+        var byPage = Document(scope, "Scan", pages: ["nothing here", "a zephyr on page two"]);
+        var other = Document(scope, "Unrelated", "calm weather");
+        await ctx.RunAsync(s => s.UpsertAsync([byTitle, byBody, byKeywords, byPage, other], Ct));
+
+        var result = await ctx.RunAsync(s => s.SearchAsync(Keyword("zephyr", Readable(scope)), Ct));
+
+        Assert.Equal(4, result.Count);
+        Assert.Equivalent(new[] { byTitle.Id, byBody.Id, byKeywords.Id, byPage.Id }, Ids(result));
+        Assert.All(result.Hits, h => Assert.Equal([SearchMatch.Keyword], h.MatchedBy));
+        var pageHit = result.Hits.Single(h => h.Id == byPage.Id);
+        Assert.Equal(2, pageHit.Page);
+        Assert.Contains("zephyr", pageHit.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Title_matches_rank_above_body_matches()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var body = Document(scope, "Minutes", "we discussed the quokka budget at length");
+        var title = Document(scope, "Quokka budget", "figures for next year");
+        await ctx.RunAsync(s => s.UpsertAsync([body, title], Ct));
+
+        var result = await ctx.RunAsync(s => s.SearchAsync(Keyword("quokka", Readable(scope)), Ct));
+
+        Assert.Equal([title.Id, body.Id], Ids(result));
+    }
+
+    [Fact]
+    public async Task Query_syntax_phrases_or_exclusions_and_prefixes()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var a = Document(scope, "A", "red apple pie");
+        var b = Document(scope, "B", "apple red pie");
+        var c = Document(scope, "C", "green pear tart");
+        await ctx.RunAsync(s => s.UpsertAsync([a, b, c], Ct));
+
+        async Task<List<Guid>> Find(string q) => Ids(await ctx.RunAsync(s => s.SearchAsync(Keyword(q, Readable(scope)), Ct)));
+
+        Assert.Equal([a.Id], await Find("\"red apple\""));
+        Assert.Equivalent(new[] { a.Id, c.Id }, await Find("\"red apple\" OR pear"));
+        Assert.Equal([c.Id], await Find("pie OR tart -apple"));
+        Assert.Equivalent(new[] { a.Id, b.Id }, await Find("appl*"));
+    }
+
+    [Fact]
+    public async Task Results_are_trimmed_to_the_readable_scopes()
+    {
+        var ctx = await NewTenantAsync();
+        var mine = Guid.NewGuid();
+        var theirs = Guid.NewGuid();
+        var visible = Document(mine, "Walrus plan");
+        var hidden = Document(theirs, "Walrus secret");
+        await ctx.RunAsync(s => s.UpsertAsync([visible, hidden], Ct));
+
+        var result = await ctx.RunAsync(s => s.SearchAsync(Keyword("walrus", Readable(mine)), Ct));
+        Assert.Equal([visible.Id], Ids(result));
+        Assert.Equal(1, result.Count);
+
+        var none = await ctx.RunAsync(s => s.SearchAsync(Keyword("walrus", Readable()), Ct));
+        Assert.Empty(none.Hits);
+    }
+
+    [Fact]
+    public async Task Documents_of_another_tenant_are_never_found()
+    {
+        var first = await NewTenantAsync();
+        var second = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var document = Document(scope, "Narwhal ledger");
+        await first.RunAsync(s => s.UpsertAsync([document], Ct));
+
+        var other = await second.RunAsync(s => s.SearchAsync(Keyword("narwhal", Readable(scope)), Ct));
+        Assert.Empty(other.Hits);
+        await second.RunAsync(s => s.DeleteAsync([document.Id], Ct));
+
+        var own = await first.RunAsync(s => s.SearchAsync(Keyword("narwhal", Readable(scope)), Ct));
+        Assert.Equal([document.Id], Ids(own));
+    }
+
+    [Fact]
+    public async Task Filters_narrow_the_results()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var (ws1, ws2, list, type, author, term) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var jan = new DateTimeOffset(2026, 1, 15, 0, 0, 0, TimeSpan.Zero);
+        var mar = new DateTimeOffset(2026, 3, 15, 0, 0, 0, TimeSpan.Zero);
+        var d1 = Document(scope, "Ibis one", workspace: ws1, container: list, contentType: type, author: author, terms: [term], updated: jan);
+        var d2 = Document(scope, "Ibis two", workspace: ws1, updated: mar);
+        var d3 = Document(scope, "Ibis three", workspace: ws2, updated: mar);
+        await ctx.RunAsync(s => s.UpsertAsync([d1, d2, d3], Ct));
+
+        async Task<List<Guid>> Find(StoreFilter filter) => Ids(await ctx.RunAsync(s => s.SearchAsync(Keyword("ibis", filter), Ct)));
+        var all = Readable(scope);
+
+        Assert.Equivalent(new[] { d1.Id, d2.Id }, await Find(all with { WorkspaceId = ws1 }));
+        Assert.Equal([d1.Id], await Find(all with { ContainerId = list }));
+        Assert.Equal([d1.Id], await Find(all with { ContentTypeId = type }));
+        Assert.Equal([d1.Id], await Find(all with { CreatedBy = author }));
+        Assert.Equal([d1.Id], await Find(all with { TermIds = [Guid.NewGuid(), term] }));
+        Assert.Equivalent(new[] { d2.Id, d3.Id }, await Find(all with { UpdatedFrom = new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero) }));
+        Assert.Equal([d1.Id], await Find(all with { UpdatedTo = new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero) }));
+    }
+
+    [Fact]
+    public async Task Filters_alone_list_documents_newest_first()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var ws = Guid.NewGuid();
+        var older = Document(scope, "Older", workspace: ws, updated: DateTimeOffset.UnixEpoch.AddDays(1));
+        var newer = Document(scope, "Newer", workspace: ws, updated: DateTimeOffset.UnixEpoch.AddDays(2));
+        var elsewhere = Document(scope, "Elsewhere", updated: DateTimeOffset.UnixEpoch.AddDays(3));
+        await ctx.RunAsync(s => s.UpsertAsync([older, newer, elsewhere], Ct));
+
+        var result = await ctx.RunAsync(s => s.SearchAsync(Keyword(null, Readable(scope) with { WorkspaceId = ws }), Ct));
+
+        Assert.Equal([newer.Id, older.Id], Ids(result));
+        Assert.All(result.Hits, h => Assert.Empty(h.MatchedBy));
+    }
+
+    [Fact]
+    public async Task Paging_and_counts_cover_every_match()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var documents = Enumerable.Range(0, 7).Select(i => Document(scope, $"Okapi {i}")).ToList();
+        await ctx.RunAsync(s => s.UpsertAsync(documents, Ct));
+
+        var first = await ctx.RunAsync(s => s.SearchAsync(Keyword("okapi", Readable(scope), top: 3), Ct));
+        var last = await ctx.RunAsync(s => s.SearchAsync(Keyword("okapi", Readable(scope), top: 3, skip: 6), Ct));
+
+        Assert.Equal(7, first.Count);
+        Assert.Equal(3, first.Hits.Count);
+        Assert.Single(last.Hits);
+        Assert.Empty(Ids(first).Intersect(Ids(last)));
+    }
+
+    [Fact]
+    public async Task Facets_count_workspaces_lists_content_types_and_terms()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var (ws, list, type, term) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        await ctx.RunAsync(s => s.UpsertAsync(
+        [
+            Document(scope, "Tapir a", workspace: ws, container: list, contentType: type, terms: [term]),
+            Document(scope, "Tapir b", workspace: ws, container: list, terms: [term]),
+            Document(scope, "Tapir c", workspace: ws),
+        ], Ct));
+
+        var facets = (await ctx.RunAsync(s => s.SearchAsync(Keyword("tapir", Readable(scope)), Ct))).Facets;
+        Assert.SkipWhen(facets is null, "The store leaves facets to the search service.");
+
+        Assert.Equal([new FacetValue(ws, 3)], facets!.Workspace);
+        Assert.Equal([new FacetValue(list, 2)], facets.Container);
+        Assert.Equal([new FacetValue(type, 1)], facets.ContentType);
+        Assert.Equal([new FacetValue(term, 2)], facets.Term);
+    }
+
+    [Fact]
+    public async Task Upserting_again_replaces_the_text()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var document = Document(scope, "Draft", "the marmot section");
+        await ctx.RunAsync(s => s.UpsertAsync([document], Ct));
+        await ctx.RunAsync(s => s.UpsertAsync([document with { Body = "the badger section" }], Ct));
+
+        Assert.Empty((await ctx.RunAsync(s => s.SearchAsync(Keyword("marmot", Readable(scope)), Ct))).Hits);
+        Assert.Equal([document.Id], Ids(await ctx.RunAsync(s => s.SearchAsync(Keyword("badger", Readable(scope)), Ct))));
+    }
+
+    [Fact]
+    public async Task Documents_are_deleted_by_id_container_and_source()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var list = Guid.NewGuid();
+        var byId = Document(scope, "Gecko id");
+        var inList = Document(scope, "Gecko list", container: list);
+        var ofSource = Document(scope, "Gecko source", source: "other");
+        var kept = Document(scope, "Gecko kept");
+        await ctx.RunAsync(s => s.UpsertAsync([byId, inList, ofSource, kept], Ct));
+
+        await ctx.RunAsync(s => s.DeleteAsync([byId.Id], Ct));
+        await ctx.RunAsync(s => s.DeleteContainerAsync(list, Ct));
+        await ctx.RunAsync(s => s.DeleteSourceAsync("other", Ct));
+
+        Assert.Equal([kept.Id], Ids(await ctx.RunAsync(s => s.SearchAsync(Keyword("gecko", Readable(scope)), Ct))));
+    }
+
+    [Fact]
+    public async Task Moving_documents_to_another_scope_changes_who_finds_them()
+    {
+        var ctx = await NewTenantAsync();
+        var (before, after) = (Guid.NewGuid(), Guid.NewGuid());
+        var document = Document(before, "Lemur memo");
+        await ctx.RunAsync(s => s.UpsertAsync([document], Ct));
+
+        await ctx.RunAsync(s => s.SetScopesAsync(new Dictionary<Guid, Guid> { [document.Id] = after, [Guid.NewGuid()] = after }, Ct));
+
+        Assert.Empty((await ctx.RunAsync(s => s.SearchAsync(Keyword("lemur", Readable(before)), Ct))).Hits);
+        Assert.Equal([document.Id], Ids(await ctx.RunAsync(s => s.SearchAsync(Keyword("lemur", Readable(after)), Ct))));
+    }
+
+    [Fact]
+    public async Task Term_usage_is_counted()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var (used, twice, unused) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        await ctx.RunAsync(s => s.UpsertAsync([Document(scope, "a", terms: [used, twice]), Document(scope, "b", terms: [twice])], Ct));
+
+        var counts = await ctx.RunAsync(s => s.CountTermsAsync([used, twice, unused], Ct));
+
+        Assert.Equal(new Dictionary<Guid, int> { [used] = 1, [twice] = 2 }, counts);
+    }
+
+    private sealed record FieldSetup(Context Ctx, Guid Scope, SearchDocumentData First, SearchDocumentData Second, SearchDocumentData Plain, Guid Alice, Guid Term);
+
+    /// <summary>Two documents with typed fields and one without.</summary>
+    private async Task<FieldSetup> FieldsAsync()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var (alice, bob, term) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var first = Document(scope, "Field one") with
+        {
+            Fields =
+            [
+                new SearchField("total", SearchFieldKind.Number, [SearchValue.Of(120.5)]) { Indexed = true },
+                new SearchField("status", SearchFieldKind.Keyword, [SearchValue.Of("open")]),
+                new SearchField("paid", SearchFieldKind.Boolean, [SearchValue.Of(false)]),
+                new SearchField("due", SearchFieldKind.Date, [SearchValue.Of(new DateOnly(2026, 3, 1))]),
+                new SearchField("sent", SearchFieldKind.DateTime, [SearchValue.Of(new DateTimeOffset(2026, 3, 1, 10, 0, 0, TimeSpan.Zero))]),
+                new SearchField("owner", SearchFieldKind.Reference, [SearchValue.Of(alice)]),
+                new SearchField("topic", SearchFieldKind.Terms, [SearchValue.Of(term)]),
+                new SearchField("vendor", SearchFieldKind.Keyword, [SearchValue.Of("O'Brien \\ Co \"Ltd\"")]),
+            ],
+        };
+        var second = Document(scope, "Field two") with
+        {
+            Fields =
+            [
+                new SearchField("total", SearchFieldKind.Number, [SearchValue.Of(80)]),
+                new SearchField("status", SearchFieldKind.Keyword, [SearchValue.Of("open"), SearchValue.Of("late")]),
+                new SearchField("paid", SearchFieldKind.Boolean, [SearchValue.Of(true)]),
+                new SearchField("due", SearchFieldKind.Date, [SearchValue.Of(new DateOnly(2026, 5, 1))]),
+                new SearchField("owner", SearchFieldKind.Reference, [SearchValue.Of(bob)]),
+            ],
+        };
+        var plain = Document(scope, "Field three");
+        await ctx.RunAsync(s => s.UpsertAsync([first, second, plain], Ct));
+        return new FieldSetup(ctx, scope, first, second, plain, alice, term);
+    }
+
+    private static async Task<List<Guid>> FindAsync(FieldSetup f, SearchFilter filter) =>
+        Ids(await f.Ctx.RunAsync(s => s.SearchAsync(Keyword(null, Readable(f.Scope) with { Fields = filter }), Ct)));
+
+    [Fact]
+    public async Task Fields_filter_by_number_date_time_and_boolean()
+    {
+        var f = await FieldsAsync();
+
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("total", SearchFieldKind.Number, SearchOperator.GreaterThan, SearchValue.Of(100))));
+        Assert.Equal([f.Second.Id], await FindAsync(f, new SearchCompare("total", SearchFieldKind.Number, SearchOperator.LessThanOrEqual, SearchValue.Of(80))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("total", SearchFieldKind.Number, SearchOperator.Equal, SearchValue.Of(120.5))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("due", SearchFieldKind.Date, SearchOperator.LessThan, SearchValue.Of(new DateOnly(2026, 4, 1)))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("sent", SearchFieldKind.DateTime, SearchOperator.GreaterThanOrEqual,
+            SearchValue.Of(new DateTimeOffset(2026, 3, 1, 9, 0, 0, TimeSpan.Zero)))));
+        Assert.Equal([f.Second.Id], await FindAsync(f, new SearchCompare("paid", SearchFieldKind.Boolean, SearchOperator.Equal, SearchValue.Of(true))));
+        Assert.Equivalent(new[] { f.First.Id, f.Second.Id }, await FindAsync(f, new SearchIn("total", SearchFieldKind.Number, [SearchValue.Of(80), SearchValue.Of(120.5)])));
+    }
+
+    [Fact]
+    public async Task Fields_filter_text_values_with_any_semantics()
+    {
+        var f = await FieldsAsync();
+
+        Assert.Equivalent(new[] { f.First.Id, f.Second.Id }, await FindAsync(f, new SearchCompare("status", SearchFieldKind.Keyword, SearchOperator.Equal, SearchValue.Of("open"))));
+        Assert.Equal([f.Second.Id], await FindAsync(f, new SearchCompare("status", SearchFieldKind.Keyword, SearchOperator.Equal, SearchValue.Of("late"))));
+        Assert.Equal([f.Second.Id], await FindAsync(f, new SearchIn("status", SearchFieldKind.Keyword, [SearchValue.Of("late"), SearchValue.Of("other")])));
+        Assert.Equivalent(new[] { f.First.Id, f.Plain.Id }, await FindAsync(f, new SearchCompare("status", SearchFieldKind.Keyword, SearchOperator.NotEqual, SearchValue.Of("late"))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("owner", SearchFieldKind.Reference, SearchOperator.Equal, SearchValue.Of(f.Alice))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("topic", SearchFieldKind.Terms, SearchOperator.Equal, SearchValue.Of(f.Term))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("vendor", SearchFieldKind.Keyword, SearchOperator.Equal, SearchValue.Of("O'Brien \\ Co \"Ltd\""))));
+
+        // The kind is part of the field: the same name as another kind does not match.
+        Assert.Empty(await FindAsync(f, new SearchCompare("status", SearchFieldKind.Reference, SearchOperator.Equal, SearchValue.Of(f.Alice))));
+    }
+
+    [Fact]
+    public async Task Fields_filter_presence_and_combinations()
+    {
+        var f = await FieldsAsync();
+
+        Assert.Equal([f.Plain.Id], await FindAsync(f, new SearchNot(new SearchHasValue("status", SearchFieldKind.Keyword))));
+        Assert.Equivalent(new[] { f.First.Id, f.Second.Id }, await FindAsync(f, new SearchHasValue("total", SearchFieldKind.Number)));
+        Assert.Equivalent(new[] { f.First.Id, f.Second.Id }, await FindAsync(f, new SearchAnd(
+        [
+            new SearchOr([new SearchCompare("total", SearchFieldKind.Number, SearchOperator.GreaterThan, SearchValue.Of(100)), new SearchCompare("paid", SearchFieldKind.Boolean, SearchOperator.Equal, SearchValue.Of(true))]),
+            new SearchCompare("status", SearchFieldKind.Keyword, SearchOperator.Equal, SearchValue.Of("open")),
+        ])));
+        Assert.Equal([f.Plain.Id], await FindAsync(f, new SearchNot(new SearchOr([new SearchHasValue("total", SearchFieldKind.Number), new SearchHasValue("owner", SearchFieldKind.Reference)]))));
+        Assert.Equal(3, (await FindAsync(f, new SearchAnd([]))).Count);
+        Assert.Empty(await FindAsync(f, new SearchOr([])));
+    }
+
+    [Fact]
+    public async Task Fields_are_listed_and_replaced_with_the_document()
+    {
+        var f = await FieldsAsync();
+
+        var fields = await f.Ctx.RunAsync(s => s.GetFieldsAsync(Ct));
+        Assert.Equivalent(new[]
+        {
+            new SearchFieldInfo("due", SearchFieldKind.Date), new SearchFieldInfo("owner", SearchFieldKind.Reference),
+            new SearchFieldInfo("paid", SearchFieldKind.Boolean), new SearchFieldInfo("sent", SearchFieldKind.DateTime),
+            new SearchFieldInfo("status", SearchFieldKind.Keyword), new SearchFieldInfo("topic", SearchFieldKind.Terms),
+            new SearchFieldInfo("total", SearchFieldKind.Number), new SearchFieldInfo("vendor", SearchFieldKind.Keyword),
+        }, fields);
+
+        await f.Ctx.RunAsync(s => s.UpsertAsync([f.Second with { Fields = [new SearchField("total", SearchFieldKind.Number, [SearchValue.Of(500)])] }], Ct));
+        Assert.Equal([f.Second.Id], await FindAsync(f, new SearchCompare("total", SearchFieldKind.Number, SearchOperator.GreaterThan, SearchValue.Of(400))));
+        Assert.Equivalent(new[] { f.Plain.Id, f.Second.Id }, await FindAsync(f, new SearchNot(new SearchHasValue("status", SearchFieldKind.Keyword))));
+
+        await f.Ctx.RunAsync(s => s.DeleteAsync([f.First.Id], Ct));
+        Assert.DoesNotContain(new SearchFieldInfo("vendor", SearchFieldKind.Keyword), await f.Ctx.RunAsync(s => s.GetFieldsAsync(Ct)));
+    }
+
+    /// <summary>Embeds every pending passage with the configured model (the embedding job's work).</summary>
+    private static async Task<string> EmbedAllAsync(Context ctx)
+    {
+        var (model, _) = await ctx.EmbedAsync("model");
+        while (true)
+        {
+            var pending = await ctx.RunAsync(s => s.GetPassagesToEmbedAsync(model, 100, Ct));
+            if (pending.Count == 0)
+            {
+                return model;
+            }
+
+            var embeddings = new List<PassageEmbedding>();
+            foreach (var passage in pending)
+            {
+                embeddings.Add(new PassageEmbedding(passage.Id, (await ctx.EmbedAsync(passage.Input)).Vector));
+            }
+
+            await ctx.RunAsync(s => s.SetEmbeddingsAsync(model, embeddings, Ct));
+        }
+    }
+
+    /// <summary>A semantic or hybrid query; the test model puts synonyms on one axis (car, automobile, vehicle).</summary>
+    private static async Task<StoreSearchQuery> SemanticAsync(Context ctx, SearchMode mode, string? text, string meaning, StoreFilter filter)
+    {
+        var (model, vector) = await ctx.EmbedAsync(meaning);
+        return new StoreSearchQuery(mode, text is null ? null : FullTextQuery.Parse(text, out _), filter, 0, 25)
+        {
+            Vector = vector,
+            VectorModel = model,
+            MinSimilarity = 0.3f,
+            CandidateLimit = 200,
+            WithFacets = true,
+        };
+    }
+
+    [Fact]
+    public async Task Semantic_search_finds_by_meaning_and_points_to_the_page()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var garage = Document(scope, "Household", pages: ["shopping list", "the car is parked"]);
+        var money = Document(scope, "Accounts", "invoice and payment terms");
+        var hidden = Document(Guid.NewGuid(), "Elsewhere", "a car");
+        await ctx.RunAsync(s => s.UpsertAsync([garage, money, hidden], Ct));
+        var model = await EmbedAllAsync(ctx);
+        Assert.Empty(await ctx.RunAsync(s => s.GetPassagesToEmbedAsync(model, 10, Ct)));
+
+        var query = await SemanticAsync(ctx, SearchMode.Semantic, "automobile", "automobile", Readable(scope));
+        var result = await ctx.RunAsync(s => s.SearchAsync(query, Ct));
+
+        var hit = Assert.Single(result.Hits);
+        Assert.Equal(garage.Id, hit.Id);
+        Assert.Equal(2, hit.Page);
+        Assert.Equal([SearchMatch.Semantic], hit.MatchedBy);
+    }
+
+    [Fact]
+    public async Task Hybrid_search_fuses_both_sides_and_excluded_words_still_exclude()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var both = Document(scope, "Car reminder", "vehicle service");
+        var meaningOnly = Document(scope, "Garage", "automobile repair");
+        var keywordOnly = Document(scope, "Reminder", "water the plants");
+        var excluded = Document(scope, "Draft reminder", "car draft");
+        await ctx.RunAsync(s => s.UpsertAsync([both, meaningOnly, keywordOnly, excluded], Ct));
+        await EmbedAllAsync(ctx);
+
+        var query = await SemanticAsync(ctx, SearchMode.Hybrid, "reminder -draft", "vehicle", Readable(scope));
+        var result = await ctx.RunAsync(s => s.SearchAsync(query, Ct));
+
+        Assert.Equal(both.Id, result.Hits[0].Id);
+        Assert.Equal([SearchMatch.Keyword, SearchMatch.Semantic], result.Hits[0].MatchedBy);
+        Assert.Contains(result.Hits, h => h.Id == meaningOnly.Id && h.MatchedBy.SequenceEqual([SearchMatch.Semantic]));
+        Assert.Contains(result.Hits, h => h.Id == keywordOnly.Id && h.MatchedBy.SequenceEqual([SearchMatch.Keyword]));
+        Assert.DoesNotContain(result.Hits, h => h.Id == excluded.Id);
+    }
+
+    [Fact]
+    public async Task Changed_text_is_embedded_again_and_unchanged_text_is_not()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var document = Document(scope, "Notes", pages: ["first page about rain", "second page about cats"]);
+        await ctx.RunAsync(s => s.UpsertAsync([document], Ct));
+        var model = await EmbedAllAsync(ctx);
+
+        await ctx.RunAsync(s => s.UpsertAsync([document with { Pages = ["first page about rain", "second page about invoices"] }], Ct));
+        var pending = await ctx.RunAsync(s => s.GetPassagesToEmbedAsync(model, 10, Ct));
+
+        var passage = Assert.Single(pending);
+        Assert.Contains("invoices", passage.Input, StringComparison.Ordinal);
+    }
+}
+
+public sealed class DatabaseSearchStoreConformanceTests(PaperDotNetApiFactory factory) : SearchStoreConformanceTests(factory)
+{
+    protected override string StoreName => "database";
+}
+
+public sealed class ZvecSearchStoreConformanceTests(PaperDotNetApiFactory factory) : SearchStoreConformanceTests(factory)
+{
+    private static readonly string? Unavailable = ZvecLibrary.TryLoad(Environment.GetEnvironmentVariable("PAPERDOTNET_ZVEC_LIBRARY"), out var reason)
+        ? null
+        : $"{reason} Set PAPERDOTNET_ZVEC_LIBRARY to run the zvec store tests.";
+
+    protected override string StoreName => "zvec";
+
+    protected override string? SkipReason => Unavailable;
+}

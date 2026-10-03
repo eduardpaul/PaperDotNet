@@ -238,6 +238,10 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Identity
                         .HasColumnType("TEXT")
                         .HasColumnName("name");
 
+                    b.Property<int>("Source")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("source");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
