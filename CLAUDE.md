@@ -55,6 +55,9 @@ dotnet format PaperDotNet.slnx --verify-no-changes
 dotnet test --solution PaperDotNet.slnx                     # SQLite (default)
 PAPERDOTNET_TEST_PROVIDER=postgresql dotnet test --solution PaperDotNet.slnx   # Testcontainers PostgreSQL
 PAPERDOTNET_TEST_PROVIDER=postgresql PAPERDOTNET_TEST_POSTGRES="Host=localhost;Username=postgres;Password=postgres" dotnet test --solution PaperDotNet.slnx
+# Backups need pg_dump/pg_restore at least as new as the server (Testcontainers: postgres:17). With an older client
+# (or a local older cluster picked by the Debian wrapper), point at v17: Database__PgDumpPath=/usr/lib/postgresql/17/bin/pg_dump
+# Database__PgRestorePath=/usr/lib/postgresql/17/bin/pg_restore
 # Web UI and TypeScript SDK (npm workspaces at the repository root):
 npm install
 npm run check -w web                                        # typecheck, lint, format check, unit tests
