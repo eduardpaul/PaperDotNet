@@ -1,0 +1,3 @@
+S8 | round 1: writer killed after acknowledging 68100 rows | reopened, 68156 rows readable | no acknowledged write lost
+S8 | round 2: writer killed after acknowledging 0 rows | reopened, 68156 rows readable | no acknowledged write lost
+S8 | round 3: writer killed after acknowledging 68556 rows | reopened, 68591 rows readable | no acknowledged write lost

@@ -3,6 +3,8 @@
 - **Status:** Proposed (builds on [ADR-0043](0043-search-indexing-as-workflows-over-a-search-store.md))
 - **Date:** 2026-10-03
 - **Plan:** [search-zvec-plan.md](../search-zvec-plan.md)
+- **Spike:** [zvec-spike](../performance-artifacts/zvec-spike/README.md) (2026-10-03): go, with the layout
+  changes below.
 
 ## Context
 
@@ -19,15 +21,16 @@ but still a relational one. Three things there are hand-built:
 [zvec](https://github.com/alibaba/zvec) (Alibaba, **Apache-2.0**, v0.7, 2026)
 is an embedded vector database, "the SQLite of vector databases". It runs in
 the process like SQLite, needs no server, and provides:
-- **Collections with a dynamic schema.** Scalar columns can be added later
-  (`STRING`, `BOOL`, `INT32/64`, `UINT32/64`, `FLOAT`, `DOUBLE`, and arrays of
-  each), with inverted indexes, including range indexes.
+- **Collections with typed columns:** `STRING`, `BOOL`, `INT32/64`,
+  `UINT32/64`, `FLOAT`, `DOUBLE`, and arrays of each, with inverted indexes,
+  including range indexes. Only numeric columns can be added to an existing
+  collection (spike).
 - **Dense and sparse vectors** with HNSW, IVF or flat indexes, and optional mmap.
 - **Native full-text search** with BM25:
   - tokenizers `standard`, `ngram`, `jieba` and `whitespace`;
   - filters `lowercase`, `ascii_folding`, and Snowball `stemmer` with a language;
   - queries with phrases, `+`/`-` and `AND/OR/NOT`.
-- **Filter expressions** (`==`, `!=`, `<`/`>`, `IN`, `NOT IN`, `BETWEEN`,
+- **Filter expressions** (`=`, `!=`, `<`/`>`, `IN`, `NOT IN`, `BETWEEN`,
   `LIKE`, `CONTAIN_ANY`, `CONTAIN_ALL`, `IS NULL`), pushed down to the indexes.
 - **Multi-route queries** (several full-text and vector routes) fused by RRF
   or weighted reranking, plus group-by-field vector queries.
@@ -65,19 +68,30 @@ contract, so search runs entirely in zvec:
   `created_by`, `updated_at` (unix ms), `published`, `generation`,
   `content_version`, `page`, `input_hash`, `emb_model`. Each has an inverted
   index where filters use it.
-- **Text columns with full-text indexes:**
+- **Text columns with full-text indexes,** all created with the collection
+  (zvec adds only numeric columns later):
   - `title`, `keywords` and `text`, unstemmed;
-  - `text_{language}` with a stemmer, added the first time a language appears;
+  - `text_{language}` with a Snowball stemmer, one per supported language;
+  - `prefix`, a trigram column (`ngram` 3–3) for `word*` terms, which the
+    full-text grammar lacks. It matches substrings, a little more than prefixes;
   - `all`, which holds one constant token so a filter-only search can run as
     a query.
-- **Field columns `f_{name}_{kind}`** (`f_total_n` DOUBLE, `f_vendor_s` STRING,
-  `f_due_d` INT64, `f_owner_r` string array):
-  - added with the dynamic schema the first time a field appears;
-  - given an inverted index when the field is `indexed: true`;
-  - capped per tenant at `Search:Zvec:MaxFieldColumns`. Beyond the cap a field
-    stays searchable but is not filterable, and administrators see that.
-- **Vectors:** `embedding` (FP32, cosine, HNSW). A model change adds a new
-  vector column, fills it, then drops the old one.
+- **Field values, two forms:**
+  - **Text-kind and boolean values** (keyword, reference, terms, boolean) are
+    tokens `{kind}:{name}:{base64url(value)}` in one string-array column,
+    `field_tokens`, with an inverted index.
+    - Equality is `CONTAIN_ANY`; "has a value" is a `{kind}:{name}` token.
+    - Values never appear raw in filter text: zvec cannot match a literal
+      backslash.
+  - **Number, date and time values** each get a column, `n_{name}` (DOUBLE)
+    or `t_{name}` (INT64: days, or Unix ms), added the first time the field
+    appears, with a range index. zvec allows 1,024 scalar columns. Beyond
+    `Search:Zvec:MaxNumericFields` a field is no longer filterable by range,
+    and administrators see that.
+- **Vectors:** `embedding` (FP32, cosine, HNSW). zvec cannot add a vector
+  column later, so the collection is created with the configured model's
+  dimension. A model change builds a new collection generation (rows copied
+  with the iterator, then embedded) and switches to it.
 
 ### Writes
 
@@ -95,8 +109,10 @@ contract, so search runs entirely in zvec:
 ### Queries
 
 - **Filters** are built from `StoreFilter` and the `SearchFilter` tree by one
-  escaping builder, never from raw input. Scope trimming is
-  `scope_id IN (…)`, and every query adds `published == true`.
+  builder, never from raw input.
+  - Literals are ids (hex), our own column names and encoded field tokens.
+  - Scope trimming is `scope_id IN (…)`, and every query adds
+    `published = true`.
 - **Modes, each one multi-route query:**
 
   | Mode | Routes | Fusion |
@@ -108,6 +124,9 @@ contract, so search runs entirely in zvec:
 
 - **Rows are grouped by document.** A document's score is that of its best
   row, and the best chunk gives the snippet and the page (SRC-09).
+- **`matchedBy`:** a fused result has one score per row. It comes from one
+  keyword route and one vector route limited to the page's documents
+  (`doc_id IN (…)`).
 - **Counts, facets and paging cover the candidates** (`CandidateLimit`):
   zvec has no aggregation and no offset. The response says when the count is
   an estimate. Exact counts over all items are what list queries are for.
@@ -117,12 +136,21 @@ contract, so search runs entirely in zvec:
 - `[LibraryImport]` declarations for the C API, `SafeHandle`s for native
   objects, and errors from `zvec_get_last_error` as exceptions. No managed
   dependency is added.
-- We build `libzvec_c` from a pinned zvec tag in our CI, for linux-x64 and
-  linux-arm64 (osx-arm64 and win-x64 for development), and ship it in the
+- We build `libzvec_c_api` from a pinned zvec commit in our CI, for linux-x64
+  and linux-arm64 (osx-arm64 and win-x64 for development), and ship it in the
   container image.
-  - **The build leaves out libaio (LGPL)** by disabling DiskANN or using the
-    `pread` backend.
-  - The statically linked libraries are recorded in THIRD-PARTY-NOTICES.
+  - **Pinned, hashed archives:** Arrow's bundled dependencies are fetched
+    from our own mirror and checked against their hashes.
+  - **libaio (LGPL)** is only loaded with `dlopen` when present. It is not
+    linked, and we do not ship it.
+  - **Notices:** the statically linked libraries are recorded in
+    THIRD-PARTY-NOTICES. Two need a policy decision: zlib (zlib License) and
+    Boost (BSL-1.0), both from Arrow (see the spike).
+- **String arrays are always passed as `zvec_string_t*` pointers.** zvec
+  guesses the packed form from the byte size.
+- **The binding never calls `zvec_collection_destroy`,** which deletes the
+  collection, except to drop a tenant's index; `zvec_collection_close`
+  releases a handle.
 
 ## Consequences
 
@@ -135,19 +163,17 @@ contract, so search runs entirely in zvec:
   and metadata.
 - **zvec is for one server.** zvec writes from one process only, so
   installations with several servers (ADR-0025) keep the `database` store or
-  an external engine. At startup the store takes an exclusive lock file on its
-  directory. A second server then fails at once instead of damaging the index.
+  an external engine. zvec locks a collection's directory (`LOCK`), so a
+  second server fails to open it instead of damaging the index.
 - **Native code runs in the process,** so a crash in zvec stops the server.
   That is the reason it is opt-in first, with a conformance suite, fuzzed
   filter and query builders, and a pinned version. zvec is pre-1.0; the
   wrapper keeps its API changes inside one project.
 - **Counts and facets are estimates** beyond `CandidateLimit` in every mode,
-  not only in hybrid mode as today.
-- **Questions for the spike:** these decide the layout before any production
-  code is written. See the plan.
-  - Can a vector column be empty (null) until the row is embedded?
-  - Does `update` change only the columns it is given?
-  - Does full-text search support prefix queries?
-  - How fast is `IN` with thousands of scope ids?
-  - Does a query see writes made since the collection was opened, in the same
-    process?
+  not only in hybrid mode as today. `topk` is at most 100,000.
+- **Write batches are not atomic** (the spike's crash test). Every write is an
+  idempotent upsert or update, retried by the outbox.
+- **Spike measurements:** over 200k rows on 4 cores, top 200,
+  - 4–18 ms without scope filters;
+  - 16–26 ms with 1k–5k readable scopes;
+  - about 60–75 ms with 20k readable scopes.

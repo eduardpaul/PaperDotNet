@@ -86,17 +86,16 @@ public sealed record StoreHit(Guid DocumentId, double Score, IReadOnlyList<strin
 
 ### Mapping list fields to search fields (Lists, `ListItemSearchDocuments`)
 
-| List field type | Search kind | zvec column | Filter operators |
+| List field type | Search kind | zvec storage (after the spike) | Filter operators |
 |---|---|---|---|
-| `text`, `email`, `url` | `Keyword` (+ text by weight) | `f_{name}_s` STRING | `eq ne in`, `startswith` → `LIKE 'x%'` |
-| `choice` (single / multiple) | `Keyword` | `f_{name}_s` / `f_{name}_ss` STRING array | `eq in` / `any` |
-| `note` | `Text` only | none (text goes to `text`) | none; searchable only |
-| `number`, `currency` | `Number` | `f_{name}_n` DOUBLE | `eq ne gt ge lt le` |
-| `date` | `Date` | `f_{name}_d` INT64 (days since 1970) | same |
-| `dateTime` | `DateTime` | `f_{name}_t` INT64 (unix ms) | same |
-| `boolean` | `Boolean` | `f_{name}_b` BOOL | `eq` |
-| `person`, `lookup` | `Reference` | `f_{name}_r` STRING array (GUID `N`) | `eq` / `any` |
-| `managedMetadata`, `keywords` | `Terms` (+ labels to keywords) | `f_{name}_m` STRING array; also `term_ids` | `eq` / `any`, with child terms (expanded by `SearchService`) |
+| `text`, `email`, `url`, `choice` (single or multiple) | `Keyword` (+ text by weight) | token in `field_tokens` | `eq ne in` |
+| `note` | none (text only) | none (text goes to `text`) | none; searchable only |
+| `number`, `currency` | `Number` | `n_{name}` DOUBLE | `eq ne gt ge lt le` |
+| `date` | `Date` | `t_{name}` INT64 (days since 1970) | same |
+| `dateTime` | `DateTime` | `t_{name}` INT64 (unix ms) | same |
+| `boolean` | `Boolean` | token in `field_tokens` | `eq ne` |
+| `person`, `lookup` | `Reference` | token in `field_tokens` | `eq ne in` |
+| `managedMetadata`, `keywords` | `Terms` (+ labels to keywords) | token in `field_tokens`; also `term_ids` | `eq ne in` |
 
 - **One column per name and kind.** A field whose kind differs from another
   field of the same name gets its own column; the suffix keeps them apart.
@@ -109,13 +108,25 @@ The layout is in ADR-0044. In short:
 - **one collection per tenant;**
 - **one head row per document and one row per chunk,** with the metadata on
   every row;
-- **system columns, text columns and `f_*` field columns** added with the
-  dynamic schema;
+- **system and text columns, and a `field_tokens` column for text-kind and
+  boolean field values,** all created with the collection;
+- **`n_*` / `t_*` columns for numeric, date and time fields,** added the first
+  time they appear (zvec adds only numeric columns later);
 - **one `embedding` vector column.**
 
 ## Work packages
 
-### WP0: spike (go / no-go), about 3 days
+### WP0: spike (go / no-go), about 3 days. **Done (2026-10-03): go**
+
+Report: [performance-artifacts/zvec-spike](performance-artifacts/zvec-spike/README.md).
+- **Yes:** S1, S2, S4, S5, S7, S8.
+- **No:**
+  - S3, no prefix terms: use a trigram column instead;
+  - S6, no per-route scores: use per-route queries for the page.
+- **S9:** zlib and BSL-1.0 need a policy decision.
+- **Layout changes:** only numeric columns can be added later, so text-kind
+  field values became encoded tokens; backslashes cannot be matched in
+  filters; a vector column cannot be added later. ADR-0044 is updated.
 
 Build `libzvec_c` from the pinned tag **without libaio** (DiskANN off or the
 `pread` backend) for linux-x64. Then answer each question below with a
@@ -215,13 +226,13 @@ SQLite and PostgreSQL. API behavior does not change.
 ### WP4: zvec store, writes
 
 - `ZvecCollections`: an open collection per tenant directory, closed when
-  idle (`Search:Zvec:IdleMinutes`), plus the exclusive directory lock (one
-  server).
+  idle (`Search:Zvec:IdleMinutes`). zvec's own `LOCK` keeps it to one server.
 - `ZvecSchema`:
-  - creates the system and text columns;
-  - adds `f_*` columns and `text_{lang}` columns on first use, with an
-    inverted index when `Indexed`;
-  - enforces `MaxFieldColumns`;
+  - creates the system, text, `field_tokens` and vector columns (the
+    configured model's dimension), and one `text_{lang}` per supported
+    language;
+  - adds `n_*` / `t_*` columns on first use, with a range index;
+  - enforces `MaxNumericFields`;
   - caches the schema per tenant.
 - `ZvecWriter`: one channel per tenant. It batches `UpsertDocuments`,
   `StageContent`, `PublishContent`, `SetVectors`, `SetScopes` and `Delete`,
