@@ -188,11 +188,13 @@ internal sealed class WorkflowTriggerHandler(
             var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
             var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
             var matched = false;
+            string? concurrency = null;
             foreach (var candidate in spec.AllTriggers.Where(t => t.Type == trigger))
             {
                 if (await MatchesAsync(candidate))
                 {
                     matched = true;
+                    concurrency = candidate.Concurrency;
                     break;
                 }
             }
@@ -209,7 +211,7 @@ internal sealed class WorkflowTriggerHandler(
                 continue;
             }
 
-            starts.Add(new WorkflowStart(workflow, item, source.EventId, data, source.Depth, source.UserId, error));
+            starts.Add(new WorkflowStart(workflow, item, source.EventId, data, source.Depth, source.UserId, error, Concurrency: concurrency));
         }
 
         await starter.StartAsync(starts, ct);

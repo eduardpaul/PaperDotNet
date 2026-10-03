@@ -7,6 +7,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
 if TYPE_CHECKING:
+    from .approval_review_reference import ApprovalReviewReference
     from .approval_status import ApprovalStatus
 
 @dataclass
@@ -32,6 +33,8 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
     item_id: Optional[UUID] = None
     # The listId property
     list_id: Optional[UUID] = None
+    # The review property
+    review: Optional[ApprovalReviewReference] = None
     # The runId property
     run_id: Optional[UUID] = None
     # The status property
@@ -59,8 +62,10 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .approval_review_reference import ApprovalReviewReference
         from .approval_status import ApprovalStatus
 
+        from .approval_review_reference import ApprovalReviewReference
         from .approval_status import ApprovalStatus
 
         fields: dict[str, Callable[[Any], None]] = {
@@ -73,6 +78,7 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "itemId": lambda n : setattr(self, 'item_id', n.get_uuid_value()),
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
+            "review": lambda n : setattr(self, 'review', n.get_object_value(ApprovalReviewReference)),
             "runId": lambda n : setattr(self, 'run_id', n.get_uuid_value()),
             "status": lambda n : setattr(self, 'status', n.get_enum_value(ApprovalStatus)),
             "stepName": lambda n : setattr(self, 'step_name', n.get_str_value()),
@@ -98,6 +104,7 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
         writer.write_uuid_value("id", self.id)
         writer.write_uuid_value("itemId", self.item_id)
         writer.write_uuid_value("listId", self.list_id)
+        writer.write_object_value("review", self.review)
         writer.write_uuid_value("runId", self.run_id)
         writer.write_enum_value("status", self.status)
         writer.write_str_value("stepName", self.step_name)

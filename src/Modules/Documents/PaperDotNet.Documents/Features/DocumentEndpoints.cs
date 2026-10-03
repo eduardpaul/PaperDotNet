@@ -647,7 +647,7 @@ internal sealed class DocumentService(
         spooled.TooLarge
             ? ApiErrors.Problem(StatusCodes.Status413PayloadTooLarge, "fileTooLarge", $"Files may have at most {options.Value.MaxFileSize} bytes.")
             : spooled.MediaType is null
-                ? ApiErrors.Problem(StatusCodes.Status415UnsupportedMediaType, "unsupportedFileType", "Only PDF, TIFF, JPEG and PNG files are supported.")
+                ? ApiErrors.Problem(StatusCodes.Status415UnsupportedMediaType, "unsupportedFileType", "Only PDF, TIFF, JPEG, PNG and WebP files are supported.")
                 : null;
 
     /// <summary>Current files with the same content that the caller can read.</summary>
@@ -715,6 +715,7 @@ internal sealed class DocumentService(
             FileTypes.Pdf => ".pdf",
             FileTypes.Tiff => ".tiff",
             FileTypes.Jpeg => ".jpg",
+            FileTypes.Webp => ".webp",
             _ => ".png",
         };
         return (name.Length > 200 ? name[..200] : name) + extension;

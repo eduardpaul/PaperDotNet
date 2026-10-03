@@ -40,6 +40,9 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
     /// <summary>Largest document the test host accepts (small, so the limit can be tested).</summary>
     public const long DocumentLimit = 2 * 1024 * 1024;
 
+    public long UploadLimit { get; init; } = DocumentLimit;
+    public string OptimizationTextDetector { get; init; } = "paddleocr";
+
     public static string Provider { get; } =
         Environment.GetEnvironmentVariable("PAPERDOTNET_TEST_PROVIDER") is { Length: > 0 } p ? p.ToLowerInvariant() : "sqlite";
 
@@ -115,6 +118,8 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Search:DefaultMode", "Keyword");
         builder.UseSetting("Search:MinSimilarity", "0.15");
         builder.UseSetting("Storage:DataPath", _dataPath);
+        builder.UseSetting("Documents:MaxFileSize", UploadLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        builder.UseSetting("StorageOptimization:TextDetector", OptimizationTextDetector);
 
         // The zvec search store (ADR-0044): PAPERDOTNET_ZVEC_LIBRARY points at libzvec_c_api (file or folder), and
         // PAPERDOTNET_TEST_SEARCH_STORE=zvec runs every test on it instead of the database store.
@@ -136,7 +141,6 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         {
             builder.UseSetting("Search:EmbeddingSchedule", "0 * * * *");
         }
-        builder.UseSetting("Documents:MaxFileSize", DocumentLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.ConfigureTestServices(services =>
         {
             services.AddScoped<IItemMutator, TestMutator>();

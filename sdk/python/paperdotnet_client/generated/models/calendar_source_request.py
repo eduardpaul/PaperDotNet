@@ -13,7 +13,7 @@ class CalendarSourceRequest(AdditionalDataHolder, Parsable):
     name: Optional[str] = None
     # The url property
     url: Optional[str] = None
-
+    
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> CalendarSourceRequest:
         """
@@ -24,7 +24,7 @@ class CalendarSourceRequest(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return CalendarSourceRequest()
-
+    
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -35,7 +35,7 @@ class CalendarSourceRequest(AdditionalDataHolder, Parsable):
             "url": lambda n : setattr(self, 'url', n.get_str_value()),
         }
         return fields
-
+    
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -47,3 +47,5 @@ class CalendarSourceRequest(AdditionalDataHolder, Parsable):
         writer.write_str_value("name", self.name)
         writer.write_str_value("url", self.url)
         writer.write_additional_data_value(self.additional_data)
+    
+

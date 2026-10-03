@@ -4,6 +4,8 @@
 // @ts-ignore
 import { DecisionRequestBuilderRequestsMetadata, type DecisionRequestBuilder } from './decision/index.js';
 // @ts-ignore
+import { ReviewRequestBuilderNavigationMetadata, ReviewRequestBuilderRequestsMetadata, type ReviewRequestBuilder } from './review/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -14,6 +16,10 @@ export interface ApprovalsItemRequestBuilder extends BaseRequestBuilder<Approval
      * The decision property
      */
     get decision(): DecisionRequestBuilder;
+    /**
+     * The review property
+     */
+    get review(): ReviewRequestBuilder;
 }
 /**
  * Uri template for the request builder.
@@ -25,6 +31,10 @@ export const ApprovalsItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/me/approv
 export const ApprovalsItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ApprovalsItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     decision: {
         requestsMetadata: DecisionRequestBuilderRequestsMetadata,
+    },
+    review: {
+        requestsMetadata: ReviewRequestBuilderRequestsMetadata,
+        navigationMetadata: ReviewRequestBuilderNavigationMetadata,
     },
 };
 /* tslint:enable */

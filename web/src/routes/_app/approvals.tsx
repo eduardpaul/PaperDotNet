@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState, Skeleton } from '@/components/ui/feedback';
 import { Textarea } from '@/components/ui/input';
+import { ReviewDialog } from '@/features/approvals/review-dialog';
+import { problemMessage } from '@/lib/errors';
 import { userName, useUsers } from '@/features/fields/directory';
 import { itemLink } from '@/features/lists/item-link';
 import { useFormat } from '@/lib/preferences';
@@ -87,6 +89,7 @@ function ApprovalRow({ approval }: { approval: ApprovalResponse }) {
   const decide = useMutation({
     mutationFn: (outcome: 'approved' | 'rejected') =>
       api.v10.me.approvals.byId(approval.id!).decision.post({ outcome, comment: comment.trim() || undefined }),
+    onError: (error) => toast.error(problemMessage(error)),
     onSuccess: async (_, outcome) => {
       toast.success(outcome === 'approved' ? 'Approved.' : 'Rejected.');
       await queryClient.invalidateQueries({ queryKey: ['me', 'approvals'] });
@@ -124,7 +127,16 @@ function ApprovalRow({ approval }: { approval: ApprovalResponse }) {
         )}
       </p>
       {approval.comment && <p className="rounded bg-surface-muted px-2 py-1 text-[13px]">“{approval.comment}”</p>}
-      {pending && (
+      {approval.review && (
+        <ReviewDialog
+          approval={approval}
+          busy={decide.isPending}
+          comment={comment}
+          onComment={setComment}
+          onDecide={(outcome) => decide.mutate(outcome)}
+        />
+      )}
+      {pending && !approval.review && (
         <div className="flex flex-wrap items-end gap-2">
           <Textarea
             aria-label="Comment"

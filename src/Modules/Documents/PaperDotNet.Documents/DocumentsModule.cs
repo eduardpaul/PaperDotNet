@@ -45,6 +45,7 @@ public sealed class DocumentsModule : IModule
             client.Timeout = sp.GetRequiredService<IOptions<DocumentsOptions>>().Value.OcrTimeout;
         });
         services.AddScoped<FileIntake>();
+        services.AddScoped<PaperDotNet.Documents.Contracts.IDocumentFileStore, DocumentFileStore>();
         services.AddScoped<DocumentService>();
         services.AddScoped<PageEditor>();
         services.AddScoped<DocumentEvents>();

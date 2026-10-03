@@ -15,6 +15,14 @@ namespace PaperDotNet.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The approvalReviews property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<string>? ApprovalReviews { get; set; }
+#nullable restore
+#else
+        public List<string> ApprovalReviews { get; set; }
+#endif
         /// <summary>The contentTypes property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -146,6 +154,7 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "approvalReviews", n => { ApprovalReviews = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "contentTypes", n => { ContentTypes = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "dbContext", n => { DbContext = n.GetStringValue(); } },
                 { "endpoints", n => { Endpoints = n.GetBoolValue(); } },
@@ -169,6 +178,7 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteCollectionOfPrimitiveValues<string>("approvalReviews", ApprovalReviews);
             writer.WriteCollectionOfPrimitiveValues<string>("contentTypes", ContentTypes);
             writer.WriteStringValue("dbContext", DbContext);
             writer.WriteBoolValue("endpoints", Endpoints);

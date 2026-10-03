@@ -85,8 +85,10 @@ public sealed record ApprovalResponse(
     Guid Id, Guid RunId, string StepName, string Title, Guid WorkspaceId, Guid ListId, Guid ItemId, ApprovalStatus Status,
     DateTimeOffset? DueAt, bool Escalated, Guid? DecidedBy, DateTimeOffset? DecidedAt, string? Comment, DateTimeOffset CreatedAt)
 {
+    public ApprovalReviewReference? Review { get; init; }
+
     internal static ApprovalResponse From(ApprovalRequest a) =>
-        new(a.Id, a.RunId, a.StepName, a.Title, a.WorkspaceId, a.ListId, a.ItemId, a.Status, a.DueAt, a.Escalated, a.DecidedBy, a.DecidedAt, a.Comment, a.CreatedAt);
+        new(a.Id, a.RunId, a.StepName, a.Title, a.WorkspaceId, a.ListId, a.ItemId, a.Status, a.DueAt, a.Escalated, a.DecidedBy, a.DecidedAt, a.Comment, a.CreatedAt) { Review = a.ReviewType is { } type ? new(type, a.ReviewKey ?? "") : null };
 }
 
 /// <summary><c>outcome</c>: <c>approved</c> or <c>rejected</c>.</summary>
@@ -126,6 +128,8 @@ internal static class WorkflowEndpoints
 
         var me = endpoints.MapV1Group("me/approvals", "Workflows");
         me.MapGet("", ListApprovalsAsync).RequireScope(WorkflowScopes.Read).WithName("ListMyApprovals").WithQueryEnum<ApprovalStatus>("status");
+        me.MapGet("/{id:guid}/review", GetReviewAsync).RequireScope(WorkflowScopes.Read).WithName("GetApprovalReview");
+        me.MapGet("/{id:guid}/review/content/{part}", OpenReviewAsync).RequireScope(WorkflowScopes.Read).WithName("GetApprovalReviewContent").ProducesBinary();
         me.MapPost("/{id:guid}/decision", DecideAsync).RequireScope(WorkflowScopes.Write).WithName("DecideApproval");
 
         var catalog = endpoints.MapV1Group("workflows", "Workflows");
@@ -760,11 +764,44 @@ internal static class WorkflowEndpoints
         {
             case RunService.DecisionResult.NotFound:
                 return ApiErrors.NotFound();
+            case RunService.DecisionResult.InvalidReview:
+                return ApiErrors.Conflict("reviewUnavailable", "The review is unavailable or its source file changed. Open the latest review.");
             case RunService.DecisionResult.AlreadyDecided:
                 return ApiErrors.Conflict("alreadyDecided", "The approval was already decided or cancelled.");
         }
 
         return TypedResults.Ok(ApprovalResponse.From(await db.Approvals.AsNoTracking().FirstAsync(a => a.Id == id, ct)));
+    }
+
+    private static async Task<(IApprovalReviewProvider Provider, ApprovalReviewContext Context)?> ReviewAsync(
+        Guid id, WorkflowsDbContext db, ICurrentUser user, IListItemStore items, IEnumerable<IApprovalReviewProvider> providers, CancellationToken ct)
+    {
+        var approval = await db.Approvals.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id && a.Assignees.Contains(user.UserId!.Value), ct);
+        if (approval?.ReviewType is not { } type
+            || await items.GetAsync(approval.WorkspaceId, approval.ListId, approval.ItemId, ct) is null)
+        {
+            return null;
+        }
+
+        var provider = providers.SingleOrDefault(p => p.Type == type);
+        return provider is not null && await provider.IsAvailableAsync(ct)
+            ? (provider, new ApprovalReviewContext(id, approval.RunId, new WorkflowItem(approval.WorkspaceId, approval.ListId, approval.ItemId), approval.ReviewKey ?? "")) : null;
+    }
+
+    private static async Task<Results<Ok<ApprovalReviewData>, ProblemHttpResult>> GetReviewAsync(
+        Guid id, WorkflowsDbContext db, ICurrentUser user, IListItemStore items, IEnumerable<IApprovalReviewProvider> providers, CancellationToken ct)
+    {
+        var review = await ReviewAsync(id, db, user, items, providers, ct);
+        return review is { } found && await found.Provider.GetAsync(found.Context, ct) is { } data
+            ? TypedResults.Ok(data) : ApiErrors.NotFound();
+    }
+
+    private static async Task<Results<FileStreamHttpResult, ProblemHttpResult>> OpenReviewAsync(
+        Guid id, string part, WorkflowsDbContext db, ICurrentUser user, IListItemStore items, IEnumerable<IApprovalReviewProvider> providers, CancellationToken ct)
+    {
+        var review = await ReviewAsync(id, db, user, items, providers, ct);
+        return review is { } found && await found.Provider.OpenAsync(found.Context, part, ct) is { } content
+            ? TypedResults.File(content.Content, content.MediaType, enableRangeProcessing: true) : ApiErrors.NotFound();
     }
 
     // ---- Helpers -----------------------------------------------------------------------

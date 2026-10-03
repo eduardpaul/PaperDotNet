@@ -12,7 +12,7 @@ class CalendarRefreshResponse(AdditionalDataHolder, Parsable):
 
     # The operationId property
     operation_id: Optional[UUID] = None
-
+    
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> CalendarRefreshResponse:
         """
@@ -23,7 +23,7 @@ class CalendarRefreshResponse(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return CalendarRefreshResponse()
-
+    
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -33,7 +33,7 @@ class CalendarRefreshResponse(AdditionalDataHolder, Parsable):
             "operationId": lambda n : setattr(self, 'operation_id', n.get_uuid_value()),
         }
         return fields
-
+    
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -44,3 +44,5 @@ class CalendarRefreshResponse(AdditionalDataHolder, Parsable):
             raise TypeError("writer cannot be null.")
         writer.write_uuid_value("operationId", self.operation_id)
         writer.write_additional_data_value(self.additional_data)
+    
+

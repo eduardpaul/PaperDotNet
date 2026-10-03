@@ -95,3 +95,24 @@ ISC License. Copyright (c) 2026 Lucide Icons and Contributors.
 > LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
 > OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 > PERFORMANCE OF THIS SOFTWARE.
+
+## Storage optimization detection
+
+RapidOcrNet (Apache-2.0), copyright BobLd and RapidOCR contributors:
+https://github.com/BobLd/RapidOcrNet
+Based on RapidAI / RapidOCR and parts of PdfPig (Apache-2.0), and PContour /
+PContourNet (MIT), copyright LingDong Huang / BobLd. See their notices:
+https://github.com/BobLd/RapidOcrNet/blob/master/NOTICE.txt
+
+PaddleOCR PP-OCRv6 small and legacy PP-OCRv4 detector weights (Apache-2.0), copyright PaddlePaddle /
+PaddleOCR contributors; v6 published by PaddlePaddle, v4 converted to ONNX by
+RapidAI / RapidOCR. Model provenance
+and complete license: src/Extensions/PaperDotNet.StorageOptimization/models/.
+
+Microsoft ONNX Runtime (MIT), copyright Microsoft Corporation:
+https://github.com/microsoft/onnxruntime/blob/main/LICENSE
+Native third-party notices:
+https://github.com/microsoft/onnxruntime/blob/main/ThirdPartyNotices.txt
+
+Clipper2 (Boost Software License 1.0), copyright Angus Johnson 2010–2025:
+https://github.com/AngusJohnson/Clipper2/blob/main/LICENSE

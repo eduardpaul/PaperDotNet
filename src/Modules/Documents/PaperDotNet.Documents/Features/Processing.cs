@@ -35,6 +35,7 @@ internal sealed class DocumentEvents(IWorkflowTriggers triggers)
                 ["mediaType"] = version.MediaType,
                 ["fileName"] = version.FileName,
                 ["newDocument"] = newDocument,
+                ["source"] = version.Source,
             },
             AddedEventId(version.Id), ct);
 
@@ -397,7 +398,7 @@ internal sealed class PageRenderer(DocumentsDbContext db, IBlobStore blobs, IOpt
         return await blobs.OpenReadAsync(Key(stored, page, width), ct);
     }
 
-    private static string Key(StoredFile stored, int page, int width) => $"{stored.TenantId:N}/renders/{stored.Sha256[..2]}/{stored.Sha256}/p{page}-w{width}";
+    internal static string Key(StoredFile stored, int page, int width) => $"{stored.TenantId:N}/renders/{stored.Sha256[..2]}/{stored.Sha256}/p{page}-w{width}";
 
     /// <summary>
     /// A JPEG of the page, or null when the page does not exist or the type cannot be rendered (TIFF before OCR). With
@@ -428,7 +429,7 @@ internal sealed class PageRenderer(DocumentsDbContext db, IBlobStore blobs, IOpt
             jpeg = version.MediaType switch
             {
                 FileTypes.Pdf => await RenderPdfPageAsync(content, page, width, ct),
-                FileTypes.Jpeg or FileTypes.Png when page == 1 => ResizeImage(content, width),
+                FileTypes.Jpeg or FileTypes.Png or FileTypes.Webp when page == 1 => ResizeImage(content, width),
                 _ => null,
             };
         }

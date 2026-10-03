@@ -44,6 +44,7 @@ public sealed class WorkflowsModule : IModule
         services.AddScoped<TriggerCatalog>();
         services.AddScoped<ActionExecutor>();
         services.AddScoped<WorkflowValidator>();
+        services.AddWorkflowActivity<ItemHasTermsAction>();
         services.AddWorkflowActivity<ItemUpdateAction>();
         services.AddWorkflowActivity<ItemFileAction>();
         services.AddWorkflowActivity<ItemCreateAction>();

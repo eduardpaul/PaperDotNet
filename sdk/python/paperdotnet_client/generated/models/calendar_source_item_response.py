@@ -16,7 +16,7 @@ class CalendarSourceItemResponse(AdditionalDataHolder, Parsable):
     name: Optional[str] = None
     # The sourceId property
     source_id: Optional[UUID] = None
-
+    
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> CalendarSourceItemResponse:
         """
@@ -27,7 +27,7 @@ class CalendarSourceItemResponse(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return CalendarSourceItemResponse()
-
+    
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -39,7 +39,7 @@ class CalendarSourceItemResponse(AdditionalDataHolder, Parsable):
             "sourceId": lambda n : setattr(self, 'source_id', n.get_uuid_value()),
         }
         return fields
-
+    
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -52,3 +52,5 @@ class CalendarSourceItemResponse(AdditionalDataHolder, Parsable):
         writer.write_str_value("name", self.name)
         writer.write_uuid_value("sourceId", self.source_id)
         writer.write_additional_data_value(self.additional_data)
+    
+
