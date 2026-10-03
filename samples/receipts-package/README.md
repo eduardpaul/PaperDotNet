@@ -12,7 +12,7 @@ into the receipt's fields:
 It also creates one item per line (description, quantity, unit price, amount)
 in the list **Receipt lines**.
 
-**It is configuration only: no code.** Everything is one template
+**The package is configuration over the public workflow SDK.** It enables the compiled `paperdotnet.storageoptimization` extension included in the host. Everything is one template
 ([template.xml](template.xml)), which you can apply to any organization,
 export, and change:
 - the tags, the content types and the views;
@@ -23,13 +23,36 @@ export, and change:
 The workflows cover the AI part too: the prompt, the JSON schema of the answer,
 batch execution and images. A small JavaScript script node,
 inside the workflow's JSON, saves the answer into the lists. It runs in the
-server's sandbox, so the package needs no extension.
+server's sandbox, while image optimization uses the reusable compiled extension.
 
 The library shows how documents are composed from workflows
 ([ADR-0038](../../docs/adr/0038-documents-composed-from-workflows.md)): an
 upload only stores the file, and the library's own workflows decide the rest.
 Here it keeps thumbnails and page images, but turns off reading the text and
 leaves OCR off, because the model reads the receipt from its images.
+
+## Image optimization and review
+
+Every new photo is analyzed before receipt extraction. Workspace owners receive
+an approval showing the original and optimized WebP at native 100%; the workflow
+can also be configured with user names or multiple `group:Name` approvers.
+**Store optimized file** makes the smaller file current and releases the reviewed
+source version; **Keep original** discards the candidate. The normal storage
+cleanup reclaims unreferenced bytes after its grace period, respecting shared
+content. The original cannot be restored after reclamation.
+
+The workflow checks the current ticket tag after review and only then queues AI
+reading. PDFs and other unsupported formats pass through unchanged. Retagging a
+settled photo reuses its selected file; a new upload cancels an obsolete review.
+Skipped analyses also retain their original-file choice, so retagging does not
+repeat their OCR analysis.
+Optimization errors leave the source intact and mark the run failed for retry.
+No automatic approval deadline is configured.
+
+Do not also enable the standalone **Optimize document storage** library workflow:
+this template already composes its prepare/review/accept/discard activities with
+receipt reading. Tune the prepare node in the workflow JSON to change its default
+12px text target, word-confidence filter, WebP Q80, or approvers.
 
 ## What the template contains
 
@@ -40,13 +63,13 @@ leaves OCR off, because the model reads the receipt from its images.
 | Content type **Receipt line** | `quantity`, `unitPrice`, `amount`; the title is the description |
 | Relationship type **contains receipt line** | Directed; inverse **belongs to receipt**; at most one receipt per line |
 | Workspace **Receipts** (parameter `Workspace`) | The library **Receipts** (views: All receipts, Needs review) and the list **Receipt lines** |
-| Workflow **Read receipts** | Two triggers: when a receipt's tags change to one at or below *ticket*, and when a file with the tag is added |
+| Workflow **Read receipts** | Two triggers: when a receipt's tags change to one at or below *ticket*, and when a file is added |
 | Library workflows | "Read the text" off (as is "Recognize text"); "Make thumbnails" and "Render pages" on |
 | Built-in workflow **AI batch** | Sends the waiting questions on the schedule `BatchSchedule` (default: every hour) |
 
-The reading workflow has two triggers, because a receipt comes in two ways:
-tagged after the upload (the tags change), or added with the tag
-(`document.added`, e.g. from an import). Either one starts the same flow:
+The composed workflow has upload and tag-change triggers. It first prepares a
+smaller image, waits for review when needed, selects the file, and checks the
+current receipt tag. Its AI section then runs as follows:
 
 1. `read` (`ai.prompt`): asks the model for the receipt as JSON, following the
    template's schema. It sends the first two pages as images
@@ -116,7 +139,7 @@ workflow with `runWorkflowScript` from the TypeScript SDK.
    Applying it again changes nothing.
 
 4. **Upload a photo or a PDF** to the library *Receipts* and tag it *ticket*.
-   The run waits for the next batch window. Azure's batches usually finish
+   Photos first wait for manager review; after the file is selected, the run waits for the next batch window. Azure's batches usually finish
    within minutes (at most 24 hours). Then the receipt shows the store, date
    and total, and *Receipt lines* has one item per line.
 

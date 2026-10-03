@@ -28,7 +28,7 @@ class LocatedItemResponse(AdditionalDataHolder, Parsable):
     workspace_id: Optional[UUID] = None
     # The workspaceName property
     workspace_name: Optional[str] = None
-
+    
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> LocatedItemResponse:
         """
@@ -39,7 +39,7 @@ class LocatedItemResponse(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return LocatedItemResponse()
-
+    
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -58,7 +58,7 @@ class LocatedItemResponse(AdditionalDataHolder, Parsable):
             "workspaceName": lambda n : setattr(self, 'workspace_name', n.get_str_value()),
         }
         return fields
-
+    
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -74,3 +74,5 @@ class LocatedItemResponse(AdditionalDataHolder, Parsable):
         writer.write_uuid_value("workspaceId", self.workspace_id)
         writer.write_str_value("workspaceName", self.workspace_name)
         writer.write_additional_data_value(self.additional_data)
+    
+

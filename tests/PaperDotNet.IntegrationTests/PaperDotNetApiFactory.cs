@@ -40,6 +40,8 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
     /// <summary>Largest document the test host accepts (small, so the limit can be tested).</summary>
     public const long DocumentLimit = 2 * 1024 * 1024;
 
+    public long UploadLimit { get; init; } = DocumentLimit;
+
     public static string Provider { get; } =
         Environment.GetEnvironmentVariable("PAPERDOTNET_TEST_PROVIDER") is { Length: > 0 } p ? p.ToLowerInvariant() : "sqlite";
 
@@ -109,7 +111,7 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Search:DefaultMode", "Keyword");
         builder.UseSetting("Search:MinSimilarity", "0.15");
         builder.UseSetting("Storage:DataPath", _dataPath);
-        builder.UseSetting("Documents:MaxFileSize", DocumentLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        builder.UseSetting("Documents:MaxFileSize", UploadLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.ConfigureTestServices(services =>
         {
             services.AddScoped<IItemMutator, TestMutator>();

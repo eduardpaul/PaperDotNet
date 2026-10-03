@@ -27,7 +27,8 @@ public sealed record WorkflowTrigger(
     string? Field = null,
     double? OffsetHours = null,
     JsonObject? Inputs = null,
-    JsonObject? Data = null)
+    JsonObject? Data = null,
+    string? Concurrency = null)
 {
     /// <summary>Whether the trigger's data has every value of <see cref="Data"/> (true without <see cref="Data"/>).</summary>
     public bool MatchesData(JsonObject? data) =>
@@ -338,6 +339,11 @@ internal static class Definitions
                 errors.Add($"{prefix}A condition needs the trigger's list (its fields).");
             }
 
+            if (trigger.Concurrency is { } triggerConcurrency && !RunConcurrency.All.Contains(triggerConcurrency))
+            {
+                errors.Add($"{prefix}concurrency must be one of {string.Join(", ", RunConcurrency.All)}.");
+            }
+
             errors.AddRange(ValidateTrigger(trigger).Select(e => prefix + e));
         }
 
@@ -576,6 +582,12 @@ internal static class Definitions
             switch (node.Activity)
             {
                 case FlowActivities.Approval:
+                    if (inputs["review"] is { } review && (review is not JsonObject reference
+                        || ActivityInputs.Text(reference, "type") is null || ActivityInputs.Text(reference, "key") is null))
+                    {
+                        errors.Add($"{at}: review needs a type and key.");
+                    }
+
                     errors.AddRange(ValidateApproval(ActivityInputs.Texts(inputs, "assignees"), ActivityInputs.Number(inputs, "dueInHours")).Select(e => $"{at}: {e}"));
                     break;
                 case FlowActivities.Delay:

@@ -138,6 +138,14 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                         .HasColumnType("uuid")
                         .HasColumnName("list_id");
 
+                    b.Property<string>("ReviewKey")
+                        .HasColumnType("text")
+                        .HasColumnName("review_key");
+
+                    b.Property<string>("ReviewType")
+                        .HasColumnType("text")
+                        .HasColumnName("review_type");
+
                     b.Property<Guid>("RunId")
                         .HasColumnType("uuid")
                         .HasColumnName("run_id");
@@ -398,6 +406,11 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
+
+                    b.Property<string>("Concurrency")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("concurrency");
 
                     b.Property<string>("Data")
                         .HasColumnType("text")

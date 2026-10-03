@@ -7,6 +7,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .decision.decision_request_builder import DecisionRequestBuilder
+    from .review.review_request_builder import ReviewRequestBuilder
 
 class ApprovalsItemRequestBuilder(BaseRequestBuilder):
     """
@@ -29,5 +30,14 @@ class ApprovalsItemRequestBuilder(BaseRequestBuilder):
         from .decision.decision_request_builder import DecisionRequestBuilder
 
         return DecisionRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def review(self) -> ReviewRequestBuilder:
+        """
+        The review property
+        """
+        from .review.review_request_builder import ReviewRequestBuilder
+
+        return ReviewRequestBuilder(self.request_adapter, self.path_parameters)
     
 

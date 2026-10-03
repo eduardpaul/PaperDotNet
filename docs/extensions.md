@@ -313,3 +313,27 @@ a registered workspace built-in workflow with existing/default parameters. A
 module must authorize its configuration action before calling it; the API does
 not accept arbitrary workflow definitions. Both additions have defaults for
 older custom implementations; the host implements them.
+
+## Reviewed file replacements
+
+Reference Documents through the SDK's `IDocumentFileStore`. Read an immutable
+version, stage a smaller supported candidate with the activity execution id and
+run id, then promote or discard it. `AsSystem()` is for authorized background
+workflow activities. Default operations enforce caller item access. Promotion
+is conditional on the reviewed source still being current and releases its file
+version only after the candidate becomes current. Metrics use a JSON object so
+future format adapters can supply their own analysis.
+
+An approval node can include `review: { "type": "acme.example.image",
+"key": "{step:prepare.candidate}" }`. Register an `IApprovalReviewProvider`
+with `builder.AddApprovalReviewProvider<T>()`. Review keys must belong to the
+same run and item; providers validate that association and source freshness.
+The runtime checks tenant enablement, approval assignment and readable item
+access. Implement metadata, content, and decision validation. The app's
+`approvalReviewRenderers` registry selects a build-time React renderer by the
+provider's descriptor. The included `imageComparison` renderer shows source and
+candidate content at native 100%. Unknown review renderers cannot enable decisions.
+
+See ADR-0043 and the compiled `PaperDotNet.StorageOptimization` extension for the
+complete example. Extension identifiers remain lowercase, including
+`paperdotnet.storageoptimization`.

@@ -93,7 +93,7 @@ namespace PaperDotNet.Client.V10.Items.Item.Relations
         }
         [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
         #pragma warning disable CS1591
-        public partial class RelationsRequestBuilderGetQueryParameters
+        public partial class RelationsRequestBuilderGetQueryParameters 
         #pragma warning restore CS1591
         {
             /// <summary>Continuation token from @odata.nextLink.</summary>

@@ -38,6 +38,14 @@ namespace PaperDotNet.Client.Models
         public Guid? ItemId { get; set; }
         /// <summary>The listId property</summary>
         public Guid? ListId { get; set; }
+        /// <summary>The review property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.ApprovalReviewReference? Review { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.ApprovalReviewReference Review { get; set; }
+#endif
         /// <summary>The runId property</summary>
         public Guid? RunId { get; set; }
         /// <summary>The status property</summary>
@@ -94,6 +102,7 @@ namespace PaperDotNet.Client.Models
                 { "id", n => { Id = n.GetGuidValue(); } },
                 { "itemId", n => { ItemId = n.GetGuidValue(); } },
                 { "listId", n => { ListId = n.GetGuidValue(); } },
+                { "review", n => { Review = n.GetObjectValue<global::PaperDotNet.Client.Models.ApprovalReviewReference>(global::PaperDotNet.Client.Models.ApprovalReviewReference.CreateFromDiscriminatorValue); } },
                 { "runId", n => { RunId = n.GetGuidValue(); } },
                 { "status", n => { Status = n.GetEnumValue<global::PaperDotNet.Client.Models.ApprovalStatus>(); } },
                 { "stepName", n => { StepName = n.GetStringValue(); } },
@@ -117,6 +126,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteGuidValue("id", Id);
             writer.WriteGuidValue("itemId", ItemId);
             writer.WriteGuidValue("listId", ListId);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.ApprovalReviewReference>("review", Review);
             writer.WriteGuidValue("runId", RunId);
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.ApprovalStatus>("status", Status);
             writer.WriteStringValue("stepName", StepName);

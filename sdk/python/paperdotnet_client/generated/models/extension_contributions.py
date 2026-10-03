@@ -12,6 +12,8 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
+    # The approvalReviews property
+    approval_reviews: Optional[list[str]] = None
     # The contentTypes property
     content_types: Optional[list[str]] = None
     # The extension's own DbContext (EXT-07), if any.
@@ -58,6 +60,7 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
         Returns: dict[str, Callable[[ParseNode], None]]
         """
         fields: dict[str, Callable[[Any], None]] = {
+            "approvalReviews": lambda n : setattr(self, 'approval_reviews', n.get_collection_of_primitive_values(str)),
             "contentTypes": lambda n : setattr(self, 'content_types', n.get_collection_of_primitive_values(str)),
             "dbContext": lambda n : setattr(self, 'db_context', n.get_str_value()),
             "endpoints": lambda n : setattr(self, 'endpoints', n.get_bool_value()),
@@ -83,6 +86,7 @@ class ExtensionContributions(AdditionalDataHolder, Parsable):
         """
         if writer is None:
             raise TypeError("writer cannot be null.")
+        writer.write_collection_of_primitive_values("approvalReviews", self.approval_reviews)
         writer.write_collection_of_primitive_values("contentTypes", self.content_types)
         writer.write_str_value("dbContext", self.db_context)
         writer.write_bool_value("endpoints", self.endpoints)

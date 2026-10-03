@@ -12,7 +12,7 @@ public sealed partial class ModuleBoundaryTests
     private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents", "Tasks", "Calendar", "Notes", "Notifications", "Provisioning", "Workflows", "AiWorkflows", "Collaboration", "Mcp"];
 
     /// <summary>Modules that expose a contracts assembly.</summary>
-    private static readonly string[] ContractModules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Search", "Notifications", "Provisioning", "Workflows", "Collaboration", "Mcp"];
+    private static readonly string[] ContractModules = ["Documents", "Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Search", "Notifications", "Provisioning", "Workflows", "Collaboration", "Mcp"];
 
     private static readonly string[] ProviderAgnostic =
     [
@@ -76,6 +76,7 @@ public sealed partial class ModuleBoundaryTests
     /// </summary>
     [Theory]
     [InlineData("PaperDotNet.Extensions.Abstractions")]
+    [InlineData("PaperDotNet.StorageOptimization")]
     [InlineData("PaperDotNet.Samples.Invoices")]
     [InlineData("PaperDotNet.Documents")] // built on the SDK (EXT-06)
     [InlineData("PaperDotNet.Tasks")]

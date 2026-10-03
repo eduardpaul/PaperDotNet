@@ -3,6 +3,7 @@
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.V10.Me.Approvals.Item.Decision;
+using PaperDotNet.Client.V10.Me.Approvals.Item.Review;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -19,6 +20,11 @@ namespace PaperDotNet.Client.V10.Me.Approvals.Item
         public global::PaperDotNet.Client.V10.Me.Approvals.Item.Decision.DecisionRequestBuilder Decision
         {
             get => new global::PaperDotNet.Client.V10.Me.Approvals.Item.Decision.DecisionRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The review property</summary>
+        public global::PaperDotNet.Client.V10.Me.Approvals.Item.Review.ReviewRequestBuilder Review
+        {
+            get => new global::PaperDotNet.Client.V10.Me.Approvals.Item.Review.ReviewRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Me.Approvals.Item.ApprovalsItemRequestBuilder"/> and sets the default values.

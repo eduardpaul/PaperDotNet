@@ -15729,6 +15729,117 @@
         }
       }
     },
+    "/v1.0/me/approvals/{id}/review": {
+      "get": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "GetApprovalReview",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalReviewData"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/me/approvals/{id}/review/content/{part}": {
+      "get": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "GetApprovalReviewContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "part",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/me/approvals/{id}/decision": {
       "post": {
         "tags": [
@@ -16988,6 +17099,56 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "review": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ApprovalReviewReference"
+              }
+            ]
+          }
+        }
+      },
+      "ApprovalReviewData": {
+        "required": [
+          "renderer",
+          "data",
+          "canDecide"
+        ],
+        "type": "object",
+        "properties": {
+          "renderer": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "canDecide": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ApprovalReviewReference": {
+        "required": [
+          "type",
+          "key"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
           }
         }
       },
@@ -18959,6 +19120,15 @@
             }
           },
           "workflows": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "approvalReviews": {
             "type": [
               "null",
               "array"
@@ -24202,6 +24372,12 @@
               {
                 "$ref": "#/components/schemas/JsonObject"
               }
+            ]
+          },
+          "concurrency": {
+            "type": [
+              "null",
+              "string"
             ]
           }
         },

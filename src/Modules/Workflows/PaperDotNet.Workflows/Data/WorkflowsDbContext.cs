@@ -125,6 +125,9 @@ public enum RunStatus
 [NotAudited]
 public sealed class WorkflowRun : ITenantOwned, IVersioned
 {
+    /// <summary>Effective concurrency at creation, including an optional trigger override.</summary>
+    public string? Concurrency { get; set; }
+
     public Guid Id { get; set; }
 
     public Guid TenantId { get; set; }
@@ -305,6 +308,10 @@ public sealed class ApprovalRequest : ITenantOwned, IAuditable, IVersioned
 
     public required string Title { get; set; }
 
+    public string? ReviewType { get; set; }
+
+    public string? ReviewKey { get; set; }
+
     public List<Guid> Assignees { get; set; } = [];
 
     /// <summary>Added as assignees (and notified) when the request is overdue.</summary>
@@ -377,6 +384,7 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
         });
         modelBuilder.Entity<WorkflowRun>(b =>
         {
+            b.Property(x => x.Concurrency).HasMaxLength(20);
             b.ToTable("runs");
             b.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
             b.Property(r => r.Error).HasMaxLength(2000);

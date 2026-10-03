@@ -15,6 +15,7 @@
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../Extensions/PaperDotNet.StorageOptimization/PaperDotNet.StorageOptimization.csproj" />
     <ProjectReference Include="..\PaperDotNet.ServiceDefaults\PaperDotNet.ServiceDefaults.csproj" />
     <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Persistence.PostgreSql\PaperDotNet.Persistence.PostgreSql.csproj" />
     <ProjectReference Include="..\BuildingBlocks\PaperDotNet.Persistence.Sqlite\PaperDotNet.Persistence.Sqlite.csproj" />

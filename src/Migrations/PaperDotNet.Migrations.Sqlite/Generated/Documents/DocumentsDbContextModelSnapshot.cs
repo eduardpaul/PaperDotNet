@@ -17,6 +17,82 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Documents
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("PaperDotNet.Documents.Data.FileCandidate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("file_name");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("item_id");
+
+                    b.Property<string>("MetricsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("metrics_json");
+
+                    b.Property<Guid?>("PromotedVersionId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("promoted_version_id");
+
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("run_id");
+
+                    b.Property<string>("SourceJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("source_json");
+
+                    b.Property<Guid>("SourceStoredFileId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("source_stored_file_id");
+
+                    b.Property<Guid>("SourceVersionId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("source_version_id");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("state");
+
+                    b.Property<Guid>("StoredFileId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("stored_file_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_documents_file_candidates");
+
+                    b.HasIndex("RunId")
+                        .HasDatabaseName("ix_documents_file_candidates_run_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_documents_file_candidates_tenant_id");
+
+                    b.HasIndex("TenantId", "SourceVersionId")
+                        .HasDatabaseName("ix_documents_file_candidates_tenant_id_source_version_id");
+
+                    b.ToTable("documents_file_candidates", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Documents.Data.FileVersion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -122,6 +198,11 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Documents
                     b.HasIndex("ItemId", "Number")
                         .IsUnique()
                         .HasDatabaseName("ix_documents_file_versions_item_id_number");
+
+                    b.HasIndex("TenantId", "ItemId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_documents_file_versions_tenant_id_item_id")
+                        .HasFilter("\"is_current\" = TRUE");
 
                     b.HasIndex("TenantId", "Sha256", "IsCurrent")
                         .HasDatabaseName("ix_documents_file_versions_tenant_id_sha256_is_current");
