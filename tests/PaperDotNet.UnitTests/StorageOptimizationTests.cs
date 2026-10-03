@@ -7,6 +7,105 @@ namespace PaperDotNet.UnitTests;
 
 public sealed class StorageOptimizationTests
 {
+    [Theory]
+    [InlineData(0)]
+    [InlineData(30)]
+    [InlineData(90)]
+    [InlineData(180)]
+    public void Dbnet_oriented_height_survives_rotation_and_projects_both_axes(int angle)
+    {
+        var radians = angle * Math.PI / 180;
+        SKPointI Rotate(int x, int y) => new((int)Math.Round(x * Math.Cos(radians) - y * Math.Sin(radians)),
+            (int)Math.Round(x * Math.Sin(radians) + y * Math.Cos(radians)));
+        SKPointI[] polygon = [Rotate(0, 0), Rotate(100, 0), Rotate(100, 20), Rotate(0, 20)];
+        Assert.InRange(PaddleTextDetector.ProjectHeight(polygon, 0.9, 50, 2, 2)!.Value, 39, 41);
+        Assert.Equal(60, PaddleTextDetector.ProjectHeight([new(0, 0), new(100, 0), new(100, 20), new(0, 20)], 0.9, 50, 2, 3));
+    }
+
+    [Fact]
+    public void Dbnet_filters_low_confidence_tiny_and_square_regions()
+    {
+        SKPointI[] box = [new(0, 0), new(100, 0), new(100, 20), new(0, 20)];
+        Assert.Null(PaddleTextDetector.ProjectHeight(box, 0.49, 50, 1, 1));
+        Assert.Null(PaddleTextDetector.ProjectHeight(box, double.NaN, 50, 1, 1));
+        Assert.Null(PaddleTextDetector.ProjectHeight([new(0, 0), new(100, 0), new(100, 5), new(0, 5)], 0.9, 50, 1, 1));
+        Assert.Null(PaddleTextDetector.ProjectHeight([new(0, 0), new(10, 0), new(10, 10), new(0, 10)], 0.9, 50, 1, 1));
+        Assert.Null(PaddleTextDetector.ProjectHeight([], 0.9, 50, 1, 1));
+        Assert.Equal(32, PaddleTextDetector.NetworkDimension(1));
+        Assert.Equal(2592, PaddleTextDetector.NetworkDimension(2600));
+    }
+
+    [Fact]
+    public async Task Default_dbnet_runs_offline_without_tesseract_and_blank_image_keeps_original()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Documents:TesseractPath"] = "nonexistent-tesseract",
+        }).Build();
+        using var gate = new ImageOptimizationGate();
+        using var detector = new PaddleTextDetector(config);
+        var adapter = new ImageOptimizationAdapter(config, gate, detector);
+        using var bitmap = new SKBitmap(640, 640);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(SKColors.White);
+        using var blankImage = SKImage.FromBitmap(bitmap);
+        using var blankPng = blankImage.Encode(SKEncodedImageFormat.Png, 100);
+        await using var blank = new MemoryStream(blankPng.ToArray());
+        await using var skipped = await adapter.OptimizeAsync(blank, null, new(), TestContext.Current.CancellationToken);
+        Assert.Null(skipped.Content);
+        Assert.Equal("paddleocr", skipped.Metrics["detector"]!.GetValue<string>());
+        Assert.Equal("line", skipped.Metrics["strategy"]!.GetValue<string>());
+        Assert.Equal("d2a7720d45a54257208b1e13e36a8479894cb74155a5efe29462512d42f49da9", skipped.Metrics["modelSha256"]!.GetValue<string>());
+        Assert.Contains("No reliable text", skipped.SkipReason!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Dbnet_timeout_retains_source_releases_gate_and_next_call_succeeds()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["StorageOptimization:OcrTimeoutSeconds"] = "0.001",
+        }).Build();
+        using var gate = new ImageOptimizationGate();
+        using var detector = new PaddleTextDetector(config);
+        var adapter = new ImageOptimizationAdapter(config, gate, detector);
+        using var bitmap = new SKBitmap(640, 640);
+        bitmap.Erase(SKColors.White);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        var bytes = png.ToArray();
+        await using var source = new MemoryStream(bytes);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => adapter.OptimizeAsync(source, null, new(), TestContext.Current.CancellationToken));
+        Assert.Contains("OCR timeout", error.Message, StringComparison.Ordinal);
+        Assert.Equal(bytes, source.ToArray());
+        Assert.Equal(1, gate.Semaphore.CurrentCount);
+        config["StorageOptimization:OcrTimeoutSeconds"] = "120";
+        await using var retry = new MemoryStream(bytes);
+        await using var result = await adapter.OptimizeAsync(retry, null, new(), TestContext.Current.CancellationToken);
+        Assert.Null(result.Content);
+        Assert.Contains("No reliable text", result.SkipReason!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Missing_dbnet_model_fails_and_releases_processor_gate()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["StorageOptimization:PaddleModelPath"] = "/missing/model.onnx",
+        }).Build();
+        using var gate = new ImageOptimizationGate();
+        using var detector = new PaddleTextDetector(config);
+        var adapter = new ImageOptimizationAdapter(config, gate, detector);
+        using var bitmap = new SKBitmap(64, 64);
+        bitmap.Erase(SKColors.White);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        await using var content = new MemoryStream(png.ToArray());
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => adapter.OptimizeAsync(content, null, new(), TestContext.Current.CancellationToken));
+        Assert.Contains("model is missing", error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, gate.Semaphore.CurrentCount);
+    }
+
     [Fact]
     public async Task Animated_png_is_retained_without_ocr_or_still_image_encoding()
     {
@@ -14,7 +113,9 @@ public sealed class StorageOptimizationTests
         const string apng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACGFjVEwAAAACAAAAAPONk3AAAAAaZmNUTAAAAAAAAAABAAAAAQAAAAAAAAAAAAEACgAAWn8w0AAAAA1JREFUeJxj+M/A8B8ABQAB/4mZPR0AAAAaZmNUTAAAAAEAAAABAAAAAQAAAAAAAAAAAAEACgAAwQzaBAAAABFmZEFUAAAAAnicY2Bg+P8fAAMCAf/1e6XXAAAAAElFTkSuQmCC";
         await using var content = new MemoryStream(Convert.FromBase64String(apng));
         using var gate = new ImageOptimizationGate();
-        var adapter = new ImageOptimizationAdapter(new ConfigurationBuilder().Build(), gate);
+        var config = new ConfigurationBuilder().Build();
+        using var detector = new PaddleTextDetector(config);
+        var adapter = new ImageOptimizationAdapter(config, gate, detector);
         await using var result = await adapter.OptimizeAsync(content, "eng", new(), TestContext.Current.CancellationToken);
         Assert.Null(result.Content);
         Assert.Contains("Animated", result.SkipReason!, StringComparison.Ordinal);
@@ -86,7 +187,8 @@ public sealed class StorageOptimizationTests
     {
         using var gate = new ImageOptimizationGate();
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["StorageOptimization:MaxPixels"] = "10" }).Build();
-        var adapter = new ImageOptimizationAdapter(config, gate);
+        using var detector = new PaddleTextDetector(config);
+        var adapter = new ImageOptimizationAdapter(config, gate, detector);
         await using var broken = new MemoryStream("broken image"u8.ToArray());
         await Assert.ThrowsAsync<InvalidOperationException>(() => adapter.OptimizeAsync(broken, "eng", new(), TestContext.Current.CancellationToken));
         using var bitmap = new SKBitmap(4, 4);

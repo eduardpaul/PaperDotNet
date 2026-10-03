@@ -1,12 +1,17 @@
 # Document optimization benchmark
 
-Runs the production adapter with real Tesseract and a second OCR pass over the
+Runs the production adapter with real PaddleOCR DBNet and a Tesseract OCR pass over the
 candidate. No source image or output image is added to the repository.
 
 ```bash
 dotnet run --project tests/benchmarks/document-optimization -- /path/to/images /tmp/results.json
 dotnet run --project tests/benchmarks/document-optimization -- --synthetic /tmp/48mp-48mib.png
 ```
+
+Set `TEXT_DETECTOR=tesseract` to benchmark the alternate word detector.
+`analysisMilliseconds` isolates detector work (including first-call model loading),
+while total elapsed time also includes decoding, encoding and verification.
+DBNet line-region counts are not word counts and cannot be compared directly.
 
 Set `TESSERACT_PATH` to a Tesseract executable or wrapper. Languages default to
 English, matching the minimal container. Results include dimensions, measured

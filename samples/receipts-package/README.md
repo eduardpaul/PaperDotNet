@@ -52,7 +52,11 @@ No automatic approval deadline is configured.
 Do not also enable the standalone **Optimize document storage** library workflow:
 this template already composes its prepare/review/accept/discard activities with
 receipt reading. Tune the prepare node in the workflow JSON to change its default
-12px text target, word-confidence filter, WebP Q80, or approvers.
+12px text target, detection-confidence filter, WebP Q80, or approvers.
+Small-text identification defaults to the bundled PaddleOCR PP-OCRv4 DBNet
+(line geometry). Set `PAPERDOTNET__StorageOptimization__TextDetector=tesseract`
+to use recognized-word heights instead. This does not change the AI extractor
+or the regular document text-extraction engine.
 
 ## What the template contains
 

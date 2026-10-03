@@ -43,6 +43,12 @@ export function ImageComparison({ approvalId, review, onReady }: ApprovalReviewP
         {format.number(Number(data.savingsPercent), { maximumFractionDigits: 1 })}% smaller
         {' · '}text {format.number(Number(data.smallestTextHeight))}px
         {' · '}scale {format.number(Number(data.scale), { maximumFractionDigits: 3 })}
+        {typeof data.detector === 'string' && (
+          <>
+            {' · '}
+            {data.detector === 'paddleocr' ? 'DBNet line height' : 'Tesseract word height'}
+          </>
+        )}
       </p>
       <label className="flex items-center gap-2 text-sm">
         <Checkbox checked={linked} onChange={(event) => setLinked(event.target.checked)} />

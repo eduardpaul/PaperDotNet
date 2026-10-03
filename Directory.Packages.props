@@ -13,6 +13,8 @@
     <PackageVersion Include="PDFtoImage" Version="5.4.0" />
     <PackageVersion Include="SkiaSharp" Version="4.150.1" />
     <PackageVersion Include="CliWrap" Version="3.10.5" />
+    <PackageVersion Include="RapidOcrNet" Version="4.2.0" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.150.1" />
   </ItemGroup>
   <ItemGroup Label="Data">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />

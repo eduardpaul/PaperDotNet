@@ -337,3 +337,13 @@ candidate content at native 100%. Unknown review renderers cannot enable decisio
 See ADR-0045 and the compiled `PaperDotNet.StorageOptimization` extension for the
 complete example. Extension identifiers remain lowercase, including
 `paperdotnet.storageoptimization`.
+
+The image adapter defaults to PaddleOCR PP-OCRv4 DBNet line detection. Its model
+and native CPU runtime ship with the host; no inference service or download is
+needed. Set `PAPERDOTNET__StorageOptimization__TextDetector=tesseract` to use
+TSV word detection instead. `PaddleModelPath` selects a compatible custom v4 ONNX
+detector, and `PaddleThreads` (default 1) controls inference threads. Confidence
+means box score for DBNet and recognized-word confidence for Tesseract.
+Proposal metrics record detector, model digest, strategy and analysis time.
+The ordinary document text-extraction workflow still uses its configured OCR
+engine; this setting changes only storage-optimization measurements.

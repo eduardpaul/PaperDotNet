@@ -16,6 +16,7 @@ public sealed class StorageOptimizationExtension : IExtension
     public void Configure(IExtensionBuilder builder)
     {
         builder.Services.AddSingleton<ImageOptimizationGate>();
+        builder.Services.AddSingleton<PaddleTextDetector>();
         builder.Services.AddScoped<IDocumentOptimizationAdapter, ImageOptimizationAdapter>();
         builder.AddWorkflowActivity<PrepareOptimization>();
         builder.AddWorkflowActivity<AcceptOptimization>();
@@ -57,7 +58,7 @@ public sealed class StorageOptimizationExtension : IExtension
         Parameters = JsonNode.Parse("""
         { "type": "object", "properties": {
           "targetHeight": { "type": "number", "default": 12, "description": "Smallest text target in pixels (4–200)." },
-          "minConfidence": { "type": "number", "default": 50, "description": "Minimum word confidence (0–100)." },
+          "minConfidence": { "type": "number", "default": 50, "description": "Minimum DBNet box score or Tesseract word confidence (0–100)." },
           "percentile": { "type": "number", "default": 5, "description": "Height percentile (0–100)." },
           "maxAnalysisDimension": { "type": "number", "default": 2600, "description": "Maximum OCR image dimension (256–10000)." },
           "minimumScale": { "type": "number", "default": 0.05, "description": "Minimum resize scale (greater than 0, at most 1)." },

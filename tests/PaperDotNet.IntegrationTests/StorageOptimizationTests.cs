@@ -80,6 +80,20 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
         }, TimeSpan.FromSeconds(60));
 
     [Fact]
+    public async Task Tesseract_switch_still_prepares_word_based_review()
+    {
+        await using var host = new PaperDotNetApiFactory { OptimizationTextDetector = "tesseract" };
+        await host.InitializeAsync();
+        var (_, client, _, _, path) = await SetupAsync("storage-opt-tesseract", host);
+        var item = await UploadAsync(client, path);
+        var approval = await ApprovalAsync(client, item);
+        var review = await client.GetAsync($"/v1.0/me/approvals/{approval.GetProperty("id").GetGuid()}/review", Ct);
+        var data = (await review.ReadJsonAsync()).GetProperty("data");
+        Assert.Equal("tesseract", data.GetProperty("detector").GetString());
+        Assert.Equal("word", data.GetProperty("strategy").GetString());
+    }
+
+    [Fact]
     public async Task Approval_replaces_once_and_cleanup_preserves_shared_source_content()
     {
         var (tenant, client, ws, _, path) = await SetupAsync("storage-opt-approve");
@@ -88,7 +102,10 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
         var approval = await ApprovalAsync(client, item);
         var id = approval.GetProperty("id").GetGuid();
         var review = await client.GetAsync($"/v1.0/me/approvals/{id}/review", Ct);
-        Assert.True((await review.ReadJsonAsync()).GetProperty("canDecide").GetBoolean());
+        var metadata = await review.ReadJsonAsync();
+        Assert.True(metadata.GetProperty("canDecide").GetBoolean());
+        Assert.Equal("paddleocr", metadata.GetProperty("data").GetProperty("detector").GetString());
+        Assert.Equal("line", metadata.GetProperty("data").GetProperty("strategy").GetString());
         var source = await client.GetByteArrayAsync($"/v1.0/me/approvals/{id}/review/content/source", Ct);
         var optimized = await client.GetByteArrayAsync($"/v1.0/me/approvals/{id}/review/content/candidate", Ct);
         Assert.True(optimized.Length < source.Length);

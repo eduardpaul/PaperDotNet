@@ -1,0 +1,9 @@
+ONNX Runtime 1.29.0 includes Eigen, under MPL-2.0.
+
+Corresponding source (unmodified upstream, pinned by the runtime dependency manifest):
+https://github.com/eigen-mirror/eigen/archive/1d8b82b0740839c0de7f1242a3585e3390ff5f33/eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33.zip
+
+Dependency manifest:
+https://github.com/microsoft/onnxruntime/blob/v1.29.0/cmake/deps.txt
+
+Complete license text is in ONNXRuntime-ThirdPartyNotices.txt, Eigen section.

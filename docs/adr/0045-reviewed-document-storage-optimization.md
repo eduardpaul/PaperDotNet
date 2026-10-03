@@ -43,18 +43,47 @@ retain their original file; future PDF/Word adapters can use the same contract.
 Animated PNG is detected through its animation-control chunk because Skia's PNG
 codec exposes only its default frame. Animation is skipped before OCR.
 
-SkiaSharp applies all EXIF orientations and bicubic resampling. Tesseract TSV
-supplies word boxes. Analysis is capped at 2600 pixels on the longest dimension;
-heights are projected to the upright source. Confidence, alphanumeric length,
-and height filters precede an interpolated fifth percentile. Defaults are a
-12-pixel target, 50% confidence, 0.05 minimum scale, WebP quality 80, and no
-upscaling. No reliable text or no byte savings means no approval is requested.
-Decoder/OCR failures fail the workflow while keeping the source.
+SkiaSharp applies all EXIF orientations and bicubic resampling. Small-text
+analysis defaults to PaddleOCR PP-OCRv4 mobile DBNet, running in-process on CPU
+through RapidOcrNet and Microsoft.ML.OnnxRuntime. RapidOcrNet supplies detection
+preprocessing, contour scoring, minimum-area boxes and polygon expansion using
+SkiaSharp and Clipper2; OpenCV and additional services are unnecessary. The
+Apache-2.0 ONNX detector is pinned by SHA-256 and shipped in build/publish output;
+recognition/classification models are excluded. Inference needs no network.
+ONNX Runtime includes Eigen under MPL-2.0; the requested ONNX blueprint is a
+specific dependency-policy exception, recorded in the license register with
+complete notices and a pinned Eigen source reference.
+
+Analysis is capped at 2600 pixels on the longest dimension. DBNet receives BGR
+NCHW ImageNet-normalized pixels and dimensions rounded to multiples of 32.
+Returned polygons are projected through the actual axis scales to the upright
+source. The shortest oriented side gives line height, including vertical text;
+box confidence and minimum 6px analysis height / 1.5 aspect ratio filter noise.
+This geometry avoids an axis-aligned box growing with tilt, but does not promise
+that detection is immune to rotation, perspective, or missed small text.
+
+`StorageOptimization:TextDetector=tesseract` selects the existing TSV word
+strategy instead. Only that strategy can filter punctuation and tokens with
+fewer than two alphanumeric characters; DBNet detects regions without recognizing
+characters. Defaults remain an interpolated fifth percentile, 12-pixel target,
+50% confidence (DBNet box score or Tesseract word confidence), 0.05 minimum scale,
+WebP quality 80, and no upscaling. Proposals record engine, model, strategy,
+region count and analysis time. Line boxes include padding and are not equivalent
+to word glyph heights. No reliable text or no byte savings means no approval is
+requested. Decoder/OCR failures fail the workflow while keeping the source;
+there is no silent fallback that would change the measurement strategy.
 
 One processor per host process and a default 64-million-pixel decode limit bound
 optimization work. `StorageOptimization:MaxPixels` and
 `StorageOptimization:OcrTimeoutSeconds` configure resource limits. The existing
-`Documents:TesseractPath` configures the CLI. Pending reviews have no deadline.
+`Documents:TesseractPath` configures the optional CLI.
+`StorageOptimization:PaddleModelPath` overrides the bundled detector with a
+compatible PP-OCRv4 DBNet ONNX model. `StorageOptimization:PaddleThreads`
+(default 1, range 1–32) controls CPU inference threads. The session is lazily
+loaded once and disposed with the host; cancellation terminates ONNX inference.
+CPU arena allocation and memory-pattern caching are disabled because varying
+image shapes otherwise retain large buffers in a long-lived process. Native
+model inference remains serialized with decoding/encoding by the process gate. Pending reviews have no deadline.
 They protect their source and candidate from cleanup; finished/cancelled runs
 release abandoned candidates. Purging an item releases its pending candidates.
 Retrying a failed prepare after cleanup regenerates the candidate under its
@@ -69,7 +98,9 @@ approval are prospective: shared content and other retained versions can prevent
 physical reclamation. Cleanup retains its one-hour grace period.
 
 The adjacent POC's word strategy accidentally fell through to row analysis.
-Production implements word analysis independently and records fresh benchmarks.
+The optional Tesseract strategy implements word analysis independently. Both
+engines require fresh benchmarks; quoted throughput from other hardware or
+smaller analysis images is not an acceptance claim.
 Word measurements, OCR prescaling, and compression do not prove preservation of
 all text. Manager review remains mandatory; synthetic and real-image benchmark
 results include a second OCR pass as diagnostic evidence.

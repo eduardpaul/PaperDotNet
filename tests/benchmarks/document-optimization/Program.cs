@@ -38,8 +38,10 @@ using var gate = new ImageOptimizationGate();
 var settings = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
 {
     ["Documents:TesseractPath"] = Environment.GetEnvironmentVariable("TESSERACT_PATH") ?? "tesseract",
+    ["StorageOptimization:TextDetector"] = Environment.GetEnvironmentVariable("TEXT_DETECTOR") ?? "paddleocr",
 }).Build();
-var adapter = new ImageOptimizationAdapter(settings, gate);
+using var detector = new PaddleTextDetector(settings);
+var adapter = new ImageOptimizationAdapter(settings, gate, detector);
 var sources = File.Exists(args[0]) ? [args[0]] : Directory.GetFiles(args[0]).Where(f => new[] { ".jpg", ".jpeg", ".png", ".webp" }.Contains(Path.GetExtension(f).ToLowerInvariant())).Order().ToArray();
 var records = new List<object>();
 var work = Directory.CreateTempSubdirectory("pdn_verify_");

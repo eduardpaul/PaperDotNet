@@ -1,0 +1,35 @@
+[
+  {
+    "file": "synthetic-48mp-48mib.png",
+    "metrics": {
+      "detector": "paddleocr",
+      "model": "ch_PP-OCRv4_det",
+      "modelSha256": "d2a7720d45a54257208b1e13e36a8479894cb74155a5efe29462512d42f49da9",
+      "strategy": "line",
+      "textRegions": 36,
+      "analysisMilliseconds": 6910.9165,
+      "confidence": 50,
+      "analysisDimension": 2600,
+      "analysisScale": 0.325,
+      "sourceWidth": 6000,
+      "sourceHeight": 8000,
+      "width": 411,
+      "height": 549,
+      "sourceBytes": 50331648,
+      "bytes": 27804,
+      "scale": 0.06857142857142857,
+      "smallestTextHeight": 175,
+      "savingsPercent": 99.94475841522217,
+      "targetHeight": 12,
+      "percentile": 5,
+      "quality": 80,
+      "minimumScale": 0.05,
+      "words": null
+    },
+    "SkipReason": null,
+    "milliseconds": 8519,
+    "hostPeakWorkingSet": 1307717632,
+    "verifiedWords": 80,
+    "verifiedHeight": 12
+  }
+]

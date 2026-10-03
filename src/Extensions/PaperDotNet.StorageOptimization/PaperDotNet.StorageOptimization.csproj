@@ -4,6 +4,12 @@
     <ProjectReference Include="../PaperDotNet.Extensions.Analyzers/PaperDotNet.Extensions.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="CliWrap" />
+    <!-- Detection only: do not ship the library's unrelated v5 recognition/classification models. -->
+    <PackageReference Include="RapidOcrNet" ExcludeAssets="build;buildTransitive;contentFiles" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <Content Include="models/ch_PP-OCRv4_det.onnx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="models/LICENSE;models/README.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="licenses/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <EmbeddedResource Include="extension.json" LogicalName="paperdotnet.extension.json" />
     <InternalsVisibleTo Include="PaperDotNet.OptimizationBenchmark" />
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />

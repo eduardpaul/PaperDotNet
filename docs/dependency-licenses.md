@@ -112,6 +112,10 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `vite`, `@vitejs/plugin-react`, `typescript`, `eslint`, `typescript-eslint`, `eslint-plugin-react-hooks`, `prettier`, `prettier-plugin-tailwindcss`, `vitest` (build and test) | MIT / Apache-2.0 | Build, lint, format, unit tests |
 | `@playwright/test` (test) | Apache-2.0 | End-to-end tests |
 | `CliWrap` | MIT | Running the Tesseract CLI |
+| `RapidOcrNet` 4.2.0 | Apache-2.0 | PaddleOCR DBNet detection using SkiaSharp; includes Apache-2.0 RapidOCR / PdfPig and MIT PContour code |
+| `Microsoft.ML.OnnxRuntime`, `.Managed` 1.29.0 | MIT; native Eigen MPL-2.0 | Requested DBNet / ONNX Runtime blueprint; specific exception to the no-MPL policy (2026-10-03). Complete notices and Eigen source reference shipped |
+| `Clipper2` 2.0.0 | BSL-1.0 | Polygon expansion for DBNet (via RapidOcrNet); permissive attribution license, accepted 2026-10-03 |
+| PaddleOCR PP-OCRv4 mobile detector, ONNX conversion by RapidOCR | Apache-2.0 | Bundled detector weights; pinned digest and license in extension models directory |
 | `TngTech.ArchUnitNET` (+ `.xUnitV3`) | Apache-2.0 | Architecture tests |
 | `OpenIddict.EntityFrameworkCore` | Apache-2.0 | OpenIddict stores |
 | `Microsoft.AspNetCore.Identity.EntityFrameworkCore` | MIT | Identity stores |
@@ -179,3 +183,14 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
   welcome when they save code. Extra runtime services must stay optional (see the baseline in
   [dotnet-building-blocks.md](dotnet-building-blocks.md)). The only required
   runtime service is PostgreSQL.
+
+- **2026-10-03:** accepted Boost Software License 1.0 for Clipper2: unrestricted
+  use and redistribution, no copyleft or fee; preserve its license notice.
+  RapidOcrNet excludes its v5 model assets; only the pinned v4 detector ships.
+- **2026-10-03:** the requested PaddleOCR C# implementation explicitly uses
+  Microsoft.ML.OnnxRuntime. Its native CPU package includes Eigen (MPL-2.0).
+  This implementation records that specific user-requested exception rather
+  than classifying the entire native bundle as MIT. The general no-MPL rule
+  remains in place for other dependencies. Full upstream notices and the exact
+  Eigen source URL from ONNX Runtime v1.29.0's dependency manifest ship in
+  `PaperDotNet.StorageOptimization/licenses/`.
