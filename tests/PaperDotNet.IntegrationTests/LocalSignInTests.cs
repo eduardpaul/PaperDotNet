@@ -17,7 +17,7 @@ public sealed class HostSettings
     public const string Name = "Host settings";
 }
 
-/// <summary>Turning local sign-in off leaves the proxy as the only interactive way in (ADR-0044).</summary>
+/// <summary>Turning local sign-in off leaves the proxy as the only interactive way in (ADR-0045).</summary>
 [Collection(HostSettings.Name)]
 public sealed class LocalSignInTests(PaperDotNetApiFactory factory)
 {

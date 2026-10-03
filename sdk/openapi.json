@@ -8887,6 +8887,14 @@
             }
           },
           {
+            "name": "$filter",
+            "in": "query",
+            "description": "OData filter, e.g. fields/amount gt 100 and fields/status eq \u0027open\u0027.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "$top",
             "in": "query",
             "description": "Page size.",

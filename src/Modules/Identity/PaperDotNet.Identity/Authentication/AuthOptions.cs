@@ -24,7 +24,7 @@ public sealed class AuthOptions
     /// <summary>
     /// Sign-in with a password or a passkey stored in PaperDotNet (<c>/v1.0/auth/login</c>, passkey sign-in and the
     /// password grant). Turn it off when an authenticating reverse proxy signs everyone in, so its rules (two-factor,
-    /// lockout, removed users) cannot be bypassed with a local password (ADR-0044). Requires <see cref="ReverseProxy"/>.
+    /// lockout, removed users) cannot be bypassed with a local password (ADR-0045). Requires <see cref="ReverseProxy"/>.
     /// API tokens and client credentials keep working.
     /// </summary>
     public bool LocalSignIn { get; set; } = true;
@@ -52,7 +52,7 @@ public sealed class AuthOptions
 /// Configuration section <c>Auth:ReverseProxy</c>: an authenticating proxy (Authelia, Authentik, oauth2-proxy, Nginx
 /// Proxy Manager) names the signed-in user in request headers. They are trusted only from <see cref="TrustedProxies"/>,
 /// with the <see cref="Secret"/> when one is set, and only at <c>/auth/proxy/sign-in</c> and <c>/connect/authorize</c>,
-/// which start a sign-in session; the API itself keeps using tokens (ADR-0031, ADR-0044).
+/// which start a sign-in session; the API itself keeps using tokens (ADR-0031, ADR-0045).
 /// </summary>
 public sealed class ReverseProxyAuthOptions
 {

@@ -1,4 +1,4 @@
-# ADR-0044: Running behind general-purpose reverse proxies (Nginx Proxy Manager)
+# ADR-0045: Running behind general-purpose reverse proxies (Nginx Proxy Manager)
 
 - **Status:** Accepted (implemented)
 - **Date:** 2026-10-02

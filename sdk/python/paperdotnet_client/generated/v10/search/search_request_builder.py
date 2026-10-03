@@ -31,7 +31,7 @@ class SearchRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/search{?%24skip*,%24top*,containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/search{?%24filter*,%24skip*,%24top*,containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}", path_parameters)
     
     async def get(self,request_configuration: Optional[RequestConfiguration[SearchRequestBuilderGetQueryParameters]] = None) -> Optional[SearchResponse]:
         """
@@ -98,6 +98,8 @@ class SearchRequestBuilder(BaseRequestBuilder):
                 return "contentTypeId"
             if original_name == "created_by":
                 return "createdBy"
+            if original_name == "filter":
+                return "%24filter"
             if original_name == "skip":
                 return "%24skip"
             if original_name == "term_id":
@@ -121,6 +123,9 @@ class SearchRequestBuilder(BaseRequestBuilder):
         content_type_id: Optional[UUID] = None
 
         created_by: Optional[UUID] = None
+
+        # OData filter, e.g. fields/amount gt 100 and fields/status eq 'open'.
+        filter: Optional[str] = None
 
         mode: Optional[str] = None
 

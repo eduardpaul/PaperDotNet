@@ -45,7 +45,7 @@ services:
       PAPERDOTNET__Auth__RequireHttps: "true"
       # The web UI's sign-in returns to /callback on the public host name.
       PAPERDOTNET__Auth__FirstPartyRedirectUris__0: https://${PAPERDOTNET_HOST:?set PAPERDOTNET_HOST in .env}/callback
-      # Sign-in through the proxy (IAM-15, ADR-0031, ADR-0044): NPM authenticates /auth/proxy/ only, names the
+      # Sign-in through the proxy (IAM-15, ADR-0031, ADR-0045): NPM authenticates /auth/proxy/ only, names the
       # user there and sends the secret. Forwarded headers count only from NPM's address, too.
       PAPERDOTNET__Auth__ReverseProxy__Enabled: "true"
       PAPERDOTNET__Auth__ReverseProxy__TrustedProxies__0: ${NPM_IP:-172.30.10.2}

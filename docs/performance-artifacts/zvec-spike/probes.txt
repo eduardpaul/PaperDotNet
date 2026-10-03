@@ -1,0 +1,28 @@
+S1 | Row without a vector accepted | YES | chunk row inserted with a nullable embedding column left out
+S5 | Query sees writes before flush | YES | 2 hits for 'learning' right after insert: d2,d1.g1.0
+S1b | Vector query skips rows without a vector | YES | vector hits: d1:0.00,d2:1.00
+S1c | Vector added later by update is found | YES | top: d1.g1.0
+S2 | update changes only given columns | YES | after vector-only update: text='machine learning invoices are processed', scope=1f855d, page=<unreadable>
+S2b | metadata-only update keeps text and vector | YES | scope now B, text kept, vector still found
+S3 | FTS prefix (learn*) | NO | 0 hits
+F1 | English stemming (invoice finds invoices) | YES | 1 hits
+F2 | Query syntax +required -excluded | YES | d1.g1.0
+F3 | Phrase query | YES | d1.g1.0
+F4 | IN filter with FTS (scope trimming) | YES | d1.g1.0
+F5 | CONTAIN_ANY on string array | YES | d2
+F6 | Range filter on INT64 | YES | d2
+F7 | == operator | NO | query failed (3): Invalid filter [kind == 'doc']: syntax error [1 6 extraneous input '=' expecting {'OR', 'AND', 'NOT', 'IN', 'BETWEEN', 'LIKE', 'WHERE', 'SELECT', 'AS', 'BY', 'ORDER', 'ASC', 'DESC', 'LIMIT', 'TRUE', 'FALSE', INTEGER, FLOAT, SQUOTA_STRING, DQUOTA_STRING, '[', VECTOR, REGULAR_ID}]
+F8 | Quote and backslash escaping | NO | workspace_id = 'O\'Brien \\ x' -> 0
+F8 | Quote and backslash escaping | NO | workspace_id = "O'Brien \\ x" -> 0
+S7 | Filter-only search through constant token | YES | 2 rows: d1.g1.0,d1
+S6 | Result says which route matched | NO | hybrid rows (pk:score) d2:0.0328,d1.g1.0:0.0320,d1:0.0161; only one score per row
+D1 | add_column + index on a filled collection, then filter | YES | d1
+D3 | add_column of type 2 later | NO | add_column f_vendor_s failed (3): Invalid schema: this operation requires a numeric field; field[f_vendor_s] has type STRING
+D3 | add_column of type 3 later | NO | add_column f_paid_b failed (3): Invalid schema: this operation requires a numeric field; field[f_paid_b] has type BOOL
+D3 | add_column of type 41 later | NO | add_column f_tags_ss failed (3): Invalid schema: this operation requires a numeric field; field[f_tags_ss] has type ARRAY_STRING
+D3 | add_column of type 5 later | YES | f_due_l
+S3b | Prefix via trigram column (learn* as +lea +ear +arn) | YES | 2 hits
+D2 | Add a vector column later (model change) | NO | add vector column failed (3): Invalid schema: this operation requires a numeric field; field[embedding_v2] has type VECTOR_FP32
+W1 | delete_by_filter | YES | d1,d2
+W2 | Reopen after flush keeps rows | YES | d1,d2
+W3 | Second open of the same collection refused | YES | open failed (8): Can't lock read-write collection: /tmp/claude-0/-home-user-PaperDotNet/8a757410-e744-5e27-a5f3-0784fa869f59/scratchpad/zdata/probes/LOCK

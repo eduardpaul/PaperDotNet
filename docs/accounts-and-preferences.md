@@ -55,7 +55,7 @@ refused with `409 lastAdministrator`. This covers:
 Behind Authelia, Authentik, oauth2-proxy or Nginx Proxy Manager, the proxy
 can sign users in. This is IAM-15, designed in
 [ADR-0031](adr/0031-reverse-proxy-sign-in.md) and
-[ADR-0044](adr/0044-generic-reverse-proxies.md).
+[ADR-0045](adr/0045-generic-reverse-proxies.md).
 
 ```json
 "Auth": { "ReverseProxy": {

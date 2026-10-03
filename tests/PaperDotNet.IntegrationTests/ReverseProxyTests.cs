@@ -15,7 +15,7 @@ using PaperDotNet.Identity.Features;
 
 namespace PaperDotNet.IntegrationTests;
 
-/// <summary>Sign-in through an authenticating reverse proxy (IAM-15, ADR-0031, ADR-0044).</summary>
+/// <summary>Sign-in through an authenticating reverse proxy (IAM-15, ADR-0031, ADR-0045).</summary>
 public sealed class ReverseProxyTests(PaperDotNetApiFactory factory)
 {
     /// <summary>The test factory trusts proxies in this network (<c>Auth:ReverseProxy:TrustedProxies</c>).</summary>

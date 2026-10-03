@@ -18,7 +18,7 @@ using PaperDotNet.Persistence;
 namespace PaperDotNet.Identity.Authentication;
 
 /// <summary>
-/// Sign-in through an authenticating reverse proxy (IAM-15, ADR-0031, ADR-0044). Only requests whose direct peer is a
+/// Sign-in through an authenticating reverse proxy (IAM-15, ADR-0031, ADR-0045). Only requests whose direct peer is a
 /// trusted proxy count, with the proxy's secret when one is configured, and only at <c>/auth/proxy/sign-in</c> and
 /// <c>/connect/authorize</c>: both only start a sign-in session for the visitor, so cross-site requests cannot use the
 /// proxy's cookie to act on the API. The API itself keeps using tokens.
@@ -32,7 +32,7 @@ internal sealed partial class ReverseProxySignIn(
     ILogger<ReverseProxySignIn> logger,
     IDatabaseProvider database)
 {
-    /// <summary>The browser path where the proxy signs people in (ADR-0044), outside <c>/connect/</c>.</summary>
+    /// <summary>The browser path where the proxy signs people in (ADR-0045), outside <c>/connect/</c>.</summary>
     public const string SignInPath = "/auth/proxy/sign-in";
 
     /// <summary>Authentication method of sign-in sessions the proxy started.</summary>

@@ -36,7 +36,7 @@ public sealed class Group : ITenantOwned, IAuditable, IVersioned
 
     public string? Description { get; set; }
 
-    /// <summary>Who manages the members: people in PaperDotNet, or an authenticating reverse proxy (ADR-0044).</summary>
+    /// <summary>Who manages the members: people in PaperDotNet, or an authenticating reverse proxy (ADR-0045).</summary>
     public GroupSource Source { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }

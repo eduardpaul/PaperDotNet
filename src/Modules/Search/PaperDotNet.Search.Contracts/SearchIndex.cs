@@ -32,6 +32,12 @@ public sealed record SearchDocumentData(
     /// the matching page (SRC-09).
     /// </summary>
     public IReadOnlyList<string> Pages { get; init; } = [];
+
+    /// <summary>
+    /// The item's fields as typed search fields (ADR-0043): filterable and queryable with <c>$filter</c>. Their text is
+    /// searched through <see cref="Body"/> and <see cref="Keywords"/>, as before.
+    /// </summary>
+    public IReadOnlyList<SearchField> Fields { get; init; } = [];
 }
 
 /// <summary>The search index of the current tenant.</summary>

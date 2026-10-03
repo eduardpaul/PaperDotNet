@@ -45,7 +45,7 @@ test('the calendar shows new and repeating events, and one occurrence can be ski
   await expect(page.getByRole('tab', { name: 'Month' })).toHaveAttribute('aria-selected', 'true');
 
   const title = unique('Standup');
-  await page.getByRole('button', { name: 'New event' }).click();
+  await page.getByRole('button', { name: 'New event', exact: true }).click();
   // With several calendars (other tests make some), the app asks which one.
   const which = page.getByRole('dialog', { name: 'Which calendar?' });
   if (await which.isVisible().catch(() => false))

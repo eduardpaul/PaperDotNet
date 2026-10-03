@@ -29,6 +29,7 @@ using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Provisioning;
 using PaperDotNet.Search;
+using PaperDotNet.Search.Zvec;
 using PaperDotNet.ServiceDefaults;
 using PaperDotNet.Storage;
 using PaperDotNet.Tasks;
@@ -57,6 +58,7 @@ public static class PaperDotNetHost
         new ListsModule(),
         new JobsModule(),
         new SearchModule(),
+        new ZvecSearchModule(),
         new DocumentsModule(),
         new TasksModule(),
         new CalendarModule(),
@@ -172,7 +174,7 @@ public static class PaperDotNetHost
         });
         // Behind a reverse proxy, set ForwardedHeaders:Enabled=true. Off by default: forwarded
         // headers influence scheme and host (and therefore host-based tenant resolution), so they
-        // count only from ForwardedHeaders:KnownProxies (or the sign-in proxies), ADR-0044.
+        // count only from ForwardedHeaders:KnownProxies (or the sign-in proxies), ADR-0045.
         services.Configure<ForwardedHeadersOptions>(o => ReverseProxySetup.ConfigureForwardedHeaders(o, builder.Configuration));
         services.AddHostedService<ReverseProxyWarnings>();
 

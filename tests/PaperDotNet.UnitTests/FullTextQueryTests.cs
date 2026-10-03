@@ -1,3 +1,4 @@
+using PaperDotNet.Abstractions;
 using PaperDotNet.Persistence;
 using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.Persistence.Sqlite;

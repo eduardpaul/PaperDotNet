@@ -53,6 +53,7 @@ public sealed class ScopeFanOutTests(PaperDotNetApiFactory factory)
     [Fact]
     public async Task Grant_changes_reach_search_at_once_without_reindexing()
     {
+        SearchStoreUnderTest.RequireDatabase();
         var setup = await SetupAsync("fan-search", "alice");
         var folder = await CreateAsync(setup.Admin, setup, "Audit", isFolder: true);
         await setup.Admin.PostAsJsonAsync($"{setup.ListUrl}/items/{folder}/permissions/breakInheritance", new { copyGrants = false }, Ct);
