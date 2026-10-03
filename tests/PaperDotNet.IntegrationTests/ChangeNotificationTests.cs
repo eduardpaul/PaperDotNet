@@ -35,11 +35,15 @@ public sealed class ChangeNotificationTests(PaperDotNetApiFactory factory)
         await scope.ServiceProvider.GetRequiredService<ChangeDispatcher>().RunAsync(Ct);
     }
 
-    /// <summary>Waits for change notifications posted to <paramref name="path"/>.</summary>
+    /// <summary>
+    /// Waits for change notifications posted to <paramref name="path"/>. Delivery is at least once (the scheduled
+    /// dispatcher can post a change the test dispatches too), so like a receiver this deduplicates by delivery id.
+    /// </summary>
     private async Task<List<(Dictionary<string, string> Headers, JsonElement Change)>> ReceivedAsync(TenantSummary tenant, string path, int count)
     {
         List<(Dictionary<string, string>, JsonElement)> Changes() => TestWebhookReceiver.Instance.Requests
             .Where(r => r.Url.AbsolutePath == path && r.Headers.GetValueOrDefault("X-PaperDotNet-Event") == "change")
+            .DistinctBy(r => r.Headers["X-PaperDotNet-Delivery"])
             .Select(r => (r.Headers, JsonDocument.Parse(r.Body).RootElement.GetProperty("value")[0]))
             .ToList();
         var deadline = DateTime.UtcNow.AddSeconds(30);
