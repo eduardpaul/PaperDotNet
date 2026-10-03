@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Search.Contracts;
+using PaperDotNet.Search.Features;
+using PaperDotNet.Search.Zvec.Native;
 using PaperDotNet.Tenancy.Contracts;
 
 namespace PaperDotNet.IntegrationTests;
@@ -12,8 +14,6 @@ namespace PaperDotNet.IntegrationTests;
 /// </summary>
 public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
 {
-    private const string Model = "conformance:test:4";
-
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     /// <summary>The <c>Search:Store</c> name of the store under test.</summary>
@@ -30,6 +30,14 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         {
             await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier);
             return await action(scope.ServiceProvider.GetRequiredKeyedService<ISearchStore>(storeName));
+        }
+
+        /// <summary>The configured embedding model's key and an embedding of <paramref name="text"/> with it.</summary>
+        public async Task<(string Model, float[] Vector)> EmbedAsync(string text)
+        {
+            await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier);
+            var model = scope.ServiceProvider.GetRequiredService<EmbeddingModel>();
+            return (model.ModelKey, (await model.Generator!.GenerateAsync([text], cancellationToken: Ct))[0].Vector.ToArray());
         }
 
         public async Task RunAsync(Func<ISearchStore, Task> action)
@@ -222,11 +230,10 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
             Document(scope, "Tapir c", workspace: ws),
         ], Ct));
 
-        var store = await ctx.RunAsync(s => Task.FromResult(s.Capabilities));
-        Assert.SkipUnless(store.HasFlag(SearchStoreCapabilities.Facets), "The store leaves facets to the search service.");
-        var facets = (await ctx.RunAsync(s => s.SearchAsync(Keyword("tapir", Readable(scope)), Ct))).Facets!;
+        var facets = (await ctx.RunAsync(s => s.SearchAsync(Keyword("tapir", Readable(scope)), Ct))).Facets;
+        Assert.SkipWhen(facets is null, "The store leaves facets to the search service.");
 
-        Assert.Equal([new FacetValue(ws, 3)], facets.Workspace);
+        Assert.Equal([new FacetValue(ws, 3)], facets!.Workspace);
         Assert.Equal([new FacetValue(list, 2)], facets.Container);
         Assert.Equal([new FacetValue(type, 1)], facets.ContentType);
         Assert.Equal([new FacetValue(term, 2)], facets.Term);
@@ -403,62 +410,59 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         Assert.DoesNotContain(new SearchFieldInfo("vendor", SearchFieldKind.Keyword), await f.Ctx.RunAsync(s => s.GetFieldsAsync(Ct)));
     }
 
-    /// <summary>Embeds every pending passage with <paramref name="vectorOf"/> (the job's work, without a model).</summary>
-    private static async Task EmbedAsync(Context ctx, Func<string, float[]> vectorOf)
+    /// <summary>Embeds every pending passage with the configured model (the embedding job's work).</summary>
+    private static async Task<string> EmbedAllAsync(Context ctx)
     {
+        var (model, _) = await ctx.EmbedAsync("model");
         while (true)
         {
-            var pending = await ctx.RunAsync(s => s.GetPassagesToEmbedAsync(Model, 100, Ct));
+            var pending = await ctx.RunAsync(s => s.GetPassagesToEmbedAsync(model, 100, Ct));
             if (pending.Count == 0)
             {
-                return;
+                return model;
             }
 
-            await ctx.RunAsync(s => s.SetEmbeddingsAsync(Model, pending.Select(p => new PassageEmbedding(p.Id, vectorOf(p.Input))).ToList(), Ct));
+            var embeddings = new List<PassageEmbedding>();
+            foreach (var passage in pending)
+            {
+                embeddings.Add(new PassageEmbedding(passage.Id, (await ctx.EmbedAsync(passage.Input)).Vector));
+            }
+
+            await ctx.RunAsync(s => s.SetEmbeddingsAsync(model, embeddings, Ct));
         }
     }
 
-    /// <summary>A 4-dimensional concept vector: animals, money, weather, other.</summary>
-    private static float[] Concepts(string text)
+    /// <summary>A semantic or hybrid query; the test model puts synonyms on one axis (car, automobile, vehicle).</summary>
+    private static async Task<StoreSearchQuery> SemanticAsync(Context ctx, SearchMode mode, string? text, string meaning, StoreFilter filter)
     {
-        var lower = text.ToLowerInvariant();
-        float[] v =
-        [
-            lower.Contains("cat", StringComparison.Ordinal) || lower.Contains("dog", StringComparison.Ordinal) ? 1 : 0,
-            lower.Contains("invoice", StringComparison.Ordinal) || lower.Contains("payment", StringComparison.Ordinal) ? 1 : 0,
-            lower.Contains("rain", StringComparison.Ordinal) ? 1 : 0,
-            0.05f,
-        ];
-        return v;
-    }
-
-    private static StoreSearchQuery Semantic(SearchMode mode, string? text, float[] vector, StoreFilter filter) =>
-        new(mode, text is null ? null : FullTextQuery.Parse(text, out _), filter, 0, 25)
+        var (model, vector) = await ctx.EmbedAsync(meaning);
+        return new StoreSearchQuery(mode, text is null ? null : FullTextQuery.Parse(text, out _), filter, 0, 25)
         {
             Vector = vector,
-            VectorModel = Model,
-            MinSimilarity = 0.5f,
+            VectorModel = model,
+            MinSimilarity = 0.3f,
             CandidateLimit = 200,
             WithFacets = true,
         };
+    }
 
     [Fact]
     public async Task Semantic_search_finds_by_meaning_and_points_to_the_page()
     {
         var ctx = await NewTenantAsync();
-        Assert.SkipUnless(await ctx.RunAsync(s => Task.FromResult(s.Capabilities.HasFlag(SearchStoreCapabilities.Vector))), "No vector search.");
         var scope = Guid.NewGuid();
-        var pets = Document(scope, "Household", pages: ["shopping list", "the dog and the cat sleep"]);
+        var garage = Document(scope, "Household", pages: ["shopping list", "the car is parked"]);
         var money = Document(scope, "Accounts", "invoice and payment terms");
-        var hidden = Document(Guid.NewGuid(), "Pets elsewhere", "a cat");
-        await ctx.RunAsync(s => s.UpsertAsync([pets, money, hidden], Ct));
-        await EmbedAsync(ctx, Concepts);
-        Assert.Empty(await ctx.RunAsync(s => s.GetPassagesToEmbedAsync(Model, 10, Ct)));
+        var hidden = Document(Guid.NewGuid(), "Elsewhere", "a car");
+        await ctx.RunAsync(s => s.UpsertAsync([garage, money, hidden], Ct));
+        var model = await EmbedAllAsync(ctx);
+        Assert.Empty(await ctx.RunAsync(s => s.GetPassagesToEmbedAsync(model, 10, Ct)));
 
-        var result = await ctx.RunAsync(s => s.SearchAsync(Semantic(SearchMode.Semantic, "kitten", Concepts("cat"), Readable(scope)), Ct));
+        var query = await SemanticAsync(ctx, SearchMode.Semantic, "automobile", "automobile", Readable(scope));
+        var result = await ctx.RunAsync(s => s.SearchAsync(query, Ct));
 
         var hit = Assert.Single(result.Hits);
-        Assert.Equal(pets.Id, hit.Id);
+        Assert.Equal(garage.Id, hit.Id);
         Assert.Equal(2, hit.Page);
         Assert.Equal([SearchMatch.Semantic], hit.MatchedBy);
     }
@@ -467,16 +471,16 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
     public async Task Hybrid_search_fuses_both_sides_and_excluded_words_still_exclude()
     {
         var ctx = await NewTenantAsync();
-        Assert.SkipUnless(await ctx.RunAsync(s => Task.FromResult(s.Capabilities.HasFlag(SearchStoreCapabilities.Vector))), "No vector search.");
         var scope = Guid.NewGuid();
-        var both = Document(scope, "Payment reminder", "invoice overdue");
-        var meaningOnly = Document(scope, "Bill", "payment due");
+        var both = Document(scope, "Car reminder", "vehicle service");
+        var meaningOnly = Document(scope, "Garage", "automobile repair");
         var keywordOnly = Document(scope, "Reminder", "water the plants");
-        var excluded = Document(scope, "Draft payment", "invoice draft");
+        var excluded = Document(scope, "Draft reminder", "car draft");
         await ctx.RunAsync(s => s.UpsertAsync([both, meaningOnly, keywordOnly, excluded], Ct));
-        await EmbedAsync(ctx, Concepts);
+        await EmbedAllAsync(ctx);
 
-        var result = await ctx.RunAsync(s => s.SearchAsync(Semantic(SearchMode.Hybrid, "reminder -draft", Concepts("invoice"), Readable(scope)), Ct));
+        var query = await SemanticAsync(ctx, SearchMode.Hybrid, "reminder -draft", "vehicle", Readable(scope));
+        var result = await ctx.RunAsync(s => s.SearchAsync(query, Ct));
 
         Assert.Equal(both.Id, result.Hits[0].Id);
         Assert.Equal([SearchMatch.Keyword, SearchMatch.Semantic], result.Hits[0].MatchedBy);
@@ -489,14 +493,13 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
     public async Task Changed_text_is_embedded_again_and_unchanged_text_is_not()
     {
         var ctx = await NewTenantAsync();
-        Assert.SkipUnless(await ctx.RunAsync(s => Task.FromResult(s.Capabilities.HasFlag(SearchStoreCapabilities.Vector))), "No vector search.");
         var scope = Guid.NewGuid();
         var document = Document(scope, "Notes", pages: ["first page about rain", "second page about cats"]);
         await ctx.RunAsync(s => s.UpsertAsync([document], Ct));
-        await EmbedAsync(ctx, Concepts);
+        var model = await EmbedAllAsync(ctx);
 
         await ctx.RunAsync(s => s.UpsertAsync([document with { Pages = ["first page about rain", "second page about invoices"] }], Ct));
-        var pending = await ctx.RunAsync(s => s.GetPassagesToEmbedAsync(Model, 10, Ct));
+        var pending = await ctx.RunAsync(s => s.GetPassagesToEmbedAsync(model, 10, Ct));
 
         var passage = Assert.Single(pending);
         Assert.Contains("invoices", passage.Input, StringComparison.Ordinal);
@@ -506,4 +509,15 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
 public sealed class DatabaseSearchStoreConformanceTests(PaperDotNetApiFactory factory) : SearchStoreConformanceTests(factory)
 {
     protected override string StoreName => "database";
+}
+
+public sealed class ZvecSearchStoreConformanceTests(PaperDotNetApiFactory factory) : SearchStoreConformanceTests(factory)
+{
+    private static readonly string? Unavailable = ZvecLibrary.TryLoad(Environment.GetEnvironmentVariable("PAPERDOTNET_ZVEC_LIBRARY"), out var reason)
+        ? null
+        : $"{reason} Set PAPERDOTNET_ZVEC_LIBRARY to run the zvec store tests.";
+
+    protected override string StoreName => "zvec";
+
+    protected override string? SkipReason => Unavailable;
 }

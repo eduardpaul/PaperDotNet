@@ -50,6 +50,16 @@ The go / no-go spike of [docs/search-zvec-plan.md](../../search-zvec-plan.md) fo
 8. **Full-text columns cannot be used in filter conditions.** That is fine: filters use scalar columns.
 9. **Memory:** the working set reached 1 GB after inserting and querying 200k rows (8-dimension test vectors,
    2 GB memory limit, no mmap). WP4 must set the limit and mmap and measure with real dimensions (768).
+10. **Each full-text column costs about 40 MB per open collection, even when empty** (found while building WP4).
+    zvec opens one RocksDB instance per full-text column, with a hash skip-list memtable of a million buckets and
+    `IncreaseParallelism()`. Neither `max_buffer_size` nor mmap changes it, and the C API cannot tune it. Measured
+    resident memory per open collection:
+    - 21 full-text columns: 830 MB;
+    - 5: 210 MB;
+    - 1: 55 MB;
+    - 0: about 1 MB, with scalar and vector columns only.
+
+    The store therefore keeps three or four full-text columns per collection and caps the open collections.
 
 ## What else worked
 

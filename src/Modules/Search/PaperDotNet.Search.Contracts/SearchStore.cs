@@ -160,3 +160,16 @@ public static class SearchStoreServiceCollectionExtensions
         where TStore : class, ISearchStore =>
         services.AddKeyedScoped<ISearchStore, TStore>(name);
 }
+
+/// <summary>The embedding model of the index: its key (stored with each vector) and the length of its vectors.</summary>
+public sealed record SearchVectorModel(string Key, int Dimensions);
+
+/// <summary>
+/// The configured embedding model, for stores that keep vectors in a column of fixed length (zvec): they create a
+/// tenant's index with it, and a different model means a new index (filled by a reindex).
+/// </summary>
+public interface ISearchVectorSpace
+{
+    /// <summary>The model, or null when no embedding model is configured.</summary>
+    ValueTask<SearchVectorModel?> GetAsync(CancellationToken cancellationToken);
+}

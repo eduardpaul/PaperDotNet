@@ -43,8 +43,10 @@ public sealed class SearchOptions
 /// the key stored with each embedding, and query vectors (cached). Semantic search is available only when it is
 /// configured; where vectors are stored and searched is up to the <see cref="ISearchStore"/>.
 /// </summary>
-internal sealed class EmbeddingModel(HybridCache cache, IServiceProvider services)
+internal sealed class EmbeddingModel(HybridCache cache, IServiceProvider services) : ISearchVectorSpace
 {
+    private int _dimensions;
+
     public IEmbeddingGenerator<string, Embedding<float>>? Generator { get; } = services.GetService(typeof(IEmbeddingGenerator<string, Embedding<float>>)) as IEmbeddingGenerator<string, Embedding<float>>;
 
     public bool Enabled => Generator is not null;
@@ -57,6 +59,24 @@ internal sealed class EmbeddingModel(HybridCache cache, IServiceProvider service
         var metadata = generator.GetService<EmbeddingGeneratorMetadata>();
         var key = $"{metadata?.ProviderName}:{metadata?.DefaultModelId}:{metadata?.DefaultModelDimensions}";
         return key.Length > 200 ? key[..200] : key;
+    }
+
+    /// <summary>The model and its vector length (from its metadata, else measured once with a short text).</summary>
+    public async ValueTask<SearchVectorModel?> GetAsync(CancellationToken cancellationToken)
+    {
+        if (Generator is null)
+        {
+            return null;
+        }
+
+        if (_dimensions == 0)
+        {
+            var dimensions = Generator.GetService<EmbeddingGeneratorMetadata>()?.DefaultModelDimensions
+                ?? (await Generator.GenerateAsync(["dimensions"], cancellationToken: cancellationToken))[0].Vector.Length;
+            Interlocked.CompareExchange(ref _dimensions, dimensions, 0);
+        }
+
+        return new SearchVectorModel(ModelKey, _dimensions);
     }
 
     /// <summary>The normalized embedding of a query.</summary>

@@ -95,9 +95,13 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
 - Searchable content → push `SearchDocumentData` through `ISearchIndex`
   (Search.Contracts) from an event subscriber, with the content's permission scope
   (`ScopeId`, ADR-0035: search trims by the caller's readable scopes); implement `ISearchSource` for reindexing. Text with pages goes in
-  `Pages` (page hits, SRC-09); semantic search embeds passages automatically when
+  `Pages` (page hits, SRC-09); filterable metadata in `Fields` (typed `SearchField`, `$filter` on `/v1.0/search`);
+  semantic search embeds passages automatically when
   `AI:Embeddings` is configured (ADR-0027). AI providers come from `PaperDotNet.AI`
   (`IEmbeddingGenerator`, Microsoft.Extensions.AI), off by default.
+- Search stores implement `ISearchStore` (Search.Contracts, ADR-0043), are registered with `AddSearchStore<T>(name)`
+  and must pass `SearchStoreConformanceTests`; `SearchService` only talks to the store. Only
+  `PaperDotNet.Search.Zvec` calls zvec (ADR-0044, opt-in).
 - Fields that lists filter, sort or group on at scale → `indexed: true` on the field (ADR-0035): item columns or the
   value table, kept current by `ListsDbContext`; never add ad hoc columns or JSON indexes for one field.
 - Tags/classification → term ids from `ITermStore` (Taxonomy.Contracts) in

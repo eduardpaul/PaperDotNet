@@ -109,6 +109,27 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Search:DefaultMode", "Keyword");
         builder.UseSetting("Search:MinSimilarity", "0.15");
         builder.UseSetting("Storage:DataPath", _dataPath);
+
+        // The zvec search store (ADR-0044): PAPERDOTNET_ZVEC_LIBRARY points at libzvec_c_api (file or folder), and
+        // PAPERDOTNET_TEST_SEARCH_STORE=zvec runs every test on it instead of the database store.
+        if (Environment.GetEnvironmentVariable("PAPERDOTNET_ZVEC_LIBRARY") is { Length: > 0 } zvecLibrary)
+        {
+            builder.UseSetting("Search:Zvec:LibraryPath", zvecLibrary);
+        }
+
+        if (Environment.GetEnvironmentVariable("PAPERDOTNET_TEST_SEARCH_STORE") is { Length: > 0 } searchStore)
+        {
+            builder.UseSetting("Search:Store", searchStore);
+        }
+
+        // A test run indexes in hundreds of tenants at once; a real installation keeps the defaults. With zvec, the
+        // per-minute embedding job opens every tenant collection with new passages (about 150 ms each) and holds up the
+        // other recurring jobs; the semantic tests run it themselves.
+        builder.UseSetting("Search:Zvec:MaxOpenCollections", "16");
+        if (Environment.GetEnvironmentVariable("PAPERDOTNET_TEST_SEARCH_STORE") == "zvec")
+        {
+            builder.UseSetting("Search:EmbeddingSchedule", "0 * * * *");
+        }
         builder.UseSetting("Documents:MaxFileSize", DocumentLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.ConfigureTestServices(services =>
         {

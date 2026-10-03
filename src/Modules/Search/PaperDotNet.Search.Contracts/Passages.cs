@@ -1,18 +1,18 @@
 using System.Security.Cryptography;
 using System.Text;
-using PaperDotNet.Search.Contracts;
 
-namespace PaperDotNet.Search.Stores.Database;
+namespace PaperDotNet.Search.Contracts;
 
 /// <summary>A window of a document's text and the page it is on (null: not on a page).</summary>
-internal sealed record PassageText(int? Page, string Text);
+public sealed record PassageText(int? Page, string Text);
 
 /// <summary>
-/// Splits documents into passages (SRC-07, SRC-09): the title, keywords and body first, then each page on its own,
+/// The default chunker of every store (ADR-0043). It splits documents into passages (SRC-07, SRC-09): the title,
+/// keywords and body first, then each page on its own,
 /// in windows of about <see cref="MaxChars"/> characters that overlap by <see cref="Overlap"/> and end at word
 /// boundaries, so a sentence cut by one window is whole in the next.
 /// </summary>
-internal static class Passages
+public static class Passages
 {
     public const int MaxChars = 1200;
     public const int Overlap = 150;
@@ -42,7 +42,7 @@ internal static class Passages
     public static string Hash(string input) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
 
     /// <summary>Windows of <paramref name="text"/> (already normalized).</summary>
-    internal static IEnumerable<string> Windows(string text)
+    public static IEnumerable<string> Windows(string text)
     {
         var start = 0;
         while (start < text.Length)
@@ -71,7 +71,7 @@ internal static class Passages
     }
 
     /// <summary>Whitespace runs become one space.</summary>
-    internal static string Normalize(string text)
+    public static string Normalize(string text)
     {
         var builder = new StringBuilder(text.Length);
         var space = false;

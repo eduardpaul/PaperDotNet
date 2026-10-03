@@ -147,7 +147,7 @@ throwaway console app that calls the C API through `LibraryImport`.
 **Exit:** a short report in `docs/performance-artifacts/`, ADR-0044 updated
 with the answers, and the layout fixed.
 
-### WP1: contracts and the `database` store
+### WP1: contracts and the `database` store. **Done**
 
 - `ISearchStore` (ADR-0043 §4) with `SearchAsync`, the types above, and
   `SearchFieldInfo`.
@@ -170,7 +170,7 @@ with the answers, and the layout fixed.
 **Done when** the current search tests and the conformance suite pass on
 SQLite and PostgreSQL. API behavior does not change.
 
-### WP2: metadata from producers and `$filter`
+### WP2: metadata from producers and `$filter`. **Done**
 
 - `ListItemSearchDocuments` emits `Fields` using the mapping table. Field
   text still goes to keywords or body by weight.
@@ -192,7 +192,7 @@ SQLite and PostgreSQL. API behavior does not change.
   - trimming still applies when `$filter` matches documents in unreadable
     scopes.
 
-### WP3: zvec binding (`PaperDotNet.Search.Zvec/Native`)
+### WP3: zvec binding (`PaperDotNet.Search.Zvec/Native`). **Binding done; the CI native build is open**
 
 - `ZvecNative.cs`: `[LibraryImport("zvec_c")]` for the functions we use.
   - collection: create, open, close, flush, optimize, add_column, create_index;
@@ -223,7 +223,7 @@ SQLite and PostgreSQL. API behavior does not change.
     Tests that need zvec skip with a clear reason unless
     `PAPERDOTNET_TEST_SEARCH_STORE=zvec`.
 
-### WP4: zvec store, writes
+### WP4: zvec store, writes. **Done (see ADR-0044 Implementation)**
 
 - `ZvecCollections`: an open collection per tenant directory, closed when
   idle (`Search:Zvec:IdleMinutes`). zvec's own `LOCK` keeps it to one server.
@@ -246,7 +246,7 @@ SQLite and PostgreSQL. API behavior does not change.
 - `ExportAsync`: the iterator with vectors.
 - Recurring job `search.zvec.optimize` (nightly, per tenant): compacts deleted rows.
 
-### WP5: zvec store, queries
+### WP5: zvec store, queries. **Done: the conformance suite and the API search tests pass on zvec**
 
 - `ZvecSearchStore.SearchAsync`:
   1. Build the filter: `published == true AND scope_id IN (…) AND <StoreFilter> AND <SearchFilter>`.
@@ -274,7 +274,7 @@ This needs ADR-0043 phases 2–3, which are store-neutral.
 - A model change adds an `embedding_{hash}` vector column, fills it, swaps
   it with the old one, then drops the old one (dynamic schema).
 
-### WP7: operations and documentation
+### WP7: operations and documentation. **Backup and documentation done; migrate, metrics and memory review open**
 
 - **Backup:** `paperdotnet backup` pauses the tenant's writers, flushes, and
   copies `search/zvec`. Restore puts the directory back.

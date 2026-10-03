@@ -49,6 +49,7 @@ public sealed class SearchModule : IModule
         // Semantic and hybrid search (SRC-07, SRC-08); active when an embedding provider is configured (AI:Embeddings).
         services.AddMemoryCache();
         services.AddSingleton<EmbeddingModel>();
+        services.AddSingleton<ISearchVectorSpace>(sp => sp.GetRequiredService<EmbeddingModel>());
         services.AddScoped<SearchService>();
         services.AddTenantRecurringJob<EmbeddingJob>(
             EmbeddingJob.Name, configuration[$"{SearchOptions.Section}:{nameof(SearchOptions.EmbeddingSchedule)}"] ?? new SearchOptions().EmbeddingSchedule);

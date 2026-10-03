@@ -79,6 +79,7 @@ public sealed class SemanticSearchTests(PaperDotNetApiFactory factory)
     [Fact]
     public async Task Documents_are_found_by_meaning_on_the_matching_page()
     {
+        SearchStoreUnderTest.RequireDatabase();
         var tenant = await factory.CreateTenantAsync("semantic-pages");
         var client = await ApiClient.CreateAsync(factory, "semantic-pages");
         var (ws, list) = await LibraryAsync(client, "Garage");
@@ -114,6 +115,7 @@ public sealed class SemanticSearchTests(PaperDotNetApiFactory factory)
     [Fact]
     public async Task Semantic_search_is_trimmed_validated_and_does_not_embed_unchanged_text_again()
     {
+        SearchStoreUnderTest.RequireDatabase();
         var tenant = await factory.CreateTenantAsync("semantic-acl");
         var admin = await ApiClient.CreateAsync(factory, "semantic-acl");
         var ws = await admin.CreateWorkspaceAsync("Clinic");

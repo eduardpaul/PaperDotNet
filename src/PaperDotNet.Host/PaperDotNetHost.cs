@@ -29,6 +29,7 @@ using PaperDotNet.Persistence.PostgreSql;
 using PaperDotNet.Persistence.Sqlite;
 using PaperDotNet.Provisioning;
 using PaperDotNet.Search;
+using PaperDotNet.Search.Zvec;
 using PaperDotNet.ServiceDefaults;
 using PaperDotNet.Storage;
 using PaperDotNet.Tasks;
@@ -57,6 +58,7 @@ public static class PaperDotNetHost
         new ListsModule(),
         new JobsModule(),
         new SearchModule(),
+        new ZvecSearchModule(),
         new DocumentsModule(),
         new TasksModule(),
         new CalendarModule(),
