@@ -4,14 +4,14 @@ using Microsoft.AspNetCore.HttpOverrides;
 namespace PaperDotNet.Host;
 
 /// <summary>
-/// Running behind a reverse proxy (ADR-0043): forwarded headers only from known proxies, server-sent events that pass
+/// Running behind a reverse proxy (ADR-0044): forwarded headers only from known proxies, server-sent events that pass
 /// through buffering proxies, and warnings for setups that trust more than they should.
 /// </summary>
 internal static class ReverseProxySetup
 {
     /// <summary>
     /// The proxies whose forwarded headers count: <c>ForwardedHeaders:KnownProxies</c>, else the sign-in proxies
-    /// (<c>Auth:ReverseProxy:TrustedProxies</c>); empty means every peer, as before ADR-0043.
+    /// (<c>Auth:ReverseProxy:TrustedProxies</c>); empty means every peer, as before ADR-0044.
     /// </summary>
     public static IReadOnlyList<string> KnownProxies(IConfiguration configuration) =>
         configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() is { Length: > 0 } known
@@ -67,7 +67,7 @@ internal static class ReverseProxySetup
         });
 }
 
-/// <summary>Logs proxy settings that trust more than they should (ADR-0043), once at startup.</summary>
+/// <summary>Logs proxy settings that trust more than they should (ADR-0044), once at startup.</summary>
 internal sealed partial class ReverseProxyWarnings(IConfiguration configuration, ILogger<ReverseProxyWarnings> logger) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
@@ -94,6 +94,6 @@ internal sealed partial class ReverseProxyWarnings(IConfiguration configuration,
 
     [LoggerMessage(Level = LogLevel.Warning, Message =
         "Auth:ReverseProxy is enabled without a Secret: any request through the proxy that reaches a sign-in path without being "
-        + "authenticated there can name a user. Set Auth:ReverseProxy:Secret and send it from the proxy (ADR-0043).")]
+        + "authenticated there can name a user. Set Auth:ReverseProxy:Secret and send it from the proxy (ADR-0044).")]
     private partial void LogProxySignInWithoutSecret();
 }

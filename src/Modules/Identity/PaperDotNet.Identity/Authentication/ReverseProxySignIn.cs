@@ -13,11 +13,12 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Identity.Features;
+using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Identity.Authentication;
 
 /// <summary>
-/// Sign-in through an authenticating reverse proxy (IAM-15, ADR-0031, ADR-0043). Only requests whose direct peer is a
+/// Sign-in through an authenticating reverse proxy (IAM-15, ADR-0031, ADR-0044). Only requests whose direct peer is a
 /// trusted proxy count, with the proxy's secret when one is configured, and only at <c>/auth/proxy/sign-in</c> and
 /// <c>/connect/authorize</c>: both only start a sign-in session for the visitor, so cross-site requests cannot use the
 /// proxy's cookie to act on the API. The API itself keeps using tokens.
@@ -28,9 +29,10 @@ internal sealed partial class ReverseProxySignIn(
     IdentityDbContext db,
     ITenantContext tenant,
     HybridCache cache,
-    ILogger<ReverseProxySignIn> logger)
+    ILogger<ReverseProxySignIn> logger,
+    IDatabaseProvider database)
 {
-    /// <summary>The browser path where the proxy signs people in (ADR-0043), outside <c>/connect/</c>.</summary>
+    /// <summary>The browser path where the proxy signs people in (ADR-0044), outside <c>/connect/</c>.</summary>
     public const string SignInPath = "/auth/proxy/sign-in";
 
     /// <summary>Authentication method of sign-in sessions the proxy started.</summary>
@@ -204,16 +206,16 @@ internal sealed partial class ReverseProxySignIn(
             return false;
         }
 
+        await using var change = settings.GroupSync == ProxyGroupSync.Sync
+            ? await AdministratorGuard.BeginChangeAsync(db, ct)
+            : null;
         var named = await db.Groups.Where(g => names.Contains(g.Name)).Select(g => new { g.Id, g.Name }).ToListAsync(ct);
         var namedIds = named.Select(g => g.Id).ToHashSet();
         if (settings.CreateGroups)
         {
             foreach (var name in names.Except(named.Select(g => g.Name), StringComparer.Ordinal))
             {
-                if (await CreateGroupAsync(name, ct) is { } id)
-                {
-                    namedIds.Add(id);
-                }
+                namedIds.Add(await CreateGroupAsync(name, ct));
             }
         }
 
@@ -247,12 +249,20 @@ internal sealed partial class ReverseProxySignIn(
             }
         }
 
+        if (change is not null)
+        {
+            await change.CommitAsync(ct);
+        }
+
         return added.Count > 0 || removed > 0;
     }
 
-    /// <summary>A new proxy group; null when its name is taken meanwhile (another sign-in created it first).</summary>
-    private async Task<Guid?> CreateGroupAsync(string name, CancellationToken ct)
+    /// <summary>A new proxy group, or the group a competing sign-in created with that name.</summary>
+    internal async Task<Guid> CreateGroupAsync(string name, CancellationToken ct)
     {
+        // SaveChanges rebuilds the closure table before inserting the group. Restore those tracked states too
+        // if a competing writer wins the name, so a later membership save cannot persist rolled-back rows.
+        var closureStates = db.ChangeTracker.Entries<GroupClosure>().ToDictionary(e => e.Entity, e => e.State);
         var group = new Group { Id = Ids.New(), Name = name, Source = GroupSource.Proxy };
         db.Groups.Add(group);
         try
@@ -261,10 +271,21 @@ internal sealed partial class ReverseProxySignIn(
             LogGroupCreated(name);
             return group.Id;
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (database.IsUniqueConstraintViolation(ex))
         {
             db.Entry(group).State = EntityState.Detached;
-            return await db.Groups.Where(g => g.Name == name).Select(g => (Guid?)g.Id).FirstOrDefaultAsync(ct);
+            foreach (var entry in db.ChangeTracker.Entries<GroupClosure>().ToList())
+            {
+                entry.State = closureStates.TryGetValue(entry.Entity, out var state) ? state : EntityState.Detached;
+            }
+
+            var existing = await db.Groups.Where(g => g.Name == name).Select(g => (Guid?)g.Id).FirstOrDefaultAsync(ct);
+            if (existing is null)
+            {
+                throw;
+            }
+
+            return existing.Value;
         }
     }
 

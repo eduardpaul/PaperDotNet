@@ -6,10 +6,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
+using PaperDotNet.Abstractions;
+using PaperDotNet.Identity.Authentication;
+using PaperDotNet.Identity.Data;
+using PaperDotNet.Identity.Features;
 
 namespace PaperDotNet.IntegrationTests;
 
-/// <summary>Sign-in through an authenticating reverse proxy (IAM-15, ADR-0031, ADR-0043).</summary>
+/// <summary>Sign-in through an authenticating reverse proxy (IAM-15, ADR-0031, ADR-0044).</summary>
 public sealed class ReverseProxyTests(PaperDotNetApiFactory factory)
 {
     /// <summary>The test factory trusts proxies in this network (<c>Auth:ReverseProxy:TrustedProxies</c>).</summary>
@@ -126,6 +132,103 @@ public sealed class ReverseProxyTests(PaperDotNetApiFactory factory)
         var location = response.Headers.Location!.OriginalString;
         Assert.StartsWith("/auth/proxy/sign-in?returnUrl=", location, StringComparison.Ordinal);
         return Uri.UnescapeDataString(location["/auth/proxy/sign-in?returnUrl=".Length..]);
+    }
+
+    [Theory]
+    [InlineData("login", "")]
+    [InlineData("login select_account", "select_account")]
+    public async Task A_completed_proxy_sign_in_consumes_only_the_login_prompt(string prompt, string remaining)
+    {
+        var tenant = "proxy-prompt-" + (remaining.Length == 0 ? "login" : "mixed");
+        await factory.CreateTenantAsync(tenant);
+        using var admin = await ApiClient.CreateAsync(factory, tenant);
+        var (clientId, authorize, verifier) = await AppAsync(admin);
+        authorize += "&prompt=" + Uri.EscapeDataString(prompt);
+        using var proxy = From(tenant, "10.9.9.2");
+        var target = ProxySignInRedirect(await proxy.GetAsync(authorize, Ct));
+        using var signIn = Authorize("/auth/proxy/sign-in?returnUrl=" + Uri.EscapeDataString(target), "prompt-user");
+        using var signedIn = await proxy.SendAsync(signIn, Ct);
+        Assert.Equal(HttpStatusCode.Redirect, signedIn.StatusCode);
+        var continuedUrl = signedIn.Headers.Location!.OriginalString;
+        var query = System.Web.HttpUtility.ParseQueryString(continuedUrl[continuedUrl.IndexOf('?')..]);
+        Assert.Equal(remaining.Length == 0 ? null : remaining, query["prompt"]);
+        Assert.Equal("s1", query["state"]);
+        Assert.Equal(clientId, query["client_id"]);
+        using var continued = new HttpRequestMessage(HttpMethod.Get, continuedUrl);
+        continued.Headers.Add("Cookie", Cookies(signedIn));
+        var tokens = await TokensAsync(proxy, await proxy.SendAsync(continued, Ct), clientId, verifier);
+        Assert.True(tokens.TryGetProperty("access_token", out _));
+    }
+
+    [Fact]
+    public async Task A_group_name_conflict_does_not_persist_rolled_back_closure_rows()
+    {
+        var tenant = await factory.CreateTenantAsync("proxy-group-conflict");
+        await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier);
+        var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var group = new Group { Id = Guid.NewGuid(), Name = "Taken", Source = GroupSource.Proxy };
+        db.Groups.Add(group);
+        await db.SaveChangesAsync(Ct);
+        await using var change = await AdministratorGuard.BeginChangeAsync(db, Ct);
+        var proxy = scope.ServiceProvider.GetRequiredService<ReverseProxySignIn>();
+        // The name was inserted by a competing writer after the sign-in's names lookup.
+        Assert.Equal(group.Id, await proxy.CreateGroupAsync("Taken", Ct));
+        Assert.DoesNotContain(db.ChangeTracker.Entries<GroupClosure>(), e => e.State != EntityState.Unchanged);
+        var user = await db.Users.SingleAsync(u => u.UserName == PaperDotNetApiFactory.AdminUserName, Ct);
+        db.GroupMembers.Add(new GroupMember { GroupId = group.Id, UserId = user.Id });
+        await db.SaveChangesAsync(Ct);
+        await change.CommitAsync(Ct);
+        Assert.False(await db.GroupClosures.AnyAsync(c => !db.Groups.Any(g => g.Id == c.GroupId) || !db.Groups.Any(g => g.Id == c.AncestorId), Ct));
+        Assert.True(await db.GroupMembers.AnyAsync(m => m.GroupId == group.Id && m.UserId == user.Id, Ct));
+    }
+
+    [Fact]
+    public async Task Concurrent_proxy_sync_keeps_an_administrator_after_an_admin_removal()
+    {
+        var tenant = await factory.CreateTenantAsync("proxy-admin-race");
+        using var admin = await ApiClient.CreateAsync(factory, tenant.Identifier);
+        var (clientId, _, _) = await AppAsync(admin);
+        using var proxy = From(tenant.Identifier, "10.9.9.2");
+        var (url, _) = AuthorizeUrl(clientId);
+        using var signIn = Authorize(url, "second-admin", groups: "Managers");
+        Assert.Equal(HttpStatusCode.Redirect, (await proxy.SendAsync(signIn, Ct)).StatusCode);
+
+        await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier);
+        var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var group = await db.Groups.SingleAsync(g => g.Name == "Managers", Ct);
+        var administrator = await db.Roles.SingleAsync(r => r.GrantsAllScopes, Ct);
+        db.RoleAssignments.Add(new RoleAssignment { Id = Guid.NewGuid(), RoleId = administrator.Id, PrincipalId = group.Id, PrincipalType = PrincipalType.Group });
+        await db.SaveChangesAsync(Ct);
+
+        await using var change = await AdministratorGuard.BeginChangeAsync(db, Ct);
+        var original = await db.Users.SingleAsync(u => u.UserName == PaperDotNetApiFactory.AdminUserName, Ct);
+        Assert.True(await AdministratorGuard.RemainsAsync(db, withoutUser: original.Id, ct: Ct));
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var synced = Task.Run(async () =>
+        {
+            var (authorize, _) = AuthorizeUrl(clientId);
+            using var request = Authorize(authorize, "second-admin", groups: "");
+            started.SetResult();
+            return await proxy.SendAsync(request, Ct);
+        }, Ct);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        try
+        {
+            // The independent request cannot check/remove the second administrator while this change is pending.
+            Assert.NotSame(synced, await Task.WhenAny(synced, Task.Delay(TimeSpan.FromMilliseconds(200), Ct)));
+            original.IsDisabled = true;
+            await db.SaveChangesAsync(Ct);
+            await change.CommitAsync(Ct);
+        }
+        finally
+        {
+            await change.DisposeAsync();
+        }
+
+        using var response = await synced.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.True(await db.GroupMembers.AnyAsync(m => m.GroupId == group.Id, Ct));
+        Assert.True(await AdministratorGuard.RemainsAsync(db, ct: Ct));
     }
 
     [Fact]

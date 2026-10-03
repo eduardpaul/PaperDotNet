@@ -18,6 +18,9 @@ internal sealed class PostgreSqlDatabaseProvider(NpgsqlDataSource dataSource, Po
 
     public string Name => ProviderName;
 
+    public bool IsUniqueConstraintViolation(DbUpdateException exception) =>
+        exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+
     public void Configure(DbContextOptionsBuilder options, string schema, string? migrationsAssembly = null)
     {
         Configure(options, dataSource, schema, migrationsAssembly);

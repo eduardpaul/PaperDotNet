@@ -1,4 +1,4 @@
-# ADR-0043: Running behind general-purpose reverse proxies (Nginx Proxy Manager)
+# ADR-0044: Running behind general-purpose reverse proxies (Nginx Proxy Manager)
 
 - **Status:** Accepted (implemented)
 - **Date:** 2026-10-02
@@ -78,6 +78,9 @@ tests used nginx with NPM's `proxy.conf`, its http settings and Authelia 4.39.
    - The proxy protects only `/auth/proxy/`, so basic-auth credentials are
      never sent to the OAuth endpoints. In NPM that is one location with an
      access list or an `auth_request`.
+   - After successful proxy sign-in, the continuation removes only the
+     `login` prompt; other prompts and OAuth parameters are preserved.
+     This completes forced sign-in without a redirect loop.
    - Login CSRF is harmless: the endpoint can only sign the visitor in as
      whoever the proxy says they are.
    - `/connect/authorize` keeps reading the headers, so proxies that
@@ -97,7 +100,8 @@ tests used nginx with NPM's `proxy.conf`, its http settings and Authelia 4.39.
      (`Jobs:LiveEventsKeepAlive`), below NPM's 90 s and Cloudflare's 100 s
      timeouts. It is an event, not a comment, because `SseItem` cannot
      write comments. `EventSource` clients ignore event types they do not
-     listen to.
+     listen to. The interval is validated at startup: at least 1 ms and
+     no more than 4294967294 ms (the timer's supported range).
    - Proxies then need no special location for streams.
 5. **Group sync, opt-in.**
    - `Auth:ReverseProxy:GroupSync` is either `Add` (default, the behavior
@@ -112,7 +116,11 @@ tests used nginx with NPM's `proxy.conf`, its http settings and Authelia 4.39.
      was ignored above 256 characters.
    - Membership changes invalidate the same caches as the admin endpoints.
    - The last-administrator rule applies. A sync that would remove the last
-     administrator keeps that membership and logs a warning.
+     administrator keeps that membership and logs a warning. Proxy sync
+     and administrator removals share a database transaction lock on the
+     tenant's built-in Administrator role, including across server instances.
+   - A competing group insert is recovered only for a uniqueness violation;
+     rolled-back closure changes are discarded before saving memberships.
    - The source is not part of the API yet. Groups created by
      administrators stay local even if the proxy names them.
 6. **Proxy sign-ins are re-checked daily.**

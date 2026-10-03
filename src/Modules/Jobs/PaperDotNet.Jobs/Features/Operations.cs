@@ -196,7 +196,7 @@ internal static class OperationEndpoints
 
     /// <summary>
     /// The events of <paramref name="events"/>, with a <c>keepalive</c> event after each quiet <paramref name="interval"/>
-    /// so proxies do not end the stream for being idle (ADR-0043). Clients ignore event types they do not listen to.
+    /// so proxies do not end the stream for being idle (ADR-0044). Clients ignore event types they do not listen to.
     /// </summary>
     private static async IAsyncEnumerable<SseItem<object>> WithKeepAlive(
         IAsyncEnumerable<SseItem<object>> events, TimeSpan interval, TimeProvider time, [EnumeratorCancellation] CancellationToken ct)

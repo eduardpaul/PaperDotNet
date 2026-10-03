@@ -55,7 +55,7 @@ refused with `409 lastAdministrator`. This covers:
 Behind Authelia, Authentik, oauth2-proxy or Nginx Proxy Manager, the proxy
 can sign users in. This is IAM-15, designed in
 [ADR-0031](adr/0031-reverse-proxy-sign-in.md) and
-[ADR-0043](adr/0043-generic-reverse-proxies.md).
+[ADR-0044](adr/0044-generic-reverse-proxies.md).
 
 ```json
 "Auth": { "ReverseProxy": {
@@ -111,7 +111,8 @@ proxy signs people in.
 `ForwardedHeaders:KnownProxies`, or else from the sign-in proxies.
 `ForwardLimit` is the number of proxies in a chain. Event streams send
 `X-Accel-Buffering: no`, and live events send a keep-alive every 30 s, so
-nginx-based proxies pass them on at once.
+nginx-based proxies pass them on at once. `Jobs:LiveEventsKeepAlive` is checked
+at startup and must be between 1 and 4294967294 milliseconds.
 
 A tested setup for Nginx Proxy Manager, with an NPM access list or Authelia, is in
 [samples/nginx-proxy-manager](../samples/nginx-proxy-manager/README.md).

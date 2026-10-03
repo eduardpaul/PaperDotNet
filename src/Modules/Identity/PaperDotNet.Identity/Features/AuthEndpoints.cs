@@ -215,7 +215,7 @@ internal static class AuthEndpoints
     /// <summary>The user's security stamp at sign-in: a password change or reset ends the session (IAM-14).</summary>
     internal const string SessionStampClaim = "stamp";
 
-    /// <summary>Starts the sign-in session; <paramref name="proxySignedInAt"/> marks a session the reverse proxy started (ADR-0043).</summary>
+    /// <summary>Starts the sign-in session; <paramref name="proxySignedInAt"/> marks a session the reverse proxy started (ADR-0044).</summary>
     internal static async Task SignInSessionAsync(HttpContext http, User user, ITenantContext tenant, string method, DateTimeOffset? proxySignedInAt = null)
     {
         var identity = new ClaimsIdentity(
@@ -286,7 +286,7 @@ internal sealed class PasskeyState(IDataProtectionProvider dataProtection)
     private sealed record Payload(Guid TenantId, Guid? UserId, string? State);
 }
 
-/// <summary>Turns password and passkey sign-in off when <see cref="AuthOptions.LocalSignIn"/> is false (ADR-0043).</summary>
+/// <summary>Turns password and passkey sign-in off when <see cref="AuthOptions.LocalSignIn"/> is false (ADR-0044).</summary>
 internal static class LocalSignIn
 {
     public static ValueTask<object?> Filter(EndpointFilterInvocationContext context, EndpointFilterDelegate next) =>

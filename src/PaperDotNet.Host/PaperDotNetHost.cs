@@ -172,7 +172,7 @@ public static class PaperDotNetHost
         });
         // Behind a reverse proxy, set ForwardedHeaders:Enabled=true. Off by default: forwarded
         // headers influence scheme and host (and therefore host-based tenant resolution), so they
-        // count only from ForwardedHeaders:KnownProxies (or the sign-in proxies), ADR-0043.
+        // count only from ForwardedHeaders:KnownProxies (or the sign-in proxies), ADR-0044.
         services.Configure<ForwardedHeadersOptions>(o => ReverseProxySetup.ConfigureForwardedHeaders(o, builder.Configuration));
         services.AddHostedService<ReverseProxyWarnings>();
 

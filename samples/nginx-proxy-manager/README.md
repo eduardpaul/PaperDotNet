@@ -5,7 +5,7 @@ A Docker Compose setup that runs PaperDotNet behind
 - NPM handles TLS (Let's Encrypt) and signs people in.
 - PaperDotNet takes the user and their groups from the proxy (IAM-15,
   [ADR-0031](../../docs/adr/0031-reverse-proxy-sign-in.md),
-  [ADR-0043](../../docs/adr/0043-generic-reverse-proxies.md)).
+  [ADR-0044](../../docs/adr/0044-generic-reverse-proxies.md)).
 - Tokens, MCP, groups and live events work as without a proxy.
 
 There are two ways to sign in. Pick one:
@@ -211,7 +211,7 @@ document.read` gives read-only access. Then add it to the client:
 This works with clients that accept headers, such as Claude Code, VS Code
 and Cursor. Some connectors only offer the OAuth sign-in from the MCP spec,
 with discovery and client registration. PaperDotNet does not offer that yet;
-see ADR-0043, "Not decided here".
+see ADR-0044, "Not decided here".
 
 ### 5. Scripts, SDKs and the CLI
 

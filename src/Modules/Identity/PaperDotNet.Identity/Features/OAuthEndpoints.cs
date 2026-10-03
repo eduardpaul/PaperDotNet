@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
@@ -37,7 +38,7 @@ internal static class OAuthEndpoints
     }
 
     /// <summary>
-    /// Sign-in through the reverse proxy (ADR-0043): the proxy authenticates only this path, outside <c>/connect/</c>,
+    /// Sign-in through the reverse proxy (ADR-0044): the proxy authenticates only this path, outside <c>/connect/</c>,
     /// so basic-auth credentials never reach the OAuth endpoints. Starts the sign-in session and continues the
     /// authorization request in <paramref name="returnUrl"/> (only this server's <c>/connect/authorize</c>).
     /// </summary>
@@ -57,6 +58,28 @@ internal static class OAuthEndpoints
         if (await proxy.AuthenticateAsync(http, http.RequestAborted) is { } user)
         {
             await AuthEndpoints.SignInSessionAsync(http, user, tenant, ReverseProxySignIn.Method, time.GetUtcNow());
+            // This request has completed the requested sign-in. Continuing with prompt=login would demand
+            // another sign-in forever; retain any other prompt values and every other OAuth parameter.
+            if (target is not null && target.IndexOf('?') is var queryStart && queryStart >= 0)
+            {
+                var query = QueryHelpers.ParseQuery(target[queryStart..]);
+                if (query.TryGetValue(Parameters.Prompt, out var prompt))
+                {
+                    var remaining = prompt.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .Where(value => value != PromptValues.Login).ToArray();
+                    if (remaining.Length == 0)
+                    {
+                        query.Remove(Parameters.Prompt);
+                    }
+                    else
+                    {
+                        query[Parameters.Prompt] = string.Join(' ', remaining);
+                    }
+
+                    target = target[..queryStart] + QueryString.Create(query);
+                }
+            }
+
             return Results.Redirect(target ?? $"{http.Request.PathBase}/");
         }
 
@@ -91,7 +114,7 @@ internal static class OAuthEndpoints
             return SignIn(ProxyPrincipal(Principal(proxied, tenant, request.GetScopes()), now, options.Value, now)!);
         }
 
-        // A session the proxy started lasts only as long as a proxy sign-in (ADR-0043); then the proxy is asked again.
+        // A session the proxy started lasts only as long as a proxy sign-in (ADR-0044); then the proxy is asked again.
         // Without local sign-in, only sessions the proxy started count (sessions from before the switch end here).
         var proxySignedInAt = ReverseProxySignIn.SignedInAt(session.Principal);
         if (user is null || !CanSignIn(user) || request.HasPromptValue(PromptValues.Login)
@@ -197,7 +220,7 @@ internal static class OAuthEndpoints
                 return SignIn(principal);
             }
 
-            // A proxy sign-in ends at the same time however often it is refreshed (ADR-0043).
+            // A proxy sign-in ends at the same time however often it is refreshed (ADR-0044).
             return ProxyPrincipal(principal, signedInAt, options.Value, time.GetUtcNow()) is { } proxied
                 ? SignIn(proxied)
                 : Error(Errors.InvalidGrant, "The sign-in through the proxy has ended; sign in again.");

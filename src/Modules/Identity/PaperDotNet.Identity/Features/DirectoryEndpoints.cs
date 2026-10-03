@@ -199,6 +199,7 @@ internal static class DirectoryEndpoints
     private static async Task<Results<NoContent, ProblemHttpResult>> RemoveMemberAsync(
         Guid id, Guid userId, IdentityDbContext db, ITenantContext tenant, HybridCache cache, CancellationToken ct)
     {
+        await using var change = await AdministratorGuard.BeginChangeAsync(db, ct);
         var member = await db.GroupMembers.FirstOrDefaultAsync(m => m.GroupId == id && m.UserId == userId, ct);
         if (member is null)
         {
@@ -212,6 +213,7 @@ internal static class DirectoryEndpoints
 
         db.GroupMembers.Remove(member);
         await db.SaveChangesAsync(ct);
+        await change.CommitAsync(ct);
         await cache.RemoveByTagAsync(EffectiveScopeProvider.TenantTag(tenant.TenantId!.Value), ct);
         return TypedResults.NoContent();
     }
@@ -263,6 +265,7 @@ internal static class DirectoryEndpoints
     private static async Task<Results<NoContent, ProblemHttpResult>> RemoveNestedGroupAsync(
         Guid id, Guid memberGroupId, IdentityDbContext db, ITenantContext tenant, HybridCache cache, CancellationToken ct)
     {
+        await using var change = await AdministratorGuard.BeginChangeAsync(db, ct);
         var nesting = await db.GroupNestings.FirstOrDefaultAsync(n => n.GroupId == id && n.MemberGroupId == memberGroupId, ct);
         if (nesting is null)
         {
@@ -276,6 +279,7 @@ internal static class DirectoryEndpoints
 
         db.GroupNestings.Remove(nesting);
         await db.SaveChangesAsync(ct);
+        await change.CommitAsync(ct);
         await cache.RemoveByTagAsync(EffectiveScopeProvider.TenantTag(tenant.TenantId!.Value), ct);
         return TypedResults.NoContent();
     }

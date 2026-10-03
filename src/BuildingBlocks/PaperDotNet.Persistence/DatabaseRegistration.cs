@@ -17,6 +17,9 @@ public interface IDatabaseProvider
     /// <summary><c>Sqlite</c> or <c>PostgreSql</c>.</summary>
     string Name { get; }
 
+    /// <summary>Whether a failed save violated a unique constraint, for recovery from competing inserts.</summary>
+    bool IsUniqueConstraintViolation(DbUpdateException exception) => false;
+
     /// <summary>
     /// Configures <paramref name="options"/> for a context in <paramref name="schema"/>. Migrations come from
     /// <paramref name="migrationsAssembly"/> (null: the host's <c>PaperDotNet.Migrations.{Name}</c>).

@@ -101,7 +101,7 @@ public sealed class OAuthTests(PaperDotNetApiFactory factory)
                         $"&scope={Uri.EscapeDataString("openid offline_access workspace.read")}&code_challenge={challenge}&code_challenge_method=S256&state=xyz";
 
         var browser = Browser("oauth-code");
-        // Signed out: the test host signs in through a reverse proxy first (ADR-0043), which names nobody here.
+        // Signed out: the test host signs in through a reverse proxy first (ADR-0044), which names nobody here.
         var signedOut = await browser.GetAsync(authorize, Ct);
         Assert.Equal(HttpStatusCode.Redirect, signedOut.StatusCode);
         Assert.StartsWith("/auth/proxy/sign-in?returnUrl=", signedOut.Headers.Location!.OriginalString, StringComparison.Ordinal);
