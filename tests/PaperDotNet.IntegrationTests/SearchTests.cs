@@ -180,4 +180,78 @@ public sealed class SearchTests(PaperDotNetApiFactory factory)
         await WaitForAsync(b.Admin, "q=other", "Tenant B other");
         Assert.Empty(Titles(await SearchAsync(b.Admin, "q=confidential")));
     }
+
+    private async Task<(HttpClient Admin, Guid Workspace, Guid List)> InvoicesAsync(string tenant)
+    {
+        await factory.CreateTenantAsync(tenant);
+        var admin = await ApiClient.CreateAsync(factory, tenant);
+        var ws = await admin.CreateWorkspaceAsync("Accounts");
+        var contentType = await admin.CreateContentTypeAsync("Invoice",
+        [
+            new { name = "amount", type = "number", indexed = true },
+            new { name = "due", type = "date" },
+            new { name = "paid", type = "boolean" },
+            new { name = "status", type = "choice", choices = new[] { "open", "late", "disputed" }, allowMultiple = true },
+        ]);
+        var list = await admin.CreateListAsync(ws, "Invoices", contentType);
+        await admin.CreateItemAsync(ws, list, new { fields = new { title = "Invoice ACME", amount = 1200, due = "2026-03-01", paid = false, status = new[] { "open", "late" } } });
+        await admin.CreateItemAsync(ws, list, new { fields = new { title = "Invoice Globex", amount = 80, due = "2026-05-01", paid = true, status = new[] { "open" } } });
+        await admin.CreateItemAsync(ws, list, new { fields = new { title = "Invoice Initech" } });
+
+        // Field names are known to $filter once items with them are indexed.
+        await WaitForAsync(admin, "q=invoice", "Invoice ACME", "Invoice Globex", "Invoice Initech");
+        return (admin, ws, list);
+    }
+
+    private static string Filter(string filter) => "$filter=" + Uri.EscapeDataString(filter);
+
+    [Fact]
+    public async Task Items_are_filtered_by_their_fields()
+    {
+        var (admin, ws, _) = await InvoicesAsync("search-fields");
+
+        await WaitForAsync(admin, Filter("fields/amount gt 100"), "Invoice ACME");
+        await WaitForAsync(admin, $"q=invoice&{Filter("fields/amount le 100 or fields/amount eq null")}", "Invoice Globex", "Invoice Initech");
+        await WaitForAsync(admin, Filter("fields/status eq 'late'"), "Invoice ACME");
+        await WaitForAsync(admin, Filter("fields/status in ('late', 'disputed') or fields/paid eq true"), "Invoice ACME", "Invoice Globex");
+        await WaitForAsync(admin, Filter("fields/due lt 2026-04-01"), "Invoice ACME");
+        await WaitForAsync(admin, $"workspaceId={ws}&{Filter("not (fields/status ne null)")}", "Invoice Initech");
+
+        foreach (var (filter, message) in new[]
+        {
+            ("fields/unknown eq 1", "unknown"),
+            ("fields/status gt 'a'", "eq, ne and in"),
+            ("fields/amount eq 'many'", string.Empty),
+            ("title eq 'x'", string.Empty),
+        })
+        {
+            var response = await admin.GetAsync($"/v1.0/search?{Filter(filter)}", Ct);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var errors = (await response.ReadJsonAsync()).GetProperty("errors");
+            Assert.True(errors.TryGetProperty("$filter", out var error), filter);
+            Assert.Contains(message, error[0].GetString()!, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public async Task Field_filters_never_cross_tenants()
+    {
+        var a = await InvoicesAsync("search-fields-a");
+        await WaitForAsync(a.Admin, Filter("fields/amount gt 100"), "Invoice ACME");
+
+        await factory.CreateTenantAsync("search-fields-b");
+        var b = await ApiClient.CreateAsync(factory, "search-fields-b");
+        var ws = await b.CreateWorkspaceAsync("Other");
+        var contentType = await b.CreateContentTypeAsync("Bill", [new { name = "amount", type = "number" }]);
+        var list = await b.CreateListAsync(ws, "Bills", contentType);
+        await b.CreateItemAsync(ws, list, new { fields = new { title = "Bill small", amount = 5 } });
+        await WaitForAsync(b, "q=bill", "Bill small");
+
+        await WaitForAsync(b, Filter("fields/amount gt 0"), "Bill small");
+        Assert.Empty(Titles(await SearchAsync(b, Filter("fields/amount gt 100"))));
+
+        // Tenant A's field names are unknown in tenant B.
+        var response = await b.GetAsync($"/v1.0/search?{Filter("fields/status eq 'late'")}", Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }

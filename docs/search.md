@@ -12,6 +12,7 @@ their text, list items, tasks, events, comments): SRC-01…09. Design:
 | `q` | Words (all must match), `"exact phrase"`, `a OR b`, `-exclude` / `NOT word`, `prefix*`. Optional when a filter is given |
 | `mode` | `keyword`, `semantic` or `hybrid` (below) |
 | `workspaceId`, `containerId` (list), `contentTypeId`, `termId` (with child terms), `createdBy`, `updatedFrom`, `updatedTo` | Filters |
+| `$filter` | Conditions on the items' fields (below) |
 | `$top` (max 100), `$skip` | Paging (`@odata.nextLink`) |
 
 Each hit has:
@@ -23,6 +24,41 @@ Each hit has:
 
 The response also returns `facets` (workspace, list, content type, term),
 `@odata.count` and `mode`.
+
+## Filtering by fields
+
+`$filter` filters on the fields of items: their metadata is part of the search
+index ([ADR-0043](adr/0043-search-indexing-as-workflows-over-a-search-store.md)).
+
+```
+GET /v1.0/search?q=invoice&$filter=fields/amount gt 100 and fields/status in ('open', 'late')
+GET /v1.0/search?$filter=fields/due lt 2026-04-01 and fields/paid eq false
+```
+
+- **One search field per name.** A field name is one search field across all
+  lists, like a managed property: `amount` in two invoice lists is filtered
+  as one. If a name is used with different kinds (a number in one list, text
+  in another), each kind is addressed as `fields/{name}_{kind}`, e.g.
+  `fields/code_number`.
+- **Kinds and operators:**
+
+  | Field types | Kind | Operators |
+  |---|---|---|
+  | text, email, url, choice | keyword | `eq`, `ne`, `in` (exact value) |
+  | number, currency | number | `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `in` |
+  | date, dateTime | date, dateTime | same as number |
+  | boolean | boolean | `eq`, `ne` |
+  | person, lookup | reference | `eq`, `ne`, `in` (ids) |
+  | managed metadata, keywords | terms | `eq`, `ne`, `in` (term ids) |
+
+  Combine conditions with `and`, `or`, `not` and parentheses. Notes (long
+  text) are searched with `q` but not filtered.
+- **Multi-value fields** match when any value matches. `ne` matches when none
+  does. `eq null` finds items without a value.
+- **Unknown fields fail.** A field name is known once an item that has it is
+  indexed. Until then, filtering on it returns `400`.
+- **After upgrading,** run a reindex (`POST /v1.0/search/reindex` or
+  `paperdotnet reindex`) so that existing items get their fields in the index.
 
 ## Modes
 

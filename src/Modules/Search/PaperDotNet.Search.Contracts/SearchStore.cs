@@ -56,6 +56,9 @@ public sealed record StoreFilter(IReadOnlyCollection<Guid> ReadableScopes)
     public DateTimeOffset? UpdatedFrom { get; init; }
 
     public DateTimeOffset? UpdatedTo { get; init; }
+
+    /// <summary>A condition on search fields (<c>$filter</c>), or null.</summary>
+    public SearchFilter? Fields { get; init; }
 }
 
 /// <summary>
@@ -123,6 +126,9 @@ public interface ISearchStore : ISearchIndex
     SearchStoreCapabilities Capabilities { get; }
 
     Task<StoreSearchResult> SearchAsync(StoreSearchQuery query, CancellationToken cancellationToken);
+
+    /// <summary>The search fields (name and kind) that have values in the tenant's index.</summary>
+    Task<IReadOnlyList<SearchFieldInfo>> GetFieldsAsync(CancellationToken cancellationToken);
 
     /// <summary>Number of indexed documents tagged with each term (terms without use are omitted).</summary>
     Task<IReadOnlyDictionary<Guid, int>> CountTermsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken);

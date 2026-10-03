@@ -19,7 +19,8 @@ internal sealed record SearchRequest(
     DateTimeOffset? UpdatedTo = null,
     int Top = SearchService.DefaultTop,
     int Skip = 0,
-    bool WithFacets = true);
+    bool WithFacets = true,
+    string? Filter = null);
 
 internal sealed record SearchResult(IReadOnlyList<SearchHit> Hits, int Count, SearchFacets? Facets, SearchMode Mode);
 
@@ -74,12 +75,26 @@ internal sealed class SearchService(
                 return (null, "q", error);
             }
         }
-        else if (request.WorkspaceId is null && request.ContainerId is null && request.ContentTypeId is null && request.TermId is null && request.CreatedBy is null)
+        else if (request.WorkspaceId is null && request.ContainerId is null && request.ContentTypeId is null && request.TermId is null && request.CreatedBy is null
+                 && string.IsNullOrWhiteSpace(request.Filter))
         {
             return (null, "q", "Enter a query or at least one filter.");
         }
 
-        var storeQuery = new StoreSearchQuery(mode, query, await FilterAsync(request, ct), request.Skip, request.Top)
+        SearchFilter? fields = null;
+        if (!string.IsNullOrWhiteSpace(request.Filter))
+        {
+            try
+            {
+                fields = SearchFilterParser.Parse(request.Filter, await store.GetFieldsAsync(ct));
+            }
+            catch (ArgumentException ex)
+            {
+                return (null, "$filter", ex.Message);
+            }
+        }
+
+        var storeQuery = new StoreSearchQuery(mode, query, await FilterAsync(request, fields, ct), request.Skip, request.Top)
         {
             MinSimilarity = options.Value.MinSimilarity,
             CandidateLimit = options.Value.CandidateLimit,
@@ -103,7 +118,7 @@ internal sealed class SearchService(
     }
 
     /// <summary>The filters of the request, trimmed to the scopes the caller can read in the whole tenant (ADR-0035).</summary>
-    private async Task<StoreFilter> FilterAsync(SearchRequest request, CancellationToken ct)
+    private async Task<StoreFilter> FilterAsync(SearchRequest request, SearchFilter? fields, CancellationToken ct)
     {
         var readable = (await access.GetScopesAsync(null, ct)).Keys.ToArray();
         IReadOnlyCollection<Guid>? termIds = null;
@@ -122,6 +137,7 @@ internal sealed class SearchService(
             CreatedBy = request.CreatedBy,
             UpdatedFrom = request.UpdatedFrom,
             UpdatedTo = request.UpdatedTo,
+            Fields = fields,
         };
     }
 

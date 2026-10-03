@@ -130,6 +130,7 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
             var body = new StringBuilder();
             var keywords = new StringBuilder();
             var itemTerms = new List<Guid>();
+            var searchFields = new List<SearchField>();
             foreach (var field in fields.GetValueOrDefault(item.ContentTypeId, []))
             {
                 var value = values[item.Id][field.Name];
@@ -137,6 +138,11 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
                 if (value is null)
                 {
                     continue;
+                }
+
+                if (SearchFieldOf(field, value) is { Values.Count: > 0 } searchField)
+                {
+                    searchFields.Add(searchField);
                 }
 
                 if (TermTypes.Contains(field.Type))
@@ -188,8 +194,37 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
                 Keywords = keywords.ToString(),
                 Language = language,
                 Pages = pages,
+                Fields = searchFields,
             };
         }).ToList();
+    }
+
+    /// <summary>
+    /// The field as a typed search field (ADR-0043), filterable with <c>$filter</c> on <c>/v1.0/search</c>; null for
+    /// fields that are only searched as text (notes) or have no value of the expected shape.
+    /// </summary>
+    internal static SearchField? SearchFieldOf(FieldDefinition field, JsonNode value)
+    {
+        var nodes = value is JsonArray array ? array.Where(v => v is not null).Select(v => v!) : [value];
+        (SearchFieldKind Kind, Func<JsonNode, SearchValue?> Convert)? mapping = field.Type switch
+        {
+            "text" or "email" or "url" or "choice" => (SearchFieldKind.Keyword, v => v is JsonValue j && j.TryGetValue<string>(out var s) ? SearchValue.Of(s) : null),
+            "number" or "currency" => (SearchFieldKind.Number, v => v is JsonValue j && j.TryGetValue<double>(out var d) ? SearchValue.Of(d) : null),
+            "boolean" => (SearchFieldKind.Boolean, v => v is JsonValue j && j.TryGetValue<bool>(out var b) ? SearchValue.Of(b) : null),
+            "date" => (SearchFieldKind.Date, v => v is JsonValue j && j.TryGetValue<string>(out var s)
+                && DateOnly.TryParseExact(s, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? SearchValue.Of(d) : null),
+            "dateTime" => (SearchFieldKind.DateTime, v => v is JsonValue j && j.TryGetValue<string>(out var s)
+                && DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var t) ? SearchValue.Of(t) : null),
+            "person" or "lookup" => (SearchFieldKind.Reference, v => Ids(v).Select(SearchValue.Of).Cast<SearchValue?>().FirstOrDefault()),
+            ManagedMetadataFieldType.TypeName or KeywordsFieldType.TypeName => (SearchFieldKind.Terms, v => Ids(v).Select(SearchValue.Of).Cast<SearchValue?>().FirstOrDefault()),
+            _ => null,
+        };
+        if (mapping is not { } map)
+        {
+            return null;
+        }
+
+        return new SearchField(field.Name, map.Kind, nodes.Select(map.Convert).OfType<SearchValue>().ToList()) { Indexed = field.Indexed };
     }
 
     private static IEnumerable<Guid> Ids(JsonNode? value) => value switch

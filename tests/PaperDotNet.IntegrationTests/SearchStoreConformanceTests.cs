@@ -291,6 +291,118 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         Assert.Equal(new Dictionary<Guid, int> { [used] = 1, [twice] = 2 }, counts);
     }
 
+    private sealed record FieldSetup(Context Ctx, Guid Scope, SearchDocumentData First, SearchDocumentData Second, SearchDocumentData Plain, Guid Alice, Guid Term);
+
+    /// <summary>Two documents with typed fields and one without.</summary>
+    private async Task<FieldSetup> FieldsAsync()
+    {
+        var ctx = await NewTenantAsync();
+        var scope = Guid.NewGuid();
+        var (alice, bob, term) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var first = Document(scope, "Field one") with
+        {
+            Fields =
+            [
+                new SearchField("total", SearchFieldKind.Number, [SearchValue.Of(120.5)]) { Indexed = true },
+                new SearchField("status", SearchFieldKind.Keyword, [SearchValue.Of("open")]),
+                new SearchField("paid", SearchFieldKind.Boolean, [SearchValue.Of(false)]),
+                new SearchField("due", SearchFieldKind.Date, [SearchValue.Of(new DateOnly(2026, 3, 1))]),
+                new SearchField("sent", SearchFieldKind.DateTime, [SearchValue.Of(new DateTimeOffset(2026, 3, 1, 10, 0, 0, TimeSpan.Zero))]),
+                new SearchField("owner", SearchFieldKind.Reference, [SearchValue.Of(alice)]),
+                new SearchField("topic", SearchFieldKind.Terms, [SearchValue.Of(term)]),
+                new SearchField("vendor", SearchFieldKind.Keyword, [SearchValue.Of("O'Brien \\ Co \"Ltd\"")]),
+            ],
+        };
+        var second = Document(scope, "Field two") with
+        {
+            Fields =
+            [
+                new SearchField("total", SearchFieldKind.Number, [SearchValue.Of(80)]),
+                new SearchField("status", SearchFieldKind.Keyword, [SearchValue.Of("open"), SearchValue.Of("late")]),
+                new SearchField("paid", SearchFieldKind.Boolean, [SearchValue.Of(true)]),
+                new SearchField("due", SearchFieldKind.Date, [SearchValue.Of(new DateOnly(2026, 5, 1))]),
+                new SearchField("owner", SearchFieldKind.Reference, [SearchValue.Of(bob)]),
+            ],
+        };
+        var plain = Document(scope, "Field three");
+        await ctx.RunAsync(s => s.UpsertAsync([first, second, plain], Ct));
+        return new FieldSetup(ctx, scope, first, second, plain, alice, term);
+    }
+
+    private static async Task<List<Guid>> FindAsync(FieldSetup f, SearchFilter filter) =>
+        Ids(await f.Ctx.RunAsync(s => s.SearchAsync(Keyword(null, Readable(f.Scope) with { Fields = filter }), Ct)));
+
+    [Fact]
+    public async Task Fields_filter_by_number_date_time_and_boolean()
+    {
+        var f = await FieldsAsync();
+
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("total", SearchFieldKind.Number, SearchOperator.GreaterThan, SearchValue.Of(100))));
+        Assert.Equal([f.Second.Id], await FindAsync(f, new SearchCompare("total", SearchFieldKind.Number, SearchOperator.LessThanOrEqual, SearchValue.Of(80))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("total", SearchFieldKind.Number, SearchOperator.Equal, SearchValue.Of(120.5))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("due", SearchFieldKind.Date, SearchOperator.LessThan, SearchValue.Of(new DateOnly(2026, 4, 1)))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("sent", SearchFieldKind.DateTime, SearchOperator.GreaterThanOrEqual,
+            SearchValue.Of(new DateTimeOffset(2026, 3, 1, 9, 0, 0, TimeSpan.Zero)))));
+        Assert.Equal([f.Second.Id], await FindAsync(f, new SearchCompare("paid", SearchFieldKind.Boolean, SearchOperator.Equal, SearchValue.Of(true))));
+        Assert.Equivalent(new[] { f.First.Id, f.Second.Id }, await FindAsync(f, new SearchIn("total", SearchFieldKind.Number, [SearchValue.Of(80), SearchValue.Of(120.5)])));
+    }
+
+    [Fact]
+    public async Task Fields_filter_text_values_with_any_semantics()
+    {
+        var f = await FieldsAsync();
+
+        Assert.Equivalent(new[] { f.First.Id, f.Second.Id }, await FindAsync(f, new SearchCompare("status", SearchFieldKind.Keyword, SearchOperator.Equal, SearchValue.Of("open"))));
+        Assert.Equal([f.Second.Id], await FindAsync(f, new SearchCompare("status", SearchFieldKind.Keyword, SearchOperator.Equal, SearchValue.Of("late"))));
+        Assert.Equal([f.Second.Id], await FindAsync(f, new SearchIn("status", SearchFieldKind.Keyword, [SearchValue.Of("late"), SearchValue.Of("other")])));
+        Assert.Equivalent(new[] { f.First.Id, f.Plain.Id }, await FindAsync(f, new SearchCompare("status", SearchFieldKind.Keyword, SearchOperator.NotEqual, SearchValue.Of("late"))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("owner", SearchFieldKind.Reference, SearchOperator.Equal, SearchValue.Of(f.Alice))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("topic", SearchFieldKind.Terms, SearchOperator.Equal, SearchValue.Of(f.Term))));
+        Assert.Equal([f.First.Id], await FindAsync(f, new SearchCompare("vendor", SearchFieldKind.Keyword, SearchOperator.Equal, SearchValue.Of("O'Brien \\ Co \"Ltd\""))));
+
+        // The kind is part of the field: the same name as another kind does not match.
+        Assert.Empty(await FindAsync(f, new SearchCompare("status", SearchFieldKind.Reference, SearchOperator.Equal, SearchValue.Of(f.Alice))));
+    }
+
+    [Fact]
+    public async Task Fields_filter_presence_and_combinations()
+    {
+        var f = await FieldsAsync();
+
+        Assert.Equal([f.Plain.Id], await FindAsync(f, new SearchNot(new SearchHasValue("status", SearchFieldKind.Keyword))));
+        Assert.Equivalent(new[] { f.First.Id, f.Second.Id }, await FindAsync(f, new SearchHasValue("total", SearchFieldKind.Number)));
+        Assert.Equivalent(new[] { f.First.Id, f.Second.Id }, await FindAsync(f, new SearchAnd(
+        [
+            new SearchOr([new SearchCompare("total", SearchFieldKind.Number, SearchOperator.GreaterThan, SearchValue.Of(100)), new SearchCompare("paid", SearchFieldKind.Boolean, SearchOperator.Equal, SearchValue.Of(true))]),
+            new SearchCompare("status", SearchFieldKind.Keyword, SearchOperator.Equal, SearchValue.Of("open")),
+        ])));
+        Assert.Equal([f.Plain.Id], await FindAsync(f, new SearchNot(new SearchOr([new SearchHasValue("total", SearchFieldKind.Number), new SearchHasValue("owner", SearchFieldKind.Reference)]))));
+        Assert.Equal(3, (await FindAsync(f, new SearchAnd([]))).Count);
+        Assert.Empty(await FindAsync(f, new SearchOr([])));
+    }
+
+    [Fact]
+    public async Task Fields_are_listed_and_replaced_with_the_document()
+    {
+        var f = await FieldsAsync();
+
+        var fields = await f.Ctx.RunAsync(s => s.GetFieldsAsync(Ct));
+        Assert.Equivalent(new[]
+        {
+            new SearchFieldInfo("due", SearchFieldKind.Date), new SearchFieldInfo("owner", SearchFieldKind.Reference),
+            new SearchFieldInfo("paid", SearchFieldKind.Boolean), new SearchFieldInfo("sent", SearchFieldKind.DateTime),
+            new SearchFieldInfo("status", SearchFieldKind.Keyword), new SearchFieldInfo("topic", SearchFieldKind.Terms),
+            new SearchFieldInfo("total", SearchFieldKind.Number), new SearchFieldInfo("vendor", SearchFieldKind.Keyword),
+        }, fields);
+
+        await f.Ctx.RunAsync(s => s.UpsertAsync([f.Second with { Fields = [new SearchField("total", SearchFieldKind.Number, [SearchValue.Of(500)])] }], Ct));
+        Assert.Equal([f.Second.Id], await FindAsync(f, new SearchCompare("total", SearchFieldKind.Number, SearchOperator.GreaterThan, SearchValue.Of(400))));
+        Assert.Equivalent(new[] { f.Plain.Id, f.Second.Id }, await FindAsync(f, new SearchNot(new SearchHasValue("status", SearchFieldKind.Keyword))));
+
+        await f.Ctx.RunAsync(s => s.DeleteAsync([f.First.Id], Ct));
+        Assert.DoesNotContain(new SearchFieldInfo("vendor", SearchFieldKind.Keyword), await f.Ctx.RunAsync(s => s.GetFieldsAsync(Ct)));
+    }
+
     /// <summary>Embeds every pending passage with <paramref name="vectorOf"/> (the job's work, without a model).</summary>
     private static async Task EmbedAsync(Context ctx, Func<string, float[]> vectorOf)
     {

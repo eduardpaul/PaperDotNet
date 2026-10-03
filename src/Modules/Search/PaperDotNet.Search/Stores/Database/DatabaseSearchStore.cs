@@ -59,6 +59,7 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
         var ids = documents.Select(d => d.Id).ToList();
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Tags.Where(t => ids.Contains(t.DocumentId)).ExecuteDeleteAsync(cancellationToken);
+        await db.FieldValues.Where(v => ids.Contains(v.DocumentId)).ExecuteDeleteAsync(cancellationToken);
         var existing = await db.Documents.Where(d => ids.Contains(d.Id)).ToDictionaryAsync(d => d.Id, cancellationToken);
         var passages = (await db.Passages.Where(p => ids.Contains(p.DocumentId)).ToListAsync(cancellationToken)).ToLookup(p => p.DocumentId);
         foreach (var data in documents)
@@ -82,6 +83,7 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
             document.CreatedBy = data.CreatedBy;
             document.UpdatedAt = data.UpdatedAt;
             db.Tags.AddRange(data.TermIds.Distinct().Select(t => new SearchTag { DocumentId = data.Id, TermId = t }));
+            db.FieldValues.AddRange(FieldValues(data));
             UpdatePassages(data, document.Title, document.Language, passages[data.Id]);
         }
 
@@ -89,6 +91,26 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
         await transaction.CommitAsync(cancellationToken);
         db.ChangeTracker.Clear();
     }
+
+    /// <summary>The rows of the document's search fields; text values too long to compare exactly are left out.</summary>
+    private static IEnumerable<SearchFieldValue> FieldValues(SearchDocumentData data) =>
+        data.Fields
+            .GroupBy(f => (f.Name, f.Kind))
+            .SelectMany(g => g.SelectMany(f => f.Values)
+                .Where(v => SearchField.IsText(g.Key.Kind)
+                    ? v.Text is { Length: > 0 and <= SearchField.MaxTextLength }
+                    : v.Number is { } n && double.IsFinite(n))
+                .Distinct()
+                .Select((v, i) => new SearchFieldValue
+                {
+                    DocumentId = data.Id,
+                    Name = g.Key.Name,
+                    Kind = (int)g.Key.Kind,
+                    Ordinal = i,
+                    Text = SearchField.IsText(g.Key.Kind) ? v.Text : null,
+                    Number = SearchField.IsText(g.Key.Kind) ? null : v.Number,
+                }))
+            .Where(v => v.Name.Length is > 0 and <= 128);
 
     /// <summary>
     /// Replaces the document's passages. A passage whose embedded text is unchanged keeps its row and embedding
@@ -126,6 +148,7 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
     public async Task DeleteAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
     {
         await db.Passages.Where(p => ids.Contains(p.DocumentId)).ExecuteDeleteAsync(cancellationToken);
+        await db.FieldValues.Where(v => ids.Contains(v.DocumentId)).ExecuteDeleteAsync(cancellationToken);
         await db.Tags.Where(t => ids.Contains(t.DocumentId)).ExecuteDeleteAsync(cancellationToken);
         await db.Documents.Where(d => ids.Contains(d.Id)).ExecuteDeleteAsync(cancellationToken);
     }
@@ -152,9 +175,16 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
     private async Task DeleteWhereAsync(IQueryable<SearchDocument> documents, CancellationToken ct)
     {
         await db.Passages.Where(p => documents.Any(d => d.Id == p.DocumentId)).ExecuteDeleteAsync(ct);
+        await db.FieldValues.Where(v => documents.Any(d => d.Id == v.DocumentId)).ExecuteDeleteAsync(ct);
         await db.Tags.Where(t => documents.Any(d => d.Id == t.DocumentId)).ExecuteDeleteAsync(ct);
         await documents.ExecuteDeleteAsync(ct);
     }
+
+    public async Task<IReadOnlyList<SearchFieldInfo>> GetFieldsAsync(CancellationToken cancellationToken) =>
+        (await db.FieldValues.AsNoTracking().Select(v => new { v.Name, v.Kind }).Distinct().ToListAsync(cancellationToken))
+            .Select(f => new SearchFieldInfo(f.Name, (SearchFieldKind)f.Kind))
+            .OrderBy(f => f.Name, StringComparer.Ordinal).ThenBy(f => f.Kind)
+            .ToList();
 
     /// <summary>Counts tag usage from the index (one row per document and term).</summary>
     public async Task<IReadOnlyDictionary<Guid, int>> CountTermsAsync(IReadOnlyCollection<Guid> termIds, CancellationToken cancellationToken)
@@ -256,6 +286,11 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
         {
             var termIds = terms.ToArray();
             documents = documents.Where(d => db.Tags.Any(t => t.DocumentId == d.Id && termIds.Contains(t.TermId)));
+        }
+
+        if (filter.Fields is { } fields)
+        {
+            documents = documents.Where(new FieldFilters(db).Predicate(fields));
         }
 
         return documents;

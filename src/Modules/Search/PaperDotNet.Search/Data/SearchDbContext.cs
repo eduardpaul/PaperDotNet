@@ -52,6 +52,29 @@ public sealed class SearchTag : ITenantOwned
 }
 
 /// <summary>
+/// One value of a document's search field (ADR-0043): <see cref="Text"/> for keyword, reference and term fields,
+/// <see cref="Number"/> for the others (see <c>SearchValue</c>). Multi-value fields have one row per value.
+/// </summary>
+[NotAudited]
+public sealed class SearchFieldValue : ITenantOwned
+{
+    public Guid DocumentId { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public required string Name { get; set; }
+
+    public int Kind { get; set; }
+
+    /// <summary>Position among the field's values (0 first).</summary>
+    public int Ordinal { get; set; }
+
+    public string? Text { get; set; }
+
+    public double? Number { get; set; }
+}
+
+/// <summary>
 /// A passage of a document (SRC-07, SRC-09): a window of its text with the page it is on (null for text that is not
 /// on a page, like the title and fields). Passages have their own full-text index, so keyword hits can point to a
 /// page, and an embedding for semantic search, computed in the background.
@@ -101,6 +124,8 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
 
     public DbSet<SearchPassage> Passages => Set<SearchPassage>();
 
+    public DbSet<SearchFieldValue> FieldValues => Set<SearchFieldValue>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
@@ -120,6 +145,15 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
             b.ToTable("document_tags");
             b.HasKey(t => new { t.DocumentId, t.TermId });
             b.HasIndex(t => new { t.TermId, t.DocumentId });
+        });
+        modelBuilder.Entity<SearchFieldValue>(b =>
+        {
+            b.ToTable("document_fields");
+            b.HasKey(v => new { v.DocumentId, v.Name, v.Kind, v.Ordinal });
+            b.Property(v => v.Name).HasMaxLength(128);
+            b.Property(v => v.Text).HasMaxLength(256);
+            b.HasIndex(v => new { v.TenantId, v.Name, v.Kind, v.Text });
+            b.HasIndex(v => new { v.TenantId, v.Name, v.Kind, v.Number });
         });
         modelBuilder.Entity<SearchPassage>(b =>
         {

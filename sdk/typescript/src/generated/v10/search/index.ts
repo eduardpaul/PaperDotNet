@@ -33,6 +33,10 @@ export interface SearchRequestBuilderGetQueryParameters {
     containerId?: Guid;
     contentTypeId?: Guid;
     createdBy?: Guid;
+    /**
+     * OData filter, e.g. fields/amount gt 100 and fields/status eq 'open'.
+     */
+    filter?: string;
     mode?: string;
     q?: string;
     /**
@@ -51,11 +55,12 @@ export interface SearchRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const SearchRequestBuilderUriTemplate = "{+baseurl}/v1.0/search{?%24skip*,%24top*,containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}";
+export const SearchRequestBuilderUriTemplate = "{+baseurl}/v1.0/search{?%24filter*,%24skip*,%24top*,containerId*,contentTypeId*,createdBy*,mode*,q*,termId*,updatedFrom*,updatedTo*,workspaceId*}";
 /**
  * Mapper for query parameters from symbol name to serialization name represented as a constant.
  */
 const SearchRequestBuilderGetQueryParametersMapper: Record<string, string> = {
+    "filter": "%24filter",
     "skip": "%24skip",
     "top": "%24top",
 };
