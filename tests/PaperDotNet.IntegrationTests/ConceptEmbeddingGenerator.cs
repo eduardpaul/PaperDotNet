@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.IntegrationTests;
 
@@ -38,7 +39,7 @@ internal sealed class ConceptEmbeddingGenerator : IEmbeddingGenerator<string, Em
         {
             Interlocked.Increment(ref _embedded);
             var vector = new float[Dimensions];
-            foreach (var word in PaperDotNet.Persistence.FullTextQuery.Tokenize(text))
+            foreach (var word in FullTextQuery.Tokenize(text))
             {
                 vector[Axis(Concepts.GetValueOrDefault(word, word))] += 1;
             }

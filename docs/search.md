@@ -71,6 +71,7 @@ PAPERDOTNET__AI__Embeddings__ApiKey=sk-…
 
 | Setting | Default | Meaning |
 |---|---|---|
+| `Store` | `database` | The search store ([ADR-0043](adr/0043-search-indexing-as-workflows-over-a-search-store.md)): where documents, passages and vectors live and how they are searched. `database` is the only one installed today |
 | `MinSimilarity` | 0.3 | Cosine similarity below which a passage is no match; tune it for your model |
 | `CandidateLimit` | 200 | Documents per side before fusion |
 | `EmbeddingBatchSize` | 64 | Passages per call to the model |

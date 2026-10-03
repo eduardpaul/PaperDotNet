@@ -40,11 +40,6 @@ public sealed record SearchHit(
     public IReadOnlyList<string> MatchedBy { get; init; } = [];
 }
 
-public sealed record FacetValue(Guid Value, int Count);
-
-public sealed record SearchFacets(
-    IReadOnlyList<FacetValue> Workspace, IReadOnlyList<FacetValue> Container, IReadOnlyList<FacetValue> ContentType, IReadOnlyList<FacetValue> Term);
-
 /// <summary>
 /// Results; <c>mode</c> is how they were found. In <c>semantic</c> and <c>hybrid</c> mode the count and facets cover the
 /// best candidates only (see <c>Search:CandidateLimit</c>).

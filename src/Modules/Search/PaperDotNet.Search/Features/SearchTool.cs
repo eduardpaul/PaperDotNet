@@ -1,9 +1,10 @@
 using PaperDotNet.Mcp.Contracts;
+using PaperDotNet.Search.Contracts;
 
 namespace PaperDotNet.Search.Features;
 
 /// <summary>The <c>search</c> MCP tool (API-08): keyword, semantic or hybrid search over what the caller may read.</summary>
-internal sealed class SearchTool(SearchService search, SemanticSearch semantic) : IMcpTool
+internal sealed class SearchTool(SearchService search) : IMcpTool
 {
     private const int MaxTop = 50;
 
@@ -12,7 +13,7 @@ internal sealed class SearchTool(SearchService search, SemanticSearch semantic) 
     public string Description =>
         "Search documents (including their text, with the matching page), tasks, events and list items you can read. " +
         "Query syntax: words, \"phrases\", OR, -exclude, prefix*. " +
-        (semantic.Enabled ? "By default it also finds matches by meaning (hybrid); mode can be keyword, semantic or hybrid. " : string.Empty) +
+        (search.SemanticEnabled ? "By default it also finds matches by meaning (hybrid); mode can be keyword, semantic or hybrid. " : string.Empty) +
         "Returns ids to read with get_item.";
 
     public System.Text.Json.JsonElement InputSchema { get; } = McpSchema.ObjectSchema(

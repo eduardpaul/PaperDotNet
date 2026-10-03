@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using PaperDotNet.Search.Contracts;
 
-namespace PaperDotNet.Search.Features;
+namespace PaperDotNet.Search.Stores.Database;
 
 /// <summary>A window of a document's text and the page it is on (null: not on a page).</summary>
 internal sealed record PassageText(int? Page, string Text);
