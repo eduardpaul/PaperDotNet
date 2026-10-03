@@ -200,13 +200,18 @@ internal class WorkflowTemplateHandler(
 
         var rowName = listName is null ? builtIn.Name : $"{builtIn.Name} ({listName})";
         var row = isPlanned || (listName is not null && list is null) ? null : await builtIns.RowAsync(workspaceId, key, ct, list?.Id);
-        if (row is null)
+        if (row is null && !isPlanned)
         {
-            if (!isPlanned && await db.Workflows.AnyAsync(w => w.WorkspaceId == workspaceId && w.Name == rowName, ct))
+            // An imported-item event can create the default after RowAsync: reuse it only if its identity matches.
+            row = await db.Workflows.FirstOrDefaultAsync(w => w.WorkspaceId == workspaceId && w.Name == rowName, ct);
+            if (row is not null && (row.BuiltInKey != key || row.ListId != list?.Id))
             {
                 throw new TemplateException($"Workflow '{name}': a workflow named '{rowName}' already exists in the workspace.", element);
             }
+        }
 
+        if (row is null)
+        {
             context.Created("workflow", $"{workspaceName}: {rowName}");
             if (!context.DryRun)
             {
