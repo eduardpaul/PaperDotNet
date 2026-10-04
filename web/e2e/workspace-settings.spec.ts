@@ -54,7 +54,7 @@ test('a workflow notifies on new items, shows its runs and can be turned off', a
   const editor = page.getByRole('dialog');
   const name = unique('Tell me');
   await editor.getByLabel('Name', { exact: true }).fill(name);
-  await editor.getByLabel('Trigger').selectOption('itemAdded');
+  await editor.getByLabel('Trigger', { exact: true }).selectOption('itemAdded');
   await editor.getByLabel('List', { exact: true }).selectOption('Inbox tasks');
   const step = editor.getByRole('region', { name: /Step 1/ });
   await step.getByLabel('Action').selectOption('notify');
@@ -174,7 +174,7 @@ test('a scheduled workflow is set up with a cron expression', async ({ page }) =
   const editor = page.getByRole('dialog');
   const name = unique('Morning plan');
   await editor.getByLabel('Name', { exact: true }).fill(name);
-  await editor.getByLabel('Trigger').selectOption('schedule');
+  await editor.getByLabel('Trigger', { exact: true }).selectOption('schedule');
   await expect(editor.getByLabel('List', { exact: true })).toBeHidden();
   await editor.getByLabel('Cron').fill('0 8 * * 1-5');
   await editor.getByLabel('Time zone').fill('Europe/Berlin');
