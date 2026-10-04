@@ -55,6 +55,7 @@ public sealed class StorageOptimizationExtension : IExtension
         """)!.AsObject())
     {
         Scope = BuiltInScope.Library,
+        AllowManualLaunch = true,
         Parameters = JsonNode.Parse("""
         { "type": "object", "properties": {
           "targetHeight": { "type": "number", "default": 12, "description": "Smallest text target in pixels (4–200)." },

@@ -172,6 +172,36 @@ internal sealed partial class BuiltInWorkflows(
         return (row, [], false);
     }
 
+    /// <summary>Resolves a manual library workflow, creating its row with automatic runs off if it has none.</summary>
+    public async Task<(WorkflowDefinition? Row, List<string> Errors, bool NameTaken)> PrepareManualAsync(
+        ListData list, BuiltInWorkflow workflow, CancellationToken ct)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var existing = await RowAsync(list.WorkspaceId, workflow.Key, ct, list.Id);
+            var result = await SetAsync(list.WorkspaceId, workflow, existing?.Enabled ?? false, Values(existing) ?? new JsonObject(), ct, list);
+            if (result.Row is null || result.Errors.Count > 0)
+            {
+                return result;
+            }
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+                return result;
+            }
+            catch (DbUpdateException) when (existing is null && attempt < 2)
+            {
+                // Another launch (or enabling automatic runs) may have created the same library row.
+                db.ChangeTracker.Clear();
+                if (await RowAsync(list.WorkspaceId, workflow.Key, ct, list.Id) is null)
+                {
+                    throw;
+                }
+            }
+        }
+    }
+
     /// <summary>
     /// Creates the per-library built-in workflows that are on by default in <paramref name="list"/> (a library), unless the
     /// library has them already (on or off). Done once per library and process: when a document is added, or its

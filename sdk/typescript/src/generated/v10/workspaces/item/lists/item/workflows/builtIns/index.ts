@@ -4,7 +4,7 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createBuiltInWorkflowResponseFromDiscriminatorValue, type ApiProblem, type BuiltInWorkflowResponse } from '../../../../../../../models/index.js';
 // @ts-ignore
-import { type WithKeyItemRequestBuilder, WithKeyItemRequestBuilderRequestsMetadata } from './item/index.js';
+import { type WithKeyItemRequestBuilder, WithKeyItemRequestBuilderNavigationMetadata, WithKeyItemRequestBuilderRequestsMetadata } from './item/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -40,6 +40,7 @@ export const BuiltInsRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{wo
 export const BuiltInsRequestBuilderNavigationMetadata: Record<Exclude<keyof BuiltInsRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     byKey: {
         requestsMetadata: WithKeyItemRequestBuilderRequestsMetadata,
+        navigationMetadata: WithKeyItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["key"],
     },
 };

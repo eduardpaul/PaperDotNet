@@ -14,6 +14,17 @@ approval node, and accepts or discards it. The receipts template composes these
 same activities before its AI reading nodes. `item.hasTerms` checks the current
 receipt tags after review, including descendant terms.
 
+Once the extension is enabled, people with Contribute access can launch
+"Optimize document storage" from a file's Preview tab or the library selection
+toolbar, including files in Inbox. The library switch controls automatic runs
+only. The workflow opts into `AllowManualLaunch`; a manual launch resolves the
+library's configured parameters, creating an off workflow row with defaults
+when none exists. It never changes the automatic setting. The library built-in
+catalog exposes this policy and the launch form, and
+`POST …/lists/{listId}/workflows/builtIns/{key}/runs` checks all selected items
+before creating the workflow or starting runs. Disabling the extension also
+blocks manual launches through existing workflow name/id endpoints.
+
 `Documents.Contracts` exposes immutable version reading and staged replacement.
 Documents owns hashing, storage references, conditional promotion, and cleanup.
 Candidate rows own file references and metrics, not workflow execution state.

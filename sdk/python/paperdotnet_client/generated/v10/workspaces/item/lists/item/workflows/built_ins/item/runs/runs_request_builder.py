@@ -14,36 +14,35 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 from warnings import warn
 
 if TYPE_CHECKING:
-    from .........models.api_problem import ApiProblem
-    from .........models.built_in_settings_request import BuiltInSettingsRequest
-    from .........models.built_in_workflow_response import BuiltInWorkflowResponse
-    from .runs.runs_request_builder import RunsRequestBuilder
+    from ..........models.api_problem import ApiProblem
+    from ..........models.run_response import RunResponse
+    from ..........models.start_runs_request import StartRunsRequest
 
-class WithKeyItemRequestBuilder(BaseRequestBuilder):
+class RunsRequestBuilder(BaseRequestBuilder):
     """
-    Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns/{key}
+    Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns/{key}/runs
     """
     def __init__(self,request_adapter: RequestAdapter, path_parameters: Union[str, dict[str, Any]]) -> None:
         """
-        Instantiates a new WithKeyItemRequestBuilder and sets the default values.
+        Instantiates a new RunsRequestBuilder and sets the default values.
         param path_parameters: The raw url or the url-template parameters for the request.
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns/{key}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns/{key}/runs", path_parameters)
     
-    async def put(self,body: BuiltInSettingsRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[BuiltInWorkflowResponse]:
+    async def post(self,body: StartRunsRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[list[RunResponse]]:
         """
-        param body: Turns a built-in workflow on or off in the workspace; `parameters` (default: the ones it had) fill in its definition.
+        param body: Starts a `manual` workflow: once per item of `itemIds` (in `listId`, at most 100), or once without anitem when there are none (for workflows whose trigger has no list). `inputs` become run variables.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
-        Returns: Optional[BuiltInWorkflowResponse]
+        Returns: Optional[list[RunResponse]]
         """
         if body is None:
             raise TypeError("body cannot be null.")
-        request_info = self.to_put_request_information(
+        request_info = self.to_post_request_information(
             body, request_configuration
         )
-        from .........models.api_problem import ApiProblem
+        from ..........models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
             "400": ApiProblem,
@@ -51,45 +50,36 @@ class WithKeyItemRequestBuilder(BaseRequestBuilder):
         }
         if not self.request_adapter:
             raise Exception("Http core is null") 
-        from .........models.built_in_workflow_response import BuiltInWorkflowResponse
+        from ..........models.run_response import RunResponse
 
-        return await self.request_adapter.send_async(request_info, BuiltInWorkflowResponse, error_mapping)
+        return await self.request_adapter.send_collection_async(request_info, RunResponse, error_mapping)
     
-    def to_put_request_information(self,body: BuiltInSettingsRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_post_request_information(self,body: StartRunsRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        param body: Turns a built-in workflow on or off in the workspace; `parameters` (default: the ones it had) fill in its definition.
+        param body: Starts a `manual` workflow: once per item of `itemIds` (in `listId`, at most 100), or once without anitem when there are none (for workflows whose trigger has no list). `inputs` become run variables.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
         if body is None:
             raise TypeError("body cannot be null.")
-        request_info = RequestInformation(Method.PUT, self.url_template, self.path_parameters)
+        request_info = RequestInformation(Method.POST, self.url_template, self.path_parameters)
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/json")
         request_info.set_content_from_parsable(self.request_adapter, "application/json", body)
         return request_info
     
-    def with_url(self,raw_url: str) -> WithKeyItemRequestBuilder:
+    def with_url(self,raw_url: str) -> RunsRequestBuilder:
         """
         Returns a request builder with the provided arbitrary URL. Using this method means any other path or query parameters are ignored.
         param raw_url: The raw URL to use for the request builder.
-        Returns: WithKeyItemRequestBuilder
+        Returns: RunsRequestBuilder
         """
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
-        return WithKeyItemRequestBuilder(self.request_adapter, raw_url)
-    
-    @property
-    def runs(self) -> RunsRequestBuilder:
-        """
-        The runs property
-        """
-        from .runs.runs_request_builder import RunsRequestBuilder
-
-        return RunsRequestBuilder(self.request_adapter, self.path_parameters)
+        return RunsRequestBuilder(self.request_adapter, raw_url)
     
     @dataclass
-    class WithKeyItemRequestBuilderPutRequestConfiguration(RequestConfiguration[QueryParameters]):
+    class RunsRequestBuilderPostRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """

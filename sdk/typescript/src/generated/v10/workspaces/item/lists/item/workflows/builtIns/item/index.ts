@@ -4,12 +4,18 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createBuiltInWorkflowResponseFromDiscriminatorValue, serializeBuiltInSettingsRequest, serializeBuiltInWorkflowResponse, type ApiProblem, type BuiltInSettingsRequest, type BuiltInWorkflowResponse } from '../../../../../../../../models/index.js';
 // @ts-ignore
-import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
+import { RunsRequestBuilderRequestsMetadata, type RunsRequestBuilder } from './runs/index.js';
+// @ts-ignore
+import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
  * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns/{key}
  */
 export interface WithKeyItemRequestBuilder extends BaseRequestBuilder<WithKeyItemRequestBuilder> {
+    /**
+     * The runs property
+     */
+    get runs(): RunsRequestBuilder;
     /**
      * @param body Turns a built-in workflow on or off in the workspace; `parameters` (default: the ones it had) fill in its definition.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
@@ -29,6 +35,14 @@ export interface WithKeyItemRequestBuilder extends BaseRequestBuilder<WithKeyIte
  * Uri template for the request builder.
  */
 export const WithKeyItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns/{key}";
+/**
+ * Metadata for all the navigation properties in the request builder.
+ */
+export const WithKeyItemRequestBuilderNavigationMetadata: Record<Exclude<keyof WithKeyItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+    runs: {
+        requestsMetadata: RunsRequestBuilderRequestsMetadata,
+    },
+};
 /**
  * Metadata for all the requests in the request builder.
  */

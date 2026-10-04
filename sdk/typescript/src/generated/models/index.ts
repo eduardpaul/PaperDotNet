@@ -496,6 +496,10 @@ export interface BuiltInSettingsRequest extends AdditionalDataHolder, Parsable {
  */
 export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable {
     /**
+     * The allowManualLaunch property
+     */
+    allowManualLaunch?: boolean | null;
+    /**
      * The available property
      */
     available?: boolean | null;
@@ -511,6 +515,10 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      * The enabledByDefault property
      */
     enabledByDefault?: boolean | null;
+    /**
+     * The inputSchema property
+     */
+    inputSchema?: JsonObject | null;
     /**
      * The key property
      */
@@ -3716,10 +3724,12 @@ export function deserializeIntoBuiltInSettingsRequest(builtInSettingsRequest: Pa
 // @ts-ignore
 export function deserializeIntoBuiltInWorkflowResponse(builtInWorkflowResponse: Partial<BuiltInWorkflowResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "allowManualLaunch": n => { builtInWorkflowResponse.allowManualLaunch = n.getBooleanValue() ?? false; },
         "available": n => { builtInWorkflowResponse.available = n.getBooleanValue(); },
         "description": n => { builtInWorkflowResponse.description = n.getStringValue(); },
         "enabled": n => { builtInWorkflowResponse.enabled = n.getBooleanValue(); },
         "enabledByDefault": n => { builtInWorkflowResponse.enabledByDefault = n.getBooleanValue() ?? false; },
+        "inputSchema": n => { builtInWorkflowResponse.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "key": n => { builtInWorkflowResponse.key = n.getStringValue(); },
         "name": n => { builtInWorkflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { builtInWorkflowResponse.odataEtag = n.getStringValue(); },
@@ -9228,10 +9238,12 @@ export function serializeBuiltInSettingsRequest(writer: SerializationWriter, bui
 // @ts-ignore
 export function serializeBuiltInWorkflowResponse(writer: SerializationWriter, builtInWorkflowResponse: Partial<BuiltInWorkflowResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!builtInWorkflowResponse || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("allowManualLaunch", builtInWorkflowResponse.allowManualLaunch ?? false);
     writer.writeBooleanValue("available", builtInWorkflowResponse.available);
     writer.writeStringValue("description", builtInWorkflowResponse.description);
     writer.writeBooleanValue("enabled", builtInWorkflowResponse.enabled);
     writer.writeBooleanValue("enabledByDefault", builtInWorkflowResponse.enabledByDefault ?? false);
+    writer.writeObjectValue<JsonObject>("inputSchema", builtInWorkflowResponse.inputSchema, serializeJsonObject);
     writer.writeStringValue("key", builtInWorkflowResponse.key);
     writer.writeStringValue("name", builtInWorkflowResponse.name);
     writer.writeStringValue("@odata.etag", builtInWorkflowResponse.odataEtag);

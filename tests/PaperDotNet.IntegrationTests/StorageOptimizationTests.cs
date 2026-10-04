@@ -80,6 +80,85 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
             return approval.ValueKind == JsonValueKind.Object ? approval : (JsonElement?)null;
         }, TimeSpan.FromSeconds(60));
 
+    [Fact]
+    public async Task Manual_launch_works_in_any_library_without_enabling_automatic_runs()
+    {
+        const string identifier = "storage-opt-manual";
+        await factory.CreateTenantAsync(identifier);
+        using var admin = await ApiClient.CreateAsync(factory, identifier);
+        Assert.True((await admin.PostAsync($"/v1.0/extensions/{Extension}/enable", null, Ct)).IsSuccessStatusCode);
+        var ws = await admin.CreateWorkspaceAsync("Manual files");
+        var userResponse = await admin.PostAsJsonAsync("/v1.0/users", new { userName = "writer", password = "writer-password-1" }, Ct);
+        var writerId = (await userResponse.ReadJsonAsync()).GetProperty("id").GetGuid();
+        Assert.True((await admin.PostAsJsonAsync($"/v1.0/workspaces/{ws}/members", new { userId = writerId, role = "member" }, Ct)).IsSuccessStatusCode);
+        using var writer = await ApiClient.CreateAsync(factory, identifier, "writer", "writer-password-1");
+        var visitorResponse = await admin.PostAsJsonAsync("/v1.0/users", new { userName = "reader", password = "reader-password-1" }, Ct);
+        var visitorId = (await visitorResponse.ReadJsonAsync()).GetProperty("id").GetGuid();
+        Assert.True((await admin.PostAsJsonAsync($"/v1.0/workspaces/{ws}/members", new { userId = visitorId, role = "visitor" }, Ct)).IsSuccessStatusCode);
+        using var visitor = await ApiClient.CreateAsync(factory, identifier, "reader", "reader-password-1");
+        foreach (var name in new[] { "Never enabled", "Turned off", "Automatic" })
+        {
+            var created = await admin.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name, templateKey = "documents" }, Ct);
+            var listId = (await created.ReadJsonAsync()).GetProperty("id").GetGuid();
+            var path = $"/v1.0/workspaces/{ws}/lists/{listId}";
+            var builtIns = $"{path}/workflows/builtIns";
+            Guid? existingId = null;
+            if (name != "Never enabled")
+            {
+                var settings = await admin.PutAsJsonAsync($"{builtIns}/{Extension}.optimize", new { enabled = true, parameters = new { targetHeight = 14 } }, Ct);
+                Assert.Equal(HttpStatusCode.OK, settings.StatusCode);
+                existingId = (await settings.ReadJsonAsync()).GetProperty("workflowId").GetGuid();
+                if (name == "Turned off")
+                {
+                    var current = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/{existingId}", Ct);
+                    using var off = new HttpRequestMessage(HttpMethod.Put, $"{builtIns}/{Extension}.optimize") { Content = JsonContent.Create(new { enabled = false }) };
+                    off.Headers.TryAddWithoutValidation("If-Match", current.Headers.ETag!.ToString());
+                    Assert.Equal(HttpStatusCode.OK, (await admin.SendAsync(off, Ct)).StatusCode);
+                }
+            }
+            var catalog = (await (await writer.GetAsync(builtIns, Ct)).ReadJsonAsync()).EnumerateArray().Single(b => b.GetProperty("key").GetString() == Extension + ".optimize");
+            Assert.True(catalog.GetProperty("allowManualLaunch").GetBoolean());
+            Assert.Equal(name == "Automatic", catalog.GetProperty("enabled").GetBoolean());
+            var item = await UploadAsync(writer, path);
+            var launchUrl = $"{builtIns}/{Extension}.optimize/runs";
+            Assert.Equal(HttpStatusCode.Forbidden, (await visitor.PostAsJsonAsync(launchUrl, new { itemIds = new[] { item } }, Ct)).StatusCode);
+            var invalid = await writer.PostAsJsonAsync(launchUrl, new { itemIds = new[] { item, Guid.CreateVersion7() } }, Ct);
+            Assert.Equal(HttpStatusCode.NotFound, invalid.StatusCode);
+            var launched = await writer.PostAsJsonAsync(launchUrl, new { itemIds = new[] { item } }, Ct);
+            Assert.Equal(HttpStatusCode.OK, launched.StatusCode);
+            var run = (await launched.ReadJsonAsync())[0];
+            var workflowId = run.GetProperty("workflowId").GetGuid();
+            if (existingId is { } expected)
+            {
+                Assert.Equal(expected, workflowId);
+            }
+            var workflow = await (await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/{workflowId}", Ct)).ReadJsonAsync();
+            Assert.Equal(name == "Automatic", workflow.GetProperty("enabled").GetBoolean());
+            Assert.Equal(name == "Never enabled" ? 12 : 14, workflow.GetProperty("flow").GetProperty("nodes").GetProperty("prepare").GetProperty("inputs").GetProperty("targetHeight").GetInt32());
+            var approval = await ApprovalAsync(admin, item);
+            Assert.Equal(HttpStatusCode.OK, (await admin.PostAsJsonAsync($"/v1.0/me/approvals/{approval.GetProperty("id").GetGuid()}/decision", new { outcome = "rejected" }, Ct)).StatusCode);
+            // Existing name/id APIs also honor the manual policy for off built-ins.
+            var again = await writer.PostAsJsonAsync($"/v1.0/workspaces/{ws}/workflows/{workflowId}/runs", new { listId, itemIds = new[] { item } }, Ct);
+            Assert.Equal(HttpStatusCode.OK, again.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await writer.PostAsJsonAsync($"{builtIns}/documents.ocr/runs", new { itemIds = new[] { item } }, Ct)).StatusCode);
+        }
+        var home = await (await writer.GetAsync("/v1.0/me/home", Ct)).ReadJsonAsync();
+        var inbox = home.GetProperty("inboxListId").GetGuid();
+        var homeWs = home.GetProperty("workspaceId").GetGuid();
+        var inboxPath = $"/v1.0/workspaces/{homeWs}/lists/{inbox}";
+        var inboxItem = await UploadAsync(writer, inboxPath);
+        var inboxLaunch = $"{inboxPath}/workflows/builtIns/{Extension}.optimize/runs";
+        var inboxRunResponse = await writer.PostAsJsonAsync(inboxLaunch, new { itemIds = new[] { inboxItem } }, Ct);
+        Assert.Equal(HttpStatusCode.OK, inboxRunResponse.StatusCode);
+        var inboxWorkflowId = (await inboxRunResponse.ReadJsonAsync())[0].GetProperty("workflowId").GetGuid();
+        await factory.CreateTenantAsync("storage-opt-manual-foreign");
+        using var foreign = await ApiClient.CreateAsync(factory, "storage-opt-manual-foreign");
+        Assert.Equal(HttpStatusCode.NotFound, (await foreign.PostAsJsonAsync(inboxLaunch, new { itemIds = new[] { inboxItem } }, Ct)).StatusCode);
+        Assert.True((await admin.PostAsync($"/v1.0/extensions/{Extension}/disable", null, Ct)).IsSuccessStatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await writer.PostAsJsonAsync(inboxLaunch, new { itemIds = new[] { inboxItem } }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await writer.PostAsJsonAsync($"/v1.0/workspaces/{homeWs}/workflows/{inboxWorkflowId}/runs", new { listId = inbox, itemIds = new[] { inboxItem } }, Ct)).StatusCode);
+    }
+
     [Theory]
     [InlineData("approved", "image/webp")]
     [InlineData("rejected", "image/png")]

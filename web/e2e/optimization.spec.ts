@@ -1,6 +1,105 @@
 import { expect, test } from '@playwright/test';
 import { adminHeaders, signIn, unique } from './helpers';
 
+for (const location of ['library', 'inbox'] as const) {
+  test(`manually optimizes a ${location} file with automatic optimization off`, async ({ page, request }) => {
+    test.setTimeout(90_000);
+    await signIn(page);
+    const headers = await adminHeaders(request);
+    expect(
+      (await request.post('/v1.0/extensions/paperdotnet.storageoptimization/enable', { headers })).ok(),
+    ).toBeTruthy();
+    let ws: string;
+    let list: string;
+    if (location === 'inbox') {
+      const home = await (await request.get('/v1.0/me/home', { headers })).json();
+      ws = home.workspaceId;
+      list = home.inboxListId;
+    } else {
+      const workspace = await request.post('/v1.0/workspaces', { headers, data: { name: unique('Manual files') } });
+      ws = (await workspace.json()).id;
+      const library = await request.post(`/v1.0/workspaces/${ws}/lists`, {
+        headers,
+        data: { name: 'Photos', templateKey: 'documents' },
+      });
+      list = (await library.json()).id;
+    }
+    const path = `/v1.0/workspaces/${ws}/lists/${list}`;
+    const key = 'paperdotnet.storageoptimization.optimize';
+    async function optimization() {
+      const catalog = await request.get(`${path}/workflows/builtIns`, { headers });
+      expect(catalog.ok()).toBeTruthy();
+      return (await catalog.json()).find((workflow: { key: string }) => workflow.key === key);
+    }
+    const initial = await optimization();
+    expect(initial).toMatchObject({ enabled: false, allowManualLaunch: true });
+    expect(initial.workflowId).toBeUndefined();
+    const base64 = await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1600;
+      canvas.height = 2100;
+      const context = canvas.getContext('2d')!;
+      context.fillStyle = 'white';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = 'black';
+      context.font = '80px sans-serif';
+      for (let line = 0; line < 12; line++) context.fillText('RECEIPT TOTAL 123.45', 60, 130 + line * 130);
+      return canvas.toDataURL('image/png').split(',')[1]!;
+    });
+    const image = Buffer.from(base64, 'base64');
+    const upload = await request.post(`${path}/documents`, {
+      headers,
+      multipart: {
+        file: {
+          name: `${unique('manual-receipt')}.png`,
+          mimeType: 'image/png',
+          buffer: Buffer.concat([image, Buffer.alloc(100_000)]),
+        },
+      },
+    });
+    expect(upload.status()).toBe(201);
+    const item = (await upload.json()).itemId as string;
+    // Uploading alone never creates this optional workflow or starts an optimization review.
+    expect((await optimization()).workflowId).toBeUndefined();
+    await page.goto(
+      location === 'inbox' ? `/inbox?item=${item}&tab=preview` : `/w/${ws}/l/${list}?item=${item}&tab=preview`,
+    );
+    await page.getByRole('dialog').getByRole('button', { name: 'Run workflow', exact: true }).click();
+    const picker = page.getByRole('dialog', { name: 'Run workflow', exact: true });
+    await picker.getByLabel('Workflow', { exact: true }).selectOption(`builtin:${key}`);
+    await expect(
+      picker.getByLabel('Workflow').getByRole('option', { name: 'Optimize document storage', exact: true }),
+    ).toHaveCount(1);
+    const launched = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/workflows/builtIns/${key}/runs`) && response.request().method() === 'POST',
+    );
+    await picker.getByRole('button', { name: 'Launch workflow', exact: true }).click();
+    expect((await launched).status()).toBe(200);
+    await expect(picker).toBeHidden();
+    expect(await optimization()).toMatchObject({ enabled: false, allowManualLaunch: true });
+    let approvalId: string | undefined;
+    await expect
+      .poll(
+        async () => {
+          const pending = await (await request.get('/v1.0/me/approvals', { headers })).json();
+          approvalId = pending.value.find((approval: { itemId: string }) => approval.itemId === item)?.id;
+          return !!approvalId;
+        },
+        { timeout: 60_000 },
+      )
+      .toBeTruthy();
+    expect((await request.get(`${path}/items/${item}/file`, { headers })).headers()['content-type']).toContain(
+      'image/png',
+    );
+    expect(
+      (
+        await request.post(`/v1.0/me/approvals/${approvalId}/decision`, { headers, data: { outcome: 'rejected' } })
+      ).ok(),
+    ).toBeTruthy();
+  });
+}
+
 for (const outcome of ['approved', 'rejected', 'stale', 'form'] as const) {
   test(`48MiB image review opens at native 100% and is ${outcome}`, async ({ page, request }) => {
     test.setTimeout(120_000);

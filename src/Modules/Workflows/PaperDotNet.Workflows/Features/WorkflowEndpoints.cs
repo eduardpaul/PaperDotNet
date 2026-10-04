@@ -47,7 +47,7 @@ public sealed record WorkflowResponse(
 /// </summary>
 public sealed record BuiltInWorkflowResponse(
     string Key, string Name, string Description, JsonObject? Parameters, string? Requires, bool Available, bool Enabled, Guid? WorkflowId, JsonObject? Values,
-    BuiltInScope Scope = BuiltInScope.Workspace, bool EnabledByDefault = false)
+    BuiltInScope Scope = BuiltInScope.Workspace, bool EnabledByDefault = false, bool AllowManualLaunch = false, JsonObject? InputSchema = null)
 {
     /// <summary>
     /// Once it was turned on in the workspace: the ETag for <c>If-Match</c> on changes (the workflow's; the same as the
@@ -127,6 +127,7 @@ internal static class WorkflowEndpoints
 
         var library = endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/workflows/builtIns", "Workflows");
         library.MapGet("", ListLibraryBuiltInsAsync).RequireScope(WorkflowScopes.Read).WithName("ListLibraryBuiltInWorkflows");
+        library.MapPost("/{key}/runs", StartLibraryBuiltInRunsAsync).RequireScope(WorkflowScopes.Write).WithName("StartLibraryBuiltInWorkflowRuns");
         library.MapPut("/{key}", SetLibraryBuiltInAsync).RequireScope(WorkflowScopes.Write).WithName("SetLibraryBuiltInWorkflow");
 
         var me = endpoints.MapV1Group("me/approvals", "Workflows");
@@ -385,7 +386,7 @@ internal static class WorkflowEndpoints
         var rows = await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == workspaceId && w.ListId == listId && w.BuiltInKey != null).ToListAsync(ct);
         return TypedResults.Ok((await builtIns.ListAsync(ct))
             .Where(w => w.Scope == BuiltInScope.Library && list.IsLibrary)
-            .Select(w => ToResponse(builtIns, w, rows.FirstOrDefault(r => r.BuiltInKey == w.Key)))
+            .Select(w => ToResponse(builtIns, w, rows.FirstOrDefault(r => r.BuiltInKey == w.Key), list.Name))
             .ToList());
     }
 
@@ -430,7 +431,7 @@ internal static class WorkflowEndpoints
             ETags.Set(response, row.Version);
         }
 
-        return TypedResults.Ok(ToResponse(builtIns, workflow, row));
+        return TypedResults.Ok(ToResponse(builtIns, workflow, row, list.Name));
     }
 
     /// <summary>
@@ -519,12 +520,68 @@ internal static class WorkflowEndpoints
         return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/workflows/{copy.Id}", await ToResponseAsync(db, copy, ct));
     }
 
-    private static BuiltInWorkflowResponse ToResponse(BuiltInWorkflows builtIns, BuiltInWorkflow workflow, WorkflowDefinition? row) =>
-        new(workflow.Key, workflow.Name, workflow.Description, workflow.Parameters?.DeepClone().AsObject(), workflow.Requires, builtIns.IsAvailable(workflow),
-            row?.Enabled == true, row?.Id, BuiltInWorkflows.Values(row), workflow.Scope, workflow.EnabledByDefault)
+    private static BuiltInWorkflowResponse ToResponse(BuiltInWorkflows builtIns, BuiltInWorkflow workflow, WorkflowDefinition? row, string? listName = null)
+    {
+        var spec = workflow.AllowManualLaunch ? BuiltInWorkflows.Resolve(workflow, BuiltInWorkflows.Values(row), listName).Spec : null;
+        var inputSchema = spec?.InputSchema ?? spec?.AllTriggers.FirstOrDefault(t => t.Type == WorkflowTriggers.Manual)?.Inputs;
+        return new(workflow.Key, workflow.Name, workflow.Description, workflow.Parameters?.DeepClone().AsObject(), workflow.Requires, builtIns.IsAvailable(workflow),
+            row?.Enabled == true, row?.Id, BuiltInWorkflows.Values(row), workflow.Scope, workflow.EnabledByDefault, workflow.AllowManualLaunch, inputSchema)
         { ETag = row is null ? null : ETags.From(row.Version) };
+    }
 
     // ---- Runs ------------------------------------------------------------------------
+
+    /// <summary>Manually runs an opted-in built-in on library items without turning automatic processing on.</summary>
+    private static async Task<Results<Ok<List<RunResponse>>, ValidationProblem, ProblemHttpResult>> StartLibraryBuiltInRunsAsync(
+        Guid workspaceId, Guid listId, string key, StartRunsRequest request, IWorkspaceAccess workspaces, IListItemStore items,
+        BuiltInWorkflows builtIns, WorkflowStarter starter, WorkflowsDbContext db, ICurrentUser user, CancellationToken ct)
+    {
+        if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Read, ct) is { } denied)
+        {
+            return denied;
+        }
+
+        if (await items.GetListAsync(workspaceId, listId, ct) is not { IsLibrary: true } list
+            || await builtIns.FindAsync(key, ct) is not { Scope: BuiltInScope.Library, AllowManualLaunch: true } builtIn || !builtIns.IsAvailable(builtIn))
+        {
+            return ApiErrors.NotFound();
+        }
+
+        var ids = request.ItemIds?.Distinct().ToList() ?? [];
+        if (ids.Count is 0 or > WorkflowStarter.MaxItemsPerStart || request.ListId is { } requestedList && requestedList != listId)
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["itemIds"] = [$"Choose 1–{WorkflowStarter.MaxItemsPerStart} items from this library."] });
+        }
+
+        var targets = new List<WorkflowItem>();
+        foreach (var itemId in ids)
+        {
+            if (await items.GetAsync(workspaceId, listId, itemId, ct) is not { } item)
+            {
+                return ApiErrors.NotFound();
+            }
+            if (item.Access < WorkspaceAccessLevel.Contribute)
+            {
+                return ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "Contributing to each item is required.");
+            }
+            targets.Add(new WorkflowItem(workspaceId, listId, itemId));
+        }
+
+        var (workflow, errors, nameTaken) = await builtIns.PrepareManualAsync(list, builtIn, ct);
+        if (nameTaken)
+        {
+            return ApiErrors.Conflict("nameAlreadyExists", errors[0]);
+        }
+        if (workflow is null || errors.Count > 0)
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [.. errors] });
+        }
+
+        var (runs, error) = await starter.StartManualAsync(workflow, targets, request.Inputs, user.UserId, ct);
+        return error is not null
+            ? ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [error] })
+            : TypedResults.Ok(await ToResponsesAsync(db, runs, ct));
+    }
 
     /// <summary>Starts a workflow with the <c>manual</c> trigger on the item (Contribute on the item is required).</summary>
     private static async Task<Results<Created<RunResponse>, ValidationProblem, ProblemHttpResult>> StartAsync(

@@ -40,7 +40,7 @@ internal sealed record WorkflowStart(
 
 /// <summary>Starts runs of a workspace's workflows.</summary>
 internal sealed class WorkflowStarter(
-    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time, RunService runService, ITermStore terms)
+    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time, RunService runService, ITermStore terms, BuiltInWorkflows builtIns)
 {
     /// <summary>Whether the item matches an OData condition; an error when the condition cannot be checked.</summary>
     public async Task<(bool Matches, string? Error)> CheckConditionAsync(WorkflowItem item, string condition, CancellationToken ct)
@@ -175,7 +175,17 @@ internal sealed class WorkflowStarter(
             return ([], $"The workflow '{name}' {reason} (its triggers: {workflow.Trigger.Replace(",", ", ", StringComparison.Ordinal)}).");
         }
 
-        if (!workflow.Enabled)
+        BuiltInWorkflow? builtIn = null;
+        if (workflow.BuiltInKey is { } key)
+        {
+            builtIn = await builtIns.FindAsync(key, ct);
+            if (builtIn is null || !builtIns.IsAvailable(builtIn))
+            {
+                return ([], $"The workflow '{name}' is unavailable.");
+            }
+        }
+
+        if (!workflow.Enabled && !(triggerType == WorkflowTriggers.Manual && builtIn?.AllowManualLaunch == true))
         {
             return ([], $"The workflow '{name}' is disabled.");
         }
