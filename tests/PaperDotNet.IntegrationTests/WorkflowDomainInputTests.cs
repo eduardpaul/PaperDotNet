@@ -32,13 +32,21 @@ public sealed class WorkflowDomainInputTests(PaperDotNetApiFactory factory)
         var outsideSet = await Create("/v1.0/termStore/sets", new { groupId = outsideGroup, name = "Tags" });
         var outside = await Create($"/v1.0/termStore/sets/{outsideSet}/terms", new { name = "Outside" });
         var keyword = await Create("/v1.0/termStore/keywords", new { name = "Urgent" });
+        var peopleGroup = await Create("/v1.0/groups", new { name = "Reviewers" });
+        var reviewer = await Create("/v1.0/users", new { userName = "reviewer", password = "reviewer-password-1" });
+        var outsider = await Create("/v1.0/users", new { userName = "outsider", password = "outsider-password-1" });
+        var otherPeopleGroup = await Create("/v1.0/groups", new { name = "Other reviewers" });
+        await client.PostAsJsonAsync($"/v1.0/groups/{peopleGroup}/members", new { userId = reviewer }, Ct);
+        await client.PostAsJsonAsync($"/v1.0/groups/{otherPeopleGroup}/members", new { userId = outsider }, Ct);
         var schema = JsonNode.Parse($$$"""
             {"type":"object","properties":{
               "targets":{"type":"array","items":{"type":"string"},"minItems":1,"uniqueItems":true,"x-paperdotnet":{"kind":"relationship","relationshipType":"{{{type}}}"}},
               "tag":{"type":"string","x-paperdotnet":{"kind":"terms","groupId":"{{{group}}}"}},
               "tags":{"type":"array","items":{"type":"string"},"x-paperdotnet":{"kind":"terms","termSetId":"{{{set}}}","termIds":["{{{term}}}"]}},
-              "keyword":{"type":"string","x-paperdotnet":{"kind":"keywords","termIds":["{{{keyword}}}"]}}
-            },"required":["targets","tag","tags","keyword"]}
+              "keyword":{"type":"string","x-paperdotnet":{"kind":"keywords","termIds":["{{{keyword}}}"]}},
+              "reviewers":{"type":"array","items":{"type":"string"},"x-paperdotnet":{"kind":"people","groupId":"{{{peopleGroup}}}","people":true,"groups":false}},
+              "reviewGroup":{"type":"string","x-paperdotnet":{"kind":"people","people":false,"groups":true}}
+            },"required":["targets","tag","tags","keyword","reviewers","reviewGroup"]}
             """)!.AsObject();
         var root = $"/v1.0/workspaces/{workspace}/workflows";
         var workflow = await Create(root, new
@@ -55,6 +63,8 @@ public sealed class WorkflowDomainInputTests(PaperDotNetApiFactory factory)
             ["tag"] = term.ToString(),
             ["tags"] = new JsonArray(term.ToString()),
             ["keyword"] = keyword.ToString(),
+            ["reviewers"] = new JsonArray(reviewer.ToString()),
+            ["reviewGroup"] = peopleGroup.ToString(),
         };
         var invalid = new List<JsonObject>();
         foreach (var (name, value) in new (string, JsonNode)[]
@@ -64,6 +74,8 @@ public sealed class WorkflowDomainInputTests(PaperDotNetApiFactory factory)
             ("targets", new JsonArray(Guid.NewGuid().ToString())), ("tag", JsonValue.Create(outside.ToString())),
             ("tag", JsonValue.Create("")), ("tags", new JsonArray()), ("tags", new JsonArray(other.ToString())),
             ("tags", new JsonArray(outside.ToString())), ("keyword", JsonValue.Create(term.ToString())),
+            ("reviewers", new JsonArray(outsider.ToString())), ("reviewers", new JsonArray(peopleGroup.ToString())),
+            ("reviewGroup", JsonValue.Create(reviewer.ToString())),
         })
         {
             var input = Valid();

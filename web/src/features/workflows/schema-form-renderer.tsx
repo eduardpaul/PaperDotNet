@@ -2,6 +2,7 @@
 import Form from '@rjsf/core/lib/components/Form.js';
 import { customizeValidator } from 'rjsf-validator-cfworker';
 import { DomainSelection } from './domain-field';
+import { PeopleSelection } from './people-field';
 import { domainSchema, domainUiSchema } from './domain-schema';
 import type { SchemaFormProps } from './schema-form';
 
@@ -16,7 +17,7 @@ export default function SchemaFormRenderer({ onSubmit, children, ...props }: Sch
       experimental_defaultFormStateBehavior={{
         arrayMinItems: { computeSkipPopulate: (_validator, schema) => 'x-paperdotnet' in schema },
       }}
-      fields={{ DomainSelection }}
+      fields={{ DomainSelection, PeopleSelection }}
       uiSchema={domainUiSchema(props.schema)}
       onSubmit={({ formData }, event) => {
         const button = (event?.nativeEvent as SubmitEvent | undefined)?.submitter;

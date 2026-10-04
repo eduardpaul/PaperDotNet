@@ -866,9 +866,20 @@ validated on the server as well as in the form.
       "type": "string",
       "title": "Keyword",
       "x-paperdotnet": { "kind": "keywords" }
+    },
+    "reviewers": {
+      "type": "array",
+      "title": "Reviewers",
+      "items": { "type": "string" },
+      "x-paperdotnet": {
+        "kind": "people",
+        "groupId": "44444444-4444-4444-4444-444444444444",
+        "people": true,
+        "groups": false
+      }
     }
   },
-  "required": ["dependency", "tags"]
+  "required": ["dependency", "tags", "reviewers"]
 }
 ```
 
@@ -887,6 +898,12 @@ existing terms; they do not create terms. Deprecated, missing, inaccessible item
 out-of-scope, duplicate, or malformed selections are rejected before starting a run
 or deciding an approval. Each domain field accepts at most 100 IDs. Nested objects
 and repeated object sections use the same pickers.
+
+For people and groups, use `kind: "people"`. Values are user or group IDs, and a
+string property selects one while an array selects multiple. `people` and `groups`
+control which kinds can be selected (both default to true); set one to false for
+people-only or groups-only fields. An optional identity `groupId` limits people
+to active members of that group. The group must exist when the workflow is saved.
 
 ### Parameterized item triggers
 
