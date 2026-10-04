@@ -221,41 +221,64 @@ internal sealed partial class ZvecCollections(IOptions<ZvecOptions> options, ILo
 
     public async Task<IAsyncDisposable> FreezeAsync(CancellationToken cancellationToken)
     {
-        TaskCompletionSource frozen;
-        List<Task> closing;
+        var frozen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            List<Task> closing;
+            lock (_gate)
+            {
+                if (_frozen is not null)
+                {
+                    throw new InvalidOperationException("The zvec collections are already frozen.");
+                }
+
+                _frozen = frozen;
+                foreach (var (path, index) in _open)
+                {
+                    _closing[path] = index;
+                    index.Retire();
+                }
+
+                _open.Clear();
+                closing = [.. _closing.Values.Select(i => i.Closed)];
+            }
+
+            await Task.WhenAll(closing).WaitAsync(cancellationToken);
+            return new Thaw(this, frozen);
+        }
+        catch
+        {
+            Unfreeze(frozen);
+            throw;
+        }
+    }
+
+    private void Unfreeze(TaskCompletionSource frozen)
+    {
         lock (_gate)
         {
-            if (_frozen is not null)
+            // A failed competing freeze or a handle disposed twice must not release another freeze.
+            if (!ReferenceEquals(_frozen, frozen))
             {
-                throw new InvalidOperationException("The zvec collections are already frozen.");
+                return;
             }
 
-            _frozen = frozen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            foreach (var (path, index) in _open)
+            _frozen = null;
+            // Cancellation may leave active leases: keep their closing handles until the native folders unlock.
+            foreach (var path in _closing.Where(e => e.Value.Closed.IsCompleted).Select(e => e.Key).ToList())
             {
-                _closing[path] = index;
-                index.Retire();
+                _closing.Remove(path);
             }
-
-            _open.Clear();
-            closing = [.. _closing.Values.Select(i => i.Closed)];
         }
 
-        await Task.WhenAll(closing).WaitAsync(cancellationToken);
-        return new Thaw(this, frozen);
+        frozen.TrySetResult();
     }
 
     private sealed class Thaw(ZvecCollections owner, TaskCompletionSource frozen) : IAsyncDisposable
     {
         public ValueTask DisposeAsync()
         {
-            lock (owner._gate)
-            {
-                owner._frozen = null;
-                owner._closing.Clear();
-            }
-
-            frozen.TrySetResult();
+            owner.Unfreeze(frozen);
             return ValueTask.CompletedTask;
         }
     }

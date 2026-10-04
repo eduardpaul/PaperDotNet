@@ -98,16 +98,30 @@ internal sealed class WorkflowScheduleJob(
                 db.Schedules.Add(state);
             }
 
-            if (trigger.Type == WorkflowTriggers.Schedule)
+            try
             {
-                await ScheduleAsync(workflow, trigger, index, state, await ZoneAsync(trigger.TimeZone), now, cancellationToken);
-            }
-            else
-            {
-                await DatesAsync(workflow, spec, trigger, index, state, await ZoneAsync(null), now, cancellationToken);
-            }
+                if (trigger.Type == WorkflowTriggers.Schedule)
+                {
+                    await ScheduleAsync(workflow, trigger, index, state, await ZoneAsync(trigger.TimeZone), now, cancellationToken);
+                }
+                else
+                {
+                    await DatesAsync(workflow, spec, trigger, index, state, await ZoneAsync(null), now, cancellationToken);
+                }
 
-            await db.SaveChangesAsync(cancellationToken);
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException) when (db.Entry(state).State == EntityState.Added)
+            {
+                // A concurrent scheduler initialized this trigger first. Its durable state and occurrence ids win.
+                db.ChangeTracker.Clear();
+                if (!await db.Schedules.AnyAsync(s => s.Id == id && s.WorkflowVersion == workflow.CurrentVersion, cancellationToken))
+                {
+                    throw;
+                }
+
+                return;
+            }
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -138,7 +152,7 @@ internal sealed class WorkflowScheduleJob(
         if (!await db.Runs.AnyAsync(r => r.WorkflowId == workflow.Id && r.EventId == eventId, ct))
         {
             var data = new JsonObject { ["occurrence"] = due.ToString("O", CultureInfo.InvariantCulture) };
-            await starter.StartAsync([new WorkflowStart(workflow, null, eventId, data.ToJsonString(), 0, null, TriggerType: WorkflowTriggers.Schedule)], ct);
+            await starter.StartAsync([new WorkflowStart(workflow, null, eventId, data.ToJsonString(), 0, null, Concurrency: trigger.Concurrency, TriggerType: WorkflowTriggers.Schedule)], ct);
         }
 
         // Missed occurrences run once: the next one is after now.
@@ -201,7 +215,7 @@ internal sealed class WorkflowScheduleJob(
             await starter.StartAsync(
                 [.. candidates.Where(c => !started.Contains(c.EventId)).Select(c => new WorkflowStart(
                     workflow, new WorkflowItem(workflow.WorkspaceId, list.Id, c.Item.Id), c.EventId,
-                    new JsonObject { ["date"] = c.Value }.ToJsonString(), 0, null, TriggerType: WorkflowTriggers.Date))],
+                    new JsonObject { ["date"] = c.Value }.ToJsonString(), 0, null, Concurrency: trigger.Concurrency, TriggerType: WorkflowTriggers.Date))],
                 ct);
             cursor = page.NextCursor;
         }

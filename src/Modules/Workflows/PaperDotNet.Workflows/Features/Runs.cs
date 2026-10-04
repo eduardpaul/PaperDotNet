@@ -36,11 +36,11 @@ public static class ResumeRunHandler
 /// <summary>A run to start; with an <see cref="Error"/> (e.g. a condition that cannot be checked) it is saved as failed.</summary>
 internal sealed record WorkflowStart(
     WorkflowDefinition Workflow, WorkflowItem? Item, Guid? EventId, string? Data, int Depth, Guid? StartedBy, string? Error = null,
-    JsonObject? Variables = null, string? TriggerType = null, WorkflowSpec? Spec = null);
+    JsonObject? Variables = null, string? Concurrency = null, string? TriggerType = null, WorkflowSpec? Spec = null);
 
 /// <summary>Starts runs of a workspace's workflows.</summary>
 internal sealed class WorkflowStarter(
-    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time, RunService runService, ITermStore terms)
+    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time, RunService runService, ITermStore terms, BuiltInWorkflows builtIns)
 {
     /// <summary>Whether the item matches an OData condition; an error when the condition cannot be checked.</summary>
     public async Task<(bool Matches, string? Error)> CheckConditionAsync(WorkflowItem item, string condition, CancellationToken ct)
@@ -65,6 +65,7 @@ internal sealed class WorkflowStarter(
         var starting = new HashSet<(Guid, Guid)>();
         foreach (var start in starts)
         {
+            string? effectiveConcurrency = start.Concurrency;
             // One workflow on one item (ADR-0037): skip the new run, or cancel the one going.
             if (start.Item is { } target && start.Error is null)
             {
@@ -80,6 +81,7 @@ internal sealed class WorkflowStarter(
                     concurrency[start.Workflow.Id] = mode;
                 }
 
+                mode = effectiveConcurrency = start.Concurrency ?? mode;
                 if (mode != RunConcurrency.Parallel)
                 {
                     var going = await db.Runs
@@ -102,6 +104,7 @@ internal sealed class WorkflowStarter(
             var run = new WorkflowRun
             {
                 Id = Ids.New(),
+                Concurrency = effectiveConcurrency,
                 WorkflowId = start.Workflow.Id,
                 WorkflowVersion = start.Workflow.CurrentVersion,
                 WorkspaceId = start.Workflow.WorkspaceId,
@@ -172,7 +175,17 @@ internal sealed class WorkflowStarter(
             return ([], $"The workflow '{name}' {reason} (its triggers: {workflow.Trigger.Replace(",", ", ", StringComparison.Ordinal)}).");
         }
 
-        if (!workflow.Enabled)
+        BuiltInWorkflow? builtIn = null;
+        if (workflow.BuiltInKey is { } key)
+        {
+            builtIn = await builtIns.FindAsync(key, ct);
+            if (builtIn is null || !builtIns.IsAvailable(builtIn))
+            {
+                return ([], $"The workflow '{name}' is unavailable.");
+            }
+        }
+
+        if (!workflow.Enabled && !(triggerType == WorkflowTriggers.Manual && builtIn?.AllowManualLaunch == true))
         {
             return ([], $"The workflow '{name}' is disabled.");
         }
@@ -252,7 +265,7 @@ internal sealed class WorkflowStarter(
         }
 
         var each = targets.Count == 0 ? [null] : targets.Select(t => (WorkflowItem?)t).ToList();
-        var runs = await StartAsync([.. each.Select(item => new WorkflowStart(workflow, item, null, null, causation.Depth, startedBy, Variables: inputs, TriggerType: triggerType, Spec: spec))], ct);
+        var runs = await StartAsync([.. each.Select(item => new WorkflowStart(workflow, item, null, null, causation.Depth, startedBy, Variables: inputs, TriggerType: triggerType, Spec: spec, Concurrency: trigger.Concurrency))], ct);
         return (runs, null);
     }
 }
@@ -954,13 +967,13 @@ internal sealed partial class WorkflowInterpreter(
         {
             // Runs of this workflow on the item that started at the same moment did not see each other: the earlier one
             // wins (skip) or the later one does (replace).
-            if (spec.Concurrency is RunConcurrency.Skip or RunConcurrency.Replace && run.ItemId is { } runItem)
+            if ((run.Concurrency ?? spec.Concurrency) is RunConcurrency.Skip or RunConcurrency.Replace && run.ItemId is { } runItem)
             {
                 var others = await db.Runs
                     .Where(r => r.WorkflowId == run.WorkflowId && r.ItemId == runItem && r.Id != run.Id && (r.Status == RunStatus.Running || r.Status == RunStatus.Waiting))
                     .ToListAsync(ct);
                 var earlier = others.Where(r => r.StartedAt < run.StartedAt || (r.StartedAt == run.StartedAt && r.Id.CompareTo(run.Id) < 0)).ToList();
-                if (spec.Concurrency == RunConcurrency.Skip && earlier.Count > 0)
+                if ((run.Concurrency ?? spec.Concurrency) == RunConcurrency.Skip && earlier.Count > 0)
                 {
                     Log("Skipped: another run of this workflow on the item is going (concurrency: skip).");
                     run.Status = RunStatus.Cancelled;
@@ -969,7 +982,7 @@ internal sealed partial class WorkflowInterpreter(
                     return;
                 }
 
-                foreach (var older in spec.Concurrency == RunConcurrency.Replace ? earlier : [])
+                foreach (var older in (run.Concurrency ?? spec.Concurrency) == RunConcurrency.Replace ? earlier : [])
                 {
                     await runService.CancelAsync(older, ct);
                 }
@@ -1203,7 +1216,23 @@ internal sealed partial class WorkflowInterpreter(
                     await WaitAsync(NewBookmark(run, id, BookmarkKinds.Delay, TimerKey(run), time.GetUtcNow().AddHours(hours)));
                     return;
                 case FlowActivities.Approval:
-                    var approval = await CreateApprovalAsync(run, item, id, inputs, ExpandAsync, ct);
+                    if (item is null && inputs["review"] is not null)
+                    {
+                        await FailAsync($"{id}: a file review needs an item (the trigger has none).", id);
+                        return;
+                    }
+
+                    var approvalInputs = inputs.DeepClone().AsObject();
+                    foreach (var people in new[] { "assignees", "escalateTo" })
+                    {
+                        if (approvalInputs[people] is JsonValue peopleTemplate && peopleTemplate.TryGetValue<string>(out var peopleText))
+                        {
+                            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct, executionContext);
+                            approvalInputs[people] = await tokens.ValueAsync(peopleText, scope, ct);
+                        }
+                    }
+
+                    var approval = await CreateApprovalAsync(run, item, id, approvalInputs, ExpandAsync, ct);
                     if (approval is null)
                     {
                         await FailAsync($"{id}: no assignee could be found.", id);
@@ -1407,6 +1436,8 @@ internal sealed partial class WorkflowInterpreter(
             ItemId = item?.ItemId,
             InputSchema = (inputs["inputSchema"] as JsonObject)?.ToJsonString(),
             Title = title.Length > 1000 ? title[..1000] : title,
+            ReviewType = inputs["review"] is JsonObject review ? ActivityInputs.Text(review, "type") : null,
+            ReviewKey = inputs["review"] is JsonObject reference && ActivityInputs.Text(reference, "key") is { } reviewKey ? await expand(reviewKey) : null,
             Assignees = assignees,
             EscalateTo = [.. escalateTo.Except(assignees)],
             DueAt = ActivityInputs.Number(inputs, "dueInHours") is { } hours ? time.GetUtcNow().AddHours(hours) : null,
@@ -1421,13 +1452,14 @@ internal sealed partial class WorkflowInterpreter(
 }
 
 /// <summary>Decisions on approvals, completing bookmarks, and cancelling and retrying runs.</summary>
-internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time, IItemActivity activity, IListItemStore items, ITermStore terms)
+internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time, IItemActivity activity, IListItemStore items, ITermStore terms, IEnumerable<IApprovalReviewProvider> reviews)
 {
     public enum DecisionResult
     {
         Ok,
         NotFound,
         AlreadyDecided,
+        InvalidReview,
         InvalidInputs,
     }
 
@@ -1448,6 +1480,23 @@ internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantC
             if (approval.Status != ApprovalStatus.Pending)
             {
                 return (DecisionResult.AlreadyDecided, null);
+            }
+
+            if (approval.ReviewType is { } type)
+            {
+                var provider = reviews.SingleOrDefault(p => p.Type == type);
+                if (approval.ListId is null || approval.ItemId is null)
+                {
+                    return (DecisionResult.InvalidReview, null);
+                }
+
+                var context = new ApprovalReviewContext(approval.Id, approval.RunId,
+                    new WorkflowItem(approval.WorkspaceId, approval.ListId!.Value, approval.ItemId!.Value), approval.ReviewKey ?? "");
+                if (await items.GetAsync(approval.WorkspaceId, approval.ListId.Value, approval.ItemId.Value, ct) is null
+                    || provider is null || !await provider.CanDecideAsync(context, ct))
+                {
+                    return (DecisionResult.InvalidReview, null);
+                }
             }
 
             var schema = approval.InputSchema is null ? null : JsonNode.Parse(approval.InputSchema) as JsonObject;

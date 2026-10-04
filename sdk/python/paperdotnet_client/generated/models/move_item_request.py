@@ -16,7 +16,7 @@ class MoveItemRequest(AdditionalDataHolder, Parsable):
     parent_id: Optional[UUID] = None
     # The workspaceId property
     workspace_id: Optional[UUID] = None
-
+    
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> MoveItemRequest:
         """
@@ -27,7 +27,7 @@ class MoveItemRequest(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return MoveItemRequest()
-
+    
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -39,7 +39,7 @@ class MoveItemRequest(AdditionalDataHolder, Parsable):
             "workspaceId": lambda n : setattr(self, 'workspace_id', n.get_uuid_value()),
         }
         return fields
-
+    
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -52,3 +52,5 @@ class MoveItemRequest(AdditionalDataHolder, Parsable):
         writer.write_uuid_value("parentId", self.parent_id)
         writer.write_uuid_value("workspaceId", self.workspace_id)
         writer.write_additional_data_value(self.additional_data)
+    
+

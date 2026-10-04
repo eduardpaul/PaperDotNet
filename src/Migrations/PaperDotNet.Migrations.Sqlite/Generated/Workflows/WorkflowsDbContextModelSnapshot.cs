@@ -139,6 +139,14 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                         .HasColumnType("TEXT")
                         .HasColumnName("list_id");
 
+                    b.Property<string>("ReviewKey")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("review_key");
+
+                    b.Property<string>("ReviewType")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("review_type");
+
                     b.Property<Guid>("RunId")
                         .HasColumnType("TEXT")
                         .HasColumnName("run_id");
@@ -399,6 +407,11 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                     b.Property<long?>("CompletedAt")
                         .HasColumnType("INTEGER")
                         .HasColumnName("completed_at");
+
+                    b.Property<string>("Concurrency")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("concurrency");
 
                     b.Property<string>("Data")
                         .HasColumnType("TEXT")

@@ -19,7 +19,7 @@ class RelationshipTypeOptions(AdditionalDataHolder, Parsable):
     max_outgoing: Optional[int] = None
     # The name property
     name: Optional[str] = None
-
+    
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> RelationshipTypeOptions:
         """
@@ -30,7 +30,7 @@ class RelationshipTypeOptions(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return RelationshipTypeOptions()
-
+    
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -44,7 +44,7 @@ class RelationshipTypeOptions(AdditionalDataHolder, Parsable):
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
         }
         return fields
-
+    
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -59,3 +59,5 @@ class RelationshipTypeOptions(AdditionalDataHolder, Parsable):
         writer.write_int_value("maxOutgoing", self.max_outgoing)
         writer.write_str_value("name", self.name)
         writer.write_additional_data_value(self.additional_data)
+    
+

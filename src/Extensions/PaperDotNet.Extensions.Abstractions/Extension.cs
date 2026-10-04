@@ -105,6 +105,10 @@ public interface IExtensionBuilder
     IExtensionBuilder AddWorkflowActivity<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TAction>()
         where TAction : class, IWorkflowActivity;
 
+    /// <summary>An approval review, offered only while this extension is enabled.</summary>
+    IExtensionBuilder AddApprovalReviewProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProvider>()
+        where TProvider : class, IApprovalReviewProvider => throw new NotSupportedException("Approval reviews are not supported by this host.");
+
     /// <summary>A trigger for workflows (EVT-09; key starts with <c>{extension id}.</c>); raise it with <see cref="IWorkflowTriggers"/>.</summary>
     IExtensionBuilder AddWorkflowTrigger(WorkflowTriggerDefinition trigger);
 

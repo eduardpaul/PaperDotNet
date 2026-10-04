@@ -46,7 +46,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         Returns: None
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0", path_parameters)
-
+    
     @property
     def applications(self) -> ApplicationsRequestBuilder:
         """
@@ -55,7 +55,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .applications.applications_request_builder import ApplicationsRequestBuilder
 
         return ApplicationsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def audit_log(self) -> AuditLogRequestBuilder:
         """
@@ -64,7 +64,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .audit_log.audit_log_request_builder import AuditLogRequestBuilder
 
         return AuditLogRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def auth(self) -> AuthRequestBuilder:
         """
@@ -73,7 +73,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .auth.auth_request_builder import AuthRequestBuilder
 
         return AuthRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def batch(self) -> BatchRequestBuilder:
         """
@@ -82,7 +82,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .batch.batch_request_builder import BatchRequestBuilder
 
         return BatchRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def calendar_feeds(self) -> CalendarFeedsRequestBuilder:
         """
@@ -91,7 +91,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .calendar_feeds.calendar_feeds_request_builder import CalendarFeedsRequestBuilder
 
         return CalendarFeedsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def change_subscriptions(self) -> ChangeSubscriptionsRequestBuilder:
         """
@@ -100,7 +100,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .change_subscriptions.change_subscriptions_request_builder import ChangeSubscriptionsRequestBuilder
 
         return ChangeSubscriptionsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def content_types(self) -> ContentTypesRequestBuilder:
         """
@@ -109,7 +109,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .content_types.content_types_request_builder import ContentTypesRequestBuilder
 
         return ContentTypesRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def ext(self) -> ExtRequestBuilder:
         """
@@ -118,7 +118,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .ext.ext_request_builder import ExtRequestBuilder
 
         return ExtRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def extensions(self) -> ExtensionsRequestBuilder:
         """
@@ -127,7 +127,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .extensions.extensions_request_builder import ExtensionsRequestBuilder
 
         return ExtensionsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def field_types(self) -> FieldTypesRequestBuilder:
         """
@@ -136,7 +136,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .field_types.field_types_request_builder import FieldTypesRequestBuilder
 
         return FieldTypesRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def groups(self) -> GroupsRequestBuilder:
         """
@@ -145,7 +145,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .groups.groups_request_builder import GroupsRequestBuilder
 
         return GroupsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def items(self) -> ItemsRequestBuilder:
         """
@@ -154,7 +154,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .items.items_request_builder import ItemsRequestBuilder
 
         return ItemsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def list_templates(self) -> ListTemplatesRequestBuilder:
         """
@@ -163,7 +163,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .list_templates.list_templates_request_builder import ListTemplatesRequestBuilder
 
         return ListTemplatesRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def me(self) -> MeRequestBuilder:
         """
@@ -172,7 +172,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .me.me_request_builder import MeRequestBuilder
 
         return MeRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def operations(self) -> OperationsRequestBuilder:
         """
@@ -181,7 +181,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .operations.operations_request_builder import OperationsRequestBuilder
 
         return OperationsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def organization(self) -> OrganizationRequestBuilder:
         """
@@ -190,7 +190,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .organization.organization_request_builder import OrganizationRequestBuilder
 
         return OrganizationRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def portability(self) -> PortabilityRequestBuilder:
         """
@@ -199,7 +199,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .portability.portability_request_builder import PortabilityRequestBuilder
 
         return PortabilityRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def provisioning(self) -> ProvisioningRequestBuilder:
         """
@@ -208,7 +208,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .provisioning.provisioning_request_builder import ProvisioningRequestBuilder
 
         return ProvisioningRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def relationship_types(self) -> RelationshipTypesRequestBuilder:
         """
@@ -217,7 +217,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .relationship_types.relationship_types_request_builder import RelationshipTypesRequestBuilder
 
         return RelationshipTypesRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def roles(self) -> RolesRequestBuilder:
         """
@@ -226,7 +226,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .roles.roles_request_builder import RolesRequestBuilder
 
         return RolesRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def scopes(self) -> ScopesRequestBuilder:
         """
@@ -235,7 +235,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .scopes.scopes_request_builder import ScopesRequestBuilder
 
         return ScopesRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def search(self) -> SearchRequestBuilder:
         """
@@ -244,7 +244,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .search.search_request_builder import SearchRequestBuilder
 
         return SearchRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def smart_folders(self) -> SmartFoldersRequestBuilder:
         """
@@ -253,7 +253,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .smart_folders.smart_folders_request_builder import SmartFoldersRequestBuilder
 
         return SmartFoldersRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def term_store(self) -> TermStoreRequestBuilder:
         """
@@ -262,7 +262,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .term_store.term_store_request_builder import TermStoreRequestBuilder
 
         return TermStoreRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def users(self) -> UsersRequestBuilder:
         """
@@ -271,7 +271,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .users.users_request_builder import UsersRequestBuilder
 
         return UsersRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def workflows(self) -> WorkflowsRequestBuilder:
         """
@@ -280,7 +280,7 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .workflows.workflows_request_builder import WorkflowsRequestBuilder
 
         return WorkflowsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def workspaces(self) -> WorkspacesRequestBuilder:
         """
@@ -289,3 +289,5 @@ class V10RequestBuilder(BaseRequestBuilder):
         from .workspaces.workspaces_request_builder import WorkspacesRequestBuilder
 
         return WorkspacesRequestBuilder(self.request_adapter, self.path_parameters)
+    
+

@@ -48,6 +48,20 @@ describe('workflow model', () => {
     expect(toPlain(fromPlain({ name: 'Default', trigger: { type: 'manual' } }))).not.toHaveProperty('concurrency');
   });
 
+  it('preserves a trigger concurrency override alongside snapshot conditions', () => {
+    const trigger = {
+      type: 'itemUpdated',
+      list: 'Receipts',
+      concurrency: 'skip',
+      parameters: { when: { target: 'tags', operator: 'added', term: 'Receipts/Tags/ticket' } },
+    };
+    const draft = fromPlain({ name: 'Read receipts', trigger });
+    expect(toPlain(draft).trigger).toMatchObject(trigger);
+    const request = requestFrom(draft);
+    expect(request.trigger?.concurrency).toBe('skip');
+    expect(toPlain(draftFrom(request as WorkflowResponse)).trigger).toMatchObject(trigger);
+  });
+
   it('keeps several triggers from the API through the JSON view to a request, and describes them', () => {
     const response = {
       name: 'Read receipts',

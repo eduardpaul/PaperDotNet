@@ -26,6 +26,7 @@ import { Alert, EmptyState, Skeleton, Spinner } from '@/components/ui/feedback';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/select';
 import type { ItemPanelContext } from '@/extensibility/item-panels';
+import { LaunchWorkflowButton } from '@/features/workflows/launch-workflow';
 import { useItemAccess } from '@/features/list-settings/queries';
 import { userName, useUsers } from '@/features/fields/directory';
 import { listBuilder } from '@/features/lists/queries';
@@ -71,6 +72,7 @@ export function PreviewTab({ workspaceId, list, item }: ItemPanelContext) {
         file={current}
         canWrite={canContribute}
       />
+      {canContribute && <LaunchWorkflowButton workspaceId={workspaceId} list={list} itemIds={[item.id!]} />}
       <DocumentWorkflows workspaceId={workspaceId} listId={list.id!} itemId={item.id!} canWrite={canContribute} />
       <Pages
         key={`${current.number}-${current.pageCount}`}

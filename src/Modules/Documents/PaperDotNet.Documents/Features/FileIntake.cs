@@ -12,17 +12,19 @@ public static class FileTypes
     public const string Tiff = "image/tiff";
     public const string Jpeg = "image/jpeg";
     public const string Png = "image/png";
+    public const string Webp = "image/webp";
 
     /// <summary>Bytes needed by <see cref="Detect"/>.</summary>
-    public const int HeaderLength = 8;
+    public const int HeaderLength = 12;
 
-    /// <summary>The media type of a supported file (PDF, TIFF, JPEG, PNG), or null.</summary>
+    /// <summary>The media type of a supported file (PDF, TIFF, JPEG, PNG, WebP), or null.</summary>
     public static string? Detect(ReadOnlySpan<byte> header) => header switch
     {
         [0x25, 0x50, 0x44, 0x46, 0x2D, ..] => Pdf,                           // %PDF-
         [0x49, 0x49, 0x2A, 0x00, ..] or [0x4D, 0x4D, 0x00, 0x2A, ..] => Tiff,  // II*. / MM.*
         [0xFF, 0xD8, 0xFF, ..] => Jpeg,
         [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, ..] => Png,
+        [0x52, 0x49, 0x46, 0x46, _, _, _, _, 0x57, 0x45, 0x42, 0x50, ..] => Webp,
         _ => null,
     };
 }

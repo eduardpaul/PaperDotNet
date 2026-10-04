@@ -44,7 +44,7 @@ public sealed class StoredFile : ITenantOwned
     public string BlobKey => $"{TenantId:N}/{Sha256[..2]}/{Sha256}";
 }
 
-/// <summary>A version of a library item's file (DOC-03). Versions are never changed; the original is always kept.</summary>
+/// <summary>A version of a library item's file (DOC-03). Versions are immutable; approved storage optimization explicitly releases the reviewed source version.</summary>
 public sealed class FileVersion : ITenantOwned, IAuditable
 {
     public Guid Id { get; set; }
@@ -159,9 +159,29 @@ public sealed class GroupInbox : ITenantOwned, IAuditable
     public Guid? UpdatedBy { get; set; }
 }
 
+/// <summary>A staged replacement: orchestration stays in workflows; this row owns the temporary file references.</summary>
+public sealed class FileCandidate : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid RunId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid SourceVersionId { get; set; }
+    public Guid SourceStoredFileId { get; set; }
+    public Guid StoredFileId { get; set; }
+    public Guid? PromotedVersionId { get; set; }
+    public string SourceJson { get; set; } = "{}";
+    public string MetricsJson { get; set; } = "{}";
+    public string State { get; set; } = "pending";
+    public string FileName { get; set; } = "document.webp";
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
 public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> options, ITenantContext tenant) : ExtensionDbContext(options, tenant)
 {
     public const string Schema = "documents";
+
+    public DbSet<FileCandidate> Candidates => Set<FileCandidate>();
 
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
 
@@ -175,6 +195,14 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
 
     protected override void ConfigureModel(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<FileCandidate>(b =>
+        {
+            b.ToTable("file_candidates");
+            b.HasIndex(c => new { c.TenantId, c.SourceVersionId });
+            b.HasIndex(c => c.RunId);
+            b.Property(c => c.State).HasMaxLength(20);
+            b.Property(c => c.FileName).HasMaxLength(255);
+        });
         modelBuilder.Entity<StoredFile>(b =>
         {
             b.ToTable("stored_files");
@@ -192,6 +220,7 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
             b.Property(v => v.TextLanguage).HasMaxLength(20);
             b.Property(v => v.Languages).HasMaxLength(100);
             b.HasIndex(v => new { v.ItemId, v.Number }).IsUnique();
+            b.HasIndex(v => new { v.TenantId, v.ItemId }).IsUnique().HasFilter("\"is_current\" = TRUE");
             b.HasIndex(v => new { v.TenantId, v.Sha256, v.IsCurrent });
             b.HasIndex(v => v.StoredFileId);
         });

@@ -18,6 +18,8 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
 
     # The changedFields property
     changed_fields: Optional[list[str]] = None
+    # The concurrency property
+    concurrency: Optional[str] = None
     # The contentType property
     content_type: Optional[str] = None
     # The cron property
@@ -40,7 +42,7 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
     time_zone: Optional[str] = None
     # The type property
     type: Optional[str] = None
-
+    
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> WorkflowTrigger:
         """
@@ -51,7 +53,7 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return WorkflowTrigger()
-
+    
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -65,6 +67,7 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
 
         fields: dict[str, Callable[[Any], None]] = {
             "changedFields": lambda n : setattr(self, 'changed_fields', n.get_collection_of_primitive_values(str)),
+            "concurrency": lambda n : setattr(self, 'concurrency', n.get_str_value()),
             "contentType": lambda n : setattr(self, 'content_type', n.get_str_value()),
             "cron": lambda n : setattr(self, 'cron', n.get_str_value()),
             "data": lambda n : setattr(self, 'data', n.get_object_value(JsonObject)),
@@ -78,7 +81,7 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
             "type": lambda n : setattr(self, 'type', n.get_str_value()),
         }
         return fields
-
+    
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -88,6 +91,7 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
         if writer is None:
             raise TypeError("writer cannot be null.")
         writer.write_collection_of_primitive_values("changedFields", self.changed_fields)
+        writer.write_str_value("concurrency", self.concurrency)
         writer.write_str_value("contentType", self.content_type)
         writer.write_str_value("cron", self.cron)
         writer.write_object_value("data", self.data)
@@ -100,5 +104,5 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
         writer.write_str_value("timeZone", self.time_zone)
         writer.write_str_value("type", self.type)
         writer.write_additional_data_value(self.additional_data)
-
+    
 

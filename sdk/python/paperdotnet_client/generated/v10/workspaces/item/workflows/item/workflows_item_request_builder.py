@@ -32,7 +32,7 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
         Returns: None
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/workflows/{id}", path_parameters)
-
+    
     async def delete(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> None:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -47,9 +47,9 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
             "XXX": ApiProblem,
         }
         if not self.request_adapter:
-            raise Exception("Http core is null")
+            raise Exception("Http core is null") 
         return await self.request_adapter.send_no_response_content_async(request_info, error_mapping)
-
+    
     async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[WorkflowResponse]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -64,11 +64,11 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
             "XXX": ApiProblem,
         }
         if not self.request_adapter:
-            raise Exception("Http core is null")
+            raise Exception("Http core is null") 
         from ......models.workflow_response import WorkflowResponse
 
         return await self.request_adapter.send_async(request_info, WorkflowResponse, error_mapping)
-
+    
     async def put(self,body: WorkflowRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[WorkflowResponse]:
         """
         param body: A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).
@@ -87,11 +87,11 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
             "XXX": ApiProblem,
         }
         if not self.request_adapter:
-            raise Exception("Http core is null")
+            raise Exception("Http core is null") 
         from ......models.workflow_response import WorkflowResponse
 
         return await self.request_adapter.send_async(request_info, WorkflowResponse, error_mapping)
-
+    
     def to_delete_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -101,7 +101,7 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/problem+json")
         return request_info
-
+    
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -111,7 +111,7 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/json")
         return request_info
-
+    
     def to_put_request_information(self,body: WorkflowRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param body: A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).
@@ -125,7 +125,7 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
         request_info.headers.try_add("Accept", "application/json")
         request_info.set_content_from_parsable(self.request_adapter, "application/json", body)
         return request_info
-
+    
     def with_url(self,raw_url: str) -> WorkflowsItemRequestBuilder:
         """
         Returns a request builder with the provided arbitrary URL. Using this method means any other path or query parameters are ignored.
@@ -135,7 +135,7 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
         return WorkflowsItemRequestBuilder(self.request_adapter, raw_url)
-
+    
     @property
     def runs(self) -> RunsRequestBuilder:
         """
@@ -144,7 +144,7 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
         from .runs.runs_request_builder import RunsRequestBuilder
 
         return RunsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def webhook(self) -> WebhookRequestBuilder:
         """
@@ -153,26 +153,26 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
         from .webhook.webhook_request_builder import WebhookRequestBuilder
 
         return WebhookRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @dataclass
     class WorkflowsItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """
         warn("This class is deprecated. Please use the generic RequestConfiguration class generated by the generator.", DeprecationWarning)
-
+    
     @dataclass
     class WorkflowsItemRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """
         warn("This class is deprecated. Please use the generic RequestConfiguration class generated by the generator.", DeprecationWarning)
-
+    
     @dataclass
     class WorkflowsItemRequestBuilderPutRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """
         warn("This class is deprecated. Please use the generic RequestConfiguration class generated by the generator.", DeprecationWarning)
-
+    
 

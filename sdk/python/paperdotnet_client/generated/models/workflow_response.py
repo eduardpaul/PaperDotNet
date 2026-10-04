@@ -64,7 +64,7 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
     version: Optional[int] = None
     # The workspaceId property
     workspace_id: Optional[UUID] = None
-
+    
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> WorkflowResponse:
         """
@@ -75,7 +75,7 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return WorkflowResponse()
-
+    
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -116,7 +116,7 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
             "workspaceId": lambda n : setattr(self, 'workspace_id', n.get_uuid_value()),
         }
         return fields
-
+    
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -148,5 +148,5 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
         writer.write_int_value("version", self.version)
         writer.write_uuid_value("workspaceId", self.workspace_id)
         writer.write_additional_data_value(self.additional_data)
-
+    
 

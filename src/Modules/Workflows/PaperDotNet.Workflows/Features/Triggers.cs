@@ -201,11 +201,13 @@ internal sealed partial class WorkflowTriggerHandler(
             var workflow = row.Workflow;
             var spec = DefinitionJson.Deserialize<WorkflowSpec>(row.Definition);
             var matched = false;
+            string? concurrency = null;
             foreach (var candidate in spec.AllTriggers.Where(t => t.Type == trigger))
             {
                 if (await MatchesAsync(candidate))
                 {
                     matched = true;
+                    concurrency = candidate.Concurrency;
                     break;
                 }
             }
@@ -222,7 +224,7 @@ internal sealed partial class WorkflowTriggerHandler(
                 continue;
             }
 
-            starts.Add(new WorkflowStart(workflow, item, source.EventId, data, source.Depth, source.UserId, error, TriggerType: trigger, Spec: spec));
+            starts.Add(new WorkflowStart(workflow, item, source.EventId, data, source.Depth, source.UserId, error, TriggerType: trigger, Spec: spec, Concurrency: concurrency));
         }
 
         await starter.StartAsync(starts, ct);

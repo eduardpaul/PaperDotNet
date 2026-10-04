@@ -17,6 +17,8 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
 
+    # The allowManualLaunch property
+    allow_manual_launch: Optional[bool] = False
     # The enabledByDefault property
     enabled_by_default: Optional[bool] = False
     from .built_in_scope import BuiltInScope
@@ -29,6 +31,8 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
     description: Optional[str] = None
     # The enabled property
     enabled: Optional[bool] = None
+    # The inputSchema property
+    input_schema: Optional[JsonObject] = None
     # The key property
     key: Optional[str] = None
     # The name property
@@ -67,10 +71,12 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
         from .json_object import JsonObject
 
         fields: dict[str, Callable[[Any], None]] = {
+            "allowManualLaunch": lambda n : setattr(self, 'allow_manual_launch', n.get_bool_value()),
             "available": lambda n : setattr(self, 'available', n.get_bool_value()),
             "description": lambda n : setattr(self, 'description', n.get_str_value()),
             "enabled": lambda n : setattr(self, 'enabled', n.get_bool_value()),
             "enabledByDefault": lambda n : setattr(self, 'enabled_by_default', n.get_bool_value()),
+            "inputSchema": lambda n : setattr(self, 'input_schema', n.get_object_value(JsonObject)),
             "key": lambda n : setattr(self, 'key', n.get_str_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
@@ -90,10 +96,12 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
         """
         if writer is None:
             raise TypeError("writer cannot be null.")
+        writer.write_bool_value("allowManualLaunch", self.allow_manual_launch)
         writer.write_bool_value("available", self.available)
         writer.write_str_value("description", self.description)
         writer.write_bool_value("enabled", self.enabled)
         writer.write_bool_value("enabledByDefault", self.enabled_by_default)
+        writer.write_object_value("inputSchema", self.input_schema)
         writer.write_str_value("key", self.key)
         writer.write_str_value("name", self.name)
         writer.write_str_value("@odata.etag", self.odata_etag)

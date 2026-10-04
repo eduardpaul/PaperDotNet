@@ -5,15 +5,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Play } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { keys } from '@/api/keys';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/feedback';
 import { Label } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { listBuilder } from '@/features/lists/queries';
+import { libraryWorkflowsQuery } from '@/features/documents/queries';
 import { workspaceBuilder } from '@/features/workspaces/queries';
 import { problemMessage } from '@/lib/errors';
 import { workflowsQuery } from './queries';
-import { manualWorkflows } from './model';
+import { launchOptions, type LaunchOption } from './launch-model';
 
 import { SchemaForm } from './schema-form';
 
@@ -24,13 +27,17 @@ export function LaunchWorkflowButton({
   workflow,
 }: {
   workspaceId: string;
-  list?: { id?: string | null; name?: string | null };
+  list?: { id?: string | null; name?: string | null; kind?: string | null };
   itemIds?: string[];
   workflow?: WorkflowResponse;
 }) {
   const [open, setOpen] = useState(false);
   const { data } = useQuery(workflowsQuery(workspaceId));
-  const candidates = manualWorkflows(workflow ? [workflow] : (data ?? []), list);
+  const { data: builtIns } = useQuery({
+    ...libraryWorkflowsQuery(workspaceId, list?.id ?? ''),
+    enabled: !workflow && list?.kind === 'library' && !!list.id,
+  });
+  const candidates = launchOptions(workflow ? [workflow] : (data ?? []), list, builtIns);
   if (!candidates.length) return null;
   return (
     <>
@@ -58,7 +65,7 @@ function LaunchWorkflow({
   onClose,
 }: {
   workspaceId: string;
-  workflows: WorkflowResponse[];
+  workflows: LaunchOption[];
   listId?: string;
   itemIds?: string[];
   onClose: () => void;
@@ -66,25 +73,22 @@ function LaunchWorkflow({
   const queryClient = useQueryClient();
   const [id, setId] = useState(workflows[0]!.id!);
   const selected = workflows.find((workflow) => workflow.id === id) ?? workflows[0]!;
-  const manual = (selected.triggers ?? (selected.trigger ? [selected.trigger] : [])).find((t) => t.type === 'manual');
-  const schema = selected.inputSchema ?? manual?.inputs;
+  const schema = selected.inputSchema;
   const launch = useMutation({
     meta: { silent: true },
-    mutationFn: (input: Record<string, unknown>) =>
-      workspaceBuilder(workspaceId)
-        .workflows.byId(selected.id!)
-        .runs.post({
-          listId,
-          itemIds,
-          inputs: fields(input),
-        }),
+    mutationFn: (input: Record<string, unknown>) => {
+      const request = { listId, itemIds, inputs: fields(input) };
+      return selected.builtInKey && listId
+        ? listBuilder(workspaceId, listId).workflows.builtIns.byKey(selected.builtInKey).runs.post(request)
+        : workspaceBuilder(workspaceId).workflows.byId(selected.workflowId!).runs.post(request);
+    },
     onSuccess: async (runs) => {
       toast.success(
         runs?.length
           ? `${runs.length} workflow ${runs.length === 1 ? 'run' : 'runs'} started.`
           : 'No runs started: a run is already active.',
       );
-      await queryClient.invalidateQueries({ queryKey: ['workspaces', workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: keys.workspace(workspaceId) });
       onClose();
     },
   });

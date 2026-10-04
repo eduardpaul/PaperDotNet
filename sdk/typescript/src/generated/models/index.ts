@@ -298,6 +298,10 @@ export interface ApprovalResponse extends AdditionalDataHolder, Parsable {
      */
     listId?: Guid | null;
     /**
+     * The review property
+     */
+    review?: ApprovalReviewReference | null;
+    /**
      * The runId property
      */
     runId?: Guid | null;
@@ -317,6 +321,34 @@ export interface ApprovalResponse extends AdditionalDataHolder, Parsable {
      * The workspaceId property
      */
     workspaceId?: Guid | null;
+}
+export interface ApprovalReviewData extends AdditionalDataHolder, Parsable {
+    /**
+     * The canDecide property
+     */
+    canDecide?: boolean | null;
+    /**
+     * The data property
+     */
+    data?: JsonObject | null;
+    /**
+     * The reason property
+     */
+    reason?: string | null;
+    /**
+     * The renderer property
+     */
+    renderer?: string | null;
+}
+export interface ApprovalReviewReference extends AdditionalDataHolder, Parsable {
+    /**
+     * The key property
+     */
+    key?: string | null;
+    /**
+     * The type property
+     */
+    type?: string | null;
 }
 export type ApprovalStatus = (typeof ApprovalStatusObject)[keyof typeof ApprovalStatusObject];
 export interface ApproveRequest extends AdditionalDataHolder, Parsable {
@@ -464,6 +496,10 @@ export interface BuiltInSettingsRequest extends AdditionalDataHolder, Parsable {
  */
 export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable {
     /**
+     * The allowManualLaunch property
+     */
+    allowManualLaunch?: boolean | null;
+    /**
      * The available property
      */
     available?: boolean | null;
@@ -479,6 +515,10 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      * The enabledByDefault property
      */
     enabledByDefault?: boolean | null;
+    /**
+     * The inputSchema property
+     */
+    inputSchema?: JsonObject | null;
     /**
      * The key property
      */
@@ -1127,6 +1167,24 @@ export function createApplicationSecretResponseFromDiscriminatorValue(parseNode:
 // @ts-ignore
 export function createApprovalResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoApprovalResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ApprovalReviewData}
+ */
+// @ts-ignore
+export function createApprovalReviewDataFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoApprovalReviewData;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ApprovalReviewReference}
+ */
+// @ts-ignore
+export function createApprovalReviewReferenceFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoApprovalReviewReference;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -3477,11 +3535,38 @@ export function deserializeIntoApprovalResponse(approvalResponse: Partial<Approv
         "inputSchema": n => { approvalResponse.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "itemId": n => { approvalResponse.itemId = n.getGuidValue(); },
         "listId": n => { approvalResponse.listId = n.getGuidValue(); },
+        "review": n => { approvalResponse.review = n.getObjectValue<ApprovalReviewReference>(createApprovalReviewReferenceFromDiscriminatorValue); },
         "runId": n => { approvalResponse.runId = n.getGuidValue(); },
         "status": n => { approvalResponse.status = n.getEnumValue<ApprovalStatus>(ApprovalStatusObject); },
         "stepName": n => { approvalResponse.stepName = n.getStringValue(); },
         "title": n => { approvalResponse.title = n.getStringValue(); },
         "workspaceId": n => { approvalResponse.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ApprovalReviewData The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoApprovalReviewData(approvalReviewData: Partial<ApprovalReviewData> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "canDecide": n => { approvalReviewData.canDecide = n.getBooleanValue(); },
+        "data": n => { approvalReviewData.data = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "reason": n => { approvalReviewData.reason = n.getStringValue(); },
+        "renderer": n => { approvalReviewData.renderer = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ApprovalReviewReference The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoApprovalReviewReference(approvalReviewReference: Partial<ApprovalReviewReference> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "key": n => { approvalReviewReference.key = n.getStringValue(); },
+        "type": n => { approvalReviewReference.type = n.getStringValue(); },
     }
 }
 /**
@@ -3639,10 +3724,12 @@ export function deserializeIntoBuiltInSettingsRequest(builtInSettingsRequest: Pa
 // @ts-ignore
 export function deserializeIntoBuiltInWorkflowResponse(builtInWorkflowResponse: Partial<BuiltInWorkflowResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "allowManualLaunch": n => { builtInWorkflowResponse.allowManualLaunch = n.getBooleanValue() ?? false; },
         "available": n => { builtInWorkflowResponse.available = n.getBooleanValue(); },
         "description": n => { builtInWorkflowResponse.description = n.getStringValue(); },
         "enabled": n => { builtInWorkflowResponse.enabled = n.getBooleanValue(); },
         "enabledByDefault": n => { builtInWorkflowResponse.enabledByDefault = n.getBooleanValue() ?? false; },
+        "inputSchema": n => { builtInWorkflowResponse.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "key": n => { builtInWorkflowResponse.key = n.getStringValue(); },
         "name": n => { builtInWorkflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { builtInWorkflowResponse.odataEtag = n.getStringValue(); },
@@ -4286,6 +4373,7 @@ export function deserializeIntoExportResponse(exportResponse: Partial<ExportResp
 // @ts-ignore
 export function deserializeIntoExtensionContributions(extensionContributions: Partial<ExtensionContributions> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "approvalReviews": n => { extensionContributions.approvalReviews = n.getCollectionOfPrimitiveValues<string>("string"); },
         "contentTypes": n => { extensionContributions.contentTypes = n.getCollectionOfPrimitiveValues<string>("string"); },
         "dbContext": n => { extensionContributions.dbContext = n.getStringValue(); },
         "endpoints": n => { extensionContributions.endpoints = n.getBooleanValue(); },
@@ -6428,6 +6516,7 @@ export function deserializeIntoWorkflowStep(workflowStep: Partial<WorkflowStep> 
 export function deserializeIntoWorkflowTrigger(workflowTrigger: Partial<WorkflowTrigger> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "changedFields": n => { workflowTrigger.changedFields = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "concurrency": n => { workflowTrigger.concurrency = n.getStringValue(); },
         "contentType": n => { workflowTrigger.contentType = n.getStringValue(); },
         "cron": n => { workflowTrigger.cron = n.getStringValue(); },
         "data": n => { workflowTrigger.data = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
@@ -6635,6 +6724,10 @@ export interface ExportResponse extends AdditionalDataHolder, Parsable {
  * What an extension contributes (for the catalog API and validation).
  */
 export interface ExtensionContributions extends AdditionalDataHolder, Parsable {
+    /**
+     * The approvalReviews property
+     */
+    approvalReviews?: string[] | null;
     /**
      * The contentTypes property
      */
@@ -8941,12 +9034,41 @@ export function serializeApprovalResponse(writer: SerializationWriter, approvalR
     writer.writeObjectValue<JsonObject>("inputSchema", approvalResponse.inputSchema, serializeJsonObject);
     writer.writeGuidValue("itemId", approvalResponse.itemId);
     writer.writeGuidValue("listId", approvalResponse.listId);
+    writer.writeObjectValue<ApprovalReviewReference>("review", approvalResponse.review, serializeApprovalReviewReference);
     writer.writeGuidValue("runId", approvalResponse.runId);
     writer.writeEnumValue<ApprovalStatus>("status", approvalResponse.status);
     writer.writeStringValue("stepName", approvalResponse.stepName);
     writer.writeStringValue("title", approvalResponse.title);
     writer.writeGuidValue("workspaceId", approvalResponse.workspaceId);
     writer.writeAdditionalData(approvalResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ApprovalReviewData The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeApprovalReviewData(writer: SerializationWriter, approvalReviewData: Partial<ApprovalReviewData> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!approvalReviewData || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("canDecide", approvalReviewData.canDecide);
+    writer.writeObjectValue<JsonObject>("data", approvalReviewData.data, serializeJsonObject);
+    writer.writeStringValue("reason", approvalReviewData.reason);
+    writer.writeStringValue("renderer", approvalReviewData.renderer);
+    writer.writeAdditionalData(approvalReviewData.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ApprovalReviewReference The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeApprovalReviewReference(writer: SerializationWriter, approvalReviewReference: Partial<ApprovalReviewReference> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!approvalReviewReference || isSerializingDerivedType) { return; }
+    writer.writeStringValue("key", approvalReviewReference.key);
+    writer.writeStringValue("type", approvalReviewReference.type);
+    writer.writeAdditionalData(approvalReviewReference.additionalData);
 }
 /**
  * Serializes information the current object
@@ -9116,10 +9238,12 @@ export function serializeBuiltInSettingsRequest(writer: SerializationWriter, bui
 // @ts-ignore
 export function serializeBuiltInWorkflowResponse(writer: SerializationWriter, builtInWorkflowResponse: Partial<BuiltInWorkflowResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!builtInWorkflowResponse || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("allowManualLaunch", builtInWorkflowResponse.allowManualLaunch ?? false);
     writer.writeBooleanValue("available", builtInWorkflowResponse.available);
     writer.writeStringValue("description", builtInWorkflowResponse.description);
     writer.writeBooleanValue("enabled", builtInWorkflowResponse.enabled);
     writer.writeBooleanValue("enabledByDefault", builtInWorkflowResponse.enabledByDefault ?? false);
+    writer.writeObjectValue<JsonObject>("inputSchema", builtInWorkflowResponse.inputSchema, serializeJsonObject);
     writer.writeStringValue("key", builtInWorkflowResponse.key);
     writer.writeStringValue("name", builtInWorkflowResponse.name);
     writer.writeStringValue("@odata.etag", builtInWorkflowResponse.odataEtag);
@@ -9808,6 +9932,7 @@ export function serializeExportResponse(writer: SerializationWriter, exportRespo
 // @ts-ignore
 export function serializeExtensionContributions(writer: SerializationWriter, extensionContributions: Partial<ExtensionContributions> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!extensionContributions || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("approvalReviews", extensionContributions.approvalReviews);
     writer.writeCollectionOfPrimitiveValues<string>("contentTypes", extensionContributions.contentTypes);
     writer.writeStringValue("dbContext", extensionContributions.dbContext);
     writer.writeBooleanValue("endpoints", extensionContributions.endpoints);
@@ -12098,6 +12223,7 @@ export function serializeWorkflowStep(writer: SerializationWriter, workflowStep:
 export function serializeWorkflowTrigger(writer: SerializationWriter, workflowTrigger: Partial<WorkflowTrigger> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!workflowTrigger || isSerializingDerivedType) { return; }
     writer.writeCollectionOfPrimitiveValues<string>("changedFields", workflowTrigger.changedFields);
+    writer.writeStringValue("concurrency", workflowTrigger.concurrency);
     writer.writeStringValue("contentType", workflowTrigger.contentType);
     writer.writeStringValue("cron", workflowTrigger.cron);
     writer.writeObjectValue<JsonObject>("data", workflowTrigger.data, serializeJsonObject);
@@ -13256,6 +13382,10 @@ export interface WorkflowTrigger extends AdditionalDataHolder, Parsable {
      * The changedFields property
      */
     changedFields?: string[] | null;
+    /**
+     * The concurrency property
+     */
+    concurrency?: string | null;
     /**
      * The contentType property
      */

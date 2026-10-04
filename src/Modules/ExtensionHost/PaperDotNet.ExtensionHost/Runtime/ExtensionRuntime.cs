@@ -41,6 +41,8 @@ public sealed class ExtensionContributions
 
     public List<string> Workflows { get; } = [];
 
+    public List<string> ApprovalReviews { get; } = [];
+
     public List<string> McpTools { get; } = [];
 
     public List<string> TermSets { get; } = [];
@@ -270,6 +272,16 @@ internal sealed class ExtensionBuilder(LoadedExtension extension, IServiceCollec
         return this;
     }
 
+    public IExtensionBuilder AddApprovalReviewProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProvider>()
+        where TProvider : class, IApprovalReviewProvider
+    {
+        var id = extension.Id;
+        services.TryAddScoped<TProvider>();
+        services.AddScoped<IApprovalReviewProvider>(sp => new GatedApprovalReviewProvider(id, sp.GetRequiredService<TProvider>(), sp.GetRequiredService<IExtensionState>()));
+        extension.Contributions.ApprovalReviews.Add(typeof(TProvider).Name);
+        return this;
+    }
+
     public IExtensionBuilder AddWorkflowTrigger(WorkflowTriggerDefinition trigger)
     {
         RequirePrefix(trigger.Key, "Workflow trigger key");
@@ -456,4 +468,22 @@ internal sealed class GatedMcpTool(string extensionId, Mcp.Contracts.IMcpTool in
         await state.IsEnabledAsync(extensionId, cancellationToken)
             ? await inner.CallAsync(arguments, cancellationToken)
             : Mcp.Contracts.McpToolResult.Error($"The extension '{extensionId}' is not enabled.");
+}
+
+internal sealed class GatedApprovalReviewProvider(string extensionId, IApprovalReviewProvider inner, IExtensionState state) : IApprovalReviewProvider
+{
+    public string Type => inner.Type.StartsWith(extensionId + ".", StringComparison.Ordinal)
+        ? inner.Type : throw new InvalidOperationException($"Review type '{inner.Type}' must start with '{extensionId}.'");
+
+    public async ValueTask<bool> IsAvailableAsync(CancellationToken cancellationToken) =>
+        await state.IsEnabledAsync(extensionId, cancellationToken) && await inner.IsAvailableAsync(cancellationToken);
+
+    public async Task<ApprovalReviewData?> GetAsync(ApprovalReviewContext context, CancellationToken cancellationToken) =>
+        await IsAvailableAsync(cancellationToken) ? await inner.GetAsync(context, cancellationToken) : null;
+
+    public async Task<ApprovalReviewContent?> OpenAsync(ApprovalReviewContext context, string part, CancellationToken cancellationToken) =>
+        await IsAvailableAsync(cancellationToken) ? await inner.OpenAsync(context, part, cancellationToken) : null;
+
+    public async Task<bool> CanDecideAsync(ApprovalReviewContext context, CancellationToken cancellationToken) =>
+        await IsAvailableAsync(cancellationToken) && await inner.CanDecideAsync(context, cancellationToken);
 }

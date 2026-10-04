@@ -69,7 +69,12 @@ public sealed partial class LocalBlobStore : IBlobStore
 
     public Task DeleteAsync(string key, CancellationToken cancellationToken)
     {
-        File.Delete(PathFor(key));
+        var path = PathFor(key);
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+
         return Task.CompletedTask;
     }
 

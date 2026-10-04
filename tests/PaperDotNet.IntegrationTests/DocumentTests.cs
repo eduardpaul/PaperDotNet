@@ -262,7 +262,7 @@ public sealed class DocumentTests(PaperDotNetApiFactory factory)
         var blobs = scope.ServiceProvider.GetRequiredService<IBlobStore>();
         var stored = await db.StoredFiles.SingleAsync(Ct);
         Assert.True(await blobs.ExistsAsync(stored.BlobKey, Ct));
-        await new StoredFileCleanupJob(db, blobs, new ShiftedTime(TimeSpan.FromHours(2))).RunAsync(Ct);
+        await new StoredFileCleanupJob(db, blobs, new ShiftedTime(TimeSpan.FromHours(2)), scope.ServiceProvider.GetRequiredService<PaperDotNet.Workflows.Contracts.IWorkflowDirectory>()).RunAsync(Ct);
 
         Assert.False(await blobs.ExistsAsync(stored.BlobKey, Ct));
         Assert.Equal(0, await db.StoredFiles.CountAsync(Ct));

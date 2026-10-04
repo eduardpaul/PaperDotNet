@@ -66,6 +66,7 @@ export interface TriggerDraft {
   /** Module and extension triggers: values the trigger's data must have. */
   data?: Record<string, unknown>;
   parameters?: { when: Record<string, unknown> };
+  concurrency?: string;
 }
 
 /** A trigger as the API's JSON has it. */
@@ -82,6 +83,7 @@ export interface PlainTrigger {
   inputs?: Record<string, unknown> | null;
   data?: Record<string, unknown> | null;
   parameters?: { when: Record<string, unknown> } | null;
+  concurrency?: string | null;
 }
 
 /** A flow as the API's JSON has it (docs/workflows.md). */
@@ -213,6 +215,7 @@ export function fromPlain(plain: PlainWorkflow): WorkflowDraft {
       offsetHours: text(plain.trigger?.offsetHours),
       ...(plain.trigger?.terms?.length ? { terms: plain.trigger.terms } : {}),
       ...(plain.trigger?.inputs ? { inputs: plain.trigger.inputs } : {}),
+      ...(plain.trigger?.concurrency ? { concurrency: plain.trigger.concurrency } : {}),
       ...(plain.trigger?.parameters ? { parameters: plain.trigger.parameters } : {}),
       ...(plain.trigger?.data ? { data: plain.trigger.data } : {}),
     },
@@ -291,6 +294,7 @@ function triggerToPlain(trigger: TriggerDraft): PlainTrigger {
       : {}),
     ...(trigger.inputs && type === 'manual' ? { inputs: trigger.inputs } : {}),
     ...(trigger.data ? { data: trigger.data } : {}),
+    ...(trigger.concurrency ? { concurrency: trigger.concurrency } : {}),
     ...(trigger.parameters && ['itemAdded', 'itemUpdated'].includes(type) ? { parameters: trigger.parameters } : {}),
   };
 }

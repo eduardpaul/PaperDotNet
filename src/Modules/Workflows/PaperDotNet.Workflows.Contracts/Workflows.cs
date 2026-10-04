@@ -274,6 +274,9 @@ public sealed record BuiltInWorkflow(string Key, string Name, string Description
 
     /// <summary>On where nobody turned it off: created, turned on, the first time a library (or workspace) needs it.</summary>
     public bool EnabledByDefault { get; init; }
+
+    /// <summary>People can launch this built-in manually even when automatic runs are off in their library.</summary>
+    public bool AllowManualLaunch { get; init; }
 }
 
 public enum BuiltInScope
