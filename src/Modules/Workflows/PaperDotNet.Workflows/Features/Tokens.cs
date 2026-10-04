@@ -10,18 +10,18 @@ using PaperDotNet.Workflows.Contracts;
 namespace PaperDotNet.Workflows.Features;
 
 /// <summary>What tokens can refer to: the item, its list, the outputs of nodes that ran, variables and trigger data.</summary>
-internal sealed record TokenScope(ListItemData? Item, string? ListName, JsonObject? Outputs, JsonObject? Variables, JsonObject? Data)
+internal sealed record TokenScope(ListItemData? Item, string? ListName, JsonObject? Outputs, JsonObject? Variables, JsonObject? Data, JsonObject? Context = null)
 {
     public static readonly TokenScope Empty = new(null, null, null, null, null);
 
     /// <summary>The scope of a run's node: the item as it is now (and its list's name) with the run's state.</summary>
     public static async Task<TokenScope> LoadAsync(
-        IListItemStore items, WorkflowItem? item, JsonObject? outputs, JsonObject? variables, JsonObject? data, CancellationToken ct)
+        IListItemStore items, WorkflowItem? item, JsonObject? outputs, JsonObject? variables, JsonObject? data, CancellationToken ct, JsonObject? context = null)
     {
         var store = items.AsSystem();
         var current = item is null ? null : await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
         var list = item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
-        return new TokenScope(current, list?.Name, outputs, variables, data);
+        return new TokenScope(current, list?.Name, outputs, variables, data, context);
     }
 
     /// <summary>
@@ -35,6 +35,10 @@ internal sealed record TokenScope(ListItemData? Item, string? ListName, JsonObje
 
     /// <summary>A value of the trigger data, or in it.</summary>
     public JsonNode? Trigger(string reference) => Path(Data, reference);
+
+    public JsonNode? Execution(string reference) => Path(Context, reference);
+
+    public JsonNode? Input(string reference) => Path(Context?["input"] as JsonObject, reference);
 
     /// <summary>A value under a name (the longest name that exists wins, as names may contain dots) and a path into it.</summary>
     private static JsonNode? Path(JsonObject? root, string reference)
@@ -120,6 +124,10 @@ internal sealed class TokenExpander(ITermStore terms, IUserDirectory users, Time
             static JsonNode? Json(JsonNode? value) => value is null ? null : JsonNode.Parse(value.ToJsonString());
             switch (name, reference)
             {
+                case ("context", { } path):
+                    return Json(scope.Execution(path));
+                case ("input", { } path):
+                    return Json(scope.Input(path));
                 case ("step", { } path):
                     return Json(scope.Step(path));
                 case ("var", { } path):
@@ -157,6 +165,10 @@ internal sealed class TokenExpander(ITermStore terms, IUserDirectory users, Time
                 return format is not null && scope.Trigger(format.Trim()) is { } data ? await ValueAsync(data, null, ct) : string.Empty;
             case "var":
                 return format is not null && scope.Variable(format.Trim()) is { } variable ? await ValueAsync(variable, null, ct) : string.Empty;
+            case "context":
+                return format is not null && scope.Execution(format.Trim()) is { } context ? await ValueAsync(context, null, ct) : string.Empty;
+            case "input":
+                return format is not null && scope.Input(format.Trim()) is { } input ? await ValueAsync(input, null, ct) : string.Empty;
             case "step":
                 return format is not null && scope.Step(format.Trim()) is { } output ? await ValueAsync(output, null, ct) : string.Empty;
             case "item":

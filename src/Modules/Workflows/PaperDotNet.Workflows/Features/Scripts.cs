@@ -104,7 +104,7 @@ internal sealed partial class ScriptRunner(IListItemStore items, IOptions<Workfl
 
     public ScriptOutcome Run(
         string code, Guid workspaceId, Guid executionId, ListItemData? item, string? itemList, JsonObject outputs, JsonObject variables,
-        JsonObject? data, CancellationToken ct)
+        JsonObject? data, CancellationToken ct, JsonObject? executionContext = null)
     {
         var limits = options.Value;
         var store = items.AsSystem();
@@ -163,6 +163,8 @@ internal sealed partial class ScriptRunner(IListItemStore items, IOptions<Workfl
         engine.SetValue("vars", ToJs(variables));
         engine.SetValue("steps", ToJs(outputs));
         engine.SetValue("trigger", ToJs(data ?? []));
+        engine.SetValue("context", ToJs(executionContext ?? []));
+        engine.SetValue("input", ToJs(executionContext?["input"] as JsonObject ?? []));
         engine.SetValue("__items_get", new Func<JsValue, JsValue, JsValue>((list, id) =>
         {
             Read();

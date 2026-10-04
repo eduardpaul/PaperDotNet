@@ -370,7 +370,7 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
     public async Task<WorkflowActivityResult> ExecuteAsync(
         ActionDefinition action, Guid workspaceId, WorkflowItem? item, Guid? actor, JsonObject? data,
         JsonObject? outputs, JsonObject? variables, string source, string executionKey, Guid executionId, CancellationToken ct, Guid? runId = null,
-        WorkflowResumedWait? resumed = null)
+        WorkflowResumedWait? resumed = null, JsonObject? executionContext = null)
     {
         if (catalog.Find(action.Type) is not { } found)
         {
@@ -380,13 +380,13 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
         TokenScope? scope = null;
         async Task<string> ExpandAsync(string template, CancellationToken token)
         {
-            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, token);
+            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, token, executionContext);
             return await tokens.ExpandAsync(template, scope, token);
         }
 
         async Task<JsonNode?> ResolveAsync(string template, CancellationToken token)
         {
-            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, token);
+            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, token, executionContext);
             return await tokens.ValueAsync(template, scope, token);
         }
 
@@ -400,6 +400,7 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
                 Services = services,
                 UserId = actor,
                 Data = data,
+                ExecutionContext = executionContext?.DeepClone().AsObject(),
                 Source = source,
                 RunId = runId,
                 Resumed = resumed,
@@ -430,8 +431,10 @@ internal static class FlowActivityDescriptors
     [
         new(FlowActivities.Approval, "Asks people to approve or reject; overdue requests are escalated.", ActivityDescriptor.FlowKind, ["approved", "rejected", "done"],
             ActivitySchemas.Of(["assignees"], ("assignees", ActivitySchemas.People("Who decides.")), ("title", ActivitySchemas.Text("Title (template).")),
+                ("inputSchema", new JsonObject { ["type"] = "object", ["description"] = "JSON Schema of information collected with the decision." }),
                 ("dueInHours", ActivitySchemas.Number("Overdue after this many hours.")), ("escalateTo", ActivitySchemas.People("Added when overdue."))),
             ActivitySchemas.Of([], ("outcome", ActivitySchemas.Text("approved or rejected.")), ("decidedBy", ActivitySchemas.Text("Id of the user who decided.")),
+                ("input", new JsonObject { ["type"] = "object", ["description"] = "Submitted form values." }),
                 ("comment", ActivitySchemas.Text("Their comment.")))),
         new(FlowActivities.Delay, "Waits a number of hours.", ActivityDescriptor.FlowKind, ["done"],
             ActivitySchemas.Of(["hours"], ("hours", ActivitySchemas.Number("Hours to wait."))), null),

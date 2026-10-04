@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from kiota_abstractions.serialization import AdditionalDataHolder, Parsable, ParseNode, SerializationWriter
 from typing import Any, Optional, TYPE_CHECKING, Union
 
+if TYPE_CHECKING:
+    from .json_object import JsonObject
+
 @dataclass
 class DecisionRequest(AdditionalDataHolder, Parsable):
     """
@@ -14,9 +17,11 @@ class DecisionRequest(AdditionalDataHolder, Parsable):
 
     # The comment property
     comment: Optional[str] = None
+    # The inputs property
+    inputs: Optional[JsonObject] = None
     # The outcome property
     outcome: Optional[str] = None
-    
+
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> DecisionRequest:
         """
@@ -27,18 +32,23 @@ class DecisionRequest(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return DecisionRequest()
-    
+
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .json_object import JsonObject
+
+        from .json_object import JsonObject
+
         fields: dict[str, Callable[[Any], None]] = {
             "comment": lambda n : setattr(self, 'comment', n.get_str_value()),
+            "inputs": lambda n : setattr(self, 'inputs', n.get_object_value(JsonObject)),
             "outcome": lambda n : setattr(self, 'outcome', n.get_str_value()),
         }
         return fields
-    
+
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -48,7 +58,8 @@ class DecisionRequest(AdditionalDataHolder, Parsable):
         if writer is None:
             raise TypeError("writer cannot be null.")
         writer.write_str_value("comment", self.comment)
+        writer.write_object_value("inputs", self.inputs)
         writer.write_str_value("outcome", self.outcome)
         writer.write_additional_data_value(self.additional_data)
-    
+
 

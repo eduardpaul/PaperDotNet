@@ -1,3 +1,5 @@
+import { fields, fieldsOf } from '@paperdotnet/client';
+import type { RJSFSchema } from '@rjsf/utils';
 import type { ApprovalResponse } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
@@ -9,11 +11,13 @@ import { Page, PageHeader } from '@/components/page';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { EmptyState, Skeleton } from '@/components/ui/feedback';
+import { Alert, EmptyState, Skeleton } from '@/components/ui/feedback';
 import { Textarea } from '@/components/ui/input';
 import { userName, useUsers } from '@/features/fields/directory';
 import { itemLink } from '@/features/lists/item-link';
 import { useFormat } from '@/lib/preferences';
+import { SchemaForm } from '@/features/workflows/schema-form';
+import { problemMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 
 type Status = 'pending' | 'approved' | 'rejected';
@@ -84,10 +88,14 @@ function ApprovalRow({ approval }: { approval: ApprovalResponse }) {
   const users = useUsers();
   const queryClient = useQueryClient();
   const [comment, setComment] = useState('');
+  const [showForm, setShowForm] = useState(false);
   const decide = useMutation({
-    mutationFn: (outcome: 'approved' | 'rejected') =>
-      api.v10.me.approvals.byId(approval.id!).decision.post({ outcome, comment: comment.trim() || undefined }),
-    onSuccess: async (_, outcome) => {
+    meta: { silent: true },
+    mutationFn: ({ outcome, input }: { outcome: 'approved' | 'rejected'; input?: Record<string, unknown> }) =>
+      api.v10.me.approvals
+        .byId(approval.id!)
+        .decision.post({ outcome, comment: comment.trim() || undefined, inputs: input ? fields(input) : undefined }),
+    onSuccess: async (_, { outcome }) => {
       toast.success(outcome === 'approved' ? 'Approved.' : 'Rejected.');
       await queryClient.invalidateQueries({ queryKey: ['me', 'approvals'] });
     },
@@ -124,23 +132,69 @@ function ApprovalRow({ approval }: { approval: ApprovalResponse }) {
         )}
       </p>
       {approval.comment && <p className="rounded bg-surface-muted px-2 py-1 text-[13px]">“{approval.comment}”</p>}
-      {pending && (
-        <div className="flex flex-wrap items-end gap-2">
-          <Textarea
-            aria-label="Comment"
-            rows={1}
-            placeholder="Comment (optional)"
-            className="min-h-9 flex-1"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-          <Button disabled={decide.isPending} onClick={() => decide.mutate('rejected')}>
-            <X /> Reject
+      {decide.isError && <Alert>{problemMessage(decide.error)}</Alert>}
+      {approval.inputSchema ? (
+        <>
+          <Button className="self-start" aria-expanded={showForm} onClick={() => setShowForm(!showForm)}>
+            {showForm ? 'Hide information' : pending ? 'Review approval' : 'View information'}
           </Button>
-          <Button variant="primary" disabled={decide.isPending} onClick={() => decide.mutate('approved')}>
-            <Check /> Approve
-          </Button>
-        </div>
+          {showForm && (
+            <SchemaForm
+              schema={fieldsOf({ fields: approval.inputSchema }) as RJSFSchema}
+              idPrefix={`approval-${approval.id}`}
+              disabled={!pending || decide.isPending}
+              formData={approval.inputs ? fieldsOf({ fields: approval.inputs }) : undefined}
+              onSubmit={(input, outcome) => {
+                if (outcome === 'approved' || outcome === 'rejected') decide.mutate({ outcome, input });
+              }}
+            >
+              {pending ? (
+                <>
+                  <Textarea
+                    aria-label="Comment"
+                    rows={1}
+                    placeholder="Comment (optional)"
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button type="submit" value="rejected" disabled={decide.isPending}>
+                      <X /> Reject
+                    </Button>
+                    <Button type="submit" value="approved" variant="primary" disabled={decide.isPending}>
+                      <Check /> Approve
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <></>
+              )}
+            </SchemaForm>
+          )}
+        </>
+      ) : (
+        pending && (
+          <div className="flex flex-wrap items-end gap-2">
+            <Textarea
+              aria-label="Comment"
+              rows={1}
+              placeholder="Comment (optional)"
+              className="min-h-9 flex-1"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+            <Button disabled={decide.isPending} onClick={() => decide.mutate({ outcome: 'rejected' })}>
+              <X /> Reject
+            </Button>
+            <Button
+              variant="primary"
+              disabled={decide.isPending}
+              onClick={() => decide.mutate({ outcome: 'approved' })}
+            >
+              <Check /> Approve
+            </Button>
+          </div>
+        )
       )}
     </li>
   );

@@ -138,7 +138,7 @@ internal sealed class WorkflowScheduleJob(
         if (!await db.Runs.AnyAsync(r => r.WorkflowId == workflow.Id && r.EventId == eventId, ct))
         {
             var data = new JsonObject { ["occurrence"] = due.ToString("O", CultureInfo.InvariantCulture) };
-            await starter.StartAsync([new WorkflowStart(workflow, null, eventId, data.ToJsonString(), 0, null)], ct);
+            await starter.StartAsync([new WorkflowStart(workflow, null, eventId, data.ToJsonString(), 0, null, TriggerType: WorkflowTriggers.Schedule)], ct);
         }
 
         // Missed occurrences run once: the next one is after now.
@@ -201,7 +201,7 @@ internal sealed class WorkflowScheduleJob(
             await starter.StartAsync(
                 [.. candidates.Where(c => !started.Contains(c.EventId)).Select(c => new WorkflowStart(
                     workflow, new WorkflowItem(workflow.WorkspaceId, list.Id, c.Item.Id), c.EventId,
-                    new JsonObject { ["date"] = c.Value }.ToJsonString(), 0, null))],
+                    new JsonObject { ["date"] = c.Value }.ToJsonString(), 0, null, TriggerType: WorkflowTriggers.Date))],
                 ct);
             cursor = page.NextCursor;
         }

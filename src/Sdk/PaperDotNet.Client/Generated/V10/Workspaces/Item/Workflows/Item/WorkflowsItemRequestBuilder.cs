@@ -5,6 +5,7 @@ using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.Models;
 using PaperDotNet.Client.V10.Workspaces.Item.Workflows.Item.Runs;
+using PaperDotNet.Client.V10.Workspaces.Item.Workflows.Item.Webhook;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -22,6 +23,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Workflows.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.Item.Runs.RunsRequestBuilder Runs
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.Item.Runs.RunsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The webhook property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.Item.Webhook.WebhookRequestBuilder Webhook
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.Item.Webhook.WebhookRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Workspaces.Item.Workflows.Item.WorkflowsItemRequestBuilder"/> and sets the default values.

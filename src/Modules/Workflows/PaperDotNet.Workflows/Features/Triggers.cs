@@ -1,6 +1,8 @@
 using System.Linq.Expressions;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
@@ -78,7 +80,8 @@ internal sealed class TriggerCatalog(IEnumerable<WorkflowTriggerDefinition> exte
 {
     public static readonly WorkflowTriggerDefinition[] BuiltIn =
     [
-        new(WorkflowTriggers.Manual, "Started on an item by a person with Contribute access (POST …/items/{id}/workflows)."),
+        new(WorkflowTriggers.Webhook, "Authenticated webhook request on a workspace workflow."),
+        new(WorkflowTriggers.Manual, "Started by a person with Contribute access, on selected items or once in the workspace."),
         new(WorkflowTriggers.ItemAdded, "An item or document was added to a list."),
         new(WorkflowTriggers.ItemUpdated, "An item was changed (optionally only when one of changedFields changed)."),
         new(WorkflowTriggers.ItemDeleted, "An item was moved to the recycle bin."),
@@ -102,12 +105,15 @@ internal sealed class TriggerCatalog(IEnumerable<WorkflowTriggerDefinition> exte
 /// which ends loops such as a workflow that updates its own item. A library's built-in workflows that are on by default are
 /// created before its events are matched.
 /// </summary>
-internal sealed class WorkflowTriggerHandler(
-    WorkflowsDbContext db, IListItemStore items, ITermStore terms, WorkflowStarter starter, BuiltInWorkflows builtIns, ITenantContext tenant)
+internal sealed partial class WorkflowTriggerHandler(
+    WorkflowsDbContext db, IListItemStore items, ITermStore terms, WorkflowStarter starter, BuiltInWorkflows builtIns, ITenantContext tenant, ILogger<WorkflowTriggerHandler> logger)
     : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemDeleted>, IEventSubscriber<ItemRestored>,
       IEventSubscriber<WorkflowTriggerRaised>
 {
     public const int MaxDepth = 5;
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipping parameterized conditions for event {EventId}: transactional item snapshots are missing.")]
+    private static partial void MissingSnapshots(ILogger logger, Guid eventId);
 
     public Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken) =>
         ItemAsync(WorkflowTriggers.ItemAdded, integrationEvent, cancellationToken);
@@ -126,14 +132,26 @@ internal sealed class WorkflowTriggerHandler(
             integrationEvent.ListId is { } listId && integrationEvent.ItemId is { } itemId ? new WorkflowItem(integrationEvent.WorkspaceId, listId, itemId) : null,
             integrationEvent.Data, cancellationToken);
 
-    private Task ItemAsync(string trigger, ItemEvent integrationEvent, CancellationToken ct) =>
-        integrationEvent.IsFolder
-            ? Task.CompletedTask
-            : StartAsync(trigger, integrationEvent, integrationEvent.WorkspaceId, integrationEvent,
-                new WorkflowItem(integrationEvent.WorkspaceId, integrationEvent.ListId, integrationEvent.ItemId), null, ct);
+    private async Task ItemAsync(string trigger, ItemEvent integrationEvent, CancellationToken ct)
+    {
+        if (integrationEvent.IsFolder || integrationEvent.Depth >= MaxDepth)
+        {
+            return;
+        }
+
+        var item = new WorkflowItem(integrationEvent.WorkspaceId, integrationEvent.ListId, integrationEvent.ItemId);
+        var list = await items.AsSystem().GetListAsync(item.WorkspaceId, item.ListId, ct);
+        var data = new JsonObject
+        {
+            ["before"] = JsonSerializer.SerializeToNode(integrationEvent.Before, DefinitionJson.Options),
+            ["after"] = JsonSerializer.SerializeToNode(integrationEvent.After, DefinitionJson.Options),
+            ["changedFields"] = new JsonArray([.. integrationEvent.ChangedFields.Select(name => JsonValue.Create(name))]),
+        };
+        await StartAsync(trigger, integrationEvent, integrationEvent.WorkspaceId, integrationEvent, item, data.ToJsonString(), ct, list);
+    }
 
     private async Task StartAsync(
-        string trigger, IntegrationEvent source, Guid workspaceId, ItemEvent? itemEvent, WorkflowItem? item, string? data, CancellationToken ct)
+        string trigger, IntegrationEvent source, Guid workspaceId, ItemEvent? itemEvent, WorkflowItem? item, string? data, CancellationToken ct, ListData? eventList = null)
     {
         if (source.Depth >= MaxDepth)
         {
@@ -141,28 +159,21 @@ internal sealed class WorkflowTriggerHandler(
         }
 
         var store = items.AsSystem();
-        var list = item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
+        var list = eventList ?? (item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, ct));
         if (list is { IsLibrary: true })
         {
             await builtIns.EnsureDefaultsAsync(list, tenant.TenantId!.Value, ct);
         }
 
-        // A per-library workflow only starts for its library's items.
-        var workflows = (await db.Workflows.AsNoTracking()
-            .Where(a => a.WorkspaceId == workspaceId && a.Enabled)
+        // Fetch matching definitions and versions together, excluding events already handled.
+        var workflows = await db.Workflows.AsNoTracking()
+            .Where(a => a.WorkspaceId == workspaceId && a.Enabled && (a.ListId == null || a.ListId == (item == null ? null : (Guid?)item.ListId)))
             .Where(TriggerColumn.Has(trigger))
-            .OrderBy(a => a.Name)
-            .ToListAsync(ct))
-            .Where(a => a.ListId is null || a.ListId == item?.ListId)
-            .ToList();
+            .Where(w => !db.Runs.Any(r => r.EventId == source.EventId && r.WorkflowId == w.Id))
+            .Join(db.Versions, w => new { WorkflowId = w.Id, Number = w.CurrentVersion }, v => new { v.WorkflowId, v.Number },
+                (workflow, version) => new { Workflow = workflow, version.Definition })
+            .OrderBy(row => row.Workflow.Name).ToListAsync(ct);
         if (workflows.Count == 0)
-        {
-            return;
-        }
-
-        // Redelivered event: its runs were saved together, so they all exist already.
-        var ids = workflows.Select(a => a.Id).ToList();
-        if (await db.Runs.AnyAsync(r => r.EventId == source.EventId && ids.Contains(r.WorkflowId), ct))
         {
             return;
         }
@@ -183,10 +194,12 @@ internal sealed class WorkflowTriggerHandler(
 
         var triggerData = data is null ? null : JsonNode.Parse(data) as JsonObject;
         var starts = new List<WorkflowStart>();
-        foreach (var workflow in workflows)
+        var termCache = new Dictionary<string, HashSet<Guid>>(StringComparer.Ordinal);
+        var reportedMissingSnapshot = false;
+        foreach (var row in workflows)
         {
-            var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
-            var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
+            var workflow = row.Workflow;
+            var spec = DefinitionJson.Deserialize<WorkflowSpec>(row.Definition);
             var matched = false;
             foreach (var candidate in spec.AllTriggers.Where(t => t.Type == trigger))
             {
@@ -209,7 +222,7 @@ internal sealed class WorkflowTriggerHandler(
                 continue;
             }
 
-            starts.Add(new WorkflowStart(workflow, item, source.EventId, data, source.Depth, source.UserId, error));
+            starts.Add(new WorkflowStart(workflow, item, source.EventId, data, source.Depth, source.UserId, error, TriggerType: trigger, Spec: spec));
         }
 
         await starter.StartAsync(starts, ct);
@@ -217,7 +230,7 @@ internal sealed class WorkflowTriggerHandler(
         // A trigger of the event's type matches when its list, changed fields, content type, terms and data fit.
         async Task<bool> MatchesAsync(WorkflowTrigger candidate)
         {
-            if ((candidate.List is { } listName && list?.Name != listName)
+            if ((candidate.List is { } listName && (itemEvent?.After?.ListName ?? list?.Name) != listName)
                 || (candidate.ChangedFields is { Count: > 0 } fields && itemEvent is not null && !fields.Intersect(itemEvent.ChangedFields).Any())
                 || !candidate.MatchesData(triggerData))
             {
@@ -226,15 +239,37 @@ internal sealed class WorkflowTriggerHandler(
 
             if (candidate.ContentType is { } type)
             {
-                var contentTypeId = itemEvent?.ContentTypeId ?? (await CurrentAsync())?.ContentTypeId;
-                var contentType = list?.ContentTypes.FirstOrDefault(c => c.Id == contentTypeId);
-                if (contentType?.Name != type && contentType?.Key != type)
+                if (itemEvent?.After is { } snapshot)
                 {
-                    return false;
+                    if (snapshot.ContentTypeName != type && snapshot.ContentTypeKey != type) return false;
+                }
+                else
+                {
+                    var contentTypeId = itemEvent?.ContentTypeId ?? (await CurrentAsync())?.ContentTypeId;
+                    var contentType = list?.ContentTypes.FirstOrDefault(c => c.Id == contentTypeId);
+                    if (contentType?.Name != type && contentType?.Key != type)
+                    {
+                        return false;
+                    }
                 }
             }
 
-            return candidate.Terms is not { Count: > 0 } wanted || await HasTermAsync(await CurrentAsync(), wanted, ct);
+            if (candidate.Parameters is { } parameters)
+            {
+                if (itemEvent is null || itemEvent.After is null || itemEvent is ItemUpdated && itemEvent.Before is null)
+                {
+                    if (!reportedMissingSnapshot)
+                    {
+                        MissingSnapshots(logger, source.EventId);
+                        reportedMissingSnapshot = true;
+                    }
+                    return false;
+                }
+                if (!await TriggerConditions.MatchesAsync(parameters.When, itemEvent, terms, termCache, ct)) return false;
+            }
+
+            return candidate.Terms is not { Count: > 0 } wanted
+                || await HasTermAsync(itemEvent?.After?.Fields ?? (await CurrentAsync())?.Fields, wanted, termCache, ct);
         }
     }
 
@@ -242,13 +277,25 @@ internal sealed class WorkflowTriggerHandler(
     /// Whether a value of the item is one of the terms (by path, e.g. <c>Documents/Tags/Receipt</c>) or a term below one of them.
     /// Terms are looked for in every field, so the trigger does not depend on field names.
     /// </summary>
-    private async Task<bool> HasTermAsync(ListItemData? item, IReadOnlyList<string> paths, CancellationToken ct)
+    private async Task<bool> HasTermAsync(JsonObject? fields, IReadOnlyList<string> paths, Dictionary<string, HashSet<Guid>> cache, CancellationToken ct)
     {
-        if (item is null)
+        if (fields is null)
         {
             return false;
         }
 
+        var ids = fields.Select(f => f.Value)
+            .SelectMany(value => value is JsonArray array ? array.AsEnumerable() : [value])
+            .OfType<JsonValue>()
+            .Where(value => value.TryGetValue<string>(out var text) && Guid.TryParse(text, out _))
+            .Select(value => Guid.Parse(value.GetValue<string>()));
+        return await HasTermIdsAsync(ids, paths, cache, ct);
+    }
+
+    private async Task<bool> HasTermIdsAsync(IEnumerable<Guid> ids, IReadOnlyList<string> paths, Dictionary<string, HashSet<Guid>> cache, CancellationToken ct)
+    {
+        var key = System.Text.Json.JsonSerializer.Serialize(paths.Order(StringComparer.Ordinal));
+        if (cache.TryGetValue(key, out var cached)) return ids.Any(cached.Contains);
         var wanted = new HashSet<Guid>();
         foreach (var path in paths)
         {
@@ -260,6 +307,7 @@ internal sealed class WorkflowTriggerHandler(
 
         if (wanted.Count == 0)
         {
+            cache[key] = wanted;
             return false;
         }
 
@@ -268,8 +316,7 @@ internal sealed class WorkflowTriggerHandler(
             wanted.UnionWith(descendants);
         }
 
-        return item.Fields.Select(f => f.Value)
-            .SelectMany(value => value is JsonArray array ? array.AsEnumerable() : [value])
-            .Any(value => value is JsonValue text && text.TryGetValue<string>(out var s) && Guid.TryParse(s, out var id) && wanted.Contains(id));
+        cache[key] = wanted;
+        return ids.Any(wanted.Contains);
     }
 }

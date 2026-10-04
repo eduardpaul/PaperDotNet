@@ -8,6 +8,7 @@ from uuid import UUID
 
 if TYPE_CHECKING:
     from .approval_status import ApprovalStatus
+    from .json_object import JsonObject
 
 @dataclass
 class ApprovalResponse(AdditionalDataHolder, Parsable):
@@ -28,6 +29,10 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
     escalated: Optional[bool] = None
     # The id property
     id: Optional[UUID] = None
+    # The inputSchema property
+    input_schema: Optional[JsonObject] = None
+    # The inputs property
+    inputs: Optional[JsonObject] = None
     # The itemId property
     item_id: Optional[UUID] = None
     # The listId property
@@ -42,7 +47,7 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
     title: Optional[str] = None
     # The workspaceId property
     workspace_id: Optional[UUID] = None
-    
+
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> ApprovalResponse:
         """
@@ -53,15 +58,17 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return ApprovalResponse()
-    
+
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
         from .approval_status import ApprovalStatus
+        from .json_object import JsonObject
 
         from .approval_status import ApprovalStatus
+        from .json_object import JsonObject
 
         fields: dict[str, Callable[[Any], None]] = {
             "comment": lambda n : setattr(self, 'comment', n.get_str_value()),
@@ -71,6 +78,8 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
             "dueAt": lambda n : setattr(self, 'due_at', n.get_datetime_value()),
             "escalated": lambda n : setattr(self, 'escalated', n.get_bool_value()),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
+            "inputSchema": lambda n : setattr(self, 'input_schema', n.get_object_value(JsonObject)),
+            "inputs": lambda n : setattr(self, 'inputs', n.get_object_value(JsonObject)),
             "itemId": lambda n : setattr(self, 'item_id', n.get_uuid_value()),
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
             "runId": lambda n : setattr(self, 'run_id', n.get_uuid_value()),
@@ -80,7 +89,7 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
             "workspaceId": lambda n : setattr(self, 'workspace_id', n.get_uuid_value()),
         }
         return fields
-    
+
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -96,6 +105,8 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
         writer.write_datetime_value("dueAt", self.due_at)
         writer.write_bool_value("escalated", self.escalated)
         writer.write_uuid_value("id", self.id)
+        writer.write_object_value("inputSchema", self.input_schema)
+        writer.write_object_value("inputs", self.inputs)
         writer.write_uuid_value("itemId", self.item_id)
         writer.write_uuid_value("listId", self.list_id)
         writer.write_uuid_value("runId", self.run_id)
@@ -104,5 +115,5 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
         writer.write_str_value("title", self.title)
         writer.write_uuid_value("workspaceId", self.workspace_id)
         writer.write_additional_data_value(self.additional_data)
-    
+
 

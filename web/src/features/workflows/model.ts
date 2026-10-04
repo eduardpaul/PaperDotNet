@@ -15,6 +15,7 @@ export interface StepDraft {
   action: string;
   inputs: Record<string, unknown>;
   // approval
+  inputSchema?: Record<string, unknown>;
   name: string;
   assignees: string[];
   title: string;
@@ -31,6 +32,8 @@ export interface StepDraft {
 }
 
 export interface WorkflowDraft {
+  scope?: string;
+  inputSchema?: Record<string, unknown>;
   name: string;
   description: string;
   enabled: boolean;
@@ -62,6 +65,7 @@ export interface TriggerDraft {
   inputs?: Record<string, unknown>;
   /** Module and extension triggers: values the trigger's data must have. */
   data?: Record<string, unknown>;
+  parameters?: { when: Record<string, unknown> };
 }
 
 /** A trigger as the API's JSON has it. */
@@ -77,6 +81,7 @@ export interface PlainTrigger {
   offsetHours?: number | null;
   inputs?: Record<string, unknown> | null;
   data?: Record<string, unknown> | null;
+  parameters?: { when: Record<string, unknown> } | null;
 }
 
 /** A flow as the API's JSON has it (docs/workflows.md). */
@@ -91,6 +96,7 @@ export type PlainStep = {
   name?: string;
   action?: string;
   inputs?: Record<string, unknown>;
+  inputSchema?: Record<string, unknown>;
   assignees?: string[];
   title?: string;
   dueInHours?: number;
@@ -104,6 +110,8 @@ export type PlainStep = {
 };
 
 export interface PlainWorkflow {
+  scope?: string | null;
+  inputSchema?: Record<string, unknown>;
   name?: string;
   description?: string | null;
   enabled?: boolean;
@@ -172,6 +180,7 @@ function stepFromPlain(step: PlainStep): StepDraft {
     type: step.type ?? 'action',
     action: step.action ?? '',
     inputs: { ...(step.inputs ?? {}) },
+    inputSchema: step.inputSchema,
     name: step.name ?? '',
     assignees: step.assignees ?? [],
     title: step.title ?? '',
@@ -188,6 +197,8 @@ function stepFromPlain(step: PlainStep): StepDraft {
 
 export function fromPlain(plain: PlainWorkflow): WorkflowDraft {
   return {
+    scope: plain.scope ?? undefined,
+    inputSchema: plain.inputSchema,
     name: plain.name ?? '',
     description: plain.description ?? '',
     enabled: plain.enabled ?? true,
@@ -202,6 +213,7 @@ export function fromPlain(plain: PlainWorkflow): WorkflowDraft {
       offsetHours: text(plain.trigger?.offsetHours),
       ...(plain.trigger?.terms?.length ? { terms: plain.trigger.terms } : {}),
       ...(plain.trigger?.inputs ? { inputs: plain.trigger.inputs } : {}),
+      ...(plain.trigger?.parameters ? { parameters: plain.trigger.parameters } : {}),
       ...(plain.trigger?.data ? { data: plain.trigger.data } : {}),
     },
     ...(plain.triggers ? { triggers: plain.triggers } : {}),
@@ -218,6 +230,7 @@ function stepToPlain(step: StepDraft): PlainStep {
     case 'approval':
       return {
         type: 'approval',
+        ...(step.inputSchema ? { inputSchema: step.inputSchema } : {}),
         name: step.name.trim(),
         assignees: step.assignees,
         title: orUndefined(step.title),
@@ -245,6 +258,8 @@ function stepToPlain(step: StepDraft): PlainStep {
 
 export function toPlain(draft: WorkflowDraft): PlainWorkflow {
   return {
+    ...(draft.scope ? { scope: draft.scope } : {}),
+    ...(draft.inputSchema ? { inputSchema: draft.inputSchema } : {}),
     name: draft.name.trim(),
     description: orUndefined(draft.description) ?? null,
     enabled: draft.enabled,
@@ -261,55 +276,65 @@ function triggerToPlain(trigger: TriggerDraft): PlainTrigger {
   const { type } = trigger;
   return {
     type,
-    list: type === 'schedule' ? null : (orUndefined(trigger.list) ?? null),
-    contentType: type === 'schedule' ? null : (orUndefined(trigger.contentType) ?? null),
-    changedFields: type === 'itemUpdated' && trigger.changedFields.length ? trigger.changedFields : null,
+    list: ['schedule', 'webhook'].includes(type) ? null : (orUndefined(trigger.list) ?? null),
+    contentType: ['schedule', 'webhook'].includes(type) ? null : (orUndefined(trigger.contentType) ?? null),
+    changedFields:
+      type === 'itemUpdated' && trigger.changedFields.some((field) => field.trim())
+        ? trigger.changedFields.map((field) => field.trim()).filter(Boolean)
+        : null,
     ...(type === 'schedule' ? { cron: trigger.cron.trim(), timeZone: orUndefined(trigger.timeZone) ?? null } : {}),
     ...(type === 'date'
       ? { field: orUndefined(trigger.field) ?? null, offsetHours: number(trigger.offsetHours) ?? null }
       : {}),
-    ...(trigger.terms?.length && type !== 'schedule' ? { terms: trigger.terms } : {}),
+    ...(trigger.terms?.some((term) => term.trim()) && !['schedule', 'webhook'].includes(type)
+      ? { terms: trigger.terms.map((term) => term.trim()).filter(Boolean) }
+      : {}),
     ...(trigger.inputs && type === 'manual' ? { inputs: trigger.inputs } : {}),
     ...(trigger.data ? { data: trigger.data } : {}),
+    ...(trigger.parameters && ['itemAdded', 'itemUpdated'].includes(type) ? { parameters: trigger.parameters } : {}),
   };
 }
 
 // ---- SDK models <-> plain JSON -----------------------------------------------------------------------------------
 
 function stepFromSdk(step: WorkflowStep): PlainStep {
-  const { elseEscaped, then, inputs, ...rest } = step;
+  const { elseEscaped, then, inputs, inputSchema, ...rest } = step;
   const plain = Object.fromEntries(Object.entries(rest).filter(([k, v]) => v !== null && k !== 'additionalData'));
   return {
     ...plain,
     ...(inputs ? { inputs: { ...fieldsOf({ fields: inputs }) } } : {}),
+    ...(inputSchema ? { inputSchema: fieldsOf({ fields: inputSchema }) } : {}),
     ...(then?.length ? { then: then.map(stepFromSdk) } : {}),
     ...(elseEscaped?.length ? { else: elseEscaped.map(stepFromSdk) } : {}),
   } as PlainStep;
 }
 
 function stepToSdk(step: PlainStep): WorkflowStep {
-  const { else: otherwise, then, inputs, ...rest } = step;
+  const { else: otherwise, then, inputs, inputSchema, ...rest } = step;
   return {
     ...rest,
     ...(inputs ? { inputs: jsonObject(inputs) } : {}),
+    ...(inputSchema ? { inputSchema: jsonObject(inputSchema) } : {}),
     ...(then ? { then: then.map(stepToSdk) } : {}),
     ...(otherwise ? { elseEscaped: otherwise.map(stepToSdk) } : {}),
   };
 }
 
 function triggerFromSdk(trigger: WorkflowTrigger): PlainTrigger {
-  const { inputs, data, additionalData: _, ...rest } = trigger;
+  const { inputs, data, parameters, additionalData: _, ...rest } = trigger;
   return {
     ...(Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== null && v !== undefined)) as PlainTrigger),
+    ...(parameters?.when ? { parameters: { when: { ...fieldsOf({ fields: parameters.when }) } } } : {}),
     ...(inputs ? { inputs: { ...fieldsOf({ fields: inputs }) } } : {}),
     ...(data ? { data: { ...fieldsOf({ fields: data }) } } : {}),
   };
 }
 
 function triggerToSdk(trigger: PlainTrigger): WorkflowTrigger {
-  const { inputs, data, ...rest } = trigger;
+  const { inputs, data, parameters, ...rest } = trigger;
   return {
     ...rest,
+    ...(parameters ? { parameters: { when: jsonObject(parameters.when) } } : {}),
     ...(inputs ? { inputs: jsonObject(inputs) } : {}),
     ...(data ? { data: jsonObject(data) } : {}),
   } as WorkflowTrigger;
@@ -317,6 +342,8 @@ function triggerToSdk(trigger: PlainTrigger): WorkflowTrigger {
 
 export function draftFrom(workflow: WorkflowResponse): WorkflowDraft {
   return fromPlain({
+    scope: workflow.scope,
+    ...(workflow.inputSchema ? { inputSchema: { ...fieldsOf({ fields: workflow.inputSchema }) } } : {}),
     name: workflow.name ?? '',
     description: workflow.description,
     enabled: workflow.enabled ?? true,
@@ -333,9 +360,10 @@ export function draftFrom(workflow: WorkflowResponse): WorkflowDraft {
 }
 
 export function requestFrom(draft: WorkflowDraft): WorkflowRequest {
-  const { flow, variables, steps, trigger, triggers, ...plain } = toPlain(draft);
+  const { flow, variables, steps, trigger, triggers, inputSchema, ...plain } = toPlain(draft);
   return {
     ...plain,
+    ...(inputSchema ? { inputSchema: jsonObject(inputSchema) } : {}),
     ...(triggers ? { triggers: triggers.map(triggerToSdk) } : { trigger: triggerToSdk(trigger ?? {}) }),
     ...(flow
       ? { flow: { start: flow.start, nodes: { additionalData: flow.nodes } } }
@@ -379,7 +407,9 @@ export function describeTrigger(trigger: DescribedTrigger | null | undefined): s
   const what = trigger?.contentType ? ` (${trigger.contentType})` : '';
   switch (trigger?.type) {
     case 'manual':
-      return `Started by a person on an item${where}`;
+      return trigger?.list ? `Started manually on items${where}` : 'Started manually in the workspace';
+    case 'webhook':
+      return 'On a webhook request';
     case 'itemAdded':
       return `When an item is added${where}${what}`;
     case 'itemUpdated':
@@ -403,4 +433,21 @@ export function describeTrigger(trigger: DescribedTrigger | null | undefined): s
     default:
       return `On ${trigger?.type ?? 'an event'}${where}`;
   }
+}
+
+/** Pick an enabled manual workflow in the current scope; the server checks every target again. */
+export function manualWorkflows(workflows: WorkflowResponse[], list?: { id?: string | null; name?: string | null }) {
+  return workflows.filter((workflow) => {
+    if (!workflow.enabled || (workflow.listId && workflow.listId !== list?.id)) return false;
+    if (list && workflow.scope === 'workspace') return false;
+    if (!list && workflow.scope === 'list') return false;
+    const triggers = workflow.triggers ?? (workflow.trigger ? [workflow.trigger] : []);
+    return triggers.some(
+      (trigger) =>
+        trigger.type === 'manual' &&
+        (list
+          ? !trigger.list || trigger.list === list.name
+          : !trigger.list && !trigger.contentType && !trigger.terms?.length),
+    );
+  });
 }

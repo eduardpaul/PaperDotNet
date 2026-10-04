@@ -67,6 +67,14 @@ namespace PaperDotNet.Client.Models
 #else
         public global::PaperDotNet.Client.Models.JsonObject Inputs { get; set; }
 #endif
+        /// <summary>The inputSchema property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? InputSchema { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject InputSchema { get; set; }
+#endif
         /// <summary>The is property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -147,6 +155,7 @@ namespace PaperDotNet.Client.Models
                 { "escalateTo", n => { EscalateTo = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "filter", n => { Filter = n.GetStringValue(); } },
                 { "hours", n => { Hours = n.GetDoubleValue(); } },
+                { "inputSchema", n => { InputSchema = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "inputs", n => { Inputs = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "is", n => { Is = n.GetStringValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
@@ -171,6 +180,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteStringValue("filter", Filter);
             writer.WriteDoubleValue("hours", Hours);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputs", Inputs);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputSchema", InputSchema);
             writer.WriteStringValue("is", Is);
             writer.WriteStringValue("name", Name);
             writer.WriteStringValue("step", Step);

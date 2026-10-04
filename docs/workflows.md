@@ -42,6 +42,9 @@ groups **by name**, so they are portable in templates.
   - `manual`: a person starts it (see below);
   - `itemAdded`, `itemUpdated`, `itemDeleted` (moved to the recycle bin),
     `itemRestored`;
+    Use `parameters.when` on `itemAdded` or `itemUpdated` to filter field values,
+    changes and tag additions or removals (see [parameterized item triggers](#parameterized-item-triggers)).
+  - `webhook`: an authenticated request launches a workspace workflow;
   - `schedule`: on `cron` (5 fields: minute hour day month weekday, e.g.
     `0 8 * * 1-5`) in `timeZone` (default: the organization's). The run has
     no item; `{trigger:occurrence}` is the time it is for.
@@ -67,10 +70,15 @@ groups **by name**, so they are portable in templates.
   `document.added`. `terms` (term paths `Group/Set/Term`) needs the item to
   have one of these terms, or a term below one, in any field. Folders never
   trigger workflows.
-- `terms`, `contentType` and the condition are checked against the item's
-  values when the workflow starts (moments after the change), not as they were
-  at the change. Two quick changes can therefore both see the second one's
-  values.
+- Item-created and item-updated triggers accept `parameters.when`: typed field
+  comparisons, tag/collection additions and removals, transitions, and nested
+  AND/OR groups. They evaluate the values captured transactionally with the event,
+  including when two quick edits are delivered later or out of order. Content-type
+  and legacy term filters use these snapshots when available. Module and legacy
+  queued events without snapshots retain their existing live-value filters.
+- The existing workflow-level OData `condition` reads the current item when
+  handled. It remains supported as an additional AND guard; see
+  [how the two condition mechanisms overlap](#trigger-conditions-and-workflow-level-odata).
 - **Timed triggers** start once per occurrence (`schedule`) or once per item
   and date value (`date`), checked every minute. Only moments after the
   workflow was saved or turned on count: a new workflow does not run for
@@ -92,10 +100,11 @@ when a file uploaded with the tag is processed:
 ```
 
 **Condition:** an OData filter on the item, as in the items API. It needs the
-trigger's `list` (every trigger's, with several) and is checked when the
-trigger fires. An item that does not match starts nothing. A condition that
+trigger's `list` (every trigger's, with several) and queries the current item when
+the event is processed. An item that does not match starts nothing. A condition that
 can no longer be checked (for example, a field was removed) gives a failed run
-with the error.
+with the error. This supported workflow-level guard is optional and differs from
+the event-snapshot checks in `parameters.when`.
 
 **Steps** run in order, on behalf of the organization:
 
@@ -105,6 +114,8 @@ with the error.
   - Overdue requests (`dueInHours`) are escalated: the `escalateTo` people are
     added as assignees and everyone is notified.
   - Needs a `name`: later conditions and tokens refer to it.
+  - Optional `inputSchema` collects information with the decision; see
+    [Approval forms](#approval-forms).
 - `condition`: either `step` + `is` (an approval outcome) or `filter` (OData
   on the item), then `then` / `else` steps.
 - `delay`: waits `hours` (the run continues within a minute of the time).
@@ -687,3 +698,312 @@ Each result has both `sourceItem` and `targetItem`, plus `id`, `type`, `directed
 `items.updateRelationship` patches it and null removes a key. Updates require the read edge version and are planned,
 so further reads in the same script still see the old attributes. Workflows execute with their existing system access;
 SDK scripts execute with the caller's permissions. Item fields and edge attributes have separate versions.
+
+## On-demand and workspace workflows
+
+`scope` is `workspace` or `list`. Omit it for existing trigger-based behavior.
+Workspace workflows accept `manual`, `schedule`, and `webhook` triggers without
+an item, and item or module events from any list. Event runs carry the triggering
+item in the execution context. List workflows name a `list` in every trigger
+and require target items for manual runs. A workflow permits manual launching by including a `manual`
+trigger; use one manual trigger per workflow. `enabled: false` also disables
+manual and webhook launches.
+
+```json
+{
+  "name": "Workspace report",
+  "scope": "workspace",
+  "triggers": [
+    { "type": "manual" },
+    { "type": "schedule", "cron": "0 8 * * 1" },
+    { "type": "webhook" }
+  ],
+  "variables": { "period": "week", "includeArchived": false },
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "period": { "type": "string", "enum": ["week", "month"], "default": "week" },
+      "includeArchived": { "type": "boolean", "default": false }
+    },
+    "required": ["period"]
+  },
+  "steps": [{ "type": "action", "action": "notify", "inputs": { "to": ["admin"], "title": "Report requested", "body": "Period: {var:period}" } }]
+}
+```
+
+Launch from **Run workflow** on the workspace home page, **Launch** in workflow
+settings, or **Run workflow** after selecting list items. The UI uses
+react-jsonschema-form and a CSP-compatible validator (JSON Schema draft-07)
+to generate and validate
+parameter fields. The
+workflow editor exposes scope, manual opt-in, and an input schema JSON editor.
+Several triggers can be configured through its workflow JSON view.
+
+Manual launches send `POST /v1.0/workspaces/{workspaceId}/workflows/{id}/runs`
+with `{ "inputs": { "period": "month" } }`, adding `listId` and `itemIds` for
+list workflows. Webhooks send the input object directly to
+`POST /v1.0/workspaces/{workspaceId}/workflows/{id}/webhook`. Webhooks use normal
+API authentication, the `workflow.write` scope, and workspace Contribute
+access. They cannot target items. Neither endpoint starts disabled workflows.
+
+`inputSchema` applies to manual and webhook launches, taking precedence over
+the older manual trigger's `inputs` schema. Defaults are applied before server
+validation. Supported server constraints are property types, `required`, `enum`,
+`minimum`, `maximum`, `minLength`, `maxLength`, nested object properties and array
+`items`. Unknown input names are rejected. Scheduled runs have an empty input
+object; use run variables or script defaults for values needed by scheduled work.
+
+Every new run stores an `executionContext`, also returned in the run response:
+
+```json
+{
+  "trigger": "manual",
+  "input": { "period": "month", "includeArchived": false },
+  "data": {},
+  "workspaceId": "…",
+  "listId": null,
+  "itemId": null,
+  "userId": "…",
+  "startedAt": "2026-10-04T08:00:00+00:00"
+}
+```
+
+Variables have separate scopes: `{input:name}` reads the original launch
+parameters, `{var:name}` reads mutable run variables, `{trigger:name}` reads
+trigger data, `{step:node.path}` reads step outputs, and `{context:workspaceId}`
+(or another context path) reads execution metadata. Submitted inputs also
+initialize run variables for compatibility. Inputs and variables are local to
+the run; workspace scope describes the workflow's target, not shared mutable
+workspace variables. Activities receive `WorkflowActivityContext.ExecutionContext`;
+scripts receive `context` and `input` alongside `vars`, `steps`, and `trigger`.
+Existing persisted runs continue using their original trigger data.
+
+Workspace list-event filters are optional: `list` narrows to a list name,
+`contentType` matches a name or template key, `terms` matches term paths and
+descendants, and `changedFields` narrows `itemUpdated` to named fields.
+The editor exposes these filters; leave the list empty to watch all workspace lists.
+
+Use item-created and item-updated triggers with `parameters.when` to react to
+specific field values or changes. The same parameters work across workspace lists
+without requiring a named list. See [Parameterized item triggers](#parameterized-item-triggers).
+
+## Approval forms at any step
+
+An approval step can provide its own `inputSchema`, using the same JSON Schema
+renderer and domain pickers as manual launches. Each step collects its own answers;
+workspace workflows can request approvals without an item.
+
+```json
+{
+  "type": "approval",
+  "name": "Review",
+  "assignees": ["admin"],
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "amount": { "type": "integer", "minimum": 1, "maximum": 100 },
+      "route": { "type": "string", "enum": ["standard", "express"] },
+      "urgent": { "type": "boolean", "default": false }
+    },
+    "required": ["amount", "route"]
+  }
+}
+```
+
+`POST /v1.0/me/approvals/{id}/decision` accepts `inputs` alongside `outcome` and
+`comment`. The server applies defaults and validates before deciding or resuming
+the workflow; invalid input leaves the approval pending. Both approval and rejection
+collect the form's required answers. Assignee checks and concurrent-decision handling
+remain unchanged.
+
+The approval stores its schema when created, so editing the workflow definition
+does not change a pending form. The run keeps its original version for subsequent
+steps. The response and approval history include the schema and submitted answers;
+the UI opens pending forms for review and displays historical forms read-only.
+
+Later steps read answers through `{step:Review.input.amount}` and
+`{step:Review.input.route}`, or `steps.Review.input.amount` in scripts. Approval
+outputs also include the outcome, deciding user and comment. The original launch
+`input` remains separate from approval answers. Schemas may collect information at
+several approval steps in the same workflow.
+
+### Relationship, tag, and keyword input fields
+
+Launch and approval `inputSchema` properties can add an `x-paperdotnet` descriptor
+for domain pickers. Values are ordinary IDs in `input` and approval step outputs.
+Use `type: "string"` for one selection, or `type: "array"` with string `items` for
+multiple selections. Add the property name to its parent object's `required` array
+when at least one selection is required. Optional fields can be omitted; optional
+multiple fields can be empty. Array `minItems`, `maxItems`, and `uniqueItems` are
+validated on the server as well as in the form.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "dependency": {
+      "type": "string",
+      "title": "Dependency",
+      "x-paperdotnet": {
+        "kind": "relationship",
+        "relationshipType": "Depends on"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "title": "Tags",
+      "items": { "type": "string" },
+      "maxItems": 5,
+      "uniqueItems": true,
+      "x-paperdotnet": {
+        "kind": "terms",
+        "groupId": "11111111-1111-1111-1111-111111111111",
+        "termSetId": "22222222-2222-2222-2222-222222222222",
+        "termIds": ["33333333-3333-3333-3333-333333333333"]
+      }
+    },
+    "keyword": {
+      "type": "string",
+      "title": "Keyword",
+      "x-paperdotnet": { "kind": "keywords" }
+    }
+  },
+  "required": ["dependency", "tags"]
+}
+```
+
+Replace example IDs with existing taxonomy IDs. `kind: "relationship"` requires a
+relationship type ID or name and collects readable target items, including items
+in other workspaces. It does not create edges when the form is submitted; workflow
+steps decide how to use those target IDs and the configured type. Relationship
+cardinality constraints still apply when a step creates an edge.
+
+For `terms` and `keywords`, optional `groupId`, `termSetId`, and `termIds` restrictions
+are intersected. Explicit `termIds` allow exactly those terms, without descendants.
+Without a fixed term set or explicit IDs, the terms picker lets the user choose a
+term set, restricted to the configured group if present. Keyword inputs accept only
+terms eligible for keyword fields, including promoted keywords. Forms select
+existing terms; they do not create terms. Deprecated, missing, inaccessible item,
+out-of-scope, duplicate, or malformed selections are rejected before starting a run
+or deciding an approval. Each domain field accepts at most 100 IDs. Nested objects
+and repeated object sections use the same pickers.
+
+### Parameterized item triggers
+
+`itemAdded` and `itemUpdated` accept `parameters: { "when": condition }`.
+Each condition is a leaf, an `all` group (AND), or an `any` group (OR).
+Groups cannot be empty. Multiple triggers are alternatives and still create at
+most one run per workflow and event.
+
+```json
+{
+  "scope": "workspace",
+  "trigger": {
+    "type": "itemUpdated",
+    "parameters": {
+      "when": {
+        "all": [
+          { "target": "tags", "operator": "added", "term": "Documents/Tags/Receipt" },
+          { "target": "field", "field": "status", "operator": "eq", "value": "Ready" }
+        ]
+      }
+    }
+  }
+}
+```
+
+| Target | Operators | Operands |
+| --- | --- | --- |
+| `field` | `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `startsWith`, `endsWith` | `field` and `value` |
+| `field` | `isEmpty`, `isNotEmpty`, `changed` | `field`, without `value` |
+| Collection field | `containsAny`, `containsAll` | `field` and a nonempty `value` array |
+| Collection field | `added`, `removed` | `field`; optional single `value`, otherwise any added/removed element |
+| `field` | `transition` | `field`, `from`, and `to` |
+| `tags` | `contains` | Required `term` path |
+| `tags` | `added`, `removed` | Optional `term` path; omit for any term |
+| `tags` | `isEmpty`, `isNotEmpty` | No operand |
+
+Fields use their configured names, including `title`. Numbers and currencies compare
+numerically, dates chronologically, text ordinally and case-sensitively, and reference
+fields by ID. Collection equality and changes use set semantics; reordering alone
+is not a change. Ordering requires a scalar number, date or text field; text
+operators require text fields; collection operators require multiple-value fields.
+Operands must have the field's type, without string/number coercion.
+
+`tags` aggregates only managed-metadata and keyword fields, including promoted
+keywords. A term path matches descendants by default; set `includeDescendants: false`
+for an exact term. Use groups to combine several term paths. An item without any
+configured taxonomy fields does not match a tag condition, even `isEmpty`.
+
+Value checks use the after snapshot. On creation, assigned collection values count
+as additions; `changed`, `removed`, and `transition` are update-only. A field absent
+from the content-type schema, or incompatible with the condition, does not match,
+including negative comparisons. A declared optional field without a value is empty.
+Empty means null, an empty string, or an empty array; whitespace is not empty.
+
+Save validation rejects malformed trees, unsupported operators, invalid term paths,
+and incompatible known list fields. Trees are limited to eight levels and 100 total
+nodes; comparison arrays contain at most 100 primitive values. Workspace conditions
+are validated structurally and checked against each event's field types. Explicit
+list conditions must reference a field on an eligible content type in that list.
+
+The editor provides a **Trigger parameters** JSON field; `{}` removes parameters.
+The JSON view also supports parameters on every entry in `triggers`. Existing
+`changedFields`, `terms`, and workflow-level OData conditions remain additional AND
+guards. Parameters are supported only on item-created/item-updated triggers.
+
+Item event execution context includes `context.data.before`, `context.data.after`
+(each with identity, `fields` and `fieldTypes`) and `context.data.changedFields`.
+Creation has a null before snapshot; deletion has a null after snapshot. New
+conditions never fall back to live item values: old queued events without complete
+snapshots skip parameterized matches and produce a warning diagnostic. Existing
+legacy workflows continue using their original filters.
+
+The former `tagAdded` trigger is removed. SQLite and PostgreSQL data migrations
+disable every existing definition containing it, including definitions with several
+triggers, without changing historical versions or runs. Replace it with `itemAdded`
+and/or `itemUpdated` plus an added-tag condition, then explicitly re-enable the
+workflow. Invalid trigger definitions cannot be saved.
+
+### Trigger conditions and workflow-level OData
+
+`parameters.when` and the workflow-level `condition` overlap, but neither is a
+complete replacement for the other. The existing OData condition remains supported
+and is not deprecated. References to it as "legacy" mean the previously existing
+mechanism, not a requirement to migrate or remove it.
+
+| Capability | Trigger `parameters.when` | Workflow-level OData `condition` |
+| --- | --- | --- |
+| Field comparisons, text matching, collection membership, AND/OR | Supported | Supported through the items API's filter syntax |
+| Added/removed tags or collection values, changed fields, before-to-after transitions | Supported | No access to the previous values |
+| Text transformations such as `tolower` and `toupper` | Not supported | Supported |
+| Item metadata such as `createdAt`, `updatedAt`, and `createdBy` | Not currently exposed as condition fields | Supported |
+| Trigger sources | `itemAdded` and `itemUpdated` only | Can guard other triggers with an associated item |
+| Values inspected | Snapshots captured with the source event | Current item when processing the event |
+| Evaluation | In memory; taxonomy resolution cached per event | An item query for each workflow whose triggers match |
+
+For creation/update workflows whose checks fit the supported operators, use
+`parameters.when` alone; an OData condition is not required. Retain OData when its
+additional capabilities or a check of the current item are needed. Existing OData
+workflows continue to work without adding trigger parameters. Workflows without an
+associated item do not evaluate the item-level OData guard.
+
+When both are configured, the order is:
+
+1. Check the event type, list/content-type selectors, and other trigger filters,
+   including `parameters.when`.
+2. If any trigger matches, evaluate the workflow-level OData condition once.
+3. Start one run only if both checks pass. An OData evaluation error produces a
+   failed run so the error remains visible.
+
+For example, an update sets `status` to `Ready`, followed immediately by another
+update setting it to `Draft`. When the first event is processed later,
+`parameters.when` checking `status eq Ready` matches its captured after snapshot.
+An additional OData `condition` of `fields/status eq 'Ready'` can reject that same
+event because the current item is already `Draft`. Keeping OData's live-item
+evaluation preserves the behavior of existing workflows.
+
+Do not assume mechanically translated filters have identical behavior: new
+conditions explicitly use ordinal, case-sensitive text comparisons, collection
+set semantics, and non-matches for missing or incompatible fields. Check these
+semantics when replacing an existing OData condition.

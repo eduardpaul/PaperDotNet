@@ -92,6 +92,9 @@ export interface ScriptGlobals {
   steps: Record<string, unknown>;
   /** The trigger's data. */
   trigger: Record<string, unknown>;
+  /** Uniform execution metadata and original launch parameters. */
+  context: Record<string, unknown>;
+  input: Record<string, unknown>;
   items: ScriptItems;
   /** A line in the run's log. */
   log(text: unknown): void;
@@ -133,6 +136,8 @@ declare const vars: Record<string, any>;
 declare const steps: Record<string, any>;
 /** The trigger's data. */
 declare const trigger: Record<string, any>;
+declare const context: Record<string, any>;
+declare const input: Record<string, any>;
 /** The workspace's lists, by name. Writes are applied in order when the script has returned. */
 declare const items: {
   get(list: string, id: string): Promise<ScriptItem | null>;
@@ -160,6 +165,8 @@ export interface RunScriptOptions {
   vars?: Record<string, unknown>;
   steps?: Record<string, unknown>;
   trigger?: Record<string, unknown>;
+  context?: Record<string, unknown>;
+  input?: Record<string, unknown>;
   /** Apply the planned writes (default true); false only plans them (a dry run). */
   apply?: boolean;
 }
@@ -207,7 +214,7 @@ export async function runWorkflowScript(client: PaperDotNetClient, options: RunS
   let body: (...args: unknown[]) => Promise<unknown>;
   try {
     // "use strict" on the first line keeps the script's line numbers.
-    body = new AsyncFunction('item', 'vars', 'steps', 'trigger', 'items', 'log', `"use strict";${code}`);
+    body = new AsyncFunction('item', 'vars', 'steps', 'trigger', 'context', 'input', 'items', 'log', `"use strict";${code}`);
   } catch (error) {
     throw new ScriptError(`code: ${(error as Error).message}`);
   }
@@ -423,7 +430,7 @@ export async function runWorkflowScript(client: PaperDotNetClient, options: RunS
   let result: unknown;
   try {
     result = json(
-      await body(run, vars, json(options.steps ?? {}), json(options.trigger ?? {}), items, (text: unknown) => log.push(String(text))),
+      await body(run, vars, json(options.steps ?? {}), json(options.trigger ?? {}), json(options.context ?? {}), json(options.input ?? {}), items, (text: unknown) => log.push(String(text))),
     );
   } catch (error) {
     throw new ScriptError(failure ?? withLine(error));

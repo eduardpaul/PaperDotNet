@@ -49,6 +49,14 @@ namespace PaperDotNet.Client.Models
 #else
         public global::PaperDotNet.Client.Models.FlowDefinition Flow { get; set; }
 #endif
+        /// <summary>The inputSchema property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? InputSchema { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject InputSchema { get; set; }
+#endif
         /// <summary>The key property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -64,6 +72,14 @@ namespace PaperDotNet.Client.Models
 #nullable restore
 #else
         public string Name { get; set; }
+#endif
+        /// <summary>The scope property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Scope { get; set; }
+#nullable restore
+#else
+        public string Scope { get; set; }
 #endif
         /// <summary>The steps property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -128,8 +144,10 @@ namespace PaperDotNet.Client.Models
                 { "description", n => { Description = n.GetStringValue(); } },
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
                 { "flow", n => { Flow = n.GetObjectValue<global::PaperDotNet.Client.Models.FlowDefinition>(global::PaperDotNet.Client.Models.FlowDefinition.CreateFromDiscriminatorValue); } },
+                { "inputSchema", n => { InputSchema = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "key", n => { Key = n.GetStringValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
+                { "scope", n => { Scope = n.GetStringValue(); } },
                 { "steps", n => { Steps = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>(global::PaperDotNet.Client.Models.WorkflowStep.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "trigger", n => { Trigger = n.GetObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>(global::PaperDotNet.Client.Models.WorkflowTrigger.CreateFromDiscriminatorValue); } },
                 { "triggers", n => { Triggers = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowTrigger>(global::PaperDotNet.Client.Models.WorkflowTrigger.CreateFromDiscriminatorValue)?.AsList(); } },
@@ -148,8 +166,10 @@ namespace PaperDotNet.Client.Models
             writer.WriteStringValue("description", Description);
             writer.WriteBoolValue("enabled", Enabled);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.FlowDefinition>("flow", Flow);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputSchema", InputSchema);
             writer.WriteStringValue("key", Key);
             writer.WriteStringValue("name", Name);
+            writer.WriteStringValue("scope", Scope);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>("steps", Steps);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>("trigger", Trigger);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowTrigger>("triggers", Triggers);

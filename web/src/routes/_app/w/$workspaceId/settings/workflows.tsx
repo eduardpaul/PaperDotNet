@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState, Skeleton } from '@/components/ui/feedback';
 import { Checkbox } from '@/components/ui/select';
 import { BuiltInWorkflows } from '@/features/workflows/built-in-workflows';
+import { LaunchWorkflowButton } from '@/features/workflows/launch-workflow';
 import { WorkflowEditor } from '@/features/workflows/workflow-editor';
 import { describeTriggers, draftFrom, requestFrom } from '@/features/workflows/model';
 import { builtInWorkflowsQuery, workflowsQuery } from '@/features/workflows/queries';
@@ -49,7 +50,7 @@ function Workflows() {
 
   // A built-in workflow is switched through its own settings (its definition cannot be replaced).
   const toggle = useMutation({
-    mutationFn: ({ workflow, enabled }: { workflow: WorkflowResponse; enabled: boolean }) =>
+    mutationFn: ({ workflow, enabled }: { workflow: WorkflowResponse; enabled: boolean }): Promise<unknown> =>
       workflow.builtIn
         ? workspaceBuilder(workspaceId).workflows.builtIns.byKey(workflow.builtIn).put({ enabled })
         : workspaceBuilder(workspaceId)
@@ -106,6 +107,9 @@ function Workflows() {
                     {format.relative(workflow.updatedAt)}
                   </span>
                 </button>
+                {(workspace?.access === 'contribute' || canManage) && (
+                  <LaunchWorkflowButton workspaceId={workspaceId} workflow={workflow} />
+                )}
                 <Button asChild variant="ghost" size="icon" aria-label={`Runs of ${workflow.name}`}>
                   <Link to="/w/$workspaceId/settings/runs" params={{ workspaceId }} search={{ workflow: workflow.id! }}>
                     <History />

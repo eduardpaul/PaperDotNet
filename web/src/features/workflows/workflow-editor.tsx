@@ -30,7 +30,8 @@ import { actionCatalogQuery, workflowsQuery, triggerCatalogQuery } from './queri
 import { JsonInput, StepList } from './step-editor';
 
 const triggerLabels: Record<string, string> = {
-  manual: 'A person starts it on an item',
+  manual: 'A person starts it manually',
+  webhook: 'A webhook request arrives',
   itemAdded: 'An item is added',
   itemUpdated: 'An item changes',
   itemDeleted: 'An item is deleted',
@@ -150,6 +151,44 @@ export function WorkflowEditor({
                   )}
                 </Row>
 
+                <Row
+                  label="Scope"
+                  hint="Workspace workflows can react to events across any list, or run on demand. List workflows target one list."
+                >
+                  {(id) => (
+                    <Select
+                      id={id}
+                      value={draft.scope ?? ''}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          scope: e.target.value || undefined,
+                          trigger:
+                            e.target.value === 'workspace' && draft.trigger.type === 'manual'
+                              ? { ...draft.trigger, list: '', contentType: '', terms: [] }
+                              : draft.trigger,
+                        })
+                      }
+                    >
+                      <option value="">From triggers (existing behavior)</option>
+                      <option value="workspace">Workspace</option>
+                      <option value="list">List items</option>
+                    </Select>
+                  )}
+                </Row>
+                <Row
+                  label="Input schema"
+                  hint="JSON Schema for launch parameters. Use properties, required, enum and default. Add x-paperdotnet for relationship, terms or keywords pickers."
+                >
+                  {() => (
+                    <JsonInput
+                      aria-label="Workflow input schema"
+                      rows={6}
+                      value={draft.inputSchema ?? { type: 'object', properties: {} }}
+                      onChange={(value) => setDraft({ ...draft, inputSchema: value as Record<string, unknown> })}
+                    />
+                  )}
+                </Row>
                 <section className="flex flex-col gap-3 rounded-lg border bg-surface-muted/30 p-4">
                   <h3 className="text-[13px] font-semibold">When</h3>
                   {draft.triggers ? (
@@ -164,7 +203,14 @@ export function WorkflowEditor({
                           <Select
                             id={id}
                             value={draft.trigger.type}
-                            onChange={(e) => setTrigger({ type: e.target.value })}
+                            onChange={(e) =>
+                              setTrigger({
+                                type: e.target.value,
+                                ...(e.target.value === 'manual' && draft.scope === 'workspace'
+                                  ? { list: '', contentType: '', terms: [] }
+                                  : {}),
+                              })
+                            }
                           >
                             {(triggers ?? []).map((t) => (
                               <option key={t.key} value={t.key!} title={t.description ?? undefined}>
@@ -200,24 +246,28 @@ export function WorkflowEditor({
                           </Row>
                         </>
                       )}
-                      {draft.trigger.type !== 'schedule' && (
-                        <Row label="List">
-                          {(id) => (
-                            <Select
-                              id={id}
-                              value={draft.trigger.list}
-                              onChange={(e) => setTrigger({ list: e.target.value, contentType: '', changedFields: [] })}
-                            >
-                              <option value="">Any list</option>
-                              {lists?.map((l) => (
-                                <option key={l.id} value={l.name!}>
-                                  {l.name}
-                                </option>
-                              ))}
-                            </Select>
-                          )}
-                        </Row>
-                      )}
+                      {!(draft.scope === 'workspace' && draft.trigger.type === 'manual') &&
+                        draft.trigger.type !== 'schedule' &&
+                        draft.trigger.type !== 'webhook' && (
+                          <Row label="List">
+                            {(id) => (
+                              <Select
+                                id={id}
+                                value={draft.trigger.list}
+                                onChange={(e) =>
+                                  setTrigger({ list: e.target.value, contentType: '', changedFields: [] })
+                                }
+                              >
+                                <option value="">Any list</option>
+                                {lists?.map((l) => (
+                                  <option key={l.id} value={l.name!}>
+                                    {l.name}
+                                  </option>
+                                ))}
+                              </Select>
+                            )}
+                          </Row>
+                        )}
                       {draft.trigger.type === 'date' && (
                         <>
                           <Row label="Date field">
@@ -268,6 +318,65 @@ export function WorkflowEditor({
                           )}
                         </Row>
                       )}
+                      {['itemAdded', 'itemUpdated'].includes(draft.trigger.type) && (
+                        <Row
+                          label="Trigger parameters"
+                          hint="JSON conditions evaluated against the event: all/any groups with field or tags conditions. Leave empty for every event."
+                        >
+                          {() => (
+                            <JsonInput
+                              aria-label="Trigger parameters"
+                              rows={8}
+                              value={draft.trigger.parameters ?? {}}
+                              onChange={(value) =>
+                                setTrigger({
+                                  parameters: Object.keys(value as Record<string, unknown>).length
+                                    ? (value as { when: Record<string, unknown> })
+                                    : undefined,
+                                })
+                              }
+                            />
+                          )}
+                        </Row>
+                      )}
+                      {!triggerList && !['manual', 'schedule', 'webhook'].includes(draft.trigger.type) && (
+                        <Row label="Content type" hint="Optional name or template key; leave empty for any type.">
+                          {(id) => (
+                            <Input
+                              id={id}
+                              value={draft.trigger.contentType}
+                              onChange={(e) => setTrigger({ contentType: e.target.value })}
+                            />
+                          )}
+                        </Row>
+                      )}
+                      {!['schedule', 'webhook', 'itemDeleted'].includes(draft.trigger.type) &&
+                        !(draft.scope === 'workspace' && draft.trigger.type === 'manual') && (
+                          <Row
+                            label="Tags"
+                            hint="Optional legacy term paths, one per line (Group/Set/Term). Matches items with any of these tags or descendants."
+                          >
+                            {(id) => (
+                              <Textarea
+                                id={id}
+                                rows={3}
+                                value={(draft.trigger.terms ?? []).join('\n')}
+                                onChange={(e) => setTrigger({ terms: e.target.value.split('\n') })}
+                              />
+                            )}
+                          </Row>
+                        )}
+                      {draft.trigger.type === 'itemUpdated' && !triggerList && (
+                        <Row label="Only when these change" hint="Optional field names separated by commas.">
+                          {(id) => (
+                            <Input
+                              id={id}
+                              value={draft.trigger.changedFields.join(',')}
+                              onChange={(e) => setTrigger({ changedFields: e.target.value.split(',') })}
+                            />
+                          )}
+                        </Row>
+                      )}
                       {draft.trigger.type === 'itemUpdated' && triggerList && (
                         <Row label="Only when these change">
                           {(_, labelId) => (
@@ -287,6 +396,44 @@ export function WorkflowEditor({
                       )}
                     </div>
                   )}
+                  {(draft.triggers ?? [draft.trigger]).some((t) => t.type === 'webhook') && (
+                    <Row
+                      label="Webhook URL"
+                      hint="Send a JSON input object with an API token that has workflow.write and workspace Contribute access."
+                    >
+                      {(id) => (
+                        <Input
+                          id={id}
+                          readOnly
+                          value={
+                            workflow?.id
+                              ? `${location.origin}/v1.0/workspaces/${workspaceId}/workflows/${workflow.id}/webhook`
+                              : 'Create the workflow to get its webhook URL.'
+                          }
+                        />
+                      )}
+                    </Row>
+                  )}
+                  <label className="flex items-center gap-2 text-[13px]">
+                    <Checkbox
+                      disabled={
+                        (draft.triggers ?? [draft.trigger]).length === 1 &&
+                        (draft.triggers ?? [draft.trigger])[0]?.type === 'manual'
+                      }
+                      checked={(draft.triggers ?? [draft.trigger]).some((t) => t.type === 'manual')}
+                      onChange={(e) => {
+                        const all = draft.triggers ?? [toPlain(draft).trigger!];
+                        const next = e.target.checked
+                          ? [
+                              ...all,
+                              { type: 'manual', list: draft.scope === 'workspace' ? null : draft.trigger.list || null },
+                            ]
+                          : all.filter((t) => t.type !== 'manual');
+                        if (next.length) setDraft({ ...draft, triggers: next });
+                      }}
+                    />
+                    Allow manual launch
+                  </label>
                   <Row
                     label="Only if the item matches"
                     hint={

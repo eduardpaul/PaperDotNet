@@ -29,6 +29,8 @@ class WorkflowStep(AdditionalDataHolder, Parsable):
     filter: Optional[str] = None
     # The hours property
     hours: Optional[float] = None
+    # The inputSchema property
+    input_schema: Optional[JsonObject] = None
     # The inputs property
     inputs: Optional[JsonObject] = None
     # The is property
@@ -43,7 +45,7 @@ class WorkflowStep(AdditionalDataHolder, Parsable):
     title: Optional[str] = None
     # The type property
     type: Optional[str] = None
-    
+
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> WorkflowStep:
         """
@@ -54,7 +56,7 @@ class WorkflowStep(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return WorkflowStep()
-    
+
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -72,6 +74,7 @@ class WorkflowStep(AdditionalDataHolder, Parsable):
             "escalateTo": lambda n : setattr(self, 'escalate_to', n.get_collection_of_primitive_values(str)),
             "filter": lambda n : setattr(self, 'filter', n.get_str_value()),
             "hours": lambda n : setattr(self, 'hours', n.get_float_value()),
+            "inputSchema": lambda n : setattr(self, 'input_schema', n.get_object_value(JsonObject)),
             "inputs": lambda n : setattr(self, 'inputs', n.get_object_value(JsonObject)),
             "is": lambda n : setattr(self, 'is_', n.get_str_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
@@ -81,7 +84,7 @@ class WorkflowStep(AdditionalDataHolder, Parsable):
             "type": lambda n : setattr(self, 'type', n.get_str_value()),
         }
         return fields
-    
+
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -97,6 +100,7 @@ class WorkflowStep(AdditionalDataHolder, Parsable):
         writer.write_collection_of_primitive_values("escalateTo", self.escalate_to)
         writer.write_str_value("filter", self.filter)
         writer.write_float_value("hours", self.hours)
+        writer.write_object_value("inputSchema", self.input_schema)
         writer.write_object_value("inputs", self.inputs)
         writer.write_str_value("is", self.is_)
         writer.write_str_value("name", self.name)
@@ -105,5 +109,5 @@ class WorkflowStep(AdditionalDataHolder, Parsable):
         writer.write_str_value("title", self.title)
         writer.write_str_value("type", self.type)
         writer.write_additional_data_value(self.additional_data)
-    
+
 

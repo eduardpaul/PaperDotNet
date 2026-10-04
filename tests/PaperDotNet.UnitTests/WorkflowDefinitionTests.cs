@@ -29,6 +29,72 @@ public sealed class WorkflowDefinitionTests
                 : string.Empty)));
 
     [Fact]
+    public void Domain_selection_schemas_require_typed_configuration_and_validate_cardinality()
+    {
+        static JsonObject Schema(string property) => JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"selection\":" + property + "},\"required\":[\"selection\"]}")!.AsObject();
+        Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema("""{"type":"string","x-paperdotnet":{"kind":"relationship"}}""")));
+        Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema("""{"type":"number","x-paperdotnet":{"kind":"terms"}}""")));
+        Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema("""{"type":"string","x-paperdotnet":{"kind":"terms","groupId":"invalid"}}""")));
+        Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema("""{"type":"string","x-paperdotnet":{"kind":"keywords","termIds":[]}}""")));
+        var schema = Schema("""{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":2,"uniqueItems":true,"x-paperdotnet":{"kind":"terms"}}""");
+        Assert.Empty(WorkflowInputs.ValidateSchema(schema));
+        Assert.NotNull(WorkflowInputs.Check(schema, new JsonObject { ["selection"] = new JsonArray() }));
+        Assert.NotNull(WorkflowInputs.Check(schema, new JsonObject { ["selection"] = new JsonArray("one", "one") }));
+        Assert.NotNull(WorkflowInputs.Check(schema, new JsonObject { ["selection"] = new JsonArray("one", "two", "three") }));
+        Assert.Null(WorkflowInputs.Check(schema, new JsonObject { ["selection"] = new JsonArray("one", "two") }));
+    }
+
+    [Fact]
+    public void Approval_input_schemas_are_validated_and_compiled_for_steps_and_flows()
+    {
+        var schema = JsonNode.Parse("""{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"]}""")!.AsObject();
+        var step = new WorkflowStep("approval", Name: "Review", Assignees: ["admin"], InputSchema: schema);
+        Assert.Empty(Definitions.ValidateSteps([step], Actions));
+        Assert.True(JsonNode.DeepEquals(schema, Definitions.Compile([step]).Nodes["Review"].Inputs!["inputSchema"]));
+        var invalid = JsonNode.Parse("""{"type":"object","properties":{"answer":{"type":"unsupported"}}}""")!.AsObject();
+        Assert.NotEmpty(Definitions.ValidateSteps([step with { InputSchema = invalid }], Actions));
+        var flow = new FlowDefinition("Review", new Dictionary<string, FlowNode>
+        {
+            ["Review"] = new("approval", new JsonObject { ["assignees"] = new JsonArray("admin"), ["inputSchema"] = invalid.DeepClone() }),
+        });
+        Assert.NotEmpty(Definitions.ValidateFlow(flow, Actions));
+    }
+
+    [Fact]
+    public void Explicit_scopes_restrict_trigger_targets()
+    {
+        var triggers = new HashSet<string>(["manual", "schedule", "webhook", "itemAdded", "itemUpdated"]);
+        List<string> Check(string scope, params WorkflowTrigger[] values) => Definitions.Validate(
+            new WorkflowSpec(null, null, [Act("a")], Triggers: values, Scope: scope), triggers, Actions);
+        Assert.Empty(Check("workspace", new WorkflowTrigger("manual"), new WorkflowTrigger("webhook"), new WorkflowTrigger("schedule", Cron: "0 8 * * *")));
+        Assert.NotEmpty(Check("workspace", new WorkflowTrigger("manual", List: "Invoices")));
+        Assert.Empty(Check("workspace", new WorkflowTrigger("itemAdded")));
+        Assert.Empty(Check("workspace", new WorkflowTrigger("itemUpdated", ContentType: "Invoice", Terms: ["Documents/Tags/Receipt"])));
+        Assert.NotEmpty(Check("list", new WorkflowTrigger("manual")));
+        Assert.Empty(Check("list", new WorkflowTrigger("manual", List: "Invoices")));
+        Assert.NotEmpty(Check("unknown", new WorkflowTrigger("manual")));
+    }
+
+    [Fact]
+    public void Launch_inputs_apply_defaults_and_enforce_choices_and_ranges()
+    {
+        var schema = JsonNode.Parse("""
+            {"type":"object","properties":{"choice":{"type":"string","enum":["A","B"]},"count":{"type":"integer","minimum":1,"maximum":5,"default":2},"flag":{"type":"boolean","default":false}},"required":["choice"]}
+            """)!.AsObject();
+        var inputs = WorkflowInputs.WithDefaults(schema, new JsonObject { ["choice"] = "A" });
+        Assert.Empty(WorkflowInputs.ValidateSchema(schema));
+        Assert.Null(WorkflowInputs.Check(schema, inputs));
+        Assert.Equal(2, inputs["count"]!.GetValue<int>());
+        Assert.False(inputs["flag"]!.GetValue<bool>());
+        inputs["choice"] = "C";
+        Assert.NotNull(WorkflowInputs.Check(schema, inputs));
+        inputs["choice"] = "A";
+        inputs["count"] = 10;
+        Assert.NotNull(WorkflowInputs.Check(schema, inputs));
+        Assert.Null(schema["properties"]!["choice"]!["default"]);
+    }
+
+    [Fact]
     public void Steps_compile_to_a_flow_whose_branches_meet_again()
     {
         var flow = Definitions.Compile(
@@ -90,6 +156,18 @@ public sealed class WorkflowDefinitionTests
     [InlineData("b", "lt", "a", false)]
     public void Comparisons_treat_numbers_as_numbers(string left, string op, string right, bool holds) =>
         Assert.Equal(holds, Comparison.Holds(left, op, right));
+
+    [Fact]
+    public void Input_tokens_are_separate_from_mutable_variables_and_trigger_data()
+    {
+        var context = new JsonObject { ["workspaceId"] = "workspace", ["input"] = new JsonObject { ["label"] = "original" } };
+        var variables = new JsonObject { ["label"] = "changed" };
+        var scope = new TokenScope(null, null, null, variables, new JsonObject { ["label"] = "event" }, context);
+        Assert.Equal("original", scope.Input("label")!.GetValue<string>());
+        Assert.Equal("changed", scope.Variable("label")!.GetValue<string>());
+        Assert.Equal("event", scope.Trigger("label")!.GetValue<string>());
+        Assert.Equal("workspace", scope.Execution("workspaceId")!.GetValue<string>());
+    }
 
     [Fact]
     public void Step_tokens_find_outputs_of_nodes_with_dots_in_their_names()

@@ -25,6 +25,8 @@ class RunResponse(AdditionalDataHolder, Parsable):
     error: Optional[str] = None
     # The eventId property
     event_id: Optional[UUID] = None
+    # The executionContext property
+    execution_context: Optional[JsonObject] = None
     # The failedNode property
     failed_node: Optional[str] = None
     # The id property
@@ -55,7 +57,7 @@ class RunResponse(AdditionalDataHolder, Parsable):
     workflow_version: Optional[int] = None
     # The workspaceId property
     workspace_id: Optional[UUID] = None
-    
+
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> RunResponse:
         """
@@ -66,7 +68,7 @@ class RunResponse(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return RunResponse()
-    
+
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -84,6 +86,7 @@ class RunResponse(AdditionalDataHolder, Parsable):
             "completedAt": lambda n : setattr(self, 'completed_at', n.get_datetime_value()),
             "error": lambda n : setattr(self, 'error', n.get_str_value()),
             "eventId": lambda n : setattr(self, 'event_id', n.get_uuid_value()),
+            "executionContext": lambda n : setattr(self, 'execution_context', n.get_object_value(JsonObject)),
             "failedNode": lambda n : setattr(self, 'failed_node', n.get_str_value()),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
             "itemId": lambda n : setattr(self, 'item_id', n.get_uuid_value()),
@@ -101,7 +104,7 @@ class RunResponse(AdditionalDataHolder, Parsable):
             "workspaceId": lambda n : setattr(self, 'workspace_id', n.get_uuid_value()),
         }
         return fields
-    
+
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -113,6 +116,7 @@ class RunResponse(AdditionalDataHolder, Parsable):
         writer.write_datetime_value("completedAt", self.completed_at)
         writer.write_str_value("error", self.error)
         writer.write_uuid_value("eventId", self.event_id)
+        writer.write_object_value("executionContext", self.execution_context)
         writer.write_str_value("failedNode", self.failed_node)
         writer.write_uuid_value("id", self.id)
         writer.write_uuid_value("itemId", self.item_id)
@@ -129,5 +133,5 @@ class RunResponse(AdditionalDataHolder, Parsable):
         writer.write_int_value("workflowVersion", self.workflow_version)
         writer.write_uuid_value("workspaceId", self.workspace_id)
         writer.write_additional_data_value(self.additional_data)
-    
+
 

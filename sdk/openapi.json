@@ -15339,6 +15339,89 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/workflows/{id}/webhook": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "TriggerWorkflowWebhook",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workspaces/{workspaceId}/workflows/{id}/runs": {
       "post": {
         "tags": [
@@ -16953,11 +17036,17 @@
             "format": "uuid"
           },
           "listId": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "itemId": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "status": {
@@ -16996,6 +17085,26 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "inputSchema": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
+          "inputs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
           }
         }
       },
@@ -18527,6 +18636,16 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "inputs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
             ]
           }
         },
@@ -22077,6 +22196,16 @@
           },
           "variables": {
             "$ref": "#/components/schemas/JsonObject"
+          },
+          "executionContext": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
           }
         },
         "description": "A run: its \u0060node\u0060 (next or waited on), the approval \u0060outcomes\u0060 by node, the \u0060outputs\u0060 of the nodes that\nran, its \u0060variables\u0060, a log, and for failed runs the error and the \u0060failedNode\u0060 it can be retried from."
@@ -23873,6 +24002,22 @@
               "null",
               "string"
             ]
+          },
+          "scope": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inputSchema": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
           }
         },
         "description": "A workflow: \u0060trigger\u0060, or several \u0060triggers\u0060 (any of them starts a run), and its definition. \u0060key\u0060 names its events (\u0060wf.{key}.completed\u0060; default: made from the name when it is created)."
@@ -24010,6 +24155,22 @@
             ],
             "format": "uuid"
           },
+          "scope": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inputSchema": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
+          },
           "@odata.etag": {
             "type": [
               "null",
@@ -24124,6 +24285,16 @@
             "items": {
               "$ref": "#/components/schemas/WorkflowStep"
             }
+          },
+          "inputSchema": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              }
+            ]
           }
         },
         "description": "A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, \u0060group:Name\u0060,\n\u0060field:fieldName\u0060 (a person field of the item) or \u0060creator\u0060."
@@ -24211,9 +24382,31 @@
                 "$ref": "#/components/schemas/JsonObject"
               }
             ]
+          },
+          "parameters": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowTriggerParameters"
+              }
+            ]
           }
         },
-        "description": "When a workflow runs: \u0060type\u0060 is \u0060manual\u0060 (started by a person), an item event (\u0060itemAdded\u0060,\n\u0060itemUpdated\u0060, \u0060itemDeleted\u0060, \u0060itemRestored\u0060), \u0060schedule\u0060, \u0060date\u0060, a module trigger\n(\u0060document.processed\u0060, \u0060approval.decided\u0060, \u0060task.completed\u0060, \u0060comment.added\u0060) or an extension\ntrigger. \u0060list\u0060 and \u0060contentType\u0060 narrow it by name; \u0060changedFields\u0060 (updates) needs one of them to\nchange; \u0060terms\u0060 (term paths \u0060Group/Set/Term\u0060) needs the item to have one of them or a term below.\n\u0060schedule\u0060 runs on \u0060cron\u0060 (5 fields) in \u0060timeZone\u0060 (default: the organization\u0027s). \u0060date\u0060 runs for\neach item of \u0060list\u0060 when its date \u0060field\u0060 plus \u0060offsetHours\u0060 (negative: before) is reached. \u0060manual\u0060\nmay describe the \u0060inputs\u0060 a person gives when starting it (a JSON Schema object; they become run variables).\n\u0060data\u0060 (module and extension triggers) needs the trigger\u0027s data to have these values, e.g. \u0060{ \u0022hasText\u0022: false }\u0060."
+        "description": "When a workflow runs: \u0060type\u0060 is \u0060manual\u0060 (started by a person), an item event (\u0060itemAdded\u0060,\n\u0060itemUpdated\u0060, \u0060itemDeleted\u0060, \u0060itemRestored\u0060), \u0060schedule\u0060, \u0060date\u0060, a module trigger\n(\u0060document.processed\u0060, \u0060approval.decided\u0060, \u0060task.completed\u0060, \u0060comment.added\u0060) or an extension\ntrigger. \u0060list\u0060 and \u0060contentType\u0060 narrow it by name; \u0060changedFields\u0060 (updates) needs one of them to\nchange; \u0060terms\u0060 (term paths \u0060Group/Set/Term\u0060) needs the item to have one of them or a term below.\nOmit \u0060list\u0060 to watch any list in the workspace.\n\u0060schedule\u0060 runs on \u0060cron\u0060 (5 fields) in \u0060timeZone\u0060 (default: the organization\u0027s). \u0060date\u0060 runs for\neach item of \u0060list\u0060 when its date \u0060field\u0060 plus \u0060offsetHours\u0060 (negative: before) is reached. \u0060manual\u0060\nmay describe the \u0060inputs\u0060 a person gives when starting it (a JSON Schema object; they become run variables).\n\u0060data\u0060 (module and extension triggers) needs the trigger\u0027s data to have these values, e.g. \u0060{ \u0022hasText\u0022: false }\u0060."
+      },
+      "WorkflowTriggerParameters": {
+        "required": [
+          "when"
+        ],
+        "type": "object",
+        "properties": {
+          "when": {
+            "$ref": "#/components/schemas/JsonObject"
+          }
+        },
+        "description": "Conditions evaluated against the triggering item\u0027s transactional snapshots."
       },
       "WorkspaceAccessLevel": {
         "enum": [

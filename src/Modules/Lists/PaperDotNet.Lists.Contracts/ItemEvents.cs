@@ -74,6 +74,13 @@ public interface IItemMutator
     ValueTask ItemDeletingAsync(ItemMutationContext context, CancellationToken cancellationToken) => ValueTask.CompletedTask;
 }
 
+/// <summary>Typed values captured in the same transaction as the item event, detached from subsequent edits.</summary>
+public sealed record ItemSnapshot(
+    Guid ItemId, Guid WorkspaceId, Guid ListId, string ListName, Guid ContentTypeId, string? ContentTypeName, string? ContentTypeKey,
+    Guid? ParentId, bool IsFolder, JsonObject Fields, IReadOnlyDictionary<string, ItemSnapshotField> FieldTypes);
+
+public sealed record ItemSnapshotField(string Type, bool AllowMultiple);
+
 /// <summary>Base for item integration events: published with the change (transactional outbox) and handled in the background.</summary>
 public abstract record ItemEvent : IntegrationEvent
 {
@@ -86,6 +93,10 @@ public abstract record ItemEvent : IntegrationEvent
     public required Guid ContentTypeId { get; init; }
 
     public bool IsFolder { get; init; }
+
+    public ItemSnapshot? Before { get; init; }
+
+    public ItemSnapshot? After { get; init; }
 
     public IReadOnlyList<string> ChangedFields { get; init; } = [];
 }

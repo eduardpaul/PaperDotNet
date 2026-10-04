@@ -180,3 +180,10 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
   welcome when they save code. Extra runtime services must stay optional (see the baseline in
   [dotnet-building-blocks.md](dotnet-building-blocks.md)). The only required
   runtime service is PostgreSQL.
+
+### Schema-driven workflow launch forms
+
+`@rjsf/core` and `@rjsf/utils` 6.11 use Apache-2.0.
+`rjsf-validator-cfworker`, `@cfworker/json-schema`, and their dependencies use
+MIT. `fast-uri` uses BSD-3-Clause,
+covered by the notice in `THIRD-PARTY-NOTICES.md`.

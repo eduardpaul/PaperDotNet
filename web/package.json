@@ -20,6 +20,8 @@
   },
   "dependencies": {
     "@paperdotnet/client": "*",
+    "@rjsf/core": "^6.11.0",
+    "@rjsf/utils": "^6.11.0",
     "@tanstack/react-query": "^5.104.0",
     "@tanstack/react-router": "^1.170.39",
     "@tanstack/react-table": "^9.2.4",
@@ -33,6 +35,7 @@
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "rjsf-validator-cfworker": "^1.0.2",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0"
   },
