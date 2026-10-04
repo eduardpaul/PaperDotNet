@@ -16,6 +16,7 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Identity.Authentication;
 using PaperDotNet.Identity.Data;
+using PaperDotNet.Persistence;
 using PaperDotNet.Tenancy.Contracts;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
@@ -237,10 +238,9 @@ internal static class ApplicationEndpoints
 /// </summary>
 internal static class FirstPartyClient
 {
-    public static async Task EnsureAsync(IOpenIddictApplicationManager applications, AuthOptions options, CancellationToken ct)
+    public static async Task EnsureAsync(IOpenIddictApplicationManager applications, IdentityDbContext db, IDatabaseProvider database, AuthOptions options, CancellationToken ct)
     {
         var redirectUris = options.FirstPartyRedirectUris.Select(u => new Uri(u)).ToList();
-        var existing = await applications.FindByClientIdAsync(OAuthApplication.FirstPartyClientId, ct);
         var descriptor = new OpenIddictApplicationDescriptor
         {
             ClientId = OAuthApplication.FirstPartyClientId,
@@ -254,14 +254,40 @@ internal static class FirstPartyClient
             [OAuthScopes.Api, Scopes.OpenId, Scopes.Profile, Scopes.OfflineAccess]);
         descriptor.RedirectUris.UnionWith(redirectUris);
         descriptor.PostLogoutRedirectUris.UnionWith(redirectUris);
-        if (existing is null)
+        for (var attempt = 0; ; attempt++)
         {
-            await applications.CreateAsync(descriptor, ct);
-        }
-        else
-        {
-            // Keeps permissions and redirect URIs in line with the configuration.
-            await applications.UpdateAsync(existing, descriptor, ct);
+            // Read the database again on retries rather than reusing a cached concurrency token.
+            var existing = await db.Applications.FirstOrDefaultAsync(a => a.ClientId == OAuthApplication.FirstPartyClientId, ct);
+            try
+            {
+                if (existing is null)
+                {
+                    await applications.CreateAsync(descriptor, ct);
+                }
+                else
+                {
+                    // Keeps permissions and redirect URIs in line with the configuration.
+                    await applications.UpdateAsync(existing, descriptor, ct);
+                }
+                return;
+            }
+            catch (Exception ex) when (attempt < 2 &&
+                (ex is DbUpdateException update && database.IsUniqueConstraintViolation(update)
+                || ex is OpenIddictExceptions.ConcurrencyException
+                || existing is null && ex is OpenIddictExceptions.ValidationException))
+            {
+                // Startup sync and tenant initialization (or another host) can both see a missing client.
+                // Detach the losing insert/update so a later save cannot repeat it; retain unrelated state.
+                foreach (var entry in db.ChangeTracker.Entries<OAuthApplication>().Where(e => e.Entity.ClientId == OAuthApplication.FirstPartyClientId).ToList())
+                {
+                    entry.State = EntityState.Detached;
+                }
+                if (ex is not OpenIddictExceptions.ConcurrencyException
+                    && !await db.Applications.AnyAsync(a => a.ClientId == OAuthApplication.FirstPartyClientId, ct))
+                {
+                    throw;
+                }
+            }
         }
     }
 }
@@ -298,7 +324,8 @@ internal sealed partial class FirstPartyClientSync(
             foreach (var tenant in tenants.Where(t => t.Status == TenantStatus.Active))
             {
                 await using var scope = tenantScopes.CreateScope(tenant.Id, tenant.Identifier);
-                await FirstPartyClient.EnsureAsync(scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>(), options.Value, stoppingToken);
+                await FirstPartyClient.EnsureAsync(scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>(),
+                    scope.ServiceProvider.GetRequiredService<IdentityDbContext>(), scope.ServiceProvider.GetRequiredService<IDatabaseProvider>(), options.Value, stoppingToken);
             }
         }
 #pragma warning disable CA1031 // A failed sync must not stop the host; tenants get the client on creation anyway.

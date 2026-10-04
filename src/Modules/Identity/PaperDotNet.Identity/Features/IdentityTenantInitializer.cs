@@ -1,11 +1,12 @@
 using PaperDotNet.Abstractions;
 using PaperDotNet.Identity.Data;
+using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Identity.Features;
 
 /// <summary>Creates the built-in Administrator and Member roles and the first-party OAuth client for a new tenant.</summary>
 internal sealed class IdentityTenantInitializer(
-    IdentityDbContext db, IScopeCatalog catalog, OpenIddict.Abstractions.IOpenIddictApplicationManager applications,
+    IdentityDbContext db, IScopeCatalog catalog, OpenIddict.Abstractions.IOpenIddictApplicationManager applications, IDatabaseProvider database,
     Microsoft.Extensions.Options.IOptions<Authentication.AuthOptions> options) : ITenantInitializer
 {
     public async Task InitializeAsync(Guid tenantId, CancellationToken cancellationToken)
@@ -27,6 +28,6 @@ internal sealed class IdentityTenantInitializer(
             Scopes = catalog.All.Where(s => s.GrantedToMembers).Select(s => s.Name).ToList(),
         });
         await db.SaveChangesAsync(cancellationToken);
-        await FirstPartyClient.EnsureAsync(applications, options.Value, cancellationToken);
+        await FirstPartyClient.EnsureAsync(applications, db, database, options.Value, cancellationToken);
     }
 }
