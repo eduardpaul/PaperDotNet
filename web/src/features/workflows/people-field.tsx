@@ -93,7 +93,9 @@ export function PeopleSelection({
         placeholder="Choose people or groups…"
         selected={selected.map((value) => known.get(value) ?? { value, label: value })}
         options={options}
-        onChange={(values) => onChange(multiple ? values.map((option) => option.value) : values[0]?.value, fieldPathId.path)}
+        onChange={(values) =>
+          onChange(multiple ? values.map((option) => option.value) : values[0]?.value, fieldPathId.path)
+        }
       />
       {(users.isError || groups.isError || groupMembers.isError) && <Alert>Could not load choices. Try again.</Alert>}
       {rawErrors?.map((error) => (
