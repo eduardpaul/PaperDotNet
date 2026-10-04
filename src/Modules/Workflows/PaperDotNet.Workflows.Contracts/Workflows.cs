@@ -157,6 +157,9 @@ public sealed class WorkflowActivityContext
     /// <summary>Data of an extension trigger, if any.</summary>
     public JsonObject? Data { get; init; }
 
+    /// <summary>Uniform run context: trigger, input, data, workspaceId, listId, itemId, userId and startedAt.</summary>
+    public JsonObject? ExecutionContext { get; init; }
+
     /// <summary>The run the activity is part of (null when an activity runs outside a run).</summary>
     public Guid? RunId { get; init; }
 
@@ -299,10 +302,15 @@ public interface IWorkflowDefinitionProvider
 /// <summary>Built-in trigger types of workflows.</summary>
 public static class WorkflowTriggers
 {
-    /// <summary>Started on an item by a person (<c>POST …/items/{id}/workflows</c>).</summary>
+    /// <summary>Started by a person on selected items or once in a workspace.</summary>
     public const string Manual = "manual";
 
+    /// <summary>Started by an authenticated webhook request with workspace Contribute access.</summary>
+    public const string Webhook = "webhook";
+
     public const string ItemAdded = "itemAdded";
+    /// <summary>A managed-metadata tag was assigned to an item.</summary>
+
     public const string ItemUpdated = "itemUpdated";
     public const string ItemDeleted = "itemDeleted";
     public const string ItemRestored = "itemRestored";

@@ -29,6 +29,8 @@ class WorkflowStep(AdditionalDataHolder, Parsable):
     filter: Optional[str] = None
     # The hours property
     hours: Optional[float] = None
+    # The inputSchema property
+    input_schema: Optional[JsonObject] = None
     # The inputs property
     inputs: Optional[JsonObject] = None
     # The is property
@@ -72,6 +74,7 @@ class WorkflowStep(AdditionalDataHolder, Parsable):
             "escalateTo": lambda n : setattr(self, 'escalate_to', n.get_collection_of_primitive_values(str)),
             "filter": lambda n : setattr(self, 'filter', n.get_str_value()),
             "hours": lambda n : setattr(self, 'hours', n.get_float_value()),
+            "inputSchema": lambda n : setattr(self, 'input_schema', n.get_object_value(JsonObject)),
             "inputs": lambda n : setattr(self, 'inputs', n.get_object_value(JsonObject)),
             "is": lambda n : setattr(self, 'is_', n.get_str_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
@@ -97,6 +100,7 @@ class WorkflowStep(AdditionalDataHolder, Parsable):
         writer.write_collection_of_primitive_values("escalateTo", self.escalate_to)
         writer.write_str_value("filter", self.filter)
         writer.write_float_value("hours", self.hours)
+        writer.write_object_value("inputSchema", self.input_schema)
         writer.write_object_value("inputs", self.inputs)
         writer.write_str_value("is", self.is_)
         writer.write_str_value("name", self.name)

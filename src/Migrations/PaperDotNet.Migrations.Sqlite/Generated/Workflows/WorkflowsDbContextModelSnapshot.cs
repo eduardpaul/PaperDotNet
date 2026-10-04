@@ -123,11 +123,19 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                         .HasColumnType("INTEGER")
                         .HasColumnName("escalated");
 
-                    b.Property<Guid>("ItemId")
+                    b.Property<string>("InputSchema")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("input_schema");
+
+                    b.Property<string>("Inputs")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("inputs");
+
+                    b.Property<Guid?>("ItemId")
                         .HasColumnType("TEXT")
                         .HasColumnName("item_id");
 
-                    b.Property<Guid>("ListId")
+                    b.Property<Guid?>("ListId")
                         .HasColumnType("TEXT")
                         .HasColumnName("list_id");
 

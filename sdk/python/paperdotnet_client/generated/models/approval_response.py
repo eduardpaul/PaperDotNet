@@ -9,6 +9,7 @@ from uuid import UUID
 if TYPE_CHECKING:
     from .approval_review_reference import ApprovalReviewReference
     from .approval_status import ApprovalStatus
+    from .json_object import JsonObject
 
 @dataclass
 class ApprovalResponse(AdditionalDataHolder, Parsable):
@@ -29,6 +30,10 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
     escalated: Optional[bool] = None
     # The id property
     id: Optional[UUID] = None
+    # The inputSchema property
+    input_schema: Optional[JsonObject] = None
+    # The inputs property
+    inputs: Optional[JsonObject] = None
     # The itemId property
     item_id: Optional[UUID] = None
     # The listId property
@@ -64,9 +69,11 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
         """
         from .approval_review_reference import ApprovalReviewReference
         from .approval_status import ApprovalStatus
+        from .json_object import JsonObject
 
         from .approval_review_reference import ApprovalReviewReference
         from .approval_status import ApprovalStatus
+        from .json_object import JsonObject
 
         fields: dict[str, Callable[[Any], None]] = {
             "comment": lambda n : setattr(self, 'comment', n.get_str_value()),
@@ -76,6 +83,8 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
             "dueAt": lambda n : setattr(self, 'due_at', n.get_datetime_value()),
             "escalated": lambda n : setattr(self, 'escalated', n.get_bool_value()),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
+            "inputSchema": lambda n : setattr(self, 'input_schema', n.get_object_value(JsonObject)),
+            "inputs": lambda n : setattr(self, 'inputs', n.get_object_value(JsonObject)),
             "itemId": lambda n : setattr(self, 'item_id', n.get_uuid_value()),
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
             "review": lambda n : setattr(self, 'review', n.get_object_value(ApprovalReviewReference)),
@@ -102,6 +111,8 @@ class ApprovalResponse(AdditionalDataHolder, Parsable):
         writer.write_datetime_value("dueAt", self.due_at)
         writer.write_bool_value("escalated", self.escalated)
         writer.write_uuid_value("id", self.id)
+        writer.write_object_value("inputSchema", self.input_schema)
+        writer.write_object_value("inputs", self.inputs)
         writer.write_uuid_value("itemId", self.item_id)
         writer.write_uuid_value("listId", self.list_id)
         writer.write_object_value("review", self.review)

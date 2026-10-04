@@ -27,14 +27,14 @@ public sealed record WorkflowRequest(
     JsonObject? Variables = null,
     [property: StringLength(20)] string? Concurrency = null,
     IReadOnlyList<WorkflowTrigger>? Triggers = null,
-    [property: StringLength(WorkflowKeys.MaxLength)] string? Key = null);
+    [property: StringLength(WorkflowKeys.MaxLength)] string? Key = null, string? Scope = null, JsonObject? InputSchema = null);
 
 /// <summary>A workflow with the definition of its current <c>version</c> (runs keep the version they started with): its <c>trigger</c> or <c>triggers</c> (as it was defined), <c>steps</c> or a <c>flow</c>, the initial <c>variables</c>, and <c>concurrency</c> (runs on the same item: <c>parallel</c>, <c>skip</c> or <c>replace</c>).</summary>
 public sealed record WorkflowResponse(
     Guid Id, Guid WorkspaceId, string Name, string? Description, bool Enabled, int Version, WorkflowTrigger? Trigger, string? Condition,
     IReadOnlyList<WorkflowStep>? Steps, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, FlowDefinition? Flow = null, JsonObject? Variables = null,
     string? BuiltIn = null, string? CopiedFrom = null, string? Concurrency = null, IReadOnlyList<WorkflowTrigger>? Triggers = null, string? Key = null,
-    Guid? ListId = null)
+    Guid? ListId = null, string? Scope = null, JsonObject? InputSchema = null)
 {
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
     [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
@@ -79,20 +79,22 @@ public sealed record StartRunsRequest(Guid? ListId = null, IReadOnlyList<Guid>? 
 public sealed record RunResponse(
     Guid Id, Guid WorkflowId, string? Workflow, int WorkflowVersion, Guid WorkspaceId, Guid? ListId, Guid? ItemId, Guid? EventId,
     RunStatus Status, IReadOnlyDictionary<string, string> Outcomes, JsonArray Log, string? Error, Guid? StartedBy, DateTimeOffset StartedAt,
-    DateTimeOffset? CompletedAt, string? Node, string? FailedNode, JsonObject Outputs, JsonObject Variables);
+    DateTimeOffset? CompletedAt, string? Node, string? FailedNode, JsonObject Outputs, JsonObject Variables, JsonObject? ExecutionContext = null);
 
 public sealed record ApprovalResponse(
-    Guid Id, Guid RunId, string StepName, string Title, Guid WorkspaceId, Guid ListId, Guid ItemId, ApprovalStatus Status,
-    DateTimeOffset? DueAt, bool Escalated, Guid? DecidedBy, DateTimeOffset? DecidedAt, string? Comment, DateTimeOffset CreatedAt)
+    Guid Id, Guid RunId, string StepName, string Title, Guid WorkspaceId, Guid? ListId, Guid? ItemId, ApprovalStatus Status,
+    DateTimeOffset? DueAt, bool Escalated, Guid? DecidedBy, DateTimeOffset? DecidedAt, string? Comment, DateTimeOffset CreatedAt, JsonObject? InputSchema = null, JsonObject? Inputs = null)
 {
     public ApprovalReviewReference? Review { get; init; }
 
     internal static ApprovalResponse From(ApprovalRequest a) =>
-        new(a.Id, a.RunId, a.StepName, a.Title, a.WorkspaceId, a.ListId, a.ItemId, a.Status, a.DueAt, a.Escalated, a.DecidedBy, a.DecidedAt, a.Comment, a.CreatedAt) { Review = a.ReviewType is { } type ? new(type, a.ReviewKey ?? "") : null };
+        new(a.Id, a.RunId, a.StepName, a.Title, a.WorkspaceId, a.ListId, a.ItemId, a.Status, a.DueAt, a.Escalated, a.DecidedBy, a.DecidedAt, a.Comment, a.CreatedAt, a.InputSchema is null ? null : JsonNode.Parse(a.InputSchema) as JsonObject,
+            a.Inputs is null ? null : JsonNode.Parse(a.Inputs) as JsonObject)
+        { Review = a.ReviewType is { } type ? new(type, a.ReviewKey ?? "") : null };
 }
 
 /// <summary><c>outcome</c>: <c>approved</c> or <c>rejected</c>.</summary>
-public sealed record DecisionRequest([property: Required] string Outcome, [property: StringLength(2000)] string? Comment);
+public sealed record DecisionRequest([property: Required] string Outcome, [property: StringLength(2000)] string? Comment, JsonObject? Inputs = null);
 
 public sealed record CatalogEntry(string Key, string Description);
 
@@ -117,6 +119,7 @@ internal static class WorkflowEndpoints
         group.MapGet("/runs/{id:guid}", GetRunAsync).RequireScope(WorkflowScopes.Read).WithName("GetWorkflowRun");
         group.MapPost("/runs/{id:guid}/cancel", CancelRunAsync).RequireScope(WorkflowScopes.Write).WithName("CancelWorkflowRun");
         group.MapPost("/runs/{id:guid}/retry", RetryRunAsync).RequireScope(WorkflowScopes.Write).WithName("RetryWorkflowRun");
+        group.MapPost("/{id:guid}/webhook", WebhookAsync).RequireScope(WorkflowScopes.Write).WithName("TriggerWorkflowWebhook");
         group.MapPost("/{id:guid}/runs", StartRunsAsync).RequireScope(WorkflowScopes.Write).WithName("StartWorkflowRuns");
 
         endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/items/{itemId:guid}/workflows", "Workflows")
@@ -149,14 +152,11 @@ internal static class WorkflowEndpoints
             return denied;
         }
 
-        var workflows = await db.Workflows.AsNoTracking().Where(a => a.WorkspaceId == workspaceId).OrderBy(a => a.Name).ToListAsync(ct);
-        var result = new List<WorkflowResponse>();
-        foreach (var workflow in workflows)
-        {
-            result.Add(await ToResponseAsync(db, workflow, ct));
-        }
-
-        return TypedResults.Ok(result);
+        var workflows = await db.Workflows.AsNoTracking().Where(a => a.WorkspaceId == workspaceId)
+            .Join(db.Versions, w => new { WorkflowId = w.Id, Number = w.CurrentVersion }, v => new { v.WorkflowId, v.Number },
+                (workflow, version) => new { Workflow = workflow, Version = version })
+            .OrderBy(row => row.Workflow.Name).ToListAsync(ct);
+        return TypedResults.Ok(workflows.Select(row => ToResponse(row.Workflow, row.Version)).ToList());
     }
 
     private static async Task<Results<Ok<WorkflowResponse>, ProblemHttpResult>> GetAsync(
@@ -326,7 +326,7 @@ internal static class WorkflowEndpoints
         var spec = new WorkflowSpec(
             request.Trigger, string.IsNullOrWhiteSpace(request.Condition) ? null : request.Condition.Trim(),
             request.Flow is null ? request.Steps ?? [] : request.Steps is { Count: > 0 } ? request.Steps : null, request.Flow, request.Variables,
-            string.IsNullOrWhiteSpace(request.Concurrency) ? null : request.Concurrency, request.Triggers);
+            string.IsNullOrWhiteSpace(request.Concurrency) ? null : request.Concurrency, request.Triggers, request.Scope, request.InputSchema);
         var errors = await validator.ValidateAsync(workspaceId, spec, ct);
         return errors.Count == 0 ? (spec, null) : (null, ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [.. errors] }));
     }
@@ -334,10 +334,15 @@ internal static class WorkflowEndpoints
     private static async Task<WorkflowResponse> ToResponseAsync(WorkflowsDbContext db, WorkflowDefinition workflow, CancellationToken ct)
     {
         var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
+        return ToResponse(workflow, version);
+    }
+
+    private static WorkflowResponse ToResponse(WorkflowDefinition workflow, WorkflowVersion version)
+    {
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
         return new WorkflowResponse(workflow.Id, workflow.WorkspaceId, workflow.Name, workflow.Description, workflow.Enabled,
             workflow.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, workflow.CreatedAt, workflow.UpdatedAt, spec.Flow, spec.Variables,
-            workflow.BuiltInKey, workflow.CopiedFrom, spec.Concurrency, spec.Triggers, workflow.EventKey, workflow.ListId)
+            workflow.BuiltInKey, workflow.CopiedFrom, spec.Concurrency, spec.Triggers, workflow.EventKey, workflow.ListId, spec.Scope, spec.InputSchema)
         { ETag = ETags.From(workflow.Version) };
     }
 
@@ -611,11 +616,34 @@ internal static class WorkflowEndpoints
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [error] });
         }
 
-        var result = new List<RunResponse>();
-        foreach (var run in runs)
+        var result = await ToResponsesAsync(db, runs, ct);
+
+        return TypedResults.Ok(result);
+    }
+
+    /// <summary>Authenticated webhook launch; the body is validated against inputSchema.</summary>
+    private static async Task<Results<Ok<List<RunResponse>>, ValidationProblem, ProblemHttpResult>> WebhookAsync(
+        Guid workspaceId, Guid id, JsonObject inputs, IWorkspaceAccess workspaces, WorkflowStarter starter,
+        WorkflowsDbContext db, ICurrentUser user, CancellationToken ct)
+    {
+        if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Contribute, ct) is { } denied)
         {
-            result.Add(await ToResponseAsync(db, run, ct));
+            return denied;
         }
+
+        var workflow = await db.Workflows.AsNoTracking().FirstOrDefaultAsync(w => w.Id == id && w.WorkspaceId == workspaceId, ct);
+        if (workflow is null)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        var (runs, error) = await starter.StartOnDemandAsync(workflow, [], inputs, user.UserId, WorkflowTriggers.Webhook, ct);
+        if (error is not null)
+        {
+            return ApiErrors.Validation(new Dictionary<string, string[]> { ["inputs"] = [error] });
+        }
+
+        var result = await ToResponsesAsync(db, runs, ct);
 
         return TypedResults.Ok(result);
     }
@@ -646,11 +674,7 @@ internal static class WorkflowEndpoints
         }
 
         var runs = await query.OrderByDescending(r => r.Id).Take(page.Top + 1).ToListAsync(ct);
-        var result = new List<RunResponse>();
-        foreach (var run in runs)
-        {
-            result.Add(await ToResponseAsync(db, run, ct));
-        }
+        var result = await ToResponsesAsync(db, runs, ct);
 
         return TypedResults.Ok(Page.Create(result, page, http, r => r.Id));
     }
@@ -714,13 +738,26 @@ internal static class WorkflowEndpoints
 
     private static async Task<RunResponse> ToResponseAsync(WorkflowsDbContext db, WorkflowRun run, CancellationToken ct)
     {
-        var name = await db.Workflows.AsNoTracking().Where(a => a.Id == run.WorkflowId).Select(a => a.Name).FirstOrDefaultAsync(ct);
+        return ToResponse(run, await db.Workflows.AsNoTracking().Where(a => a.Id == run.WorkflowId).Select(a => a.Name).FirstOrDefaultAsync(ct));
+    }
+
+    private static async Task<List<RunResponse>> ToResponsesAsync(WorkflowsDbContext db, List<WorkflowRun> runs, CancellationToken ct)
+    {
+        if (runs.Count == 0) return [];
+        var ids = runs.Select(r => r.WorkflowId).Distinct().ToList();
+        var names = await db.Workflows.AsNoTracking().Where(w => ids.Contains(w.Id)).ToDictionaryAsync(w => w.Id, w => w.Name, ct);
+        return runs.Select(run => ToResponse(run, names.GetValueOrDefault(run.WorkflowId))).ToList();
+    }
+
+    private static RunResponse ToResponse(WorkflowRun run, string? name)
+    {
         var outputs = JsonNode.Parse(run.Outputs) as JsonObject ?? [];
         var outcomes = outputs.Where(o => o.Value?["outcome"] is JsonValue value && value.TryGetValue<string>(out _))
             .ToDictionary(o => o.Key, o => o.Value!["outcome"]!.GetValue<string>(), StringComparer.Ordinal);
         return new RunResponse(run.Id, run.WorkflowId, name, run.WorkflowVersion, run.WorkspaceId, run.ListId, run.ItemId, run.EventId, run.Status,
             outcomes, JsonNode.Parse(run.Log) as JsonArray ?? [], run.Error, run.StartedBy, run.StartedAt, run.CompletedAt, run.Node, run.FailedNode,
-            outputs, JsonNode.Parse(run.Variables) as JsonObject ?? []);
+            outputs, JsonNode.Parse(run.Variables) as JsonObject ?? [],
+            (run.Data is null ? null : JsonNode.Parse(run.Data)?["$workflowContext"]) as JsonObject);
     }
 
     // ---- Approvals ---------------------------------------------------------------------
@@ -760,8 +797,11 @@ internal static class WorkflowEndpoints
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["outcome"] = ["Use approved or rejected."] });
         }
 
-        switch (await approvals.DecideAsync(id, user.UserId!.Value, request.Outcome, request.Comment, ct))
+        var (result, error) = await approvals.DecideAsync(id, user.UserId!.Value, request.Outcome, request.Comment, ct, request.Inputs);
+        switch (result)
         {
+            case RunService.DecisionResult.InvalidInputs:
+                return ApiErrors.Validation(new Dictionary<string, string[]> { ["inputs"] = [error!] });
             case RunService.DecisionResult.NotFound:
                 return ApiErrors.NotFound();
             case RunService.DecisionResult.InvalidReview:
@@ -777,15 +817,15 @@ internal static class WorkflowEndpoints
         Guid id, WorkflowsDbContext db, ICurrentUser user, IListItemStore items, IEnumerable<IApprovalReviewProvider> providers, CancellationToken ct)
     {
         var approval = await db.Approvals.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id && a.Assignees.Contains(user.UserId!.Value), ct);
-        if (approval?.ReviewType is not { } type
-            || await items.GetAsync(approval.WorkspaceId, approval.ListId, approval.ItemId, ct) is null)
+        if (approval?.ReviewType is not { } type || approval.ListId is not { } listId || approval.ItemId is not { } itemId
+            || await items.GetAsync(approval.WorkspaceId, listId, itemId, ct) is null)
         {
             return null;
         }
 
         var provider = providers.SingleOrDefault(p => p.Type == type);
         return provider is not null && await provider.IsAvailableAsync(ct)
-            ? (provider, new ApprovalReviewContext(id, approval.RunId, new WorkflowItem(approval.WorkspaceId, approval.ListId, approval.ItemId), approval.ReviewKey ?? "")) : null;
+            ? (provider, new ApprovalReviewContext(id, approval.RunId, new WorkflowItem(approval.WorkspaceId, listId, itemId), approval.ReviewKey ?? "")) : null;
     }
 
     private static async Task<Results<Ok<ApprovalReviewData>, ProblemHttpResult>> GetReviewAsync(
@@ -915,6 +955,17 @@ internal sealed class WorkflowValidator(TriggerCatalog triggers, ActionCatalog a
             return errors;
         }
 
+        var schemas = new List<JsonObject?> { spec.InputSchema };
+        schemas.AddRange(spec.AllTriggers.Select(trigger => trigger.Inputs));
+        schemas.AddRange(Definitions.FlowOf(spec).Nodes.Values.Where(node => node.Activity == "approval").Select(node => node.Inputs?["inputSchema"] as JsonObject));
+        foreach (var schema in schemas)
+        {
+            if (await DomainInputs.ValidateReferencesAsync(schema, items, terms, ct) is { } error)
+            {
+                errors.Add($"inputSchema: {error}");
+            }
+        }
+
         var several = spec.Triggers is not null;
         var lists = await items.AsSystem().GetListsAsync(workspaceId, null, ct);
         var checkedConditions = new HashSet<Guid>();
@@ -926,6 +977,14 @@ internal sealed class WorkflowValidator(TriggerCatalog triggers, ActionCatalog a
                 if (await terms.FindTermByPathAsync(path, ct) is null)
                 {
                     errors.Add($"{prefix}The term '{path}' does not exist (use a path such as Group/Set/Term).");
+                }
+            }
+
+            foreach (var leaf in TriggerConditions.Leaves(trigger.Parameters?.When))
+            {
+                if (leaf["term"] is { } termPath && await terms.FindTermByPathAsync(termPath.ToString(), ct) is null)
+                {
+                    errors.Add($"{prefix}The term '{termPath}' does not exist.");
                 }
             }
 
@@ -944,6 +1003,23 @@ internal sealed class WorkflowValidator(TriggerCatalog triggers, ActionCatalog a
             if (trigger.ContentType is { } type && !list.ContentTypes.Any(c => c.Name == type || c.Key == type))
             {
                 errors.Add($"{prefix}The list '{listName}' has no content type '{type}'.");
+            }
+
+            if (trigger.Parameters is { } parameters)
+            {
+                var description = await items.AsSystem().DescribeListAsync(workspaceId, list.Id, ct);
+                var contentTypes = description?.ContentTypes.Where(c => trigger.ContentType is null || c.Name == trigger.ContentType || c.Key == trigger.ContentType).ToList() ?? [];
+                foreach (var leaf in TriggerConditions.Leaves(parameters.When).Where(node => node["target"]?.ToString() == "field"))
+                {
+                    var name = leaf["field"]!.ToString();
+                    var fields = name == "title" ? [new ItemSnapshotField("text", false)]
+                        : contentTypes.SelectMany(c => c.Fields).Where(f => f.Name == name).Select(f => new ItemSnapshotField(f.Type, f.AllowMultiple || f.Type == "keywords")).Distinct().ToList();
+                    if (fields.Count == 0) errors.Add($"{prefix}The list '{list.Name}' has no field '{name}'.");
+                    foreach (var field in fields)
+                    {
+                        if (TriggerConditions.ValidateField(leaf, field) is { } error) errors.Add(prefix + error);
+                    }
+                }
             }
 
             if (trigger.Type == WorkflowTriggers.Date)

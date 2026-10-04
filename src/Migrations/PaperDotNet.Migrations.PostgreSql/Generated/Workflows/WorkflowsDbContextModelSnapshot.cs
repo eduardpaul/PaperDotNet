@@ -130,11 +130,19 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                         .HasColumnType("boolean")
                         .HasColumnName("escalated");
 
-                    b.Property<Guid>("ItemId")
+                    b.Property<string>("InputSchema")
+                        .HasColumnType("text")
+                        .HasColumnName("input_schema");
+
+                    b.Property<string>("Inputs")
+                        .HasColumnType("text")
+                        .HasColumnName("inputs");
+
+                    b.Property<Guid?>("ItemId")
                         .HasColumnType("uuid")
                         .HasColumnName("item_id");
 
-                    b.Property<Guid>("ListId")
+                    b.Property<Guid?>("ListId")
                         .HasColumnType("uuid")
                         .HasColumnName("list_id");
 

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState, Skeleton } from '@/components/ui/feedback';
 import { ListIcon } from '@/features/lists/list-icon';
+import { LaunchWorkflowButton } from '@/features/workflows/launch-workflow';
 import { NewListDialog } from '@/features/workspaces/new-list-dialog';
 import { workspaceQuery } from '@/features/workspaces/queries';
 import { useFormat } from '@/lib/preferences';
@@ -32,6 +33,9 @@ function Workspace() {
         description={workspace?.description}
         actions={
           <>
+            {(workspace?.access === 'manage' || workspace?.access === 'contribute') && (
+              <LaunchWorkflowButton workspaceId={workspaceId} />
+            )}
             {workspace?.access === 'manage' && (
               <Button asChild>
                 <Link to="/w/$workspaceId/settings" params={{ workspaceId }}>

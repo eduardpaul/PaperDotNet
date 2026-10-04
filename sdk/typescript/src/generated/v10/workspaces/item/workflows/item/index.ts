@@ -6,6 +6,8 @@ import { createApiProblemFromDiscriminatorValue, createWorkflowResponseFromDiscr
 // @ts-ignore
 import { RunsRequestBuilderRequestsMetadata, type RunsRequestBuilder } from './runs/index.js';
 // @ts-ignore
+import { type WebhookRequestBuilder, WebhookRequestBuilderRequestsMetadata } from './webhook/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -16,6 +18,10 @@ export interface WorkflowsItemRequestBuilder extends BaseRequestBuilder<Workflow
      * The runs property
      */
     get runs(): RunsRequestBuilder;
+    /**
+     * The webhook property
+     */
+    get webhook(): WebhookRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @throws {ApiProblem} error when the service returns a 4XX or 5XX status code
@@ -62,6 +68,9 @@ export const WorkflowsItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspace
 export const WorkflowsItemRequestBuilderNavigationMetadata: Record<Exclude<keyof WorkflowsItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     runs: {
         requestsMetadata: RunsRequestBuilderRequestsMetadata,
+    },
+    webhook: {
+        requestsMetadata: WebhookRequestBuilderRequestsMetadata,
     },
 };
 /**

@@ -334,6 +334,13 @@ access. Implement metadata, content, and decision validation. The app's
 provider's descriptor. The included `imageComparison` renderer shows source and
 candidate content at native 100%. Unknown review renderers cannot enable decisions.
 
+A review approval can also include `inputSchema` in the node's inputs, using the
+same JSON Schema forms as other approvals. The dialog collects form values and
+submits them with the decision; the server validates both the form and source
+freshness. Later nodes can use `{step:review.input.reason}` (replace `review` and
+`reason` with the node and field names). The review requires an item even though
+ordinary approvals can run at workspace scope.
+
 See ADR-0046 and the compiled `PaperDotNet.StorageOptimization` extension for the
 complete example. Extension identifiers remain lowercase, including
 `paperdotnet.storageoptimization`.

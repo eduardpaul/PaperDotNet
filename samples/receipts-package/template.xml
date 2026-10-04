@@ -66,12 +66,14 @@
       "type": "itemUpdated",
       "concurrency": "skip",
       "list": "Receipts",
-      "changedFields": [
-        "tags"
-      ],
-      "terms": [
-        "Receipts/Tags/{parameter:Tag}"
-      ]
+      "parameters": {
+        "when": {
+          "target": "tags",
+          "operator": "added",
+          "term": "Receipts/Tags/{parameter:Tag}",
+          "includeDescendants": true
+        }
+      }
     },
     {
       "type": "document.added",

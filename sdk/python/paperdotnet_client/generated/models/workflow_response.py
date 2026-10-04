@@ -38,6 +38,8 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
     flow: Optional[FlowDefinition] = None
     # The id property
     id: Optional[UUID] = None
+    # The inputSchema property
+    input_schema: Optional[JsonObject] = None
     # The key property
     key: Optional[str] = None
     # The listId property
@@ -46,6 +48,8 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
     name: Optional[str] = None
     # The ETag for `If-Match` on changes (the same as the `ETag` header).
     odata_etag: Optional[str] = None
+    # The scope property
+    scope: Optional[str] = None
     # The steps property
     steps: Optional[list[WorkflowStep]] = None
     # The trigger property
@@ -97,10 +101,12 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
             "enabled": lambda n : setattr(self, 'enabled', n.get_bool_value()),
             "flow": lambda n : setattr(self, 'flow', n.get_object_value(FlowDefinition)),
             "id": lambda n : setattr(self, 'id', n.get_uuid_value()),
+            "inputSchema": lambda n : setattr(self, 'input_schema', n.get_object_value(JsonObject)),
             "key": lambda n : setattr(self, 'key', n.get_str_value()),
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
+            "scope": lambda n : setattr(self, 'scope', n.get_str_value()),
             "steps": lambda n : setattr(self, 'steps', n.get_collection_of_object_values(WorkflowStep)),
             "trigger": lambda n : setattr(self, 'trigger', n.get_object_value(WorkflowTrigger)),
             "triggers": lambda n : setattr(self, 'triggers', n.get_collection_of_object_values(WorkflowTrigger)),
@@ -128,10 +134,12 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
         writer.write_bool_value("enabled", self.enabled)
         writer.write_object_value("flow", self.flow)
         writer.write_uuid_value("id", self.id)
+        writer.write_object_value("inputSchema", self.input_schema)
         writer.write_str_value("key", self.key)
         writer.write_uuid_value("listId", self.list_id)
         writer.write_str_value("name", self.name)
         writer.write_str_value("@odata.etag", self.odata_etag)
+        writer.write_str_value("scope", self.scope)
         writer.write_collection_of_object_values("steps", self.steps)
         writer.write_object_value("trigger", self.trigger)
         writer.write_collection_of_object_values("triggers", self.triggers)

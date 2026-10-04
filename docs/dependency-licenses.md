@@ -195,3 +195,10 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
   remains in place for other dependencies. Full upstream notices and the exact
   Eigen source URL from ONNX Runtime v1.29.0's dependency manifest ship in
   `PaperDotNet.StorageOptimization/licenses/`.
+
+### Schema-driven workflow launch forms
+
+`@rjsf/core` and `@rjsf/utils` 6.11 use Apache-2.0.
+`rjsf-validator-cfworker`, `@cfworker/json-schema`, and their dependencies use
+MIT. `fast-uri` uses BSD-3-Clause,
+covered by the notice in `THIRD-PARTY-NOTICES.md`.

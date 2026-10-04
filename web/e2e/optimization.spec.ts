@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { adminHeaders, signIn, unique } from './helpers';
 
-for (const outcome of ['approved', 'rejected', 'stale'] as const) {
+for (const outcome of ['approved', 'rejected', 'stale', 'form'] as const) {
   test(`48MiB image review opens at native 100% and is ${outcome}`, async ({ page, request }) => {
     test.setTimeout(120_000);
     await signIn(page);
@@ -22,6 +22,33 @@ for (const outcome of ['approved', 'rejected', 'stale'] as const) {
       data: { enabled: true },
     });
     expect(enabled.ok()).toBeTruthy();
+    if (outcome === 'form') {
+      const builtIns = await request.get(`${path}/workflows/builtIns`, { headers });
+      const workflowId = (await builtIns.json()).find(
+        (workflow: { key: string }) => workflow.key === 'paperdotnet.storageoptimization.optimize',
+      ).workflowId as string;
+      const current = await request.get(`/v1.0/workspaces/${ws}/workflows/${workflowId}`, { headers });
+      const definition = await current.json();
+      const disabled = await request.put(`${path}/workflows/builtIns/paperdotnet.storageoptimization.optimize`, {
+        headers: { ...headers, 'If-Match': current.headers().etag! },
+        data: { enabled: false },
+      });
+      expect(disabled.ok()).toBeTruthy();
+      definition.flow.nodes.review.inputs.inputSchema = {
+        type: 'object',
+        properties: { reason: { type: 'string', title: 'Review reason', minLength: 3 } },
+        required: ['reason'],
+      };
+      const created = await request.post(`/v1.0/workspaces/${ws}/workflows`, {
+        headers,
+        data: {
+          name: 'Image review with form',
+          trigger: { type: 'document.added', list: 'Photos', data: { source: 'upload' } },
+          flow: definition.flow,
+        },
+      });
+      expect(created.status()).toBe(201);
+    }
     const base64 = await page.evaluate(() => {
       const canvas = document.createElement('canvas');
       canvas.width = 1600;
@@ -107,18 +134,37 @@ for (const outcome of ['approved', 'rejected', 'stale'] as const) {
       return;
     }
     const action = dialog.getByRole('button', {
-      name: outcome === 'approved' ? 'Store optimized file' : 'Keep original',
+      name: outcome === 'approved' || outcome === 'form' ? 'Store optimized file' : 'Keep original',
     });
     await expect(action).toBeEnabled();
-    await action.click();
+    if (outcome === 'form') {
+      await action.click();
+      await expect(dialog).toBeVisible();
+      const pending = await request.get('/v1.0/me/approvals', { headers });
+      expect((await pending.json()).value.some((approval: { id: string }) => approval.id === approvalId)).toBeTruthy();
+      await dialog.getByLabel('Review reason', { exact: false }).fill('Text remains legible');
+      const responsePromise = page.waitForResponse(
+        (response) =>
+          response.url().endsWith(`/approvals/${approvalId}/decision`) && response.request().method() === 'POST',
+      );
+      await action.click();
+      const response = await responsePromise;
+      expect(response.ok()).toBeTruthy();
+      expect(response.request().postDataJSON()).toMatchObject({
+        outcome: 'approved',
+        inputs: { reason: 'Text remains legible' },
+      });
+    } else {
+      await action.click();
+    }
     await expect(dialog).not.toBeVisible();
     await expect
       .poll(async () => {
         const file = await request.get(`${path}/items/${item}/file`, { headers });
         return file.headers()['content-type'];
       })
-      .toContain(outcome === 'approved' ? 'image/webp' : 'image/png');
-    if (outcome === 'approved') {
+      .toContain(outcome === 'approved' || outcome === 'form' ? 'image/webp' : 'image/png');
+    if (outcome === 'approved' || outcome === 'form') {
       expect((await request.get(`${path}/items/${item}/file/versions/1`, { headers })).status()).toBe(404);
     }
   });

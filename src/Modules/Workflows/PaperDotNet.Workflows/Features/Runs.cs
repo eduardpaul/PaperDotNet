@@ -9,6 +9,7 @@ using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
 using PaperDotNet.Notifications.Contracts;
+using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workflows.Data;
 
@@ -35,11 +36,11 @@ public static class ResumeRunHandler
 /// <summary>A run to start; with an <see cref="Error"/> (e.g. a condition that cannot be checked) it is saved as failed.</summary>
 internal sealed record WorkflowStart(
     WorkflowDefinition Workflow, WorkflowItem? Item, Guid? EventId, string? Data, int Depth, Guid? StartedBy, string? Error = null,
-    JsonObject? Variables = null, string? Concurrency = null);
+    JsonObject? Variables = null, string? Concurrency = null, string? TriggerType = null, WorkflowSpec? Spec = null);
 
 /// <summary>Starts runs of a workspace's workflows.</summary>
 internal sealed class WorkflowStarter(
-    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time, RunService runService)
+    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time, RunService runService, ITermStore terms)
 {
     /// <summary>Whether the item matches an OData condition; an error when the condition cannot be checked.</summary>
     public async Task<(bool Matches, string? Error)> CheckConditionAsync(WorkflowItem item, string condition, CancellationToken ct)
@@ -70,8 +71,13 @@ internal sealed class WorkflowStarter(
             {
                 if (!concurrency.TryGetValue(start.Workflow.Id, out var mode))
                 {
-                    var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == start.Workflow.Id && v.Number == start.Workflow.CurrentVersion, ct);
-                    mode = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition).Concurrency ?? RunConcurrency.Parallel;
+                    var spec = start.Spec;
+                    if (spec is null)
+                    {
+                        var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == start.Workflow.Id && v.Number == start.Workflow.CurrentVersion, ct);
+                        spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
+                    }
+                    mode = spec.Concurrency ?? RunConcurrency.Parallel;
                     concurrency[start.Workflow.Id] = mode;
                 }
 
@@ -105,7 +111,20 @@ internal sealed class WorkflowStarter(
                 ListId = start.Item?.ListId,
                 ItemId = start.Item?.ItemId,
                 EventId = start.EventId,
-                Data = start.Data,
+                Data = new JsonObject
+                {
+                    ["$workflowContext"] = new JsonObject
+                    {
+                        ["trigger"] = start.TriggerType ?? start.Workflow.Trigger.Split(',')[0],
+                        ["input"] = start.Variables?.DeepClone() ?? new JsonObject(),
+                        ["data"] = start.Data is null ? new JsonObject() : JsonNode.Parse(start.Data),
+                        ["workspaceId"] = start.Workflow.WorkspaceId.ToString(),
+                        ["listId"] = start.Item?.ListId.ToString(),
+                        ["itemId"] = start.Item?.ItemId.ToString(),
+                        ["userId"] = start.StartedBy?.ToString(),
+                        ["startedAt"] = now.ToString("O"),
+                    },
+                }.ToJsonString(),
                 Variables = start.Variables?.ToJsonString() ?? "{}",
                 Status = RunStatus.Running,
                 Depth = start.Depth,
@@ -141,13 +160,19 @@ internal sealed class WorkflowStarter(
     /// (only for triggers without a list). Every item and the inputs are checked before anything starts; the inputs
     /// become the runs' variables.
     /// </summary>
-    public async Task<(List<WorkflowRun> Runs, string? Error)> StartManualAsync(
-        WorkflowDefinition workflow, IReadOnlyList<WorkflowItem> targets, JsonObject? inputs, Guid? startedBy, CancellationToken ct)
+    public Task<(List<WorkflowRun> Runs, string? Error)> StartManualAsync(
+        WorkflowDefinition workflow, IReadOnlyList<WorkflowItem> targets, JsonObject? inputs, Guid? startedBy, CancellationToken ct) =>
+        StartOnDemandAsync(workflow, targets, inputs, startedBy, WorkflowTriggers.Manual, ct);
+
+    /// <summary>Validates and starts an opted-in manual or webhook workflow.</summary>
+    public async Task<(List<WorkflowRun> Runs, string? Error)> StartOnDemandAsync(
+        WorkflowDefinition workflow, IReadOnlyList<WorkflowItem> targets, JsonObject? inputs, Guid? startedBy, string triggerType, CancellationToken ct)
     {
         var name = workflow.Name;
-        if (!TriggerColumn.Contains(workflow.Trigger, WorkflowTriggers.Manual))
+        if (!TriggerColumn.Contains(workflow.Trigger, triggerType))
         {
-            return ([], $"The workflow '{name}' is not started manually (its triggers: {workflow.Trigger.Replace(",", ", ", StringComparison.Ordinal)}).");
+            var reason = triggerType == WorkflowTriggers.Manual ? "is not started manually" : $"does not support {triggerType}";
+            return ([], $"The workflow '{name}' {reason} (its triggers: {workflow.Trigger.Replace(",", ", ", StringComparison.Ordinal)}).");
         }
 
         if (!workflow.Enabled)
@@ -157,27 +182,59 @@ internal sealed class WorkflowStarter(
 
         var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
-        var manual = spec.AllTriggers.First(t => t.Type == WorkflowTriggers.Manual);
-        if (WorkflowInputs.Check(manual.Inputs, inputs) is { } invalid)
+        var trigger = spec.AllTriggers.First(t => t.Type == triggerType);
+        var schema = spec.InputSchema ?? trigger.Inputs;
+        inputs = WorkflowInputs.WithDefaults(schema, inputs);
+        if ((WorkflowInputs.Check(schema, inputs) ?? await DomainInputs.CheckAsync(schema, inputs, items, terms, ct)) is { } invalid)
         {
             return ([], invalid);
         }
 
-        if (targets.Count == 0 && manual.List is { } needed)
+        if (spec.Scope == "workspace" && targets.Count > 0)
+        {
+            return ([], "A workspace workflow runs without items.");
+        }
+
+        if (workflow.ListId is { } scopedList && targets.Any(t => t.ListId != scopedList))
+        {
+            return ([], "The workflow belongs to a different list.");
+        }
+
+        if (targets.Count == 0 && (spec.Scope == "list" || workflow.ListId is not null) && trigger.List is null)
+        {
+            return ([], "Choose items for this list workflow.");
+        }
+
+        if (targets.Count == 0 && (trigger.ContentType is not null || trigger.Terms is { Count: > 0 }))
+        {
+            return ([], "Choose items for a workflow with item filters.");
+        }
+
+        if (triggerType == WorkflowTriggers.Webhook && (targets.Count > 0 || trigger.List is not null || workflow.ListId is not null || spec.Scope == "list"))
+        {
+            return ([], "Webhook triggers run in the workspace without items.");
+        }
+
+        if (targets.Count == 0 && trigger.List is { } needed)
         {
             return ([], $"The workflow '{name}' runs on items of the list '{needed}'; choose items.");
         }
 
         var store = items.AsSystem();
+        var lists = new Dictionary<Guid, ListData?>();
         foreach (var item in targets)
         {
-            var list = await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
-            if (manual.List is { } listName && list?.Name != listName)
+            if (!lists.TryGetValue(item.ListId, out var list))
+            {
+                list = await store.GetListAsync(item.WorkspaceId, item.ListId, ct);
+                lists[item.ListId] = list;
+            }
+            if (trigger.List is { } listName && list?.Name != listName)
             {
                 return ([], $"The workflow '{name}' only runs on items of the list '{listName}'.");
             }
 
-            if (manual.ContentType is { } type)
+            if (trigger.ContentType is { } type)
             {
                 var data = await store.GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
                 var contentType = list?.ContentTypes.FirstOrDefault(c => c.Id == data?.ContentTypeId);
@@ -198,8 +255,7 @@ internal sealed class WorkflowStarter(
         }
 
         var each = targets.Count == 0 ? [null] : targets.Select(t => (WorkflowItem?)t).ToList();
-        var runs = await StartAsync([.. each.Select(item => new WorkflowStart(workflow, item, null, null, causation.Depth, startedBy,
-            Variables: inputs, Concurrency: manual.Concurrency))], ct);
+        var runs = await StartAsync([.. each.Select(item => new WorkflowStart(workflow, item, null, null, causation.Depth, startedBy, Variables: inputs, TriggerType: triggerType, Spec: spec, Concurrency: trigger.Concurrency))], ct);
         return (runs, null);
     }
 }
@@ -234,6 +290,16 @@ internal static class WorkflowInputs
             }
         }
 
+        if (schema["type"] is { } rootType && rootType.ToString() != "object")
+        {
+            yield return "inputs must describe an object.";
+        }
+
+        foreach (var error in ValidateConstraints(schema))
+        {
+            yield return error;
+        }
+
         foreach (var required in schema["required"] as JsonArray ?? [])
         {
             if (required?.ToString() is not { } name || !properties.ContainsKey(name))
@@ -243,8 +309,65 @@ internal static class WorkflowInputs
         }
     }
 
+    private static IEnumerable<string> ValidateConstraints(JsonObject schema)
+    {
+        foreach (var error in DomainInputs.Validate(schema))
+        {
+            yield return error;
+        }
+
+        foreach (var (name, value) in schema)
+        {
+            if (name is "minLength" or "maxLength" or "minItems" or "maxItems" && (value is not JsonValue size || !size.TryGetValue<int>(out var length) || length < 0))
+            {
+                yield return $"inputs.{name} must be a nonnegative integer.";
+            }
+
+            if (name is "minimum" or "maximum" && (value is not JsonValue bound || bound.GetValueKind() != System.Text.Json.JsonValueKind.Number))
+            {
+                yield return $"inputs.{name} must be a number.";
+            }
+
+            if (name == "uniqueItems" && value?.GetValueKind() is not (System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False))
+            {
+                yield return "inputs.uniqueItems must be a boolean.";
+            }
+
+            if (name == "enum" && value is not JsonArray { Count: > 0 })
+            {
+                yield return "inputs.enum must be a nonempty array.";
+            }
+
+            if (name == "required" && value is not JsonArray)
+            {
+                yield return "inputs.required must be an array.";
+            }
+        }
+
+        foreach (var (_, property) in schema["properties"] as JsonObject ?? [])
+        {
+            if (property is JsonObject child)
+            {
+                foreach (var error in child["type"]?.ToString() == "object" ? ValidateSchema(child) : ValidateConstraints(child))
+                {
+                    yield return error;
+                }
+            }
+        }
+
+        if (schema["items"] is JsonObject item)
+        {
+            foreach (var error in item["type"]?.ToString() == "object" ? ValidateSchema(item) : ValidateConstraints(item))
+            {
+                yield return error;
+            }
+        }
+    }
+
     /// <summary>Why the values do not fit the schema, or null (no schema: any values).</summary>
-    public static string? Check(JsonObject? schema, JsonObject? values)
+    public static string? Check(JsonObject? schema, JsonObject? values) => CheckObject(schema, values ?? [], "inputs");
+
+    private static string? CheckObject(JsonObject? schema, JsonObject values, string path)
     {
         if (schema?["properties"] is not JsonObject properties)
         {
@@ -253,37 +376,140 @@ internal static class WorkflowInputs
 
         foreach (var required in schema["required"] as JsonArray ?? [])
         {
-            if (required?.ToString() is { } name && values?[name] is null)
+            if (required?.ToString() is { } name && (values[name] is null || properties[name]?["x-paperdotnet"] is not null && (values[name] is JsonArray { Count: 0 } || values[name]?.ToString() == string.Empty)))
             {
                 return $"The input '{name}' is required.";
             }
         }
 
-        foreach (var (name, value) in values ?? [])
+        foreach (var (name, value) in values)
         {
-            if ((properties[name] as JsonObject)?["type"] is not JsonValue declared || declared.ToString() is not { } type)
+            if (properties[name] is not JsonObject definition || definition["type"] is not JsonValue)
             {
                 return $"Unknown input '{name}'.";
             }
 
-            var kind = value?.GetValueKind();
-            var fits = type switch
+            if (CheckValue(definition, value, name, $"{path}.{name}") is { } error)
             {
-                "string" => kind == System.Text.Json.JsonValueKind.String,
-                "number" => kind == System.Text.Json.JsonValueKind.Number,
-                "integer" => kind == System.Text.Json.JsonValueKind.Number && value!.ToJsonString().All(c => char.IsDigit(c) || c == '-'),
-                "boolean" => kind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False,
-                "array" => kind == System.Text.Json.JsonValueKind.Array,
-                _ => kind == System.Text.Json.JsonValueKind.Object,
-            };
-            if (value is not null && !fits)
+                return error;
+            }
+        }
+
+        return CheckConstraints(schema, values, path);
+    }
+
+    private static string? CheckValue(JsonObject schema, JsonNode? value, string name, string path)
+    {
+        var kind = value?.GetValueKind();
+        var type = schema["type"]?.ToString();
+        var fits = type switch
+        {
+            "string" => kind == System.Text.Json.JsonValueKind.String,
+            "number" => kind == System.Text.Json.JsonValueKind.Number,
+            "integer" => kind == System.Text.Json.JsonValueKind.Number && Number(value!) == Math.Truncate(Number(value!)),
+            "boolean" => kind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False,
+            "array" => kind == System.Text.Json.JsonValueKind.Array,
+            "object" => kind == System.Text.Json.JsonValueKind.Object,
+            _ => false,
+        };
+        if (!fits)
+        {
+            return $"The input '{name}' must be of type {type}.";
+        }
+
+        if (CheckConstraints(schema, value, path) is { } error)
+        {
+            return error;
+        }
+
+        if (value is JsonObject obj)
+        {
+            return CheckObject(schema, obj, path);
+        }
+
+        if (value is JsonArray array && schema["items"] is JsonObject itemSchema)
+        {
+            for (var index = 0; index < array.Count; index++)
             {
-                return $"The input '{name}' must be of type {type}.";
+                if (CheckValue(itemSchema, array[index], $"{name}[{index}]", $"{path}[{index}]") is { } invalid)
+                {
+                    return invalid;
+                }
             }
         }
 
         return null;
     }
+
+    public static JsonObject WithDefaults(JsonObject? schema, JsonObject? values)
+    {
+        var result = values?.DeepClone().AsObject() ?? [];
+        foreach (var (name, property) in schema?["properties"] as JsonObject ?? [])
+        {
+            if (!result.ContainsKey(name) && property is JsonObject definition && definition.TryGetPropertyValue("default", out var value))
+            {
+                result[name] = value?.DeepClone();
+            }
+
+            if (property is JsonObject childSchema && result[name] is JsonObject child)
+            {
+                result[name] = WithDefaults(childSchema, child);
+            }
+        }
+
+        return result;
+    }
+
+    private static string? CheckConstraints(JsonObject? schema, JsonNode? value, string path)
+    {
+        if (schema is null)
+        {
+            return null;
+        }
+
+        if (value is JsonArray array)
+        {
+            if (schema["minItems"] is JsonValue min && array.Count < min.GetValue<int>()
+                || schema["maxItems"] is JsonValue max && array.Count > max.GetValue<int>())
+            {
+                return $"{path} has an invalid number of selections.";
+            }
+
+            if (schema["uniqueItems"]?.ToString() == "true" && array.Where((item, index) => array.Take(index).Any(other => JsonNode.DeepEquals(item, other))).Any())
+            {
+                return $"{path} requires unique selections.";
+            }
+        }
+
+        if (schema["enum"] is JsonArray choices && !choices.Any(choice => JsonNode.DeepEquals(choice, value)))
+        {
+            return $"{path} must be one of the declared choices.";
+        }
+
+        if (value is JsonValue scalar && scalar.GetValueKind() == System.Text.Json.JsonValueKind.String)
+        {
+            var length = scalar.GetValue<string>().Length;
+            if (schema["minLength"] is JsonValue min && length < min.GetValue<int>()
+                || schema["maxLength"] is JsonValue max && length > max.GetValue<int>())
+            {
+                return $"{path} has an invalid length.";
+            }
+        }
+
+        if (value is JsonValue number && number.GetValueKind() == System.Text.Json.JsonValueKind.Number)
+        {
+            var amount = Number(number);
+            if (schema["minimum"] is JsonValue min && amount < Number(min)
+                || schema["maximum"] is JsonValue max && amount > Number(max))
+            {
+                return $"{path} is outside the allowed range.";
+            }
+        }
+
+        return null;
+    }
+
+    private static double Number(JsonNode value) => double.Parse(value.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture);
 }
 
 /// <summary>The run is being executed by another handler (its lease has not expired); the message is retried later.</summary>
@@ -320,7 +546,7 @@ public static class NotifyApprovalHandler
             return;
         }
 
-        var link = new NotificationLink(approval.WorkspaceId, approval.ListId, approval.ItemId);
+        var link = approval.ListId is { } listId ? new NotificationLink(approval.WorkspaceId, listId, approval.ItemId) : null;
         var notification = message.Overdue
             ? new NotificationMessage(NotificationTypes.Workflow, $"Overdue: {approval.Title}", "The approval is overdue.", link, $"approval:{approval.Id:N}:overdue")
             : new NotificationMessage(NotificationTypes.Workflow, approval.Title, "An approval is waiting for your decision.", link, $"approval:{approval.Id:N}");
@@ -421,7 +647,9 @@ internal sealed partial class WorkflowInterpreter(
         var variables = JsonNode.Parse(run.Variables) as JsonObject ?? [];
         var log = JsonNode.Parse(run.Log) as JsonArray ?? [];
         var item = run.ListId is { } listId && run.ItemId is { } itemId ? new WorkflowItem(run.WorkspaceId, listId, itemId) : null;
-        var data = run.Data is { } json ? JsonNode.Parse(json) as JsonObject : null;
+        var storedData = run.Data is { } json ? JsonNode.Parse(json) as JsonObject : null;
+        var executionContext = storedData?["$workflowContext"] as JsonObject;
+        var data = executionContext is null ? storedData : executionContext["data"] as JsonObject;
         void Log(string message)
         {
             log.Add(new JsonObject { ["at"] = time.GetUtcNow().ToString("O"), ["message"] = message });
@@ -541,7 +769,7 @@ internal sealed partial class WorkflowInterpreter(
         TokenScope? scope = null;
         async Task<string> ExpandAsync(string template)
         {
-            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct);
+            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct, executionContext);
             return await tokens.ExpandAsync(template, scope, ct);
         }
 
@@ -581,7 +809,7 @@ internal sealed partial class WorkflowInterpreter(
             }
             else if (inputs["items"] is JsonValue token && token.TryGetValue<string>(out var template))
             {
-                scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct);
+                scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct, executionContext);
                 value = await tokens.ValueAsync(template, scope, ct);
             }
             else
@@ -610,9 +838,9 @@ internal sealed partial class WorkflowInterpreter(
 
             if (outputs[id] is not JsonObject { } state || state["plan"] is not JsonArray)
             {
-                scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct);
+                scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct, executionContext);
                 var outcome = scripts.Run(ScriptRunner.Code(node.Inputs ?? [])!, run.WorkspaceId, run.StepExecutionId.Value, scope.Item, scope.ListName,
-                    outputs, variables, data, ct);
+                    outputs, variables, data, ct, executionContext);
                 foreach (var line in outcome.Log.Take(20))
                 {
                     Log($"{id}: {Truncate(line)}");
@@ -848,7 +1076,7 @@ internal sealed partial class WorkflowInterpreter(
                     var payload = new JsonObject();
                     foreach (var (field, value) in inputs["data"] as JsonObject ?? [])
                     {
-                        scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct);
+                        scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct, executionContext);
                         payload[field] = value is JsonValue raw && raw.TryGetValue<string>(out var valueTemplate)
                             ? await tokens.ValueAsync(valueTemplate, scope, ct)
                             : value?.DeepClone();
@@ -978,9 +1206,9 @@ internal sealed partial class WorkflowInterpreter(
                     await WaitAsync(NewBookmark(run, id, BookmarkKinds.Delay, TimerKey(run), time.GetUtcNow().AddHours(hours)));
                     return;
                 case FlowActivities.Approval:
-                    if (item is null)
+                    if (item is null && inputs["review"] is not null)
                     {
-                        await FailAsync($"{id}: an approval needs an item (the trigger has none).", id);
+                        await FailAsync($"{id}: a file review needs an item (the trigger has none).", id);
                         return;
                     }
 
@@ -989,7 +1217,7 @@ internal sealed partial class WorkflowInterpreter(
                     {
                         if (approvalInputs[people] is JsonValue peopleTemplate && peopleTemplate.TryGetValue<string>(out var peopleText))
                         {
-                            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct);
+                            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct, executionContext);
                             approvalInputs[people] = await tokens.ValueAsync(peopleText, scope, ct);
                         }
                     }
@@ -1034,7 +1262,7 @@ internal sealed partial class WorkflowInterpreter(
                     var result = await executor.ExecuteAsync(
                         new ActionDefinition(node.Activity, node.Inputs), run.WorkspaceId, item, run.StartedBy, data, outputs, variables,
                         $"workflow:{workflow.Name}", $"run:{run.Id:N}:{run.StepExecutionId.Value:N}", run.StepExecutionId.Value, ct, run.Id,
-                        resumed is null ? null : new WorkflowResumedWait(resumed.Kind, resumed.Key, JsonObjectOf(resumed.Data), JsonObjectOf(resumed.Payload)));
+                        resumed is null ? null : new WorkflowResumedWait(resumed.Kind, resumed.Key, JsonObjectOf(resumed.Data), JsonObjectOf(resumed.Payload)), executionContext);
                     if (!result.Succeeded)
                     {
                         if (!await FailedAsync(id, node, result.Error ?? "The action failed."))
@@ -1171,7 +1399,7 @@ internal sealed partial class WorkflowInterpreter(
 
     /// <summary>The pending request of this node (reused when the node runs again), or a new one (not saved yet).</summary>
     private async Task<ApprovalRequest?> CreateApprovalAsync(
-        WorkflowRun run, WorkflowItem item, string node, JsonObject inputs, Func<string, Task<string>> expand, CancellationToken ct)
+        WorkflowRun run, WorkflowItem? item, string node, JsonObject inputs, Func<string, Task<string>> expand, CancellationToken ct)
     {
         var existing = await db.Approvals.FirstOrDefaultAsync(a => a.RunId == run.Id && a.StepName == node && a.Status == ApprovalStatus.Pending, ct);
         if (existing is not null)
@@ -1179,7 +1407,7 @@ internal sealed partial class WorkflowInterpreter(
             return existing;
         }
 
-        var current = await items.AsSystem().GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
+        var current = item is null ? null : await items.AsSystem().GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
         var (assignees, _) = await recipients.ResolveAsync(ActivityInputs.Texts(inputs, "assignees") ?? [], current, run.StartedBy, ct);
         if (assignees.Count == 0)
         {
@@ -1194,8 +1422,9 @@ internal sealed partial class WorkflowInterpreter(
             RunId = run.Id,
             StepName = node,
             WorkspaceId = run.WorkspaceId,
-            ListId = item.ListId,
-            ItemId = item.ItemId,
+            ListId = item?.ListId,
+            ItemId = item?.ItemId,
+            InputSchema = (inputs["inputSchema"] as JsonObject)?.ToJsonString(),
             Title = title.Length > 1000 ? title[..1000] : title,
             ReviewType = inputs["review"] is JsonObject review ? ActivityInputs.Text(review, "type") : null,
             ReviewKey = inputs["review"] is JsonObject reference && ActivityInputs.Text(reference, "key") is { } reviewKey ? await expand(reviewKey) : null,
@@ -1213,7 +1442,7 @@ internal sealed partial class WorkflowInterpreter(
 }
 
 /// <summary>Decisions on approvals, completing bookmarks, and cancelling and retrying runs.</summary>
-internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time, IItemActivity activity, IEnumerable<IApprovalReviewProvider> reviews, IListItemStore items)
+internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time, IItemActivity activity, IListItemStore items, ITermStore terms, IEnumerable<IApprovalReviewProvider> reviews)
 {
     public enum DecisionResult
     {
@@ -1221,39 +1450,53 @@ internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantC
         NotFound,
         AlreadyDecided,
         InvalidReview,
+        InvalidInputs,
     }
 
     /// <summary>
     /// Records the decision of an assignee and completes the approval's bookmark; the message that resumes the run is
     /// stored with it. A concurrent change of the request (e.g. an escalation adding assignees) is retried.
     /// </summary>
-    public async Task<DecisionResult> DecideAsync(Guid approvalId, Guid userId, string outcome, string? comment, CancellationToken ct)
+    public async Task<(DecisionResult Result, string? Error)> DecideAsync(Guid approvalId, Guid userId, string outcome, string? comment, CancellationToken ct, JsonObject? inputs = null)
     {
         for (var attempt = 0; ; attempt++)
         {
             var approval = await db.Approvals.FirstOrDefaultAsync(a => a.Id == approvalId, ct);
             if (approval is null || !approval.Assignees.Contains(userId))
             {
-                return DecisionResult.NotFound;
+                return (DecisionResult.NotFound, null);
             }
 
             if (approval.Status != ApprovalStatus.Pending)
             {
-                return DecisionResult.AlreadyDecided;
+                return (DecisionResult.AlreadyDecided, null);
             }
 
             if (approval.ReviewType is { } type)
             {
                 var provider = reviews.SingleOrDefault(p => p.Type == type);
+                if (approval.ListId is null || approval.ItemId is null)
+                {
+                    return (DecisionResult.InvalidReview, null);
+                }
+
                 var context = new ApprovalReviewContext(approval.Id, approval.RunId,
-                    new WorkflowItem(approval.WorkspaceId, approval.ListId, approval.ItemId), approval.ReviewKey ?? "");
-                if (await items.GetAsync(approval.WorkspaceId, approval.ListId, approval.ItemId, ct) is null
+                    new WorkflowItem(approval.WorkspaceId, approval.ListId!.Value, approval.ItemId!.Value), approval.ReviewKey ?? "");
+                if (await items.GetAsync(approval.WorkspaceId, approval.ListId.Value, approval.ItemId.Value, ct) is null
                     || provider is null || !await provider.CanDecideAsync(context, ct))
                 {
-                    return DecisionResult.InvalidReview;
+                    return (DecisionResult.InvalidReview, null);
                 }
             }
 
+            var schema = approval.InputSchema is null ? null : JsonNode.Parse(approval.InputSchema) as JsonObject;
+            var values = WorkflowInputs.WithDefaults(schema, inputs ?? new JsonObject());
+            if ((WorkflowInputs.Check(schema, values) ?? await DomainInputs.CheckAsync(schema, values, items, terms, ct)) is { } error)
+            {
+                return (DecisionResult.InvalidInputs, error);
+            }
+
+            approval.Inputs = values.ToJsonString();
             approval.Status = outcome == ApprovalOutcomes.Approved ? ApprovalStatus.Approved : ApprovalStatus.Rejected;
             approval.DecidedBy = userId;
             approval.DecidedAt = time.GetUtcNow();
@@ -1262,7 +1505,13 @@ internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantC
             var key = WorkflowInterpreter.BookmarkKey(approval.Id);
             if (await db.Bookmarks.FirstOrDefaultAsync(b => b.Kind == BookmarkKinds.Approval && b.Key == key && b.CompletedAt == null, ct) is { } bookmark)
             {
-                Complete(bookmark, new JsonObject { ["outcome"] = outcome, ["decidedBy"] = userId.ToString(), ["comment"] = comment });
+                Complete(bookmark, new JsonObject
+                {
+                    ["outcome"] = outcome,
+                    ["decidedBy"] = userId.ToString(),
+                    ["comment"] = comment,
+                    ["input"] = values.DeepClone()
+                });
                 messages.Add(Resume(bookmark.RunId, bookmark.Id));
             }
 
@@ -1287,6 +1536,7 @@ internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantC
                     ["outcome"] = outcome,
                     ["comment"] = comment,
                     ["decidedBy"] = userId.ToString(),
+                    ["input"] = values.DeepClone(),
                 }.ToJsonString(),
             };
 
@@ -1301,9 +1551,12 @@ internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantC
             }
 
             var summary = $"{approval.StepName}: {(approval.Status == ApprovalStatus.Approved ? "approved" : "rejected")}" + (comment is { Length: > 0 } ? $" ({comment})" : "");
-            await activity.RecordAsync(
-                new ItemActivityEntry(approval.WorkspaceId, approval.ListId, approval.ItemId, ActivityKinds.Approval, summary, $"approval:{approval.Id:N}"), ct);
-            return DecisionResult.Ok;
+            if (approval.ListId is { } listId && approval.ItemId is { } itemId)
+            {
+                await activity.RecordAsync(new ItemActivityEntry(approval.WorkspaceId, listId, itemId,
+                    ActivityKinds.Approval, summary, $"approval:{approval.Id:N}"), ct);
+            }
+            return (DecisionResult.Ok, null);
         }
     }
 

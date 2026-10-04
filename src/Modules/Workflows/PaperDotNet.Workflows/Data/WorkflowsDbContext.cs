@@ -302,9 +302,9 @@ public sealed class ApprovalRequest : ITenantOwned, IAuditable, IVersioned
 
     public Guid WorkspaceId { get; set; }
 
-    public Guid ListId { get; set; }
+    public Guid? ListId { get; set; }
 
-    public Guid ItemId { get; set; }
+    public Guid? ItemId { get; set; }
 
     public required string Title { get; set; }
 
@@ -328,6 +328,10 @@ public sealed class ApprovalRequest : ITenantOwned, IAuditable, IVersioned
     public DateTimeOffset? DecidedAt { get; set; }
 
     public string? Comment { get; set; }
+
+    public string? InputSchema { get; set; }
+
+    public string? Inputs { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

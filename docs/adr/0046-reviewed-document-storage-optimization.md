@@ -111,9 +111,16 @@ The planned mixed-case extension ID was normalized to lowercase to satisfy the
 existing manifest contract. Both database providers have migrations, and the
 HTTP additions are included in all generated SDKs.
 
-Receipt tag triggers use an optional per-trigger `concurrency: "skip"` override.
+Receipt tag triggers use `itemUpdated.parameters.when` with a tag `added`
+condition evaluated against the event snapshots, and an optional per-trigger `concurrency: "skip"` override.
 Its effective value is saved with the run, so recovery applies the same policy.
 Tag changes retain the active review and the later tag check observes the current
 item. Upload triggers retain `replace`, cancelling reviews of obsolete uploads.
 Concurrent scheduler initialization tolerates a competing insertion of the same
 trigger state; durable occurrence IDs continue to prevent duplicate starts.
+
+Approval forms and file reviews compose on the same approval node. A review may
+also specify `inputSchema`; the comparison dialog renders the shared schema form
+and sends its validated values with the decision. The server checks both review
+freshness and the form, and later nodes read `{step:review.input.*}`. Ordinary
+workspace approvals may omit an item; a file review still requires one.

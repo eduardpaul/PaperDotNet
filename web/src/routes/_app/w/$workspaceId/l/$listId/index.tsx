@@ -40,6 +40,7 @@ import { useListAccess } from '@/features/list-settings/queries';
 import { ItemsCalendar, ItemsGallery } from '@/features/lists/items-layouts';
 import { itemsQuery, listBuilder, listQuery, odataString, viewsQuery } from '@/features/lists/queries';
 import { listFields } from '@/features/lists/schema';
+import { LaunchWorkflowButton } from '@/features/workflows/launch-workflow';
 import { problemMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 
@@ -306,6 +307,7 @@ function ListPage() {
       {access.canContribute && selectedIds.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-accent-soft px-3 py-2 text-[13px]">
           <span className="font-medium">{selectedIds.length} selected</span>
+          <LaunchWorkflowButton workspaceId={workspaceId} list={list} itemIds={selectedIds} />
           <Button size="sm" onClick={() => setBulkEdit(true)}>
             <Pencil /> Edit field
           </Button>

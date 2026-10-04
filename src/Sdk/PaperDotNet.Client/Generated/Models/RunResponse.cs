@@ -27,6 +27,14 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The eventId property</summary>
         public Guid? EventId { get; set; }
+        /// <summary>The executionContext property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? ExecutionContext { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject ExecutionContext { get; set; }
+#endif
         /// <summary>The failedNode property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -129,6 +137,7 @@ namespace PaperDotNet.Client.Models
                 { "completedAt", n => { CompletedAt = n.GetDateTimeOffsetValue(); } },
                 { "error", n => { Error = n.GetStringValue(); } },
                 { "eventId", n => { EventId = n.GetGuidValue(); } },
+                { "executionContext", n => { ExecutionContext = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "failedNode", n => { FailedNode = n.GetStringValue(); } },
                 { "id", n => { Id = n.GetGuidValue(); } },
                 { "itemId", n => { ItemId = n.GetGuidValue(); } },
@@ -157,6 +166,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteDateTimeOffsetValue("completedAt", CompletedAt);
             writer.WriteStringValue("error", Error);
             writer.WriteGuidValue("eventId", EventId);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("executionContext", ExecutionContext);
             writer.WriteStringValue("failedNode", FailedNode);
             writer.WriteGuidValue("id", Id);
             writer.WriteGuidValue("itemId", ItemId);

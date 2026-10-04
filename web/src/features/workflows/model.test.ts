@@ -1,6 +1,6 @@
 import type { WorkflowResponse } from '@paperdotnet/client';
 import { describe, expect, it } from 'vitest';
-import { describeTriggers, draftFrom, fromPlain, requestFrom, toPlain } from './model';
+import { describeTriggers, draftFrom, fromPlain, requestFrom, toPlain, manualWorkflows } from './model';
 
 const flow = {
   start: 'big?',
@@ -46,6 +46,20 @@ describe('workflow model', () => {
     expect(toPlain(draft).concurrency).toBe('skip');
     expect(requestFrom(draft).concurrency).toBe('skip');
     expect(toPlain(fromPlain({ name: 'Default', trigger: { type: 'manual' } }))).not.toHaveProperty('concurrency');
+  });
+
+  it('preserves a trigger concurrency override alongside snapshot conditions', () => {
+    const trigger = {
+      type: 'itemUpdated',
+      list: 'Receipts',
+      concurrency: 'skip',
+      parameters: { when: { target: 'tags', operator: 'added', term: 'Receipts/Tags/ticket' } },
+    };
+    const draft = fromPlain({ name: 'Read receipts', trigger });
+    expect(toPlain(draft).trigger).toMatchObject(trigger);
+    const request = requestFrom(draft);
+    expect(request.trigger?.concurrency).toBe('skip');
+    expect(toPlain(draftFrom(request as WorkflowResponse)).trigger).toMatchObject(trigger);
   });
 
   it('keeps several triggers from the API through the JSON view to a request, and describes them', () => {
@@ -108,4 +122,98 @@ describe('workflow model', () => {
     expect(date.trigger).toMatchObject({ type: 'date', list: 'Tasks', field: 'dueDate', offsetHours: -24 });
     expect(date.trigger).not.toHaveProperty('cron');
   });
+});
+
+describe('manual workflow selection', () => {
+  const workflows: WorkflowResponse[] = [
+    { id: 'workspace', enabled: true, scope: 'workspace', triggers: [{ type: 'schedule' }, { type: 'manual' }] },
+    { id: 'list', enabled: true, scope: 'list', trigger: { type: 'manual', list: 'Invoices' } },
+    { id: 'disabled', enabled: false, trigger: { type: 'manual' } },
+    { id: 'automatic', enabled: true, trigger: { type: 'itemAdded' } },
+    { id: 'library', enabled: true, listId: 'other', trigger: { type: 'manual' } },
+  ];
+  it('offers workspace launches without item workflows', () => {
+    expect(manualWorkflows(workflows).map((w) => w.id)).toEqual(['workspace']);
+  });
+  it('offers matching list workflows and excludes workspace launches', () => {
+    expect(manualWorkflows(workflows, { id: 'invoices', name: 'Invoices' }).map((w) => w.id)).toEqual(['list']);
+    expect(manualWorkflows(workflows, { id: 'tasks', name: 'Tasks' })).toEqual([]);
+  });
+  it('preserves scope and the launch schema through editor round trips', () => {
+    const workflow: WorkflowResponse = {
+      scope: 'workspace',
+      inputSchema: { additionalData: { type: 'object', properties: { flag: { type: 'boolean' } } } },
+      trigger: { type: 'manual' },
+    };
+    const request = requestFrom(draftFrom(workflow));
+    expect(request.scope).toBe('workspace');
+    expect(request.inputSchema?.additionalData).toEqual(workflow.inputSchema?.additionalData);
+  });
+});
+
+it('keeps original trigger input schemas when saving an existing manual workflow', () => {
+  const response: WorkflowResponse = {
+    trigger: {
+      type: 'manual',
+      inputs: { additionalData: { properties: { label: { type: 'string' } }, required: ['label'] } },
+    },
+  };
+  expect(requestFrom(draftFrom(response)).trigger?.inputs?.additionalData).toEqual(
+    response.trigger?.inputs?.additionalData,
+  );
+});
+
+it('preserves workspace event filters and removes empty form entries', () => {
+  const draft = fromPlain({
+    name: 'Receipt tags',
+    scope: 'workspace',
+    trigger: { type: 'itemUpdated', contentType: 'Paper', terms: [' Documents/Tags/Receipt ', ''] },
+  });
+  const request = requestFrom(draft);
+  expect(request.scope).toBe('workspace');
+  expect(request.trigger?.list).toBeNull();
+  expect(request.trigger?.contentType).toBe('Paper');
+  expect(request.trigger?.terms).toEqual(['Documents/Tags/Receipt']);
+  expect(describeTriggers(request)).toBe('When an item changes (Paper)');
+});
+
+it('keeps approval form schemas through SDK and editor round trips', () => {
+  const schema = { type: 'object', properties: { amount: { type: 'integer', minimum: 1 } }, required: ['amount'] };
+  const request = requestFrom(
+    fromPlain({
+      name: 'Review',
+      trigger: { type: 'manual' },
+      steps: [{ type: 'approval', name: 'Review', assignees: ['admin'], inputSchema: schema }],
+    }),
+  );
+  expect(request.steps?.[0]?.inputSchema?.additionalData).toEqual(schema);
+  expect(toPlain(draftFrom(request as WorkflowResponse)).steps?.[0]?.inputSchema).toEqual(schema);
+});
+
+it('round trips nested trigger parameters through single and multiple SDK triggers', () => {
+  const parameters = {
+    when: {
+      all: [
+        { target: 'tags', operator: 'added', term: 'Documents/Tags/Receipt' },
+        { target: 'field', field: 'status', operator: 'transition', from: 'Draft', to: 'Ready' },
+      ],
+    },
+  };
+  const request = requestFrom(fromPlain({ name: 'Conditional update', trigger: { type: 'itemUpdated', parameters } }));
+  expect(request.trigger?.parameters?.when?.additionalData).toEqual(parameters.when);
+  expect(toPlain(draftFrom({ ...request, id: 'workflow' } as WorkflowResponse)).trigger?.parameters).toEqual(
+    parameters,
+  );
+  const multiple = requestFrom(
+    fromPlain({
+      name: 'Multiple events',
+      triggers: [
+        { type: 'itemAdded', parameters: { when: { target: 'tags', operator: 'added' } } },
+        { type: 'itemUpdated', parameters },
+      ],
+    }),
+  );
+  expect(toPlain(draftFrom({ ...multiple, id: 'workflow' } as WorkflowResponse)).triggers?.[1].parameters).toEqual(
+    parameters,
+  );
 });

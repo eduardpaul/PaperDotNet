@@ -67,11 +67,13 @@ or the regular document text-extraction engine.
 | Content type **Receipt line** | `quantity`, `unitPrice`, `amount`; the title is the description |
 | Relationship type **contains receipt line** | Directed; inverse **belongs to receipt**; at most one receipt per line |
 | Workspace **Receipts** (parameter `Workspace`) | The library **Receipts** (views: All receipts, Needs review) and the list **Receipt lines** |
-| Workflow **Read receipts** | Two triggers: when a receipt's tags change to one at or below *ticket*, and when a file is added |
+| Workflow **Read receipts** | Two triggers: when a tag at or below *ticket* is added to a receipt, and when a file is added |
 | Library workflows | "Read the text" off (as is "Recognize text"); "Make thumbnails" and "Render pages" on |
 | Built-in workflow **AI batch** | Sends the waiting questions on the schedule `BatchSchedule` (default: every hour) |
 
-The composed workflow has upload and tag-change triggers. It first prepares a
+The composed workflow has upload and tag-addition triggers. The latter uses
+`itemUpdated.parameters.when` to compare transactional tag snapshots, with a
+per-trigger `concurrency: "skip"` override to retain an active review. It first prepares a
 smaller image, waits for review when needed, selects the file, and checks the
 current receipt tag. Its AI section then runs as follows:
 
@@ -102,9 +104,10 @@ current receipt tag. Its AI section then runs as follows:
 3. On an error in any step, `review` (`item.update`) sets the status to
    *Needs review*.
 
-With `"concurrency": "replace"`, tagging a receipt again while it waits for
-the batch replaces the waiting run. The script can be tried outside the
-workflow with `runWorkflowScript` from the TypeScript SDK.
+Upload triggers use `"concurrency": "replace"` so a new source file replaces the
+waiting run. Tag additions skip a run that is already active; once it finishes,
+removing and re-adding the receipt tag starts a new reading. The script can be
+tried outside the workflow with `runWorkflowScript` from the TypeScript SDK.
 
 ## Try it
 

@@ -77,6 +77,71 @@ public sealed class WorkflowTriggerTests(PaperDotNetApiFactory factory)
     private static object[] Note(string list, string title) =>
         [new { type = "action", action = "task.create", inputs = new { list, title } }];
 
+    [Fact]
+    public async Task Workspace_manual_and_webhook_runs_share_context_and_validate_inputs()
+    {
+        var s = await SetupAsync("workflow-on-demand");
+        var workflow = await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "On demand",
+            scope = "workspace",
+            triggers = new[] { new { type = "manual" }, new { type = "webhook" } },
+            inputSchema = new
+            {
+                type = "object",
+                properties = new { label = new { type = "string", @enum = new[] { "A", "B" } }, flag = new { type = "boolean", @default = true } },
+                required = new[] { "label" },
+            },
+            variables = new { count = 3 },
+            flow = new
+            {
+                start = "inspect",
+                nodes = new { inspect = new { activity = "script", inputs = new { code = "return { source: context.trigger, workspace: context.workspaceId, label: input.label, flag: input.flag, count: vars.count, item };" } } },
+            },
+        });
+
+        var invalid = await s.Admin.PostAsJsonAsync($"{s.Workflows}/{workflow}/webhook", new { label = "C" }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Empty(await RunsAsync(s, workflow));
+        var missing = await s.Admin.PostAsJsonAsync($"{s.Workflows}/{workflow}/runs", new { }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+        var target = await PostIdAsync(s.Admin, $"{s.List(s.Tasks)}/items", new { fields = new { title = "Scope check" } });
+        var wrongScope = await s.Admin.PostAsJsonAsync($"{s.Workflows}/{workflow}/runs", new { listId = s.Tasks, itemIds = new[] { target }, inputs = new { label = "A" } }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, wrongScope.StatusCode);
+        var webhook = await s.Admin.PostAsJsonAsync($"{s.Workflows}/{workflow}/webhook", new { label = "B" }, Ct);
+        Assert.Equal(HttpStatusCode.OK, webhook.StatusCode);
+        var manual = await s.Admin.PostAsJsonAsync($"{s.Workflows}/{workflow}/runs", new { inputs = new { label = "A" } }, Ct);
+        Assert.Equal(HttpStatusCode.OK, manual.StatusCode);
+
+        var runs = await RunsAsync(s, workflow, r => r.Count == 2 && AllCompleted(r));
+        Assert.Equal(new[] { "manual", "webhook" }, runs.Select(r => r.GetProperty("executionContext").GetProperty("trigger").GetString()).Order());
+        foreach (var run in runs)
+        {
+            var context = run.GetProperty("executionContext");
+            var result = run.GetProperty("outputs").GetProperty("inspect").GetProperty("result");
+            Assert.Equal(context.GetProperty("trigger").GetString(), result.GetProperty("source").GetString());
+            Assert.Equal(s.Workspace.ToString(), result.GetProperty("workspace").GetString());
+            Assert.Equal(context.GetProperty("input").GetProperty("label").GetString(), result.GetProperty("label").GetString());
+            Assert.True(result.GetProperty("flag").GetBoolean());
+            Assert.Equal(3, result.GetProperty("count").GetInt32());
+            Assert.Equal(JsonValueKind.Null, result.GetProperty("item").ValueKind);
+        }
+        using var anonymous = await ApiClient.CreateAsync(factory, s.Tenant.Identifier, userName: null);
+        var denied = await anonymous.PostAsJsonAsync($"{s.Workflows}/{workflow}/webhook", new { label = "A" }, Ct);
+        Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
+
+        await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(s.Tenant.Id, s.Tenant.Identifier))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WorkflowsDbContext>();
+            (await db.Workflows.SingleAsync(w => w.Id == workflow, Ct)).Enabled = false;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var disabled = await s.Admin.PostAsJsonAsync($"{s.Workflows}/{workflow}/webhook", new { label = "A" }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, disabled.StatusCode);
+        Assert.Equal(2, (await RunsAsync(s, workflow)).Count);
+    }
+
     private async Task TickAsync(Setup s, Func<WorkflowsDbContext, Task>? before = null)
     {
         await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(s.Tenant.Id, s.Tenant.Identifier);
@@ -112,6 +177,8 @@ public sealed class WorkflowTriggerTests(PaperDotNetApiFactory factory)
             await db.SaveChangesAsync(Ct);
         });
         var runs = await RunsAsync(s, workflow, r => r.Count == 1 && AllCompleted(r));
+        Assert.Equal("schedule", runs[0].GetProperty("executionContext").GetProperty("trigger").GetString());
+        Assert.Empty(runs[0].GetProperty("executionContext").GetProperty("input").EnumerateObject());
         Assert.StartsWith("Plan the day (", (await s.Admin.QueryTitlesAsync(s.Workspace, s.Tasks, "")).Single(), StringComparison.Ordinal);
 
         // The same occurrence never starts twice; the next is planned after now.
@@ -409,6 +476,100 @@ public sealed class WorkflowTriggerTests(PaperDotNetApiFactory factory)
             var titles = await s.Admin.QueryTitlesAsync(s.Workspace, log, "");
             return titles.Contains($"Added {title}: application/pdf, new true") && titles.Contains($"Text of {title}") ? true : (bool?)null;
         }, TimeSpan.FromSeconds(60));
+    }
+
+    [Fact]
+    public async Task Workspace_events_match_any_list_and_tag_additions_match_only_new_terms()
+    {
+        static object[] TagTriggers(string? list = null, string? contentType = null, string? term = null) =>
+            new[] { "itemAdded", "itemUpdated" }.Select(type => (object)new
+            {
+                type,
+                list,
+                contentType,
+                parameters = new { when = new { target = "tags", @operator = "added", term } },
+            }).ToArray();
+        var s = await SetupAsync("workspace-tag-events");
+        var group = await PostIdAsync(s.Admin, "/v1.0/termStore/groups", new { name = "Documents" });
+        var set = await PostIdAsync(s.Admin, "/v1.0/termStore/sets", new { groupId = group, name = "Tags" });
+        var parent = await PostIdAsync(s.Admin, $"/v1.0/termStore/sets/{set}/terms", new { name = "Receipt" });
+        var child = await PostIdAsync(s.Admin, $"/v1.0/termStore/sets/{set}/terms", new { name = "Shop", parentId = parent });
+        var other = await PostIdAsync(s.Admin, $"/v1.0/termStore/sets/{set}/terms", new { name = "Contract" });
+        var paper = await s.Admin.CreateContentTypeAsync("Paper", [new { name = "tags", type = "managedMetadata", termSetId = set, allowMultiple = true }]);
+        var first = await s.Admin.CreateListAsync(s.Workspace, "First", paper);
+        var second = await s.Admin.CreateListAsync(s.Workspace, "Second", paper);
+        var anyTag = await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Any tag",
+            scope = "workspace",
+            triggers = TagTriggers(),
+            steps = Note("Tasks", "Tag assigned"),
+        });
+        var receipts = await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Receipts",
+            scope = "workspace",
+            triggers = TagTriggers(contentType: "Paper", term: "Documents/Tags/Receipt"),
+            steps = Note("Tasks", "Receipt assigned"),
+        });
+        var firstOnly = await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "First list",
+            scope = "workspace",
+            triggers = TagTriggers(list: "First"),
+            steps = Note("Tasks", "First assigned"),
+        });
+        var wrongType = await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Other type",
+            scope = "workspace",
+            triggers = TagTriggers(contentType: "Task"),
+            steps = Note("Tasks", "Wrong type"),
+        });
+        var updates = await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Updates",
+            scope = "workspace",
+            trigger = new { type = "itemUpdated", contentType = "Paper" },
+            steps = Note("Tasks", "Updated"),
+        });
+        var combined = await PostIdAsync(s.Admin, s.Workflows, new
+        {
+            name = "Combined",
+            scope = "workspace",
+            triggers = new object[] { new { type = "itemUpdated" }, new { type = "itemAdded", parameters = new { when = new { target = "tags", @operator = "added" } } }, new { type = "itemUpdated", parameters = new { when = new { target = "tags", @operator = "added" } } } },
+            steps = Note("Tasks", "Combined event"),
+        });
+        var a = (await s.Admin.CreateItemAsync(s.Workspace, first, new { fields = new { title = "A", tags = new[] { child } } })).GetProperty("id").GetGuid();
+        var b = (await s.Admin.CreateItemAsync(s.Workspace, second, new { fields = new { title = "B" } })).GetProperty("id").GetGuid();
+        await RunsAsync(s, anyTag, r => r.Count == 1 && AllCompleted(r));
+        await RunsAsync(s, receipts, r => r.Count == 1 && AllCompleted(r));
+        await RunsAsync(s, firstOnly, r => r.Count == 1 && AllCompleted(r));
+        async Task UpdateAsync(Guid list, Guid item, object fields, int count)
+        {
+            var url = $"{s.List(list)}/items/{item}";
+            var response = await s.Admin.SendWithEtagAsync(HttpMethod.Patch, url, (await s.Admin.GetAsync(url, Ct)).Headers.ETag!.Tag, new { fields });
+            Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync(Ct));
+            await RunsAsync(s, updates, r => r.Count == count && AllCompleted(r));
+        }
+
+        await UpdateAsync(second, b, new { tags = new[] { child } }, 1);
+        var taggedRuns = await RunsAsync(s, anyTag, r => r.Count == 2 && AllCompleted(r));
+        await RunsAsync(s, receipts, r => r.Count == 2 && AllCompleted(r));
+        var context = taggedRuns.Single(r => r.GetProperty("itemId").GetGuid() == b).GetProperty("executionContext");
+        Assert.Equal("itemUpdated", context.GetProperty("trigger").GetString());
+        Assert.Equal(second, context.GetProperty("listId").GetGuid());
+        Assert.Equal(child, context.GetProperty("data").GetProperty("after").GetProperty("fields").GetProperty("tags")[0].GetGuid());
+        await UpdateAsync(second, b, new { title = "B renamed" }, 2);
+        await UpdateAsync(second, b, new { tags = new[] { child, other } }, 3);
+        await RunsAsync(s, anyTag, r => r.Count == 3 && AllCompleted(r));
+        await UpdateAsync(second, b, new { tags = new[] { other, child } }, 4);
+        await UpdateAsync(second, b, new { tags = new[] { other } }, 5);
+        await RunsAsync(s, combined, r => r.Count == 6 && AllCompleted(r)); // creation + five updates, once per event
+        Assert.Equal(3, (await RunsAsync(s, anyTag)).Count);
+        Assert.Equal(2, (await RunsAsync(s, receipts)).Count); // retained Receipt did not match Contract's addition
+        Assert.Single(await RunsAsync(s, firstOnly));
+        Assert.Empty(await RunsAsync(s, wrongType));
     }
 
     [Fact]

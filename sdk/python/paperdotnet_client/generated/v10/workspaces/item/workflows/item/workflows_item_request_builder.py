@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from ......models.workflow_request import WorkflowRequest
     from ......models.workflow_response import WorkflowResponse
     from .runs.runs_request_builder import RunsRequestBuilder
+    from .webhook.webhook_request_builder import WebhookRequestBuilder
 
 class WorkflowsItemRequestBuilder(BaseRequestBuilder):
     """
@@ -143,6 +144,15 @@ class WorkflowsItemRequestBuilder(BaseRequestBuilder):
         from .runs.runs_request_builder import RunsRequestBuilder
 
         return RunsRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def webhook(self) -> WebhookRequestBuilder:
+        """
+        The webhook property
+        """
+        from .webhook.webhook_request_builder import WebhookRequestBuilder
+
+        return WebhookRequestBuilder(self.request_adapter, self.path_parameters)
     
     @dataclass
     class WorkflowsItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):

@@ -470,6 +470,19 @@ function ApprovalFields({
           )}
         </Field>
       </div>
+      <Field
+        label="Input schema"
+        hint="Optional JSON Schema for information collected with this decision. Use x-paperdotnet for relationship, terms or keywords pickers. Later steps read {step:Name.input.field}."
+      >
+        {() => (
+          <JsonInput
+            aria-label="Approval input schema"
+            rows={5}
+            value={step.inputSchema ?? { type: 'object', properties: {} }}
+            onChange={(value) => set({ inputSchema: value as Record<string, unknown> })}
+          />
+        )}
+      </Field>
     </>
   );
 }

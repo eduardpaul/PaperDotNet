@@ -34,6 +34,22 @@ namespace PaperDotNet.Client.Models
         public bool? Escalated { get; set; }
         /// <summary>The id property</summary>
         public Guid? Id { get; set; }
+        /// <summary>The inputs property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? Inputs { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject Inputs { get; set; }
+#endif
+        /// <summary>The inputSchema property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? InputSchema { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject InputSchema { get; set; }
+#endif
         /// <summary>The itemId property</summary>
         public Guid? ItemId { get; set; }
         /// <summary>The listId property</summary>
@@ -100,6 +116,8 @@ namespace PaperDotNet.Client.Models
                 { "dueAt", n => { DueAt = n.GetDateTimeOffsetValue(); } },
                 { "escalated", n => { Escalated = n.GetBoolValue(); } },
                 { "id", n => { Id = n.GetGuidValue(); } },
+                { "inputSchema", n => { InputSchema = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
+                { "inputs", n => { Inputs = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "itemId", n => { ItemId = n.GetGuidValue(); } },
                 { "listId", n => { ListId = n.GetGuidValue(); } },
                 { "review", n => { Review = n.GetObjectValue<global::PaperDotNet.Client.Models.ApprovalReviewReference>(global::PaperDotNet.Client.Models.ApprovalReviewReference.CreateFromDiscriminatorValue); } },
@@ -124,6 +142,8 @@ namespace PaperDotNet.Client.Models
             writer.WriteDateTimeOffsetValue("dueAt", DueAt);
             writer.WriteBoolValue("escalated", Escalated);
             writer.WriteGuidValue("id", Id);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputs", Inputs);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputSchema", InputSchema);
             writer.WriteGuidValue("itemId", ItemId);
             writer.WriteGuidValue("listId", ListId);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.ApprovalReviewReference>("review", Review);

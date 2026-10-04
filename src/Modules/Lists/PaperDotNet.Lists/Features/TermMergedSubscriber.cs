@@ -30,9 +30,9 @@ internal sealed class TermMergedSubscriber(ListsDbContext db, ITermStore terms, 
         await MergeRelationshipsAsync(integrationEvent, cancellationToken);
 
         var fieldsByContentType = (await db.ContentTypes.AsNoTracking().ToListAsync(cancellationToken))
-            .Select(c => (c.Id, Fields: c.Fields.Where(f => Uses(f, set)).ToList()))
+            .Select(c => (c.Id, Fields: c.Fields.Where(f => Uses(f, set)).ToList(), SnapshotType: c))
             .Where(c => c.Fields.Count > 0)
-            .ToDictionary(c => c.Id, c => c.Fields);
+            .ToDictionary(c => c.Id, c => c);
         if (fieldsByContentType.Count == 0)
         {
             return;
@@ -40,10 +40,10 @@ internal sealed class TermMergedSubscriber(ListsDbContext db, ITermStore terms, 
 
         var source = FieldFormats.Identifier(integrationEvent.SourceTermId);
         var target = FieldFormats.Identifier(integrationEvent.TargetTermId);
-        foreach (var field in fieldsByContentType.Values.SelectMany(f => f).DistinctBy(f => (f.Name, f.AllowMultiple)))
+        foreach (var field in fieldsByContentType.Values.SelectMany(f => f.Fields).DistinctBy(f => (f.Name, f.AllowMultiple)))
         {
             var fragment = new JsonObject { [field.Name] = field.AllowMultiple ? new JsonArray(source) : source }.ToJsonString();
-            var contentTypeIds = fieldsByContentType.Where(c => c.Value.Any(f => f.Name == field.Name && f.AllowMultiple == field.AllowMultiple)).Select(c => c.Key).ToList();
+            var contentTypeIds = fieldsByContentType.Where(c => c.Value.Fields.Any(f => f.Name == field.Name && f.AllowMultiple == field.AllowMultiple)).Select(c => c.Key).ToList();
             while (true)
             {
                 var items = await db.Items
@@ -56,24 +56,27 @@ internal sealed class TermMergedSubscriber(ListsDbContext db, ITermStore terms, 
                     break;
                 }
 
-                var workspaces = await db.Lists.AsNoTracking()
+                var lists = await db.Lists.AsNoTracking()
                     .Where(l => items.Select(i => i.ListId).Contains(l.Id))
-                    .ToDictionaryAsync(l => l.Id, l => l.WorkspaceId, cancellationToken);
+                    .ToDictionaryAsync(l => l.Id, cancellationToken);
                 var events = new List<IntegrationEvent>();
                 foreach (var item in items)
                 {
+                    var before = ItemSnapshots.Capture(item, lists[item.ListId], fieldsByContentType[item.ContentTypeId].SnapshotType);
                     item.Fields = Replace(item.Fields, field.Name, source, target);
                     events.Add(new ItemUpdated
                     {
                         TenantId = integrationEvent.TenantId,
                         TenantIdentifier = integrationEvent.TenantIdentifier,
                         UserId = integrationEvent.UserId,
-                        WorkspaceId = workspaces.GetValueOrDefault(item.ListId),
+                        WorkspaceId = lists[item.ListId].WorkspaceId,
                         ListId = item.ListId,
                         ItemId = item.Id,
                         ContentTypeId = item.ContentTypeId,
                         IsFolder = item.IsFolder,
                         ChangedFields = [field.Name],
+                        Before = before,
+                        After = ItemSnapshots.Capture(item, lists[item.ListId], fieldsByContentType[item.ContentTypeId].SnapshotType),
                     });
                 }
 
@@ -120,18 +123,21 @@ internal sealed class TermMergedSubscriber(ListsDbContext db, ITermStore terms, 
             var ids = edges.SelectMany(r => new[] { r.FirstItemId, r.SecondItemId }).Distinct().ToArray();
             var items = await db.Items.Where(i => EF.Parameter(ids).Contains(i.Id)).ToListAsync(ct);
             var listIds = items.Select(i => i.ListId).Distinct().ToArray();
-            var workspaces = await db.Lists.Where(l => EF.Parameter(listIds).Contains(l.Id)).ToDictionaryAsync(l => l.Id, l => l.WorkspaceId, ct);
+            var lists = await db.Lists.Where(l => EF.Parameter(listIds).Contains(l.Id)).ToDictionaryAsync(l => l.Id, ct);
+            var contentTypes = await db.ContentTypes.AsNoTracking().Where(c => items.Select(i => i.ContentTypeId).Contains(c.Id)).ToDictionaryAsync(c => c.Id, ct);
             foreach (var item in items) db.Entry(item).Property(i => i.UpdatedAt).IsModified = true;
             await outbox.SaveChangesAsync(db, items.Select(i => (IntegrationEvent)new ItemUpdated
             {
                 TenantId = e.TenantId,
                 TenantIdentifier = e.TenantIdentifier,
                 UserId = e.UserId,
-                WorkspaceId = workspaces[i.ListId],
+                WorkspaceId = lists[i.ListId].WorkspaceId,
                 ListId = i.ListId,
                 ItemId = i.Id,
                 ContentTypeId = i.ContentTypeId,
-                ChangedFields = ["relatedItems"]
+                ChangedFields = ["relatedItems"],
+                Before = ItemSnapshots.Capture(i, lists[i.ListId], contentTypes.GetValueOrDefault(i.ContentTypeId)),
+                After = ItemSnapshots.Capture(i, lists[i.ListId], contentTypes.GetValueOrDefault(i.ContentTypeId))
             }).ToList(), cancellationToken: ct);
             db.ChangeTracker.Clear();
         }

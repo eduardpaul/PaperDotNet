@@ -282,6 +282,14 @@ export interface ApprovalResponse extends AdditionalDataHolder, Parsable {
      */
     id?: Guid | null;
     /**
+     * The inputs property
+     */
+    inputs?: JsonObject | null;
+    /**
+     * The inputSchema property
+     */
+    inputSchema?: JsonObject | null;
+    /**
      * The itemId property
      */
     itemId?: Guid | null;
@@ -3189,6 +3197,15 @@ export function createWorkflowTriggerFromDiscriminatorValue(parseNode: ParseNode
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {WorkflowTriggerParameters}
+ */
+// @ts-ignore
+export function createWorkflowTriggerParametersFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoWorkflowTriggerParameters;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {WorkspaceMemberResponse}
  */
 // @ts-ignore
@@ -3231,6 +3248,10 @@ export interface DecisionRequest extends AdditionalDataHolder, Parsable {
      * The comment property
      */
     comment?: string | null;
+    /**
+     * The inputs property
+     */
+    inputs?: JsonObject | null;
     /**
      * The outcome property
      */
@@ -3502,6 +3523,8 @@ export function deserializeIntoApprovalResponse(approvalResponse: Partial<Approv
         "dueAt": n => { approvalResponse.dueAt = n.getDateValue(); },
         "escalated": n => { approvalResponse.escalated = n.getBooleanValue(); },
         "id": n => { approvalResponse.id = n.getGuidValue(); },
+        "inputs": n => { approvalResponse.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "inputSchema": n => { approvalResponse.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "itemId": n => { approvalResponse.itemId = n.getGuidValue(); },
         "listId": n => { approvalResponse.listId = n.getGuidValue(); },
         "review": n => { approvalResponse.review = n.getObjectValue<ApprovalReviewReference>(createApprovalReviewReferenceFromDiscriminatorValue); },
@@ -4186,6 +4209,7 @@ export function deserializeIntoCreateWorkspaceRequest(createWorkspaceRequest: Pa
 export function deserializeIntoDecisionRequest(decisionRequest: Partial<DecisionRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "comment": n => { decisionRequest.comment = n.getStringValue(); },
+        "inputs": n => { decisionRequest.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "outcome": n => { decisionRequest.outcome = n.getStringValue(); },
     }
 }
@@ -5691,6 +5715,7 @@ export function deserializeIntoRunResponse(runResponse: Partial<RunResponse> | u
         "completedAt": n => { runResponse.completedAt = n.getDateValue(); },
         "error": n => { runResponse.errorEscaped = n.getStringValue(); },
         "eventId": n => { runResponse.eventId = n.getGuidValue(); },
+        "executionContext": n => { runResponse.executionContext = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "failedNode": n => { runResponse.failedNode = n.getStringValue(); },
         "id": n => { runResponse.id = n.getGuidValue(); },
         "itemId": n => { runResponse.itemId = n.getGuidValue(); },
@@ -6405,8 +6430,10 @@ export function deserializeIntoWorkflowRequest(workflowRequest: Partial<Workflow
         "description": n => { workflowRequest.description = n.getStringValue(); },
         "enabled": n => { workflowRequest.enabled = n.getBooleanValue() ?? true; },
         "flow": n => { workflowRequest.flow = n.getObjectValue<FlowDefinition>(createFlowDefinitionFromDiscriminatorValue); },
+        "inputSchema": n => { workflowRequest.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "key": n => { workflowRequest.key = n.getStringValue(); },
         "name": n => { workflowRequest.name = n.getStringValue(); },
+        "scope": n => { workflowRequest.scope = n.getStringValue(); },
         "steps": n => { workflowRequest.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
         "trigger": n => { workflowRequest.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
         "triggers": n => { workflowRequest.triggers = n.getCollectionOfObjectValues<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
@@ -6430,10 +6457,12 @@ export function deserializeIntoWorkflowResponse(workflowResponse: Partial<Workfl
         "enabled": n => { workflowResponse.enabled = n.getBooleanValue(); },
         "flow": n => { workflowResponse.flow = n.getObjectValue<FlowDefinition>(createFlowDefinitionFromDiscriminatorValue); },
         "id": n => { workflowResponse.id = n.getGuidValue(); },
+        "inputSchema": n => { workflowResponse.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "key": n => { workflowResponse.key = n.getStringValue(); },
         "listId": n => { workflowResponse.listId = n.getGuidValue(); },
         "name": n => { workflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { workflowResponse.odataEtag = n.getStringValue(); },
+        "scope": n => { workflowResponse.scope = n.getStringValue(); },
         "steps": n => { workflowResponse.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
         "trigger": n => { workflowResponse.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
         "triggers": n => { workflowResponse.triggers = n.getCollectionOfObjectValues<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
@@ -6459,6 +6488,7 @@ export function deserializeIntoWorkflowStep(workflowStep: Partial<WorkflowStep> 
         "filter": n => { workflowStep.filter = n.getStringValue(); },
         "hours": n => { workflowStep.hours = n.getNumberValue(); },
         "inputs": n => { workflowStep.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "inputSchema": n => { workflowStep.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "is": n => { workflowStep.is = n.getStringValue(); },
         "name": n => { workflowStep.name = n.getStringValue(); },
         "step": n => { workflowStep.step = n.getStringValue(); },
@@ -6484,9 +6514,21 @@ export function deserializeIntoWorkflowTrigger(workflowTrigger: Partial<Workflow
         "inputs": n => { workflowTrigger.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "list": n => { workflowTrigger.list = n.getStringValue(); },
         "offsetHours": n => { workflowTrigger.offsetHours = n.getNumberValue(); },
+        "parameters": n => { workflowTrigger.parameters = n.getObjectValue<WorkflowTriggerParameters>(createWorkflowTriggerParametersFromDiscriminatorValue); },
         "terms": n => { workflowTrigger.terms = n.getCollectionOfPrimitiveValues<string>("string"); },
         "timeZone": n => { workflowTrigger.timeZone = n.getStringValue(); },
         "type": n => { workflowTrigger.type = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param WorkflowTriggerParameters The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoWorkflowTriggerParameters(workflowTriggerParameters: Partial<WorkflowTriggerParameters> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "when": n => { workflowTriggerParameters.when = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
     }
 }
 /**
@@ -8589,6 +8631,10 @@ export interface RunResponse extends AdditionalDataHolder, Parsable {
      */
     eventId?: Guid | null;
     /**
+     * The executionContext property
+     */
+    executionContext?: JsonObject | null;
+    /**
      * The failedNode property
      */
     failedNode?: string | null;
@@ -8974,6 +9020,8 @@ export function serializeApprovalResponse(writer: SerializationWriter, approvalR
     writer.writeDateValue("dueAt", approvalResponse.dueAt);
     writer.writeBooleanValue("escalated", approvalResponse.escalated);
     writer.writeGuidValue("id", approvalResponse.id);
+    writer.writeObjectValue<JsonObject>("inputs", approvalResponse.inputs, serializeJsonObject);
+    writer.writeObjectValue<JsonObject>("inputSchema", approvalResponse.inputSchema, serializeJsonObject);
     writer.writeGuidValue("itemId", approvalResponse.itemId);
     writer.writeGuidValue("listId", approvalResponse.listId);
     writer.writeObjectValue<ApprovalReviewReference>("review", approvalResponse.review, serializeApprovalReviewReference);
@@ -9707,6 +9755,7 @@ export function serializeCreateWorkspaceRequest(writer: SerializationWriter, cre
 export function serializeDecisionRequest(writer: SerializationWriter, decisionRequest: Partial<DecisionRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!decisionRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("comment", decisionRequest.comment);
+    writer.writeObjectValue<JsonObject>("inputs", decisionRequest.inputs, serializeJsonObject);
     writer.writeStringValue("outcome", decisionRequest.outcome);
     writer.writeAdditionalData(decisionRequest.additionalData);
 }
@@ -11319,6 +11368,7 @@ export function serializeRunResponse(writer: SerializationWriter, runResponse: P
     writer.writeDateValue("completedAt", runResponse.completedAt);
     writer.writeStringValue("error", runResponse.errorEscaped);
     writer.writeGuidValue("eventId", runResponse.eventId);
+    writer.writeObjectValue<JsonObject>("executionContext", runResponse.executionContext, serializeJsonObject);
     writer.writeStringValue("failedNode", runResponse.failedNode);
     writer.writeGuidValue("id", runResponse.id);
     writer.writeGuidValue("itemId", runResponse.itemId);
@@ -12082,8 +12132,10 @@ export function serializeWorkflowRequest(writer: SerializationWriter, workflowRe
     writer.writeStringValue("description", workflowRequest.description);
     writer.writeBooleanValue("enabled", workflowRequest.enabled ?? true);
     writer.writeObjectValue<FlowDefinition>("flow", workflowRequest.flow, serializeFlowDefinition);
+    writer.writeObjectValue<JsonObject>("inputSchema", workflowRequest.inputSchema, serializeJsonObject);
     writer.writeStringValue("key", workflowRequest.key);
     writer.writeStringValue("name", workflowRequest.name);
+    writer.writeStringValue("scope", workflowRequest.scope);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowRequest.steps, serializeWorkflowStep);
     writer.writeObjectValue<WorkflowTrigger>("trigger", workflowRequest.trigger, serializeWorkflowTrigger);
     writer.writeCollectionOfObjectValues<WorkflowTrigger>("triggers", workflowRequest.triggers, serializeWorkflowTrigger);
@@ -12108,10 +12160,12 @@ export function serializeWorkflowResponse(writer: SerializationWriter, workflowR
     writer.writeBooleanValue("enabled", workflowResponse.enabled);
     writer.writeObjectValue<FlowDefinition>("flow", workflowResponse.flow, serializeFlowDefinition);
     writer.writeGuidValue("id", workflowResponse.id);
+    writer.writeObjectValue<JsonObject>("inputSchema", workflowResponse.inputSchema, serializeJsonObject);
     writer.writeStringValue("key", workflowResponse.key);
     writer.writeGuidValue("listId", workflowResponse.listId);
     writer.writeStringValue("name", workflowResponse.name);
     writer.writeStringValue("@odata.etag", workflowResponse.odataEtag);
+    writer.writeStringValue("scope", workflowResponse.scope);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowResponse.steps, serializeWorkflowStep);
     writer.writeObjectValue<WorkflowTrigger>("trigger", workflowResponse.trigger, serializeWorkflowTrigger);
     writer.writeCollectionOfObjectValues<WorkflowTrigger>("triggers", workflowResponse.triggers, serializeWorkflowTrigger);
@@ -12138,6 +12192,7 @@ export function serializeWorkflowStep(writer: SerializationWriter, workflowStep:
     writer.writeStringValue("filter", workflowStep.filter);
     writer.writeNumberValue("hours", workflowStep.hours);
     writer.writeObjectValue<JsonObject>("inputs", workflowStep.inputs, serializeJsonObject);
+    writer.writeObjectValue<JsonObject>("inputSchema", workflowStep.inputSchema, serializeJsonObject);
     writer.writeStringValue("is", workflowStep.is);
     writer.writeStringValue("name", workflowStep.name);
     writer.writeStringValue("step", workflowStep.step);
@@ -12164,10 +12219,23 @@ export function serializeWorkflowTrigger(writer: SerializationWriter, workflowTr
     writer.writeObjectValue<JsonObject>("inputs", workflowTrigger.inputs, serializeJsonObject);
     writer.writeStringValue("list", workflowTrigger.list);
     writer.writeNumberValue("offsetHours", workflowTrigger.offsetHours);
+    writer.writeObjectValue<WorkflowTriggerParameters>("parameters", workflowTrigger.parameters, serializeWorkflowTriggerParameters);
     writer.writeCollectionOfPrimitiveValues<string>("terms", workflowTrigger.terms);
     writer.writeStringValue("timeZone", workflowTrigger.timeZone);
     writer.writeStringValue("type", workflowTrigger.type);
     writer.writeAdditionalData(workflowTrigger.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param WorkflowTriggerParameters The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeWorkflowTriggerParameters(writer: SerializationWriter, workflowTriggerParameters: Partial<WorkflowTriggerParameters> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!workflowTriggerParameters || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<JsonObject>("when", workflowTriggerParameters.when, serializeJsonObject);
+    writer.writeAdditionalData(workflowTriggerParameters.additionalData);
 }
 /**
  * Serializes information the current object
@@ -13104,6 +13172,10 @@ export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
      */
     flow?: FlowDefinition | null;
     /**
+     * The inputSchema property
+     */
+    inputSchema?: JsonObject | null;
+    /**
      * The key property
      */
     key?: string | null;
@@ -13111,6 +13183,10 @@ export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+    /**
+     * The scope property
+     */
+    scope?: string | null;
     /**
      * The steps property
      */
@@ -13169,6 +13245,10 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      */
     id?: Guid | null;
     /**
+     * The inputSchema property
+     */
+    inputSchema?: JsonObject | null;
+    /**
      * The key property
      */
     key?: string | null;
@@ -13184,6 +13264,10 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      * The ETag for `If-Match` on changes (the same as the `ETag` header).
      */
     odataEtag?: string | null;
+    /**
+     * The scope property
+     */
+    scope?: string | null;
     /**
      * The steps property
      */
@@ -13250,6 +13334,10 @@ export interface WorkflowStep extends AdditionalDataHolder, Parsable {
      */
     inputs?: JsonObject | null;
     /**
+     * The inputSchema property
+     */
+    inputSchema?: JsonObject | null;
+    /**
      * The is property
      */
     is?: string | null;
@@ -13275,7 +13363,7 @@ export interface WorkflowStep extends AdditionalDataHolder, Parsable {
     type?: string | null;
 }
 /**
- * When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization's). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).`data` (module and extension triggers) needs the trigger's data to have these values, e.g. `{ "hasText": false }`.
+ * When a workflow runs: `type` is `manual` (started by a person), an item event (`itemAdded`,`itemUpdated`, `itemDeleted`, `itemRestored`), `schedule`, `date`, a module trigger(`document.processed`, `approval.decided`, `task.completed`, `comment.added`) or an extensiontrigger. `list` and `contentType` narrow it by name; `changedFields` (updates) needs one of them tochange; `terms` (term paths `Group/Set/Term`) needs the item to have one of them or a term below.Omit `list` to watch any list in the workspace.`schedule` runs on `cron` (5 fields) in `timeZone` (default: the organization's). `date` runs foreach item of `list` when its date `field` plus `offsetHours` (negative: before) is reached. `manual`may describe the `inputs` a person gives when starting it (a JSON Schema object; they become run variables).`data` (module and extension triggers) needs the trigger's data to have these values, e.g. `{ "hasText": false }`.
  */
 export interface WorkflowTrigger extends AdditionalDataHolder, Parsable {
     /**
@@ -13315,6 +13403,10 @@ export interface WorkflowTrigger extends AdditionalDataHolder, Parsable {
      */
     offsetHours?: number | null;
     /**
+     * The parameters property
+     */
+    parameters?: WorkflowTriggerParameters | null;
+    /**
      * The terms property
      */
     terms?: string[] | null;
@@ -13326,6 +13418,15 @@ export interface WorkflowTrigger extends AdditionalDataHolder, Parsable {
      * The type property
      */
     type?: string | null;
+}
+/**
+ * Conditions evaluated against the triggering item's transactional snapshots.
+ */
+export interface WorkflowTriggerParameters extends AdditionalDataHolder, Parsable {
+    /**
+     * The when property
+     */
+    when?: JsonObject | null;
 }
 export type WorkspaceAccessLevel = (typeof WorkspaceAccessLevelObject)[keyof typeof WorkspaceAccessLevelObject];
 export interface WorkspaceMemberResponse extends AdditionalDataHolder, Parsable {

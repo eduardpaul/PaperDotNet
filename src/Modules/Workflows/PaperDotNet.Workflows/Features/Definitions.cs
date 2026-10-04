@@ -11,6 +11,7 @@ namespace PaperDotNet.Workflows.Features;
 /// (<c>document.processed</c>, <c>approval.decided</c>, <c>task.completed</c>, <c>comment.added</c>) or an extension
 /// trigger. <c>list</c> and <c>contentType</c> narrow it by name; <c>changedFields</c> (updates) needs one of them to
 /// change; <c>terms</c> (term paths <c>Group/Set/Term</c>) needs the item to have one of them or a term below.
+/// Omit <c>list</c> to watch any list in the workspace.
 /// <c>schedule</c> runs on <c>cron</c> (5 fields) in <c>timeZone</c> (default: the organization's). <c>date</c> runs for
 /// each item of <c>list</c> when its date <c>field</c> plus <c>offsetHours</c> (negative: before) is reached. <c>manual</c>
 /// may describe the <c>inputs</c> a person gives when starting it (a JSON Schema object; they become run variables).
@@ -28,12 +29,16 @@ public sealed record WorkflowTrigger(
     double? OffsetHours = null,
     JsonObject? Inputs = null,
     JsonObject? Data = null,
-    string? Concurrency = null)
+    string? Concurrency = null,
+    WorkflowTriggerParameters? Parameters = null)
 {
     /// <summary>Whether the trigger's data has every value of <see cref="Data"/> (true without <see cref="Data"/>).</summary>
     public bool MatchesData(JsonObject? data) =>
         Data is null || Data.All(wanted => data is not null && data.TryGetPropertyValue(wanted.Key, out var value) && JsonNode.DeepEquals(value, wanted.Value));
 }
+
+/// <summary>Conditions evaluated against the triggering item's transactional snapshots.</summary>
+public sealed record WorkflowTriggerParameters(JsonObject When);
 
 /// <summary>An action with its inputs (strings may contain tokens such as <c>{title}</c>).</summary>
 public sealed record ActionDefinition(string Type, JsonObject? Inputs = null);
@@ -47,7 +52,7 @@ public sealed record ActionDefinition(string Type, JsonObject? Inputs = null);
 /// </summary>
 public sealed record WorkflowSpec(
     WorkflowTrigger? Trigger, string? Condition, IReadOnlyList<WorkflowStep>? Steps, FlowDefinition? Flow = null, JsonObject? Variables = null,
-    string? Concurrency = null, IReadOnlyList<WorkflowTrigger>? Triggers = null)
+    string? Concurrency = null, IReadOnlyList<WorkflowTrigger>? Triggers = null, string? Scope = null, JsonObject? InputSchema = null)
 {
     /// <summary>Most triggers of a workflow.</summary>
     public const int MaxTriggers = 10;
@@ -58,7 +63,7 @@ public sealed record WorkflowSpec(
 
     /// <summary>The trigger types, for the workflow's <c>Trigger</c> column (joined with commas, each once).</summary>
     [JsonIgnore]
-    public string TriggerTypes => string.Join(',', AllTriggers.Select(t => t.Type).Distinct(StringComparer.Ordinal));
+    public string TriggerTypes => string.Join(',', AllTriggers.Where(t => t is not null).Select(t => t.Type).Distinct(StringComparer.Ordinal));
 }
 
 /// <summary>Runs of one workflow on the same item (ADR-0037).</summary>
@@ -219,7 +224,8 @@ public sealed record WorkflowStep(
     string? Is = null,
     string? Filter = null,
     IReadOnlyList<WorkflowStep>? Then = null,
-    IReadOnlyList<WorkflowStep>? Else = null);
+    IReadOnlyList<WorkflowStep>? Else = null,
+    JsonObject? InputSchema = null);
 
 public static class ApprovalOutcomes
 {
@@ -309,6 +315,28 @@ internal static class Definitions
             errors.Add($"A workflow has at most {WorkflowSpec.MaxTriggers} triggers.");
         }
 
+        if (spec.Scope is not (null or "workspace" or "list"))
+        {
+            errors.Add("scope must be workspace or list.");
+        }
+
+        if (spec.Scope == "workspace" && spec.AllTriggers.Any(t => t is not null && t.Type == WorkflowTriggers.Manual
+            && (t.List is not null || t.ContentType is not null || t.Terms is { Count: > 0 })))
+        {
+            errors.Add("Workspace manual launches run without an item: list, contentType and terms do not apply.");
+        }
+
+        if (spec.Scope == "list" && spec.AllTriggers.Any(t => t is not null && t.List is null))
+        {
+            errors.Add("List workflows need a list on every trigger.");
+        }
+
+        if (spec.AllTriggers.Count(t => t is not null && t.Type == WorkflowTriggers.Manual) > 1)
+        {
+            errors.Add("Use a single manual trigger per workflow.");
+        }
+
+        errors.AddRange(WorkflowInputs.ValidateSchema(spec.InputSchema));
         var several = spec.Triggers is not null;
         foreach (var (trigger, index) in spec.AllTriggers.Select((t, i) => (t, i)))
         {
@@ -344,6 +372,7 @@ internal static class Definitions
                 errors.Add($"{prefix}concurrency must be one of {string.Join(", ", RunConcurrency.All)}.");
             }
 
+            errors.AddRange(TriggerConditions.Validate(trigger).Select(e => prefix + e));
             errors.AddRange(ValidateTrigger(trigger).Select(e => prefix + e));
         }
 
@@ -377,7 +406,7 @@ internal static class Definitions
     private static readonly HashSet<string> ItemTriggers =
     [
         WorkflowTriggers.Manual, WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted,
-        WorkflowTriggers.ItemRestored, WorkflowTriggers.Schedule, WorkflowTriggers.Date,
+        WorkflowTriggers.ItemRestored, WorkflowTriggers.Schedule, WorkflowTriggers.Date, WorkflowTriggers.Webhook,
     ];
 
     /// <summary>Checks the settings of schedule and date triggers, and that other triggers do not use them.</summary>
@@ -385,6 +414,11 @@ internal static class Definitions
     {
         var isSchedule = trigger.Type == WorkflowTriggers.Schedule;
         var isDate = trigger.Type == WorkflowTriggers.Date;
+        if (trigger.Type == WorkflowTriggers.Webhook && (trigger.List is not null || trigger.ContentType is not null || trigger.Terms is { Count: > 0 }))
+        {
+            yield return "webhook runs without an item: list, contentType and terms do not apply.";
+        }
+
         if (isSchedule)
         {
             if (TriggerSchedules.ParseCron(trigger.Cron) is null)
@@ -496,6 +530,7 @@ internal static class Definitions
                             errors.Add($"{at}: approval steps need a name (conditions refer to their outcome).");
                         }
 
+                        errors.AddRange(WorkflowInputs.ValidateSchema(step.InputSchema).Select(e => $"{at}: {e}"));
                         errors.AddRange(ValidateApproval(step.Assignees, step.DueInHours).Select(e => $"{at}: {e}"));
                         break;
                     case StepTypes.Delay:
@@ -588,6 +623,11 @@ internal static class Definitions
                         errors.Add($"{at}: review needs a type and key.");
                     }
 
+                    if (inputs["inputSchema"] is not (null or JsonObject))
+                    {
+                        errors.Add($"{at}: inputSchema must be a JSON Schema object.");
+                    }
+                    errors.AddRange(WorkflowInputs.ValidateSchema(inputs["inputSchema"] as JsonObject).Select(e => $"{at}: {e}"));
                     errors.AddRange(ValidateApproval(ActivityInputs.Texts(inputs, "assignees"), ActivityInputs.Number(inputs, "dueInHours")).Select(e => $"{at}: {e}"));
                     break;
                 case FlowActivities.Delay:
@@ -814,7 +854,7 @@ internal static class Definitions
                 {
                     StepTypes.Action => new FlowNode(step.Action ?? string.Empty, step.Inputs, done),
                     StepTypes.Approval => new FlowNode(FlowActivities.Approval, Object(
-                        ("assignees", Strings(step.Assignees)), ("title", step.Title), ("dueInHours", step.DueInHours), ("escalateTo", Strings(step.EscalateTo))), done),
+                        ("assignees", Strings(step.Assignees)), ("title", step.Title), ("dueInHours", step.DueInHours), ("escalateTo", Strings(step.EscalateTo)), ("inputSchema", step.InputSchema?.DeepClone())), done),
                     StepTypes.Delay => new FlowNode(FlowActivities.Delay, Object(("hours", step.Hours)), done),
                     _ => ConditionNode(step, id, next),
                 };

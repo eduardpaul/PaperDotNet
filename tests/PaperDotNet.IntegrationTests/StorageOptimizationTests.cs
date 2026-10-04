@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
@@ -78,6 +79,58 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
                 .FirstOrDefault(a => a.GetProperty("itemId").GetGuid() == itemId);
             return approval.ValueKind == JsonValueKind.Object ? approval : (JsonElement?)null;
         }, TimeSpan.FromSeconds(60));
+
+    [Theory]
+    [InlineData("approved", "image/webp")]
+    [InlineData("rejected", "image/png")]
+    public async Task Image_review_collects_form_values_before_resuming(string outcome, string mediaType)
+    {
+        var (_, client, ws, _, path) = await SetupAsync($"storage-opt-form-{outcome}");
+        var builtIns = (await (await client.GetAsync($"{path}/workflows/builtIns", Ct)).ReadJsonAsync()).EnumerateArray();
+        var builtInId = builtIns.Single(b => b.GetProperty("key").GetString() == Extension + ".optimize").GetProperty("workflowId").GetGuid();
+        var current = await client.GetAsync($"/v1.0/workspaces/{ws}/workflows/{builtInId}", Ct);
+        var definition = JsonNode.Parse(await current.Content.ReadAsStringAsync(Ct))!.AsObject();
+        var disabled = await client.SendWithEtagAsync(HttpMethod.Put, $"{path}/workflows/builtIns/{Extension}.optimize", current.Headers.ETag!.Tag, new { enabled = false });
+        Assert.Equal(HttpStatusCode.OK, disabled.StatusCode);
+        var flow = definition["flow"]!.DeepClone().AsObject();
+        flow["nodes"]!["review"]!["inputs"]!["inputSchema"] = JsonNode.Parse("""
+            { "type": "object", "properties": {
+              "reason": { "type": "string", "minLength": 3 },
+              "checked": { "type": "boolean", "default": true }
+            }, "required": ["reason"] }
+            """);
+        var created = await client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/workflows", new
+        {
+            name = "Review with information",
+            trigger = new { type = "document.added", list = "Photos", data = new { source = "upload" } },
+            flow,
+        }, Ct);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var item = await UploadAsync(client, path);
+        var approval = await ApprovalAsync(client, item);
+        Assert.Equal(StorageOptimizationExtension.ReviewType, approval.GetProperty("review").GetProperty("type").GetString());
+        Assert.True(approval.GetProperty("inputSchema").GetProperty("properties").TryGetProperty("reason", out _));
+        var id = approval.GetProperty("id").GetGuid();
+        var decision = $"/v1.0/me/approvals/{id}/decision";
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(decision, new { outcome }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(decision, new { outcome, inputs = new { reason = "no" } }, Ct)).StatusCode);
+        Assert.Equal(id, (await ApprovalAsync(client, item)).GetProperty("id").GetGuid());
+        Assert.True((await (await client.GetAsync($"/v1.0/me/approvals/{id}/review", Ct)).ReadJsonAsync()).GetProperty("canDecide").GetBoolean());
+        var accepted = await client.PostAsJsonAsync(decision, new { outcome, inputs = new { reason = "Legible" } }, Ct);
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        var submitted = (await accepted.ReadJsonAsync()).GetProperty("inputs");
+        Assert.Equal("Legible", submitted.GetProperty("reason").GetString());
+        Assert.True(submitted.GetProperty("checked").GetBoolean());
+        var runId = approval.GetProperty("runId").GetGuid();
+        var run = await Eventually.WaitForAsync(async () =>
+        {
+            var value = await (await client.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs/{runId}", Ct)).ReadJsonAsync();
+            return value.GetProperty("status").GetString() == "completed" ? value : (JsonElement?)null;
+        }, TimeSpan.FromSeconds(30));
+        Assert.Equal("Legible", run.GetProperty("outputs").GetProperty("review").GetProperty("input").GetProperty("reason").GetString());
+        Assert.Equal(outcome, run.GetProperty("outputs").GetProperty("review").GetProperty("outcome").GetString());
+        Assert.Equal(mediaType, (await client.GetAsync($"{path}/items/{item}/file", Ct)).Content.Headers.ContentType!.MediaType);
+    }
 
     [Fact]
     public async Task Tesseract_switch_still_prepares_word_based_review()

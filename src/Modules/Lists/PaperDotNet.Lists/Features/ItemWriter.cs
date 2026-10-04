@@ -148,6 +148,7 @@ internal sealed class ItemWriter(
             newScopeId = item.HasUniquePermissions ? item.ScopeId : parentScope;
         }
 
+        var eventBefore = ItemSnapshots.Capture(item, schema);
         var before = Values(item);
         var current = (JsonObject)before.DeepClone();
         if (contentType.Id != item.ContentTypeId)
@@ -209,7 +210,7 @@ internal sealed class ItemWriter(
         }
         var scopeMoved = item.IsFolder && oldScopeId != item.ScopeId;
         await outbox.SaveChangesAsync(
-            db, [Event(ItemEventKind.Updating, item, schema, changed)], scopeMoved ? [ScopeChange(schema, item, oldScopeId)] : null, ct);
+            db, [Event(ItemEventKind.Updating, item, schema, changed, eventBefore)], scopeMoved ? [ScopeChange(schema, item, oldScopeId)] : null, ct);
         await PublishChangedAsync("updated", schema, item, ct);
         if (scopeMoved)
         {
@@ -327,6 +328,7 @@ internal sealed class ItemWriter(
             return error;
         }
 
+        var eventBefore = ItemSnapshots.Capture(item, source);
         var before = Values(item);
         var values = (JsonObject)before.DeepClone();
         var definitions = destination.FindContentType(item.ContentTypeId)!.Fields;
@@ -381,7 +383,7 @@ internal sealed class ItemWriter(
             await participant.MoveAsync(move, transaction.GetDbTransaction(), ct);
         }
 
-        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Updating, item, destination, ["listId", "parentId", .. changedFields])], cancellationToken: ct);
+        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Updating, item, destination, ["listId", "parentId", .. changedFields], eventBefore)], cancellationToken: ct);
         // IOutbox saves the item/messages and commits the enrolled transaction.
         await PublishChangedAsync("moved", source, item, ct, sourceAudience);
         await PublishChangedAsync("moved", destination, item, ct);
@@ -394,6 +396,7 @@ internal sealed class ItemWriter(
     /// </summary>
     public async Task RestoreAsync(ListSchema schema, ListItem item, CancellationToken ct)
     {
+        var eventBefore = ItemSnapshots.Capture(item, schema);
         var oldScopeId = item.ScopeId;
         if (item.ParentId is { } parentId && !await db.Items.AnyAsync(i => i.Id == parentId && i.IsFolder, ct))
         {
@@ -417,6 +420,8 @@ internal sealed class ItemWriter(
             ItemId = item.Id,
             ContentTypeId = item.ContentTypeId,
             IsFolder = item.IsFolder,
+            Before = eventBefore,
+            After = ItemSnapshots.Capture(item, schema),
         };
         var scopeMoved = item.IsFolder && oldScopeId != item.ScopeId;
         await outbox.SaveChangesAsync(db, [restored], scopeMoved ? [ScopeChange(schema, item, oldScopeId)] : null, ct);
@@ -693,8 +698,10 @@ internal sealed class ItemWriter(
         });
     }
 
-    private ItemEvent Event(ItemEventKind kind, ListItem item, ListSchema schema, IReadOnlyList<string> changed)
+    private ItemEvent Event(ItemEventKind kind, ListItem item, ListSchema schema, IReadOnlyList<string> changed, ItemSnapshot? snapshotBefore = null)
     {
+        var snapshot = ItemSnapshots.Capture(item, schema);
+        snapshotBefore ??= kind == ItemEventKind.Adding ? null : snapshot;
         var tenantId = tenant.TenantId!.Value;
         var tenantIdentifier = tenant.TenantIdentifier!;
         return kind switch
@@ -710,6 +717,8 @@ internal sealed class ItemWriter(
                 ItemId = item.Id,
                 ContentTypeId = item.ContentTypeId,
                 IsFolder = item.IsFolder,
+                Before = kind == ItemEventKind.Adding ? null : snapshotBefore,
+                After = kind == ItemEventKind.Deleting ? null : snapshot,
                 ChangedFields = changed,
             },
             ItemEventKind.Updating => new ItemUpdated
@@ -723,6 +732,8 @@ internal sealed class ItemWriter(
                 ItemId = item.Id,
                 ContentTypeId = item.ContentTypeId,
                 IsFolder = item.IsFolder,
+                Before = kind == ItemEventKind.Adding ? null : snapshotBefore,
+                After = kind == ItemEventKind.Deleting ? null : snapshot,
                 ChangedFields = changed,
             },
             _ => new ItemDeleted
@@ -736,6 +747,8 @@ internal sealed class ItemWriter(
                 ItemId = item.Id,
                 ContentTypeId = item.ContentTypeId,
                 IsFolder = item.IsFolder,
+                Before = kind == ItemEventKind.Adding ? null : snapshotBefore,
+                After = kind == ItemEventKind.Deleting ? null : snapshot,
                 ChangedFields = changed,
             },
         };

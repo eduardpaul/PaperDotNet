@@ -23,6 +23,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string Comment { get; set; }
 #endif
+        /// <summary>The inputs property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? Inputs { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject Inputs { get; set; }
+#endif
         /// <summary>The outcome property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -57,6 +65,7 @@ namespace PaperDotNet.Client.Models
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "comment", n => { Comment = n.GetStringValue(); } },
+                { "inputs", n => { Inputs = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "outcome", n => { Outcome = n.GetStringValue(); } },
             };
         }
@@ -68,6 +77,7 @@ namespace PaperDotNet.Client.Models
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteStringValue("comment", Comment);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputs", Inputs);
             writer.WriteStringValue("outcome", Outcome);
             writer.WriteAdditionalData(AdditionalData);
         }
