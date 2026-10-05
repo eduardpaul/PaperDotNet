@@ -1,9 +1,9 @@
 using System.Buffers.Binary;
 using System.Text;
 using Microsoft.Extensions.Configuration;
-using PaperDotNet.Ocr.Contracts;
 using PaperDotNet.Documents.Features.PhotoToDocument;
 using PaperDotNet.Documents.Features.StorageOptimization;
+using PaperDotNet.Ocr.Contracts;
 using SkiaSharp;
 
 namespace PaperDotNet.UnitTests;
