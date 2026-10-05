@@ -135,10 +135,9 @@ or terms, so that they can be tagged like documents.
 
 ## Photo to document
 
-Enable the **Document storage optimization** extension for the tenant. Its
-`paperdotnet.storageoptimization.photoToDocument` workflow is a compiled extension
-example; the core Documents module supplies reusable storage and processing
-contracts. Select photos in a library, choose **Run workflow → Photo to document**, arrange
+Photo to document is built into the Documents module. Its
+`paperdotnet.storageoptimization.photoToDocument` key is retained for compatibility.
+No extension enablement is required. Select photos in a library, choose **Run workflow → Photo to document**, arrange
 the page order, and choose the **Primary item**. This manual-only built-in makes
 one searchable PDF and creates one approval. Library managers configure its
 approver users/groups in the workflow settings; without configured approvers it
@@ -185,10 +184,11 @@ the normal grace period.
 transaction, preserving existing history and permissions. `LockVersionsAsync`
 protects all expected current file versions until commit. It never chooses which
 items to recycle. `Lists.Contracts.IItemBatchRecycle` performs version-checked
-recycling in the same transaction, including locking a retained item. The extension
-owns its `PhotoConversionDbContext`, source snapshots, freshness rules, review
-state and the replace/recycle decision. Its SQLite/PostgreSQL migrations ship in
-companion extension projects. Events are saved without committing the caller's
+recycling in the same transaction, including locking a retained item. The Documents
+module owns `PhotoConversionDbContext`, source snapshots, freshness rules, review
+state and the replace/recycle decision. Provider migrations ship in the core
+migration projects. The original conversion schema and migration IDs are retained
+so existing data and pending reviews survive the move. Events are saved without committing the caller's
 transaction, then dispatched after commit.
 
 `Ocr.Contracts.IOcrService` recognizes ordered image streams through the shared
@@ -197,3 +197,11 @@ remain caller-owned. `IDocumentPdfRenderer` renders staged PDFs through the norm
 preview engine. Staging accepts supported document media types and optional PDF
 page text. It imposes neither a source count nor a smaller-output constraint;
 Photo to document enforces exactly one page per photo in its own activity.
+
+## Feature organization
+
+Storage optimization lives in `Features/StorageOptimization/`; reviewed photo-to-PDF
+conversion lives in `Features/PhotoToDocument/`. Each folder owns its workflow,
+activities, review provider, and registration. Library workflow settings control
+automatic optimization; it remains off by default and can also be launched manually.
+Workflow/activity keys and `StorageOptimization` configuration names remain stable.

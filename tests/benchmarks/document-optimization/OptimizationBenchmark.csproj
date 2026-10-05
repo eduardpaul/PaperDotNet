@@ -5,7 +5,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../../src/Modules/Ocr/PaperDotNet.Ocr/PaperDotNet.Ocr.csproj" />
-    <ProjectReference Include="../../../src/Extensions/PaperDotNet.StorageOptimization/PaperDotNet.StorageOptimization.csproj" />
     <ProjectReference Include="../../../src/Modules/Documents/PaperDotNet.Documents/PaperDotNet.Documents.csproj" />
   </ItemGroup>
 </Project>

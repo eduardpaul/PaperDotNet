@@ -7,7 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Contracts;
 using PaperDotNet.Documents.Data;
-using PaperDotNet.StorageOptimization;
+using PaperDotNet.Documents.Features.StorageOptimization;
+using PaperDotNet.Documents.Features.PhotoToDocument;
 using PaperDotNet.Documents.Features;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Tenancy.Contracts;
@@ -23,7 +24,6 @@ public sealed class PhotoCompositionTests(PaperDotNetApiFactory factory)
         host ??= factory;
         var tenant = await host.CreateTenantAsync("composition-" + suffix);
         var client = await ApiClient.CreateAsync(host, tenant.Identifier);
-        Assert.True((await client.PostAsync("/v1.0/extensions/paperdotnet.storageoptimization/enable", null, Ct)).IsSuccessStatusCode);
         var ws = await client.CreateWorkspaceAsync("Photos");
         var response = await client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name = "Photos", templateKey = "documents" }, Ct);
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync(Ct));
@@ -111,19 +111,14 @@ public sealed class PhotoCompositionTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
-    public async Task Extension_enablement_gates_photo_launches_reviews_and_decisions()
+    public async Task Documents_provides_photo_launch_and_review_without_a_separate_extension()
     {
-        var (_, client, ws, list, path, ids) = await SetupAsync("extension-gating");
-        var (run, approval) = await LaunchAsync(client, ws, list, path, ids, ids[0]);
-        Assert.True((await client.PostAsync("/v1.0/extensions/paperdotnet.storageoptimization/disable", null, Ct)).IsSuccessStatusCode);
+        var (_, client, ws, list, path, ids) = await SetupAsync("documents-photos");
+        var extensions = await (await client.GetAsync("/v1.0/extensions", Ct)).ReadJsonAsync();
+        Assert.DoesNotContain(extensions.EnumerateArray(), e => e.GetProperty("id").GetString() == "paperdotnet.storageoptimization");
         var catalog = await (await client.GetAsync($"{path}/workflows/builtIns", Ct)).ReadJsonAsync();
-        Assert.DoesNotContain(catalog.EnumerateArray(), w => w.GetProperty("key").GetString() == "paperdotnet.storageoptimization.photoToDocument");
-        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync($"{path}/workflows/builtIns/paperdotnet.storageoptimization.photoToDocument/runs", new { itemIds = ids }, Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/v1.0/me/approvals/{approval}/review", Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/v1.0/me/approvals/{approval}/review/content/candidate", Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/v1.0/me/approvals/{approval}/decision", new { outcome = "approved" }, Ct)).StatusCode);
-        foreach (var id in ids) Assert.Equal("image/png", (await client.GetAsync($"{path}/items/{id}/file", Ct)).Content.Headers.ContentType?.MediaType);
-        Assert.True((await client.PostAsync("/v1.0/extensions/paperdotnet.storageoptimization/enable", null, Ct)).IsSuccessStatusCode);
+        Assert.Contains(catalog.EnumerateArray(), w => w.GetProperty("key").GetString() == "paperdotnet.storageoptimization.photoToDocument");
+        var (run, approval) = await LaunchAsync(client, ws, list, path, ids, ids[0]);
         var review = await (await client.GetAsync($"/v1.0/me/approvals/{approval}/review", Ct)).ReadJsonAsync();
         Assert.True(review.GetProperty("canDecide").GetBoolean());
         var duplicate = await client.PostAsJsonAsync($"{path}/workflows/builtIns/paperdotnet.storageoptimization.photoToDocument/runs", new { itemIds = ids }, Ct);

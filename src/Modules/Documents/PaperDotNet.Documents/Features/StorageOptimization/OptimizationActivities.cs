@@ -5,15 +5,15 @@ using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
-namespace PaperDotNet.StorageOptimization;
+namespace PaperDotNet.Documents.Features.StorageOptimization;
 
 internal sealed class PrepareOptimization(IDocumentFileStore files, IEnumerable<IDocumentOptimizationAdapter> adapters,
     IWorkspaceAccess workspaces, IUserDirectory users, IWorkflowRecipients recipients) : IWorkflowActivity
 {
-    public string Key => StorageOptimizationExtension.Id + ".prepare";
+    public string Key => StorageOptimizationWorkflows.Id + ".prepare";
     public string Description => "Analyzes the current image and stages a smaller file for review; skipped files keep their source.";
     public IReadOnlyList<string> Outcomes => ["candidate", "skipped"];
-    public JsonObject? InputSchema => StorageOptimizationExtension.Workflow.Parameters;
+    public JsonObject? InputSchema => StorageOptimizationWorkflows.Workflow.Parameters;
     public JsonObject? OutputSchema => ActivitySchemas.Of([], ("candidate", ActivitySchemas.Text("Staged candidate id.")),
         ("approvers", ActivitySchemas.People("Resolved reviewers.")), ("reason", ActivitySchemas.Text("Why the original was retained.")));
 
@@ -134,7 +134,7 @@ internal sealed class PrepareOptimization(IDocumentFileStore files, IEnumerable<
 
 internal sealed class AcceptOptimization(IDocumentFileStore files) : IWorkflowActivity
 {
-    public string Key => StorageOptimizationExtension.Id + ".accept";
+    public string Key => StorageOptimizationWorkflows.Id + ".accept";
     public string Description => "Promotes the reviewed candidate only if its source is still current, and releases the source version.";
     public JsonObject? InputSchema => ActivitySchemas.Of(["candidate"], ("candidate", ActivitySchemas.Text("Staged candidate id.")));
 
@@ -150,7 +150,7 @@ internal sealed class AcceptOptimization(IDocumentFileStore files) : IWorkflowAc
 
 internal sealed class DiscardOptimization(IDocumentFileStore files) : IWorkflowActivity
 {
-    public string Key => StorageOptimizationExtension.Id + ".discard";
+    public string Key => StorageOptimizationWorkflows.Id + ".discard";
     public string Description => "Retains the original and releases the rejected candidate's storage.";
     public JsonObject? InputSchema => ActivitySchemas.Of(["candidate"], ("candidate", ActivitySchemas.Text("Staged candidate id.")));
 

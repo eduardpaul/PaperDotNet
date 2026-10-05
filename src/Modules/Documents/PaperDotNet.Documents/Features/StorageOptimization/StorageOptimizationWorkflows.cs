@@ -1,37 +1,12 @@
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.DependencyInjection;
-using PaperDotNet.Documents.Contracts;
-using PaperDotNet.Extensions;
 using PaperDotNet.Workflows.Contracts;
 
-[assembly: PaperDotNetExtension(typeof(PaperDotNet.StorageOptimization.StorageOptimizationExtension))]
+namespace PaperDotNet.Documents.Features.StorageOptimization;
 
-namespace PaperDotNet.StorageOptimization;
-
-public sealed class StorageOptimizationExtension : IExtension
+internal static class StorageOptimizationWorkflows
 {
     public const string Id = "paperdotnet.storageoptimization";
     public const string ReviewType = Id + ".image";
-
-    public void Configure(IExtensionBuilder builder)
-    {
-        builder.Services.AddSingleton<ImageOptimizationGate>();
-        builder.Services.AddScoped<IDocumentOptimizationAdapter, ImageOptimizationAdapter>();
-        builder.AddWorkflowActivity<PrepareOptimization>();
-        builder.AddWorkflowActivity<AcceptOptimization>();
-        builder.AddWorkflowActivity<DiscardOptimization>();
-        builder.AddApprovalReviewProvider<OptimizationReview>();
-        builder.AddWorkflow(Workflow);
-        builder.AddDbContext<PhotoConversionDbContext>();
-        builder.Services.AddScoped<PhotoConversionStore>();
-        builder.Services.AddScoped<IStagedDocumentRetention, PhotoConversionRetention>();
-        builder.Services.AddSingleton<PhotoCompositionGate>();
-        builder.AddWorkflowActivity<ComposePhotosActivity>();
-        builder.AddWorkflowActivity<AcceptCompositionActivity>();
-        builder.AddWorkflowActivity<DiscardCompositionActivity>();
-        builder.AddApprovalReviewProvider<CompositionReview>();
-        builder.AddWorkflow(PhotoToDocument.Workflow);
-    }
 
     public static BuiltInWorkflow Workflow { get; } = new(Id + ".optimize", "Optimize document storage",
         "Proposes a smaller image and asks workspace managers to review it before replacing the original.",

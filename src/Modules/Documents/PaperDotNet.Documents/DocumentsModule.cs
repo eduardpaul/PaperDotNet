@@ -5,6 +5,8 @@ using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.Documents.Features;
+using PaperDotNet.Documents.Features.StorageOptimization;
+using PaperDotNet.Documents.Features.PhotoToDocument;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
@@ -38,6 +40,8 @@ public sealed class DocumentsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<DocumentsDbContext>(DocumentsDbContext.Schema);
+        services.AddStorageOptimizationFeature();
+        services.AddPhotoToDocumentFeature();
         services.AddScoped<IItemMoveParticipant, DocumentsItemMoveParticipant>();
         services.AddOptions<DocumentsOptions>().BindConfiguration(DocumentsOptions.Section);
         services.AddScoped<FileIntake>();

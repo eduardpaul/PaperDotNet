@@ -76,7 +76,6 @@ public sealed partial class ModuleBoundaryTests
     /// </summary>
     [Theory]
     [InlineData("PaperDotNet.Extensions.Abstractions")]
-    [InlineData("PaperDotNet.StorageOptimization")]
     [InlineData("PaperDotNet.Samples.Invoices")]
     [InlineData("PaperDotNet.Documents")] // built on the SDK (EXT-06)
     [InlineData("PaperDotNet.Tasks")]

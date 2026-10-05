@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace PaperDotNet.StorageOptimization.Migrations.PostgreSql.Generated
+namespace PaperDotNet.Migrations.PostgreSql.Generated.PhotoConversions
 {
     /// <inheritdoc />
     public partial class InitialPhotoConversions : Migration

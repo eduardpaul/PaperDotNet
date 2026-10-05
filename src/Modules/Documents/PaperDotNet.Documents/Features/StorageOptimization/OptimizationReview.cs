@@ -2,11 +2,11 @@ using System.Text.Json.Nodes;
 using PaperDotNet.Documents.Contracts;
 using PaperDotNet.Workflows.Contracts;
 
-namespace PaperDotNet.StorageOptimization;
+namespace PaperDotNet.Documents.Features.StorageOptimization;
 
 internal sealed class OptimizationReview(IDocumentFileStore files) : IApprovalReviewProvider
 {
-    public string Type => StorageOptimizationExtension.ReviewType;
+    public string Type => StorageOptimizationWorkflows.ReviewType;
 
     private async Task<DocumentCandidate?> CandidateAsync(ApprovalReviewContext context, CancellationToken ct)
     {

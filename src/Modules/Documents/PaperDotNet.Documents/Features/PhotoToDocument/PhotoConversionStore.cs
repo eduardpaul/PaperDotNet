@@ -4,45 +4,16 @@ using Microsoft.EntityFrameworkCore.Storage;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Collaboration.Contracts;
 using PaperDotNet.Documents.Contracts;
-using PaperDotNet.Extensions;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
-namespace PaperDotNet.StorageOptimization;
+namespace PaperDotNet.Documents.Features.PhotoToDocument;
 
 internal sealed record PhotoSource(DocumentFile File, uint ItemVersion);
 internal sealed record PhotoConversion(Guid Id, Guid RunId, Guid PrimaryItemId, Guid StartedBy,
     string State, string FileName, string Languages, IReadOnlyList<PhotoSource> Sources, int? PageCount);
-
-public sealed class PhotoConversionRecord : ITenantOwned
-{
-    public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
-    public Guid RunId { get; set; }
-    public Guid PrimaryItemId { get; set; }
-    public Guid StartedBy { get; set; }
-    public string State { get; set; } = "preparing";
-    public string FileName { get; set; } = "document.pdf";
-    public string Languages { get; set; } = "eng";
-    public string SourcesJson { get; set; } = "[]";
-}
-
-public sealed class PhotoConversionDbContext(DbContextOptions<PhotoConversionDbContext> options, ITenantContext tenant) : ExtensionDbContext(options, tenant)
-{
-    public DbSet<PhotoConversionRecord> Conversions => Set<PhotoConversionRecord>();
-    protected override void ConfigureModel(ModelBuilder modelBuilder)
-    {
-        modelBuilder.Entity<PhotoConversionRecord>(b =>
-        {
-            b.ToTable("photo_conversions");
-            b.HasIndex(c => c.RunId);
-            b.Property(c => c.State).HasMaxLength(20);
-            b.Property(c => c.FileName).HasMaxLength(255);
-        });
-    }
-}
 
 internal sealed class PhotoConversionStore(PhotoConversionDbContext db, IStagedDocumentStore staging, IDocumentPublisher publisher,
     IListItemStore items, IDocumentFileStore files, IItemBatchRecycle recycle, IUserDirectory users, ICurrentUser user,
@@ -152,18 +123,4 @@ internal sealed class PhotoConversionStore(PhotoConversionDbContext db, IStagedD
         return true;
     }
 
-}
-
-internal sealed class PhotoConversionRetention(PhotoConversionDbContext db, IWorkflowDirectory workflows) : IStagedDocumentRetention
-{
-    public string Owner => PhotoToDocument.Key;
-    public async Task<bool> IsRetainedAsync(Guid id, CancellationToken ct)
-    {
-        var record = await db.Conversions.SingleOrDefaultAsync(c => c.Id == id, ct);
-        if (record is null || record.State is not ("pending" or "preparing")) return false;
-        if (await workflows.IsRunActiveAsync(record.RunId, ct)) return true;
-        record.State = "abandoned";
-        await db.SaveChangesAsync(ct);
-        return false;
-    }
 }

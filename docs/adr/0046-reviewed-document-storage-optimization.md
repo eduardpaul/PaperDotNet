@@ -3,7 +3,7 @@
 Status: Accepted
 
 OCR implementation and model ownership now live in the shared OCR module; see
-[ADR-0048](0048-shared-ocr-module.md). The extension consumes its public contracts.
+[ADR-0048](0048-shared-ocr-module.md). The Documents feature consumes its public contracts.
 
 
 An oversized receipt photograph should become a smaller stored file only after
@@ -12,13 +12,14 @@ SDK rather than adding work to the upload endpoint.
 
 ## Decision
 
-The compiled extension `paperdotnet.storageoptimization` ships in the host and is
-optional per tenant. Its library workflow stages a candidate, waits on the normal
+Storage optimization ships in Documents under `Features/StorageOptimization/`.
+It retains the `paperdotnet.storageoptimization` workflow keys for compatibility.
+Its library workflow stages a candidate, waits on the normal
 approval node, and accepts or discards it. The receipts template composes these
 same activities before its AI reading nodes. `item.hasTerms` checks the current
 receipt tags after review, including descendant terms.
 
-Once the extension is enabled, people with Contribute access can launch
+People with Contribute access can launch
 "Optimize document storage" from a file's Preview tab or the library selection
 toolbar, including files in Inbox. The library switch controls automatic runs
 only. The workflow opts into `AllowManualLaunch`; a manual launch resolves the
@@ -26,8 +27,8 @@ library's configured parameters, creating an off workflow row with defaults
 when none exists. It never changes the automatic setting. The library built-in
 catalog exposes this policy and the launch form, and
 `POST …/lists/{listId}/workflows/builtIns/{key}/runs` checks all selected items
-before creating the workflow or starting runs. Disabling the extension also
-blocks manual launches through existing workflow name/id endpoints.
+before creating the workflow or starting runs. No tenant extension enablement
+is required; automatic execution stays opt-in per library.
 
 `Documents.Contracts` exposes immutable version reading and staged replacement.
 Documents owns hashing, storage references, conditional promotion, and cleanup.
@@ -41,9 +42,10 @@ a newer upload. It releases only that source version, never unrelated history or
 other documents with identical content. Events and activity entries can be
 announced again after a committed promotion without duplication.
 
-Approval nodes may contain `review: { type, key }`. Providers register with
-`IExtensionBuilder.AddApprovalReviewProvider<T>()`; the runtime gates them per
-tenant. Review endpoints check assignment and item access before resolving a
+Approval nodes may contain `review: { type, key }`. Modules register scoped
+`IApprovalReviewProvider` services. Extensions can register providers with
+`IExtensionBuilder.AddApprovalReviewProvider<T>()`, which gates those providers
+per tenant. Review endpoints check assignment and item access before resolving a
 provider. Decisions repeat these checks and the provider's freshness check.
 Ordinary approvals retain their existing behavior. The web app has a build-time
 renderer registry; the first renderer compares authenticated original bytes and

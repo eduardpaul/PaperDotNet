@@ -341,9 +341,9 @@ freshness. Later nodes can use `{step:review.input.reason}` (replace `review` an
 `reason` with the node and field names). The review requires an item even though
 ordinary approvals can run at workspace scope.
 
-See ADR-0046 and the compiled `PaperDotNet.StorageOptimization` extension for the
-complete example. Extension identifiers remain lowercase, including
-`paperdotnet.storageoptimization`.
+See ADR-0046 and `PaperDotNet.Documents/Features/StorageOptimization/` for the
+complete built-in implementation of the same public contracts. Its existing
+`paperdotnet.storageoptimization` workflow and review keys are retained for compatibility.
 
 The image adapter defaults to PaddleOCR PP-OCRv6 small DBNet line detection. Its model
 and native CPU runtime ship with the host; no inference service or download is
@@ -366,23 +366,22 @@ tokens and scripts use `context.items`. The singular context item remains the
 primary. The engine validates the whole selection, handles overlapping run
 concurrency, persists membership, and recovers runs after restarts.
 
-The `PaperDotNet.StorageOptimization` extension demonstrates this with
-`paperdotnet.storageoptimization.photoToDocument`. It registers the built-in,
-prepare/accept/discard activities and review provider through `IExtensionBuilder`;
-all contributions are tenant gated. Its JPEG/PNG/WebP validation, orientation,
-page arrangement policy and reviewer selection belong to the extension. No
-reference to a module implementation assembly is required.
+The Documents module implements `paperdotnet.storageoptimization.photoToDocument`
+using these public contracts. Its implementation is organized in
+`Features/PhotoToDocument/`; it is a product feature rather than a separately
+enabled extension. Custom extensions can register their own built-ins, activities,
+and review providers through `IExtensionBuilder` without referencing Documents
+implementation types.
 
-The public SDK services it uses are:
+The public SDK services available for this processing are:
 
 - `IDocumentFileStore` and `IListItemStore` for immutable files and caller access.
-- `IOcrService` for ordered image streams using the configured host OCR
-  engine (Tesseract by default); the extension has no separate OCR configuration.
+- `IOcrService` for ordered image streams using the configured host OCR engine.
 - `IStagedDocumentStore` for durable temporary output and immutable-version byte pins.
-- `IDocumentPublisher` for version-conditional publishing inside an extension-owned
-  transaction; `IItemBatchRecycle` participates in that same transaction.
-- `IStagedDocumentRetention` for extension-owned retention policy. The extension
-  stores snapshots and review state in its own `ExtensionDbContext`.
+- `IDocumentPublisher` for version-conditional publishing in a caller-owned transaction;
+  `IItemBatchRecycle` participates in that same transaction.
+- `IStagedDocumentRetention` for processing-owned retention policy. Extensions can
+  keep their own snapshots and review state in an `ExtensionDbContext`.
 - `IDocumentPdfRenderer` for previewing a staged PDF without publishing it.
 
 `OcrResult` owns its returned PDF stream. The caller owns input streams.

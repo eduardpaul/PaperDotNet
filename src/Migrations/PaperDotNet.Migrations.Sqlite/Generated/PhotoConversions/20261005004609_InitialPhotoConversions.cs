@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace PaperDotNet.StorageOptimization.Migrations.Sqlite.Generated
+namespace PaperDotNet.Migrations.Sqlite.Generated.PhotoConversions
 {
     /// <inheritdoc />
     public partial class InitialPhotoConversions : Migration

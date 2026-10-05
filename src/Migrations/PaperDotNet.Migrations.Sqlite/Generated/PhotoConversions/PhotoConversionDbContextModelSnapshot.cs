@@ -3,11 +3,11 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using PaperDotNet.StorageOptimization;
+using PaperDotNet.Documents.Features.PhotoToDocument;
 
 #nullable disable
 
-namespace PaperDotNet.StorageOptimization.Migrations.Sqlite.Generated
+namespace PaperDotNet.Migrations.Sqlite.Generated.PhotoConversions
 {
     [DbContext(typeof(PhotoConversionDbContext))]
     partial class PhotoConversionDbContextModelSnapshot : ModelSnapshot
@@ -77,7 +77,7 @@ namespace PaperDotNet.StorageOptimization.Migrations.Sqlite.Generated
                     b.ToTable("ext_paperdotnet_storageoptimization_audit_log", (string)null);
                 });
 
-            modelBuilder.Entity("PaperDotNet.StorageOptimization.PhotoConversionRecord", b =>
+            modelBuilder.Entity("PaperDotNet.Documents.Features.PhotoToDocument.PhotoConversionRecord", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()

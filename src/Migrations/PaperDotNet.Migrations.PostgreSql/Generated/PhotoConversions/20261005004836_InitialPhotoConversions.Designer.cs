@@ -3,18 +3,21 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using PaperDotNet.StorageOptimization;
+using PaperDotNet.Documents.Features.PhotoToDocument;
 
 #nullable disable
 
-namespace PaperDotNet.StorageOptimization.Migrations.PostgreSql.Generated
+namespace PaperDotNet.Migrations.PostgreSql.Generated.PhotoConversions
 {
     [DbContext(typeof(PhotoConversionDbContext))]
-    partial class PhotoConversionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261005004836_InitialPhotoConversions")]
+    partial class InitialPhotoConversions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -84,7 +87,7 @@ namespace PaperDotNet.StorageOptimization.Migrations.PostgreSql.Generated
                     b.ToTable("audit_log", "ext_paperdotnet_storageoptimization");
                 });
 
-            modelBuilder.Entity("PaperDotNet.StorageOptimization.PhotoConversionRecord", b =>
+            modelBuilder.Entity("PaperDotNet.Documents.Features.PhotoToDocument.PhotoConversionRecord", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()

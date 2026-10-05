@@ -13,9 +13,12 @@
     <PackageReference Include="PDFsharp" />
     <PackageReference Include="PdfPig" />
     <PackageReference Include="PDFtoImage" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
     <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+    <InternalsVisibleTo Include="PaperDotNet.OptimizationBenchmark" />
   </ItemGroup>
 </Project>

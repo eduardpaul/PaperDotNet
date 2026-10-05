@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 using PaperDotNet.Documents.Contracts;
 using PaperDotNet.Workflows.Contracts;
 
-namespace PaperDotNet.StorageOptimization;
+namespace PaperDotNet.Documents.Features.PhotoToDocument;
 
 internal sealed class CompositionReview(PhotoConversionStore compositions, IDocumentFileStore files, PaperDotNet.Lists.Contracts.IListItemStore items,
     ITenantScopeFactory scopes, ITenantContext tenant, IDocumentPdfRenderer renderer) : IApprovalReviewProvider

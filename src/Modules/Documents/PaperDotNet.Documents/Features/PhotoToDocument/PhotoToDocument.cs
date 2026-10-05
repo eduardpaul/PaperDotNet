@@ -1,3 +1,4 @@
+using PaperDotNet.Documents.Features.StorageOptimization;
 using System.Buffers.Binary;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,12 +11,12 @@ using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 using SkiaSharp;
 
-namespace PaperDotNet.StorageOptimization;
+namespace PaperDotNet.Documents.Features.PhotoToDocument;
 
 internal static class PhotoToDocument
 {
-    public const string Key = StorageOptimizationExtension.Id + ".photoToDocument";
-    public const string ReviewType = StorageOptimizationExtension.Id + ".composition";
+    public const string Key = StorageOptimizationWorkflows.Id + ".photoToDocument";
+    public const string ReviewType = StorageOptimizationWorkflows.Id + ".composition";
     public static readonly BuiltInWorkflow Workflow = new(Key, "Photo to document",
         "Combines selected photos into one searchable PDF for approval before replacing the primary photo and recycling the others.",
         JsonNode.Parse("""

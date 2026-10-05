@@ -5,9 +5,6 @@ test('selected photos become one reviewed searchable PDF in the chosen order', a
   test.setTimeout(120_000);
   await signIn(page);
   const headers = await adminHeaders(request);
-  expect(
-    (await request.post('/v1.0/extensions/paperdotnet.storageoptimization/enable', { headers })).ok(),
-  ).toBeTruthy();
   const libraryUrl = await createList(page, 'Documents', unique('Photo pages'));
   const ws = /\/w\/([^/]+)/.exec(libraryUrl)![1];
   const list = /\/l\/([^/]+)/.exec(libraryUrl)![1];

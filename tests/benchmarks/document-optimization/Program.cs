@@ -5,7 +5,8 @@ using CliWrap;
 using CliWrap.Buffered;
 using Microsoft.Extensions.Configuration;
 using PaperDotNet.Documents.Contracts;
-using PaperDotNet.StorageOptimization;
+using PaperDotNet.Documents.Features.StorageOptimization;
+using PaperDotNet.Documents.Features.PhotoToDocument;
 using SkiaSharp;
 
 if (args is ["--synthetic", var destination])

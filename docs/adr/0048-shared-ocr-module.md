@@ -3,7 +3,7 @@
 Status: Accepted
 
 OCR recognition lived inside Documents, while text detection lived inside the
-storage optimization extension. Other modules and extensions should be able to
+storage optimization feature (now part of Documents). Other modules and extensions should be able to
 use these capabilities without depending on either implementation.
 
 ## Decision

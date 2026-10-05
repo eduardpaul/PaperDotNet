@@ -6,7 +6,7 @@ using Microsoft.Extensions.Configuration;
 using PaperDotNet.Documents.Contracts;
 using SkiaSharp;
 
-namespace PaperDotNet.StorageOptimization;
+namespace PaperDotNet.Documents.Features.StorageOptimization;
 
 /// <summary>The process-wide budget also applies across organizations and simultaneous workflow runs.</summary>
 internal sealed class ImageOptimizationGate : IDisposable

@@ -5,6 +5,7 @@ using PaperDotNet.AiWorkflows.Data;
 using PaperDotNet.Calendar.Data;
 using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Documents.Data;
+using PaperDotNet.Documents.Features.PhotoToDocument;
 using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Identity.Data;
 using PaperDotNet.Jobs.Data;
@@ -156,4 +157,10 @@ internal sealed class AiWorkflowsDesignTimeFactory : IDesignTimeDbContextFactory
 {
     public AiWorkflowsDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<AiWorkflowsDbContext>(AiWorkflowsDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class PhotoConversionsDesignTimeFactory : IDesignTimeDbContextFactory<PhotoConversionDbContext>
+{
+    public PhotoConversionDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<PhotoConversionDbContext>(PhotoConversionDbContext.Schema), DesignTime.NoTenant);
 }
