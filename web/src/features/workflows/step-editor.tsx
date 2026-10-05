@@ -472,7 +472,7 @@ function ApprovalFields({
       </div>
       <Field
         label="Input schema"
-        hint="Optional JSON Schema for information collected with this decision. Use x-paperdotnet for relationship, terms or keywords pickers. Later steps read {step:Name.input.field}."
+        hint="Optional JSON Schema for information collected with this decision. Use x-paperdotnet for relationship, terms, keywords or people pickers. Later steps read {step:Name.input.field}."
       >
         {() => (
           <JsonInput

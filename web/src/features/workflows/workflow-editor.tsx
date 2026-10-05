@@ -178,7 +178,7 @@ export function WorkflowEditor({
                 </Row>
                 <Row
                   label="Input schema"
-                  hint="JSON Schema for launch parameters. Use properties, required, enum and default. Add x-paperdotnet for relationship, terms or keywords pickers."
+                  hint="JSON Schema for launch parameters. Use properties, required, enum and default. Add x-paperdotnet for relationship, terms, keywords or people pickers."
                 >
                   {() => (
                     <JsonInput
