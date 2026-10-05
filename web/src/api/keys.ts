@@ -12,6 +12,7 @@ export const keys = {
   myTasks: (view: string) => ['me', 'tasks', view] as const,
   myCalendar: (start: string, end: string) => ['me', 'calendar', start, end] as const,
   approvals: (status?: string) => ['me', 'approvals', status ?? 'all'] as const,
+  approvalReview: (approvalId: string) => ['me', 'approvals', approvalId, 'review'] as const,
   notifications: ['me', 'notifications'] as const,
   subscriptions: ['me', 'subscriptions'] as const,
   unreadCount: ['me', 'notifications', 'unreadCount'] as const,

@@ -29,6 +29,7 @@ public sealed record WorkflowTrigger(
     double? OffsetHours = null,
     JsonObject? Inputs = null,
     JsonObject? Data = null,
+    string? Concurrency = null,
     WorkflowTriggerParameters? Parameters = null)
 {
     /// <summary>Whether the trigger's data has every value of <see cref="Data"/> (true without <see cref="Data"/>).</summary>
@@ -366,6 +367,11 @@ internal static class Definitions
                 errors.Add($"{prefix}A condition needs the trigger's list (its fields).");
             }
 
+            if (trigger.Concurrency is { } triggerConcurrency && !RunConcurrency.All.Contains(triggerConcurrency))
+            {
+                errors.Add($"{prefix}concurrency must be one of {string.Join(", ", RunConcurrency.All)}.");
+            }
+
             errors.AddRange(TriggerConditions.Validate(trigger).Select(e => prefix + e));
             errors.AddRange(ValidateTrigger(trigger).Select(e => prefix + e));
         }
@@ -611,6 +617,12 @@ internal static class Definitions
             switch (node.Activity)
             {
                 case FlowActivities.Approval:
+                    if (inputs["review"] is { } review && (review is not JsonObject reference
+                        || ActivityInputs.Text(reference, "type") is null || ActivityInputs.Text(reference, "key") is null))
+                    {
+                        errors.Add($"{at}: review needs a type and key.");
+                    }
+
                     if (inputs["inputSchema"] is not (null or JsonObject))
                     {
                         errors.Add($"{at}: inputSchema must be a JSON Schema object.");

@@ -316,6 +316,13 @@ The web editor edits steps; flows are edited in its JSON view for now.
   or on several items (up to 100) with
   `POST …/workflows/{id}/runs` `{ "listId": …, "itemIds": [ … ] }`.
   - You need Contribute access to the items.
+  - Library built-ins that advertise `allowManualLaunch: true` can run even
+    with automatic processing off, using
+    `POST …/lists/{listId}/workflows/builtIns/{key}/runs` `{ "itemIds": [ … ] }`.
+    This creates their workflow row if needed without enabling automatic runs,
+    and preserves existing parameter values. The extension must be enabled.
+    The web app offers these workflows from a file's Preview tab (including
+    Inbox) and the library selection toolbar.
   - The items must match the trigger's list and content type, and the
     condition; all are checked before anything starts.
   - A `manual` workflow whose trigger has no list can also start without an
@@ -707,7 +714,8 @@ an item, and item or module events from any list. Event runs carry the triggerin
 item in the execution context. List workflows name a `list` in every trigger
 and require target items for manual runs. A workflow permits manual launching by including a `manual`
 trigger; use one manual trigger per workflow. `enabled: false` also disables
-manual and webhook launches.
+manual and webhook launches, except manual launches of built-ins that explicitly
+opt into `AllowManualLaunch` (such as document storage optimization).
 
 ```json
 {

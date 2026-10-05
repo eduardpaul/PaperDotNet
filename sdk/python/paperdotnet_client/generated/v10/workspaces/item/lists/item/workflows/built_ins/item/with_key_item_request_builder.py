@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from .........models.api_problem import ApiProblem
     from .........models.built_in_settings_request import BuiltInSettingsRequest
     from .........models.built_in_workflow_response import BuiltInWorkflowResponse
+    from .runs.runs_request_builder import RunsRequestBuilder
 
 class WithKeyItemRequestBuilder(BaseRequestBuilder):
     """
@@ -77,6 +78,15 @@ class WithKeyItemRequestBuilder(BaseRequestBuilder):
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
         return WithKeyItemRequestBuilder(self.request_adapter, raw_url)
+    
+    @property
+    def runs(self) -> RunsRequestBuilder:
+        """
+        The runs property
+        """
+        from .runs.runs_request_builder import RunsRequestBuilder
+
+        return RunsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @dataclass
     class WithKeyItemRequestBuilderPutRequestConfiguration(RequestConfiguration[QueryParameters]):

@@ -21,7 +21,7 @@ class DecisionRequest(AdditionalDataHolder, Parsable):
     inputs: Optional[JsonObject] = None
     # The outcome property
     outcome: Optional[str] = None
-
+    
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> DecisionRequest:
         """
@@ -32,7 +32,7 @@ class DecisionRequest(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return DecisionRequest()
-
+    
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -48,7 +48,7 @@ class DecisionRequest(AdditionalDataHolder, Parsable):
             "outcome": lambda n : setattr(self, 'outcome', n.get_str_value()),
         }
         return fields
-
+    
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -61,5 +61,5 @@ class DecisionRequest(AdditionalDataHolder, Parsable):
         writer.write_object_value("inputs", self.inputs)
         writer.write_str_value("outcome", self.outcome)
         writer.write_additional_data_value(self.additional_data)
-
+    
 

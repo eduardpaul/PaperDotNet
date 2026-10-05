@@ -1,0 +1,30 @@
+[
+  {
+    "file": "pdn-48mp-48mib.png",
+    "metrics": {
+      "sourceWidth": 6000,
+      "sourceHeight": 8000,
+      "width": 411,
+      "height": 549,
+      "sourceBytes": 50331648,
+      "bytes": 27804,
+      "scale": 0.06857142857142857,
+      "smallestTextHeight": 175,
+      "savingsPercent": 99.94475841522217,
+      "strategy": "word",
+      "targetHeight": 12,
+      "confidence": 50,
+      "percentile": 5,
+      "quality": 80,
+      "minimumScale": 0.05,
+      "analysisDimension": 2600,
+      "analysisScale": 0.325,
+      "words": 80
+    },
+    "SkipReason": null,
+    "milliseconds": 18513,
+    "hostPeakWorkingSet": 615288832,
+    "verifiedWords": 80,
+    "verifiedHeight": 12
+  }
+]

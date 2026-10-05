@@ -23,6 +23,14 @@ namespace PaperDotNet.Client.Models
 #else
         public List<string> ChangedFields { get; set; }
 #endif
+        /// <summary>The concurrency property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Concurrency { get; set; }
+#nullable restore
+#else
+        public string Concurrency { get; set; }
+#endif
         /// <summary>The contentType property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -131,6 +139,7 @@ namespace PaperDotNet.Client.Models
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "changedFields", n => { ChangedFields = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
+                { "concurrency", n => { Concurrency = n.GetStringValue(); } },
                 { "contentType", n => { ContentType = n.GetStringValue(); } },
                 { "cron", n => { Cron = n.GetStringValue(); } },
                 { "data", n => { Data = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
@@ -152,6 +161,7 @@ namespace PaperDotNet.Client.Models
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteCollectionOfPrimitiveValues<string>("changedFields", ChangedFields);
+            writer.WriteStringValue("concurrency", Concurrency);
             writer.WriteStringValue("contentType", ContentType);
             writer.WriteStringValue("cron", Cron);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("data", Data);

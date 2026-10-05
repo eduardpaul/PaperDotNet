@@ -29,7 +29,7 @@ class WorkspaceRelationshipResponse(AdditionalDataHolder, Parsable):
     type: Optional[RelationshipTypeData] = None
     # The version property
     version: Optional[int] = None
-
+    
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> WorkspaceRelationshipResponse:
         """
@@ -40,7 +40,7 @@ class WorkspaceRelationshipResponse(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return WorkspaceRelationshipResponse()
-
+    
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -64,7 +64,7 @@ class WorkspaceRelationshipResponse(AdditionalDataHolder, Parsable):
             "version": lambda n : setattr(self, 'version', n.get_int_value()),
         }
         return fields
-
+    
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -81,3 +81,5 @@ class WorkspaceRelationshipResponse(AdditionalDataHolder, Parsable):
         writer.write_object_value("type", self.type)
         writer.write_int_value("version", self.version)
         writer.write_additional_data_value(self.additional_data)
+    
+

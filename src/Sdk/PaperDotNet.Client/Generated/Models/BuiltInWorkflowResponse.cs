@@ -15,6 +15,8 @@ namespace PaperDotNet.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The allowManualLaunch property</summary>
+        public bool? AllowManualLaunch { get; set; }
         /// <summary>The available property</summary>
         public bool? Available { get; set; }
         /// <summary>The description property</summary>
@@ -29,6 +31,14 @@ namespace PaperDotNet.Client.Models
         public bool? Enabled { get; set; }
         /// <summary>The enabledByDefault property</summary>
         public bool? EnabledByDefault { get; set; }
+        /// <summary>The inputSchema property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::PaperDotNet.Client.Models.JsonObject? InputSchema { get; set; }
+#nullable restore
+#else
+        public global::PaperDotNet.Client.Models.JsonObject InputSchema { get; set; }
+#endif
         /// <summary>The key property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -87,6 +97,7 @@ namespace PaperDotNet.Client.Models
         public BuiltInWorkflowResponse()
         {
             AdditionalData = new Dictionary<string, object>();
+            AllowManualLaunch = false;
             EnabledByDefault = false;
             Scope = global::PaperDotNet.Client.Models.BuiltInScope.Workspace;
         }
@@ -108,10 +119,12 @@ namespace PaperDotNet.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "allowManualLaunch", n => { AllowManualLaunch = n.GetBoolValue(); } },
                 { "available", n => { Available = n.GetBoolValue(); } },
                 { "description", n => { Description = n.GetStringValue(); } },
                 { "enabled", n => { Enabled = n.GetBoolValue(); } },
                 { "enabledByDefault", n => { EnabledByDefault = n.GetBoolValue(); } },
+                { "inputSchema", n => { InputSchema = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "key", n => { Key = n.GetStringValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
@@ -129,10 +142,12 @@ namespace PaperDotNet.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteBoolValue("allowManualLaunch", AllowManualLaunch);
             writer.WriteBoolValue("available", Available);
             writer.WriteStringValue("description", Description);
             writer.WriteBoolValue("enabled", Enabled);
             writer.WriteBoolValue("enabledByDefault", EnabledByDefault);
+            writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputSchema", InputSchema);
             writer.WriteStringValue("key", Key);
             writer.WriteStringValue("name", Name);
             writer.WriteStringValue("@odata.etag", OdataEtag);

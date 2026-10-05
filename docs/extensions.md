@@ -313,3 +313,45 @@ a registered workspace built-in workflow with existing/default parameters. A
 module must authorize its configuration action before calling it; the API does
 not accept arbitrary workflow definitions. Both additions have defaults for
 older custom implementations; the host implements them.
+
+## Reviewed file replacements
+
+Reference Documents through the SDK's `IDocumentFileStore`. Read an immutable
+version, stage a smaller supported candidate with the activity execution id and
+run id, then promote or discard it. `AsSystem()` is for authorized background
+workflow activities. Default operations enforce caller item access. Promotion
+is conditional on the reviewed source still being current and releases its file
+version only after the candidate becomes current. Metrics use a JSON object so
+future format adapters can supply their own analysis.
+
+An approval node can include `review: { "type": "acme.example.image",
+"key": "{step:prepare.candidate}" }`. Register an `IApprovalReviewProvider`
+with `builder.AddApprovalReviewProvider<T>()`. Review keys must belong to the
+same run and item; providers validate that association and source freshness.
+The runtime checks tenant enablement, approval assignment and readable item
+access. Implement metadata, content, and decision validation. The app's
+`approvalReviewRenderers` registry selects a build-time React renderer by the
+provider's descriptor. The included `imageComparison` renderer shows source and
+candidate content at native 100%. Unknown review renderers cannot enable decisions.
+
+A review approval can also include `inputSchema` in the node's inputs, using the
+same JSON Schema forms as other approvals. The dialog collects form values and
+submits them with the decision; the server validates both the form and source
+freshness. Later nodes can use `{step:review.input.reason}` (replace `review` and
+`reason` with the node and field names). The review requires an item even though
+ordinary approvals can run at workspace scope.
+
+See ADR-0046 and the compiled `PaperDotNet.StorageOptimization` extension for the
+complete example. Extension identifiers remain lowercase, including
+`paperdotnet.storageoptimization`.
+
+The image adapter defaults to PaddleOCR PP-OCRv6 small DBNet line detection. Its model
+and native CPU runtime ship with the host; no inference service or download is
+needed. Set `PAPERDOTNET__StorageOptimization__TextDetector=tesseract` to use
+TSV word detection instead. `PaddleModelPath` selects a compatible custom DBNet ONNX
+detector (including the bundled legacy `models/ch_PP-OCRv4_det.onnx`).
+`PaddleThreads` (default 1) controls inference threads. Confidence
+means box score for DBNet and recognized-word confidence for Tesseract.
+Proposal metrics record detector, model digest, strategy and analysis time.
+The ordinary document text-extraction workflow still uses its configured OCR
+engine; this setting changes only storage-optimization measurements.

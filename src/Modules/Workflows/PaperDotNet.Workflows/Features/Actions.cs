@@ -430,7 +430,7 @@ internal static class FlowActivityDescriptors
     public static readonly ActivityDescriptor[] All =
     [
         new(FlowActivities.Approval, "Asks people to approve or reject; overdue requests are escalated.", ActivityDescriptor.FlowKind, ["approved", "rejected", "done"],
-            ActivitySchemas.Of(["assignees"], ("assignees", ActivitySchemas.People("Who decides.")), ("title", ActivitySchemas.Text("Title (template).")),
+            ActivitySchemas.Of(["assignees"], ("assignees", ActivitySchemas.People("Who decides.")), ("title", ActivitySchemas.Text("Title (template).")), ("review", ActivitySchemas.Values("Optional review type and key.")),
                 ("inputSchema", new JsonObject { ["type"] = "object", ["description"] = "JSON Schema of information collected with the decision." }),
                 ("dueInHours", ActivitySchemas.Number("Overdue after this many hours.")), ("escalateTo", ActivitySchemas.People("Added when overdue."))),
             ActivitySchemas.Of([], ("outcome", ActivitySchemas.Text("approved or rejected.")), ("decidedBy", ActivitySchemas.Text("Id of the user who decided.")),
@@ -464,4 +464,36 @@ internal static class FlowActivityDescriptors
         new(FlowActivities.Fail, "Ends the run as failed.", ActivityDescriptor.FlowKind, [],
             ActivitySchemas.Of([], ("message", ActivitySchemas.Text("The error (template)."))), null),
     ];
+}
+
+/// <summary>Checks current item terms by path, including descendants, after a long workflow wait.</summary>
+internal sealed class ItemHasTermsAction(IListItemStore items, PaperDotNet.Taxonomy.Contracts.ITermStore terms) : IWorkflowActivity
+{
+    public string Key => "item.hasTerms";
+    public string Description => "Checks whether the current item has a term or one below it, by Group/Set/Term path.";
+    public IReadOnlyList<string> Outcomes => ["matched", "unmatched"];
+    public JsonObject? InputSchema => ActivitySchemas.Of(["terms"], ("terms", ActivitySchemas.Texts("Term paths; any match continues on matched.")));
+    public IEnumerable<string> Validate(JsonObject inputs) => ActivityInputs.Texts(inputs, "terms") is { Count: > 0 } ? [] : ["terms are required."];
+
+    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
+    {
+        var item = context.Item is { } target ? await items.AsSystem().GetAsync(target.WorkspaceId, target.ListId, target.ItemId, cancellationToken) : null;
+        var wanted = new HashSet<Guid>();
+        foreach (var path in ActivityInputs.Texts(context.Inputs, "terms") ?? [])
+        {
+            if (await terms.FindTermByPathAsync(await context.ExpandAsync(path, cancellationToken), cancellationToken) is { } id)
+            {
+                wanted.Add(id);
+            }
+        }
+
+        foreach (var descendants in (await terms.GetDescendantsAsync(wanted, cancellationToken)).Values)
+        {
+            wanted.UnionWith(descendants);
+        }
+
+        var matched = item?.Fields.SelectMany(f => f.Value is JsonArray values ? values.AsEnumerable() : [f.Value])
+            .Any(v => v is JsonValue text && text.TryGetValue<string>(out var s) && Guid.TryParse(s, out var id) && wanted.Contains(id)) == true;
+        return WorkflowActivityResult.Ok(matched ? "matched" : "unmatched");
+    }
 }

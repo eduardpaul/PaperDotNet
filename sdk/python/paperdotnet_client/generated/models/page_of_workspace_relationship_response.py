@@ -19,7 +19,7 @@ class PageOfWorkspaceRelationshipResponse(AdditionalDataHolder, Parsable):
     odata_next_link: Optional[str] = None
     # The value property
     value: Optional[list[WorkspaceRelationshipResponse]] = None
-
+    
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> PageOfWorkspaceRelationshipResponse:
         """
@@ -30,7 +30,7 @@ class PageOfWorkspaceRelationshipResponse(AdditionalDataHolder, Parsable):
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
         return PageOfWorkspaceRelationshipResponse()
-
+    
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
         """
         The deserialization information for the current model
@@ -45,7 +45,7 @@ class PageOfWorkspaceRelationshipResponse(AdditionalDataHolder, Parsable):
             "value": lambda n : setattr(self, 'value', n.get_collection_of_object_values(WorkspaceRelationshipResponse)),
         }
         return fields
-
+    
     def serialize(self,writer: SerializationWriter) -> None:
         """
         Serializes information the current object
@@ -57,3 +57,5 @@ class PageOfWorkspaceRelationshipResponse(AdditionalDataHolder, Parsable):
         writer.write_str_value("@odata.nextLink", self.odata_next_link)
         writer.write_collection_of_object_values("value", self.value)
         writer.write_additional_data_value(self.additional_data)
+    
+

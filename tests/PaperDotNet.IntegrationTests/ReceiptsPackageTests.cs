@@ -1,10 +1,12 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Tenancy.Contracts;
 using PaperDotNet.Workflows.Data;
 using PaperDotNet.Workflows.Features;
@@ -61,11 +63,15 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
         await action(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<WorkflowsDbContext>());
     }
 
-    [Fact]
-    public async Task The_receipts_package_reads_tagged_receipts_in_the_batch_window()
+    [Theory]
+    [InlineData("pdf")]
+    [InlineData("approved")]
+    [InlineData("rejected")]
+    [InlineData("skipped")]
+    public async Task The_receipts_package_reads_tagged_receipts_in_the_batch_window(string selection)
     {
-        var tenant = await factory.CreateTenantAsync("wf-batch-api-receipts");
-        var admin = await ApiClient.CreateAsync(factory, "wf-batch-api-receipts");
+        var tenant = await factory.CreateTenantAsync($"wf-batch-api-receipts-{selection}");
+        var admin = await ApiClient.CreateAsync(factory, $"wf-batch-api-receipts-{selection}");
         var batchApi = FakeBatchClient.For(tenant.Identifier)!;
         // The "model" reads the receipt from its image (the package sends no text).
         batchApi.Answer = line => line.Images is { Count: > 0 } ? Reading : "{}";
@@ -93,38 +99,90 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
         var receipts = $"/v1.0/workspaces/{ws}/lists/{lists["Receipts"]}";
         var libraryWorkflows = (await (await admin.GetAsync($"{receipts}/workflows/builtIns", Ct)).ReadJsonAsync()).EnumerateArray()
             .ToDictionary(w => w.GetProperty("key").GetString()!, w => w.GetProperty("enabled").GetBoolean());
-        Assert.Equal(new Dictionary<string, bool> { ["documents.ocr"] = false, ["documents.pages"] = true, ["documents.text"] = false, ["documents.thumbnail"] = true },
+        Assert.Equal(new Dictionary<string, bool> { ["paperdotnet.storageoptimization.optimize"] = false, ["documents.ocr"] = false, ["documents.pages"] = true, ["documents.text"] = false, ["documents.thumbnail"] = true },
             libraryWorkflows);
 
         // A receipt is uploaded (its images are made), then tagged "ticket": its reading waits for the batch.
-        var upload = await admin.PostAsync($"{receipts}/documents", new MultipartFormDataContent { { new ByteArrayContent(ReceiptPdf()), "file", "lidl.pdf" } }, Ct);
+        var upload = await admin.PostAsync($"{receipts}/documents", new MultipartFormDataContent { { new ByteArrayContent(selection == "pdf" ? ReceiptPdf() : StorageOptimizationTests.ReceiptImage(selection == "skipped" ? "" : "RECEIPT TOTAL 123.45")), "file", selection == "pdf" ? "lidl.pdf" : "receipt.png" } }, Ct);
         Assert.Equal(HttpStatusCode.Created, upload.StatusCode);
         var receipt = (await upload.ReadJsonAsync()).GetProperty("itemId").GetGuid();
-        await DocumentWorkflowRuns.WaitAsync(admin, ws, receipt, 2);
+        await Eventually.WaitForAsync(async () =>
+        {
+            var runs = (await (await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?itemId={receipt}", Ct)).ReadJsonAsync())
+                .GetProperty("value").EnumerateArray().Where(r => r.GetProperty("workflowId").GetGuid() != workflows["Read receipts"]).ToList();
+            return runs.Count >= 2 && runs.All(r => r.GetProperty("status").GetString() == "completed") ? true : (bool?)null;
+        }, TimeSpan.FromSeconds(60));
+        Guid? approvalId = null;
+        if (selection is "approved" or "rejected")
+        {
+            var approval = await Eventually.WaitForAsync(async () =>
+            {
+                var pending = (await (await admin.GetAsync("/v1.0/me/approvals", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray()
+                    .FirstOrDefault(a => a.GetProperty("itemId").GetGuid() == receipt);
+                return pending.ValueKind == JsonValueKind.Object ? pending : (JsonElement?)null;
+            }, TimeSpan.FromSeconds(60));
+            // The image is still untagged. Upload alone must prepare a proposal, and no AI question is queued.
+            Assert.Empty(batchApi.Submitted);
+            await InTenantAsync(tenant, async (_, db) => Assert.False(await db.Bookmarks.AnyAsync(b => b.Kind.StartsWith("ai."), Ct)));
+            approvalId = approval.GetProperty("id").GetGuid();
+        }
+        if (selection == "skipped")
+        {
+            await Eventually.WaitForAsync(async () =>
+            {
+                var runs = (await (await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read receipts"]}&itemId={receipt}", Ct)).ReadJsonAsync())
+                    .GetProperty("value").EnumerateArray().ToList();
+                return runs.Count == 1 && runs[0].GetProperty("status").GetString() == "completed" ? true : (bool?)null;
+            }, TimeSpan.FromSeconds(60));
+            Assert.Empty(batchApi.Submitted);
+        }
         var item = $"{receipts}/items/{receipt}";
         var tag = await admin.SendWithEtagAsync(HttpMethod.Patch, item, (await admin.GetAsync(item, Ct)).Headers.ETag!.Tag, new { fields = new { tags = new[] { "ticket" } } });
         Assert.True(tag.IsSuccessStatusCode, await tag.Content.ReadAsStringAsync(Ct));
+        if (approvalId is { } reviewId)
+        {
+            // Tag changes must leave the open review intact. Extraction reads the current tag after the decision.
+            Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/v1.0/me/approvals/{reviewId}/review", Ct)).StatusCode);
+            await InTenantAsync(tenant, async (_, db) => Assert.False(await db.Bookmarks.AnyAsync(b => b.Kind.StartsWith("ai."), Ct)));
+            var decision = await admin.PostAsJsonAsync($"/v1.0/me/approvals/{reviewId}/decision", new { outcome = selection }, Ct);
+            Assert.True(decision.IsSuccessStatusCode, await decision.Content.ReadAsStringAsync(Ct));
+            await Eventually.WaitForAsync(async () =>
+            {
+                var file = await admin.GetAsync($"{receipts}/items/{receipt}/file", Ct);
+                return file.Content.Headers.ContentType?.MediaType == (selection == "approved" ? "image/webp" : "image/png") ? true : (bool?)null;
+            }, TimeSpan.FromSeconds(30));
+        }
 
+
+        Guid? readingRunId = null;
         async Task<JsonElement> RunAsync(params string[] statuses)
         {
             JsonElement run = default;
             await Eventually.WaitForAsync(async () =>
             {
-                var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read receipts"]}&itemId={receipt}", Ct);
-                run = (await response.ReadJsonAsync()).GetProperty("value").EnumerateArray().FirstOrDefault();
-                return run.ValueKind == JsonValueKind.Object && statuses.Contains(run.GetProperty("status").GetString()) ? true : (bool?)null;
+                var response = await admin.GetAsync(readingRunId is { } id ? $"/v1.0/workspaces/{ws}/workflows/runs/{id}"
+                    : $"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read receipts"]}&itemId={receipt}", Ct);
+                var body = await response.ReadJsonAsync();
+                run = readingRunId is not null ? body : body.GetProperty("value").EnumerateArray().FirstOrDefault();
+                return run.ValueKind == JsonValueKind.Object && statuses.Contains(run.GetProperty("status").GetString()) && (statuses.Length != 1 || run.GetProperty("node").GetString() == "read") ? true : (bool?)null;
             }, TimeSpan.FromSeconds(30));
             return run;
         }
 
-        await RunAsync("waiting");
+        var waiting = await RunAsync("waiting");
+        readingRunId = waiting.GetProperty("id").GetGuid();
+        if (selection == "skipped")
+        {
+            Assert.Contains("already selected", waiting.GetProperty("outputs").GetProperty("prepare").GetProperty("reason").GetString()!, StringComparison.Ordinal);
+        }
         Assert.Empty(batchApi.Submitted);
 
         // The batch window: the schedule comes due, the batch is sent, and polling collects its answers.
         async Task BatchWindowAsync(int batches)
         {
             var batch = workflows["AI batch"];
-            await InTenantAsync(tenant, (services, _) => services.GetRequiredService<WorkflowScheduleJob>().RunAsync(Ct));
+            await Task.WhenAll(Enumerable.Range(0, 2).Select(_ =>
+                InTenantAsync(tenant, (services, _) => services.GetRequiredService<WorkflowScheduleJob>().RunAsync(Ct))));
             await InTenantAsync(tenant, (_, db) =>
                 db.Schedules.Where(x => x.Id == batch).ExecuteUpdateAsync(u => u.SetProperty(x => x.NextAt, DateTimeOffset.UtcNow.AddSeconds(-1)), Ct));
             await InTenantAsync(tenant, (services, _) => services.GetRequiredService<WorkflowScheduleJob>().RunAsync(Ct));
@@ -137,8 +195,8 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
                         .ExecuteUpdateAsync(u => u.SetProperty(b => b.ResumeAt, DateTimeOffset.UtcNow.AddMinutes(-1)), Ct);
                     await services.GetRequiredService<WorkflowTimerJob>().RunAsync(Ct);
                 });
-                var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read receipts"]}&itemId={receipt}", Ct);
-                var status = (await response.ReadJsonAsync()).GetProperty("value").EnumerateArray().First().GetProperty("status").GetString();
+                var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs/{readingRunId}", Ct);
+                var status = (await response.ReadJsonAsync()).GetProperty("status").GetString();
                 return status is "completed" or "failed" ? true : (bool?)null;
             }, TimeSpan.FromSeconds(60));
         }
@@ -150,11 +208,17 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
         var image = Assert.Single(line.Images!);
         Assert.Equal("image/jpeg", image.MediaType);
         Assert.True(image.Content.Length > 1000);
+        await InTenantAsync(tenant, async (services, _) =>
+        {
+            var selected = await services.GetRequiredService<IItemPageImageSource>().GetPageImagesAsync(receipt, 1, Ct);
+            Assert.Equal(Assert.Single(selected).Content, image.Content);
+        });
         var done = await RunAsync("completed", "failed");
         Assert.True(done.GetProperty("status").GetString() == "completed", done.ToString());
 
         // The receipt's fields and one item per line, linked to the receipt.
         var fields = (await (await admin.GetAsync(item, Ct)).ReadJsonAsync()).GetProperty("fields");
+        Assert.True(fields.TryGetProperty("store", out _), done.ToString());
         Assert.Equal("LIDL", fields.GetProperty("store").GetString());
         Assert.Equal("2026-09-28", fields.GetProperty("purchaseDate").GetString());
         Assert.Equal("EUR", fields.GetProperty("currency").GetString());
@@ -182,7 +246,7 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
         {
             var response = await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs?workflowId={workflows["Read receipts"]}&itemId={receipt}", Ct);
             var runs = (await response.ReadJsonAsync()).GetProperty("value").EnumerateArray().ToList();
-            return runs.Count == 2 && runs.All(r => r.GetProperty("status").GetString() == "completed") ? true : (bool?)null;
+            return runs.Count == (approvalId is null ? 3 : 2) && runs.All(r => r.GetProperty("status").GetString() == "completed") ? true : (bool?)null;
         }, TimeSpan.FromSeconds(30));
         Assert.Single(batchApi.Submitted);
         var replaced = (await (await admin.GetAsync($"/v1.0/workspaces/{ws}/lists/{lists["Receipt lines"]}/items", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray().ToList();
@@ -190,8 +254,8 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
         Assert.Empty(replaced.Select(i => i.GetProperty("id").GetGuid()).Intersect(firstLines));
 
         // Another tenant sees none of it.
-        await factory.CreateTenantAsync("wf-receipts-b");
-        var foreign = await ApiClient.CreateAsync(factory, "wf-receipts-b");
+        await factory.CreateTenantAsync($"wf-receipts-b-{selection}");
+        var foreign = await ApiClient.CreateAsync(factory, $"wf-receipts-b-{selection}");
         Assert.Equal(HttpStatusCode.NotFound, (await foreign.GetAsync(item, Ct)).StatusCode);
     }
 }

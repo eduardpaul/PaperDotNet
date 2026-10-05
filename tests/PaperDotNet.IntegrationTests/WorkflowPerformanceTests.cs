@@ -189,7 +189,14 @@ public sealed class WorkflowPerformanceTests(PaperDotNetApiFactory factory)
 
         public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
         {
-            if (command.CommandText.Contains("versions", StringComparison.OrdinalIgnoreCase)) Count++;
+            var query = command.CommandText.TrimStart();
+            // PostgreSQL prepends its tenant SET to queries outside a transaction.
+            if (query.StartsWith("SET ", StringComparison.OrdinalIgnoreCase) && query.IndexOf('\n') is var separator && separator >= 0)
+            {
+                query = query[(separator + 1)..].TrimStart();
+            }
+            if (query.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase)
+                && query.Contains("versions", StringComparison.OrdinalIgnoreCase)) Count++;
             return ValueTask.FromResult(result);
         }
     }

@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/input';
 import { userName, useUsers } from '@/features/fields/directory';
 import { itemLink } from '@/features/lists/item-link';
 import { useFormat } from '@/lib/preferences';
+import { ReviewDialog } from '@/features/approvals/review-dialog';
 import { SchemaForm } from '@/features/workflows/schema-form';
 import { problemMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
@@ -133,7 +134,16 @@ function ApprovalRow({ approval }: { approval: ApprovalResponse }) {
       </p>
       {approval.comment && <p className="rounded bg-surface-muted px-2 py-1 text-[13px]">“{approval.comment}”</p>}
       {decide.isError && <Alert>{problemMessage(decide.error)}</Alert>}
-      {approval.inputSchema ? (
+      {approval.review ? (
+        <ReviewDialog
+          approval={approval}
+          busy={decide.isPending}
+          comment={comment}
+          onComment={setComment}
+          error={decide.isError ? problemMessage(decide.error) : undefined}
+          onDecide={(outcome, input) => decide.mutate({ outcome, input })}
+        />
+      ) : approval.inputSchema ? (
         <>
           <Button className="self-start" aria-expanded={showForm} onClick={() => setShowForm(!showForm)}>
             {showForm ? 'Hide information' : pending ? 'Review approval' : 'View information'}
