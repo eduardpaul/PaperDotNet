@@ -105,11 +105,16 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
 
         // A library has text, thumbnails and pages on, OCR off.
         var workflows = await WorkflowsAsync(client, ws, list);
-        Assert.Equal(["documents.ocr", "documents.pages", "documents.text", "documents.thumbnail"], workflows.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal([
+            "documents.ocr", "documents.pages", "documents.text", "documents.thumbnail",
+            "paperdotnet.storageoptimization.optimize", "paperdotnet.storageoptimization.photoToDocument",
+        ], workflows.Keys.Order(StringComparer.Ordinal));
         Assert.True(workflows["documents.text"].GetProperty("enabled").GetBoolean());
         Assert.True(workflows["documents.thumbnail"].GetProperty("enabled").GetBoolean());
         Assert.True(workflows["documents.pages"].GetProperty("enabled").GetBoolean());
         Assert.False(workflows["documents.ocr"].GetProperty("enabled").GetBoolean());
+        Assert.False(workflows["paperdotnet.storageoptimization.optimize"].GetProperty("enabled").GetBoolean());
+        Assert.False(workflows["paperdotnet.storageoptimization.photoToDocument"].GetProperty("enabled").GetBoolean());
         Assert.Equal("library", workflows["documents.text"].GetProperty("scope").GetString());
 
         var item = await UploadAsync(client, ws, list, TextPdf("Quarterly report", "Paperclips were ordered"), "report.pdf");
