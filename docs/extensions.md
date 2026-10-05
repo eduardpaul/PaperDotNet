@@ -386,6 +386,23 @@ The public SDK services it uses are:
 - `IDocumentPdfRenderer` for previewing a staged PDF without publishing it.
 
 `OcrResult` owns its returned PDF stream. The caller owns input streams.
+Pass an optional `JsonObject` to `IStagedDocumentStore.CreateAsync` to attach
+domain-specific metadata, such as an invoice number or processing diagnostics:
+
+```csharp
+var staged = await staging.CreateAsync(executionId, "acme.invoices", "invoice.pdf",
+    "eng", ct, attributes: new JsonObject { ["invoiceNumber"] = "INV-42" });
+```
+
+The store snapshots and persists the object, returning a separate copy in
+`StagedDocument.Attributes`. Nested objects, arrays, and JSON values are supported.
+Attributes are immutable for that identifier: retries must supply equivalent values
+(property order does not matter). Omitting attributes returns an empty object,
+following the `ItemRelation.Attributes` convention; existing callers can continue
+omitting them. The core treats attributes as opaque data and
+does not copy them into the published item's fields. Processing state and review
+decisions remain the extension's responsibility.
+
 `StageAsync` accepts one text entry per output PDF page, independent of the source
 count, so another extension can produce output without adopting photo-selection
 or approval policy. Pass `null` when text extraction has not been performed;

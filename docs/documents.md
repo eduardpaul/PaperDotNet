@@ -173,7 +173,11 @@ are updated after commit.
 `Documents.Contracts.IStagedDocumentStore` stores durable temporary content without
 workflow, selection or approval policy. Its creator owns access; retry identifiers
 reuse immutable staged output. Extensions can retain immutable file bytes through
-version pins and implement `IStagedDocumentRetention` to protect temporary content
+version pins. Optional JSON object metadata is snapshotted at creation, persisted,
+and returned as `StagedDocument.Attributes`; retries require equivalent attributes.
+Omitted attributes default to `{}`, matching `ItemRelation.Attributes`.
+The core assigns no domain meaning to these attributes. Extensions implement
+`IStagedDocumentRetention` to protect temporary content
 for as long as their processing needs it. Cleanup releases unretained content after
 the normal grace period.
 

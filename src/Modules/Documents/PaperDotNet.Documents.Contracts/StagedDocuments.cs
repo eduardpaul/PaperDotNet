@@ -1,15 +1,20 @@
 using System.Data.Common;
+using System.Text.Json.Nodes;
 
 namespace PaperDotNet.Documents.Contracts;
 
 /// <summary>Durable temporary content, independent of workflows, selections and review policy.</summary>
 public sealed record StagedDocument(Guid Id, string Owner, Guid CreatedBy, string FileName,
-    string? Languages, string State, string? MediaType, long? Size, int? PageCount);
+    string? Languages, string State, string? MediaType, long? Size, int? PageCount)
+{
+    public JsonObject Attributes { get; init; } = [];
+}
 
 public interface IStagedDocumentStore
 {
     Task<StagedDocument?> GetAsync(Guid id, CancellationToken cancellationToken);
-    Task<StagedDocument> CreateAsync(Guid id, string owner, string fileName, string? languages, CancellationToken cancellationToken);
+    /// <summary>Snapshots optional domain attributes at creation. Retries must supply equivalent attributes.</summary>
+    Task<StagedDocument> CreateAsync(Guid id, string owner, string fileName, string? languages, CancellationToken cancellationToken, JsonObject? attributes = null);
     /// <summary>Protects immutable input bytes from cleanup for the lifetime of this temporary document.</summary>
     Task RetainVersionsAsync(Guid id, IReadOnlyList<Guid> versionIds, CancellationToken cancellationToken);
     /// <summary>Stores immutable output. Null text leaves extraction pending; supplied PDF text includes successful blank pages.</summary>

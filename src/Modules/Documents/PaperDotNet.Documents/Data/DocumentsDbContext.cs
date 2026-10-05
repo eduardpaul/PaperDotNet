@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Extensions;
+using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Documents.Data;
 
@@ -183,6 +184,7 @@ public sealed class StagedFile : ITenantOwned
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
     public string Owner { get; set; } = "";
+    public string Attributes { get; set; } = "{}";
     public Guid CreatedBy { get; set; }
     public Guid? StoredFileId { get; set; }
     public bool HasPreparedText { get; set; }
@@ -225,6 +227,7 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
         modelBuilder.Entity<StagedFile>(b =>
         {
             b.ToTable("staged_files");
+            b.Property(c => c.Attributes).HasDefaultValue("{}").IsJsonDocument();
             b.Property(c => c.Owner).HasMaxLength(100);
             b.Property(c => c.State).HasMaxLength(20);
             b.Property(c => c.FileName).HasMaxLength(255);

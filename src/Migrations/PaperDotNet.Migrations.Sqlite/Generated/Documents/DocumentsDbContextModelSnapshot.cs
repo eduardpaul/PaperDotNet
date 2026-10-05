@@ -329,6 +329,14 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Documents
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
 
+                    b.Property<string>("Attributes")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("{}")
+                        .HasColumnName("attributes")
+                        .HasAnnotation("PaperDotNet:JsonDocument", true);
+
                     b.Property<long>("CreatedAt")
                         .HasColumnType("INTEGER")
                         .HasColumnName("created_at");

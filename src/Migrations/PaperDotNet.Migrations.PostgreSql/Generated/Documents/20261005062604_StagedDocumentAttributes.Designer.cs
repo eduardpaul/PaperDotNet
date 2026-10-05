@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PaperDotNet.Documents.Data;
@@ -12,9 +13,11 @@ using PaperDotNet.Documents.Data;
 namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
 {
     [DbContext(typeof(DocumentsDbContext))]
-    partial class DocumentsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261005062604_StagedDocumentAttributes")]
+    partial class StagedDocumentAttributes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

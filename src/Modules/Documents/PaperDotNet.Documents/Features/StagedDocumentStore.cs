@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
@@ -16,24 +17,29 @@ internal sealed class StagedDocumentStore(DocumentsDbContext db, IDocumentFileSt
     {
         var stored = record.StoredFileId is { } id ? await db.StoredFiles.SingleOrDefaultAsync(s => s.Id == id, ct) : null;
         return new(record.Id, record.Owner, record.CreatedBy, record.FileName, record.Languages, record.State,
-            stored?.MediaType, stored?.Size, record.PageCount);
+            stored?.MediaType, stored?.Size, record.PageCount) { Attributes = ParseAttributes(record.Attributes) };
     }
 
     public async Task<StagedDocument?> GetAsync(Guid id, CancellationToken ct) =>
         await OwnedAsync(id, ct) is { } record ? await DescribeAsync(record, ct) : null;
 
-    public async Task<StagedDocument> CreateAsync(Guid id, string owner, string fileName, string? languages, CancellationToken ct)
+    private static JsonObject ParseAttributes(string json) => JsonNode.Parse(json)!.AsObject();
+
+    public async Task<StagedDocument> CreateAsync(Guid id, string owner, string fileName, string? languages, CancellationToken ct, JsonObject? attributes = null)
     {
+        var attributesJson = attributes?.ToJsonString() ?? "{}";
         if (user.UserId is not { } actor || string.IsNullOrWhiteSpace(owner) || owner.Length > 100
             || string.IsNullOrWhiteSpace(fileName) || fileName.Length > 255)
             throw new InvalidOperationException("Temporary documents require an authenticated owner and a valid name.");
         if (await db.StagedFiles.SingleOrDefaultAsync(s => s.Id == id, ct) is { } existing)
         {
-            if (existing.CreatedBy != actor || existing.Owner != owner || existing.FileName != fileName || existing.Languages != languages)
+            if (existing.CreatedBy != actor || existing.Owner != owner || existing.FileName != fileName || existing.Languages != languages
+                || !JsonNode.DeepEquals(ParseAttributes(existing.Attributes), ParseAttributes(attributesJson)))
                 throw new InvalidOperationException("The execution identifier belongs to different temporary content.");
             return await DescribeAsync(existing, ct);
         }
-        var record = new StagedFile { Id = id, Owner = owner, CreatedBy = actor, FileName = fileName, Languages = languages, CreatedAt = time.GetUtcNow() };
+        var record = new StagedFile { Id = id, Owner = owner, CreatedBy = actor, FileName = fileName, Languages = languages,
+            Attributes = attributesJson, CreatedAt = time.GetUtcNow() };
         db.StagedFiles.Add(record);
         await db.SaveChangesAsync(ct);
         return await DescribeAsync(record, ct);

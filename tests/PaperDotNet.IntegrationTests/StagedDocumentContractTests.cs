@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Contracts;
 using PaperDotNet.Documents.Data;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Data;
 using PaperDotNet.Workflows.Contracts;
 using UglyToad.PdfPig.Content;
@@ -15,6 +16,53 @@ namespace PaperDotNet.IntegrationTests;
 
 public sealed class StagedDocumentContractTests(PaperDotNetApiFactory factory)
 {
+    [Fact]
+    public async Task Domain_attributes_are_snapshotted_persistent_private_and_bound_to_the_retry_identifier()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var tenant = await factory.CreateTenantAsync("temporary-attributes");
+        var scopes = factory.Services.GetRequiredService<ITenantScopeFactory>();
+        Guid actor;
+        await using (var scope = scopes.CreateScope(tenant.Id, tenant.Identifier))
+            actor = (await scope.ServiceProvider.GetRequiredService<IUserDirectory>().FindUserAsync(PaperDotNetApiFactory.AdminUserName, ct))!.Value;
+        var id = Guid.CreateVersion7();
+        var attributes = new JsonObject
+        {
+            ["invoiceNumber"] = "INV-42",
+            ["processing"] = new JsonObject { ["confidence"] = 0.95, ["reviewRequired"] = true },
+            ["tags"] = new JsonArray("invoice", "review"),
+            ["optional"] = null,
+        };
+        var expected = attributes.DeepClone().AsObject();
+        await using (var owner = scopes.CreateScope(tenant.Id, tenant.Identifier, actor))
+        {
+            var store = owner.ServiceProvider.GetRequiredService<IStagedDocumentStore>();
+            var created = await store.CreateAsync(id, "acme.invoices", "invoice.png", null, ct, attributes);
+            Assert.True(JsonNode.DeepEquals(expected, created.Attributes));
+            attributes["invoiceNumber"] = "changed input";
+            created.Attributes["invoiceNumber"] = "changed response";
+            using var image = new MemoryStream(StorageOptimizationTests.ReceiptImage());
+            Assert.True(JsonNode.DeepEquals(expected, (await store.StageAsync(id, image, null, ct)).Attributes));
+        }
+        await using (var reopened = scopes.CreateScope(tenant.Id, tenant.Identifier, actor))
+        {
+            var store = reopened.ServiceProvider.GetRequiredService<IStagedDocumentStore>();
+            Assert.True(JsonNode.DeepEquals(expected, (await store.GetAsync(id, ct))!.Attributes));
+            var reordered = new JsonObject();
+            foreach (var property in expected.Reverse()) reordered[property.Key] = property.Value?.DeepClone();
+            Assert.True(JsonNode.DeepEquals(expected, (await store.CreateAsync(id, "acme.invoices", "invoice.png", null, ct, reordered)).Attributes));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => store.CreateAsync(id, "acme.invoices", "invoice.png", null, ct, attributes));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => store.CreateAsync(id, "acme.invoices", "invoice.png", null, ct));
+            var empty = await store.CreateAsync(Guid.CreateVersion7(), "acme.invoices", "other.png", null, ct);
+            Assert.Empty(empty.Attributes);
+            Assert.Empty((await store.CreateAsync(empty.Id, "acme.invoices", "other.png", null, ct, new JsonObject())).Attributes);
+            await store.ReleaseAsync(id, ct);
+            Assert.True(JsonNode.DeepEquals(expected, (await store.GetAsync(id, ct))!.Attributes));
+        }
+        await using var stranger = scopes.CreateScope(tenant.Id, tenant.Identifier, Guid.CreateVersion7());
+        Assert.Null(await stranger.ServiceProvider.GetRequiredService<IStagedDocumentStore>().GetAsync(id, ct));
+    }
+
     [Fact]
     public async Task Temporary_documents_publish_without_a_selection_or_enabled_extension()
     {
