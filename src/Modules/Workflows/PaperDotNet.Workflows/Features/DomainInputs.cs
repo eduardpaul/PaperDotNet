@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
 
@@ -14,9 +15,9 @@ internal static class DomainInputs
             yield break;
         }
 
-        if (schema["x-paperdotnet"] is not JsonObject options || options["kind"]?.ToString() is not ("relationship" or "terms" or "keywords"))
+        if (schema["x-paperdotnet"] is not JsonObject options || options["kind"]?.ToString() is not ("relationship" or "terms" or "keywords" or "people"))
         {
-            yield return "inputs.x-paperdotnet needs a kind: relationship, terms or keywords.";
+            yield return "inputs.x-paperdotnet needs a kind: relationship, terms, keywords or people.";
             yield break;
         }
 
@@ -38,13 +39,29 @@ internal static class DomainInputs
             }
         }
 
+        if (options["kind"]?.ToString() == "people")
+        {
+            foreach (var key in new[] { "people", "groups" })
+            {
+                if (options[key] is { } enabled && enabled.GetValueKind() is not (System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False))
+                {
+                    yield return $"inputs.x-paperdotnet.{key} must be a boolean.";
+                }
+            }
+
+            if (options["people"]?.ToString() == "false" && options["groups"]?.ToString() == "false")
+            {
+                yield return "People selections must allow people, groups or both.";
+            }
+        }
+
         if (options.ContainsKey("termIds") && (options["termIds"] is not JsonArray { Count: > 0 } ids || ids.Any(id => !Guid.TryParse(id?.ToString(), out _))))
         {
             yield return "inputs.x-paperdotnet.termIds must be a nonempty array of term IDs.";
         }
     }
 
-    public static async Task<string?> ValidateReferencesAsync(JsonObject? schema, IListItemStore items, ITermStore terms, CancellationToken ct)
+    public static async Task<string?> ValidateReferencesAsync(JsonObject? schema, IListItemStore items, ITermStore terms, IUserDirectory users, CancellationToken ct)
     {
         if (schema is null)
         {
@@ -53,6 +70,12 @@ internal static class DomainInputs
 
         if (schema["x-paperdotnet"] is JsonObject options)
         {
+            if (options["kind"]?.ToString() == "people" && options["groupId"] is { } peopleGroupId
+                && !await users.GroupExistsAsync(Guid.Parse(peopleGroupId.ToString()), ct))
+            {
+                return "The configured people group does not exist.";
+            }
+
             if (options["termSetId"] is { } setId)
             {
                 var set = await terms.GetTermSetAsync(Guid.Parse(setId.ToString()), ct);
@@ -62,7 +85,7 @@ internal static class DomainInputs
                 }
             }
 
-            if (await CheckAsync(schema, options["termIds"] ?? new JsonArray(), items, terms, ct) is { } error)
+            if (options["kind"]?.ToString() != "people" && await CheckAsync(schema, options["termIds"] ?? new JsonArray(), items, terms, users, ct) is { } error)
             {
                 return error;
             }
@@ -70,16 +93,16 @@ internal static class DomainInputs
 
         foreach (var (_, child) in schema["properties"] as JsonObject ?? [])
         {
-            if (await ValidateReferencesAsync(child as JsonObject, items, terms, ct) is { } error)
+            if (await ValidateReferencesAsync(child as JsonObject, items, terms, users, ct) is { } error)
             {
                 return error;
             }
         }
 
-        return await ValidateReferencesAsync(schema["items"] as JsonObject, items, terms, ct);
+        return await ValidateReferencesAsync(schema["items"] as JsonObject, items, terms, users, ct);
     }
 
-    public static async Task<string?> CheckAsync(JsonObject? schema, JsonNode? value, IListItemStore items, ITermStore terms, CancellationToken ct)
+    public static async Task<string?> CheckAsync(JsonObject? schema, JsonNode? value, IListItemStore items, ITermStore terms, IUserDirectory users, CancellationToken ct)
     {
         if (schema is null || value is null)
         {
@@ -99,7 +122,24 @@ internal static class DomainInputs
             {
                 return "Domain selections require distinct IDs.";
             }
-            if (options["kind"]?.ToString() == "relationship")
+            if (options["kind"]?.ToString() == "people")
+            {
+                var allowPeople = options["people"]?.ToString() != "false";
+                var allowGroups = options["groups"]?.ToString() != "false";
+                var members = options["groupId"] is { } groupId
+                    ? (await users.GetGroupMembersAsync(Guid.Parse(groupId.ToString()), ct)).ToHashSet()
+                    : null;
+                foreach (var id in ids)
+                {
+                    var person = allowPeople && await users.IsActiveAsync(id, ct) && (members is null || members.Contains(id));
+                    var group = allowGroups && await users.GroupExistsAsync(id, ct);
+                    if (!person && !group)
+                    {
+                        return "A selected person or group is unavailable or outside the configured scope.";
+                    }
+                }
+            }
+            else if (options["kind"]?.ToString() == "relationship")
             {
                 var type = options["relationshipType"]!.ToString();
                 var types = await items.GetRelationshipTypesAsync(ct);
@@ -146,7 +186,7 @@ internal static class DomainInputs
         {
             foreach (var (name, child) in properties)
             {
-                if (await CheckAsync(child as JsonObject, obj[name], items, terms, ct) is { } error)
+                if (await CheckAsync(child as JsonObject, obj[name], items, terms, users, ct) is { } error)
                 {
                     return $"{name}: {error}";
                 }
@@ -157,7 +197,7 @@ internal static class DomainInputs
         {
             foreach (var child in values)
             {
-                if (await CheckAsync(itemSchema, child, items, terms, ct) is { } error)
+                if (await CheckAsync(itemSchema, child, items, terms, users, ct) is { } error)
                 {
                     return error;
                 }

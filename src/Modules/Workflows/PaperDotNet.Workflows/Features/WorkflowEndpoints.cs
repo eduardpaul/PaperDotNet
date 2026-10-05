@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Workflows.Contracts;
@@ -1002,7 +1003,7 @@ internal static class WorkflowWriter
 }
 
 /// <summary>Validation of workflows against the catalog and the workspace's lists.</summary>
-internal sealed class WorkflowValidator(TriggerCatalog triggers, ActionCatalog actions, IListItemStore items, ITermStore terms)
+internal sealed class WorkflowValidator(TriggerCatalog triggers, ActionCatalog actions, IListItemStore items, ITermStore terms, IUserDirectory users)
 {
     public async Task<List<string>> ValidateAsync(Guid workspaceId, WorkflowSpec spec, CancellationToken ct)
     {
@@ -1017,7 +1018,7 @@ internal sealed class WorkflowValidator(TriggerCatalog triggers, ActionCatalog a
         schemas.AddRange(Definitions.FlowOf(spec).Nodes.Values.Where(node => node.Activity == "approval").Select(node => node.Inputs?["inputSchema"] as JsonObject));
         foreach (var schema in schemas)
         {
-            if (await DomainInputs.ValidateReferencesAsync(schema, items, terms, ct) is { } error)
+            if (await DomainInputs.ValidateReferencesAsync(schema, items, terms, users, ct) is { } error)
             {
                 errors.Add($"inputSchema: {error}");
             }

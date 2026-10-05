@@ -13,6 +13,11 @@ describe('workflow domain schemas', () => {
             items: { type: 'string' },
             'x-paperdotnet': { kind: 'relationship', relationshipType: 'Depends on' },
           },
+          reviewers: {
+            type: 'array',
+            items: { type: 'string' },
+            'x-paperdotnet': { kind: 'people' },
+          },
           rows: {
             type: 'array',
             items: { type: 'object', properties: { tag: { type: 'string', 'x-paperdotnet': { kind: 'terms' } } } },
@@ -21,6 +26,7 @@ describe('workflow domain schemas', () => {
       } as RJSFSchema),
     ).toEqual({
       targets: { 'ui:field': 'DomainSelection' },
+      reviewers: { 'ui:field': 'PeopleSelection' },
       rows: { items: { tag: { 'ui:field': 'DomainSelection' } } },
     });
   });

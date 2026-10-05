@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Collaboration.Contracts;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
@@ -40,7 +41,8 @@ internal sealed record WorkflowStart(
 
 /// <summary>Starts runs of a workspace's workflows.</summary>
 internal sealed class WorkflowStarter(
-    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time, RunService runService, ITermStore terms, BuiltInWorkflows builtIns)
+    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time,
+    RunService runService, ITermStore terms, IUserDirectory users, BuiltInWorkflows builtIns)
 {
     /// <summary>Whether the item matches an OData condition; an error when the condition cannot be checked.</summary>
     public async Task<(bool Matches, string? Error)> CheckConditionAsync(WorkflowItem item, string condition, CancellationToken ct)
@@ -195,7 +197,7 @@ internal sealed class WorkflowStarter(
         var trigger = spec.AllTriggers.First(t => t.Type == triggerType);
         var schema = spec.InputSchema ?? trigger.Inputs;
         inputs = WorkflowInputs.WithDefaults(schema, inputs);
-        if ((WorkflowInputs.Check(schema, inputs) ?? await DomainInputs.CheckAsync(schema, inputs, items, terms, ct)) is { } invalid)
+        if ((WorkflowInputs.Check(schema, inputs) ?? await DomainInputs.CheckAsync(schema, inputs, items, terms, users, ct)) is { } invalid)
         {
             return ([], invalid);
         }
@@ -1452,7 +1454,9 @@ internal sealed partial class WorkflowInterpreter(
 }
 
 /// <summary>Decisions on approvals, completing bookmarks, and cancelling and retrying runs.</summary>
-internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time, IItemActivity activity, IListItemStore items, ITermStore terms, IEnumerable<IApprovalReviewProvider> reviews)
+internal sealed class RunService(
+    WorkflowsDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time, IItemActivity activity,
+    IListItemStore items, ITermStore terms, IUserDirectory users, IEnumerable<IApprovalReviewProvider> reviews)
 {
     public enum DecisionResult
     {
@@ -1501,7 +1505,7 @@ internal sealed class RunService(WorkflowsDbContext db, IOutbox outbox, ITenantC
 
             var schema = approval.InputSchema is null ? null : JsonNode.Parse(approval.InputSchema) as JsonObject;
             var values = WorkflowInputs.WithDefaults(schema, inputs ?? new JsonObject());
-            if ((WorkflowInputs.Check(schema, values) ?? await DomainInputs.CheckAsync(schema, values, items, terms, ct)) is { } error)
+            if ((WorkflowInputs.Check(schema, values) ?? await DomainInputs.CheckAsync(schema, values, items, terms, users, ct)) is { } error)
             {
                 return (DecisionResult.InvalidInputs, error);
             }
