@@ -1,3 +1,4 @@
+using PaperDotNet.Ocr;
 using System.Diagnostics;
 using System.Text.Json;
 using CliWrap;
@@ -37,11 +38,11 @@ if (args.Length != 2)
 using var gate = new ImageOptimizationGate();
 var settings = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
 {
-    ["Documents:TesseractPath"] = Environment.GetEnvironmentVariable("TESSERACT_PATH") ?? "tesseract",
+    ["Ocr:TesseractPath"] = Environment.GetEnvironmentVariable("TESSERACT_PATH") ?? "tesseract",
     ["StorageOptimization:TextDetector"] = Environment.GetEnvironmentVariable("TEXT_DETECTOR") ?? "paddleocr",
 }).Build();
 using var detector = new PaddleTextDetector(settings);
-var adapter = new ImageOptimizationAdapter(settings, gate, detector);
+var adapter = new ImageOptimizationAdapter(settings, gate, detector, new TesseractWordDetector(Microsoft.Extensions.Options.Options.Create(new OcrOptions { TesseractPath = settings["Ocr:TesseractPath"]! })));
 var sources = File.Exists(args[0]) ? [args[0]] : Directory.GetFiles(args[0]).Where(f => new[] { ".jpg", ".jpeg", ".png", ".webp" }.Contains(Path.GetExtension(f).ToLowerInvariant())).Order().ToArray();
 var records = new List<object>();
 var work = Directory.CreateTempSubdirectory("pdn_verify_");
@@ -65,9 +66,9 @@ try
                 }
 
                 var outputBase = Path.Combine(work.FullName, "verify");
-                await Cli.Wrap(settings["Documents:TesseractPath"]!).WithArguments([imagePath, outputBase, "-l", "eng", "tsv"])
+                await Cli.Wrap(settings["Ocr:TesseractPath"]!).WithArguments([imagePath, outputBase, "-l", "eng", "tsv"])
                     .WithEnvironmentVariables(e => e.Set("OMP_THREAD_LIMIT", "1")).ExecuteBufferedAsync();
-                var heights = ImageOptimizationAdapter.WordHeights(await File.ReadAllTextAsync(outputBase + ".tsv"), 1, 50);
+                var heights = TesseractWordDetector.WordHeights(await File.ReadAllTextAsync(outputBase + ".tsv"), 1, 50);
                 verifiedWords = heights.Count;
                 verifiedHeight = heights.Count > 0 ? ImageOptimizationAdapter.Percentile(heights, 5) : null;
             }

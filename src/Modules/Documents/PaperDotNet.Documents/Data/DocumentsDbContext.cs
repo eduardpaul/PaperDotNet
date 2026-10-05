@@ -177,11 +177,38 @@ public sealed class FileCandidate : ITenantOwned
     public DateTimeOffset CreatedAt { get; set; }
 }
 
+/// <summary>Temporary document bytes owned by a processing extension or another service.</summary>
+public sealed class StagedFile : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string Owner { get; set; } = "";
+    public Guid CreatedBy { get; set; }
+    public Guid? StoredFileId { get; set; }
+    public bool HasPreparedText { get; set; }
+    public int? PageCount { get; set; }
+    public Guid? PublishedVersionId { get; set; }
+    public string FileName { get; set; } = "document";
+    public string? Languages { get; set; }
+    public string State { get; set; } = "preparing";
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>Content references protected while a temporary document is retained.</summary>
+public sealed class StagedFileReference : ITenantOwned
+{
+    public Guid StagedFileId { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid StoredFileId { get; set; }
+}
+
 public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> options, ITenantContext tenant) : ExtensionDbContext(options, tenant)
 {
     public const string Schema = "documents";
 
     public DbSet<FileCandidate> Candidates => Set<FileCandidate>();
+    public DbSet<StagedFile> StagedFiles => Set<StagedFile>();
+    public DbSet<StagedFileReference> StagedReferences => Set<StagedFileReference>();
 
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
 
@@ -195,6 +222,19 @@ public sealed class DocumentsDbContext(DbContextOptions<DocumentsDbContext> opti
 
     protected override void ConfigureModel(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<StagedFile>(b =>
+        {
+            b.ToTable("staged_files");
+            b.Property(c => c.Owner).HasMaxLength(100);
+            b.Property(c => c.State).HasMaxLength(20);
+            b.Property(c => c.FileName).HasMaxLength(255);
+        });
+        modelBuilder.Entity<StagedFileReference>(b =>
+        {
+            b.ToTable("staged_file_references");
+            b.HasKey(c => new { c.StagedFileId, c.StoredFileId });
+            b.HasOne<StagedFile>().WithMany().HasForeignKey(c => c.StagedFileId);
+        });
         modelBuilder.Entity<FileCandidate>(b =>
         {
             b.ToTable("file_candidates");

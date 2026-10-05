@@ -84,6 +84,8 @@ public sealed record ItemSnapshotField(string Type, bool AllowMultiple);
 /// <summary>Base for item integration events: published with the change (transactional outbox) and handled in the background.</summary>
 public abstract record ItemEvent : IntegrationEvent
 {
+    /// <summary>The workflow performing a reviewed batch write, if any; lifecycle subscribers exclude this originating run.</summary>
+    public Guid? WorkflowRunId { get; init; }
     public required Guid WorkspaceId { get; init; }
 
     public required Guid ListId { get; init; }

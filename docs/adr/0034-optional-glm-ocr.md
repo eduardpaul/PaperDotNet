@@ -19,11 +19,11 @@ this cannot replace Tesseract in the one-container install.
 
 ## Decision
 
-The default image and the default `Documents:Engine` stay `tesseract`.
+The default image and the default `Ocr:Engine` stay `tesseract`.
 
 `Dockerfile.glm` is an optional image. It does not install Tesseract. It runs
 Ollama 0.23.2 beside the app, with the `glm-ocr` model pulled at build time,
-and sets `Documents:Engine` to `glm`. Ollama listens on `127.0.0.1:11434`.
+and sets `Ocr:Engine` to `glm`. Ollama listens on `127.0.0.1:11434`.
 A GPU is used when the container has one; otherwise Ollama uses the CPU.
 
 The app calls Ollama's `POST /api/generate` once per page (a JPEG or PNG as
@@ -34,7 +34,7 @@ searchable PDF: the page image plus an invisible text layer (PdfPig, rendering
 mode "neither"). That layer is ASCII, with accents stripped, because the
 standard PDF font has no other glyphs. Search uses the original text.
 
-`Documents:GlmContext` defaults to 16384. A smaller context truncates the
+`Ocr:GlmContext` defaults to 16384. A smaller context truncates the
 image and the call fails instead of storing the cut-off text.
 
 ## Consequences

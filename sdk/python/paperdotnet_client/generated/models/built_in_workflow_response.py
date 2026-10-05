@@ -35,6 +35,8 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
     input_schema: Optional[JsonObject] = None
     # The key property
     key: Optional[str] = None
+    # The manualSelectionMode property
+    manual_selection_mode: Optional[str] = None
     # The name property
     name: Optional[str] = None
     # Once it was turned on in the workspace: the ETag for `If-Match` on changes (the workflow's; the same as the`ETag` header).
@@ -78,6 +80,7 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
             "enabledByDefault": lambda n : setattr(self, 'enabled_by_default', n.get_bool_value()),
             "inputSchema": lambda n : setattr(self, 'input_schema', n.get_object_value(JsonObject)),
             "key": lambda n : setattr(self, 'key', n.get_str_value()),
+            "manualSelectionMode": lambda n : setattr(self, 'manual_selection_mode', n.get_str_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "parameters": lambda n : setattr(self, 'parameters', n.get_object_value(JsonObject)),
@@ -103,6 +106,7 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
         writer.write_bool_value("enabledByDefault", self.enabled_by_default)
         writer.write_object_value("inputSchema", self.input_schema)
         writer.write_str_value("key", self.key)
+        writer.write_str_value("manualSelectionMode", self.manual_selection_mode)
         writer.write_str_value("name", self.name)
         writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_object_value("parameters", self.parameters)

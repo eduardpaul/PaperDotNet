@@ -2,6 +2,10 @@
 
 Status: Accepted
 
+OCR implementation and model ownership now live in the shared OCR module; see
+[ADR-0048](0048-shared-ocr-module.md). The extension consumes its public contracts.
+
+
 An oversized receipt photograph should become a smaller stored file only after
 somebody reviews the actual result. This feature exercises the public extension
 SDK rather than adding work to the upload endpoint.
@@ -89,9 +93,9 @@ there is no silent fallback that would change the measurement strategy.
 One processor per host process and a default 64-million-pixel decode limit bound
 optimization work. `StorageOptimization:MaxPixels` and
 `StorageOptimization:OcrTimeoutSeconds` configure resource limits. The existing
-`Documents:TesseractPath` configures the optional CLI.
-`StorageOptimization:PaddleModelPath` overrides the bundled detector with a
-compatible DBNet ONNX model. `StorageOptimization:PaddleThreads`
+`Ocr:TesseractPath` configures the optional CLI.
+`Ocr:PaddleModelPath` overrides the bundled detector with a
+compatible DBNet ONNX model. `Ocr:PaddleThreads`
 (default 1, range 1–32) controls CPU inference threads. The session is lazily
 loaded once and disposed with the host; cancellation terminates ONNX inference.
 CPU arena allocation and memory-pattern caching are disabled because varying

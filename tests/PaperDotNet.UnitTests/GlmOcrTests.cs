@@ -1,9 +1,9 @@
+using PaperDotNet.Ocr;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
-using PaperDotNet.Documents.Features;
 using SkiaSharp;
 using UglyToad.PdfPig;
 
@@ -24,7 +24,7 @@ public sealed class GlmOcrTests
             var list = Path.Combine(directory, "pages.txt");
             await File.WriteAllLinesAsync(list, [first, second], ct);
             var script = new ScriptedOcr("INVOICE 4711", "SALMÓN 2,99 €");
-            var engine = Engine(script, new DocumentsOptions { Engine = "glm", GlmModel = "glm-ocr", GlmContext = 1024, GlmMaxTokens = 256 });
+            var engine = Engine(script, new OcrOptions { Engine = "glm", GlmModel = "glm-ocr", GlmContext = 1024, GlmMaxTokens = 256 });
 
             var (pdf, pages) = await engine.RecognizeAsync(list, "ignored", Path.Combine(directory, "ocr"), ct);
 
@@ -50,7 +50,7 @@ public sealed class GlmOcrTests
     public async Task An_unknown_engine_fails_before_any_call()
     {
         var script = new ScriptedOcr("unused");
-        var engine = Engine(script, new DocumentsOptions { Engine = "nope" });
+        var engine = Engine(script, new OcrOptions { Engine = "nope" });
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             engine.RecognizeAsync("missing", "eng", "ocr", TestContext.Current.CancellationToken));
         Assert.Contains("nope", error.Message, StringComparison.Ordinal);
@@ -75,7 +75,7 @@ public sealed class GlmOcrTests
         try
         {
             var image = Png(directory, "page.png");
-            var engine = Engine(new ScriptedOcr("half a page") { DoneReason = "length" }, new DocumentsOptions { Engine = "GLM" });
+            var engine = Engine(new ScriptedOcr("half a page") { DoneReason = "length" }, new OcrOptions { Engine = "GLM" });
             var error = await Assert.ThrowsAsync<InvalidOperationException>(() => engine.RecognizeAsync(image, "eng", Path.Combine(directory, "ocr"), ct));
             Assert.Contains("GlmContext", error.Message, StringComparison.Ordinal);
         }
@@ -85,7 +85,27 @@ public sealed class GlmOcrTests
         }
     }
 
-    private static OcrEngine Engine(ScriptedOcr script, DocumentsOptions options) =>
+    [Fact]
+    public async Task Composition_can_keep_a_blank_page_after_successful_ocr()
+    {
+        var directory = Directory.CreateTempSubdirectory("pdn_blank_glm_");
+        var ct = TestContext.Current.CancellationToken;
+        try
+        {
+            var source = Png(directory.FullName, "page.png");
+            var engine = Engine(new ScriptedOcr(""), new OcrOptions { Engine = "glm" });
+            var (pdf, pages) = await engine.RecognizeAsync(source, "eng", Path.Combine(directory.FullName, "result"), ct, allowEmpty: true);
+            Assert.Equal("", Assert.Single(pages));
+            using var document = PdfDocument.Open(pdf);
+            Assert.Equal(1, document.NumberOfPages);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => engine.RecognizeAsync(source, "eng", Path.Combine(directory.FullName, "ordinary"), ct));
+            var missingResponse = Engine(new ScriptedOcr([null!]), new OcrOptions { Engine = "glm" });
+            await Assert.ThrowsAsync<InvalidOperationException>(() => missingResponse.RecognizeAsync(source, "eng", Path.Combine(directory.FullName, "missing"), ct, allowEmpty: true));
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    private static OcrEngine Engine(ScriptedOcr script, OcrOptions options) =>
         new(Options.Create(options), new OneClient(script));
 
     private static string Png(string directory, string name)

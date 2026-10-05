@@ -396,6 +396,9 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
             {
                 WorkspaceId = workspaceId,
                 Item = item,
+                Items = executionContext?["items"] is JsonArray selected
+                    ? selected.Select(i => new WorkflowItem(Guid.Parse(i!["workspaceId"]!.GetValue<string>()), Guid.Parse(i["listId"]!.GetValue<string>()), Guid.Parse(i["itemId"]!.GetValue<string>()))).ToArray()
+                    : item is null ? [] : [item],
                 Inputs = (action.Inputs ?? []).DeepClone().AsObject(),
                 Services = services,
                 UserId = actor,

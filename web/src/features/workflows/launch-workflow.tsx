@@ -14,6 +14,7 @@ import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '@
 import { listBuilder } from '@/features/lists/queries';
 import { libraryWorkflowsQuery } from '@/features/documents/queries';
 import { workspaceBuilder } from '@/features/workspaces/queries';
+import { SelectionItems } from './selection-items';
 import { problemMessage } from '@/lib/errors';
 import { workflowsQuery } from './queries';
 import { launchOptions, type LaunchOption } from './launch-model';
@@ -74,10 +75,18 @@ function LaunchWorkflow({
   const [id, setId] = useState(workflows[0]!.id!);
   const selected = workflows.find((workflow) => workflow.id === id) ?? workflows[0]!;
   const schema = selected.inputSchema;
+  const [orderedIds, setOrderedIds] = useState(itemIds ?? []);
+  const [primaryItemId, setPrimaryItemId] = useState(itemIds?.[0]);
+  const selection = selected.selectionMode === 'selection';
   const launch = useMutation({
     meta: { silent: true },
     mutationFn: (input: Record<string, unknown>) => {
-      const request = { listId, itemIds, inputs: fields(input) };
+      const request = {
+        listId,
+        itemIds: selection ? orderedIds : itemIds,
+        primaryItemId: selection ? primaryItemId : undefined,
+        inputs: fields(input),
+      };
       return selected.builtInKey && listId
         ? listBuilder(workspaceId, listId).workflows.builtIns.byKey(selected.builtInKey).runs.post(request)
         : workspaceBuilder(workspaceId).workflows.byId(selected.workflowId!).runs.post(request);
@@ -99,7 +108,9 @@ function LaunchWorkflow({
           <SheetTitle>Run workflow</SheetTitle>
           <SheetDescription>
             {listId
-              ? `Run once for each of the ${itemIds?.length ?? 0} selected items.`
+              ? selection
+                ? `Run once for all ${orderedIds.length} selected items.`
+                : `Run once for each of the ${itemIds?.length ?? 0} selected items.`
               : 'Run once in this workspace.'}
           </SheetDescription>
           <SheetClose className="absolute top-3 right-3" />
@@ -120,6 +131,18 @@ function LaunchWorkflow({
             ))}
           </Select>
           {selected.description && <p className="text-sm text-muted">{selected.description}</p>}
+          {selection && listId && (
+            <SelectionItems
+              workspaceId={workspaceId}
+              listId={listId}
+              itemIds={orderedIds}
+              primaryItemId={primaryItemId}
+              presentation={selected.presentation}
+              onPrimary={setPrimaryItemId}
+              onOrder={setOrderedIds}
+              disabled={launch.isPending}
+            />
+          )}
           <SchemaForm
             key={selected.id}
             schema={(schema ? fieldsOf({ fields: schema }) : { type: 'object', properties: {} }) as RJSFSchema}

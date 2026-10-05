@@ -30,7 +30,8 @@ public sealed record WorkflowTrigger(
     JsonObject? Inputs = null,
     JsonObject? Data = null,
     string? Concurrency = null,
-    WorkflowTriggerParameters? Parameters = null)
+    WorkflowTriggerParameters? Parameters = null,
+    string? SelectionMode = null)
 {
     /// <summary>Whether the trigger's data has every value of <see cref="Data"/> (true without <see cref="Data"/>).</summary>
     public bool MatchesData(JsonObject? data) =>
@@ -370,6 +371,12 @@ internal static class Definitions
             if (trigger.Concurrency is { } triggerConcurrency && !RunConcurrency.All.Contains(triggerConcurrency))
             {
                 errors.Add($"{prefix}concurrency must be one of {string.Join(", ", RunConcurrency.All)}.");
+            }
+
+            if (trigger.SelectionMode is { } selectionMode && (trigger.Type != WorkflowTriggers.Manual
+                || selectionMode is not ("perItem" or "selection") || selectionMode == "selection" && spec.Scope == "workspace"))
+            {
+                errors.Add($"{prefix}selectionMode must be perItem or selection on an item-based manual trigger.");
             }
 
             errors.AddRange(TriggerConditions.Validate(trigger).Select(e => prefix + e));

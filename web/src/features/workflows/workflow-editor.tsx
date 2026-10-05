@@ -165,7 +165,7 @@ export function WorkflowEditor({
                           scope: e.target.value || undefined,
                           trigger:
                             e.target.value === 'workspace' && draft.trigger.type === 'manual'
-                              ? { ...draft.trigger, list: '', contentType: '', terms: [] }
+                              ? { ...draft.trigger, list: '', contentType: '', terms: [], selectionMode: undefined }
                               : draft.trigger,
                         })
                       }
@@ -223,6 +223,20 @@ export function WorkflowEditor({
                           </Select>
                         )}
                       </Row>
+                      {draft.trigger.type === 'manual' && draft.scope !== 'workspace' && (
+                        <Row label="Selection execution">
+                          {(id) => (
+                            <Select
+                              id={id}
+                              value={draft.trigger.selectionMode ?? 'perItem'}
+                              onChange={(event) => setTrigger({ selectionMode: event.target.value })}
+                            >
+                              <option value="perItem">Once per selected item</option>
+                              <option value="selection">Once for the entire selection</option>
+                            </Select>
+                          )}
+                        </Row>
+                      )}
                       {draft.trigger.type === 'schedule' && (
                         <>
                           <Row label="Cron" hint="Minute hour day month weekday, e.g. 0 8 * * 1-5 (weekdays at 8:00).">

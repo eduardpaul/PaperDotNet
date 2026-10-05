@@ -36,6 +36,8 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
     offset_hours: Optional[float] = None
     # The parameters property
     parameters: Optional[WorkflowTriggerParameters] = None
+    # The selectionMode property
+    selection_mode: Optional[str] = None
     # The terms property
     terms: Optional[list[str]] = None
     # The timeZone property
@@ -76,6 +78,7 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
             "list": lambda n : setattr(self, 'list_', n.get_str_value()),
             "offsetHours": lambda n : setattr(self, 'offset_hours', n.get_float_value()),
             "parameters": lambda n : setattr(self, 'parameters', n.get_object_value(WorkflowTriggerParameters)),
+            "selectionMode": lambda n : setattr(self, 'selection_mode', n.get_str_value()),
             "terms": lambda n : setattr(self, 'terms', n.get_collection_of_primitive_values(str)),
             "timeZone": lambda n : setattr(self, 'time_zone', n.get_str_value()),
             "type": lambda n : setattr(self, 'type', n.get_str_value()),
@@ -100,6 +103,7 @@ class WorkflowTrigger(AdditionalDataHolder, Parsable):
         writer.write_str_value("list", self.list_)
         writer.write_float_value("offsetHours", self.offset_hours)
         writer.write_object_value("parameters", self.parameters)
+        writer.write_str_value("selectionMode", self.selection_mode)
         writer.write_collection_of_primitive_values("terms", self.terms)
         writer.write_str_value("timeZone", self.time_zone)
         writer.write_str_value("type", self.type)

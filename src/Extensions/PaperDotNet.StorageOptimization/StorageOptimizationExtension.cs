@@ -16,13 +16,21 @@ public sealed class StorageOptimizationExtension : IExtension
     public void Configure(IExtensionBuilder builder)
     {
         builder.Services.AddSingleton<ImageOptimizationGate>();
-        builder.Services.AddSingleton<PaddleTextDetector>();
         builder.Services.AddScoped<IDocumentOptimizationAdapter, ImageOptimizationAdapter>();
         builder.AddWorkflowActivity<PrepareOptimization>();
         builder.AddWorkflowActivity<AcceptOptimization>();
         builder.AddWorkflowActivity<DiscardOptimization>();
         builder.AddApprovalReviewProvider<OptimizationReview>();
         builder.AddWorkflow(Workflow);
+        builder.AddDbContext<PhotoConversionDbContext>();
+        builder.Services.AddScoped<PhotoConversionStore>();
+        builder.Services.AddScoped<IStagedDocumentRetention, PhotoConversionRetention>();
+        builder.Services.AddSingleton<PhotoCompositionGate>();
+        builder.AddWorkflowActivity<ComposePhotosActivity>();
+        builder.AddWorkflowActivity<AcceptCompositionActivity>();
+        builder.AddWorkflowActivity<DiscardCompositionActivity>();
+        builder.AddApprovalReviewProvider<CompositionReview>();
+        builder.AddWorkflow(PhotoToDocument.Workflow);
     }
 
     public static BuiltInWorkflow Workflow { get; } = new(Id + ".optimize", "Optimize document storage",

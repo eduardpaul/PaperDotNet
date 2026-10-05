@@ -12,10 +12,10 @@ internal sealed class WorkflowsItemMoveParticipant(WorkflowsDbContext db) : IIte
     public Task MoveAsync(ItemMove move, DbTransaction transaction, CancellationToken cancellationToken) =>
         SharedTransaction.RunAsync(db, transaction, async ct =>
         {
-            await db.Runs.Where(e => e.ItemId == move.ItemId)
+            await db.Runs.Where(e => e.ItemId == move.ItemId && !e.IsSelection)
                 .ExecuteUpdateAsync(s => s.SetProperty(e => e.ListId, move.ListId)
                     .SetProperty(e => e.WorkspaceId, move.WorkspaceId), ct);
-            await db.Approvals.Where(e => e.ItemId == move.ItemId)
+            await db.Approvals.Where(e => e.ItemId == move.ItemId && !db.Runs.Any(r => r.Id == e.RunId && r.IsSelection))
                 .ExecuteUpdateAsync(s => s.SetProperty(e => e.ListId, move.ListId)
                     .SetProperty(e => e.WorkspaceId, move.WorkspaceId), ct);
         }, cancellationToken);

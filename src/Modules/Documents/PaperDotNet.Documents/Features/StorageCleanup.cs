@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
+using PaperDotNet.Documents.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Workflows.Contracts;
@@ -22,7 +23,7 @@ internal sealed class PurgedItemFiles(DocumentsDbContext db) : IEventSubscriber<
 /// Deletes stored content no file version refers to any more (DOC-11). Content used by an upload in
 /// the last hour is kept, so an upload in progress never loses its blob.
 /// </summary>
-internal sealed class StoredFileCleanupJob(DocumentsDbContext db, IBlobStore blobs, TimeProvider time, IWorkflowDirectory workflows) : ITenantRecurringJob
+internal sealed class StoredFileCleanupJob(DocumentsDbContext db, IBlobStore blobs, TimeProvider time, IWorkflowDirectory workflows, IEnumerable<IStagedDocumentRetention> retention) : ITenantRecurringJob
 {
     public const string Name = "documents.stored-file-cleanup";
     public const string Schedule = "17 * * * *";
@@ -40,14 +41,20 @@ internal sealed class StoredFileCleanupJob(DocumentsDbContext db, IBlobStore blo
             }
         }
 
+        foreach (var staged in await db.StagedFiles.Where(c => c.State != "released" && c.CreatedAt < cutoff).Take(500).ToListAsync(cancellationToken))
+        {
+            var owner = retention.SingleOrDefault(r => r.Owner == staged.Owner);
+            if (owner is null || !await owner.IsRetainedAsync(staged.Id, cancellationToken)) staged.State = "released";
+        }
         await db.SaveChangesAsync(cancellationToken);
-        var orphans = await db.StoredFiles
-            .Where(f => f.LastUsedAt < cutoff && !db.FileVersions.Any(v => v.StoredFileId == f.Id)
-                && !db.Candidates.Any(c => c.State == "pending" && (c.StoredFileId == f.Id || c.SourceStoredFileId == f.Id)))
-            .Take(500)
-            .ToListAsync(cancellationToken);
+        var orphans = await Orphans(cutoff).AsNoTracking().Take(500).ToListAsync(cancellationToken);
         foreach (var file in orphans)
         {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            // Recheck references and hold the content row so an intake cannot reuse it while bytes are removed.
+            // Concurrent cleanup delivery may find the row already gone; that is successful cleanup.
+            if (await Orphans(cutoff).Where(f => f.Id == file.Id)
+                .ExecuteUpdateAsync(u => u.SetProperty(f => f.LastUsedAt, f => f.LastUsedAt), cancellationToken) != 1) continue;
             await blobs.DeleteAsync(file.BlobKey, cancellationToken);
             var maxPage = await db.Pages.Where(p => p.StoredFileId == file.Id).Select(p => (int?)p.PageNumber).MaxAsync(cancellationToken) ?? 1;
             for (var page = 1; page <= maxPage; page++)
@@ -59,9 +66,14 @@ internal sealed class StoredFileCleanupJob(DocumentsDbContext db, IBlobStore blo
             }
 
             await db.Pages.Where(p => p.StoredFileId == file.Id).ExecuteDeleteAsync(cancellationToken);
-            db.StoredFiles.Remove(file);
+            await db.StoredFiles.Where(f => f.Id == file.Id).ExecuteDeleteAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
-
-        await db.SaveChangesAsync(cancellationToken);
     }
+
+    private IQueryable<StoredFile> Orphans(DateTimeOffset cutoff) => db.StoredFiles
+        .Where(f => f.LastUsedAt < cutoff && !db.FileVersions.Any(v => v.StoredFileId == f.Id)
+            && !db.Candidates.Any(c => c.State == "pending" && (c.StoredFileId == f.Id || c.SourceStoredFileId == f.Id))
+            && !db.StagedFiles.Any(c => c.State != "released" && (c.StoredFileId == f.Id
+                || db.StagedReferences.Any(s => s.StagedFileId == c.Id && s.StoredFileId == f.Id))));
 }

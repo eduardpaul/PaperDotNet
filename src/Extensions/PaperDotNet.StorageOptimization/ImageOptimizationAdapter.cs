@@ -1,9 +1,7 @@
+using PaperDotNet.Ocr.Contracts;
 using System.Buffers.Binary;
 using System.Diagnostics;
-using System.Globalization;
 using System.Text.Json.Nodes;
-using CliWrap;
-using CliWrap.Buffered;
 using Microsoft.Extensions.Configuration;
 using PaperDotNet.Documents.Contracts;
 using SkiaSharp;
@@ -18,7 +16,7 @@ internal sealed class ImageOptimizationGate : IDisposable
     public void Dispose() => Semaphore.Dispose();
 }
 
-internal sealed class ImageOptimizationAdapter(IConfiguration configuration, ImageOptimizationGate gate, PaddleTextDetector detector) : IDocumentOptimizationAdapter
+internal sealed class ImageOptimizationAdapter(IConfiguration configuration, ImageOptimizationGate gate, ITextDetector detector, IWordLayoutDetector words) : IDocumentOptimizationAdapter
 {
     private static readonly byte[] PngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
     public IReadOnlyList<string> MediaTypes => ["image/jpeg", "image/png", "image/webp"];
@@ -71,8 +69,7 @@ internal sealed class ImageOptimizationAdapter(IConfiguration configuration, Ima
             {
                 heights = engine switch
                 {
-                    "paddleocr" => await Task.Run(() => detector.Detect(analysis, upright.Width, upright.Height,
-                        options.MinConfidence, timeout.Token), timeout.Token),
+                    "paddleocr" => await DetectLinesAsync(analysis, upright.Width, upright.Height, options.MinConfidence, timeout.Token),
                     "tesseract" => await DetectWordsAsync(analysis, work.FullName, languages, k, options.MinConfidence, timeout.Token),
                     _ => throw new InvalidOperationException("StorageOptimization:TextDetector must be paddleocr or tesseract."),
                 };
@@ -148,35 +145,21 @@ internal sealed class ImageOptimizationAdapter(IConfiguration configuration, Ima
         }
     }
 
+    private async Task<IReadOnlyList<double>> DetectLinesAsync(SKBitmap analysis, int width, int height, double confidence, CancellationToken ct)
+    {
+        using var image = SKImage.FromBitmap(analysis);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var input = new MemoryStream(png.ToArray(), writable: false);
+        return await detector.DetectAsync(input, width, height, confidence, ct);
+    }
+
     private async Task<IReadOnlyList<double>> DetectWordsAsync(SKBitmap analysis, string workPath, string? languages,
         double scale, double minConfidence, CancellationToken cancellationToken)
     {
-        var analysisPath = Path.Combine(workPath, "analysis.png");
-        using (var image = SKImage.FromBitmap(analysis))
-        using (var png = image.Encode(SKEncodedImageFormat.Png, 100))
-        await using (var output = File.Create(analysisPath))
-        {
-            png.SaveTo(output);
-        }
-
-        var outputBase = Path.Combine(workPath, "layout");
-        var language = string.IsNullOrWhiteSpace(languages) ? "eng" : languages;
-        var result = await Cli.Wrap(configuration["Documents:TesseractPath"] ?? "tesseract")
-            .WithArguments([analysisPath, outputBase, "-l", language, "tsv"])
-            .WithEnvironmentVariables(e => e.Set("OMP_THREAD_LIMIT", "1"))
-            .WithValidation(CommandResultValidation.None).ExecuteBufferedAsync(cancellationToken);
-        if (result.ExitCode != 0)
-        {
-            throw new InvalidOperationException($"Text analysis failed: {result.StandardError.Trim()[..Math.Min(500, result.StandardError.Trim().Length)]}");
-        }
-
-        if (!File.Exists(outputBase + ".tsv"))
-        {
-            throw new InvalidOperationException($"The OCR engine did not write layout data: {result.StandardError.Trim()}");
-        }
-
-        var tsv = await File.ReadAllTextAsync(outputBase + ".tsv", cancellationToken);
-        return WordHeights(tsv, scale, minConfidence);
+        using var image = SKImage.FromBitmap(analysis);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var input = new MemoryStream(png.ToArray(), writable: false);
+        return await words.DetectAsync(input, string.IsNullOrWhiteSpace(languages) ? "eng" : languages, scale, minConfidence, cancellationToken);
     }
 
     internal static double ScaleForHeight(double height, DocumentOptimizationOptions options) =>
@@ -226,30 +209,6 @@ internal sealed class ImageOptimizationAdapter(IConfiguration configuration, Ima
         {
             throw new InvalidOperationException("Invalid optimization settings: target 4–200px, confidence/percentile 0–100, scale (0,1], analysis 256–10000px, quality 1–100.");
         }
-    }
-
-    internal static List<double> WordHeights(string tsv, double scale, double minConfidence)
-    {
-        var heights = new List<double>();
-        foreach (var line in tsv.Split('\n').Skip(1))
-        {
-            var cells = line.TrimEnd('\r').Split('\t', 12);
-            if (cells.Length != 12 || cells[0] != "5"
-                || !double.TryParse(cells[10], CultureInfo.InvariantCulture, out var confidence) || confidence < minConfidence
-                || !double.TryParse(cells[9], CultureInfo.InvariantCulture, out var height)
-                || cells[11].Count(char.IsLetterOrDigit) < 2)
-            {
-                continue;
-            }
-
-            var projected = Math.Round(height / scale);
-            if (projected > 3)
-            {
-                heights.Add(projected);
-            }
-        }
-
-        return heights;
     }
 
     internal static double Percentile(IReadOnlyList<double> heights, double percentile)

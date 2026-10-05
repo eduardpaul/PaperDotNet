@@ -1,3 +1,4 @@
+using PaperDotNet.Ocr;
 using Microsoft.Extensions.Configuration;
 using PaperDotNet.Documents.Contracts;
 using PaperDotNet.StorageOptimization;
@@ -44,7 +45,7 @@ public sealed class StorageOptimizationTests
         }).Build();
         using var gate = new ImageOptimizationGate();
         using var detector = new PaddleTextDetector(config);
-        var adapter = new ImageOptimizationAdapter(config, gate, detector);
+        var adapter = new ImageOptimizationAdapter(config, gate, detector, new TesseractWordDetector(Microsoft.Extensions.Options.Options.Create(new OcrOptions { TesseractPath = config["Documents:TesseractPath"] ?? "tesseract" })));
         using var bitmap = new SKBitmap(640, 640);
         using var canvas = new SKCanvas(bitmap);
         canvas.Clear(SKColors.White);
@@ -69,7 +70,7 @@ public sealed class StorageOptimizationTests
         }).Build();
         using var gate = new ImageOptimizationGate();
         using var detector = new PaddleTextDetector(config);
-        var adapter = new ImageOptimizationAdapter(config, gate, detector);
+        var adapter = new ImageOptimizationAdapter(config, gate, detector, new TesseractWordDetector(Microsoft.Extensions.Options.Options.Create(new OcrOptions { TesseractPath = config["Documents:TesseractPath"] ?? "tesseract" })));
         using var bitmap = new SKBitmap(640, 640);
         bitmap.Erase(SKColors.White);
         using var image = SKImage.FromBitmap(bitmap);
@@ -96,7 +97,7 @@ public sealed class StorageOptimizationTests
         }).Build();
         using var gate = new ImageOptimizationGate();
         using var detector = new PaddleTextDetector(config);
-        var adapter = new ImageOptimizationAdapter(config, gate, detector);
+        var adapter = new ImageOptimizationAdapter(config, gate, detector, new TesseractWordDetector(Microsoft.Extensions.Options.Options.Create(new OcrOptions { TesseractPath = config["Documents:TesseractPath"] ?? "tesseract" })));
         using var bitmap = new SKBitmap(64, 64);
         bitmap.Erase(SKColors.White);
         using var image = SKImage.FromBitmap(bitmap);
@@ -116,7 +117,7 @@ public sealed class StorageOptimizationTests
         using var gate = new ImageOptimizationGate();
         var config = new ConfigurationBuilder().Build();
         using var detector = new PaddleTextDetector(config);
-        var adapter = new ImageOptimizationAdapter(config, gate, detector);
+        var adapter = new ImageOptimizationAdapter(config, gate, detector, new TesseractWordDetector(Microsoft.Extensions.Options.Options.Create(new OcrOptions { TesseractPath = config["Documents:TesseractPath"] ?? "tesseract" })));
         await using var result = await adapter.OptimizeAsync(content, "eng", new(), TestContext.Current.CancellationToken);
         Assert.Null(result.Content);
         Assert.Contains("Animated", result.SkipReason!, StringComparison.Ordinal);
@@ -138,7 +139,7 @@ public sealed class StorageOptimizationTests
             + "5\t1\t1\t1\t1\t2\t0\t0\t50\t10\t70\t6.19\n"
             + "5\t1\t1\t1\t1\t3\t0\t0\t3\t1\t90\t.\n"
             + "5\t1\t1\t1\t1\t4\t0\t0\t50\t5\t49\tnoise\n";
-        Assert.Equal([40.0, 20.0], ImageOptimizationAdapter.WordHeights(tsv, 0.5, 50));
+        Assert.Equal([40.0, 20.0], TesseractWordDetector.WordHeights(tsv, 0.5, 50));
     }
 
     [Fact]
@@ -189,7 +190,7 @@ public sealed class StorageOptimizationTests
         using var gate = new ImageOptimizationGate();
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["StorageOptimization:MaxPixels"] = "10" }).Build();
         using var detector = new PaddleTextDetector(config);
-        var adapter = new ImageOptimizationAdapter(config, gate, detector);
+        var adapter = new ImageOptimizationAdapter(config, gate, detector, new TesseractWordDetector(Microsoft.Extensions.Options.Options.Create(new OcrOptions { TesseractPath = config["Documents:TesseractPath"] ?? "tesseract" })));
         await using var broken = new MemoryStream("broken image"u8.ToArray());
         await Assert.ThrowsAsync<InvalidOperationException>(() => adapter.OptimizeAsync(broken, "eng", new(), TestContext.Current.CancellationToken));
         using var bitmap = new SKBitmap(4, 4);

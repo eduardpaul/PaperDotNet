@@ -66,6 +66,8 @@ public sealed class WorkflowsModule : IModule
         services.AddScoped<ScriptRunner>();
         services.Configure<WorkflowScriptOptions>(configuration.GetSection(WorkflowScriptOptions.Section));
         services.AddScoped<RunService>();
+        services.AddEventSubscriber<ItemDeleted, SelectionItemLifecycle>();
+        services.AddEventSubscriber<ItemPurged, SelectionItemLifecycle>();
         services.AddScoped<IWorkflowBookmarks, WorkflowBookmarks>();
         services.AddScoped<IWorkflowDirectory, WorkflowDirectory>();
         services.AddScoped<IWorkflowRecipients, WorkflowRecipientResolver>();

@@ -1,22 +1,37 @@
+using PaperDotNet.Ocr.Contracts;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Configuration;
 using Microsoft.ML.OnnxRuntime;
 using RapidOcrNet;
 using SkiaSharp;
 
-namespace PaperDotNet.StorageOptimization;
+namespace PaperDotNet.Ocr;
 
-/// <summary>One lazily loaded CPU session per process, used under the optimization gate.</summary>
-internal sealed class PaddleTextDetector(IConfiguration configuration) : IDisposable
+/// <summary>One lazily loaded CPU session per process, with serialized inference for all callers.</summary>
+internal sealed class PaddleTextDetector(IConfiguration configuration) : ITextDetector, IDisposable
 {
     internal const string ModelName = "PP-OCRv6_small_det";
-    private readonly string modelPath = configuration["StorageOptimization:PaddleModelPath"]
+    private readonly string modelPath = configuration["Ocr:PaddleModelPath"] ?? configuration["StorageOptimization:PaddleModelPath"]
         ?? Path.Combine(AppContext.BaseDirectory, "models", ModelName + ".onnx");
     private TextDetector? detector;
     private string? modelDigest;
 
     public string Model => Path.GetFileNameWithoutExtension(modelPath);
     public string? ModelDigest => modelDigest;
+
+    private readonly SemaphoreSlim gate = new(1, 1);
+
+    public async Task<IReadOnlyList<double>> DetectAsync(Stream image, int sourceWidth, int sourceHeight,
+        double confidence, CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            using var bitmap = SKBitmap.Decode(image) ?? throw new InvalidOperationException("Cannot decode detector input.");
+            return await Task.Run(() => Detect(bitmap, sourceWidth, sourceHeight, confidence, cancellationToken), cancellationToken);
+        }
+        finally { gate.Release(); }
+    }
 
     public IReadOnlyList<double> Detect(SKBitmap image, int sourceWidth, int sourceHeight,
         double confidence, CancellationToken cancellationToken)
@@ -76,13 +91,13 @@ internal sealed class PaddleTextDetector(IConfiguration configuration) : IDispos
     {
         if (!File.Exists(path))
         {
-            throw new InvalidOperationException($"PaddleOCR detector model is missing: {path}. Configure StorageOptimization:PaddleModelPath or select tesseract.");
+            throw new InvalidOperationException($"PaddleOCR detector model is missing: {path}. Configure Ocr:PaddleModelPath.");
         }
 
-        var threads = configuration.GetValue<int?>("StorageOptimization:PaddleThreads") ?? 1;
+        var threads = configuration.GetValue<int?>("Ocr:PaddleThreads") ?? configuration.GetValue<int?>("StorageOptimization:PaddleThreads") ?? 1;
         if (threads is < 1 or > 32)
         {
-            throw new InvalidOperationException("StorageOptimization:PaddleThreads must be between 1 and 32.");
+            throw new InvalidOperationException("Ocr:PaddleThreads must be between 1 and 32.");
         }
 
         using var options = new SessionOptions
@@ -112,5 +127,6 @@ internal sealed class PaddleTextDetector(IConfiguration configuration) : IDispos
     public void Dispose()
     {
         detector?.Dispose();
+        gate.Dispose();
     }
 }

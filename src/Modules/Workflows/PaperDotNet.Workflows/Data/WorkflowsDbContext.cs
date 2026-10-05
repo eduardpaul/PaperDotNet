@@ -146,6 +146,8 @@ public sealed class WorkflowRun : ITenantOwned, IVersioned
     /// <summary>The event that started the run; null for manual starts.</summary>
     public Guid? EventId { get; set; }
 
+    public bool IsSelection { get; set; }
+
     /// <summary>Data of an extension trigger as a JSON object, if any.</summary>
     public string? Data { get; set; }
 
@@ -344,6 +346,18 @@ public sealed class ApprovalRequest : ITenantOwned, IAuditable, IVersioned
     public uint Version { get; set; }
 }
 
+/// <summary>Ordered immutable membership of a run, used for overlapping selections and recovery.</summary>
+[NotAudited]
+public sealed class WorkflowRunItem : ITenantOwned
+{
+    public Guid RunId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid WorkspaceId { get; set; }
+    public Guid ListId { get; set; }
+    public int Position { get; set; }
+}
+
 public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> options, ITenantContext tenant)
     : DbContext(options), ITenantScopedDbContext
 {
@@ -357,6 +371,8 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
     public DbSet<WorkflowVersion> Versions => Set<WorkflowVersion>();
 
     public DbSet<WorkflowRun> Runs => Set<WorkflowRun>();
+
+    public DbSet<WorkflowRunItem> RunItems => Set<WorkflowRunItem>();
 
     public DbSet<ApprovalRequest> Approvals => Set<ApprovalRequest>();
 
@@ -385,6 +401,14 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
         {
             b.ToTable("versions");
             b.HasIndex(v => new { v.WorkflowId, v.Number }).IsUnique();
+        });
+        modelBuilder.Entity<WorkflowRunItem>(b =>
+        {
+            b.ToTable("run_items");
+            b.HasKey(i => new { i.RunId, i.ItemId });
+            b.HasIndex(i => new { i.TenantId, i.ItemId });
+            b.HasIndex(i => new { i.RunId, i.Position }).IsUnique();
+            b.HasOne<WorkflowRun>().WithMany().HasForeignKey(i => i.RunId).OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<WorkflowRun>(b =>
         {

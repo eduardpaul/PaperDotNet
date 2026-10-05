@@ -12,6 +12,40 @@ const optimization: BuiltInWorkflowResponse = {
 };
 
 describe('manual launch options', () => {
+  it('reads declarative selection presentation for arbitrary extension and user workflows', () => {
+    const inputSchema = {
+      additionalData: {
+        type: 'object',
+        properties: {},
+        'x-paperdotnet-selection': {
+          preview: 'image',
+          itemLabel: 'page',
+          orderLabel: 'Page order',
+          primaryDescription: 'Keep this item.',
+        },
+      },
+    };
+    const options = launchOptions(
+      [
+        {
+          id: 'custom',
+          enabled: true,
+          trigger: { type: 'manual', list: list.name, selectionMode: 'selection' },
+          inputSchema,
+        },
+      ],
+      list,
+      [{ ...optimization, key: 'acme.documents.combine', inputSchema, manualSelectionMode: 'selection' }],
+    );
+    expect(options).toHaveLength(2);
+    for (const option of options)
+      expect(option.presentation).toEqual({
+        preview: 'image',
+        itemLabel: 'page',
+        orderLabel: 'Page order',
+        primaryDescription: 'Keep this item.',
+      });
+  });
   it('offers an available manual built-in before it has ever been enabled', () => {
     expect(launchOptions([], list, [optimization])).toEqual([
       expect.objectContaining({ builtInKey: optimization.key, name: optimization.name }),

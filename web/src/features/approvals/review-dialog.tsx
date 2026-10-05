@@ -39,6 +39,7 @@ export function ReviewDialog({
   const review = query.data;
   const renderer = review?.renderer ? approvalReviewRenderers[review.renderer] : undefined;
   const Component = renderer?.component;
+  const reviewData = fieldsOf({ fields: review?.data });
   const pending = approval.status === 'pending';
   const canDecide = ready && review?.canDecide && !query.isError && !query.isFetching && !busy;
   const decisionControls = (
@@ -70,7 +71,9 @@ export function ReviewDialog({
         value="rejected"
         onClick={approval.inputSchema ? undefined : () => onDecide('rejected')}
       >
-        {renderer?.rejectedLabel ?? 'Reject'}
+        {typeof reviewData.rejectedLabel === 'string'
+          ? reviewData.rejectedLabel
+          : (renderer?.rejectedLabel ?? 'Reject')}
       </Button>
       <Button
         variant="primary"
@@ -79,7 +82,9 @@ export function ReviewDialog({
         value="approved"
         onClick={approval.inputSchema ? undefined : () => onDecide('approved')}
       >
-        {renderer?.approvedLabel ?? 'Approve'}
+        {typeof reviewData.approvedLabel === 'string'
+          ? reviewData.approvedLabel
+          : (renderer?.approvedLabel ?? 'Approve')}
       </Button>
     </div>
   );

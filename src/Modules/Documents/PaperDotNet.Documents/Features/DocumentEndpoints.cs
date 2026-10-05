@@ -272,30 +272,6 @@ public sealed class DocumentsOptions
     /// <summary>Largest accepted file in bytes (default 100 MB).</summary>
     public long MaxFileSize { get; set; } = 100L * 1024 * 1024;
 
-    /// <summary>The Tesseract executable (in the container image; <c>tesseract</c> on the path).</summary>
-    public string TesseractPath { get; set; } = "tesseract";
-
-    /// <summary>
-    /// <c>tesseract</c> (default) or <c>glm</c>. <c>glm</c> calls an Ollama server running the
-    /// <c>glm-ocr</c> model (<see cref="GlmBaseUrl"/>). The optional <c>Dockerfile.glm</c> image sets this.
-    /// </summary>
-    public string Engine { get; set; } = "tesseract";
-
-    /// <summary>Ollama root address for <see cref="Engine"/> <c>glm</c> (no path; the client posts to <c>/api/generate</c>).</summary>
-    public string GlmBaseUrl { get; set; } = "http://127.0.0.1:11434";
-
-    /// <summary>Ollama model name for <see cref="Engine"/> <c>glm</c>.</summary>
-    public string GlmModel { get; set; } = "glm-ocr";
-
-    /// <summary>
-    /// Context length sent to GLM-OCR. A full-page photo uses several thousand tokens; too small a
-    /// value truncates the image into garbage. 16384 fitted the receipt this was tried on and used about 5 GB.
-    /// </summary>
-    public int GlmContext { get; set; } = 16384;
-
-    /// <summary>Maximum tokens GLM-OCR may write for one page.</summary>
-    public int GlmMaxTokens { get; set; } = 8192;
-
     /// <summary>Resolution of page images for OCR.</summary>
     public int OcrDpi { get; set; } = 300;
 
@@ -305,7 +281,7 @@ public sealed class DocumentsOptions
     /// <summary>Most pages "Render pages" (<c>document.renderPages</c>) renders per file.</summary>
     public int MaxRenderedPages { get; set; } = 500;
 
-    public TimeSpan OcrTimeout { get; set; } = TimeSpan.FromMinutes(30);
+
 }
 
 /// <summary>Upload, replace and restore: spool, check, store once, then create the item and the version.</summary>

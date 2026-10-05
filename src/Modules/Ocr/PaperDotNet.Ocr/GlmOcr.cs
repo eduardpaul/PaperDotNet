@@ -8,7 +8,7 @@ using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.Fonts.Standard14Fonts;
 using UglyToad.PdfPig.Writer;
 
-namespace PaperDotNet.Documents.Features;
+namespace PaperDotNet.Ocr;
 
 /// <summary>
 /// GLM-OCR through Ollama's native generate API (ADR-0034). One request per page image, prompt
@@ -16,7 +16,7 @@ namespace PaperDotNet.Documents.Features;
 /// of processing stores. Tesseract language codes are not sent: the model is multilingual, and the
 /// caller still records the library language for stemming.
 /// </summary>
-internal sealed class GlmOcr(DocumentsOptions options, HttpClient http)
+internal sealed class GlmOcr(OcrOptions options, HttpClient http)
 {
     public const string HttpClientName = "glm-ocr";
 
@@ -25,13 +25,13 @@ internal sealed class GlmOcr(DocumentsOptions options, HttpClient http)
     public static bool Uses(string? engine) =>
         engine is not null && engine.Trim().Equals("glm", StringComparison.OrdinalIgnoreCase);
 
-    public async Task<(string Pdf, IReadOnlyList<string> Pages)> RecognizeAsync(string input, string outputBase, CancellationToken ct)
+    public async Task<(string Pdf, IReadOnlyList<string> Pages)> RecognizeAsync(string input, string outputBase, CancellationToken ct, bool allowEmpty = false)
     {
         var images = PageImages(input, Path.GetDirectoryName(Path.GetFullPath(outputBase))!);
         var pages = new List<(string Image, string Text)>(images.Count);
         foreach (var image in images)
         {
-            pages.Add((image, await RecognizePageAsync(image, ct)));
+            pages.Add((image, await RecognizePageAsync(image, allowEmpty, ct)));
         }
 
         var pdf = outputBase + ".pdf";
@@ -39,7 +39,7 @@ internal sealed class GlmOcr(DocumentsOptions options, HttpClient http)
         return (pdf, pages.Select(page => page.Text).ToList());
     }
 
-    private async Task<string> RecognizePageAsync(string image, CancellationToken ct)
+    private async Task<string> RecognizePageAsync(string image, bool allowEmpty, CancellationToken ct)
     {
         var payload = new GenerateRequest(
             options.GlmModel,
@@ -59,11 +59,11 @@ internal sealed class GlmOcr(DocumentsOptions options, HttpClient http)
         if (string.Equals(parsed?.DoneReason, "length", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
-                "GLM-OCR stopped because the context or the output limit was too small. Raise Documents:GlmContext or Documents:GlmMaxTokens.");
+                "GLM-OCR stopped because the context or the output limit was too small. Raise Ocr:GlmContext or Ocr:GlmMaxTokens.");
         }
 
         var text = Clean(parsed?.Response);
-        if (text.Length == 0)
+        if (parsed?.Response is null || !allowEmpty && text.Length == 0)
         {
             throw new InvalidOperationException("GLM-OCR returned no text.");
         }
@@ -76,7 +76,7 @@ internal sealed class GlmOcr(DocumentsOptions options, HttpClient http)
     {
         if (!Uri.TryCreate(baseUrl.TrimEnd('/') + "/", UriKind.Absolute, out var root) || root.Scheme is not ("http" or "https"))
         {
-            throw new InvalidOperationException($"Documents:GlmBaseUrl '{baseUrl}' is not an absolute HTTP address.");
+            throw new InvalidOperationException($"Ocr:GlmBaseUrl '{baseUrl}' is not an absolute HTTP address.");
         }
 
         return new Uri(root, "api/generate");

@@ -373,6 +373,9 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
         await scope.ServiceProvider.GetRequiredService<StoredFileCleanupJob>().RunAsync(Ct);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/v1.0/me/approvals/{id}/review/content/candidate", Ct)).StatusCode);
         Assert.Single(await db.StoredFiles.ToListAsync(Ct));
+        await scope.ServiceProvider.GetRequiredService<StoredFileCleanupJob>().RunAsync(Ct);
+        Assert.Single(await db.StoredFiles.AsNoTracking().ToListAsync(Ct));
+        Assert.Equal(ReceiptImage(), await client.GetByteArrayAsync($"{path}/items/{item}/file", Ct));
     }
 
     [Fact]

@@ -19,6 +19,13 @@ public interface ITenantMessage
 /// </summary>
 public interface IOutbox
 {
+    /// <summary>Saves events inside a caller-owned transaction without committing it or dispatching before commit.</summary>
+    Task SaveChangesInTransactionAsync(DbContext db, IReadOnlyCollection<IntegrationEvent> events, CancellationToken cancellationToken) =>
+        throw new NotSupportedException("This outbox does not support caller-owned transactions.");
+
+    /// <summary>Dispatches messages previously saved in a caller-owned transaction after that transaction commits.</summary>
+    Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
     /// <summary>Saves <paramref name="db"/>, publishing <paramref name="events"/> and <paramref name="messages"/> atomically.</summary>
     Task SaveChangesAsync(
         DbContext db,

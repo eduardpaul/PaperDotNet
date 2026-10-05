@@ -40,16 +40,14 @@ public sealed class DocumentsModule : IModule
         services.AddModuleDbContext<DocumentsDbContext>(DocumentsDbContext.Schema);
         services.AddScoped<IItemMoveParticipant, DocumentsItemMoveParticipant>();
         services.AddOptions<DocumentsOptions>().BindConfiguration(DocumentsOptions.Section);
-        services.AddHttpClient(GlmOcr.HttpClientName, (sp, client) =>
-        {
-            client.Timeout = sp.GetRequiredService<IOptions<DocumentsOptions>>().Value.OcrTimeout;
-        });
         services.AddScoped<FileIntake>();
         services.AddScoped<PaperDotNet.Documents.Contracts.IDocumentFileStore, DocumentFileStore>();
+        services.AddScoped<PaperDotNet.Documents.Contracts.IStagedDocumentStore, StagedDocumentStore>();
+        services.AddScoped<PaperDotNet.Documents.Contracts.IDocumentPublisher, DocumentPublisher>();
+        services.AddScoped<PaperDotNet.Documents.Contracts.IDocumentPdfRenderer, DocumentPdfRenderer>();
         services.AddScoped<DocumentService>();
         services.AddScoped<PageEditor>();
         services.AddScoped<DocumentEvents>();
-        services.AddScoped<OcrEngine>();
         services.AddScoped<PageRenderer>();
         services.AddOperationHandler<DocumentOcr>();
         services.AddWorkflowActivity<ReadTextActivity>();

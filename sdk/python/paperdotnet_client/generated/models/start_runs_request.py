@@ -22,6 +22,8 @@ class StartRunsRequest(AdditionalDataHolder, Parsable):
     item_ids: Optional[list[UUID]] = None
     # The listId property
     list_id: Optional[UUID] = None
+    # The primaryItemId property
+    primary_item_id: Optional[UUID] = None
     
     @staticmethod
     def create_from_discriminator_value(parse_node: ParseNode) -> StartRunsRequest:
@@ -47,6 +49,7 @@ class StartRunsRequest(AdditionalDataHolder, Parsable):
             "inputs": lambda n : setattr(self, 'inputs', n.get_object_value(JsonObject)),
             "itemIds": lambda n : setattr(self, 'item_ids', n.get_collection_of_primitive_values(UUID)),
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
+            "primaryItemId": lambda n : setattr(self, 'primary_item_id', n.get_uuid_value()),
         }
         return fields
     
@@ -61,6 +64,7 @@ class StartRunsRequest(AdditionalDataHolder, Parsable):
         writer.write_object_value("inputs", self.inputs)
         writer.write_collection_of_primitive_values("itemIds", self.item_ids)
         writer.write_uuid_value("listId", self.list_id)
+        writer.write_uuid_value("primaryItemId", self.primary_item_id)
         writer.write_additional_data_value(self.additional_data)
     
 

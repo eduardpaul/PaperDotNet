@@ -1,11 +1,8 @@
-using System.ComponentModel;
+using PaperDotNet.Ocr.Contracts;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using CliWrap;
-using CliWrap.Buffered;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -117,7 +114,7 @@ internal sealed partial class DocumentOcr(
     DocumentsDbContext db,
     IBlobStore blobs,
     FileIntake intake,
-    OcrEngine ocr,
+    IOcrEngine ocr,
     PageRenderer renderer,
     IListItemStore items,
     ILiveEvents live,
@@ -312,62 +309,6 @@ internal static class TextExtractor
 }
 
 /// <summary>
-/// OCR (ADR-0015, ADR-0034). <c>tesseract</c> is one CLI call over an image, a multi-page TIFF or a
-/// list of page images. <c>glm</c> calls Ollama once per page. Both write a searchable PDF (page image
-/// plus invisible text) and the plain text.
-/// </summary>
-internal sealed class OcrEngine(IOptions<DocumentsOptions> options, IHttpClientFactory http)
-{
-    public async Task<(string Pdf, IReadOnlyList<string> Pages)> RecognizeAsync(string input, string languages, string outputBase, CancellationToken ct)
-    {
-        if (GlmOcr.Uses(options.Value.Engine))
-        {
-            return await new GlmOcr(options.Value, http.CreateClient(GlmOcr.HttpClientName)).RecognizeAsync(input, outputBase, ct);
-        }
-
-        if (!UsesTesseract(options.Value.Engine))
-        {
-            throw new InvalidOperationException($"Unknown OCR engine '{options.Value.Engine}'. Use \"tesseract\" or \"glm\".");
-        }
-
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(options.Value.OcrTimeout);
-        BufferedCommandResult result;
-        try
-        {
-            result = await Cli.Wrap(options.Value.TesseractPath)
-                .WithArguments([input, outputBase, "-l", languages, "pdf", "txt"])
-                .WithEnvironmentVariables(e => e.Set("OMP_THREAD_LIMIT", "1"))
-                .WithValidation(CommandResultValidation.None)
-                .ExecuteBufferedAsync(timeout.Token);
-        }
-        catch (Win32Exception ex)
-        {
-            throw new InvalidOperationException($"The OCR engine '{options.Value.TesseractPath}' is not installed.", ex);
-        }
-
-        var pdf = outputBase + ".pdf";
-        if (result.ExitCode != 0 || !File.Exists(pdf))
-        {
-            var error = result.StandardError.Trim();
-            throw new InvalidOperationException($"OCR failed: {(error.Length > 500 ? error[..500] : error)}");
-        }
-
-        var text = await File.ReadAllTextAsync(outputBase + ".txt", Encoding.UTF8, ct);
-        var pages = text.Split('\f').ToList();
-        if (pages.Count > 1 && string.IsNullOrWhiteSpace(pages[^1]))
-        {
-            pages.RemoveAt(pages.Count - 1); // Tesseract ends every page with a form feed.
-        }
-
-        return (pdf, pages);
-    }
-
-    private static bool UsesTesseract(string? engine) =>
-        string.IsNullOrWhiteSpace(engine) || engine.Trim().Equals("tesseract", StringComparison.OrdinalIgnoreCase);
-}
-
-/// <summary>
 /// Page images (DOC-04): renders PDF pages with PDFium (PDFtoImage) and resizes JPEG/PNG with SkiaSharp. What the
 /// document workflows render (thumbnails, page previews; ADR-0038) is stored per content, page and width, and only that
 /// is served; AI steps render pages without storing them.
@@ -476,7 +417,7 @@ internal sealed class PageRenderer(DocumentsDbContext db, IBlobStore blobs, IOpt
         return list;
     }
 
-    private static async Task<byte[]?> RenderPdfPageAsync(Stream content, int page, int width, CancellationToken ct)
+    internal static async Task<byte[]?> RenderPdfPageAsync(Stream content, int page, int width, CancellationToken ct)
     {
         if (!PdfiumSupported)
         {

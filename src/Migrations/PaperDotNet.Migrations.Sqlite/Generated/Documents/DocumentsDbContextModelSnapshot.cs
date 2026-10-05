@@ -322,6 +322,95 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Documents
                     b.ToTable("documents_library_settings", (string)null);
                 });
 
+            modelBuilder.Entity("PaperDotNet.Documents.Data.StagedFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("file_name");
+
+                    b.Property<bool>("HasPreparedText")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("has_prepared_text");
+
+                    b.Property<string>("Languages")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("languages");
+
+                    b.Property<string>("Owner")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("owner");
+
+                    b.Property<int?>("PageCount")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("page_count");
+
+                    b.Property<Guid?>("PublishedVersionId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("published_version_id");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("state");
+
+                    b.Property<Guid?>("StoredFileId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("stored_file_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_documents_staged_files");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_documents_staged_files_tenant_id");
+
+                    b.ToTable("documents_staged_files", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Documents.Data.StagedFileReference", b =>
+                {
+                    b.Property<Guid>("StagedFileId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("staged_file_id");
+
+                    b.Property<Guid>("StoredFileId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("stored_file_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("StagedFileId", "StoredFileId")
+                        .HasName("pk_documents_staged_file_references");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_documents_staged_file_references_tenant_id");
+
+                    b.ToTable("documents_staged_file_references", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Documents.Data.StoredFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -456,6 +545,16 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Documents
                         .HasDatabaseName("ix_documents_audit_log_tenant_id_at");
 
                     b.ToTable("documents_audit_log", (string)null);
+                });
+
+            modelBuilder.Entity("PaperDotNet.Documents.Data.StagedFileReference", b =>
+                {
+                    b.HasOne("PaperDotNet.Documents.Data.StagedFile", null)
+                        .WithMany()
+                        .HasForeignKey("StagedFileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_documents_staged_file_references_documents_staged_files_staged_file_id");
                 });
 #pragma warning restore 612, 618
         }

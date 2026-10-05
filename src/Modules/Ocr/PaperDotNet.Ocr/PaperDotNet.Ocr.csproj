@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../PaperDotNet.Ocr.Contracts/PaperDotNet.Ocr.Contracts.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/PaperDotNet.Abstractions/PaperDotNet.Abstractions.csproj" />
+    <PackageReference Include="CliWrap" />
+    <PackageReference Include="PdfPig" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <PackageReference Include="RapidOcrNet" ExcludeAssets="build;buildTransitive;contentFiles" />
+    <Content Include="models/*;licenses/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+    <InternalsVisibleTo Include="PaperDotNet.IntegrationTests" />
+    <InternalsVisibleTo Include="PaperDotNet.OptimizationBenchmark" />
+  </ItemGroup>
+</Project>

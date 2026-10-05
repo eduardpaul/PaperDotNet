@@ -47,7 +47,7 @@ public sealed record WorkflowResponse(
 /// </summary>
 public sealed record BuiltInWorkflowResponse(
     string Key, string Name, string Description, JsonObject? Parameters, string? Requires, bool Available, bool Enabled, Guid? WorkflowId, JsonObject? Values,
-    BuiltInScope Scope = BuiltInScope.Workspace, bool EnabledByDefault = false, bool AllowManualLaunch = false, JsonObject? InputSchema = null)
+    BuiltInScope Scope = BuiltInScope.Workspace, bool EnabledByDefault = false, bool AllowManualLaunch = false, JsonObject? InputSchema = null, string? ManualSelectionMode = null)
 {
     /// <summary>
     /// Once it was turned on in the workspace: the ETag for <c>If-Match</c> on changes (the workflow's; the same as the
@@ -70,7 +70,7 @@ public sealed record StartWorkflowRequest([property: Required] string Workflow, 
 /// Starts a <c>manual</c> workflow: once per item of <c>itemIds</c> (in <c>listId</c>, at most 100), or once without an
 /// item when there are none (for workflows whose trigger has no list). <c>inputs</c> become run variables.
 /// </summary>
-public sealed record StartRunsRequest(Guid? ListId = null, IReadOnlyList<Guid>? ItemIds = null, JsonObject? Inputs = null);
+public sealed record StartRunsRequest(Guid? ListId = null, IReadOnlyList<Guid>? ItemIds = null, JsonObject? Inputs = null, Guid? PrimaryItemId = null);
 
 /// <summary>
 /// A run: its <c>node</c> (next or waited on), the approval <c>outcomes</c> by node, the <c>outputs</c> of the nodes that
@@ -525,7 +525,7 @@ internal static class WorkflowEndpoints
         var spec = workflow.AllowManualLaunch ? BuiltInWorkflows.Resolve(workflow, BuiltInWorkflows.Values(row), listName).Spec : null;
         var inputSchema = spec?.InputSchema ?? spec?.AllTriggers.FirstOrDefault(t => t.Type == WorkflowTriggers.Manual)?.Inputs;
         return new(workflow.Key, workflow.Name, workflow.Description, workflow.Parameters?.DeepClone().AsObject(), workflow.Requires, builtIns.IsAvailable(workflow),
-            row?.Enabled == true, row?.Id, BuiltInWorkflows.Values(row), workflow.Scope, workflow.EnabledByDefault, workflow.AllowManualLaunch, inputSchema)
+            row?.Enabled == true, row?.Id, BuiltInWorkflows.Values(row), workflow.Scope, workflow.EnabledByDefault, workflow.AllowManualLaunch, inputSchema, spec?.AllTriggers.FirstOrDefault(t => t.Type == WorkflowTriggers.Manual)?.SelectionMode)
         { ETag = row is null ? null : ETags.From(row.Version) };
     }
 
@@ -577,7 +577,7 @@ internal static class WorkflowEndpoints
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [.. errors] });
         }
 
-        var (runs, error) = await starter.StartManualAsync(workflow, targets, request.Inputs, user.UserId, ct);
+        var (runs, error) = await starter.StartManualAsync(workflow, targets, request.Inputs, user.UserId, ct, request.PrimaryItemId);
         return error is not null
             ? ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [error] })
             : TypedResults.Ok(await ToResponsesAsync(db, runs, ct));
@@ -667,7 +667,7 @@ internal static class WorkflowEndpoints
             targets.Add(new WorkflowItem(workspaceId, request.ListId.Value, itemId));
         }
 
-        var (runs, error) = await starter.StartManualAsync(workflow, targets, request.Inputs, user.UserId, ct);
+        var (runs, error) = await starter.StartManualAsync(workflow, targets, request.Inputs, user.UserId, ct, request.PrimaryItemId);
         if (error is not null)
         {
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [error] });
@@ -722,7 +722,7 @@ internal static class WorkflowEndpoints
 
         var page = PageRequest.From(http);
         var query = db.Runs.AsNoTracking().Where(r => r.WorkspaceId == workspaceId);
-        query = itemId is { } item ? query.Where(r => r.ItemId == item) : query;
+        query = itemId is { } item ? query.Where(r => r.ItemId == item || db.RunItems.Any(i => i.RunId == r.Id && i.ItemId == item)) : query;
         query = workflowId is { } workflow ? query.Where(r => r.WorkflowId == workflow) : query;
         query = statusFilter is { } wanted ? query.Where(r => r.Status == wanted) : query;
         if (page.After is { } after)

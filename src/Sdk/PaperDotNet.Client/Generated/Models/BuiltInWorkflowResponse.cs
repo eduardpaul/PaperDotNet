@@ -47,6 +47,14 @@ namespace PaperDotNet.Client.Models
 #else
         public string Key { get; set; }
 #endif
+        /// <summary>The manualSelectionMode property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? ManualSelectionMode { get; set; }
+#nullable restore
+#else
+        public string ManualSelectionMode { get; set; }
+#endif
         /// <summary>The name property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -126,6 +134,7 @@ namespace PaperDotNet.Client.Models
                 { "enabledByDefault", n => { EnabledByDefault = n.GetBoolValue(); } },
                 { "inputSchema", n => { InputSchema = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "key", n => { Key = n.GetStringValue(); } },
+                { "manualSelectionMode", n => { ManualSelectionMode = n.GetStringValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "parameters", n => { Parameters = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
@@ -149,6 +158,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteBoolValue("enabledByDefault", EnabledByDefault);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputSchema", InputSchema);
             writer.WriteStringValue("key", Key);
+            writer.WriteStringValue("manualSelectionMode", ManualSelectionMode);
             writer.WriteStringValue("name", Name);
             writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("parameters", Parameters);

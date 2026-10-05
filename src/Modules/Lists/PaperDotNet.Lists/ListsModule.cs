@@ -69,6 +69,7 @@ public sealed class ListsModule : IModule
             sp.GetRequiredService<ListsDbContext>(), sp.GetRequiredService<ListSchemaLoader>(), sp.GetRequiredService<ItemQueryRunner>(),
             sp.GetRequiredService<ItemWriter>(), sp.GetRequiredService<IWorkspaceAccess>(), sp.GetRequiredService<ListItemSearchDocuments>(),
             sp.GetRequiredService<ContentTypeProvisioner>(), sp.GetRequiredService<ListTemplateRegistry>(), sp.GetRequiredService<RelationshipTypes>()));
+        services.AddScoped<IItemBatchRecycle>(sp => (IItemBatchRecycle)sp.GetRequiredService<IListItemStore>());
         services.AddScoped<RelationshipTypes>();
         services.AddScoped<ITermMergeValidator, RelationshipTermMergeValidator>();
         services.AddScoped<ITenantInitializer, ListsTenantInitializer>();
