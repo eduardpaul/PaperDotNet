@@ -1,7 +1,7 @@
-using System.Text;
 using System.Buffers.Binary;
-using PaperDotNet.Documents.Features.StorageOptimization;
+using System.Text;
 using PaperDotNet.Documents.Features.PhotoToDocument;
+using PaperDotNet.Documents.Features.StorageOptimization;
 using SkiaSharp;
 
 namespace PaperDotNet.UnitTests;

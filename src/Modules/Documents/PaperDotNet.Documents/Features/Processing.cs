@@ -1,4 +1,3 @@
-using PaperDotNet.Ocr.Contracts;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
@@ -11,6 +10,7 @@ using PaperDotNet.Documents.Data;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Ocr.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Workflows.Contracts;
 using SkiaSharp;

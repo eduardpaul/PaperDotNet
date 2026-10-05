@@ -51,10 +51,24 @@ internal sealed class DocumentPublisher(DocumentsDbContext db, IListItemStore it
                 .ExecuteUpdateAsync(u => u.SetProperty(v => v.IsCurrent, false), token) != 1)
                 throw new InvalidOperationException("The target document changed.");
             var number = await db.FileVersions.Where(v => v.ItemId == expected.ItemId).MaxAsync(v => v.Number, token) + 1;
-            db.FileVersions.Add(new FileVersion { Id = stagedId, WorkspaceId = expected.WorkspaceId, ListId = expected.ListId, ItemId = expected.ItemId,
-                Number = number, IsCurrent = true, StoredFileId = stored.Id, Sha256 = stored.Sha256, Size = stored.Size, MediaType = stored.MediaType,
-                FileName = record.FileName, Source = source, PageCount = record.PageCount, Languages = record.Languages,
-                TextLanguage = record.Languages?.Split('+')[0] });
+            db.FileVersions.Add(new FileVersion
+            {
+                Id = stagedId,
+                WorkspaceId = expected.WorkspaceId,
+                ListId = expected.ListId,
+                ItemId = expected.ItemId,
+                Number = number,
+                IsCurrent = true,
+                StoredFileId = stored.Id,
+                Sha256 = stored.Sha256,
+                Size = stored.Size,
+                MediaType = stored.MediaType,
+                FileName = record.FileName,
+                Source = source,
+                PageCount = record.PageCount,
+                Languages = record.Languages,
+                TextLanguage = record.Languages?.Split('+')[0]
+            });
             record.PublishedVersionId = stagedId;
             await db.SaveChangesAsync(token);
         }, ct);

@@ -1,6 +1,6 @@
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
-using System.Text.Json.Nodes;
 using PaperDotNet.Documents.Contracts;
 using PaperDotNet.Workflows.Contracts;
 
@@ -34,11 +34,17 @@ internal sealed class CompositionReview(PhotoConversionStore compositions, IDocu
         if (selection is null) return null;
         var fresh = await CanDecideAsync(context, cancellationToken);
         var primary = selection.Sources.Single(s => s.File.ItemId == selection.PrimaryItemId);
-        return new("pdfComposition", new JsonObject { ["name"] = selection.FileName, ["primaryName"] = primary.File.FileName,
+        return new("pdfComposition", new JsonObject
+        {
+            ["name"] = selection.FileName,
+            ["primaryName"] = primary.File.FileName,
             ["pageCount"] = selection.Sources.Count,
             ["description"] = $"Approving replaces {primary.File.FileName} with {selection.FileName} ({selection.Sources.Count} pages). The other {selection.Sources.Count - 1} photos move to the recycle bin.",
-            ["approvedLabel"] = "Replace photos with PDF", ["rejectedLabel"] = "Keep original photos", ["sources"] = new JsonArray([.. selection.Sources.Select(s => (JsonNode)new JsonObject {
-                ["name"] = s.File.FileName, ["mediaType"] = s.File.MediaType, ["itemId"] = s.File.ItemId.ToString() })]) }, fresh,
+            ["approvedLabel"] = "Replace photos with PDF",
+            ["rejectedLabel"] = "Keep original photos",
+            ["sources"] = new JsonArray([.. selection.Sources.Select(s => (JsonNode)new JsonObject {
+                ["name"] = s.File.FileName, ["mediaType"] = s.File.MediaType, ["itemId"] = s.File.ItemId.ToString() })])
+        }, fresh,
             fresh ? null : "A source changed, access was removed, or the review is settled. Launch a new conversion if needed.");
     }
 

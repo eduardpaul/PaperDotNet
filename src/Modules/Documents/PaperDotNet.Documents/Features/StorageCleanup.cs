@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
-using PaperDotNet.Documents.Data;
 using PaperDotNet.Documents.Contracts;
+using PaperDotNet.Documents.Data;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Workflows.Contracts;

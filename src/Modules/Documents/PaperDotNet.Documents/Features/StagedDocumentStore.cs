@@ -17,7 +17,8 @@ internal sealed class StagedDocumentStore(DocumentsDbContext db, IDocumentFileSt
     {
         var stored = record.StoredFileId is { } id ? await db.StoredFiles.SingleOrDefaultAsync(s => s.Id == id, ct) : null;
         return new(record.Id, record.Owner, record.CreatedBy, record.FileName, record.Languages, record.State,
-            stored?.MediaType, stored?.Size, record.PageCount) { Attributes = ParseAttributes(record.Attributes) };
+            stored?.MediaType, stored?.Size, record.PageCount)
+        { Attributes = ParseAttributes(record.Attributes) };
     }
 
     public async Task<StagedDocument?> GetAsync(Guid id, CancellationToken ct) =>
@@ -38,8 +39,16 @@ internal sealed class StagedDocumentStore(DocumentsDbContext db, IDocumentFileSt
                 throw new InvalidOperationException("The execution identifier belongs to different temporary content.");
             return await DescribeAsync(existing, ct);
         }
-        var record = new StagedFile { Id = id, Owner = owner, CreatedBy = actor, FileName = fileName, Languages = languages,
-            Attributes = attributesJson, CreatedAt = time.GetUtcNow() };
+        var record = new StagedFile
+        {
+            Id = id,
+            Owner = owner,
+            CreatedBy = actor,
+            FileName = fileName,
+            Languages = languages,
+            Attributes = attributesJson,
+            CreatedAt = time.GetUtcNow()
+        };
         db.StagedFiles.Add(record);
         await db.SaveChangesAsync(ct);
         return await DescribeAsync(record, ct);

@@ -35,7 +35,7 @@ public sealed class SelectionWorkflowTests(PaperDotNetApiFactory factory)
         var response = await client.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs/{run}", Ct);
         var body = await response.ReadJsonAsync();
         return body.GetProperty("status").GetString() == status || body.GetProperty("status").GetString() is "failed" or "cancelled" ? body : (JsonElement?)null;
-        }, TimeSpan.FromSeconds(60));
+    }, TimeSpan.FromSeconds(60));
         Assert.True(result.GetProperty("status").GetString() == status, result.ToString());
         return result;
     }
@@ -47,8 +47,13 @@ public sealed class SelectionWorkflowTests(PaperDotNetApiFactory factory)
     {
         var (client, ws, list, ids) = await SetupAsync(mode);
         var root = $"/v1.0/workspaces/{ws}/workflows";
-        var workflow = await CreateAsync(client, root, new { name = "Inspect", scope = "list", trigger = new { type = "manual", list = "Targets", selectionMode = mode },
-            flow = new { start = "inspect", nodes = new { inspect = new { activity = "script", inputs = new { code = "return { selected: context.items, primary: context.itemId };" } } } } });
+        var workflow = await CreateAsync(client, root, new
+        {
+            name = "Inspect",
+            scope = "list",
+            trigger = new { type = "manual", list = "Targets", selectionMode = mode },
+            flow = new { start = "inspect", nodes = new { inspect = new { activity = "script", inputs = new { code = "return { selected: context.items, primary: context.itemId };" } } } }
+        });
         var order = new[] { ids[2], ids[0], ids[1], ids[2] };
         var launch = await client.PostAsJsonAsync($"{root}/{workflow}/runs", new { listId = list, itemIds = order, primaryItemId = ids[0] }, Ct);
         Assert.Equal(HttpStatusCode.OK, launch.StatusCode);
@@ -77,9 +82,14 @@ public sealed class SelectionWorkflowTests(PaperDotNetApiFactory factory)
     {
         var (client, ws, list, ids) = await SetupAsync(concurrency);
         var root = $"/v1.0/workspaces/{ws}/workflows";
-        var workflow = await CreateAsync(client, root, new { name = "Review", scope = "list", concurrency,
+        var workflow = await CreateAsync(client, root, new
+        {
+            name = "Review",
+            scope = "list",
+            concurrency,
             trigger = new { type = "manual", list = "Targets", selectionMode = "selection" },
-            steps = new[] { new { type = "approval", name = "Review", assignees = new[] { "admin" } } } });
+            steps = new[] { new { type = "approval", name = "Review", assignees = new[] { "admin" } } }
+        });
         var first = await client.PostAsJsonAsync($"{root}/{workflow}/runs", new { listId = list, itemIds = new[] { ids[0], ids[1] } }, Ct);
         var runId = (await first.ReadJsonAsync())[0].GetProperty("id").GetGuid();
         await WaitAsync(client, ws, runId, "waiting");
@@ -95,8 +105,13 @@ public sealed class SelectionWorkflowTests(PaperDotNetApiFactory factory)
     {
         var (client, ws, list, ids) = await SetupAsync("recovery");
         var root = $"/v1.0/workspaces/{ws}/workflows";
-        var workflow = await CreateAsync(client, root, new { name = "Recover selection", scope = "list", trigger = new { type = "manual", list = "Targets", selectionMode = "selection" },
-            flow = new { start = "inspect", nodes = new { inspect = new { activity = "script", inputs = new { code = "return { selected: context.items, primary: context.itemId };" } } } } });
+        var workflow = await CreateAsync(client, root, new
+        {
+            name = "Recover selection",
+            scope = "list",
+            trigger = new { type = "manual", list = "Targets", selectionMode = "selection" },
+            flow = new { start = "inspect", nodes = new { inspect = new { activity = "script", inputs = new { code = "return { selected: context.items, primary: context.itemId };" } } } }
+        });
         var order = new[] { ids[2], ids[0], ids[1] };
         var launch = await client.PostAsJsonAsync($"{root}/{workflow}/runs", new { listId = list, itemIds = order, primaryItemId = ids[0] }, Ct);
         var first = (await launch.ReadJsonAsync())[0].GetProperty("id").GetGuid();
@@ -109,9 +124,22 @@ public sealed class SelectionWorkflowTests(PaperDotNetApiFactory factory)
             var db = scope.ServiceProvider.GetRequiredService<WorkflowsDbContext>();
             var original = await db.Runs.AsNoTracking().SingleAsync(r => r.Id == first, Ct);
             var old = DateTimeOffset.UtcNow.AddMinutes(-10);
-            db.Runs.Add(new WorkflowRun { Id = recoveredId, WorkflowId = workflow, WorkflowVersion = original.WorkflowVersion,
-                WorkspaceId = ws, ListId = list, ItemId = ids[0], IsSelection = true, Data = original.Data, StartedBy = original.StartedBy,
-                StartedAt = old, LastActivityAt = old, LeaseUntil = old, Status = RunStatus.Running });
+            db.Runs.Add(new WorkflowRun
+            {
+                Id = recoveredId,
+                WorkflowId = workflow,
+                WorkflowVersion = original.WorkflowVersion,
+                WorkspaceId = ws,
+                ListId = list,
+                ItemId = ids[0],
+                IsSelection = true,
+                Data = original.Data,
+                StartedBy = original.StartedBy,
+                StartedAt = old,
+                LastActivityAt = old,
+                LeaseUntil = old,
+                Status = RunStatus.Running
+            });
             for (var i = 0; i < order.Length; i++) db.RunItems.Add(new WorkflowRunItem { RunId = recoveredId, WorkspaceId = ws, ListId = list, ItemId = order[i], Position = i });
             await db.SaveChangesAsync(Ct);
         }
@@ -128,9 +156,14 @@ public sealed class SelectionWorkflowTests(PaperDotNetApiFactory factory)
     {
         var (client, ws, list, ids) = await SetupAsync("validation");
         var root = $"/v1.0/workspaces/{ws}/workflows";
-        var workflow = await CreateAsync(client, root, new { name = "Review", scope = "list", trigger = new { type = "manual", list = "Targets", selectionMode = "selection" },
+        var workflow = await CreateAsync(client, root, new
+        {
+            name = "Review",
+            scope = "list",
+            trigger = new { type = "manual", list = "Targets", selectionMode = "selection" },
             inputSchema = new { type = "object", properties = new { label = new { type = "string" } }, required = new[] { "label" } },
-            steps = new[] { new { type = "approval", name = "Review", assignees = new[] { "admin" } } } });
+            steps = new[] { new { type = "approval", name = "Review", assignees = new[] { "admin" } } }
+        });
         foreach (var body in new object[] {
             new { listId = list, itemIds = ids, primaryItemId = Guid.NewGuid(), inputs = new { label = "valid" } },
             new { listId = list, itemIds = Array.Empty<Guid>(), inputs = new { label = "valid" } },

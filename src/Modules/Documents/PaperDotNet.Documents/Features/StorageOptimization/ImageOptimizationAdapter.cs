@@ -1,9 +1,9 @@
-using PaperDotNet.Ocr.Contracts;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Configuration;
 using PaperDotNet.Documents.Contracts;
+using PaperDotNet.Ocr.Contracts;
 using SkiaSharp;
 
 namespace PaperDotNet.Documents.Features.StorageOptimization;

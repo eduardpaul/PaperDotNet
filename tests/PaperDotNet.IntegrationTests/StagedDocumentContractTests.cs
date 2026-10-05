@@ -191,8 +191,14 @@ public sealed class StagedDocumentContractTests(PaperDotNetApiFactory factory)
     private static Task<WorkflowActivityResult> ReadTextAsync(IServiceProvider services, Guid workspace, Guid list, Guid item, CancellationToken ct) =>
         services.GetServices<IWorkflowActivity>().Single(a => a.Key == "document.readText").ExecuteAsync(new WorkflowActivityContext
         {
-            WorkspaceId = workspace, Item = new(workspace, list, item), Inputs = [], Services = services,
-            Source = "contract-test", ExecutionKey = "contract-test", ExecutionId = Guid.CreateVersion7(),
-            ExpandAsync = (value, _) => Task.FromResult(value), ResolveAsync = (_, _) => Task.FromResult<JsonNode?>(null),
+            WorkspaceId = workspace,
+            Item = new(workspace, list, item),
+            Inputs = [],
+            Services = services,
+            Source = "contract-test",
+            ExecutionKey = "contract-test",
+            ExecutionId = Guid.CreateVersion7(),
+            ExpandAsync = (value, _) => Task.FromResult(value),
+            ResolveAsync = (_, _) => Task.FromResult<JsonNode?>(null),
         }, ct);
 }

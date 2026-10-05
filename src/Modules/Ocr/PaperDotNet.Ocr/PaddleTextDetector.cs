@@ -1,7 +1,7 @@
-using PaperDotNet.Ocr.Contracts;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Configuration;
 using Microsoft.ML.OnnxRuntime;
+using PaperDotNet.Ocr.Contracts;
 using RapidOcrNet;
 using SkiaSharp;
 

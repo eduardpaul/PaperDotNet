@@ -41,8 +41,16 @@ internal sealed class PhotoConversionStore(PhotoConversionDbContext db, IStagedD
                 || sources.Select(s => (s.File.WorkspaceId, s.File.ListId)).Distinct().Count() != 1 || user.UserId != startedBy)
                 throw new InvalidOperationException("A photo conversion requires an authorized selection from one library.");
             var primary = sources.Single(s => s.File.ItemId == primaryItemId).File;
-            record = new PhotoConversionRecord { Id = id, RunId = runId, PrimaryItemId = primaryItemId, StartedBy = startedBy,
-                FileName = Path.ChangeExtension(primary.FileName, ".pdf"), Languages = languages, SourcesJson = JsonSerializer.Serialize(sources) };
+            record = new PhotoConversionRecord
+            {
+                Id = id,
+                RunId = runId,
+                PrimaryItemId = primaryItemId,
+                StartedBy = startedBy,
+                FileName = Path.ChangeExtension(primary.FileName, ".pdf"),
+                Languages = languages,
+                SourcesJson = JsonSerializer.Serialize(sources)
+            };
             db.Conversions.Add(record);
             await db.SaveChangesAsync(ct);
         }

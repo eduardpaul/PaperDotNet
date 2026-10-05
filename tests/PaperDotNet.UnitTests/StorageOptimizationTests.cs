@@ -1,8 +1,8 @@
-using PaperDotNet.Ocr;
 using Microsoft.Extensions.Configuration;
 using PaperDotNet.Documents.Contracts;
-using PaperDotNet.Documents.Features.StorageOptimization;
 using PaperDotNet.Documents.Features.PhotoToDocument;
+using PaperDotNet.Documents.Features.StorageOptimization;
+using PaperDotNet.Ocr;
 using SkiaSharp;
 
 namespace PaperDotNet.UnitTests;

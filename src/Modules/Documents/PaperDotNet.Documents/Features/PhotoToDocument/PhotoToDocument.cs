@@ -1,12 +1,12 @@
-using PaperDotNet.Documents.Features.StorageOptimization;
 using System.Buffers.Binary;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Contracts;
-using PaperDotNet.Ocr.Contracts;
+using PaperDotNet.Documents.Features.StorageOptimization;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Ocr.Contracts;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 using SkiaSharp;
@@ -137,7 +137,8 @@ internal sealed class ComposePhotosActivity(PhotoCompositionGate gate, ITenantSc
 
     private static WorkflowActivityResult Output(Guid id, IEnumerable<string> names) => WorkflowActivityResult.Ok(new JsonObject
     {
-        ["candidate"] = id.ToString(), ["approvers"] = new JsonArray([.. names.Select(n => JsonValue.Create(n))]),
+        ["candidate"] = id.ToString(),
+        ["approvers"] = new JsonArray([.. names.Select(n => JsonValue.Create(n))]),
     });
 
     internal static void Normalize(string sourcePath, string destination)

@@ -1,5 +1,5 @@
-using PaperDotNet.Ocr.Contracts;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Ocr.Contracts;
 
 namespace PaperDotNet.Ocr;
 
