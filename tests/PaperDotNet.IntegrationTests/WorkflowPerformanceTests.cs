@@ -189,8 +189,7 @@ public sealed class WorkflowPerformanceTests(PaperDotNetApiFactory factory)
 
         public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
         {
-            if (command.CommandText.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase)
-                && command.CommandText.Contains("versions", StringComparison.OrdinalIgnoreCase)) Count++;
+            if (command.CommandText.Contains("versions", StringComparison.OrdinalIgnoreCase)) Count++;
             return ValueTask.FromResult(result);
         }
     }
