@@ -3,13 +3,73 @@ using System.Text;
 using Microsoft.Extensions.Configuration;
 using PaperDotNet.Documents.Features.PhotoToDocument;
 using PaperDotNet.Documents.Features.StorageOptimization;
+using PaperDotNet.Ocr;
 using PaperDotNet.Ocr.Contracts;
 using SkiaSharp;
+using UglyToad.PdfPig;
 
 namespace PaperDotNet.UnitTests;
 
 public sealed class PhotoNormalizationTests
 {
+    [Fact]
+    public async Task Resized_photo_pdf_has_savings_comparable_to_image_optimization_at_the_same_text_target()
+    {
+        var directory = Directory.CreateTempSubdirectory("pdn_compressed_photo_");
+        try
+        {
+            using var bitmap = new SKBitmap(1600, 800);
+            var random = new Random(4711);
+            for (var y = 0; y < bitmap.Height; y++)
+                for (var x = 0; x < bitmap.Width; x++)
+                {
+                    var value = (byte)Math.Clamp(180 + x / 40 + random.Next(-35, 36), 0, 255);
+                    bitmap.SetPixel(x, y, new SKColor(value, (byte)(value - 20), (byte)(value - 40)));
+                }
+            using var image = SKImage.FromBitmap(bitmap);
+            using var original = image.Encode(SKEncodedImageFormat.Jpeg, 98);
+            var source = Path.Combine(directory.FullName, "photo.jpg");
+            await File.WriteAllBytesAsync(source, original.ToArray(), TestContext.Current.CancellationToken);
+            var config = new ConfigurationBuilder().Build();
+            var detector = new PhotoTextDetector(1600, 96, expectWhite: false);
+            var pagePath = Path.Combine(directory.FullName, "page.png");
+            var pdfSize = await ComposePhotosActivity.PreparePageAsync(source, pagePath, "deu", new(config, detector, detector), TestContext.Current.CancellationToken);
+            using var page = SKBitmap.Decode(pagePath);
+            Assert.Equal(1600, page.Width);
+            Assert.Equal(800, page.Height);
+            Assert.Equal(533, pdfSize.Width);
+            Assert.Equal(267, pdfSize.Height);
+            var pdfPath = Path.Combine(directory.FullName, "photo.pdf");
+            const string text = "RECEIPT 4711";
+            PaddleSearchablePdf.Write([new(pagePath, text, [new(text, [new(60, 60), new(900, 60), new(900, 156), new(60, 156)])], pdfSize)],
+                pdfPath, TestContext.Current.CancellationToken);
+            using var gate = new ImageOptimizationGate();
+            var optimizer = new ImageOptimizationAdapter(config, gate, detector, detector);
+            await using var input = File.OpenRead(source);
+            var optimized = await optimizer.OptimizeAsync(input, "deu", new(TargetHeight: 32, Percentile: 0), TestContext.Current.CancellationToken);
+            using var optimizedContent = optimized.Content;
+            Assert.NotNull(optimizedContent);
+            var pdfBytes = new FileInfo(pdfPath).Length;
+            Assert.True(pdfBytes < original.Size * 0.15, $"Source: {original.Size}; PDF: {pdfBytes} bytes.");
+            Assert.True(pdfBytes < optimizedContent.Length * 3 + 8192,
+                $"Optimized WebP: {optimizedContent.Length}; PDF: {pdfBytes} bytes.");
+            using var pdf = PdfDocument.Open(pdfPath);
+            Assert.Equal(text, pdf.GetPage(1).Text);
+            var embedded = Assert.Single(pdf.GetPage(1).GetImages());
+            Assert.Equal(533, embedded.WidthInSamples);
+            Assert.Equal(267, embedded.HeightInSamples);
+            Assert.Contains("/DCTDecode", Encoding.Latin1.GetString(await File.ReadAllBytesAsync(pdfPath, TestContext.Current.CancellationToken)), StringComparison.Ordinal);
+            using var decoded = SKBitmap.Decode(embedded.RawBytes.ToArray());
+            Assert.NotNull(decoded);
+            Assert.Equal(pdfSize.Width, decoded.Width);
+            using var expected = page.Resize(new SKImageInfo(pdfSize.Width, pdfSize.Height), new SKSamplingOptions(SKCubicResampler.Mitchell));
+            Assert.InRange(Math.Abs(expected.GetPixel(100, 100).Red - decoded.GetPixel(100, 100).Red), 0, 15);
+            Assert.InRange(pdf.GetPage(1).Letters[0].BoundingBox.Height, 15.37, 15.39);
+            TestContext.Current.TestOutputHelper?.WriteLine($"Source JPEG: {original.Size}; optimized WebP: {optimizedContent.Length}; PDF: {pdfBytes} bytes.");
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
     [Theory]
     [InlineData(640, 64, 320, "paddleocr")]
     [InlineData(640, 16, 1280, "paddleocr")]
@@ -17,7 +77,7 @@ public sealed class PhotoNormalizationTests
     [InlineData(640, 0, 640, "paddleocr")]
     [InlineData(3000, 64, 1500, "paddleocr")]
     [InlineData(3000, 64, 1500, "tesseract")]
-    public async Task Pages_are_scaled_to_32px_for_the_smallest_detected_text_before_ocr(
+    public async Task Original_pixels_are_kept_for_ocr_and_only_pdf_sizes_target_32px_text(
         int sourceWidth, double smallestTextHeight, int expectedWidth, string engine)
     {
         var directory = Directory.CreateTempSubdirectory("pdn_resize_photo_");
@@ -37,10 +97,12 @@ public sealed class PhotoNormalizationTests
             }).Build();
             var detector = new PhotoTextDetector(sourceWidth, smallestTextHeight);
             var analysis = new ImageTextAnalysis(config, detector, detector);
-            await ComposePhotosActivity.NormalizeAsync(source, target, "deu", analysis, TestContext.Current.CancellationToken);
+            var pdfSize = await ComposePhotosActivity.PreparePageAsync(source, target, "deu", analysis, TestContext.Current.CancellationToken);
             using var result = SKBitmap.Decode(target);
-            Assert.Equal(expectedWidth, result.Width);
-            Assert.Equal(expectedWidth / 2, result.Height);
+            Assert.Equal(sourceWidth, result.Width);
+            Assert.Equal(sourceWidth / 2, result.Height);
+            Assert.Equal(expectedWidth, pdfSize.Width);
+            Assert.Equal(expectedWidth / 2, pdfSize.Height);
             Assert.Equal(SKColors.White, result.GetPixel(0, 0));
             Assert.Equal(bytes, await File.ReadAllBytesAsync(source, TestContext.Current.CancellationToken));
             Assert.Equal(engine, detector.Engine);
@@ -48,7 +110,7 @@ public sealed class PhotoNormalizationTests
         finally { directory.Delete(recursive: true); }
     }
 
-    private sealed class PhotoTextDetector(int width, double smallestHeight) : ITextDetector, IWordLayoutDetector
+    private sealed class PhotoTextDetector(int width, double smallestHeight, bool expectWhite = true) : ITextDetector, IWordLayoutDetector
     {
         public string Model => "test";
         public string? ModelDigest => null;
@@ -79,7 +141,7 @@ public sealed class PhotoNormalizationTests
         {
             using var bitmap = SKBitmap.Decode(image);
             Assert.Equal(Math.Min(width, 2600), bitmap.Width);
-            Assert.Equal(SKColors.White, bitmap.GetPixel(0, 0));
+            if (expectWhite) Assert.Equal(SKColors.White, bitmap.GetPixel(0, 0));
             Assert.Equal(50, confidence);
         }
     }

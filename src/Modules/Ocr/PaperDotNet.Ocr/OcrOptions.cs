@@ -7,10 +7,10 @@ public sealed class OcrOptions
     public string TesseractPath { get; set; } = "tesseract";
 
     /// <summary>
-    /// <c>tesseract</c> (default) or <c>glm</c>. <c>glm</c> calls an Ollama server running the
+    /// <c>paddleocr</c> (default), <c>tesseract</c>, or <c>glm</c>. <c>glm</c> calls an Ollama server running the
     /// <c>glm-ocr</c> model (<see cref="GlmBaseUrl"/>). The optional <c>Dockerfile.glm</c> image sets this.
     /// </summary>
-    public string Engine { get; set; } = "tesseract";
+    public string Engine { get; set; } = "paddleocr";
 
     /// <summary>Ollama root address for <see cref="Engine"/> <c>glm</c> (no path; the client posts to <c>/api/generate</c>).</summary>
     public string GlmBaseUrl { get; set; } = "http://127.0.0.1:11434";

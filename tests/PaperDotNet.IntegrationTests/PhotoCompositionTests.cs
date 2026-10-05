@@ -249,10 +249,11 @@ public sealed class PhotoCompositionTests(PaperDotNetApiFactory factory)
             using var form = new MultipartFormDataContent { { new ByteArrayContent(StorageOptimizationTests.ReceiptImage("UPDATED 9999")), "file", "updated.png" } };
             Assert.True((await client.PutAsync($"{path}/items/{ids[2]}/file", form, Ct)).IsSuccessStatusCode);
         }
-        host.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<PaperDotNet.Ocr.OcrOptions>>().Value.TesseractPath = "tesseract";
+        host.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<PaperDotNet.Ocr.OcrOptions>>().Value.Engine = "paddleocr";
         var retry = await client.PostAsync($"/v1.0/workspaces/{ws}/workflows/runs/{run}/retry", null, Ct);
         Assert.True(retry.IsSuccessStatusCode, await retry.Content.ReadAsStringAsync(Ct));
-        await SelectionWorkflowTests.WaitAsync(client, ws, run, changeSource ? "failed" : "waiting");
+        // Multi-page CPU inference is serial and can take longer on memory-constrained test hosts.
+        await SelectionWorkflowTests.WaitAsync(client, ws, run, changeSource ? "failed" : "waiting", TimeSpan.FromMinutes(3));
         Assert.Equal(snapshots, await photoDb.Conversions.AsNoTracking().Where(s => s.Id == record.Id).Select(s => s.SourcesJson).SingleAsync(Ct));
         var approvals = await client.GetAsync("/v1.0/me/approvals", Ct);
         Assert.Equal(changeSource ? 0 : 1, (await approvals.ReadJsonAsync()).GetProperty("value").EnumerateArray().Count(a => a.GetProperty("runId").GetGuid() == run));

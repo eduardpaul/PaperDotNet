@@ -28,14 +28,14 @@ public sealed class SelectionWorkflowTests(PaperDotNetApiFactory factory)
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync(Ct));
         return (await response.ReadJsonAsync()).GetProperty("id").GetGuid();
     }
-    internal static async Task<JsonElement> WaitAsync(HttpClient client, Guid ws, Guid run, string status)
+    internal static async Task<JsonElement> WaitAsync(HttpClient client, Guid ws, Guid run, string status, TimeSpan? timeout = null)
     {
         var result = await Eventually.WaitForAsync(async () =>
     {
         var response = await client.GetAsync($"/v1.0/workspaces/{ws}/workflows/runs/{run}", Ct);
         var body = await response.ReadJsonAsync();
         return body.GetProperty("status").GetString() == status || body.GetProperty("status").GetString() is "failed" or "cancelled" ? body : (JsonElement?)null;
-    }, TimeSpan.FromSeconds(60));
+    }, timeout ?? TimeSpan.FromSeconds(60));
         Assert.True(result.GetProperty("status").GetString() == status, result.ToString());
         return result;
     }

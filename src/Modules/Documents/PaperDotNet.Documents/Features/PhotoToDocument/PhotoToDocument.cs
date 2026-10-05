@@ -110,6 +110,7 @@ internal sealed class ComposePhotosActivity(PhotoCompositionGate gate, ITenantSc
         {
             work = Directory.CreateTempSubdirectory("pdn_compose_");
             var paths = new List<string>();
+            var pdfSizes = new List<OcrPageSize>();
             for (var i = 0; i < candidate.Sources.Count; i++)
             {
                 await using var content = await files.OpenVersionAsync(candidate.Sources[i].File.Id, cancellationToken)
@@ -117,7 +118,7 @@ internal sealed class ComposePhotosActivity(PhotoCompositionGate gate, ITenantSc
                 var source = Path.Combine(work.FullName, $"source-{i}");
                 await using (var output = File.Create(source)) await content.CopyToAsync(output, cancellationToken);
                 var image = Path.Combine(work.FullName, $"page-{i}.png");
-                await NormalizeAsync(source, image, candidate.Languages, textAnalysis, cancellationToken);
+                pdfSizes.Add(await PreparePageAsync(source, image, candidate.Languages, textAnalysis, cancellationToken));
                 paths.Add(image);
             }
             var ocr = scope.ServiceProvider.GetRequiredService<IOcrService>();
@@ -125,7 +126,7 @@ internal sealed class ComposePhotosActivity(PhotoCompositionGate gate, ITenantSc
             try
             {
                 foreach (var path in paths) pages.Add(File.OpenRead(path));
-                await using var result = await ocr.RecognizeAsync(pages, candidate.Languages, cancellationToken, allowEmpty: true);
+                await using var result = await ocr.RecognizeAsync(pages, candidate.Languages, pdfSizes, cancellationToken, allowEmpty: true);
                 if (result.PageTexts.Count != candidate.Sources.Count) throw new InvalidOperationException("OCR must produce one page per photo.");
                 candidate = await store.StageAsync(candidate.Id, result.Pdf, result.PageTexts, cancellationToken);
             }
@@ -141,26 +142,21 @@ internal sealed class ComposePhotosActivity(PhotoCompositionGate gate, ITenantSc
         ["approvers"] = new JsonArray([.. names.Select(n => JsonValue.Create(n))]),
     });
 
-    internal static async Task NormalizeAsync(string sourcePath, string destination, string languages,
+    internal static async Task<OcrPageSize> PreparePageAsync(string sourcePath, string destination, string languages,
         ImageTextAnalysis textAnalysis, CancellationToken cancellationToken)
     {
         Normalize(sourcePath, destination);
         using var page = SKBitmap.Decode(destination) ?? throw new InvalidOperationException("A normalized photo cannot be decoded.");
         var (heights, _) = await textAnalysis.AnalyzeAsync(page, languages, new(TargetHeight: 32), cancellationToken);
-        if (heights.Count == 0) return;
+        if (heights.Count == 0) return new(page.Width, page.Height);
 
         var scale = 32 / heights.Min();
         var width = Math.Max(1, Math.Round(page.Width * scale));
         var height = Math.Max(1, Math.Round(page.Height * scale));
         if (!double.IsFinite(width) || !double.IsFinite(height) || width * height > 64_000_000)
             throw new InvalidOperationException("A resized photo exceeds the 64-million-pixel limit.");
-        cancellationToken.ThrowIfCancellationRequested();
-        using var resized = page.Resize(new SKImageInfo((int)width, (int)height), new SKSamplingOptions(SKCubicResampler.Mitchell))
-            ?? throw new InvalidOperationException("A photo cannot be resized.");
-        using var image = SKImage.FromBitmap(resized);
-        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var output = File.Create(destination);
-        png.SaveTo(output);
+        // Keep the normalized original for OCR; the PDF writer applies this size only after recognition.
+        return new((int)width, (int)height);
     }
 
     internal static void Normalize(string sourcePath, string destination)

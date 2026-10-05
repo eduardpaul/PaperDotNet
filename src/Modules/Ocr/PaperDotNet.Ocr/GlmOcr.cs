@@ -27,16 +27,21 @@ internal sealed class GlmOcr(OcrOptions options, HttpClient http)
 
     public async Task<(string Pdf, IReadOnlyList<string> Pages)> RecognizeAsync(string input, string outputBase, CancellationToken ct, bool allowEmpty = false)
     {
-        var images = PageImages(input, Path.GetDirectoryName(Path.GetFullPath(outputBase))!);
-        var pages = new List<(string Image, string Text)>(images.Count);
-        foreach (var image in images)
+        var work = Directory.CreateTempSubdirectory("pdn_glm_pages_");
+        try
         {
-            pages.Add((image, await RecognizePageAsync(image, allowEmpty, ct)));
-        }
+            var images = OcrPageImages.Read(input, work.FullName, ct);
+            var pages = new List<(string Image, string Text)>(images.Count);
+            foreach (var image in images)
+            {
+                pages.Add((image, await RecognizePageAsync(image, allowEmpty, ct)));
+            }
 
-        var pdf = outputBase + ".pdf";
-        SearchablePdf.Write(pages, pdf);
-        return (pdf, pages.Select(page => page.Text).ToList());
+            var pdf = outputBase + ".pdf";
+            SearchablePdf.Write(pages, pdf);
+            return (pdf, pages.Select(page => page.Text).ToList());
+        }
+        finally { work.Delete(recursive: true); }
     }
 
     private async Task<string> RecognizePageAsync(string image, bool allowEmpty, CancellationToken ct)
@@ -99,80 +104,6 @@ internal sealed class GlmOcr(OcrOptions options, HttpClient http)
 
         return trimmed[(newline + 1)..^3].Trim();
     }
-
-    /// <summary>A JPEG or PNG as itself, each frame of a TIFF as a PNG, or a Tesseract-style list of image paths.</summary>
-    private static List<string> PageImages(string input, string directory)
-    {
-        var header = new byte[8];
-        using (var stream = File.OpenRead(input))
-        {
-            _ = stream.Read(header, 0, header.Length);
-        }
-
-        if (IsTiff(header))
-        {
-            return TiffPages(input, directory);
-        }
-
-        if (IsPng(header) || IsJpeg(header))
-        {
-            return [input];
-        }
-
-        List<string> lines;
-        try
-        {
-            lines = File.ReadAllLines(input).Select(line => line.Trim()).Where(line => line.Length > 0).ToList();
-        }
-        catch (Exception exception) when (exception is IOException or DecoderFallbackException)
-        {
-            throw new InvalidOperationException("The OCR input is neither an image nor a list of page images.", exception);
-        }
-        if (lines.Count == 0 || lines.Exists(line => !File.Exists(line)))
-        {
-            throw new InvalidOperationException("The OCR input is neither an image nor a list of page images.");
-        }
-
-        return lines;
-    }
-
-    private static List<string> TiffPages(string path, string directory)
-    {
-        using var codec = SKCodec.Create(path) ?? throw new InvalidOperationException($"Cannot read TIFF '{path}'.");
-        var count = Math.Max(1, codec.FrameCount);
-        var pages = new List<string>(count);
-        for (var i = 0; i < count; i++)
-        {
-            var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Rgba8888, SKAlphaType.Premul);
-            using var bitmap = new SKBitmap(info);
-            var result = codec.GetPixels(info, bitmap.GetPixels(), new SKCodecOptions(i));
-            if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput))
-            {
-                throw new InvalidOperationException($"Cannot decode TIFF frame {i + 1} ({result}).");
-            }
-
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100) ?? throw new InvalidOperationException("Cannot encode a TIFF frame as PNG.");
-            var page = Path.Combine(directory, $"glm-page-{i + 1:D4}.png");
-            using (var file = File.Create(page))
-            {
-                data.SaveTo(file);
-            }
-
-            pages.Add(page);
-        }
-
-        return pages;
-    }
-
-    private static bool IsPng(ReadOnlySpan<byte> header) =>
-        header.Length >= 4 && header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47;
-
-    private static bool IsJpeg(ReadOnlySpan<byte> header) => header.Length >= 2 && header[0] == 0xFF && header[1] == 0xD8;
-
-    private static bool IsTiff(ReadOnlySpan<byte> header) =>
-        header.Length >= 4 && ((header[0] == 0x49 && header[1] == 0x49 && header[2] == 0x2A && header[3] == 0x00)
-            || (header[0] == 0x4D && header[1] == 0x4D && header[2] == 0x00 && header[3] == 0x2A));
 
     private sealed record GenerateRequest(string Model, string Prompt, string[] Images, bool Stream, GenerateOptions Options);
 

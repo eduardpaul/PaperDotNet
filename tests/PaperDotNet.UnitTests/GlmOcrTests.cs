@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Ocr;
 using SkiaSharp;
@@ -11,6 +12,29 @@ namespace PaperDotNet.UnitTests;
 
 public sealed class GlmOcrTests
 {
+    [Fact]
+    public async Task Glm_recognizes_original_dimensions_before_pdf_downsampling()
+    {
+        var directory = Directory.CreateTempSubdirectory("pdn_glm_original_");
+        try
+        {
+            var path = Png(directory.FullName, "original.png");
+            var script = new ScriptedOcr("INVOICE 4711");
+            var engine = Engine(script, new OcrOptions { Engine = "glm" });
+            var result = await engine.RecognizeAsync(path, "eng", Path.Combine(directory.FullName, "result"),
+                [new(15, 8)], TestContext.Current.CancellationToken);
+            Assert.Equal(30, script.ImageWidth);
+            Assert.Equal(16, script.ImageHeight);
+            Assert.Equal("INVOICE 4711", Assert.Single(result.Pages));
+            using var pdf = PdfDocument.Open(result.Pdf);
+            Assert.Equal("INVOICE 4711", pdf.GetPage(1).Text);
+            var image = Assert.Single(pdf.GetPage(1).GetImages());
+            Assert.Equal(15, image.WidthInSamples);
+            Assert.Equal(8, image.HeightInSamples);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
     [Fact]
     public async Task Glm_reads_each_page_and_stores_a_searchable_pdf()
     {
@@ -106,7 +130,7 @@ public sealed class GlmOcrTests
     }
 
     private static OcrEngine Engine(ScriptedOcr script, OcrOptions options) =>
-        new(Options.Create(options), new OneClient(script));
+        new(Options.Create(options), new OneClient(script), new PaddleOcr(new ConfigurationBuilder().Build()));
 
     private static string Png(string directory, string name)
     {
@@ -133,6 +157,8 @@ public sealed class GlmOcrTests
         public List<string> Prompts { get; } = [];
 
         public int Calls { get; private set; }
+        public int ImageWidth { get; private set; }
+        public int ImageHeight { get; private set; }
 
         public int Context { get; private set; }
 
@@ -143,6 +169,9 @@ public sealed class GlmOcrTests
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var json = await request.Content!.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            using var image = SKBitmap.Decode(Convert.FromBase64String(json.GetProperty("images")[0].GetString()!));
+            ImageWidth = image.Width;
+            ImageHeight = image.Height;
             Prompts.Add(json.GetProperty("prompt").GetString()!);
             Context = json.GetProperty("options").GetProperty("num_ctx").GetInt32();
             MaxTokens = json.GetProperty("options").GetProperty("num_predict").GetInt32();

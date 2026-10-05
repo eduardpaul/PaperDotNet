@@ -13,6 +13,7 @@ using PaperDotNet.Notifications.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workflows.Data;
+using Wolverine.Attributes;
 
 namespace PaperDotNet.Workflows.Features;
 
@@ -27,6 +28,8 @@ public sealed record ResumeRun(Guid RunId, Guid? BookmarkId, Guid TenantId, stri
 /// <summary>Wolverine handler for <see cref="ResumeRun"/> (discovered by convention).</summary>
 public static class ResumeRunHandler
 {
+    // Serial multi-page OCR can exceed Wolverine's 60-second default. Stay below the five-minute run lease.
+    [MessageTimeout(240)]
     public static async Task Handle(ResumeRun message, ITenantScopeFactory scopes, CancellationToken cancellationToken)
     {
         await using var scope = scopes.CreateScope(message.TenantId, message.TenantIdentifier);

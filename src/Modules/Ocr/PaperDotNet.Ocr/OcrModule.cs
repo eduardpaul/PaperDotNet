@@ -15,6 +15,7 @@ public sealed class OcrModule : IModule
         // Existing deployments retain their configured recognition engine; Ocr overrides legacy settings.
         services.AddOptions<OcrOptions>().Bind(configuration.GetSection("Documents")).Bind(configuration.GetSection(OcrOptions.Section));
         services.AddHttpClient(GlmOcr.HttpClientName, (sp, client) => client.Timeout = sp.GetRequiredService<IOptions<OcrOptions>>().Value.OcrTimeout);
+        services.AddSingleton<PaddleOcr>();
         services.AddScoped<OcrEngine>();
         services.AddScoped<IOcrEngine>(sp => sp.GetRequiredService<OcrEngine>());
         services.AddScoped<IOcrService, ConfiguredOcrService>();

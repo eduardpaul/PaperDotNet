@@ -19,32 +19,57 @@ internal sealed class PaddleTextDetector(IConfiguration configuration) : ITextDe
     public string Model => Path.GetFileNameWithoutExtension(modelPath);
     public string? ModelDigest => modelDigest;
 
-    private readonly SemaphoreSlim gate = new(1, 1);
 
     public async Task<IReadOnlyList<double>> DetectAsync(Stream image, int sourceWidth, int sourceHeight,
         double confidence, CancellationToken cancellationToken)
     {
-        await gate.WaitAsync(cancellationToken);
+        await PaddleInferenceBudget.Gate.WaitAsync(cancellationToken);
         try
         {
             using var bitmap = SKBitmap.Decode(image) ?? throw new InvalidOperationException("Cannot decode detector input.");
             return await Task.Run(() => Detect(bitmap, sourceWidth, sourceHeight, confidence, cancellationToken), cancellationToken);
         }
-        finally { gate.Release(); }
+        finally { PaddleInferenceBudget.Gate.Release(); }
     }
 
     public IReadOnlyList<double> Detect(SKBitmap image, int sourceWidth, int sourceHeight,
         double confidence, CancellationToken cancellationToken)
     {
+        var (boxes, width, height) = DetectOnPreview(image, confidence, cancellationToken);
+        return boxes.Select(box => ProjectHeight(box.BoxPoints, box.Score, confidence,
+                sourceWidth / (double)width, sourceHeight / (double)height))
+            .Where(height => height is not null).Select(height => height!.Value).ToArray();
+    }
+
+    /// <summary>Caller holds the shared inference gate; returned polygons refer to the full-resolution source.</summary>
+    internal IReadOnlyList<TextBox> DetectBoxes(SKBitmap image, double confidence, CancellationToken cancellationToken)
+    {
+        var (boxes, width, height) = DetectOnPreview(image, confidence, cancellationToken);
+        return boxes.Select(box => new TextBox
+        {
+            Score = box.Score,
+            BoxPoints = box.BoxPoints.Select(point => new SKPointI(
+                Math.Clamp((int)Math.Round(point.X * image.Width / (double)width), 0, image.Width - 1),
+                Math.Clamp((int)Math.Round(point.Y * image.Height / (double)height), 0, image.Height - 1))).ToArray(),
+        }).ToArray();
+    }
+
+    private (IReadOnlyList<TextBox> Boxes, int Width, int Height) DetectOnPreview(SKBitmap image, double confidence,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
+        var maxDimension = PaddleInferenceBudget.DetectionDimension(image.Width, image.Height, PaddleInferenceBudget.MaxDimension(configuration));
+        var k = Math.Min(1.0, maxDimension / (double)Math.Max(image.Width, image.Height));
+        var width = Math.Max(1, (int)Math.Round(image.Width * k));
+        var height = Math.Max(1, (int)Math.Round(image.Height * k));
         // Paddle's nearest multiple-of-32 resize; use each axis's actual scale when projecting.
-        var scale = new ScaleParam(image.Width, image.Height, NetworkDimension(image.Width), NetworkDimension(image.Height));
+        var scale = new ScaleParam(width, height, NetworkDimension(width), NetworkDimension(height));
         // Paddle inference uses OpenCV BGR channel order. Flatten transparency onto white.
-        using var bgr = new SKBitmap(image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Opaque);
+        using var bgr = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Opaque);
         using (var canvas = new SKCanvas(bgr))
         {
             canvas.Clear(SKColors.White);
-            canvas.DrawBitmap(image, 0, 0, new SKSamplingOptions(SKFilterMode.Nearest));
+            canvas.DrawBitmap(image, new SKRect(0, 0, width, height), new SKSamplingOptions(SKCubicResampler.Mitchell));
         }
 
         if (detector is null)
@@ -57,9 +82,7 @@ internal sealed class PaddleTextDetector(IConfiguration configuration) : ITextDe
             0.2f, 1.4f, cancellationToken)
             ?? throw new InvalidOperationException("PaddleOCR DBNet inference or postprocessing failed; the source is retained.");
         cancellationToken.ThrowIfCancellationRequested();
-        return boxes.Select(box => ProjectHeight(box.BoxPoints, box.Score, confidence,
-                sourceWidth / (double)image.Width, sourceHeight / (double)image.Height))
-            .Where(height => height is not null).Select(height => height!.Value).ToArray();
+        return (boxes, width, height);
     }
 
     internal static int NetworkDimension(int pixels) => Math.Max(32, (int)Math.Round(pixels / 32.0) * 32);
@@ -127,6 +150,5 @@ internal sealed class PaddleTextDetector(IConfiguration configuration) : ITextDe
     public void Dispose()
     {
         detector?.Dispose();
-        gate.Dispose();
     }
 }

@@ -5,10 +5,17 @@ public sealed record OcrResult(Stream Pdf, IReadOnlyList<string> PageTexts) : IA
     public ValueTask DisposeAsync() => Pdf.DisposeAsync();
 }
 
+/// <summary>Output raster dimensions only; recognition always reads the original page stream.</summary>
+public sealed record OcrPageSize(int Width, int Height);
+
 /// <summary>Recognizes ordered page images. Caller owns input streams; result owns its searchable PDF.</summary>
 public interface IOcrService
 {
     Task<OcrResult> RecognizeAsync(IReadOnlyList<Stream> pages, string languages, CancellationToken cancellationToken, bool allowEmpty = false);
+
+    Task<OcrResult> RecognizeAsync(IReadOnlyList<Stream> pages, string languages, IReadOnlyList<OcrPageSize> pdfPageSizes,
+        CancellationToken cancellationToken, bool allowEmpty = false) =>
+        throw new NotSupportedException("This OCR service does not support independent PDF image sizes.");
 }
 
 /// <summary>Path-based recognition for host processing pipelines; caller owns input and output files.</summary>

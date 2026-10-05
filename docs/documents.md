@@ -72,7 +72,13 @@ involved.
 
 ## OCR engine
 
-The default image runs the Tesseract CLI (`Ocr:Engine` = `tesseract`).
+The default engine is the bundled offline PaddleOCR pipeline
+(`Ocr:Engine` = `paddleocr`): detection, orientation correction, recognition,
+and a positioned Unicode text layer in the searchable PDF. It requires no
+Tesseract executable or OCR server. See [OCR services](ocr.md) for models,
+configuration and supported input formats. TIFF input requires conversion to
+PNG/PDF or explicitly selecting `Ocr:Engine=tesseract`; the standard container
+retains the optional Tesseract CLI and its English/German language data.
 `Dockerfile.glm` is an optional image that runs GLM-OCR through Ollama instead
 ([ADR-0034](adr/0034-optional-glm-ocr.md)):
 
@@ -146,8 +152,10 @@ processing.
 
 The first release accepts static JPEG, PNG and WebP photos, with one photo per
 page. It honors all EXIF orientations, flattens transparency onto white, and uses
-the configured Tesseract or GLM OCR engine and the primary photo's effective OCR
-languages. Blank pages are retained after successful OCR. Unsupported or
+PaddleOCR by default (or the configured Tesseract or GLM engine). OCR reads the
+full-resolution normalized photos with the primary photo's effective OCR languages.
+After recognition, the PDF image is resized so the smallest reliable detected
+text height targets 32 px, then compressed. Blank pages are retained after successful OCR. Unsupported or
 animated files, decoder failures and OCR failures stop the run without changing
 any original. Photos are not cropped or straightened. Each image is limited to
 64 million decoded pixels; composition/OCR work is serialized per host process,

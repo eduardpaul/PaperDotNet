@@ -5,11 +5,17 @@ namespace PaperDotNet.Ocr;
 
 internal sealed partial class ConfiguredOcrService(OcrEngine engine) : IOcrService
 {
-    public async Task<OcrResult> RecognizeAsync(IReadOnlyList<Stream> pages, string languages,
+    public Task<OcrResult> RecognizeAsync(IReadOnlyList<Stream> pages, string languages,
+        CancellationToken cancellationToken, bool allowEmpty = false) => RecognizeAsync(pages, languages, null, cancellationToken, allowEmpty);
+
+    public async Task<OcrResult> RecognizeAsync(IReadOnlyList<Stream> pages, string languages, IReadOnlyList<OcrPageSize>? pdfPageSizes,
         CancellationToken cancellationToken, bool allowEmpty = false)
     {
         if (pages.Count is 0 or > 100 || !LanguageList().IsMatch(languages))
             throw new ArgumentException("Provide 1–100 ordered page images and valid OCR languages.");
+        if (pdfPageSizes is not null && (pdfPageSizes.Count != pages.Count || pdfPageSizes.Any(size =>
+                size.Width <= 0 || size.Height <= 0 || (long)size.Width * size.Height > 64_000_000)))
+            throw new ArgumentException("Provide one valid PDF image size per OCR page, within the 64-million-pixel limit.");
         var work = Directory.CreateTempSubdirectory("pdn_ocr_pages_");
         string? resultPath = null;
         try
@@ -23,7 +29,7 @@ internal sealed partial class ConfiguredOcrService(OcrEngine engine) : IOcrServi
             }
             var list = Path.Combine(work.FullName, "pages.txt");
             await File.WriteAllLinesAsync(list, paths, cancellationToken);
-            var (pdf, text) = await engine.RecognizeAsync(list, languages, Path.Combine(work.FullName, "result"), cancellationToken, allowEmpty);
+            var (pdf, text) = await engine.RecognizeAsync(list, languages, Path.Combine(work.FullName, "result"), pdfPageSizes, cancellationToken, allowEmpty);
             resultPath = Path.Combine(Path.GetTempPath(), $"pdn_ocr_result_{Ids.New():N}.pdf");
             File.Move(pdf, resultPath);
             var content = new FileStream(resultPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920,
@@ -40,4 +46,3 @@ internal sealed partial class ConfiguredOcrService(OcrEngine engine) : IOcrServi
     [System.Text.RegularExpressions.GeneratedRegex("^[a-z][a-z_]{1,30}(\\+[a-z][a-z_]{1,30}){0,5}$")]
     private static partial System.Text.RegularExpressions.Regex LanguageList();
 }
-

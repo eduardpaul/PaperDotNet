@@ -19,7 +19,7 @@ this cannot replace Tesseract in the one-container install.
 
 ## Decision
 
-The default image and the default `Ocr:Engine` stay `tesseract`.
+Originally the default image and `Ocr:Engine` stayed `tesseract`. The default is now the bundled offline `paddleocr` pipeline; Tesseract and GLM remain explicit alternatives (see [OCR services](../ocr.md)).
 
 `Dockerfile.glm` is an optional image. It does not install Tesseract. It runs
 Ollama 0.23.2 beside the app, with the `glm-ocr` model pulled at build time,

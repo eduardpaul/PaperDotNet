@@ -104,7 +104,8 @@ Based on RapidAI / RapidOCR and parts of PdfPig (Apache-2.0), and PContour /
 PContourNet (MIT), copyright LingDong Huang / BobLd. See their notices:
 https://github.com/BobLd/RapidOcrNet/blob/master/NOTICE.txt
 
-PaddleOCR PP-OCRv6 small detector weights (Apache-2.0), copyright PaddlePaddle /
+PaddleOCR PP-OCRv6 small detection/recognition weights, character dictionary
+and PP-LCNet text-line orientation classifier (Apache-2.0), copyright PaddlePaddle /
 PaddleOCR contributors; published by PaddlePaddle. Model provenance
 and complete license: src/Modules/Ocr/PaperDotNet.Ocr/models/.
 

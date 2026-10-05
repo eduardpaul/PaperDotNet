@@ -6,7 +6,19 @@ candidate. No source image or output image is added to the repository.
 ```bash
 dotnet run --project tests/benchmarks/document-optimization -- /path/to/images /tmp/results.json
 dotnet run --project tests/benchmarks/document-optimization -- --synthetic /tmp/48mp-48mib.png
+dotnet run --project tests/benchmarks/document-optimization -- --photo-to-pdf /path/to/photo.jpg /tmp/photo.pdf
+dotnet run --project tests/benchmarks/document-optimization -- --render-pdf /tmp/photo.pdf /tmp/photo.png
 ```
+
+`--photo-to-pdf` runs the production photo preparation and OCR services. It
+recognizes crops from the original-resolution normalized photo, then embeds
+the independently resized/compressed PDF image. It saves the searchable PDF,
+recognized text (`.txt`), and dimensions, byte savings, timing and peak working
+set (`.json`). It checks that the PDF image has the requested size and its text
+matches recognition before resizing. This mode uses Paddle only, without Tesseract.
+On glibc Linux use `MALLOC_ARENA_MAX=2 MALLOC_MMAP_THRESHOLD_=131072`, and run
+one benchmark at a time under a memory limit with swap disabled.
+`--render-pdf` renders the first PDF page for visual inspection using the existing PDFium dependency.
 
 Set `TEXT_DETECTOR=tesseract` to benchmark the alternate word detector.
 `analysisMilliseconds` isolates detector work (including first-call model loading),

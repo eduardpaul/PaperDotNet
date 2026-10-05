@@ -26,7 +26,7 @@ RUN dotnet restore src/PaperDotNet.Host/PaperDotNet.Host.csproj -r linux-x64 -p:
 RUN dotnet publish src/PaperDotNet.Host/PaperDotNet.Host.csproj -c Release -r linux-x64 --self-contained false -m:1 --disable-build-servers -p:PublishReadyToRunCrossgen2ExtraArgs=--parallelism:2 -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
-# OCR (DOC-07): the Tesseract CLI with English and German; add more tesseract-ocr-<lang> packages as needed.
+# Offline OCR uses bundled Paddle models. Keep Tesseract with English/German for explicit legacy/TIFF processing.
 # libfontconfig1 is needed by SkiaSharp (page rendering). postgresql-client (pg_dump/pg_restore, v17 on
 # Debian 13) is used by `paperdotnet backup|restore` with PostgreSQL; it must match the server or be newer.
 RUN apt-get update \
@@ -38,8 +38,11 @@ COPY --from=build /app .
 COPY --from=web /src/web/dist ./wwwroot
 # /data holds the SQLite database (default) and the stored files (/data/blobs).
 RUN mkdir -p /data && chown $APP_UID /data
+# Keep freed native OCR/rendering buffers from accumulating in glibc allocator arenas.
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     DOTNET_RUNNING_IN_CONTAINER=true \
+    MALLOC_ARENA_MAX=2 \
+    MALLOC_MMAP_THRESHOLD_=131072 \
     PAPERDOTNET__Storage__DataPath=/data
 VOLUME /data
 EXPOSE 8080

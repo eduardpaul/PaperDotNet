@@ -17,7 +17,7 @@ public sealed class OcrModuleTests
         new OcrModule().AddServices(services, configuration);
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
-        Assert.Equal("tesseract", provider.GetRequiredService<IOptions<OcrOptions>>().Value.Engine);
+        Assert.Equal("paddleocr", provider.GetRequiredService<IOptions<OcrOptions>>().Value.Engine);
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IOcrService>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IOcrEngine>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IWordLayoutDetector>());

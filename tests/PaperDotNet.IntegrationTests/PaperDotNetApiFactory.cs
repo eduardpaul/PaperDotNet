@@ -121,7 +121,11 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Storage:DataPath", _dataPath);
         builder.UseSetting("Documents:MaxFileSize", UploadLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.UseSetting("StorageOptimization:TextDetector", OptimizationTextDetector);
-        if (OcrPath is not null) builder.UseSetting("Documents:TesseractPath", OcrPath);
+        if (OcrPath is not null)
+        {
+            builder.UseSetting("Ocr:Engine", "tesseract");
+            builder.UseSetting("Documents:TesseractPath", OcrPath);
+        }
 
         // The zvec search store (ADR-0044): PAPERDOTNET_ZVEC_LIBRARY points at libzvec_c_api (file or folder), and
         // PAPERDOTNET_TEST_SEARCH_STORE=zvec runs every test on it instead of the database store.
