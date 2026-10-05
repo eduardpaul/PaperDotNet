@@ -1,5 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
+using Microsoft.Extensions.Configuration;
+using PaperDotNet.Ocr.Contracts;
 using PaperDotNet.Documents.Features.PhotoToDocument;
 using PaperDotNet.Documents.Features.StorageOptimization;
 using SkiaSharp;
@@ -8,6 +10,80 @@ namespace PaperDotNet.UnitTests;
 
 public sealed class PhotoNormalizationTests
 {
+    [Theory]
+    [InlineData(640, 64, 320, "paddleocr")]
+    [InlineData(640, 16, 1280, "paddleocr")]
+    [InlineData(640, 32, 640, "paddleocr")]
+    [InlineData(640, 0, 640, "paddleocr")]
+    [InlineData(3000, 64, 1500, "paddleocr")]
+    [InlineData(3000, 64, 1500, "tesseract")]
+    public async Task Pages_are_scaled_to_32px_for_the_smallest_detected_text_before_ocr(
+        int sourceWidth, double smallestTextHeight, int expectedWidth, string engine)
+    {
+        var directory = Directory.CreateTempSubdirectory("pdn_resize_photo_");
+        try
+        {
+            using var bitmap = new SKBitmap(sourceWidth, sourceWidth / 2);
+            bitmap.Erase(SKColors.Transparent);
+            using var image = SKImage.FromBitmap(bitmap);
+            using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+            var source = Path.Combine(directory.FullName, "source.png");
+            var bytes = encoded.ToArray();
+            await File.WriteAllBytesAsync(source, bytes, TestContext.Current.CancellationToken);
+            var target = Path.Combine(directory.FullName, "page.png");
+            var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["StorageOptimization:TextDetector"] = engine,
+            }).Build();
+            var detector = new PhotoTextDetector(sourceWidth, smallestTextHeight);
+            var analysis = new ImageTextAnalysis(config, detector, detector);
+            await ComposePhotosActivity.NormalizeAsync(source, target, "deu", analysis, TestContext.Current.CancellationToken);
+            using var result = SKBitmap.Decode(target);
+            Assert.Equal(expectedWidth, result.Width);
+            Assert.Equal(expectedWidth / 2, result.Height);
+            Assert.Equal(SKColors.White, result.GetPixel(0, 0));
+            Assert.Equal(bytes, await File.ReadAllBytesAsync(source, TestContext.Current.CancellationToken));
+            Assert.Equal(engine, detector.Engine);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    private sealed class PhotoTextDetector(int width, double smallestHeight) : ITextDetector, IWordLayoutDetector
+    {
+        public string Model => "test";
+        public string? ModelDigest => null;
+        public string? Engine { get; private set; }
+        private IReadOnlyList<double> Heights => smallestHeight == 0 ? [] : [smallestHeight, smallestHeight * 2];
+
+        public Task<IReadOnlyList<double>> DetectAsync(Stream image, int sourceWidth, int sourceHeight,
+            double confidence, CancellationToken cancellationToken)
+        {
+            Engine = "paddleocr";
+            Assert.Equal(width, sourceWidth);
+            Assert.Equal(width / 2, sourceHeight);
+            AssertAnalysis(image, confidence);
+            return Task.FromResult(Heights);
+        }
+
+        public Task<IReadOnlyList<double>> DetectAsync(Stream image, string languages, double scale,
+            double confidence, CancellationToken cancellationToken)
+        {
+            Engine = "tesseract";
+            Assert.Equal("deu", languages);
+            Assert.Equal(Math.Min(1, 2600.0 / width), scale);
+            AssertAnalysis(image, confidence);
+            return Task.FromResult(Heights);
+        }
+
+        private void AssertAnalysis(Stream image, double confidence)
+        {
+            using var bitmap = SKBitmap.Decode(image);
+            Assert.Equal(Math.Min(width, 2600), bitmap.Width);
+            Assert.Equal(SKColors.White, bitmap.GetPixel(0, 0));
+            Assert.Equal(50, confidence);
+        }
+    }
+
     [Fact]
     public void Single_frame_animated_webp_is_rejected()
     {

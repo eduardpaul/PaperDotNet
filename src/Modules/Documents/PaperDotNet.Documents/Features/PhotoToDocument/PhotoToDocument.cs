@@ -53,7 +53,7 @@ internal sealed class PhotoCompositionGate : IDisposable
 }
 
 internal sealed class ComposePhotosActivity(PhotoCompositionGate gate, ITenantScopeFactory scopes, ITenantContext tenant,
-    IWorkspaceAccess workspaces, IWorkflowRecipients recipients, IUserDirectory users) : IWorkflowActivity
+    IWorkspaceAccess workspaces, IWorkflowRecipients recipients, IUserDirectory users, ImageTextAnalysis textAnalysis) : IWorkflowActivity
 {
     public string Key => "paperdotnet.storageoptimization.composePhotos";
     public string Description => "Stages a searchable PDF from the ordered selection of static JPEG, PNG or WebP photos.";
@@ -117,7 +117,7 @@ internal sealed class ComposePhotosActivity(PhotoCompositionGate gate, ITenantSc
                 var source = Path.Combine(work.FullName, $"source-{i}");
                 await using (var output = File.Create(source)) await content.CopyToAsync(output, cancellationToken);
                 var image = Path.Combine(work.FullName, $"page-{i}.png");
-                Normalize(source, image);
+                await NormalizeAsync(source, image, candidate.Languages, textAnalysis, cancellationToken);
                 paths.Add(image);
             }
             var ocr = scope.ServiceProvider.GetRequiredService<IOcrService>();
@@ -140,6 +140,28 @@ internal sealed class ComposePhotosActivity(PhotoCompositionGate gate, ITenantSc
         ["candidate"] = id.ToString(),
         ["approvers"] = new JsonArray([.. names.Select(n => JsonValue.Create(n))]),
     });
+
+    internal static async Task NormalizeAsync(string sourcePath, string destination, string languages,
+        ImageTextAnalysis textAnalysis, CancellationToken cancellationToken)
+    {
+        Normalize(sourcePath, destination);
+        using var page = SKBitmap.Decode(destination) ?? throw new InvalidOperationException("A normalized photo cannot be decoded.");
+        var (heights, _) = await textAnalysis.AnalyzeAsync(page, languages, new(TargetHeight: 32), cancellationToken);
+        if (heights.Count == 0) return;
+
+        var scale = 32 / heights.Min();
+        var width = Math.Max(1, Math.Round(page.Width * scale));
+        var height = Math.Max(1, Math.Round(page.Height * scale));
+        if (!double.IsFinite(width) || !double.IsFinite(height) || width * height > 64_000_000)
+            throw new InvalidOperationException("A resized photo exceeds the 64-million-pixel limit.");
+        cancellationToken.ThrowIfCancellationRequested();
+        using var resized = page.Resize(new SKImageInfo((int)width, (int)height), new SKSamplingOptions(SKCubicResampler.Mitchell))
+            ?? throw new InvalidOperationException("A photo cannot be resized.");
+        using var image = SKImage.FromBitmap(resized);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var output = File.Create(destination);
+        png.SaveTo(output);
+    }
 
     internal static void Normalize(string sourcePath, string destination)
     {

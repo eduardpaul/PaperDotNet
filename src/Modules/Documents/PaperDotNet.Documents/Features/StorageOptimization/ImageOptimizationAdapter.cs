@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using System.Diagnostics;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Configuration;
 using PaperDotNet.Documents.Contracts;
@@ -58,39 +57,10 @@ internal sealed class ImageOptimizationAdapter(IConfiguration configuration, Ima
             }
 
             using var upright = Orient(decoded, codec.EncodedOrigin);
-            var k = Math.Min(1.0, options.MaxAnalysisDimension / (double)Math.Max(upright.Width, upright.Height));
-            using var analysis = Resize(upright, Math.Max(1, (int)Math.Round(upright.Width * k)), Math.Max(1, (int)Math.Round(upright.Height * k)));
-            var engine = (configuration["StorageOptimization:TextDetector"] ?? "paddleocr").ToLowerInvariant();
-            var timer = Stopwatch.StartNew();
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(TimeSpan.FromSeconds(configuration.GetValue<double?>("StorageOptimization:OcrTimeoutSeconds") ?? 120));
-            IReadOnlyList<double> heights;
-            try
-            {
-                heights = engine switch
-                {
-                    "paddleocr" => await DetectLinesAsync(analysis, upright.Width, upright.Height, options.MinConfidence, timeout.Token),
-                    "tesseract" => await DetectWordsAsync(analysis, work.FullName, languages, k, options.MinConfidence, timeout.Token),
-                    _ => throw new InvalidOperationException("StorageOptimization:TextDetector must be paddleocr or tesseract."),
-                };
-                timeout.Token.ThrowIfCancellationRequested();
-            }
-            catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
-            {
-                throw new InvalidOperationException("Text analysis exceeded the configured OCR timeout; the source is retained.", ex);
-            }
-            var analysisMetrics = new JsonObject
-            {
-                ["detector"] = engine,
-                ["model"] = engine == "paddleocr" ? detector.Model : null,
-                ["modelSha256"] = engine == "paddleocr" ? detector.ModelDigest : null,
-                ["strategy"] = engine == "paddleocr" ? "line" : "word",
-                ["textRegions"] = heights.Count,
-                ["analysisMilliseconds"] = timer.Elapsed.TotalMilliseconds,
-                ["confidence"] = options.MinConfidence,
-                ["analysisDimension"] = options.MaxAnalysisDimension,
-                ["analysisScale"] = k,
-            };
+            var (heights, analysisMetrics) = await new ImageTextAnalysis(configuration, detector, words)
+                .AnalyzeAsync(upright, languages, options, cancellationToken);
+            var engine = analysisMetrics["detector"]!.GetValue<string>();
+            var k = analysisMetrics["analysisScale"]!.GetValue<double>();
             if (heights.Count == 0)
             {
                 return new(null, "image/webp", ".webp", analysisMetrics, "No reliable text was detected; the original is retained.");
@@ -143,23 +113,6 @@ internal sealed class ImageOptimizationAdapter(IConfiguration configuration, Ima
                 gate.Semaphore.Release();
             }
         }
-    }
-
-    private async Task<IReadOnlyList<double>> DetectLinesAsync(SKBitmap analysis, int width, int height, double confidence, CancellationToken ct)
-    {
-        using var image = SKImage.FromBitmap(analysis);
-        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var input = new MemoryStream(png.ToArray(), writable: false);
-        return await detector.DetectAsync(input, width, height, confidence, ct);
-    }
-
-    private async Task<IReadOnlyList<double>> DetectWordsAsync(SKBitmap analysis, string workPath, string? languages,
-        double scale, double minConfidence, CancellationToken cancellationToken)
-    {
-        using var image = SKImage.FromBitmap(analysis);
-        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var input = new MemoryStream(png.ToArray(), writable: false);
-        return await words.DetectAsync(input, string.IsNullOrWhiteSpace(languages) ? "eng" : languages, scale, minConfidence, cancellationToken);
     }
 
     internal static double ScaleForHeight(double height, DocumentOptimizationOptions options) =>

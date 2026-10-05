@@ -9,6 +9,7 @@ internal static class StorageOptimizationRegistration
     public static IServiceCollection AddStorageOptimizationFeature(this IServiceCollection services)
     {
         services.AddSingleton<ImageOptimizationGate>();
+        services.AddScoped<ImageTextAnalysis>();
         services.AddScoped<IDocumentOptimizationAdapter, ImageOptimizationAdapter>();
         services.AddWorkflowActivity<PrepareOptimization>();
         services.AddWorkflowActivity<AcceptOptimization>();
