@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>WebDavPoc</RootNamespace>
+    <!-- Clone of https://github.com/FubarDevelopment/WebDavServer, branch release/2.0 (not published on NuGet). -->
+    <FubarPath Condition="'$(FubarPath)' == ''">/tmp/fubar</FubarPath>
+    <!-- -p:FolderMove=true when the clone has fubar-folder-move.patch applied. -->
+    <DefineConstants Condition="'$(FolderMove)' == 'true'">$(DefineConstants);FOLDER_MOVE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(FubarPath)/src/FubarDev.WebDavServer.AspNetCore/FubarDev.WebDavServer.AspNetCore.csproj" SetTargetFramework="TargetFramework=net6.0" />
+    <ProjectReference Include="$(FubarPath)/src/FubarDev.WebDavServer.Locking.InMemory/FubarDev.WebDavServer.Locking.InMemory.csproj" SetTargetFramework="TargetFramework=net6.0" />
+    <ProjectReference Include="$(FubarPath)/src/FubarDev.WebDavServer.Props.Store.InMemory/FubarDev.WebDavServer.Props.Store.InMemory.csproj" SetTargetFramework="TargetFramework=net6.0" />
+  </ItemGroup>
+
+  <!-- The same model and name rules as the Dav.AspNetCore.Server spike. -->
+  <ItemGroup>
+    <Compile Include="../webdav-poc/PocModel.cs" Link="PocModel.cs" />
+    <Compile Include="../webdav-poc/DavNames.cs" Link="DavNames.cs" />
+  </ItemGroup>
+
+</Project>

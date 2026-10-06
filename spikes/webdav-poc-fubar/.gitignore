@@ -1,0 +1,5 @@
+bin/
+obj/
+debug.log
+child.log
+*.log

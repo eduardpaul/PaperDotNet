@@ -20,18 +20,18 @@ PASS  Explorer-style PROPFIND (DAV: + Win32 props) → 207                      
 PASS  file property getcontentlength                                                         HTTP/1.1 200 OK 27
 PASS  file property getcontenttype                                                           HTTP/1.1 200 OK application/pdf
 PASS  file property getetag                                                                  HTTP/1.1 200 OK 222469578e10fcc3-1
-PASS  file property getlastmodified                                                          HTTP/1.1 200 OK Tue, 06 Oct 2026 19:09:27 GMT
-PASS  file property creationdate                                                             HTTP/1.1 200 OK 2026-10-06T19:09:27.7634573Z
+PASS  file property getlastmodified                                                          HTTP/1.1 200 OK Tue, 06 Oct 2026 19:23:36 GMT
+PASS  file property creationdate                                                             HTTP/1.1 200 OK 2026-10-06T19:23:36.6906673Z
 PASS  file property displayname                                                              HTTP/1.1 200 OK Invoice.pdf
 PASS  Win32FileAttributes reported (read-only 00000001 in ro mode)                           HTTP/1.1 200 OK 00000001
 PASS  resourcetype is <collection/> on folders                                               HTTP/1.1 200 OK
 PASS  quota-available-bytes on collections (drive size in Explorer)                          HTTP/1.1 200 OK
 PASS  unknown requested props → 404 propstat, not an error                                   HTTP/1.1 404 Not Found
-PASS  getlastmodified is RFC 1123                                                            Tue, 06 Oct 2026 19:09:27 GMT
+PASS  getlastmodified is RFC 1123                                                            Tue, 06 Oct 2026 19:23:36 GMT
 PASS  GET file content                                                                       200
 PASS  GET Content-Type                                                                       application/pdf
 FAIL  GET ETag header is a quoted entity tag (RFC 9110)                                      222469578e10fcc3-1
-PASS  GET Last-Modified header                                                               Tue, 06 Oct 2026 19:09:27 GMT
+PASS  GET Last-Modified header                                                               Tue, 06 Oct 2026 19:23:36 GMT
 PASS  GET a suffixed duplicate returns the second item                                       200
 PASS  case-insensitive path resolution (Windows)                                             200
 PASS  HEAD: Content-Length, no body                                                          200 3145728
@@ -40,7 +40,7 @@ PASS  Range bytes=100- → rest of file                                         
 PASS  Range bytes=-5 → last 5 bytes                                                          206 len=5
 PASS  If-None-Match: current etag → 304                                                      304
 PASS  If-Modified-Since in the future → 304                                                  304
-PASS  5,000-entry folder, Explorer PROPFIND depth 1                                          5000 entries, 475 ms, 5.0 MB
+PASS  5,000-entry folder, Explorer PROPFIND depth 1                                          5000 entries, 444 ms, 5.0 MB
 PASS  read-only: PUT → 403                                                                   403
 PASS  read-only: PUT → 403                                                                   403
 PASS  read-only: DELETE → 403                                                                403
@@ -74,18 +74,18 @@ PASS  Explorer-style PROPFIND (DAV: + Win32 props) → 207                      
 PASS  file property getcontentlength                                                              HTTP/1.1 200 OK 27
 PASS  file property getcontenttype                                                                HTTP/1.1 200 OK application/pdf
 PASS  file property getetag                                                                       HTTP/1.1 200 OK 222469578e10fcc3-1
-PASS  file property getlastmodified                                                               HTTP/1.1 200 OK Tue, 06 Oct 2026 19:09:29 GMT
-PASS  file property creationdate                                                                  HTTP/1.1 200 OK 2026-10-06T19:09:29.2906839Z
+PASS  file property getlastmodified                                                               HTTP/1.1 200 OK Tue, 06 Oct 2026 19:23:38 GMT
+PASS  file property creationdate                                                                  HTTP/1.1 200 OK 2026-10-06T19:23:38.0436039Z
 PASS  file property displayname                                                                   HTTP/1.1 200 OK Invoice.pdf
 PASS  Win32FileAttributes reported (read-only 00000001 in ro mode)                                HTTP/1.1 200 OK 00000020
 PASS  resourcetype is <collection/> on folders                                                    HTTP/1.1 200 OK
 PASS  quota-available-bytes on collections (drive size in Explorer)                               HTTP/1.1 200 OK
 PASS  unknown requested props → 404 propstat, not an error                                        HTTP/1.1 404 Not Found
-PASS  getlastmodified is RFC 1123                                                                 Tue, 06 Oct 2026 19:09:29 GMT
+PASS  getlastmodified is RFC 1123                                                                 Tue, 06 Oct 2026 19:23:38 GMT
 PASS  GET file content                                                                            200
 PASS  GET Content-Type                                                                            application/pdf
 FAIL  GET ETag header is a quoted entity tag (RFC 9110)                                           222469578e10fcc3-1
-PASS  GET Last-Modified header                                                                    Tue, 06 Oct 2026 19:09:29 GMT
+PASS  GET Last-Modified header                                                                    Tue, 06 Oct 2026 19:23:38 GMT
 PASS  GET a suffixed duplicate returns the second item                                            200
 PASS  case-insensitive path resolution (Windows)                                                  200
 PASS  HEAD: Content-Length, no body                                                               200 3145728
@@ -94,10 +94,10 @@ PASS  Range bytes=100- → rest of file                                         
 PASS  Range bytes=-5 → last 5 bytes                                                               206 len=5
 PASS  If-None-Match: current etag → 304                                                           304
 PASS  If-Modified-Since in the future → 304                                                       304
-PASS  5,000-entry folder, Explorer PROPFIND depth 1                                               5000 entries, 626 ms, 5.0 MB
+PASS  5,000-entry folder, Explorer PROPFIND depth 1                                               5000 entries, 447 ms, 5.0 MB
 FAIL  PUT new file → 201 Created                                                                  200
-PASS  PUT new file → item with title 'Notes', any file type                                       {'id': '01a1129e-f7d7-7d8d-80fa-b0192b4f41b1', 'title': 'Notes', 'kind': 5, 'fileName': 'Notes.docx', 'version': 2, 'fileVersions': 1, 'size': 16, 'recycleBin': 0}
-PASS  Explorer pattern: PUT 0 bytes, then PUT content → one file version                          200/200 {'id': '01a1129e-f810-7265-b94d-01e3d47ca8b4', 'title': 'Explorer', 'kind': 5, 'fileName': 'Explorer.pdf', 'version': 3, 'fileVersions': 1, 'size': 17, 'recycleBin': 0}
+PASS  PUT new file → item with title 'Notes', any file type                                       {'id': '01a112ab-e9ce-7f53-97ec-428e88427c92', 'title': 'Notes', 'kind': 5, 'fileName': 'Notes.docx', 'version': 2, 'fileVersions': 1, 'size': 16, 'recycleBin': 0}
+PASS  Explorer pattern: PUT 0 bytes, then PUT content → one file version                          200/200 {'id': '01a112ab-ea06-7ade-a601-7bd48cfb122e', 'title': 'Explorer', 'kind': 5, 'fileName': 'Explorer.pdf', 'version': 3, 'fileVersions': 1, 'size': 17, 'recycleBin': 0}
 PASS  PUT existing file → 204/200 and a new version of the same item                              200 1→2
 FAIL  PUT existing answers 204 No Content (RFC 4918)                                              200
 FAIL  PUT over the size limit → 413 reaches the client                                            200 (store returned 413)
@@ -108,13 +108,14 @@ PASS  MKCOL existing → 405                                                    
 PASS  MKCOL at workspace level → 403                                                              403
 FAIL  MKCOL with a missing parent → 409                                                           404
 FAIL  MOVE (rename) → 201                                                                         200
-FAIL  MOVE keeps the item identity (id, versions)                                                 before=01a1129e-f35a-72e6-89ee-3f6ab0f8a6d6 after=01a1129e-f89e-766c-8a5d-046d73c308d6; MoveItemAsync called=None, CopyAsync=True
+FAIL  MOVE keeps the item identity (id, versions)                                                 before=01a112ab-e6cb-78f6-8ca4-2226903ac1ec after=01a112ab-ea4e-75de-8833-06ef556b198a; MoveItemAsync called=None, CopyAsync=True
 FAIL  MOVE to another library → 201                                                               200
 PASS  MOVE onto existing with Overwrite: F → 412                                                  412
 FAIL  MOVE folder (rename) → 201                                                                  200
+FAIL  MOVE folder keeps the folder's identity (permissions, values) and its children's            folder 01a112ab-ea40-78ef-a882-19800e81f9fd→01a112ab-ea5c-7939-87ee-31aeb7c6543b, child same=False
 FAIL  COPY file → 201, new item                                                                   200
 PASS  DELETE non-empty folder → 204, children first (store rejects non-empty folders)             204
-PASS  DELETE goes to the recycle bin (folder + child)                                             3→5
+PASS  DELETE goes to the recycle bin (folder + child)                                             4→6
 PASS  PROPPATCH Win32 props (Explorer after every PUT) → 207 with 200s                            207 b'om:" /><Win32LastModifiedTime xmlns="urn:schemas-microsoft-com:" /><Win32FileAttributes xmlns="urn:schemas-microsoft-com:" /></prop><status>HTTP/1.1 200 OK</status></propstat></response></multistatus>'
 PASS  PROPPATCH unknown dead property → 207 with a per-property failure                           207
 PASS  LOCK exclusive → 200 with lockdiscovery body                                                200
@@ -127,9 +128,9 @@ PASS  UNLOCK → 204                                                            
 FAIL  LOCK timeout is capped by MaxLockTimeout (1 h)                                              200 b'Infinite'
 FAIL  LOCK on an unmapped URL creates an empty resource (201, RFC 4918 §9.10.4)                   200 exists=False
 PASS  Office owner file ~$… recognized as transient                                               true
-FAIL  safe-save (temp file, rename original, rename temp, delete backup) keeps the original item  statuses=[200, 200, 200, 204, 204] before=01a1129e-f8f2-77ac-b65f-47c805fd67b5 after=01a1129e-f8f9-7502-9f68-4aaab3512843 versions=1→1
+FAIL  safe-save (temp file, rename original, rename temp, delete backup) keeps the original item  statuses=[200, 200, 200, 204, 204] before=01a112ab-eaa6-7747-b3a0-9552e9324647 after=01a112ab-eaac-7a1e-a433-3d87ce8cd7a2 versions=1→1
 
-59/75 passed (rw)
+59/76 passed (rw)
 
 == litmus (read-write, fresh server, empty library) ==
  8. delete_null...........  8. delete_null........... FAIL (DELETE nonexistent resource succeeded)
@@ -146,7 +147,7 @@ FAIL  safe-save (temp file, rename original, rename temp, delete backup) keeps t
  6. lock_excl.............  6. lock_excl............. FAIL (LOCK on `/dav/Projects/Archive/litmus/lockme': 400 Bad Request)
 23. lock_shared........... 23. lock_shared........... FAIL (LOCK on `/dav/Projects/Archive/litmus/lockme': 400 Bad Request)
 32. lock_collection....... 32. lock_collection....... FAIL (LOCK on `/dav/Projects/Archive/litmus/lockcoll/': 400 Bad Request)
-38. unmapped_lock......... 38. unmapped_lock......... FAIL (LOCK on  K via /dav/Projects/Archive/litmus/unmapped_url: 400 Bad Request)
+38. unmapped_lock......... 38. unmapped_lock......... FAIL (LOCK on  K��� via /dav/Projects/Archive/litmus/unmapped_url: 400 Bad Request)
 <- summary for `locks': of 13 tests run: 9 passed, 4 failed. 69.2%
 <- summary for `http': of 4 tests run: 4 passed, 0 failed. 100.0%
 

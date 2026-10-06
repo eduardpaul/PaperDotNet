@@ -184,7 +184,8 @@ def read_checks():
     check("Range bytes=-5 → last 5 bytes", r.status == 206 and r.data == full[-5:], f"{r.status} len={len(r.data)}")
 
     if etag_prop:
-        r = request("GET", q("/dav/Projects/Contracts/Invoice.pdf"), None, {"If-None-Match": f'"{etag_prop}"'})
+        quoted = etag_prop if etag_prop.startswith('"') else f'"{etag_prop}"'  # RFC 4918: getetag is a quoted entity tag
+        r = request("GET", q("/dav/Projects/Contracts/Invoice.pdf"), None, {"If-None-Match": quoted})
         check("If-None-Match: current etag → 304", r.status == 304, f"{r.status}")
     r = request("GET", q("/dav/Projects/Contracts/Invoice.pdf"), None, {"If-Modified-Since": "Fri, 01 Jan 2100 00:00:00 GMT"})
     check("If-Modified-Since in the future → 304", r.status == 304, f"{r.status}")
@@ -261,8 +262,18 @@ def write_checks():
     check("MOVE to another library → 201", r.status == 201 and node("/Projects/Archive/Contract Renamed.pdf") is not None, f"{r.status}")
     r = request("MOVE", q(lib + "Invoice (2).pdf"), None, {"Destination": BASE + q(lib + "Notes.docx"), "Overwrite": "F"})
     check("MOVE onto existing with Overwrite: F → 412", r.status == 412, f"{r.status}")
+    folder_before = node("/Projects/Contracts/New Folder")
+    request("PUT", q(lib + "New Folder/child.pdf"), b"%PDF child")
+    child_before = node("/Projects/Contracts/New Folder/child.pdf")
     r = request("MOVE", q(lib + "New Folder"), None, {"Destination": BASE + q(lib + "Renamed Folder")})
-    check("MOVE folder (rename) → 201", r.status == 201 and node("/Projects/Contracts/Renamed Folder") is not None, f"{r.status}")
+    folder_after = node("/Projects/Contracts/Renamed Folder")
+    child_after = node("/Projects/Contracts/Renamed Folder/child.pdf")
+    check("MOVE folder (rename) → 201", r.status == 201 and folder_after is not None, f"{r.status}")
+    check("MOVE folder keeps the folder's identity (permissions, values) and its children's",
+          None not in (folder_before, folder_after, child_before, child_after)
+          and folder_after["id"] == folder_before["id"] and child_after["id"] == child_before["id"],
+          f"folder {(folder_before or {}).get('id')}→{(folder_after or {}).get('id')}, "
+          f"child same={None not in (child_before, child_after) and child_after['id'] == child_before['id']}")
 
     r = request("COPY", q(lib + "Notes.docx"), None, {"Destination": BASE + q(lib + "Notes copy.docx")})
     check("COPY file → 201, new item", r.status == 201 and node("/Projects/Contracts/Notes copy.docx") is not None, f"{r.status}")

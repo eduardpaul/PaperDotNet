@@ -1,5 +1,9 @@
 # Spike: WebDAV with Dav.AspNetCore.Server
 
+> **Follow-up:** [../webdav-poc-fubar](../webdav-poc-fubar/README.md) runs the same checks against
+> FubarDevelopment/WebDavServer (`release/2.0`) and compares the two. Its verdict: Fubar is the better
+> base for the fork.
+
 A throwaway proof of concept for [webdav-plan.md](../../docs/webdav-plan.md) /
 [ADR-0047](../../docs/adr/0047-webdav-for-libraries.md). It checks what the
 library can do **before** we vendor it or change any product code.
@@ -20,7 +24,7 @@ It is not part of `PaperDotNet.slnx`. Its own `Directory.Build.props` and
 | `DavNames.cs` | The plan's name rules: title + extension, Windows-safe, ` (2)` suffixes in creation order, Office temp-file patterns. |
 | `PocStore.cs` | The adapter the Dav module would implement: `IStore`, `IStoreCollection`, `IStoreItem`. It also covers properties (ETag from hash + version, Win32 attributes, quota), PUT as a new item or a new version, MKCOL, MOVE that keeps identity, the recycle bin, and Office safe-save. |
 | `Program.cs` | Basic auth with the token as the password, only under `/dav`, with a challenge. A gate that answers `OPTIONS` (`DAV: 1` read-only or `1, 2`, `MS-Author-Via`) and refuses writes in read-only mode. A root `OPTIONS /` probe. A `/v1.0/me` endpoint to prove Basic is ignored outside `/dav`. |
-| `check.py` | 50 read-only and 75 read-write checks: Explorer-style PROPFIND, ranges, conditional requests, the PUT/MKCOL/MOVE/COPY/DELETE/PROPPATCH/LOCK sequences, Office safe-save. |
+| `check.py` | 50 read-only and 76 read-write checks: Explorer-style PROPFIND, ranges, conditional requests, the PUT/MKCOL/MOVE/COPY/DELETE/PROPPATCH/LOCK sequences, folder moves that keep identity, Office safe-save. Also used by [../webdav-poc-fubar](../webdav-poc-fubar/README.md). |
 | `run.sh` | Builds the PoC, starts it read-only and read-write, runs `check.py`, then runs every litmus suite. |
 | `library-fixes.patch` | The fixes we needed in the library (against git HEAD `7ef7cbf`). |
 | `results/` | The output of each run below. |
@@ -36,10 +40,10 @@ git -C /tmp/dav apply "$PWD/library-fixes.patch" && ./run.sh /tmp/dav/src/Dav.As
 
 | Library | check.py read-only | check.py read-write | litmus basic | copymove | props | locks | http |
 |---|---|---|---|---|---|---|---|
-| NuGet 1.0.1 (May 2023) | 46/50 | 56/75 | 14/16 | 12/13 | 9/14 | 9/13 (stops early) | 4/4 |
-| git HEAD `7ef7cbf` (Oct 2025) | 48/50 | 59/75 | 14/16 | 12/13 | 9/14 | 9/13 (stops early) | 4/4 |
-| HEAD + `library-fixes.patch` | **50/50** | **75/75** | **16/16** | **13/13** | 9/14 ¹ | 38/41 ¹ | **4/4** |
-| … + dead properties in memory | 50/50 | 75/75 | 16/16 | 13/13 | 15/30 ² | **41/41** | 4/4 |
+| NuGet 1.0.1 (May 2023) | 46/50 | 56/76 | 14/16 | 12/13 | 9/14 | 9/13 (stops early) | 4/4 |
+| git HEAD `7ef7cbf` (Oct 2025) | 48/50 | 59/76 | 14/16 | 12/13 | 9/14 | 9/13 (stops early) | 4/4 |
+| HEAD + `library-fixes.patch` | **50/50** | **76/76** | **16/16** | **13/13** | 9/14 ¹ | 38/41 ¹ | **4/4** |
+| … + dead properties in memory (earlier 75-check run) | 50/50 | 75/75 | 16/16 | 13/13 | 15/30 ² | **41/41** | 4/4 |
 
 ¹ All remaining failures in `locks`, and 3 in `props`, come from dead properties
 (PROPPATCH of client-defined properties). The plan does not store them (a
