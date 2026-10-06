@@ -32,6 +32,9 @@ pipeline (OCR, thumbnails, tagging rules).
 
 ## Notes
 
+Plan: [webdav-plan.md](../docs/webdav-plan.md), decisions in
+[ADR-0047](../docs/adr/0047-webdav-for-libraries.md).
+
 <!-- Open questions to settle during review:
      - Implementation: a WebDAV endpoint inside the API (ASP.NET Core
        middleware). Evaluate existing .NET WebDAV server libraries, and check
