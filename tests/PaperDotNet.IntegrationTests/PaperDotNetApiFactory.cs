@@ -200,7 +200,11 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
 
         if (_sqliteFile is not null)
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            // Only this host's pool: ClearAllPools would also close connections the shared host is using in parallel tests.
+            using (var connection = new Microsoft.Data.Sqlite.SqliteConnection(_connectionString))
+            {
+                Microsoft.Data.Sqlite.SqliteConnection.ClearPool(connection);
+            }
             foreach (var file in new[] { _sqliteFile, _sqliteFile + "-wal", _sqliteFile + "-shm" }.Where(File.Exists))
             {
                 File.Delete(file);

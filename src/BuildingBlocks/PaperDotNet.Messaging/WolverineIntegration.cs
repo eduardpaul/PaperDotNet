@@ -102,6 +102,7 @@ public static class MessagingServiceCollectionExtensions
             configureStorage(options);
             options.UseEntityFrameworkCoreTransactions();
             options.Policies.UseDurableLocalQueues();
+            options.Policies.Add<MessageHandlerTimeoutPolicy>();
             options.Discovery.IncludeAssembly(typeof(EventEnvelopeHandler).Assembly);
             foreach (var assembly in handlerAssemblies)
             {

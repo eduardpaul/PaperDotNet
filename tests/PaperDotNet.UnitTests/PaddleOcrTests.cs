@@ -113,9 +113,11 @@ public sealed class PaddleOcrTests
             await cancelled.CancelAsync();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
                 paddle.RecognizeAsync(image, Path.Combine(work.FullName, "cancelled"), cancelled.Token));
-            using var duringInference = new CancellationTokenSource(TimeSpan.FromMilliseconds(1));
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                paddle.RecognizeAsync(image, Path.Combine(work.FullName, "timeout"), duringInference.Token, allowEmpty: true));
+            // Cancel once the gate is taken (no timer: a late timer callback on a busy thread pool lets the blank page finish).
+            using var duringInference = new CancellationTokenSource();
+            var running = paddle.RecognizeAsync(image, Path.Combine(work.FullName, "timeout"), duringInference.Token, allowEmpty: true);
+            await duringInference.CancelAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running);
             var (pdf, texts) = await paddle.RecognizeAsync(image, Path.Combine(work.FullName, "allowed"), TestContext.Current.CancellationToken, allowEmpty: true);
             Assert.Equal("", Assert.Single(texts));
             using var document = PdfDocument.Open(pdf);

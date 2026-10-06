@@ -18,7 +18,7 @@ internal sealed class SqliteDatabaseBackup(SqliteDatabaseSettings settings) : ID
 
     public async Task RestoreAsync(string file, CancellationToken cancellationToken)
     {
-        SqliteConnection.ClearAllPools();
+        ClearPool();
         await using (var source = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = file, Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ConnectionString))
         await using (var target = new SqliteConnection(settings.ConnectionString))
         {
@@ -27,6 +27,13 @@ internal sealed class SqliteDatabaseBackup(SqliteDatabaseSettings settings) : ID
             source.BackupDatabase(target);
         }
 
-        SqliteConnection.ClearAllPools();
+        ClearPool();
+    }
+
+    // Only this database's pool: other databases in the process (e.g. parallel test hosts) keep their connections.
+    private void ClearPool()
+    {
+        using var connection = new SqliteConnection(settings.ConnectionString);
+        SqliteConnection.ClearPool(connection);
     }
 }
