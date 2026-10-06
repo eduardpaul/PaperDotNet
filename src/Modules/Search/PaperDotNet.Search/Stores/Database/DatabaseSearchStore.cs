@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Persistence;
@@ -57,7 +58,7 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
     private async Task WriteAsync(IReadOnlyCollection<SearchDocumentData> documents, CancellationToken cancellationToken)
     {
         var ids = documents.Select(d => d.Id).ToList();
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await using var transaction = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
         await db.Tags.Where(t => ids.Contains(t.DocumentId)).ExecuteDeleteAsync(cancellationToken);
         await db.FieldValues.Where(v => ids.Contains(v.DocumentId)).ExecuteDeleteAsync(cancellationToken);
         var existing = await db.Documents.Where(d => ids.Contains(d.Id)).ToDictionaryAsync(d => d.Id, cancellationToken);
@@ -76,7 +77,7 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
             document.ContentTypeId = data.ContentTypeId;
             document.ScopeId = data.ScopeId;
             document.Title = data.Title.Length > 1024 ? data.Title[..1024] : data.Title;
-            var body = data.Pages.Count == 0 ? data.Body : $"{data.Body}\n{string.Join('\n', data.Pages)}";
+            var body = $"{data.Body}\n{string.Join('\n', data.Chunks.Where(p => p.Page != null).Select(p => p.Text))}";
             document.Body = body.Length > MaxBodyLength ? body[..MaxBodyLength] : body;
             document.Keywords = data.Keywords.Length > MaxBodyLength ? data.Keywords[..MaxBodyLength] : data.Keywords;
             document.Language = FullTextLanguages.All.Contains(data.Language ?? string.Empty) ? data.Language : null;
@@ -88,7 +89,10 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
         }
 
         await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
         db.ChangeTracker.Clear();
     }
 
@@ -119,9 +123,9 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
     private void UpdatePassages(SearchDocumentData data, string title, string? language, IEnumerable<SearchPassage> current)
     {
         var reusable = current.GroupBy(p => p.ContentHash).ToDictionary(g => g.Key, g => new Queue<SearchPassage>(g));
-        foreach (var (passage, ordinal) in Passages.Split(data).Select((p, i) => (p, i)))
+        foreach (var (passage, ordinal) in data.Chunks.Select((p, i) => (p, i)))
         {
-            var hash = Passages.Hash(Passages.EmbeddingInput(title, passage.Text));
+            var hash = Passages.Hash(passage.Text);
             if (reusable.TryGetValue(hash, out var queue) && queue.TryDequeue(out var kept))
             {
                 kept.Ordinal = ordinal;
@@ -217,6 +221,32 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
         .Select(p => new PassageToEmbed(p.Id, Passages.EmbeddingInput(p.Title, p.Text)))
         .ToList();
 
+    public async Task<IReadOnlyList<PassageToEmbed>> GetPassagesToEmbedAsync(Guid documentId, string model, int limit, CancellationToken cancellationToken) =>
+        (await db.Passages.AsNoTracking().Where(p => p.DocumentId == documentId && p.EmbeddingModel != model)
+            .OrderBy(p => p.Id).Take(limit).Select(p => new { p.Id, p.Text }).ToListAsync(cancellationToken))
+        .Select(p => new PassageToEmbed(p.Id, p.Text)).ToList();
+
+    public async Task StageAsync(SearchGeneration generation, CancellationToken cancellationToken)
+    {
+        var row = await db.Generations.FindAsync([generation.Id], cancellationToken);
+        if (row is null)
+        {
+            row = new StagedSearchGeneration { Id = generation.Id, Payload = string.Empty };
+            db.Generations.Add(row);
+        }
+        row.Payload = JsonSerializer.Serialize(generation);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<SearchGeneration?> GetStageAsync(Guid generationId, CancellationToken cancellationToken)
+    {
+        var payload = await db.Generations.AsNoTracking().Where(g => g.Id == generationId).Select(g => g.Payload).FirstOrDefaultAsync(cancellationToken);
+        return payload is null ? null : JsonSerializer.Deserialize<SearchGeneration>(payload);
+    }
+
+    public async Task DeleteStageAsync(Guid generationId, CancellationToken cancellationToken) =>
+        await db.Generations.Where(g => g.Id == generationId).ExecuteDeleteAsync(cancellationToken);
+
     public async Task SetEmbeddingsAsync(string model, IReadOnlyCollection<PassageEmbedding> embeddings, CancellationToken cancellationToken)
     {
         var byId = embeddings.ToDictionary(e => e.PassageId);
@@ -250,8 +280,14 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
     private IQueryable<SearchDocument> Filtered(StoreFilter filter)
     {
         // Trimmed by the scopes the caller can read in the whole tenant (ADR-0035): one parameter on both databases.
+        var excluded = filter.ExcludedContainers.ToArray();
         var readable = filter.ReadableScopes.ToArray();
-        var documents = db.Documents.AsNoTracking().Where(d => EF.Parameter(readable).Contains(d.ScopeId));
+        var documents = db.Documents.AsNoTracking().Where(d => EF.Parameter(readable).Contains(d.ScopeId) && (d.ContainerId == null || !EF.Parameter(excluded).Contains(d.ContainerId.Value)));
+        if (filter.ReadableItems is { } items)
+        {
+            var ids = items.ToArray();
+            documents = documents.Where(d => d.SourceType != "listItem" || EF.Parameter(ids).Contains(d.Id));
+        }
         if (filter.WorkspaceId is { } ws)
         {
             documents = documents.Where(d => d.WorkspaceId == ws);

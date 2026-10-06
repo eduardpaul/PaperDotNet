@@ -56,7 +56,7 @@ public sealed class DocumentsModule : IModule
         services.AddWorkflowActivity<ThumbnailActivity>();
         services.AddWorkflowActivity<RenderPagesActivity>();
         services.AddWorkflowActivity<OcrActivity>();
-        services.AddScoped<IItemSearchContributor, DocumentSearchContent>();
+        services.AddScoped<IItemTextSource, DocumentSearchContent>();
         services.AddScoped<IItemPageImageSource, DocumentPageImages>();
         services.AddScoped<IMcpTool, UploadDocumentTool>();
         services.AddScoped<IMcpTool, ReplaceDocumentTool>();

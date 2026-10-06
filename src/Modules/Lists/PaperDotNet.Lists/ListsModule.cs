@@ -95,10 +95,7 @@ public sealed class ListsModule : IModule
         services.AddEventSubscriber<ItemScopesChanged, ItemSearchIndexer>();
         services.AddScoped<ListItemSearchDocuments>();
         services.AddScoped<ISearchSource>(sp => sp.GetRequiredService<ListItemSearchDocuments>());
-        services.AddEventSubscriber<ItemAdded, ItemSearchIndexer>();
-        services.AddEventSubscriber<ItemUpdated, ItemSearchIndexer>();
-        services.AddEventSubscriber<ItemRestored, ItemSearchIndexer>();
-        services.AddEventSubscriber<ItemDeleted, ItemSearchIndexer>();
+        services.AddScoped<ISearchItemSource>(sp => sp.GetRequiredService<ListItemSearchDocuments>());
         services.AddEventSubscriber<ListIndexInvalidated, ItemSearchIndexer>();
     }
 

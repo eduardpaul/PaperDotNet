@@ -4,9 +4,6 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Caching.Hybrid;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Search.Contracts;
 
 namespace PaperDotNet.Search.Features;
@@ -31,11 +28,7 @@ public sealed class SearchOptions
     /// <summary>Passages sent to the embedding model per call.</summary>
     public int EmbeddingBatchSize { get; set; } = 64;
 
-    /// <summary>Passages embedded per tenant and run of the embedding job.</summary>
-    public int EmbeddingsPerRun { get; set; } = 2000;
 
-    /// <summary>Cron schedule of the embedding job (UTC).</summary>
-    public string EmbeddingSchedule { get; set; } = "* * * * *";
 }
 
 /// <summary>
@@ -115,53 +108,4 @@ internal static class Vectors
     }
 
     public static float[] FromBytes(byte[] bytes) => MemoryMarshal.Cast<byte, float>(bytes).ToArray();
-}
-
-/// <summary>
-/// Embeds passages that have no embedding of the configured model yet (SRC-07): new or changed text, or all passages
-/// after the model changed. Runs per tenant on <see cref="SearchOptions.EmbeddingSchedule"/>; when the provider fails
-/// it stops and tries again next time. The store keeps the passages and their vectors.
-/// </summary>
-internal sealed partial class EmbeddingJob(
-    ISearchStore store, EmbeddingModel embeddings, IOptions<SearchOptions> options, ILogger<EmbeddingJob> logger) : ITenantRecurringJob
-{
-    public const string Name = "search.embeddings";
-
-    public async Task RunAsync(CancellationToken cancellationToken)
-    {
-        if (!embeddings.Enabled || !store.Capabilities.HasFlag(SearchStoreCapabilities.Vector))
-        {
-            return;
-        }
-
-        var model = embeddings.ModelKey;
-        var batchSize = Math.Clamp(options.Value.EmbeddingBatchSize, 1, 2048);
-        for (var done = 0; done < options.Value.EmbeddingsPerRun;)
-        {
-            var batch = await store.GetPassagesToEmbedAsync(model, batchSize, cancellationToken);
-            if (batch.Count == 0)
-            {
-                return;
-            }
-
-            GeneratedEmbeddings<Embedding<float>> generated;
-            try
-            {
-                generated = await embeddings.Generator!.GenerateAsync(batch.Select(p => p.Input), cancellationToken: cancellationToken);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
-            {
-                // Any provider failure (network, quota, bad response): try again on the next run.
-                LogEmbeddingFailed(ex, model);
-                return;
-            }
-
-            await store.SetEmbeddingsAsync(
-                model, batch.Zip(generated).Select(p => new PassageEmbedding(p.First.Id, p.Second.Vector)).ToList(), cancellationToken);
-            done += batch.Count;
-        }
-    }
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Embedding passages with {Model} failed; retrying on the next run.")]
-    private partial void LogEmbeddingFailed(Exception exception, string model);
 }

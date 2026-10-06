@@ -17,6 +17,8 @@ using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Notifications.Data;
 
+using PaperDotNet.Workflows.Contracts;
+
 namespace PaperDotNet.Notifications.Features;
 
 /// <summary>
@@ -276,8 +278,15 @@ internal static partial class ChangeNotifications
 
 /// <summary>Queues a delivery per matching subscription whose owner can read the item (idempotent per event).</summary>
 internal sealed class ChangeNotifier(NotificationsDbContext db, ITenantScopeFactory scopes, TimeProvider time)
-    : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemDeleted>
+    : ItemChangeActivity
 {
+    public override string Key => "notifications.queueChanges";
+
+    public override string Description => "Queues authenticated API change notifications.";
+
+    protected override Task ExecuteAsync(ItemEvent change, CancellationToken cancellationToken) =>
+        change switch { ItemAdded e => HandleAsync(e, cancellationToken), ItemUpdated e => HandleAsync(e, cancellationToken), ItemDeleted e => HandleAsync(e, cancellationToken), _ => Task.CompletedTask };
+
     public Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken) => QueueAsync(integrationEvent, "created", cancellationToken);
 
     public Task HandleAsync(ItemUpdated integrationEvent, CancellationToken cancellationToken) => QueueAsync(integrationEvent, "updated", cancellationToken);

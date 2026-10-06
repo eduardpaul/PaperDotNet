@@ -166,7 +166,7 @@ internal class WorkflowTemplateHandler(
 
         // A per-library workflow belongs to the library the template names (created earlier in the same template, or existing).
         var listName = element.Attr("List");
-        if ((builtIn.Scope == BuiltInScope.Library) != (listName is not null))
+        if ((builtIn.Scope != BuiltInScope.Workspace) != (listName is not null))
         {
             throw new TemplateException(builtIn.Scope == BuiltInScope.Library
                 ? $"Workflow '{name}': the built-in workflow '{key}' is turned on per library; name it with List."

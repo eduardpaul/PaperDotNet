@@ -100,6 +100,35 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                     b.ToView(null, (string)null);
                 });
 
+            modelBuilder.Entity("PaperDotNet.Search.Data.SearchContainerPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Included")
+                        .HasColumnType("boolean")
+                        .HasColumnName("included");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_container_policies");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_container_policies_tenant_id");
+
+                    b.ToTable("container_policies", "search");
+                });
+
             modelBuilder.Entity("PaperDotNet.Search.Data.SearchDocument", b =>
                 {
                     b.Property<Guid>("Id")
@@ -321,6 +350,67 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                         .HasAnnotation("PaperDotNet:FullTextLanguage", "Language");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Search.Data.SearchPublication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Chunks")
+                        .HasColumnType("integer")
+                        .HasColumnName("chunks");
+
+                    b.Property<Guid>("ContainerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("container_id");
+
+                    b.Property<string>("EmbeddingModel")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("embedding_model");
+
+                    b.Property<Guid>("GenerationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("generation_id");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<string>("Revision")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("revision");
+
+                    b.Property<Guid?>("RunId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("run_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<bool>("Truncated")
+                        .HasColumnType("boolean")
+                        .HasColumnName("truncated");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_publications");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_publications_tenant_id");
+
+                    b.HasIndex("TenantId", "ContainerId")
+                        .HasDatabaseName("ix_publications_tenant_id_container_id");
+
+                    b.ToTable("publications", "search");
+                });
+
             modelBuilder.Entity("PaperDotNet.Search.Data.SearchTag", b =>
                 {
                     b.Property<Guid>("DocumentId")
@@ -345,6 +435,31 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                         .HasDatabaseName("ix_document_tags_term_id_document_id");
 
                     b.ToTable("document_tags", "search");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Search.Data.StagedSearchGeneration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("payload");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_generations");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_generations_tenant_id");
+
+                    b.ToTable("generations", "search");
                 });
 #pragma warning restore 612, 618
         }

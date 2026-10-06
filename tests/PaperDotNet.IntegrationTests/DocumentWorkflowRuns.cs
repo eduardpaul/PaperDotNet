@@ -16,14 +16,15 @@ internal static class DocumentWorkflowRuns
             await Eventually.WaitForAsync<bool>(async () =>
             {
                 var body = await (await client.GetAsync($"/v1.0/workspaces/{workspaceId}/workflows/runs?itemId={itemId}", Ct)).ReadJsonAsync();
-                runs = body.GetProperty("value").EnumerateArray().ToList();
-                return runs.Count >= count && runs.All(r => r.GetProperty("status").GetString() is "completed" or "failed") ? true : null;
+                runs = body.GetProperty("value").EnumerateArray().Where(r => new[] { "Read the text (", "Make thumbnails (", "Render pages (", "Recognize text (" }
+                    .Any(name => r.GetProperty("workflow").GetString()?.StartsWith(name, StringComparison.Ordinal) == true)).ToList();
+                return runs.Count >= count && runs.All(r => r.GetProperty("status").GetString() is "completed" or "failed" or "cancelled") ? true : null;
             }, TimeSpan.FromSeconds(90));
         }
         catch (TimeoutException)
         {
             throw new TimeoutException(
-                $"Expected {count} ended runs: {string.Join(", ", runs.Select(r => $"{r.GetProperty("workflow")}: {r.GetProperty("status")} {r.GetProperty("error")}"))}");
+                $"Expected {count} ended runs: {string.Join(", ", runs.Select(r => $"{r.GetProperty("workflow")}: {r.GetProperty("status")} {(r.TryGetProperty("error", out var error) ? error : default)}"))}");
         }
 
         return runs;

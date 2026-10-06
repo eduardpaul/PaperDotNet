@@ -9,6 +9,8 @@ using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Identity.Contracts;
+using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Search.Contracts;
@@ -128,21 +130,30 @@ public sealed record ReindexPayload;
 /// Clears and refills the current tenant's index from every <see cref="ISearchSource"/> (SRC-10).
 /// Used by the reindex operation and by <c>paperdotnet reindex</c>.
 /// </summary>
-public sealed class SearchReindexer(IEnumerable<ISearchSource> sources, ISearchIndex index)
+public sealed class SearchReindexer(IEnumerable<ISearchSource> sources, IListItemStore items, IWorkflowTriggers triggers, IWorkflowDirectory workflows)
 {
     /// <summary>Rebuilds the index; <paramref name="progress"/> receives 0–100. Returns the source types.</summary>
     public async Task<IReadOnlyList<string>> ReindexAsync(Func<int, Task> progress, CancellationToken cancellationToken)
     {
-        var all = sources.ToList();
-        for (var i = 0; i < all.Count; i++)
+        var workspaces = (await items.AsSystem().GetListsAsync(null, null, cancellationToken)).Select(l => l.WorkspaceId).Distinct().ToList();
+        for (var i = 0; i < workspaces.Count; i++)
         {
-            var done = i;
-            await index.DeleteSourceAsync(all[i].SourceType, cancellationToken);
-            await all[i].ReindexAsync(index, fraction => progress((int)((done + fraction) * 100 / all.Count)), cancellationToken);
+            var request = Guid.CreateVersion7();
+            await triggers.RaiseAsync(SearchWorkflows.RebuildRequested, workspaces[i], null, null, request, cancellationToken);
+            while (true)
+            {
+                var runs = await workflows.GetEventRunsAsync(request, cancellationToken);
+                if (runs.FirstOrDefault(r => r.Status is "failed" or "cancelled") is { } failed)
+                {
+                    throw new InvalidOperationException($"Rebuild workflow {failed.Id} {failed.Status}: {failed.Error}");
+                }
+                if (runs.Count > 0 && runs.All(r => r.Status == "completed")) { break; }
+                await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken);
+            }
+            await progress((i + 1) * 100 / workspaces.Count);
         }
-
         await progress(100);
-        return all.Select(s => s.SourceType).ToList();
+        return sources.Select(s => s.SourceType).ToList();
     }
 }
 

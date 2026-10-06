@@ -115,14 +115,14 @@ internal sealed partial class BuiltInWorkflows(
     public async Task<(WorkflowDefinition? Row, List<string> Errors, bool NameTaken)> SetAsync(
         Guid workspaceId, BuiltInWorkflow workflow, bool enabled, JsonObject? parameters, CancellationToken ct, ListData? list = null)
     {
-        if ((workflow.Scope == BuiltInScope.Library) != (list is not null))
+        if ((workflow.Scope != BuiltInScope.Workspace) != (list is not null))
         {
-            return (null, [workflow.Scope == BuiltInScope.Library
-                ? $"'{workflow.Name}' is turned on per library (…/lists/{{listId}}/workflows/builtIns)."
+            return (null, [workflow.Scope != BuiltInScope.Workspace
+                ? $"'{workflow.Name}' is turned on per list (…/lists/{{listId}}/workflows/builtIns)."
                 : $"'{workflow.Name}' is turned on in the workspace, not per list."], false);
         }
 
-        if (list is { IsLibrary: false })
+        if (workflow.Scope == BuiltInScope.Library && list is { IsLibrary: false })
         {
             return (null, [$"'{workflow.Name}' works on document libraries; '{list.Name}' is a list."], false);
         }
@@ -210,19 +210,19 @@ internal sealed partial class BuiltInWorkflows(
     public async Task EnsureDefaultsAsync(ListData list, Guid tenantId, CancellationToken ct)
     {
         // Marked only once the rows are saved: an event handled at the same moment must not match before they exist.
-        if (!list.IsLibrary || EnsuredLibraries.ContainsKey((tenantId, list.Id)))
+        if (EnsuredLibraries.ContainsKey((tenantId, list.Id)))
         {
             return;
         }
 
-        foreach (var workflow in (await ListAsync(ct)).Where(w => w.Scope == BuiltInScope.Library && w.EnabledByDefault && IsAvailable(w)))
+        foreach (var workflow in (await ListAsync(ct)).Where(w => (w.Scope == BuiltInScope.List || (w.Scope == BuiltInScope.Library && list.IsLibrary) || w.Scope == BuiltInScope.Workspace) && w.EnabledByDefault && IsAvailable(w)))
         {
-            if (await RowAsync(list.WorkspaceId, workflow.Key, ct, list.Id) is not null)
+            if (await RowAsync(list.WorkspaceId, workflow.Key, ct, workflow.Scope == BuiltInScope.Workspace ? null : list.Id) is not null)
             {
                 continue;
             }
 
-            var (row, errors, _) = await SetAsync(list.WorkspaceId, workflow, true, null, ct, list);
+            var (row, errors, _) = await SetAsync(list.WorkspaceId, workflow, true, null, ct, workflow.Scope == BuiltInScope.Workspace ? null : list);
             if (row is null || errors.Count > 0)
             {
                 continue;

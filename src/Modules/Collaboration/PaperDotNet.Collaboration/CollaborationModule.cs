@@ -33,6 +33,9 @@ public sealed class CollaborationModule : IModule
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddWorkflowActivity<ItemActivityRecorder>();
+        services.AddWorkflow(ItemChangeWorkflows.Create("collaboration.recordChange", "Record item activity", "Records the original item event in the activity timeline.", "collaboration.recordChange",
+            WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted, WorkflowTriggers.ItemRestored));
         services.AddModuleDbContext<CollaborationDbContext>(CollaborationDbContext.Schema);
         services.AddScoped<IItemMoveParticipant, CollaborationItemMoveParticipant>();
         services.AddScoped<ItemActivity>();
@@ -40,10 +43,6 @@ public sealed class CollaborationModule : IModule
         services.AddScoped<CommentMentions>();
         services.AddScoped<IItemSearchContributor, CommentSearchContent>();
         services.AddScoped<ItemActivityRecorder>();
-        services.AddEventSubscriber<ItemAdded, ItemActivityRecorder>();
-        services.AddEventSubscriber<ItemUpdated, ItemActivityRecorder>();
-        services.AddEventSubscriber<ItemDeleted, ItemActivityRecorder>();
-        services.AddEventSubscriber<ItemRestored, ItemActivityRecorder>();
         services.AddEventSubscriber<ItemPurged, ItemActivityRecorder>();
         services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggers.CommentAdded, "A comment was added to an item (data: commentId, text, author, reply)."));
         services.AddScopes(CollaborationScopes.All);

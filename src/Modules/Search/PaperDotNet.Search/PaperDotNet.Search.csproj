@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Search over all data types with security trimming and facets (SRC-01…04); semantic and hybrid search with page hits (SRC-07…09). -->
   <ItemGroup>
+    <ProjectReference Include="..\..\Workflows\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
+    <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\PaperDotNet.Messaging\PaperDotNet.Messaging.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.AspNetCore.OData" />
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />

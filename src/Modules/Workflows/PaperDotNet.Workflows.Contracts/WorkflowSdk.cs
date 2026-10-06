@@ -86,6 +86,13 @@ public sealed record WorkflowOpenWait(string Key, Guid RunId, JsonObject? Data, 
 /// <summary>What the engine knows about workflows, for activities that work across runs (e.g. a batch).</summary>
 public interface IWorkflowDirectory
 {
+    Task<bool> IsBuiltInEnabledAsync(Guid workspaceId, string key, Guid? listId, CancellationToken cancellationToken) => Task.FromResult(false);
+    /// <summary>Executions caused by a durable trigger request, for coordinating parent workflow waits.</summary>
+    Task<IReadOnlyList<WorkflowRunInfo>> GetEventRunsAsync(Guid eventId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<WorkflowRunInfo>>([]);
+    /// <summary>Latest execution of an activity for an item, without exposing the engine's database.</summary>
+    Task<WorkflowRunInfo?> GetLatestRunAsync(Guid workspaceId, Guid itemId, string activityKey, CancellationToken cancellationToken) =>
+        Task.FromResult<WorkflowRunInfo?>(null);
     /// <summary>
     /// Enables a registered workspace built-in workflow with its existing/default parameters.
     /// Modules must authorize the configuration action before calling; returns false when unavailable or invalid.
@@ -99,6 +106,8 @@ public interface IWorkflowDirectory
     /// <summary>Whether the run is still running or waiting.</summary>
     Task<bool> IsRunActiveAsync(Guid runId, CancellationToken cancellationToken);
 }
+
+public sealed record WorkflowRunInfo(Guid Id, string Status, string? Node, string? Error, DateTimeOffset StartedAt);
 
 /// <summary>
 /// Registering workflow parts from a module, the same parts extensions add with <c>IExtensionBuilder</c> (where they are

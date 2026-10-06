@@ -106,7 +106,7 @@ internal sealed class TriggerCatalog(IEnumerable<WorkflowTriggerDefinition> exte
 /// created before its events are matched.
 /// </summary>
 internal sealed partial class WorkflowTriggerHandler(
-    WorkflowsDbContext db, IListItemStore items, ITermStore terms, WorkflowStarter starter, BuiltInWorkflows builtIns, ITenantContext tenant, ILogger<WorkflowTriggerHandler> logger)
+    WorkflowsDbContext db, IListItemStore items, ITermStore terms, WorkflowStarter starter, BuiltInWorkflows builtIns, ITenantContext tenant, TriggerCatalog catalog, ILogger<WorkflowTriggerHandler> logger)
     : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemDeleted>, IEventSubscriber<ItemRestored>,
       IEventSubscriber<WorkflowTriggerRaised>
 {
@@ -143,6 +143,8 @@ internal sealed partial class WorkflowTriggerHandler(
         var list = await items.AsSystem().GetListAsync(item.WorkspaceId, item.ListId, ct);
         var data = new JsonObject
         {
+            ["eventType"] = trigger,
+            ["event"] = JsonSerializer.SerializeToNode(integrationEvent, integrationEvent.GetType(), DefinitionJson.Options),
             ["before"] = JsonSerializer.SerializeToNode(integrationEvent.Before, DefinitionJson.Options),
             ["after"] = JsonSerializer.SerializeToNode(integrationEvent.After, DefinitionJson.Options),
             ["changedFields"] = new JsonArray([.. integrationEvent.ChangedFields.Select(name => JsonValue.Create(name))]),
@@ -160,14 +162,19 @@ internal sealed partial class WorkflowTriggerHandler(
 
         var store = items.AsSystem();
         var list = eventList ?? (item is null ? null : await store.GetListAsync(item.WorkspaceId, item.ListId, ct));
-        if (list is { IsLibrary: true })
+        var workspaceLists = list is null ? await store.GetListsAsync(workspaceId, null, ct) : [];
+        var defaultList = list ?? (workspaceLists.Count > 0 ? workspaceLists[0] : null);
+        if (defaultList is not null)
         {
-            await builtIns.EnsureDefaultsAsync(list, tenant.TenantId!.Value, ct);
+            await builtIns.EnsureDefaultsAsync(defaultList, tenant.TenantId!.Value, ct);
         }
 
+        var manualKeys = catalog.All.Any(t => t.Key == trigger && t.AllowDisabledBuiltIns)
+            ? (await builtIns.ListAsync(ct)).Where(w => w.AllowManualLaunch).Select(w => w.Key).ToArray()
+            : [];
         // Fetch matching definitions and versions together, excluding events already handled.
         var workflows = await db.Workflows.AsNoTracking()
-            .Where(a => a.WorkspaceId == workspaceId && a.Enabled && (a.ListId == null || a.ListId == (item == null ? null : (Guid?)item.ListId)))
+            .Where(a => a.WorkspaceId == workspaceId && (a.Enabled || (a.BuiltInKey != null && manualKeys.Contains(a.BuiltInKey))) && (a.ListId == null || a.ListId == (item == null ? null : (Guid?)item.ListId)))
             .Where(TriggerColumn.Has(trigger))
             .Where(w => !db.Runs.Any(r => r.EventId == source.EventId && r.WorkflowId == w.Id))
             .Join(db.Versions, w => new { WorkflowId = w.Id, Number = w.CurrentVersion }, v => new { v.WorkflowId, v.Number },

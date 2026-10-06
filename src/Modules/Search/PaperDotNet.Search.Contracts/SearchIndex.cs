@@ -1,9 +1,8 @@
 namespace PaperDotNet.Search.Contracts;
 
 /// <summary>
-/// A searchable document, pushed by the module that owns the content. <see cref="ScopeId"/> is its permission scope
-/// (ADR-0035): search only returns documents whose scope the caller can read (SRC-04), so permission changes do not
-/// touch the index.
+/// Source data and prepared chunks for workflow publication. <see cref="ScopeId"/> is its permission scope
+/// (ADR-0035): search only returns documents whose scope the caller can read (SRC-04), while current item eligibility also protects queries during asynchronous scope updates.
 /// </summary>
 public sealed record SearchDocumentData(
     Guid Id,
@@ -38,7 +37,23 @@ public sealed record SearchDocumentData(
     /// searched through <see cref="Body"/> and <see cref="Keywords"/>, as before.
     /// </summary>
     public IReadOnlyList<SearchField> Fields { get; init; } = [];
+
+    /// <summary>Prepared by workflow activities; stores persist these chunks without choosing a chunker.</summary>
+    public IReadOnlyList<PassageText> Chunks { get; init; } = [];
+
+    /// <summary>The version of source file text, independent of metadata and search publication.</summary>
+    public string? ContentRevision { get; init; }
+    public bool ContentReady { get; init; } = true;
 }
+
+/// <summary>Current metadata of an item, built by its owner independently of index execution.</summary>
+public interface ISearchItemSource
+{
+    Task<SearchDocumentData?> GetDocumentAsync(Guid itemId, CancellationToken cancellationToken);
+}
+
+/// <summary>Staged derived data. Only IDs and configuration, never this payload, are kept in workflow runs.</summary>
+public sealed record SearchGeneration(Guid Id, SearchDocumentData Document, string Revision, uint PolicyVersion);
 
 /// <summary>The search index of the current tenant.</summary>
 public interface ISearchIndex

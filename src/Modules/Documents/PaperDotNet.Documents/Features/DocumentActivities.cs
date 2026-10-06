@@ -50,7 +50,7 @@ internal static class DocumentActivity
 /// item. Continues on <c>text</c> when the file has text, on <c>noText</c> for scans and photos (e.g. to OCR them).
 /// </summary>
 internal sealed class ReadTextActivity(
-    DocumentsDbContext db, IBlobStore blobs, IListItemStore items, IUserPreferences preferences, ILiveEvents live, ITenantContext tenant, ICurrentUser user)
+    DocumentsDbContext db, IBlobStore blobs, IUserPreferences preferences, ILiveEvents live, ITenantContext tenant, ICurrentUser user)
     : IWorkflowActivity
 {
     public string Key => "document.readText";
@@ -101,7 +101,6 @@ internal sealed class ReadTextActivity(
         version.PageCount ??= Math.Max(1, pages.Count);
         version.TextLanguage ??= DocumentText.FirstLanguage(await DocumentText.LanguagesAsync(db, preferences, version, null, cancellationToken));
         await db.SaveChangesAsync(cancellationToken);
-        await items.ReindexAsync(version.ItemId, cancellationToken);
         live.Publish(DocumentLiveEvents.Changed(tenant, user, version, "text"));
 
         var hasText = version.Source == "ocr" || DocumentText.Enough(pages);

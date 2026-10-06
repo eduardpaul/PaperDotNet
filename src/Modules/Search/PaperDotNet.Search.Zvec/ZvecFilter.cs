@@ -68,6 +68,14 @@ internal static partial class ZvecFilter
         {
             In(ZvecLayout.ScopeId, filter.ReadableScopes.Select(ZvecLayout.Id)),
         };
+        if (filter.ReadableItems is { } items)
+        {
+            conditions.Add(Or([$"{ZvecLayout.SourceType} != {Quote("listItem")}", In(ZvecLayout.DocumentId, items.Select(ZvecLayout.Id))]));
+        }
+        foreach (var excluded in filter.ExcludedContainers)
+        {
+            conditions.Add($"{ZvecLayout.ContainerId} != {Quote(ZvecLayout.Id(excluded))}");
+        }
         if (filter.WorkspaceId is { } ws)
         {
             conditions.Add(Equal(ZvecLayout.WorkspaceId, ZvecLayout.Id(ws)));

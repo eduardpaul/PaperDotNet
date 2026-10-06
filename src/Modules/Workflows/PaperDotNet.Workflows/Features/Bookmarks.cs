@@ -123,6 +123,26 @@ internal sealed class WorkflowBookmarks(ITenantScopeFactory scopes, ITenantConte
 /// <summary>What activities may ask the engine about workflows and runs (<see cref="IWorkflowDirectory"/>).</summary>
 internal sealed class WorkflowDirectory(WorkflowsDbContext db, IServiceProvider services, PaperDotNet.Lists.Contracts.IListItemStore items) : IWorkflowDirectory
 {
+    public async Task<bool> IsBuiltInEnabledAsync(Guid workspaceId, string key, Guid? listId, CancellationToken cancellationToken)
+    {
+        var row = await db.Workflows.AsNoTracking().FirstOrDefaultAsync(w => w.WorkspaceId == workspaceId && w.BuiltInKey == key && w.ListId == listId, cancellationToken);
+        if (row is not null) { return row.Enabled; }
+        var builtIns = services.GetRequiredService<BuiltInWorkflows>();
+        var offered = await builtIns.FindAsync(key, cancellationToken);
+        return offered is not null && offered.EnabledByDefault && builtIns.IsAvailable(offered);
+    }
+    public async Task<IReadOnlyList<WorkflowRunInfo>> GetEventRunsAsync(Guid eventId, CancellationToken cancellationToken) =>
+        (await db.Runs.AsNoTracking().Where(r => r.EventId == eventId).OrderBy(r => r.Id).ToListAsync(cancellationToken))
+        .Select(r => new WorkflowRunInfo(r.Id, r.Status.ToString().ToLowerInvariant(), r.Node, r.Error, r.StartedAt)).ToList();
+    public async Task<WorkflowRunInfo?> GetLatestRunAsync(Guid workspaceId, Guid itemId, string activityKey, CancellationToken cancellationToken)
+    {
+        var quoted = System.Text.Json.JsonSerializer.Serialize(activityKey);
+        var run = await db.Runs.AsNoTracking().Where(r => r.WorkspaceId == workspaceId && r.ItemId == itemId
+            && db.Versions.Any(v => v.WorkflowId == r.WorkflowId && v.Number == r.WorkflowVersion && v.Definition.Contains(quoted)))
+            .OrderByDescending(r => r.Id).FirstOrDefaultAsync(cancellationToken);
+        return run is null ? null : new WorkflowRunInfo(run.Id, run.Status.ToString().ToLowerInvariant(), run.Node, run.Error, run.StartedAt);
+    }
+
     public async Task<bool> EnableBuiltInAsync(Guid workspaceId, string key, CancellationToken cancellationToken)
     {
         if (!(await items.AsSystem().GetListsAsync(workspaceId, null, cancellationToken)).Any())

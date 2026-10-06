@@ -9,8 +9,13 @@ namespace PaperDotNet.Tasks.Features;
 /// Raises the workflow trigger <c>task.completed</c> (ADR-0036) when a task's status becomes completed. The trigger is the
 /// item event again (its id and causation depth), so a redelivered event starts nothing twice and loops end.
 /// </summary>
-internal sealed class TaskCompletedTrigger(IListItemStore items, IWorkflowTriggers triggers) : IEventSubscriber<ItemUpdated>
+internal sealed class TaskCompletedTrigger(IListItemStore items, IWorkflowTriggers triggers) : ItemChangeActivity
 {
+    public override string Key => "tasks.raiseCompleted";
+    public override string Description => "Announces completed tasks to following workflows.";
+    protected override Task ExecuteAsync(ItemEvent change, CancellationToken ct) =>
+        change is ItemUpdated updated ? HandleAsync(updated, ct) : Task.CompletedTask;
+
     public async Task HandleAsync(ItemUpdated integrationEvent, CancellationToken cancellationToken)
     {
         if (integrationEvent.IsFolder || !integrationEvent.ChangedFields.Contains("status"))

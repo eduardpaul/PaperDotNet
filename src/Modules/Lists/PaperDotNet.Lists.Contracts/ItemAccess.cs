@@ -13,6 +13,8 @@ namespace PaperDotNet.Lists.Contracts;
 /// </remarks>
 public interface IItemAccess : IPrincipalSet
 {
+    /// <summary>Currently active readable items, for visibility while derived indexes catch up with deletes or scope moves.</summary>
+    Task<IReadOnlyCollection<Guid>> GetReadableItemIdsAsync(Guid? workspaceId, CancellationToken cancellationToken);
     /// <summary>
     /// The permission scopes the current user reaches in the given lists (every list of the tenant when null), with
     /// the highest level any of their principals has. A scope that is not returned gives no access.

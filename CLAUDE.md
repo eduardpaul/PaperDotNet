@@ -84,24 +84,25 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
 - Endpoints: Minimal APIs under `/v1.0`, `TypedResults`, `RequireScope(...)`,
   `ApiErrors` for problems, `Page.Create` for lists, ETags for mutable resources.
 - IDs via `Ids.New()` (UUIDv7); time via `TimeProvider`.
-- Events: changing or rejecting an item write → `IItemMutator` (Lists.Contracts, runs
-  before the save, ADR-0023); every reaction to a saved change → `IntegrationEvent` +
-  `IEventSubscriber<T>` (idempotent, registered with `services.AddEventSubscriber<TEvent, TSubscriber>()`,
-  one message per subscriber), published with `IOutbox.SaveChangesAsync(db, events)`. Only `PaperDotNet.Messaging`
-  references Wolverine.
+- Events: changing or rejecting an item write → `IItemMutator` (Lists.Contracts, before
+  the save). Product reactions to saved item changes → registered workflow activities
+  and built-in workflows, using `ItemChangeActivity` / `ItemChangeWorkflows.Create`
+  for original item-event context. Integration events and subscribers transport
+  triggers; publish atomically through `IOutbox.SaveChangesAsync`. Activities must
+  be idempotent. Only `PaperDotNet.Messaging` references Wolverine. Purge cleanup,
+  retention and durable delivery remain infrastructure subscribers/jobs.
 - Item access (ADR-0035): check `schema.Access.Level(item.ScopeId)` (404 below Read) and
   filter queries with `schema.Access.Filter(level)`; other modules use `IItemAccess`
   (Lists.Contracts). Permissions are `acl_entries` per scope (the list, or an item with unique
   permissions); workspace roles are principals (`WorkspaceRolePrincipals`). Caches of what a user
   may access carry `AccessCacheTags.Principals`; a `HybridCache` factory that queries tenant data
   must be called with `CancellationToken.None` (with a cancellable token it runs without the tenant).
-- Searchable content → push `SearchDocumentData` through `ISearchIndex`
-  (Search.Contracts) from an event subscriber, with the content's permission scope
-  (`ScopeId`, ADR-0035: search trims by the caller's readable scopes); implement `ISearchSource` for reindexing. Text with pages goes in
-  `Pages` (page hits, SRC-09); filterable metadata in `Fields` (typed `SearchField`, `$filter` on `/v1.0/search`);
-  semantic search embeds passages automatically when
-  `AI:Embeddings` is configured (ADR-0027). AI providers come from `PaperDotNet.AI`
-  (`IEmbeddingGenerator`, Microsoft.Extensions.AI), off by default.
+- Searchable content → expose source data through `ISearchItemSource` and versioned
+  text through `IItemTextSource`; request indexing with `IListItemStore.ReindexAsync`
+  (workflow transport). `search.*` activities stage, publish and embed prepared
+  chunks through `ISearchStore`; producers never write a search backend. Query-time
+  ACL and list-inclusion filters are mandatory, independent of async removal.
+  AI providers remain optional (`IEmbeddingGenerator`, Microsoft.Extensions.AI).
 - Search stores implement `ISearchStore` (Search.Contracts, ADR-0043), are registered with `AddSearchStore<T>(name)`
   and must pass `SearchStoreConformanceTests`; `SearchService` only talks to the store. Only
   `PaperDotNet.Search.Zvec` calls zvec (ADR-0044, opt-in).

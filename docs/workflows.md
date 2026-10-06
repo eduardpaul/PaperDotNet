@@ -1032,3 +1032,30 @@ Do not assume mechanically translated filters have identical behavior: new
 conditions explicitly use ordinal, case-sensitive text comparisons, collection
 set semantics, and non-matches for missing or incompatible fields. Check these
 semantics when replacing an existing OData condition.
+
+## Saved item processing
+
+Product reactions to item add/update/delete/restore run through the shared engine.
+Search registers `search.chunk`, `search.publish`, `search.embed`, `search.remove`,
+`search.container` and `search.rebuild`. Its per-list **Index for search** built-in
+supports manual launch while automatic execution is disabled. Source text is read
+through its owner contracts, and stores persist prepared chunks. See [search.md](search.md).
+
+Note links, item activity, follower alerts, change notification queueing, task
+completion announcements and recurring task creation are enabled workspace
+built-ins. Their activities use `ItemChangeActivity` to access the original
+`ItemEvent` in `WorkflowActivityContext.ItemChange`. `ItemChangeWorkflows.Create`
+provides a reusable one-node definition; no source event is reconstructed from
+mutable current fields. Each implementation must remain safe to replay.
+
+`BuiltInScope.List` offers a built-in on ordinary lists as well as libraries;
+`BuiltInScope.Library` remains restricted to document libraries. Defaults are
+provisioned before an event is matched; explicit on/off choices are preserved.
+
+Registered trigger definitions can opt into `AllowDisabledBuiltIns` for explicit
+requests. This only starts built-ins with `AllowManualLaunch`, preserving disabled
+user workflows. `CompletionKind` connects a run's completion to a durable bookmark
+whose key is the request event ID. Success, failure and cancellation emit
+`WorkflowRunFinished`; early completions are retained by the shared bookmark
+infrastructure. Rebuild coordinators can wait and run again using bounded state
+without polling inside an activity or storing content in workflow outputs.

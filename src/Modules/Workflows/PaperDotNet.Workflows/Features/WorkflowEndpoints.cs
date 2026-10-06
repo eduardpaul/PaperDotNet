@@ -386,7 +386,7 @@ internal static class WorkflowEndpoints
         await builtIns.EnsureDefaultsAsync(list, tenant.TenantId!.Value, ct);
         var rows = await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == workspaceId && w.ListId == listId && w.BuiltInKey != null).ToListAsync(ct);
         return TypedResults.Ok((await builtIns.ListAsync(ct))
-            .Where(w => w.Scope == BuiltInScope.Library && list.IsLibrary)
+            .Where(w => w.Scope == BuiltInScope.List || (w.Scope == BuiltInScope.Library && list.IsLibrary))
             .Select(w => ToResponse(builtIns, w, rows.FirstOrDefault(r => r.BuiltInKey == w.Key), list.Name))
             .ToList());
     }
@@ -401,7 +401,7 @@ internal static class WorkflowEndpoints
             return denied;
         }
 
-        if (await items.GetListAsync(workspaceId, listId, ct) is not { } list || await builtIns.FindAsync(key, ct) is not { Scope: BuiltInScope.Library } workflow)
+        if (await items.GetListAsync(workspaceId, listId, ct) is not { } list || await builtIns.FindAsync(key, ct) is not { Scope: BuiltInScope.Library or BuiltInScope.List } workflow)
         {
             return ApiErrors.NotFound();
         }
@@ -542,8 +542,8 @@ internal static class WorkflowEndpoints
             return denied;
         }
 
-        if (await items.GetListAsync(workspaceId, listId, ct) is not { IsLibrary: true } list
-            || await builtIns.FindAsync(key, ct) is not { Scope: BuiltInScope.Library, AllowManualLaunch: true } builtIn || !builtIns.IsAvailable(builtIn))
+        if (await items.GetListAsync(workspaceId, listId, ct) is not { } list
+            || await builtIns.FindAsync(key, ct) is not { Scope: BuiltInScope.Library or BuiltInScope.List, AllowManualLaunch: true } builtIn || !builtIns.IsAvailable(builtIn))
         {
             return ApiErrors.NotFound();
         }
@@ -708,7 +708,7 @@ internal static class WorkflowEndpoints
 
     /// <summary>Runs in the workspace, newest first; filter by <c>workflowId</c>, <c>itemId</c> or <c>status</c>.</summary>
     private static async Task<Results<Ok<Page<RunResponse>>, ValidationProblem, ProblemHttpResult>> ListRunsAsync(
-        Guid workspaceId, Guid? workflowId, Guid? itemId, string? status, IWorkspaceAccess workspaces, WorkflowsDbContext db, HttpRequest http,
+        Guid workspaceId, Guid? workflowId, Guid? itemId, string? status, IWorkspaceAccess workspaces, WorkflowsDbContext db, HttpRequest http, IItemAccess itemAccess,
         CancellationToken ct)
     {
         if (!EnumQuery.TryParse<RunStatus>(status, out var statusFilter))
@@ -722,7 +722,9 @@ internal static class WorkflowEndpoints
         }
 
         var page = PageRequest.From(http);
-        var query = db.Runs.AsNoTracking().Where(r => r.WorkspaceId == workspaceId);
+        var readable = (await itemAccess.GetReadableItemIdsAsync(workspaceId, ct)).ToArray();
+        var canManage = await workspaces.GetPermissionAsync(workspaceId, ct) >= WorkspaceAccessLevel.Manage;
+        var query = db.Runs.AsNoTracking().Where(r => r.WorkspaceId == workspaceId && (canManage || r.ItemId == null || EF.Parameter(readable).Contains(r.ItemId.Value)));
         query = itemId is { } item ? query.Where(r => r.ItemId == item) : query;
         query = workflowId is { } workflow ? query.Where(r => r.WorkflowId == workflow) : query;
         query = statusFilter is { } wanted ? query.Where(r => r.Status == wanted) : query;
@@ -738,7 +740,7 @@ internal static class WorkflowEndpoints
     }
 
     private static async Task<Results<Ok<RunResponse>, ProblemHttpResult>> GetRunAsync(
-        Guid workspaceId, Guid id, IWorkspaceAccess workspaces, WorkflowsDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid id, IWorkspaceAccess workspaces, WorkflowsDbContext db, IListItemStore items, CancellationToken ct)
     {
         if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Read, ct) is { } denied)
         {
@@ -746,6 +748,8 @@ internal static class WorkflowEndpoints
         }
 
         var run = await db.Runs.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id && r.WorkspaceId == workspaceId, ct);
+        if (run?.ItemId is { } target && await workspaces.GetPermissionAsync(workspaceId, ct) < WorkspaceAccessLevel.Manage
+            && await items.GetByIdAsync(target, ct) is null) { return ApiErrors.NotFound(); }
         return run is null ? ApiErrors.NotFound() : TypedResults.Ok(await ToResponseAsync(db, run, ct));
     }
 

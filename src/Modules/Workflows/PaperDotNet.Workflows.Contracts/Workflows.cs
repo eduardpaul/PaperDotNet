@@ -1,10 +1,22 @@
 using System.Text.Json.Nodes;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Lists.Contracts;
 
 namespace PaperDotNet.Workflows.Contracts;
 
 /// <summary>The item a workflow runs on.</summary>
 public sealed record WorkflowItem(Guid WorkspaceId, Guid ListId, Guid ItemId);
+
+/// <summary>Durable completion notification for coordinating workflows through events and bookmarks.</summary>
+public sealed record WorkflowRunFinished : IntegrationEvent
+{
+    public required Guid RunId { get; init; }
+    public required Guid WorkspaceId { get; init; }
+    public Guid? CauseEventId { get; init; }
+    public required string Status { get; init; }
+    public string? Trigger { get; init; }
+    public string? Error { get; init; }
+}
 
 /// <summary>
 /// Outcome of an activity: done with an <see cref="Output"/> (recorded with the run), failed with an
@@ -157,6 +169,9 @@ public sealed class WorkflowActivityContext
     /// <summary>Data of an extension trigger, if any.</summary>
     public JsonObject? Data { get; init; }
 
+    /// <summary>The immutable item event that started this run, including its snapshots and actor.</summary>
+    public ItemEvent? ItemChange { get; init; }
+
     /// <summary>Uniform run context: trigger, input, data, workspaceId, listId, itemId, userId and startedAt.</summary>
     public JsonObject? ExecutionContext { get; init; }
 
@@ -223,7 +238,14 @@ public interface IWorkflowActivity
 }
 
 /// <summary>A trigger an extension offers to workflows (key starts with the extension id).</summary>
-public sealed record WorkflowTriggerDefinition(string Key, string Description);
+public sealed record WorkflowTriggerDefinition(string Key, string Description)
+{
+    /// <summary>Explicit system requests may launch opted-in built-ins while automatic execution is disabled.</summary>
+    public bool AllowDisabledBuiltIns { get; init; }
+
+    /// <summary>Completes a bookmark of this kind, keyed by the request event ID, when its runs end.</summary>
+    public string? CompletionKind { get; init; }
+}
 
 /// <summary>Starts the workflows of an extension trigger (in the background, like item events).</summary>
 public interface IWorkflowTriggers
@@ -285,6 +307,9 @@ public enum BuiltInScope
 
     /// <summary>Turned on per document library (e.g. reading the text of its files).</summary>
     Library = 1,
+
+    /// <summary>Turned on per list, including ordinary lists and document libraries.</summary>
+    List = 2,
 }
 
 public static class BuiltInRequirements

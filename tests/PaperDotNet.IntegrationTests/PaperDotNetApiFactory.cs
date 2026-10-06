@@ -133,14 +133,8 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
             builder.UseSetting("Search:Store", searchStore);
         }
 
-        // A test run indexes in hundreds of tenants at once; a real installation keeps the defaults. With zvec, the
-        // per-minute embedding job opens every tenant collection with new passages (about 150 ms each) and holds up the
-        // other recurring jobs; the semantic tests run it themselves.
+        // Bound native collections when a test run indexes many tenants at once.
         builder.UseSetting("Search:Zvec:MaxOpenCollections", "16");
-        if (Environment.GetEnvironmentVariable("PAPERDOTNET_TEST_SEARCH_STORE") == "zvec")
-        {
-            builder.UseSetting("Search:EmbeddingSchedule", "0 * * * *");
-        }
         builder.ConfigureTestServices(services =>
         {
             services.AddScoped<IItemMutator, TestMutator>();

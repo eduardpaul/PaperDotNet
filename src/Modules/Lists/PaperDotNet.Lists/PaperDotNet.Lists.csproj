@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Lists engine: content types, field types, lists/libraries, items, folders, views and Graph-style item queries. -->
   <ItemGroup>
+    <ProjectReference Include="..\..\Workflows\PaperDotNet.Workflows.Contracts\PaperDotNet.Workflows.Contracts.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\Provisioning\PaperDotNet.Provisioning.Contracts\PaperDotNet.Provisioning.Contracts.csproj" />
     <ProjectReference Include="..\PaperDotNet.Lists.Contracts\PaperDotNet.Lists.Contracts.csproj" />

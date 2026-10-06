@@ -111,7 +111,7 @@ public sealed class WorkflowTests(PaperDotNetApiFactory factory)
         Assert.Equal(big, run.GetProperty("itemId").GetGuid());
         Assert.NotEqual(JsonValueKind.Null, run.GetProperty("eventId").ValueKind);
         await Task.Delay(500, Ct);
-        Assert.Empty(Values(await GetAsync(s.Admin, $"{s.Workflows}/runs?itemId={small}")));
+        Assert.Empty(Values(await GetAsync(s.Admin, $"{s.Workflows}/runs?workflowId={workflow}&itemId={small}")));
         Assert.Single(Values(await GetAsync(s.Admin, $"{s.Workflows}/runs?workflowId={workflow}&status=completed")));
         Assert.Empty(Values(await GetAsync(s.Admin, $"{s.Workflows}/runs?workflowId={workflow}&status=failed")));
         Assert.Equal(HttpStatusCode.BadRequest, (await s.Admin.GetAsync($"{s.Workflows}/runs?status=done", Ct)).StatusCode);
@@ -142,7 +142,7 @@ public sealed class WorkflowTests(PaperDotNetApiFactory factory)
         }
 
         var broken = (await s.Admin.CreateItemAsync(s.Workspace, s.Invoices, new { fields = new { title = "scan-3", amount = 1 } })).GetProperty("id").GetGuid();
-        var failed = Values(await WaitAsync(s.Admin, $"{s.Workflows}/runs?itemId={broken}", r => Values(r).Count == 1)).Single();
+        var failed = Values(await WaitAsync(s.Admin, $"{s.Workflows}/runs?workflowId={workflow}&itemId={broken}", r => Values(r).Count == 1)).Single();
         Assert.Equal("failed", Status(failed));
         Assert.StartsWith("condition:", failed.GetProperty("error").GetString(), StringComparison.Ordinal);
     }
@@ -801,7 +801,7 @@ public sealed class WorkflowTests(PaperDotNetApiFactory factory)
         var apply = await foreign.PostAsync("/v1.0/provisioning/apply", new StringContent(xml, System.Text.Encoding.UTF8, "application/xml"), Ct);
         Assert.True(apply.IsSuccessStatusCode, await apply.Content.ReadAsStringAsync(Ct));
         var foreignWs = Values(await GetAsync(foreign, "/v1.0/workspaces")).Single(w => w.GetProperty("name").GetString() == "Finance").GetProperty("id").GetGuid();
-        Assert.Equal(["Big only", "Notify", "Tasks only"], (await GetAsync(foreign, $"/v1.0/workspaces/{foreignWs}/workflows")).EnumerateArray().Select(r => r.GetProperty("name").GetString()));
+        Assert.Equal(["Big only", "Notify", "Tasks only"], (await GetAsync(foreign, $"/v1.0/workspaces/{foreignWs}/workflows")).EnumerateArray().Where(r => !r.TryGetProperty("builtIn", out var builtin) || builtin.ValueKind == JsonValueKind.Null).Select(r => r.GetProperty("name").GetString()));
         var again = await foreign.PostAsync("/v1.0/provisioning/apply", new StringContent(xml, System.Text.Encoding.UTF8, "application/xml"), Ct);
         Assert.Empty((await again.ReadJsonAsync()).GetProperty("changes").EnumerateArray());
 

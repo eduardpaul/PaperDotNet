@@ -13,6 +13,7 @@ using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Documents;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Permissions;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.RecycleBin;
+using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.SearchSettings;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Views;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows;
 using System.Collections.Generic;
@@ -72,6 +73,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.RecycleBin.RecycleBinRequestBuilder RecycleBin
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.RecycleBin.RecycleBinRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The searchSettings property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.SearchSettings.SearchSettingsRequestBuilder SearchSettings
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.SearchSettings.SearchSettingsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The views property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Views.ViewsRequestBuilder Views

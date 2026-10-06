@@ -35,7 +35,7 @@ export function LaunchWorkflowButton({
   const { data } = useQuery(workflowsQuery(workspaceId));
   const { data: builtIns } = useQuery({
     ...libraryWorkflowsQuery(workspaceId, list?.id ?? ''),
-    enabled: !workflow && list?.kind === 'library' && !!list.id,
+    enabled: !workflow && !!list?.id,
   });
   const candidates = launchOptions(workflow ? [workflow] : (data ?? []), list, builtIns);
   if (!candidates.length) return null;

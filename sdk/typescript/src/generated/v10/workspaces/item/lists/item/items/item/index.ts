@@ -26,6 +26,8 @@ import { PermissionsRequestBuilderNavigationMetadata, PermissionsRequestBuilderR
 // @ts-ignore
 import { RecurrenceRequestBuilderRequestsMetadata, type RecurrenceRequestBuilder } from './recurrence/index.js';
 // @ts-ignore
+import { SearchIndexRequestBuilderRequestsMetadata, type SearchIndexRequestBuilder } from './searchIndex/index.js';
+// @ts-ignore
 import { SeriesRequestBuilderNavigationMetadata, SeriesRequestBuilderRequestsMetadata, type SeriesRequestBuilder } from './series/index.js';
 // @ts-ignore
 import { TasksRequestBuilderRequestsMetadata, type TasksRequestBuilder } from './tasks/index.js';
@@ -84,6 +86,10 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      * The recurrence property
      */
     get recurrence(): RecurrenceRequestBuilder;
+    /**
+     * The searchIndex property
+     */
+    get searchIndex(): SearchIndexRequestBuilder;
     /**
      * The series property
      */
@@ -180,6 +186,9 @@ export const WithItemItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     },
     recurrence: {
         requestsMetadata: RecurrenceRequestBuilderRequestsMetadata,
+    },
+    searchIndex: {
+        requestsMetadata: SearchIndexRequestBuilderRequestsMetadata,
     },
     series: {
         requestsMetadata: SeriesRequestBuilderRequestsMetadata,

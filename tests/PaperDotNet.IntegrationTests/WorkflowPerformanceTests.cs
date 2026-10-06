@@ -28,9 +28,13 @@ public sealed class WorkflowPerformanceTests(PaperDotNetApiFactory factory)
         var workspace = await client.CreateWorkspaceAsync("Performance");
         var list = (await (await client.PostAsJsonAsync($"/v1.0/workspaces/{workspace}/lists", new { name = "Tasks", templateKey = "tasks" }, Ct)).ReadJsonAsync()).GetProperty("id").GetGuid();
         var item = await client.CreateItemAsync(workspace, list, new { fields = new { title = "Tagged" } });
+        // Provision product defaults before measuring custom-workflow fan-out, then isolate those candidates.
+        await client.GetAsync($"/v1.0/workspaces/{workspace}/lists/{list}/workflows/builtIns", Ct);
         var scopes = factory.Services.GetRequiredService<ITenantScopeFactory>();
         await using var scope = scopes.CreateScope(tenant.Id, tenant.Identifier);
         var services = scope.ServiceProvider;
+        await services.GetRequiredService<WorkflowsDbContext>().Workflows
+            .Where(w => w.WorkspaceId == workspace && w.BuiltInKey != null).ExecuteUpdateAsync(u => u.SetProperty(w => w.Enabled, false), Ct);
         var counter = new VersionReads();
         var options = new DbContextOptionsBuilder<WorkflowsDbContext>(services.GetRequiredService<DbContextOptions<WorkflowsDbContext>>()).AddInterceptors(counter).Options;
         await using var db = new WorkflowsDbContext(options, services.GetRequiredService<ITenantContext>());

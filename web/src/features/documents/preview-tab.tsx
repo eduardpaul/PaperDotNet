@@ -127,7 +127,9 @@ function DocumentWorkflows({
 }) {
   const queryClient = useQueryClient();
   const { data: runs } = useQuery(documentRunsQuery(workspaceId, listId, itemId));
-  const latest = [...new Map((runs ?? []).map((r) => [r.workflowId!, r] as const)).values()].reverse();
+  const latest = (runs ?? []).filter(
+    (run, index, all) => all.findIndex((r) => r.workflowId === run.workflowId) === index,
+  );
   const runAgain = useMutation({
     // OCR run by hand recognizes the text even when the file has some.
     mutationFn: (workflow: string) =>

@@ -26,6 +26,8 @@ internal sealed class ConceptEmbeddingGenerator : IEmbeddingGenerator<string, Em
         ["medic"] = "doctor",
     };
 
+    public System.Collections.Concurrent.ConcurrentDictionary<string, bool> FailingInputs { get; } = new(StringComparer.Ordinal);
+
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _embedded = new(StringComparer.Ordinal);
 
     /// <summary>
@@ -41,6 +43,7 @@ internal sealed class ConceptEmbeddingGenerator : IEmbeddingGenerator<string, Em
         var result = new GeneratedEmbeddings<Embedding<float>>();
         foreach (var text in values)
         {
+            if (FailingInputs.Keys.Any(marker => text.Contains(marker, StringComparison.Ordinal))) { throw new InvalidOperationException("Test embedding provider is unavailable."); }
             _embedded.AddOrUpdate(text, 1, (_, count) => count + 1);
             var vector = new float[Dimensions];
             foreach (var word in FullTextQuery.Tokenize(text))

@@ -1,3 +1,4 @@
+import { SearchSettings } from '@/features/search/search-settings';
 import type { ListVersioning } from '@paperdotnet/client';
 import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -88,6 +89,7 @@ function General() {
   const noun = list.kind === 'library' ? 'library' : 'list';
   return (
     <>
+      <SearchSettings workspaceId={workspaceId} listId={listId} />
       <form onSubmit={onSubmit}>
         <SettingsSection
           title="General"

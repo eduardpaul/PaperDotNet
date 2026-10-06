@@ -146,11 +146,17 @@ internal sealed class WorkflowStarter(
                 messages.Add(new ResumeRun(run.Id, null, tenant.TenantId!.Value, tenant.TenantIdentifier!));
             }
 
-            db.Runs.Add(run);
             runs.Add(run);
         }
 
-        await outbox.SaveChangesAsync(db, [], messages, ct);
+        // Cancellation retries may clear the tracker. Attach new runs only after every older run is settled.
+        db.Runs.AddRange(runs);
+        await outbox.SaveChangesAsync(db, runs.Where(r => r.Status == RunStatus.Failed).Select(r => (IntegrationEvent)new WorkflowRunFinished
+        {
+            TenantId = tenant.TenantId!.Value, TenantIdentifier = tenant.TenantIdentifier!, UserId = r.StartedBy,
+            RunId = r.Id, WorkspaceId = r.WorkspaceId, CauseEventId = r.EventId, Status = "failed", Error = r.Error,
+            Trigger = (r.Data is null ? null : JsonNode.Parse(r.Data))?["$workflowContext"]?["trigger"]?.GetValue<string>(),
+        }).ToList(), messages, ct);
         return runs;
     }
 
@@ -701,6 +707,15 @@ internal sealed partial class WorkflowInterpreter(
             Data = payload?.ToJsonString(),
         };
 
+        WorkflowRunFinished Finished() => new()
+        {
+            EventId = TriggerSchedules.EventId("finished", run.Id, run.Status, run.CompletedAt!.Value.UtcTicks),
+            TenantId = tenant.TenantId!.Value, TenantIdentifier = tenant.TenantIdentifier!, UserId = run.StartedBy,
+            RunId = run.Id, WorkspaceId = run.WorkspaceId, CauseEventId = run.EventId,
+            Status = run.Status.ToString().ToLowerInvariant(), Error = run.Error,
+            Trigger = executionContext?["trigger"]?.GetValue<string>(),
+        };
+
         void Advance(string node)
         {
             run.Node = node;
@@ -718,7 +733,7 @@ internal sealed partial class WorkflowInterpreter(
             run.WaitingOn = null;
             run.CompletedAt = time.GetUtcNow();
             await SaveAsync(events: [Event(WorkflowEvents.Failed,
-                new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = "failed", ["error"] = run.Error }, run.CompletedAt.Value.UtcTicks)]);
+                new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = "failed", ["error"] = run.Error }, run.CompletedAt.Value.UtcTicks), Finished()]);
             LogRunFailed(run.Id, error);
         }
 
@@ -727,7 +742,7 @@ internal sealed partial class WorkflowInterpreter(
             run.Status = RunStatus.Completed;
             run.CompletedAt = time.GetUtcNow();
             Log("Completed");
-            await SaveAsync(events: [Event(WorkflowEvents.Completed, new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = "completed" })]);
+            await SaveAsync(events: [Event(WorkflowEvents.Completed, new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = "completed" }), Finished()]);
         }
 
         // Moves on along the outcome's port (done when that port is not connected); false when the run ended.
@@ -980,7 +995,7 @@ internal sealed partial class WorkflowInterpreter(
                     Log("Skipped: another run of this workflow on the item is going (concurrency: skip).");
                     run.Status = RunStatus.Cancelled;
                     run.CompletedAt = time.GetUtcNow();
-                    await SaveAsync();
+                    await SaveAsync(events: [Finished()]);
                     return;
                 }
 
@@ -1603,7 +1618,12 @@ internal sealed class RunService(
             db.Bookmarks.RemoveRange(await db.Bookmarks.Where(b => b.RunId == run.Id && b.CompletedAt == null).ToListAsync(ct));
             try
             {
-                await db.SaveChangesAsync(ct);
+                await outbox.SaveChangesAsync(db, [new WorkflowRunFinished
+                {
+                    TenantId = tenant.TenantId!.Value, TenantIdentifier = tenant.TenantIdentifier!, UserId = run.StartedBy,
+                    RunId = run.Id, WorkspaceId = run.WorkspaceId, CauseEventId = run.EventId, Status = "cancelled",
+                    Trigger = (run.Data is null ? null : JsonNode.Parse(run.Data))?["$workflowContext"]?["trigger"]?.GetValue<string>(),
+                }], cancellationToken: ct);
                 return;
             }
             catch (DbUpdateConcurrencyException) when (attempt < 3)

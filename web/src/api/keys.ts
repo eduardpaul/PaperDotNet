@@ -28,6 +28,10 @@ export const keys = {
   /** A library's document workflows (ADR-0038: reading the text, thumbnails, pages, OCR). */
   libraryWorkflows: (workspaceId: string, listId: string) =>
     ['workspaces', workspaceId, 'lists', listId, 'workflows', 'builtIns'] as const,
+  searchSettings: (workspaceId: string, listId: string) =>
+    ['workspaces', workspaceId, 'lists', listId, 'searchSettings'] as const,
+  searchIndex: (workspaceId: string, listId: string, itemId: string) =>
+    ['workspaces', workspaceId, 'lists', listId, 'items', itemId, 'searchIndex'] as const,
   smartFolders: ['smartFolders'] as const,
   search: (query: object) => ['search', query] as const,
 };

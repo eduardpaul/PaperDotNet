@@ -339,6 +339,14 @@ internal sealed class AiGateway(
             }
         }
 
+        foreach (var source in services.GetServices<IItemTextSource>())
+        {
+            if ((await source.GetTextAsync([item.ItemId], ct)).TryGetValue(item.ItemId, out var content))
+            {
+                text.AppendLine().AppendLine(content.Text);
+            }
+        }
+
         var max = Math.Max(1000, options.Value.MaxInputCharacters);
         return text.Length > max ? text.ToString(0, max) : text.ToString();
     }

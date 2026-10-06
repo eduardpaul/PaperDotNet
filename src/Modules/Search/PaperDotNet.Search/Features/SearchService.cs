@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using PaperDotNet.Search.Data;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Search.Contracts;
@@ -30,7 +32,7 @@ internal sealed record SearchResult(IReadOnlyList<SearchHit> Hits, int Count, Se
 /// child terms, embeds the query, and leaves finding and ranking to the <see cref="ISearchStore"/> (ADR-0043).
 /// </summary>
 internal sealed class SearchService(
-    ISearchStore store, EmbeddingModel embeddings, ITermStore terms, IItemAccess access, IOptions<SearchOptions> options)
+    ISearchStore store, EmbeddingModel embeddings, ITermStore terms, IItemAccess access, IOptions<SearchOptions> options, SearchDbContext db)
 {
     public const int DefaultTop = 25;
     public const int MaxTop = 100;
@@ -130,6 +132,8 @@ internal sealed class SearchService(
 
         return new StoreFilter(readable)
         {
+            ReadableItems = await access.GetReadableItemIdsAsync(request.WorkspaceId, ct),
+            ExcludedContainers = await db.ContainerPolicies.AsNoTracking().Where(p => !p.Included).Select(p => p.Id).ToArrayAsync(ct),
             WorkspaceId = request.WorkspaceId,
             ContainerId = request.ContainerId,
             ContentTypeId = request.ContentTypeId,

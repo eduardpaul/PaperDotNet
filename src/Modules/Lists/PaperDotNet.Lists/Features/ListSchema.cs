@@ -218,6 +218,17 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
 internal sealed class ItemAccess(
     ListsDbContext db, IUserDirectory users, IWorkspaceAccess workspaces, ICurrentUser user, ITenantContext tenant, HybridCache cache) : IItemAccess
 {
+    public async Task<IReadOnlyCollection<Guid>> GetReadableItemIdsAsync(Guid? workspaceId, CancellationToken cancellationToken)
+    {
+        var scopes = (await GetScopesAsync(null, cancellationToken)).Keys.ToArray();
+        var items = db.Items.AsNoTracking().Where(i => !i.IsFolder && EF.Parameter(scopes).Contains(i.ScopeId));
+        if (workspaceId is { } id)
+        {
+            items = items.Where(i => db.Lists.Any(l => l.Id == i.ListId && l.WorkspaceId == id));
+        }
+        return await items.Select(i => i.Id).ToArrayAsync(cancellationToken);
+    }
+
     private static readonly HybridCacheEntryOptions CacheOptions = new() { Expiration = TimeSpan.FromMinutes(1) };
     private Guid[]? principals;
 

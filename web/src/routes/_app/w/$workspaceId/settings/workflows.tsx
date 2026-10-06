@@ -1,3 +1,4 @@
+import { listBuilder } from '@/features/lists/queries';
 import type { WorkflowResponse } from '@paperdotnet/client';
 import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -52,7 +53,10 @@ function Workflows() {
   const toggle = useMutation({
     mutationFn: ({ workflow, enabled }: { workflow: WorkflowResponse; enabled: boolean }): Promise<unknown> =>
       workflow.builtIn
-        ? workspaceBuilder(workspaceId).workflows.builtIns.byKey(workflow.builtIn).put({ enabled })
+        ? (workflow.listId
+            ? listBuilder(workspaceId, workflow.listId).workflows.builtIns.byKey(workflow.builtIn)
+            : workspaceBuilder(workspaceId).workflows.builtIns.byKey(workflow.builtIn)
+          ).put({ enabled }, ifMatch(workflow))
         : workspaceBuilder(workspaceId)
             .workflows.byId(workflow.id!)
             .put({ ...requestFrom(draftFrom(workflow)), enabled }, ifMatch(workflow)),
