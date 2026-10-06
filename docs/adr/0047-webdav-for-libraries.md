@@ -1,8 +1,10 @@
-# ADR-0047: WebDAV for libraries on a vendored Dav.AspNetCore.Server
+# ADR-0047: WebDAV for libraries on a vendored FubarDev.WebDavServer
 
 - **Status:** Proposed
 - **Date:** 2026-10-06
 - **Plan:** [webdav-plan.md](../webdav-plan.md)
+- **Evidence:** [spikes/webdav-poc](../../spikes/webdav-poc/README.md) and
+  [spikes/webdav-poc-fubar](../../spikes/webdav-poc-fubar/README.md)
 
 ## Context
 
@@ -25,32 +27,54 @@ hand-roll protocol code. We looked at the options again:
 
 | Option | License | State |
 |---|---|---|
-| [Dav.AspNetCore.Server](https://github.com/ThuCommix/Dav.AspNetCore.Server) | MIT, no dependencies | RFC 4918 class 1 and 2, ASP.NET Core middleware, pluggable `IStore`, `ILockManager` and `IPropertyStore`. Small (about 5,500 lines with tests), one maintainer, targets net7.0, last commit 2025-10-10 (`7ef7cbf`) |
+| [FubarDevelopment/WebDavServer](https://github.com/FubarDevelopment/WebDavServer), branch `release/2.0` | MIT | RFC 4918 class 1 and 2 with a virtual file system (`IFileSystemFactory` per user, `ICollection`, `IDocument`), lock manager base class, property stores. About 28,000 lines plus 282 unit tests. `release/2.0` (200 commits after `master`, last commit 2022-11-24, `1f78db5`) was never released. |
+| [Dav.AspNetCore.Server](https://github.com/ThuCommix/Dav.AspNetCore.Server) | MIT | Small (about 3,000 lines), plain middleware, but MOVE is copy + delete and PUT drops store errors; it needed 15 protocol fixes in the spike |
 | NWebDav.Server | MIT | Older design, 0.2 still in beta (net7.0) |
-| FubarDevelopment WebDavServer | MIT | Unmaintained since 2019 |
 | IT Hit WebDAV Server Engine | Commercial | Not allowed |
 | Our own implementation | n/a | Protocol code we would have to own entirely |
 
+The spikes ran both open-source candidates against the same model, the same
+Explorer-like request sequences and litmus. Unchanged, Fubar passed litmus
+basic 16/16, copymove 13/13, locks 38/41 and http 4/4, and 73 of 76
+read-write checks. Dav.AspNetCore.Server reached that level only with 15
+fixes, two of them blocking.
+
 ## Decision
 
-1. **We vendor Dav.AspNetCore.Server.** Its source, pinned at commit
-   `7ef7cbf80c5feb38556dd55f968cc1248955c55d`, is copied into
-   `src/BuildingBlocks/PaperDotNet.WebDav`.
+1. **We vendor FubarDev.WebDavServer `release/2.0`.** Its core and models,
+   pinned at commit `1f78db5d002793092d6fef4eda91006a2d56ab86`, are copied into
+   `src/BuildingBlocks/PaperDotNet.WebDav` (one project, the upstream
+   namespaces kept so that upstream diffs stay readable).
    - The MIT license and copyright notice stay with the code. The project's
      README records the upstream commit and lists our changes.
-   - It targets net10.0 and builds under our rules (warnings as errors,
-     `dotnet format`).
-   - We remove what we don't use: Digest and the library's own Basic handler,
-     the local-file store, the XML-file property store and the SQL extensions.
-   - The upstream unit tests are ported to xunit v3.
-   - Fixes go to upstream as pull requests when they are generally useful.
+   - It targets net10.0 only and builds in the solution. The vendored files
+     are marked as generated code in `.editorconfig`, so our analyzers and
+     `dotnet format` leave their upstream style alone; new files follow our
+     rules.
+   - We drop what we don't use or can't keep: the SQLite/TextFile/DotNet
+     stores, the Digest handler, the user-agent parser, Scrutor (explicit
+     registrations instead), System.Interactive.Async (in .NET 10), and the
+     Yoakke parser generator (six nightly packages for one header grammar,
+     replaced by a small parser for the `If`, entity-tag and `Lock-Token`
+     headers covered by the upstream tests).
+   - The ASP.NET Core layer (an MVC controller) is replaced by one Minimal API
+     endpoint that calls the library's dispatcher, so the host needs no MVC.
+   - Our fixes: folder MOVE through the file system (identity kept), the
+     `Timeout` header with spaces, `Content-Length` on HEAD, PROPPATCH without
+     a body, malformed conditional headers.
+   - The upstream unit tests that test the library itself (headers, entity
+     tags, URI comparison, converters, lock manager) are ported to xunit v3.
+     Protocol behaviour is covered by our integration tests and litmus.
    - Only the Dav module may reference this project (architecture test).
 2. **A `Dav` module built on the SDK.** `src/Modules/Dav` maps `/dav` and
-   implements the library's `IStore` using `IListItemStore`, `IWorkspaceAccess`
-   and Documents contracts only, like Documents itself
-   ([ADR-0015](0015-documents-on-the-sdk.md)). Permissions, versions, events
-   and the recycle bin therefore behave exactly as they do in the REST API. It
-   never references module implementations.
+   implements the library's file system (`IFileSystemFactory` per user) with
+   `IListItemStore`, `IWorkspaceAccess` and Documents contracts only, like
+   Documents itself ([ADR-0015](0015-documents-on-the-sdk.md)). Permissions,
+   versions, events and the recycle bin therefore behave exactly as they do
+   in the REST API. It never references module implementations. ETags come
+   from the stored hash and version (`IEntityTagEntry`), content types from
+   the stored media type (`IMimeTypeDetector`), and an empty property store
+   keeps no dead properties.
 3. **Namespace:** `/dav/{workspace}/{library}/{folder…}/{file}`. Tokens carry
    the tenant, so the URL needs no tenant segment.
    - The root lists the workspaces the caller can read, Home included. A
@@ -80,10 +104,11 @@ hand-roll protocol code. We looked at the options again:
    - The tenant is resolved through the existing API-token claim strategy.
    - Scopes: reading needs `list.read` and `document.read`; writing needs
      `list.write` and `document.write`. There is no new scope.
-5. **Read-only first.** Slice 1 advertises `DAV: 1` (no class 2, so Office
-   opens files read-only) and serves `OPTIONS`, `PROPFIND` (depth 0/1;
-   infinity is refused with `propfind-finite-depth`), `GET` and `HEAD`, with
-   ranges and ETags. Every other method answers 403.
+5. **Read-only first.** Slice 1 runs the library without class 2
+   (`EnableClass2 = false`), so it advertises `DAV: 1` and Office opens files
+   read-only. It serves `OPTIONS`, `PROPFIND` (depth 0/1; infinity is
+   refused with `propfind-finite-depth`), `GET` and `HEAD`, with ranges and
+   ETags. Writes answer 403.
 6. **Libraries accept any file type** (a change to DOC-02), as a prerequisite
    for writes.
    - Detection by content stays for the types we process. Other files are
@@ -101,7 +126,8 @@ hand-roll protocol code. We looked at the options again:
      to another library. Moving to another library preserves identity.
    - `DELETE` sends the item to the recycle bin.
    - Locks are kept in the `dav` schema through EF Core, on both providers,
-     as tenant-owned rows. Win32 properties are accepted but not stored.
+     as tenant-owned rows (a `LockManagerBase` implementation). Win32
+     properties are accepted but not stored.
    - Temporary files of Office and Explorer (`~$*`, `*.tmp`, `desktop.ini`,
      `Thumbs.db`, `._*`, `.DS_Store`) never become items.
    - Details are in the plan.
@@ -112,11 +138,15 @@ hand-roll protocol code. We looked at the options again:
 
 ## Consequences
 
-- We own a small protocol library (about 3,000 lines once trimmed). That is
-  less than writing our own, and its tests come with it. We take on its
-  maintenance.
-- WebDAV adds no tables until locks arrive. It adds two Documents contracts:
-  bulk file metadata, and later uploads and replacements.
+- We own a sizeable protocol library (about 25,000 lines once trimmed), with
+  no active upstream. In exchange, it already does what Windows clients need
+  (identity-keeping moves, correct status codes, `If` headers, locks, ETags,
+  ranges), and its own unit tests come with it.
+- The Minimal API endpoint keeps MVC out of the host. XML request bodies are
+  read with `XmlSerializer` like upstream; trimming or Native AOT for the
+  WebDAV endpoint is not a goal yet.
+- WebDAV adds no tables until locks arrive. It adds one Documents contract
+  for bulk file metadata, and later one for uploads and replacements.
 - Allowing any file type changes behaviour for every client. Libraries that
   want only scans can use a workflow or a later per-library setting.
 - Explorer cannot page, so very large folders are listed up to

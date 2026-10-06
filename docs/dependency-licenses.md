@@ -123,6 +123,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `Quartz.Extensions.Hosting`, `Quartz.Serialization.SystemTextJson` | Apache-2.0 | Quartz hosting |
 | `OpenTelemetry.Extensions.Hosting`, `.Exporter.OpenTelemetryProtocol`, `.Instrumentation.AspNetCore` | Apache-2.0 | Telemetry |
 | `Microsoft.Testing.Platform` | MIT | Test runner |
+| FubarDev.WebDavServer `release/2.0` (`1f78db5`), **vendored source** in `src/BuildingBlocks/PaperDotNet.WebDav` (+ the Apache-2.0 header grammar it no longer needs: Yoakke removed) | MIT | WebDAV protocol (API-10, ADR-0047); notice in `THIRD-PARTY-NOTICES.md` and next to the code |
 
 ### 🟨 Permissive with notice (no MIT/Apache alternative, or core infrastructure)
 
@@ -195,6 +196,12 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
   remains in place for other dependencies. Full upstream notices and the exact
   Eigen source URL from ONNX Runtime v1.29.0's dependency manifest ship in
   `PaperDotNet.StorageOptimization/licenses/`.
+
+- **2026-10-06:** WebDAV (ADR-0047): FubarDev.WebDavServer is vendored, not referenced as a package
+  (its 2.0 line was never released). Its package dependencies were removed instead of registered:
+  Yoakke (Apache-2.0, nightly prereleases) replaced by a small header parser, Scrutor (MIT) by explicit
+  registrations, System.Interactive.Async (Apache-2.0) by .NET 10, FlakeyBit.DigestAuthentication (MIT)
+  and the embedded UAParser (Apache-2.0) dropped as unused.
 
 ### Schema-driven workflow launch forms
 

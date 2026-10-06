@@ -381,8 +381,9 @@ outbox dispatcher (BackgroundService)
 - iCalendar/vCard mapping via **Ical.Net** (MIT). vCard via a small
   serializer, or a permissive library after a license check.
 - WebDAV for libraries (ADR-0047, [plan](webdav-plan.md)): the MIT library
-  Dav.AspNetCore.Server, vendored as `PaperDotNet.WebDav`; the `Dav` module
-  implements its store over the SDK contracts. Basic auth with API tokens is
+  FubarDev.WebDavServer (`release/2.0`), vendored as `PaperDotNet.WebDav` with a
+  Minimal API endpoint; the `Dav` module
+  implements its file system over the SDK contracts. Basic auth with API tokens is
   accepted only under `/dav`.
 
 ## 12. Extension runtime

@@ -21,7 +21,7 @@ library's normal workflows (text, thumbnails, OCR).
 
 | Topic | Decision |
 |---|---|
-| Protocol library | Dav.AspNetCore.Server (MIT), **vendored** into `src/BuildingBlocks/PaperDotNet.WebDav` |
+| Protocol library | FubarDev.WebDavServer `release/2.0` (MIT), **vendored** into `src/BuildingBlocks/PaperDotNet.WebDav` (decided after the [spikes](../spikes/webdav-poc-fubar/README.md)) |
 | Authentication | HTTP Basic with an existing API token as the password |
 | First slice | Read-only (browse, download), writes later |
 | File types | Libraries accept **any** file type (DOC-02 change), before writes |
@@ -42,8 +42,9 @@ Windows Explorer / Office / rclone
 /dav  ── ApiToken handler (Basic accepted only under /dav) → tenant claim → TenantGuard
         │
         ▼
-PaperDotNet.WebDav  (vendored Dav.AspNetCore.Server: handlers, headers, XML, ranges, If/ETag, locks API)
-        │ IStore / IStoreCollection / IStoreItem, ILockManager (WD-3), IPropertyStore (no-op)
+PaperDotNet.WebDav  (vendored FubarDev.WebDavServer: dispatcher, handlers, If/ETag, ranges, locks; MapWebDav endpoint)
+        │ IFileSystemFactory → IFileSystem / ICollection / IDocument, IMimeTypeDetector,
+        │ IPropertyStoreFactory (empty store), LockManagerBase (WD-3)
         ▼
 Dav module (src/Modules/Dav)  ── SDK contracts only
         ├─ IWorkspaceAccess        workspaces the caller can read
@@ -108,31 +109,40 @@ it (it would carry `AccessCacheTags.Principals`).
 
 ### WD-0: Vendor the library (building block)
 
-1. Copy `src/Dav.AspNetCore.Server` at `7ef7cbf` into
+1. Copy `src/FubarDev.WebDavServer` and `src/FubarDev.WebDavServer.Models`
+   of `release/2.0` at `1f78db5` into one project,
    `src/BuildingBlocks/PaperDotNet.WebDav`.
-   - Namespace `PaperDotNet.WebDav`.
-   - Keep `LICENSE` (MIT, © 2023 Kevin Scholz) next to the code, and add a
-     `README.md` with the upstream URL, the commit and a change log of our
-     edits.
-2. Retarget to net10.0 and add it to `PaperDotNet.slnx` and Central Package
-   Management (it has no packages).
-3. Remove `Authentication/*` (Basic and Digest handlers), `Store/Files/*`
-   (local files), `XmlFilePropertyStore` and the SQL extension projects.
-   Keep `InMemoryLockManager` for tests only.
-4. Make the build green under our rules:
-   - nullable warnings, analyzers and `dotnet format`;
-   - turn the static property registry into DI-registered metadata if the
-     analyzers or tests require it (ADR note when it changes behaviour);
-   - `CancellationToken` flows everywhere;
-   - no sync-over-async.
-5. Port the upstream tests to `tests/PaperDotNet.UnitTests/WebDav` (xunit v3).
-6. Fix the known gaps we need:
-   - `PROPFIND` on a collection streams `GetItemsAsync` results without
-     buffering the XML twice;
-   - `GET` uses `Range`/`If-Range` with seekable blob streams (check the
-     local disk blob store);
-   - escaped paths are handled (upstream fix `7ef7cbf`, verify with
-     `%20`, `#`, `%`, umlauts).
+   - Keep the upstream namespaces (`FubarDev.WebDavServer.*`), so upstream
+     diffs stay readable.
+   - Keep `LICENSE` (MIT, © 2016 Fubar Development Junker) next to the code,
+     and add a `README.md` with the upstream URL, the commit and a change log
+     of our edits.
+   - Mark the vendored files as generated code in `.editorconfig`, so the
+     solution's analyzers and `dotnet format` leave the upstream style alone.
+2. Retarget to net10.0 only and fix the 16 compile errors the spike found
+   (`Lock` vs `System.Threading.Lock`, `System.Linq.Async` vs .NET 10
+   `AsyncEnumerable`, one removed `Uri` constructor).
+3. Remove dependencies:
+   - Digest authentication and the user-agent parser (unused);
+   - Scrutor (explicit handler registrations);
+   - System.Interactive.Async (in .NET 10);
+   - Yoakke (six nightly packages): replace the generated parser with a
+     small parser for the `If`, entity-tag and `Lock-Token` headers.
+4. Replace the MVC layer with a Minimal API endpoint: `MapWebDav(pattern)`
+   maps every WebDAV method to the dispatcher, reads XML bodies with
+   `XmlSerializer`, and turns `WebDavException`s into responses. The request
+   context is the upstream `EscapedWebDavContext`, reading the route value
+   `path`.
+5. Fixes from the spike:
+   - folder MOVE through an optional `IMovableCollection` (identity kept);
+   - `Timeout: Infinite, Second-4100000000`;
+   - `Content-Length` on HEAD;
+   - PROPPATCH without a body → 400;
+   - malformed `If-None-Match`/`If-Match` → ignored, not 500.
+6. Port the upstream unit tests of the library itself (headers, entity
+   tags, ranges, URI comparison, converters) to
+   `tests/PaperDotNet.UnitTests/WebDav` (xunit v3). Protocol behaviour is
+   covered by the Dav integration tests and litmus.
 7. Register it in `docs/dependency-licenses.md` (vendored, MIT) and in
    `THIRD-PARTY-NOTICES.md` (MIT requires the notice in copies).
 
@@ -171,16 +181,16 @@ architecture test "only Dav references WebDav" exists.
   - `Path` (`/dav`);
   - `MaxFolderEntries` (5,000);
   - `MaxLockTimeout` (WD-3).
-- `DavStore : IStore` (scoped) with `RootCollection`, `WorkspaceCollection`,
-  `LibraryCollection` / `FolderCollection` and `DocumentFileItem`:
-  - `GetReadableStreamAsync` → `IDocumentFileStore.OpenVersionAsync(current.Id)`.
-  - Write members return `DavStatusCode.Forbidden` in WD-1.
-- `NoopPropertyStore : IPropertyStore`: dead properties are not stored. In
-  WD-3, `PROPPATCH` of Win32 properties answers 200 without storing them.
-- `OPTIONS` (on `/dav` and below) sends:
-  - `DAV: 1`;
-  - `MS-Author-Via: DAV`;
-  - `Allow: OPTIONS, PROPFIND, GET, HEAD`.
+- `DavFileSystemFactory : IFileSystemFactory` creates one `DavFileSystem` per
+  request and user, with `DavRoot`, `DavWorkspace`, `DavFolder` (libraries and
+  folders, `ICollection`) and `DavDocument` (`IDocument`, `IEntityTagEntry`):
+  - `OpenReadAsync` → `IDocumentFileStore.OpenVersionAsync(current.Id)`;
+  - write members throw `WebDavException(Forbidden)` in WD-1.
+- `DavMimeTypeDetector : IMimeTypeDetector` answers the stored media type.
+- `EmptyPropertyStore`: dead properties are not stored. In WD-3, `PROPPATCH`
+  of Win32 properties answers 200 without storing them (live properties).
+- `OPTIONS` (on `/dav` and below, anonymous) is answered by the library:
+  `DAV: 1` without class 2, `MS-Author-Via: DAV`.
 - **Spike item:** Explorer sometimes sends `OPTIONS /` and `PROPFIND /` to
   the server root before the mapped path. If it does, the host answers
   `OPTIONS /` without an `Origin` header (so not a CORS preflight) with the
@@ -328,7 +338,7 @@ behaviour cannot drift.
   `Path`, `ItemId`, `OwnerUserId`, `Owner` (XML), `Depth`, `ExpiresAt`.
   It implements `ITenantOwned`, and RLS on PostgreSQL is generated.
 - Migrations for both providers.
-- `EfLockManager : ILockManager`. Expired locks are cleaned up by a recurring
+- `EfLockManager : LockManagerBase` (the library's lock logic, our storage). Expired locks are cleaned up by a recurring
   job (`ITenantRecurringJob`, hourly).
 - Locks bind to the `ItemId` once resolved, so a rename does not lose them.
 - The REST API is not blocked by a WebDAV lock. The item shows "locked by X
@@ -385,7 +395,8 @@ Nothing new reacts to events, so no `EventCausation` change is needed.
 
 | Risk | Mitigation |
 |---|---|
-| Vendored library has protocol bugs Explorer hits | WD-0 ports its tests; litmus job; manual Windows checklist; we own the code and can fix it |
+| Vendored library has protocol bugs Explorer hits | Its unit tests; our integration tests; litmus job; manual Windows checklist; we own the code and can fix it |
+| Vendored library is large (about 25,000 lines) without an upstream | Upstream namespaces and a change log keep our edits visible; only the Dav module uses it |
 | Explorer quirks (root `OPTIONS`, 50 MB limit, caching, Basic over HTTP) | Spike in WD-1 against a real Windows 11 machine; documented registry values; root `OPTIONS` handler |
 | Large folders are slow (Explorer cannot page) | Bulk file metadata, a per-request cache, `MaxFolderEntries` cap, a performance test in WD-4 |
 | Basic credentials are ambient (CSRF) | Basic is accepted only under `/dav`; WebDAV write methods need CORS preflight, and `/dav` sends no CORS headers; reads expose nothing to other origins |
