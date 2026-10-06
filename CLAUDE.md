@@ -86,9 +86,8 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
 - IDs via `Ids.New()` (UUIDv7); time via `TimeProvider`.
 - Events: changing or rejecting an item write → `IItemMutator` (Lists.Contracts, before
   the save). Product reactions to saved item changes → registered workflow activities
-  and built-in workflows, using `ItemChangeActivity` / `ItemChangeWorkflows.Create`
-  for original item-event context (required system workflows; `contentType` filters keep
-  them off other lists). Integration events and subscribers transport
+  and built-in workflows, using `ItemChangeActivity` / `ItemChangeWorkflows.Create` (core roles) or `.Reaction`
+  (solutions) for original item-event context (`contentType` filters keep them off other lists). Integration events and subscribers transport
   triggers; publish atomically through `IOutbox.SaveChangesAsync`. Activities must
   be idempotent. Only `PaperDotNet.Messaging` references Wolverine. Purge cleanup,
   retention and durable delivery remain infrastructure subscribers/jobs.
@@ -142,10 +141,13 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `wf.{key}.failed` and `event.raise` (`wf.{key}.{event}`), never by code that calls another workflow. Build workflow features
   from workflow parts (waits with JSON data, run-again activities, built-in workflows), not tables or jobs of their own
   (e.g. batched AI: `ai.batch` waits + the "AI batch" workflow). Product processes are
-  process roles (ADR-0047): system built-ins (`System`/`Required`/`Locked`/`IncludeFolders`/`Role` on `BuiltInWorkflow`:
-  own lane, short retention, item-event context only from the engine) that copies and extension alternatives replace via
-  `provides`, one active per scope; consumers ask by role (`IWorkflowDirectory.GetRoleWorkflowAsync`), never by built-in
-  key. Only guarantees are `Locked`. Coordinators fan out with `WorkflowRequests` (bounded, tolerant,
+  process roles of the core only (ADR-0047: lists/libraries incl. search and document processing, collaboration,
+  notifications): system built-ins (`System`/`Required`/`Locked`/`IncludeFolders`/`Role` on `BuiltInWorkflow`: own lane,
+  short retention, item-event context only from the engine) that copies and extension alternatives replace via
+  `provides`, one active per scope, raising the role's `wf.{role}.…` events; consumers ask by role
+  (`IWorkflowDirectory.GetRoleWorkflowAsync`), never by built-in key. Only guarantees are `Locked`. Solutions (tasks,
+  notes, calendar, extensions) ship plain built-ins, `ItemChangeWorkflows.Reaction` for item-change reactions
+  (`Lightweight`: cheap, no role). Coordinators fan out with `WorkflowRequests` (bounded, tolerant,
   waits on `CompletionKind` triggers), never by polling or tables of their own. Mapping data into lists is workflow JSON, not a new
   action: `item.update`/`item.create` with typed single tokens (`"total": "{step:read.json.total}"`) and `forEach`, or a
   `script` node (JavaScript in a sandbox, ADR-0037; samples/receipts-package). The script API is a contract of

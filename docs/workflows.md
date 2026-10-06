@@ -1045,9 +1045,13 @@ run per item change for each process, the engine keeps them cheap and safe:
 | `Required` | Its role must always have an active workflow. A copy or an alternative can replace the built-in; turning off or deleting the last replacement brings the built-in back. |
 | `Locked` | A guarantee of the product (search removal, permission scopes, list maintenance, API change notifications): it cannot be replaced, copied, turned off or deleted, it runs even where its row was turned off, and templates do not export it. |
 | `IncludeFolders` | Folder events start it too. People's workflows never see folders. |
+| `Lightweight` | A solution's reaction to item changes (tasks, notes, extensions): cheap runs like system ones (own queue, short history) but no role. It can be turned off or copied like any built-in. Made with `ItemChangeWorkflows.Reaction`. |
 | `Role` | The process role an alternative built-in fills (for example `search.index` for "Index for search with AI context"). A role's default is the built-in whose key is the role; its flags are the role's. |
 
-**Process roles ([ADR-0047](adr/0047-process-roles-for-system-workflows.md)).**
+**Process roles ([ADR-0047](adr/0047-process-roles-for-system-workflows.md)).** Roles belong to the core only: lists and
+libraries (search, document processing), collaboration and notifications. Solutions (tasks, notes, calendar, extensions)
+ship plain or `Lightweight` built-ins; a different behavior is a different solution.
+- A workflow that fills a role raises the role's events (`wf.{role}.…`), not its own key's.
 - A workflow fills a role with `provides` in its definition. Built-ins provide their role, and copies keep it. One
   workflow per role is active in its scope (the workspace, or the list for list roles); turning one on turns the others
   off.
@@ -1109,12 +1113,12 @@ Search registers these activities: `search.chunk`, `search.stage`, `search.enric
 
 See [search.md](search.md) for the indexing contract.
 
-- **Required and replaceable:** note links, item activity, follower alerts, task completion announcements and recurring
-  task creation.
+- **Required and replaceable:** item activity (the timeline) and follower alerts.
+- **Replaceable per library:** reading the text, OCR, thumbnails and page images.
 - **Locked guarantees:** change notification queueing, search removal, search permission updates and library search
   maintenance.
-
-The note and task reactions filter by content type in their triggers.
+- **Solution reactions (lightweight, no role):** note links, task completion announcements and recurring task creation.
+  They filter by content type in their triggers.
 
 `BuiltInScope.List` offers a built-in on ordinary lists as well as libraries.
 `BuiltInScope.Library` remains restricted to document libraries. Defaults are

@@ -330,6 +330,13 @@ public sealed record BuiltInWorkflow(string Key, string Name, string Description
     public bool IncludeFolders { get; init; }
 
     /// <summary>
+    /// A solution's reaction that runs once per item change (e.g. a task solution creating the next occurrence): cheap like
+    /// system workflows (own queue, short history) but not a process role of the core. People turn it off or copy it like
+    /// any built-in; a different behavior is a different solution.
+    /// </summary>
+    public bool Lightweight { get; init; }
+
+    /// <summary>
     /// The process role it fills when it is not the role's default (e.g. an extension's <c>search.index</c> pipeline with AI
     /// context). A role's default built-in is the one whose key is the role; its flags (<see cref="System"/>,
     /// <see cref="Required"/>, <see cref="Locked"/>, <see cref="IncludeFolders"/>) are the role's. One workflow per role is
@@ -340,8 +347,14 @@ public sealed record BuiltInWorkflow(string Key, string Name, string Description
     /// <summary>The role it fills: <see cref="Role"/>, or its own key for system workflows; null for plain built-ins.</summary>
     public string? RoleKey => Role ?? (IsSystem ? Key : null);
 
-    /// <summary>Whether it is a system workflow (<see cref="System"/>, <see cref="Required"/> or <see cref="Locked"/>).</summary>
+    /// <summary>
+    /// Whether it is a system workflow (<see cref="System"/>, <see cref="Required"/> or <see cref="Locked"/>): a process role of
+    /// the core (lists, libraries, search, collaboration, notifications).
+    /// </summary>
     public bool IsSystem => System || Required || Locked;
+
+    /// <summary>Whether its runs are cheap (system lane, short history): a system workflow or a <see cref="Lightweight"/> one.</summary>
+    public bool RunsCheap => IsSystem || Lightweight;
 }
 
 public enum BuiltInScope

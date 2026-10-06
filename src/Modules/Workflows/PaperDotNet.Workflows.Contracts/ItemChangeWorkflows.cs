@@ -21,17 +21,27 @@ public static class ItemChangeWorkflows
     public static BuiltInWorkflow Create(
         string key, string name, string description, string activity, IReadOnlyList<string> triggers, string? contentType = null, bool includeFolders = false,
         bool locked = false) =>
-        new(key, name, description, new JsonObject
-        {
-            ["scope"] = "workspace",
-            ["triggers"] = new JsonArray([.. triggers.Select(t => (JsonNode)Trigger(t, contentType))]),
-            ["flow"] = new JsonObject
-            {
-                ["start"] = "process",
-                ["nodes"] = new JsonObject { ["process"] = new JsonObject { ["activity"] = activity } },
-            },
-        })
+        new(key, name, description, Definition(activity, triggers, contentType))
         { EnabledByDefault = true, Required = true, Locked = locked, IncludeFolders = includeFolders };
+
+    /// <summary>
+    /// A solution's reaction to item changes (e.g. of a task or notes solution): one node running <paramref name="activity"/>
+    /// on the original item event, on by default and <see cref="BuiltInWorkflow.Lightweight"/>, but no process role: it can be
+    /// turned off or copied like any built-in. <paramref name="contentType"/> keeps it off other content types.
+    /// </summary>
+    public static BuiltInWorkflow Reaction(string key, string name, string description, string activity, IReadOnlyList<string> triggers, string? contentType = null) =>
+        new(key, name, description, Definition(activity, triggers, contentType)) { EnabledByDefault = true, Lightweight = true };
+
+    private static JsonObject Definition(string activity, IReadOnlyList<string> triggers, string? contentType) => new()
+    {
+        ["scope"] = "workspace",
+        ["triggers"] = new JsonArray([.. triggers.Select(t => (JsonNode)Trigger(t, contentType))]),
+        ["flow"] = new JsonObject
+        {
+            ["start"] = "process",
+            ["nodes"] = new JsonObject { ["process"] = new JsonObject { ["activity"] = activity } },
+        },
+    };
 
     private static JsonObject Trigger(string type, string? contentType)
     {

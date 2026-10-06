@@ -108,6 +108,75 @@ internal sealed class ReadTextActivity(
     }
 }
 
+/// <summary>
+/// <c>document.saveText</c> (ADR-0047): saves page texts a pipeline made itself (an LLM, another OCR engine, a script) as the
+/// current file's text, as <c>document.readText</c> does from the PDF. A replacement of the "Read the text" role ends with
+/// it and raises <c>hasText</c> / <c>noText</c>, so search, OCR and AI follow as usual.
+/// </summary>
+internal sealed class SaveTextActivity(DocumentsDbContext db, IUserPreferences preferences, ILiveEvents live, ITenantContext tenant, ICurrentUser user)
+    : IWorkflowActivity
+{
+    /// <summary>Most pages saved for a file.</summary>
+    public const int MaxPages = 5000;
+
+    /// <summary>Longest text kept per page.</summary>
+    public const int MaxPageChars = 100_000;
+
+    public string Key => "document.saveText";
+
+    public string Description => "Saves page texts made by earlier steps (an LLM, another OCR engine, a script) as the file's text; continues on text or noText.";
+
+    public IReadOnlyList<string> Outcomes => ["text", "noText"];
+
+    public JsonObject? InputSchema => JsonNode.Parse("""
+        { "type": "object", "required": ["pages"], "properties": {
+          "pages": { "type": "array", "description": "The page texts in order (page 1 first), usually a token such as {step:llm.json.pages}." },
+          "language": { "type": "string", "description": "The text's language code (default: the file's, the library's, the uploader's)." }
+        } }
+        """)!.AsObject();
+
+    public JsonObject? OutputSchema => ActivitySchemas.Of([],
+        ("version", ActivitySchemas.Number("The file version.")), ("pageCount", ActivitySchemas.Number("Its pages.")),
+        ("hasText", ActivitySchemas.Boolean("Whether it has text.")));
+
+    public IEnumerable<string> Validate(JsonObject inputs)
+    {
+        if (inputs["pages"] is not (JsonArray or JsonValue)) { yield return "pages is required: a list of texts, or a token that gives one."; }
+    }
+
+    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken cancellationToken)
+    {
+        var given = context.Inputs["pages"] is JsonValue token && token.TryGetValue<string>(out var template)
+            ? await context.ResolveAsync(template, cancellationToken)
+            : context.Inputs["pages"];
+        if (given is not JsonArray list || list.Count > MaxPages)
+        {
+            return WorkflowActivityResult.Fail($"pages must be a list of at most {MaxPages} texts.");
+        }
+
+        if (await DocumentActivity.CurrentAsync(db, context, cancellationToken) is not { } version)
+        {
+            return WorkflowActivityResult.Fail(DocumentActivity.NoFile);
+        }
+
+        var pages = list.Select(page => page is JsonValue value && value.TryGetValue<string>(out var text) ? text.Trim() : page?.ToJsonString() ?? string.Empty)
+            .Select(text => text.Length > MaxPageChars ? text[..MaxPageChars] : text).ToList();
+
+        // The texts replace those of the stored content (identical files share them).
+        await db.Pages.Where(p => p.StoredFileId == version.StoredFileId).ExecuteDeleteAsync(cancellationToken);
+        db.Pages.AddRange(pages.Select((text, i) => new StoredFilePage { StoredFileId = version.StoredFileId, PageNumber = i + 1, Text = text }));
+        version.PageCount = Math.Max(1, pages.Count);
+        version.TextLanguage = ActivityInputs.Text(context.Inputs, "language") is { Length: > 0 } language
+            ? await context.ExpandAsync(language, cancellationToken)
+            : version.TextLanguage ?? DocumentText.FirstLanguage(await DocumentText.LanguagesAsync(db, preferences, version, null, cancellationToken));
+        await db.SaveChangesAsync(cancellationToken);
+        live.Publish(DocumentLiveEvents.Changed(tenant, user, version, "text"));
+
+        var hasText = DocumentText.Enough(pages);
+        return WorkflowActivityResult.Ok(hasText ? "text" : "noText", DocumentActivity.Output(version, ("hasText", hasText)));
+    }
+}
+
 /// <summary><c>document.thumbnail</c> (ADR-0038): the thumbnail of the first page. Without it a library shows no thumbnails.</summary>
 internal sealed class ThumbnailActivity(DocumentsDbContext db, PageRenderer renderer, ILiveEvents live, ITenantContext tenant, ICurrentUser user)
     : IWorkflowActivity

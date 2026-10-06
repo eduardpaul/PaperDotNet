@@ -1,7 +1,7 @@
 import type { BuiltInWorkflowResponse, WorkflowResponse } from '@paperdotnet/client';
 import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { keys } from '@/api/keys';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, Skeleton } from '@/components/ui/feedback';
 import { Checkbox } from '@/components/ui/select';
 import { libraryWorkflowsQuery } from '@/features/documents/queries';
+import { useCustomizeListWorkflow } from '@/features/workflows/customize';
 import { workflowsQuery } from '@/features/workflows/queries';
 import { workspaceQuery } from '@/features/workspaces/queries';
 import { listBuilder } from '@/features/lists/queries';
@@ -78,7 +79,6 @@ export function SearchSettings({ workspaceId, listId }: { workspaceId: string; l
  */
 export function IndexingPipeline({ workspaceId, listId }: { workspaceId: string; listId: string }) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const { data: workspace } = useQuery(workspaceQuery(workspaceId));
   const canManage = workspace?.access === 'manage';
   const { data: builtIns } = useQuery(libraryWorkflowsQuery(workspaceId, listId));
@@ -99,22 +99,7 @@ export function IndexingPipeline({ workspaceId, listId }: { workspaceId: string;
     },
     onError: (error) => toast.error(problemMessage(error)),
   });
-  const customize = useMutation({
-    mutationFn: (workflow: BuiltInWorkflowResponse) =>
-      listBuilder(workspaceId, listId)
-        .workflows.builtIns.byKey(workflow.key!)
-        .copy.post({ name: `${workflow.name} (custom ${new Date().toISOString().slice(0, 10)})` }),
-    onSuccess: async (copy) => {
-      await refresh();
-      toast.success('Copied. Change its steps; it indexes this list from now on.');
-      void navigate({
-        to: '/w/$workspaceId/settings/workflows',
-        params: { workspaceId },
-        search: { edit: copy?.id ?? undefined },
-      });
-    },
-    onError: (error) => toast.error(problemMessage(error)),
-  });
+  const customize = useCustomizeListWorkflow(workspaceId, listId);
 
   const pipelines = builtIns?.filter((w) => w.role === indexRole) ?? [];
   const copies: WorkflowResponse[] =

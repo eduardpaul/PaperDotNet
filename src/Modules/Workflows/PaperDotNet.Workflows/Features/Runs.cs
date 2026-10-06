@@ -85,9 +85,10 @@ internal sealed class WorkflowStarter(
         }
 
         var now = time.GetUtcNow();
-        // A run of a workflow that fills a system role (the built-in, a copy or a replacement) is a system run.
-        var systemRoles = starts.Any(s => s.Workflow.Role is not null || s.Workflow.BuiltInKey is not null)
-            ? (await builtIns.RolesAsync(ct)).Keys.ToHashSet(StringComparer.Ordinal)
+        // A run of a workflow that fills a system role (the built-in, a copy or a replacement), or of a lightweight
+        // built-in (a solution's reaction to item changes), runs cheap: system lane, short history.
+        var cheapKeys = starts.Any(s => s.Workflow.Role is not null || s.Workflow.BuiltInKey is not null)
+            ? (await builtIns.ListAsync(ct)).Where(w => w.RunsCheap).Select(w => w.RoleKey ?? w.Key).ToHashSet(StringComparer.Ordinal)
             : [];
         var runs = new List<WorkflowRun>();
         var messages = new List<ITenantMessage>();
@@ -175,7 +176,7 @@ internal sealed class WorkflowStarter(
                 StartedBy = start.StartedBy,
                 StartedAt = now,
                 LastActivityAt = now,
-                System = start.System || (start.Workflow.Role ?? start.Workflow.BuiltInKey) is { } role && systemRoles.Contains(role),
+                System = start.System || (start.Workflow.Role ?? start.Workflow.BuiltInKey) is { } cheapKey && cheapKeys.Contains(cheapKey),
             };
             if (start.Error is { } error)
             {
@@ -729,6 +730,10 @@ internal sealed partial class WorkflowInterpreter(
             return messages is { Count: > 0 } || events is { Count: > 0 } ? outbox.SaveChangesAsync(db, events ?? [], messages, ct) : db.SaveChangesAsync(ct);
         }
 
+        // A workflow that fills a process role raises the role's events (ADR-0047): a copy of "Read the text" still raises
+        // wf.documents.text.hasText, which search, OCR and AI follow.
+        var eventKey = workflow.Role ?? workflow.EventKey;
+
         // An event of this workflow (ADR-0038): wf.{key}.{name}, on the run's item, one deeper than the run. Its id comes
         // from the run and what raised it, so saving it again (a retried message) raises nothing twice.
         WorkflowTriggerRaised Event(string name, JsonObject? payload, params object[] source) => new()
@@ -738,7 +743,7 @@ internal sealed partial class WorkflowInterpreter(
             TenantIdentifier = tenant.TenantIdentifier!,
             UserId = run.StartedBy,
             Depth = run.Depth + 1,
-            Trigger = $"{WorkflowTriggers.WorkflowEventPrefix}{workflow.EventKey}.{name}",
+            Trigger = $"{WorkflowTriggers.WorkflowEventPrefix}{eventKey}.{name}",
             WorkspaceId = run.WorkspaceId,
             ListId = run.ListId,
             ItemId = run.ItemId,
@@ -751,7 +756,7 @@ internal sealed partial class WorkflowInterpreter(
         async Task<IReadOnlyCollection<IntegrationEvent>> EndEventsAsync(string name, JsonObject payload, params object[] source)
         {
             var events = new List<IntegrationEvent>();
-            var type = $"{WorkflowTriggers.WorkflowEventPrefix}{workflow.EventKey}.{name}";
+            var type = $"{WorkflowTriggers.WorkflowEventPrefix}{eventKey}.{name}";
             if (await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == run.WorkspaceId && (w.Enabled || w.BuiltInKey != null))
                 .Where(TriggerColumn.Has(type)).AnyAsync(ct))
             {
@@ -1160,8 +1165,8 @@ internal sealed partial class WorkflowInterpreter(
                     }
 
                     // Saved before moving on: a retry raises it again with the same id, which starts nothing twice.
-                    Log($"{id}: raised wf.{workflow.EventKey}.{eventName}");
-                    outputs[id] = new JsonObject { ["event"] = $"{WorkflowTriggers.WorkflowEventPrefix}{workflow.EventKey}.{eventName}" };
+                    Log($"{id}: raised wf.{eventKey}.{eventName}");
+                    outputs[id] = new JsonObject { ["event"] = $"{WorkflowTriggers.WorkflowEventPrefix}{eventKey}.{eventName}" };
                     await SaveAsync(events: [Event(eventName, payload, id, run.StepExecutionId.Value)]);
                     if (!await ContinueAsync(id, "done"))
                     {

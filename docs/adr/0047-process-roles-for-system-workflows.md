@@ -23,6 +23,24 @@ We need flexibility for *how* a process works, and a guarantee for *what* it del
 
 ## Decision
 
+**Roles belong to the core only:** lists and libraries, with search, collaboration and notifications. Solutions built on
+the SDK (tasks, notes, calendar, and extensions) ship ordinary built-in workflows for their own behavior. Someone who wants
+different task behavior builds a different solution; they do not override a role. Solution reactions that run once per
+item change (`ItemChangeWorkflows.Reaction`) are `Lightweight`: cheap like system runs (own queue, short history), but
+without a role. People turn them off or copy them like any built-in.
+
+| Role | Module | Kind |
+|---|---|---|
+| `search.index` (alternative: `search.indexEnriched`) | Search | Replaceable, per list |
+| `search.remove`, `search.scopes`, `search.containers` | Search | Locked |
+| `search.rebuild` | Search | System, workspace |
+| `documents.text`, `documents.ocr`, `documents.thumbnail`, `documents.pages` | Documents (libraries) | Replaceable, per library |
+| `collaboration.recordChange` (activity timeline) | Collaboration | Required, replaceable |
+| `notifications.alertFollowers` | Notifications | Required, replaceable |
+| `notifications.queueChanges` (API change notifications) | Notifications | Locked |
+
+Solution reactions without a role: `tasks.nextOccurrence`, `tasks.completed`, `notes.links`, and calendar sources.
+
 **A process is a role, not a workflow.**
 
 - Each system process has a role key. The role's default is the built-in whose key is the role (`search.index`,
@@ -40,6 +58,9 @@ We need flexibility for *how* a process works, and a guarantee for *what* it del
 - **Locked roles are the guarantees:** removing deleted items from search, moving permission scopes, maintaining
   excluded or deleted lists, and queueing API change notifications. They cannot be replaced, copied, turned off or
   deleted, and they run even where their row was turned off.
+- **A workflow that fills a role raises the role's events.** `wf.{role}.{event}` and `wf.{role}.completed` / `failed`,
+  not under its own key. So a copy of "Read the text" still raises `wf.documents.text.hasText`, which search, OCR and AI
+  follow.
 - Consumers ask for the role, not a built-in. `IWorkflowDirectory` has `IsRoleActiveAsync`, `GetRoleWorkflowAsync`
   (the active workflow and its version) and `GetLatestRunAsync(role)`. `POST lists/{listId}/workflows/roles/{role}/runs`
   runs the role's active workflow, or its built-in when automatic runs are off.
@@ -58,6 +79,10 @@ custom pipeline can change quality and cost, but never permissions or inclusion.
 
 A publication records the pipeline that made it (workflow id and version). Switching the role's workflow, changing it or
 its parameters marks publications stale, and the repair sweep indexes them again.
+
+**The document text contract.** A workflow that fills `documents.text` saves the current file's page texts:
+`document.readText` from the PDF, or `document.saveText` with pages made by earlier steps (an LLM, another OCR engine, a
+script). It then raises `hasText` or `noText`.
 
 ## Consequences
 

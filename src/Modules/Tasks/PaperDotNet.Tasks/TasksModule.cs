@@ -34,7 +34,7 @@ public sealed class TasksModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddWorkflowActivity<RecurringTaskSpawner>();
-        services.AddWorkflow(ItemChangeWorkflows.Create("tasks.nextOccurrence", "Create next recurring task", "Creates the next occurrence after a repeating task completes.", "tasks.nextOccurrence",
+        services.AddWorkflow(ItemChangeWorkflows.Reaction("tasks.nextOccurrence", "Create next recurring task", "Creates the next occurrence after a repeating task completes.", "tasks.nextOccurrence",
             [WorkflowTriggers.ItemUpdated], TaskTemplates.ContentTypeKey));
         services.AddModuleDbContext<TasksDbContext>(TasksDbContext.Schema);
         services.AddScoped<IItemMoveParticipant, TasksItemMoveParticipant>();
@@ -43,7 +43,7 @@ public sealed class TasksModule : IModule
         services.AddScoped<TaskAccess>();
         services.AddEventSubscriber<ItemPurged, PurgedTaskData>();
         services.AddWorkflowActivity<TaskCompletedTrigger>();
-        services.AddWorkflow(ItemChangeWorkflows.Create("tasks.completed", "Announce completed tasks", "Announces completed tasks to following workflows.", "tasks.raiseCompleted",
+        services.AddWorkflow(ItemChangeWorkflows.Reaction("tasks.completed", "Announce completed tasks", "Announces completed tasks to following workflows.", "tasks.raiseCompleted",
             [WorkflowTriggers.ItemUpdated], TaskTemplates.ContentTypeKey));
         services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggers.TaskCompleted, "A task was completed (data: completedBy)."));
         services.AddWorkflowActivity<TaskCreateActivity>();

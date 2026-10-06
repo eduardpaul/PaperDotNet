@@ -2,14 +2,16 @@ import type { BuiltInWorkflowResponse, DuplicatePolicy } from '@paperdotnet/clie
 import { indexRole } from '@/features/search/search-settings';
 import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
-import { useState, type FormEvent } from 'react';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Alert, Skeleton } from '@/components/ui/feedback';
 import { Input } from '@/components/ui/input';
 import { Checkbox, Select } from '@/components/ui/select';
 import { libraryWorkflowsQuery } from '@/features/documents/queries';
+import { useCustomizeListWorkflow } from '@/features/workflows/customize';
+import { workflowsQuery } from '@/features/workflows/queries';
 import { documentSettingsQuery, useCanManageList } from '@/features/list-settings/queries';
 import { listBuilder } from '@/features/lists/queries';
 import { SettingRow, SettingsSection } from '@/features/settings/section';
@@ -119,6 +121,8 @@ function LibraryWorkflows({ workspaceId, listId }: { workspaceId: string; listId
   const queryClient = useQueryClient();
   const canManage = useCanManageList(workspaceId, listId);
   const { data: workflows } = useQuery(libraryWorkflowsQuery(workspaceId, listId));
+  const { data: own } = useQuery(workflowsQuery(workspaceId));
+  const customize = useCustomizeListWorkflow(workspaceId, listId);
   const toggle = useMutation({
     mutationFn: ({ workflow, enabled }: { workflow: BuiltInWorkflowResponse; enabled: boolean }) =>
       listBuilder(workspaceId, listId).workflows.builtIns.byKey(workflow.key!).put({ enabled }, ifMatch(workflow)),
@@ -139,14 +143,46 @@ function LibraryWorkflows({ workspaceId, listId }: { workspaceId: string; listId
         {/* Search indexing has its own section (General settings): one pipeline of several is active. */}
         {workflows
           .filter((workflow) => workflow.role !== indexRole)
-          .map((workflow) => (
-            <WorkflowSwitch
-              key={`${workflow.key}-${workflow.odataEtag ?? ''}`}
-              workflow={workflow}
-              disabled={!canManage || !workflow.available}
-              onToggle={(enabled) => toggle.mutateAsync({ workflow, enabled })}
-            />
-          ))}
+          .map((workflow) => {
+            // A library's own copy that fills this workflow's role (e.g. text from an LLM) replaces it here.
+            const copy = own?.find(
+              (w) => w.provides === workflow.role && w.listId === listId && !w.builtIn && w.enabled,
+            );
+            return (
+              <WorkflowSwitch
+                key={`${workflow.key}-${workflow.odataEtag ?? ''}`}
+                workflow={workflow}
+                disabled={!canManage || !workflow.available}
+                onToggle={(enabled) => toggle.mutateAsync({ workflow, enabled })}
+                action={
+                  copy ? (
+                    <Button asChild size="sm" variant="ghost">
+                      <Link
+                        to="/w/$workspaceId/settings/workflows"
+                        params={{ workspaceId }}
+                        search={{ edit: copy.id! }}
+                      >
+                        Replaced by {copy.name}
+                      </Link>
+                    </Button>
+                  ) : (
+                    canManage &&
+                    workflow.role &&
+                    workflow.available && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={customize.isPending}
+                        onClick={() => customize.mutate(workflow)}
+                      >
+                        Customize
+                      </Button>
+                    )
+                  )
+                }
+              />
+            );
+          })}
       </ul>
     </SettingsSection>
   );
@@ -157,10 +193,12 @@ function WorkflowSwitch({
   workflow,
   disabled,
   onToggle,
+  action,
 }: {
   workflow: BuiltInWorkflowResponse;
   disabled: boolean;
   onToggle: (enabled: boolean) => Promise<unknown>;
+  action?: ReactNode;
 }) {
   const [enabled, setEnabled] = useState(!!workflow.enabled);
   const [saving, setSaving] = useState(false);
@@ -181,10 +219,11 @@ function WorkflowSwitch({
             .finally(() => setSaving(false));
         }}
       />
-      <label htmlFor={id} className="flex min-w-0 flex-col gap-0.5">
+      <label htmlFor={id} className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-[13px] font-medium">{workflow.name}</span>
         <span className="text-xs text-muted">{workflow.description}</span>
       </label>
+      {action}
     </li>
   );
 }

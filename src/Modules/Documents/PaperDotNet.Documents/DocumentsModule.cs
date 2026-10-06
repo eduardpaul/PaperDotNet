@@ -53,6 +53,7 @@ public sealed class DocumentsModule : IModule
         services.AddScoped<PageRenderer>();
         services.AddOperationHandler<DocumentOcr>();
         services.AddWorkflowActivity<ReadTextActivity>();
+        services.AddWorkflowActivity<SaveTextActivity>();
         services.AddWorkflowActivity<ThumbnailActivity>();
         services.AddWorkflowActivity<RenderPagesActivity>();
         services.AddWorkflowActivity<OcrActivity>();

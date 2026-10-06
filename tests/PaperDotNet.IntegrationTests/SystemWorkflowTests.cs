@@ -139,6 +139,38 @@ public sealed class SystemWorkflowTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task Solution_reactions_are_cheap_built_ins_that_can_be_turned_off_not_roles()
+    {
+        var s = await SetupAsync("wf-system-solutions");
+        var tasks = (await (await s.Client.PostAsJsonAsync($"/v1.0/workspaces/{s.Workspace}/lists", new { name = "Tasks", templateKey = "tasks" }, Ct)).ReadJsonAsync()).GetProperty("id").GetGuid();
+        var task = (await s.Client.CreateItemAsync(s.Workspace, tasks, new { fields = new { title = "Ship it" } })).GetProperty("id").GetGuid();
+        foreach (var key in new[] { "tasks.completed", "tasks.nextOccurrence", "notes.links" })
+        {
+            var builtIn = await BuiltInAsync(s, key);
+            Assert.True(!builtIn.TryGetProperty("role", out var role) || role.ValueKind == JsonValueKind.Null, key);
+            Assert.False(builtIn.GetProperty("required").GetBoolean());
+            Assert.False(builtIn.GetProperty("system").GetBoolean());
+        }
+
+        // A solution's reaction runs cheap (system lane, short history) on its own content type only.
+        var url = $"/v1.0/workspaces/{s.Workspace}/lists/{tasks}/items/{task}";
+        var etag = (await s.Client.GetAsync(url, Ct)).Headers.ETag!.Tag;
+        Assert.True((await s.Client.SendWithEtagAsync(HttpMethod.Patch, url, etag, new { fields = new { status = "completed" } })).IsSuccessStatusCode);
+        Assert.Equal("completed", (await EndedRunAsync(s, task, "Announce completed tasks")).GetProperty("status").GetString());
+        await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(s.Tenant.Id, s.Tenant.Identifier))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WorkflowsDbContext>();
+            Assert.True(await db.Runs.AnyAsync(r => r.ItemId == task && r.System && db.Workflows.Any(w => w.Id == r.WorkflowId && w.BuiltInKey == "tasks.completed"), Ct));
+        }
+
+        // Unlike a required role, it is simply turned off (a different behavior is a different solution).
+        var completed = await BuiltInAsync(s, "tasks.completed");
+        var off = await s.Client.SendWithEtagAsync(HttpMethod.Put, $"{s.Workflows}/builtIns/tasks.completed", completed.GetProperty("@odata.etag").GetString()!, new { enabled = false });
+        Assert.True(off.IsSuccessStatusCode, await off.Content.ReadAsStringAsync(Ct));
+        Assert.False((await BuiltInAsync(s, "tasks.completed")).GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
     public async Task Data_raised_by_workflows_cannot_forge_the_item_event_of_a_reaction()
     {
         var s = await SetupAsync("wf-system-forge");
