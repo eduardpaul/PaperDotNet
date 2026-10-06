@@ -17709,6 +17709,12 @@
               }
             ]
           },
+          "manualSelectionMode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "@odata.etag": {
             "type": [
               "null",
@@ -23128,6 +23134,13 @@
                 "$ref": "#/components/schemas/JsonObject"
               }
             ]
+          },
+          "primaryItemId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         },
         "description": "Starts a \u0060manual\u0060 workflow: once per item of \u0060itemIds\u0060 (in \u0060listId\u0060, at most 100), or once without an\nitem when there are none (for workflows whose trigger has no list). \u0060inputs\u0060 become run variables."
@@ -24672,6 +24685,12 @@
               {
                 "$ref": "#/components/schemas/WorkflowTriggerParameters"
               }
+            ]
+          },
+          "selectionMode": {
+            "type": [
+              "null",
+              "string"
             ]
           }
         },

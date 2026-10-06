@@ -446,6 +446,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                         .HasColumnType("character varying(200)")
                         .HasColumnName("failed_node");
 
+                    b.Property<bool>("IsSelection")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_selection");
+
                     b.Property<Guid?>("ItemId")
                         .HasColumnType("uuid")
                         .HasColumnName("item_id");
@@ -562,6 +566,48 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                     b.ToTable("runs", "automation");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowRunItem", b =>
+                {
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("run_id");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("list_id");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("RunId", "ItemId")
+                        .HasName("pk_run_items");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_run_items_tenant_id");
+
+                    b.HasIndex("RunId", "Position")
+                        .IsUnique()
+                        .HasDatabaseName("ix_run_items_run_id_position");
+
+                    b.HasIndex("TenantId", "ItemId")
+                        .HasDatabaseName("ix_run_items_tenant_id_item_id");
+
+                    b.ToTable("run_items", "automation");
+                });
+
             modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowSchedule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -641,6 +687,16 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                         .HasDatabaseName("ix_versions_workflow_id_number");
 
                     b.ToTable("versions", "automation");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Workflows.Data.WorkflowRunItem", b =>
+                {
+                    b.HasOne("PaperDotNet.Workflows.Data.WorkflowRun", null)
+                        .WithMany()
+                        .HasForeignKey("RunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_run_items_runs_run_id");
                 });
 #pragma warning restore 612, 618
         }

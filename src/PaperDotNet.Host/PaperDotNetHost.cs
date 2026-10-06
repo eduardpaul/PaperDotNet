@@ -59,6 +59,7 @@ public static class PaperDotNetHost
         new JobsModule(),
         new SearchModule(),
         new ZvecSearchModule(),
+        new PaperDotNet.Ocr.OcrModule(),
         new DocumentsModule(),
         new TasksModule(),
         new CalendarModule(),

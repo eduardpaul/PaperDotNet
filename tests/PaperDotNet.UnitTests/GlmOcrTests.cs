@@ -2,8 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
-using PaperDotNet.Documents.Features;
+using PaperDotNet.Ocr;
 using SkiaSharp;
 using UglyToad.PdfPig;
 
@@ -11,6 +12,29 @@ namespace PaperDotNet.UnitTests;
 
 public sealed class GlmOcrTests
 {
+    [Fact]
+    public async Task Glm_recognizes_original_dimensions_before_pdf_downsampling()
+    {
+        var directory = Directory.CreateTempSubdirectory("pdn_glm_original_");
+        try
+        {
+            var path = Png(directory.FullName, "original.png");
+            var script = new ScriptedOcr("INVOICE 4711");
+            var engine = Engine(script, new OcrOptions { Engine = "glm" });
+            var result = await engine.RecognizeAsync(path, "eng", Path.Combine(directory.FullName, "result"),
+                [new(15, 8)], TestContext.Current.CancellationToken);
+            Assert.Equal(30, script.ImageWidth);
+            Assert.Equal(16, script.ImageHeight);
+            Assert.Equal("INVOICE 4711", Assert.Single(result.Pages));
+            using var pdf = PdfDocument.Open(result.Pdf);
+            Assert.Equal("INVOICE 4711", pdf.GetPage(1).Text);
+            var image = Assert.Single(pdf.GetPage(1).GetImages());
+            Assert.Equal(15, image.WidthInSamples);
+            Assert.Equal(8, image.HeightInSamples);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
     [Fact]
     public async Task Glm_reads_each_page_and_stores_a_searchable_pdf()
     {
@@ -24,7 +48,7 @@ public sealed class GlmOcrTests
             var list = Path.Combine(directory, "pages.txt");
             await File.WriteAllLinesAsync(list, [first, second], ct);
             var script = new ScriptedOcr("INVOICE 4711", "SALMÓN 2,99 €");
-            var engine = Engine(script, new DocumentsOptions { Engine = "glm", GlmModel = "glm-ocr", GlmContext = 1024, GlmMaxTokens = 256 });
+            var engine = Engine(script, new OcrOptions { Engine = "glm", GlmModel = "glm-ocr", GlmContext = 1024, GlmMaxTokens = 256 });
 
             var (pdf, pages) = await engine.RecognizeAsync(list, "ignored", Path.Combine(directory, "ocr"), ct);
 
@@ -50,7 +74,7 @@ public sealed class GlmOcrTests
     public async Task An_unknown_engine_fails_before_any_call()
     {
         var script = new ScriptedOcr("unused");
-        var engine = Engine(script, new DocumentsOptions { Engine = "nope" });
+        var engine = Engine(script, new OcrOptions { Engine = "nope" });
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             engine.RecognizeAsync("missing", "eng", "ocr", TestContext.Current.CancellationToken));
         Assert.Contains("nope", error.Message, StringComparison.Ordinal);
@@ -75,7 +99,7 @@ public sealed class GlmOcrTests
         try
         {
             var image = Png(directory, "page.png");
-            var engine = Engine(new ScriptedOcr("half a page") { DoneReason = "length" }, new DocumentsOptions { Engine = "GLM" });
+            var engine = Engine(new ScriptedOcr("half a page") { DoneReason = "length" }, new OcrOptions { Engine = "GLM" });
             var error = await Assert.ThrowsAsync<InvalidOperationException>(() => engine.RecognizeAsync(image, "eng", Path.Combine(directory, "ocr"), ct));
             Assert.Contains("GlmContext", error.Message, StringComparison.Ordinal);
         }
@@ -85,8 +109,28 @@ public sealed class GlmOcrTests
         }
     }
 
-    private static OcrEngine Engine(ScriptedOcr script, DocumentsOptions options) =>
-        new(Options.Create(options), new OneClient(script));
+    [Fact]
+    public async Task Composition_can_keep_a_blank_page_after_successful_ocr()
+    {
+        var directory = Directory.CreateTempSubdirectory("pdn_blank_glm_");
+        var ct = TestContext.Current.CancellationToken;
+        try
+        {
+            var source = Png(directory.FullName, "page.png");
+            var engine = Engine(new ScriptedOcr(""), new OcrOptions { Engine = "glm" });
+            var (pdf, pages) = await engine.RecognizeAsync(source, "eng", Path.Combine(directory.FullName, "result"), ct, allowEmpty: true);
+            Assert.Equal("", Assert.Single(pages));
+            using var document = PdfDocument.Open(pdf);
+            Assert.Equal(1, document.NumberOfPages);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => engine.RecognizeAsync(source, "eng", Path.Combine(directory.FullName, "ordinary"), ct));
+            var missingResponse = Engine(new ScriptedOcr([null!]), new OcrOptions { Engine = "glm" });
+            await Assert.ThrowsAsync<InvalidOperationException>(() => missingResponse.RecognizeAsync(source, "eng", Path.Combine(directory.FullName, "missing"), ct, allowEmpty: true));
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    private static OcrEngine Engine(ScriptedOcr script, OcrOptions options) =>
+        new(Options.Create(options), new OneClient(script), new PaddleOcr(new ConfigurationBuilder().Build()));
 
     private static string Png(string directory, string name)
     {
@@ -113,6 +157,8 @@ public sealed class GlmOcrTests
         public List<string> Prompts { get; } = [];
 
         public int Calls { get; private set; }
+        public int ImageWidth { get; private set; }
+        public int ImageHeight { get; private set; }
 
         public int Context { get; private set; }
 
@@ -123,6 +169,9 @@ public sealed class GlmOcrTests
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var json = await request.Content!.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            using var image = SKBitmap.Decode(Convert.FromBase64String(json.GetProperty("images")[0].GetString()!));
+            ImageWidth = image.Width;
+            ImageHeight = image.Height;
             Prompts.Add(json.GetProperty("prompt").GetString()!);
             Context = json.GetProperty("options").GetProperty("num_ctx").GetInt32();
             MaxTokens = json.GetProperty("options").GetProperty("num_predict").GetInt32();

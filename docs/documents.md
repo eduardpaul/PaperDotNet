@@ -72,7 +72,13 @@ involved.
 
 ## OCR engine
 
-The default image runs the Tesseract CLI (`Documents:Engine` = `tesseract`).
+The default engine is the bundled offline PaddleOCR pipeline
+(`Ocr:Engine` = `paddleocr`): detection, orientation correction, recognition,
+and a positioned Unicode text layer in the searchable PDF. It requires no
+Tesseract executable or OCR server. See [OCR services](ocr.md) for models,
+configuration and supported input formats. TIFF input requires conversion to
+PNG/PDF or explicitly selecting `Ocr:Engine=tesseract`; the standard container
+retains the optional Tesseract CLI and its English/German language data.
 `Dockerfile.glm` is an optional image that runs GLM-OCR through Ollama instead
 ([ADR-0034](adr/0034-optional-glm-ocr.md)):
 
@@ -83,7 +89,7 @@ docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.glm.yml up 
 `ocrLanguages` is still stored and still selects the stemming language. GLM-OCR
 does not use Tesseract language codes. Search keeps the recognized text,
 including accents. The invisible text inside the PDF is ASCII, because that
-layer uses a standard PDF font. A full-page photo needs `Documents:GlmContext`
+layer uses a standard PDF font. A full-page photo needs `Ocr:GlmContext`
 (default 16384) and about 5 GB of GPU memory, or the same on the CPU.
 
 ## Languages per file
@@ -132,3 +138,78 @@ or terms, so that they can be tagged like documents.
   default values only apply to items.
 - **Filters and templates:** `$filter` works on folder values, and folder
   values are exported with their items in template packages.
+
+## Photo to document
+
+Photo to document is built into the Documents module. Its
+`paperdotnet.storageoptimization.photoToDocument` key is retained for compatibility.
+No extension enablement is required. Select photos in a library, choose **Run workflow → Photo to document**, arrange
+the page order, and choose the **Primary item**. This manual-only built-in makes
+one searchable PDF and creates one approval. Library managers configure its
+approver users/groups in the workflow settings; without configured approvers it
+uses active workspace managers. Manual launching does not enable automatic
+processing.
+
+The first release accepts static JPEG, PNG and WebP photos, with one photo per
+page. It honors all EXIF orientations, flattens transparency onto white, and uses
+PaddleOCR by default (or the configured Tesseract or GLM engine). OCR reads the
+full-resolution normalized photos with the primary photo's effective OCR languages.
+After recognition, the PDF image is resized so the smallest reliable detected
+text height targets 32 px, then compressed. Blank pages are retained after successful OCR. Unsupported or
+animated files, decoder failures and OCR failures stop the run without changing
+any original. Photos are not cropped or straightened. Each image is limited to
+64 million decoded pixels; composition/OCR work is serialized per host process,
+and the final PDF must fit the normal document size limit.
+
+The result stays staged until an assigned approver reviews its PDF pages next to
+the originals. Review supports page navigation, zoom and PDF download. Reviewers
+need Read access to every photo; the launching user must retain Contribute
+access to every photo. Changes to a source file, item version or location make
+the review stale and require a new launch. Source snapshots and staged bytes are
+protected from cleanup while review is pending.
+
+Approval replaces the primary item's current file with exactly the reviewed
+PDF and recycles the other selected photos in one transaction. A conflict or
+failure rolls back the whole replacement. The primary retains its identity,
+metadata, permissions, folder and original file history; the other photos can
+be restored from the recycle bin. Rejection or cancellation leaves every source
+unchanged. Retries reuse the same candidate, and replaying an accepted promotion
+creates no extra version or approval. Search, document workflows and live views
+are updated after commit.
+
+`Documents.Contracts.IStagedDocumentStore` stores durable temporary content without
+workflow, selection or approval policy. Its creator owns access; retry identifiers
+reuse immutable staged output. Extensions can retain immutable file bytes through
+version pins. Optional JSON object metadata is snapshotted at creation, persisted,
+and returned as `StagedDocument.Attributes`; retries require equivalent attributes.
+Omitted attributes default to `{}`, matching `ItemRelation.Attributes`.
+The core assigns no domain meaning to these attributes. Extensions implement
+`IStagedDocumentRetention` to protect temporary content
+for as long as their processing needs it. Cleanup releases unretained content after
+the normal grace period.
+
+`IDocumentPublisher` conditionally publishes staged content in a caller-supplied
+transaction, preserving existing history and permissions. `LockVersionsAsync`
+protects all expected current file versions until commit. It never chooses which
+items to recycle. `Lists.Contracts.IItemBatchRecycle` performs version-checked
+recycling in the same transaction, including locking a retained item. The Documents
+module owns `PhotoConversionDbContext`, source snapshots, freshness rules, review
+state and the replace/recycle decision. Provider migrations ship in the core
+migration projects. The original conversion schema and migration IDs are retained
+so existing data and pending reviews survive the move. Events are saved without committing the caller's
+transaction, then dispatched after commit.
+
+`Ocr.Contracts.IOcrService` recognizes ordered image streams through the shared
+OCR module; the result owns a searchable PDF stream and page texts. Input streams
+remain caller-owned. `IDocumentPdfRenderer` renders staged PDFs through the normal
+preview engine. Staging accepts supported document media types and optional PDF
+page text. It imposes neither a source count nor a smaller-output constraint;
+Photo to document enforces exactly one page per photo in its own activity.
+
+## Feature organization
+
+Storage optimization lives in `Features/StorageOptimization/`; reviewed photo-to-PDF
+conversion lives in `Features/PhotoToDocument/`. Each folder owns its workflow,
+activities, review provider, and registration. Library workflow settings control
+automatic optimization; it remains off by default and can also be launched manually.
+Workflow/activity keys and `StorageOptimization` configuration names remain stable.

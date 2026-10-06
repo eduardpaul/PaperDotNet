@@ -27,6 +27,8 @@ public sealed record ResumeRun(Guid RunId, Guid? BookmarkId, Guid TenantId, stri
 /// <summary>Wolverine handler for <see cref="ResumeRun"/> (discovered by convention).</summary>
 public static class ResumeRunHandler
 {
+    // Serial multi-page OCR can exceed Wolverine's 60-second default. Stay below the five-minute run lease.
+    [MessageHandlerTimeout(240)]
     public static async Task Handle(ResumeRun message, ITenantScopeFactory scopes, CancellationToken cancellationToken)
     {
         await using var scope = scopes.CreateScope(message.TenantId, message.TenantIdentifier);
@@ -37,7 +39,7 @@ public static class ResumeRunHandler
 /// <summary>A run to start; with an <see cref="Error"/> (e.g. a condition that cannot be checked) it is saved as failed.</summary>
 internal sealed record WorkflowStart(
     WorkflowDefinition Workflow, WorkflowItem? Item, Guid? EventId, string? Data, int Depth, Guid? StartedBy, string? Error = null,
-    JsonObject? Variables = null, string? Concurrency = null, string? TriggerType = null, WorkflowSpec? Spec = null);
+    JsonObject? Variables = null, string? Concurrency = null, string? TriggerType = null, WorkflowSpec? Spec = null, IReadOnlyList<WorkflowItem>? Items = null);
 
 /// <summary>Starts runs of a workspace's workflows.</summary>
 internal sealed class WorkflowStarter(
@@ -83,13 +85,15 @@ internal sealed class WorkflowStarter(
                     concurrency[start.Workflow.Id] = mode;
                 }
 
+                var members = start.Items ?? [target];
+                var memberIds = members.Select(i => i.ItemId).ToArray();
                 mode = effectiveConcurrency = start.Concurrency ?? mode;
                 if (mode != RunConcurrency.Parallel)
                 {
                     var going = await db.Runs
-                        .Where(r => r.WorkflowId == start.Workflow.Id && r.ItemId == target.ItemId && (r.Status == RunStatus.Running || r.Status == RunStatus.Waiting))
+                        .Where(r => r.WorkflowId == start.Workflow.Id && (memberIds.Contains(r.ItemId!.Value) || db.RunItems.Any(i => i.RunId == r.Id && memberIds.Contains(i.ItemId))) && (r.Status == RunStatus.Running || r.Status == RunStatus.Waiting))
                         .ToListAsync(ct);
-                    if (mode == RunConcurrency.Skip && (going.Count > 0 || starting.Contains((start.Workflow.Id, target.ItemId))))
+                    if (mode == RunConcurrency.Skip && (going.Count > 0 || members.Any(i => starting.Contains((start.Workflow.Id, i.ItemId)))))
                     {
                         continue;
                     }
@@ -100,7 +104,7 @@ internal sealed class WorkflowStarter(
                     }
                 }
 
-                starting.Add((start.Workflow.Id, target.ItemId));
+                foreach (var member in members) starting.Add((start.Workflow.Id, member.ItemId));
             }
 
             var run = new WorkflowRun
@@ -113,6 +117,7 @@ internal sealed class WorkflowStarter(
                 ListId = start.Item?.ListId,
                 ItemId = start.Item?.ItemId,
                 EventId = start.EventId,
+                IsSelection = start.Items is not null,
                 Data = new JsonObject
                 {
                     ["$workflowContext"] = new JsonObject
@@ -123,6 +128,8 @@ internal sealed class WorkflowStarter(
                         ["workspaceId"] = start.Workflow.WorkspaceId.ToString(),
                         ["listId"] = start.Item?.ListId.ToString(),
                         ["itemId"] = start.Item?.ItemId.ToString(),
+                        ["items"] = new JsonArray([.. (start.Items ?? (start.Item is null ? [] : new[] { start.Item }))
+                            .Select(i => (JsonNode)new JsonObject { ["workspaceId"] = i.WorkspaceId.ToString(), ["listId"] = i.ListId.ToString(), ["itemId"] = i.ItemId.ToString() })]),
                         ["userId"] = start.StartedBy?.ToString(),
                         ["startedAt"] = now.ToString("O"),
                     },
@@ -147,6 +154,12 @@ internal sealed class WorkflowStarter(
             }
 
             db.Runs.Add(run);
+            var membership = start.Items ?? (start.Item is null ? [] : new[] { start.Item });
+            for (var position = 0; position < membership.Count; position++)
+            {
+                var member = membership[position];
+                db.RunItems.Add(new WorkflowRunItem { RunId = run.Id, ItemId = member.ItemId, WorkspaceId = member.WorkspaceId, ListId = member.ListId, Position = position });
+            }
             runs.Add(run);
         }
 
@@ -158,17 +171,17 @@ internal sealed class WorkflowStarter(
     public const int MaxItemsPerStart = 100;
 
     /// <summary>
-    /// Starts a workflow with the <c>manual</c> trigger: once per item, or once without an item when there are none
+    /// Starts a workflow with the <c>manual</c> trigger: once per item, once for the selection, or once without an item when there are none
     /// (only for triggers without a list). Every item and the inputs are checked before anything starts; the inputs
     /// become the runs' variables.
     /// </summary>
     public Task<(List<WorkflowRun> Runs, string? Error)> StartManualAsync(
-        WorkflowDefinition workflow, IReadOnlyList<WorkflowItem> targets, JsonObject? inputs, Guid? startedBy, CancellationToken ct) =>
-        StartOnDemandAsync(workflow, targets, inputs, startedBy, WorkflowTriggers.Manual, ct);
+        WorkflowDefinition workflow, IReadOnlyList<WorkflowItem> targets, JsonObject? inputs, Guid? startedBy, CancellationToken ct, Guid? primaryItemId = null) =>
+        StartOnDemandAsync(workflow, targets, inputs, startedBy, WorkflowTriggers.Manual, ct, primaryItemId);
 
     /// <summary>Validates and starts an opted-in manual or webhook workflow.</summary>
     public async Task<(List<WorkflowRun> Runs, string? Error)> StartOnDemandAsync(
-        WorkflowDefinition workflow, IReadOnlyList<WorkflowItem> targets, JsonObject? inputs, Guid? startedBy, string triggerType, CancellationToken ct)
+        WorkflowDefinition workflow, IReadOnlyList<WorkflowItem> targets, JsonObject? inputs, Guid? startedBy, string triggerType, CancellationToken ct, Guid? primaryItemId = null)
     {
         var name = workflow.Name;
         if (!TriggerColumn.Contains(workflow.Trigger, triggerType))
@@ -195,6 +208,10 @@ internal sealed class WorkflowStarter(
         var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
         var trigger = spec.AllTriggers.First(t => t.Type == triggerType);
+        var selection = triggerType == WorkflowTriggers.Manual && trigger.SelectionMode == "selection";
+        if (primaryItemId is { } requestedPrimary && !targets.Any(t => t.ItemId == requestedPrimary)) return ([], "primaryItemId must belong to the selection.");
+        if (selection && (targets.Count is 0 or > MaxItemsPerStart || targets.Select(t => t.ListId).Distinct().Count() != 1))
+            return ([], "Choose 1–100 items from one list for a selection workflow.");
         var schema = spec.InputSchema ?? trigger.Inputs;
         inputs = WorkflowInputs.WithDefaults(schema, inputs);
         if ((WorkflowInputs.Check(schema, inputs) ?? await DomainInputs.CheckAsync(schema, inputs, items, terms, users, ct)) is { } invalid)
@@ -264,6 +281,14 @@ internal sealed class WorkflowStarter(
                     return ([], error ?? "The item does not match the workflow's condition.");
                 }
             }
+        }
+
+        if (selection)
+        {
+            var primary = targets.First(t => t.ItemId == (primaryItemId ?? targets[0].ItemId));
+            var grouped = await StartAsync([new WorkflowStart(workflow, primary, null, null, causation.Depth, startedBy,
+                Variables: inputs, TriggerType: triggerType, Spec: spec, Concurrency: trigger.Concurrency, Items: targets)], ct);
+            return (grouped, null);
         }
 
         var each = targets.Count == 0 ? [null] : targets.Select(t => (WorkflowItem?)t).ToList();
@@ -971,8 +996,10 @@ internal sealed partial class WorkflowInterpreter(
             // wins (skip) or the later one does (replace).
             if ((run.Concurrency ?? spec.Concurrency) is RunConcurrency.Skip or RunConcurrency.Replace && run.ItemId is { } runItem)
             {
+                var memberIds = await db.RunItems.Where(i => i.RunId == run.Id).Select(i => i.ItemId).ToListAsync(ct);
+                if (memberIds.Count == 0) memberIds.Add(runItem);
                 var others = await db.Runs
-                    .Where(r => r.WorkflowId == run.WorkflowId && r.ItemId == runItem && r.Id != run.Id && (r.Status == RunStatus.Running || r.Status == RunStatus.Waiting))
+                    .Where(r => r.WorkflowId == run.WorkflowId && (memberIds.Contains(r.ItemId!.Value) || db.RunItems.Any(i => i.RunId == r.Id && memberIds.Contains(i.ItemId))) && r.Id != run.Id && (r.Status == RunStatus.Running || r.Status == RunStatus.Waiting))
                     .ToListAsync(ct);
                 var earlier = others.Where(r => r.StartedAt < run.StartedAt || (r.StartedAt == run.StartedAt && r.Id.CompareTo(run.Id) < 0)).ToList();
                 if ((run.Concurrency ?? spec.Concurrency) == RunConcurrency.Skip && earlier.Count > 0)

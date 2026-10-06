@@ -17,7 +17,7 @@ namespace PaperDotNet.Lists.Features;
 internal sealed partial class ListItemStore(
     ListsDbContext db, ListSchemaLoader loader, ItemQueryRunner runner, ItemWriter writer, IWorkspaceAccess workspaces,
     ListItemSearchDocuments search, ContentTypeProvisioner contentTypes, ListTemplateRegistry templates, RelationshipTypes relationshipTypes, bool system = false)
-    : IListItemStore
+    : IListItemStore, IItemBatchRecycle
 {
     public IListItemStore AsSystem() => system ? this : new ListItemStore(db, loader, runner, writer, workspaces, search, contentTypes, templates, relationshipTypes, system: true);
 

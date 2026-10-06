@@ -27,6 +27,24 @@ internal sealed class WolverineOutbox(IDbContextOutbox outbox, EventSubscriberRe
             return;
         }
 
+        await QueueAsync(db, events, messages);
+        await outbox.SaveChangesAndFlushMessagesAsync(cancellationToken);
+    }
+
+    public async Task SaveChangesInTransactionAsync(DbContext db, IReadOnlyCollection<IntegrationEvent> events, CancellationToken cancellationToken)
+    {
+        if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("A caller-owned transaction is required.");
+        await QueueAsync(db, events, null);
+        // Wolverine's SaveChangesAndFlushMessagesAsync commits even externally supplied transactions.
+        // Save through EF here; queued envelopes share this transaction and are dispatched only after commit.
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public Task FlushAsync(CancellationToken cancellationToken) => outbox is MessageContext context
+        ? context.FlushOutgoingMessagesAsync() : Task.CompletedTask;
+
+    private async Task QueueAsync(DbContext db, IReadOnlyCollection<IntegrationEvent> events, IReadOnlyCollection<ITenantMessage>? messages)
+    {
         outbox.Enroll(db);
 
         // One request may save several times (e.g. create an item, then start an operation). By default
@@ -53,7 +71,6 @@ internal sealed class WolverineOutbox(IDbContextOutbox outbox, EventSubscriberRe
             await outbox.PublishAsync(message);
         }
 
-        await outbox.SaveChangesAndFlushMessagesAsync(cancellationToken);
     }
 }
 
@@ -85,6 +102,7 @@ public static class MessagingServiceCollectionExtensions
             configureStorage(options);
             options.UseEntityFrameworkCoreTransactions();
             options.Policies.UseDurableLocalQueues();
+            options.Policies.Add<MessageHandlerTimeoutPolicy>();
             options.Discovery.IncludeAssembly(typeof(EventEnvelopeHandler).Assembly);
             foreach (var assembly in handlerAssemblies)
             {

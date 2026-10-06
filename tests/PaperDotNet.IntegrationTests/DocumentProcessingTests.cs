@@ -105,11 +105,16 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
 
         // A library has text, thumbnails and pages on, OCR off.
         var workflows = await WorkflowsAsync(client, ws, list);
-        Assert.Equal(["documents.ocr", "documents.pages", "documents.text", "documents.thumbnail"], workflows.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal([
+            "documents.ocr", "documents.pages", "documents.text", "documents.thumbnail",
+            "paperdotnet.storageoptimization.optimize", "paperdotnet.storageoptimization.photoToDocument",
+        ], workflows.Keys.Order(StringComparer.Ordinal));
         Assert.True(workflows["documents.text"].GetProperty("enabled").GetBoolean());
         Assert.True(workflows["documents.thumbnail"].GetProperty("enabled").GetBoolean());
         Assert.True(workflows["documents.pages"].GetProperty("enabled").GetBoolean());
         Assert.False(workflows["documents.ocr"].GetProperty("enabled").GetBoolean());
+        Assert.False(workflows["paperdotnet.storageoptimization.optimize"].GetProperty("enabled").GetBoolean());
+        Assert.False(workflows["paperdotnet.storageoptimization.photoToDocument"].GetProperty("enabled").GetBoolean());
         Assert.Equal("library", workflows["documents.text"].GetProperty("scope").GetString());
 
         var item = await UploadAsync(client, ws, list, TextPdf("Quarterly report", "Paperclips were ordered"), "report.pdf");
@@ -199,7 +204,7 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
-    public async Task Ocr_is_run_again_by_hand_and_its_failures_fail_the_run()
+    public async Task Ocr_can_be_forced_and_multilingual_recognition_needs_no_language_packs()
     {
         await factory.CreateTenantAsync("proc-scanpdf");
         var client = await ApiClient.CreateAsync(factory, "proc-scanpdf");
@@ -221,14 +226,13 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
         await RunsAsync(client, ws, text, 7);
         Assert.Equal("ocr", (await VersionsAsync(client, ws, list, text))[0].GetProperty("source").GetString());
 
-        // A language Tesseract does not have: the OCR run fails with the error.
+        // Paddle recognition is multilingual; language metadata does not require Tesseract language packs.
         await SetAsync(client, ws, list, "documents.ocr", enabled: true, new { languages = "xyz" });
-        var failing = await UploadAsync(client, ws, list, ScanPng("Manual"), "manual.png");
-        var runs = await RunsAsync(client, ws, failing, 4);
+        var multilingual = await UploadAsync(client, ws, list, ScanPng("Manual"), "manual.png");
+        var runs = await RunsAsync(client, ws, multilingual, 7);
         var ocr = Assert.Single(runs, r => r.GetProperty("workflow").GetString() == "Recognize text (Documents)");
-        Assert.Equal("failed", ocr.GetProperty("status").GetString());
-        Assert.Contains("OCR failed", ocr.GetProperty("error").GetString(), StringComparison.Ordinal);
-        Assert.Single(await VersionsAsync(client, ws, list, failing));
+        Assert.Equal("completed", ocr.GetProperty("status").GetString());
+        Assert.Equal("ocr", (await VersionsAsync(client, ws, list, multilingual))[0].GetProperty("source").GetString());
 
         // Settings: OCR languages are checked.
         var invalid = await client.PutAsJsonAsync($"/v1.0/workspaces/{ws}/lists/{list}/documentSettings", new { ocrLanguages = "../etc" }, Ct);

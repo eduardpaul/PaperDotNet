@@ -104,7 +104,8 @@ internal sealed class ReadTextActivity(
         await items.ReindexAsync(version.ItemId, cancellationToken);
         live.Publish(DocumentLiveEvents.Changed(tenant, user, version, "text"));
 
-        var hasText = version.Source == "ocr" || DocumentText.Enough(pages);
+        var hasText = version.Source == "ocr" || DocumentText.Enough(pages)
+            || await db.StagedFiles.AnyAsync(s => s.PublishedVersionId == version.Id && s.HasPreparedText, cancellationToken);
         return WorkflowActivityResult.Ok(hasText ? "text" : "noText", DocumentActivity.Output(version, ("hasText", hasText)));
     }
 }

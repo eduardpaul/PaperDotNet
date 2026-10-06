@@ -52,6 +52,7 @@ export interface WorkflowDraft {
 /** The trigger in the form: text inputs as strings; terms and manual inputs are kept as the API's JSON. */
 export interface TriggerDraft {
   type: string;
+  selectionMode?: string;
   list: string;
   contentType: string;
   changedFields: string[];
@@ -72,6 +73,7 @@ export interface TriggerDraft {
 /** A trigger as the API's JSON has it. */
 export interface PlainTrigger {
   type?: string;
+  selectionMode?: string | null;
   list?: string | null;
   contentType?: string | null;
   changedFields?: string[] | null;
@@ -215,6 +217,7 @@ export function fromPlain(plain: PlainWorkflow): WorkflowDraft {
       offsetHours: text(plain.trigger?.offsetHours),
       ...(plain.trigger?.terms?.length ? { terms: plain.trigger.terms } : {}),
       ...(plain.trigger?.inputs ? { inputs: plain.trigger.inputs } : {}),
+      ...(plain.trigger?.selectionMode ? { selectionMode: plain.trigger.selectionMode } : {}),
       ...(plain.trigger?.concurrency ? { concurrency: plain.trigger.concurrency } : {}),
       ...(plain.trigger?.parameters ? { parameters: plain.trigger.parameters } : {}),
       ...(plain.trigger?.data ? { data: plain.trigger.data } : {}),
@@ -294,6 +297,7 @@ function triggerToPlain(trigger: TriggerDraft): PlainTrigger {
       : {}),
     ...(trigger.inputs && type === 'manual' ? { inputs: trigger.inputs } : {}),
     ...(trigger.data ? { data: trigger.data } : {}),
+    ...(type === 'manual' && trigger.selectionMode ? { selectionMode: trigger.selectionMode } : {}),
     ...(trigger.concurrency ? { concurrency: trigger.concurrency } : {}),
     ...(trigger.parameters && ['itemAdded', 'itemUpdated'].includes(type) ? { parameters: trigger.parameters } : {}),
   };

@@ -96,7 +96,7 @@ ISC License. Copyright (c) 2026 Lucide Icons and Contributors.
 > OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 > PERFORMANCE OF THIS SOFTWARE.
 
-## Storage optimization detection
+## OCR and text detection
 
 RapidOcrNet (Apache-2.0), copyright BobLd and RapidOCR contributors:
 https://github.com/BobLd/RapidOcrNet
@@ -104,10 +104,10 @@ Based on RapidAI / RapidOCR and parts of PdfPig (Apache-2.0), and PContour /
 PContourNet (MIT), copyright LingDong Huang / BobLd. See their notices:
 https://github.com/BobLd/RapidOcrNet/blob/master/NOTICE.txt
 
-PaddleOCR PP-OCRv6 small and legacy PP-OCRv4 detector weights (Apache-2.0), copyright PaddlePaddle /
-PaddleOCR contributors; v6 published by PaddlePaddle, v4 converted to ONNX by
-RapidAI / RapidOCR. Model provenance
-and complete license: src/Extensions/PaperDotNet.StorageOptimization/models/.
+PaddleOCR PP-OCRv6 small detection/recognition weights, character dictionary
+and PP-LCNet text-line orientation classifier (Apache-2.0), copyright PaddlePaddle /
+PaddleOCR contributors; published by PaddlePaddle. Model provenance
+and complete license: src/Modules/Ocr/PaperDotNet.Ocr/models/.
 
 Microsoft ONNX Runtime (MIT), copyright Microsoft Corporation:
 https://github.com/microsoft/onnxruntime/blob/main/LICENSE

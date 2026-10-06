@@ -8,6 +8,7 @@
     <PackageId>PaperDotNet.Extensions.Abstractions</PackageId>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../Modules/Ocr/PaperDotNet.Ocr.Contracts/PaperDotNet.Ocr.Contracts.csproj" />
     <ProjectReference Include="../../Modules/Documents/PaperDotNet.Documents.Contracts/PaperDotNet.Documents.Contracts.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\BuildingBlocks\PaperDotNet.Abstractions\PaperDotNet.Abstractions.csproj" />

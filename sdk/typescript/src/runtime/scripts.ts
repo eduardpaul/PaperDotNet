@@ -93,7 +93,7 @@ export interface ScriptGlobals {
   /** The trigger's data. */
   trigger: Record<string, unknown>;
   /** Uniform execution metadata and original launch parameters. */
-  context: Record<string, unknown>;
+  context: Record<string, unknown> & { items?: { workspaceId: string; listId: string; itemId: string }[] };
   input: Record<string, unknown>;
   items: ScriptItems;
   /** A line in the run's log. */
@@ -136,7 +136,7 @@ declare const vars: Record<string, any>;
 declare const steps: Record<string, any>;
 /** The trigger's data. */
 declare const trigger: Record<string, any>;
-declare const context: Record<string, any>;
+declare const context: Record<string, any> & { items?: { workspaceId: string; listId: string; itemId: string }[] };
 declare const input: Record<string, any>;
 /** The workspace's lists, by name. Writes are applied in order when the script has returned. */
 declare const items: {

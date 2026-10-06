@@ -145,6 +145,9 @@ public sealed class WorkflowActivityContext
     /// <summary>The item of the run; null for triggers without an item.</summary>
     public WorkflowItem? Item { get; init; }
 
+    /// <summary>Ordered targets of the run; the singular Item is its primary item.</summary>
+    public IReadOnlyList<WorkflowItem> Items { get; init; } = [];
+
     /// <summary>The action's inputs as saved (tokens not expanded; use <see cref="ExpandAsync"/>).</summary>
     public required JsonObject Inputs { get; init; }
 

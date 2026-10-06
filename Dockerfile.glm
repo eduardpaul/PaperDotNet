@@ -83,10 +83,10 @@ ENV ASPNETCORE_HTTP_PORTS=8080 \
     PAPERDOTNET__Storage__DataPath=/data \
     OLLAMA_MODELS=/models \
     OLLAMA_HOST=127.0.0.1:11434 \
-    PAPERDOTNET__Documents__Engine=glm \
-    PAPERDOTNET__Documents__GlmBaseUrl=http://127.0.0.1:11434 \
-    PAPERDOTNET__Documents__GlmModel=glm-ocr \
-    PAPERDOTNET__Documents__GlmContext=16384
+    PAPERDOTNET__Ocr__Engine=glm \
+    PAPERDOTNET__Ocr__GlmBaseUrl=http://127.0.0.1:11434 \
+    PAPERDOTNET__Ocr__GlmModel=glm-ocr \
+    PAPERDOTNET__Ocr__GlmContext=16384
 VOLUME /data
 EXPOSE 8080
 USER $APP_UID

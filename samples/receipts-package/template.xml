@@ -4,7 +4,7 @@
   Upload a photo or a PDF of a receipt to the library "Receipts" and tag it "ticket" (or a tag below it, such as
   "Groceries"): the next batch reads the store, the date, the currency, the total and every line, and fills the receipt
   and the list "Receipt lines".
-  The compiled storage optimization extension reviews images before the workflows save the AI answer with a script step.
+  The Documents storage optimization feature reviews images before the workflows save the AI answer with a script step.
   The library keeps thumbnails and page images, but reads no text and runs no OCR: the model reads the images.
   Needs a chat model that reads images (AI:Chat), ideally with a batch API (AI:Batch). See README.md.
 -->
@@ -15,9 +15,6 @@
     <Parameter Name="BatchSchedule" Default="0 * * * *" Description="When the AI batch sends the waiting receipts (cron, UTC)." />
     <Parameter Name="OcrLanguages" Default="eng" Description="Tesseract languages for optimization analysis and optional OCR, e.g. deu+eng." />
   </Parameters>
-  <Extensions>
-    <Extension Id="paperdotnet.storageoptimization" Enabled="true" />
-  </Extensions>
   <TermGroups>
     <TermGroup Name="Receipts" Description="Tags of the receipts workspace.">
       <TermSet Name="Tags" Description="Tag a document to have it read as a receipt." Open="true">

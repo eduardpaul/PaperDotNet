@@ -341,17 +341,119 @@ freshness. Later nodes can use `{step:review.input.reason}` (replace `review` an
 `reason` with the node and field names). The review requires an item even though
 ordinary approvals can run at workspace scope.
 
-See ADR-0046 and the compiled `PaperDotNet.StorageOptimization` extension for the
-complete example. Extension identifiers remain lowercase, including
-`paperdotnet.storageoptimization`.
+See ADR-0046 and `PaperDotNet.Documents/Features/StorageOptimization/` for the
+complete built-in implementation of the same public contracts. Its existing
+`paperdotnet.storageoptimization` workflow and review keys are retained for compatibility.
 
 The image adapter defaults to PaddleOCR PP-OCRv6 small DBNet line detection. Its model
 and native CPU runtime ship with the host; no inference service or download is
 needed. Set `PAPERDOTNET__StorageOptimization__TextDetector=tesseract` to use
-TSV word detection instead. `PaddleModelPath` selects a compatible custom DBNet ONNX
-detector (including the bundled legacy `models/ch_PP-OCRv4_det.onnx`).
-`PaddleThreads` (default 1) controls inference threads. Confidence
+TSV word detection instead. `Ocr:PaddleModelPath` selects a compatible custom DBNet ONNX
+detector. `Ocr:PaddleThreads` (default 1) controls inference threads. Confidence
 means box score for DBNet and recognized-word confidence for Tesseract.
 Proposal metrics record detector, model digest, strategy and analysis time.
 The ordinary document text-extraction workflow still uses its configured OCR
 engine; this setting changes only storage-optimization measurements.
+
+
+## Workflows over a whole selection
+
+The core workflow engine supports manual triggers with
+`"selectionMode": "selection"` (the default remains `"perItem"`). A manual launch
+starts one durable run over ordered `itemIds`, with an independent
+`primaryItemId`. Activities receive typed `WorkflowActivityContext.Items`, while
+tokens and scripts use `context.items`. The singular context item remains the
+primary. The engine validates the whole selection, handles overlapping run
+concurrency, persists membership, and recovers runs after restarts.
+
+The Documents module implements `paperdotnet.storageoptimization.photoToDocument`
+using these public contracts. Its implementation is organized in
+`Features/PhotoToDocument/`; it is a product feature rather than a separately
+enabled extension. Custom extensions can register their own built-ins, activities,
+and review providers through `IExtensionBuilder` without referencing Documents
+implementation types.
+
+The public SDK services available for this processing are:
+
+- `IDocumentFileStore` and `IListItemStore` for immutable files and caller access.
+- `IOcrService` for ordered image streams using the configured host OCR engine.
+- `IStagedDocumentStore` for durable temporary output and immutable-version byte pins.
+- `IDocumentPublisher` for version-conditional publishing in a caller-owned transaction;
+  `IItemBatchRecycle` participates in that same transaction.
+- `IStagedDocumentRetention` for processing-owned retention policy. Extensions can
+  keep their own snapshots and review state in an `ExtensionDbContext`.
+- `IDocumentPdfRenderer` for previewing a staged PDF without publishing it.
+
+`OcrResult` owns its returned PDF stream. The caller owns input streams.
+Pass an optional `JsonObject` to `IStagedDocumentStore.CreateAsync` to attach
+domain-specific metadata, such as an invoice number or processing diagnostics:
+
+```csharp
+var staged = await staging.CreateAsync(executionId, "acme.invoices", "invoice.pdf",
+    "eng", ct, attributes: new JsonObject { ["invoiceNumber"] = "INV-42" });
+```
+
+The store snapshots and persists the object, returning a separate copy in
+`StagedDocument.Attributes`. Nested objects, arrays, and JSON values are supported.
+Attributes are immutable for that identifier: retries must supply equivalent values
+(property order does not matter). Omitting attributes returns an empty object,
+following the `ItemRelation.Attributes` convention; existing callers can continue
+omitting them. The core treats attributes as opaque data and
+does not copy them into the published item's fields. Processing state and review
+decisions remain the extension's responsibility.
+
+`StageAsync` accepts one text entry per output PDF page, independent of the source
+count, so another extension can produce output without adopting photo-selection
+or approval policy. Pass `null` when text extraction has not been performed;
+an empty string means extraction succeeded for a blank page. PDF page count is
+recorded independently of supplied text. Staging also accepts supported images
+without PDF page text. Photo to document enforces its one-page-per-photo rule itself.
+
+Publishing participates in the extension's own EF transaction. Keep the extension's
+review-state transition in that transaction, and announce only after it commits:
+
+```csharp
+await using var transaction = await extensionDb.Database.BeginTransactionAsync(ct);
+await publisher.LockVersionsAsync(expectedFiles, transaction.GetDbTransaction(), ct);
+await recycler.RecycleAsync(reviewedItems, transaction.GetDbTransaction(), ct);
+await publisher.PublishAsync(stagedId, expectedTarget, "my-extension",
+    transaction.GetDbTransaction(), ct);
+// Persist the extension's decision here.
+await extensionDb.SaveChangesAsync(ct);
+await transaction.CommitAsync(ct);
+await publisher.AnnounceAsync(stagedId, ct);
+await recycler.AnnounceAsync(reviewedItems, ct);
+```
+
+For workflow-owned recycling, include `WorkflowRunId` in each `ItemRecycleTarget`
+so its own selection run is not canceled by the resulting item events.
+
+Recycling is optional; staging and publishing do not assume that inputs form a
+selection or should be removed. Providers that serve staged bytes to reviewers
+must authorize assignment and source Read access before opening a creator scope.
+
+Selection launch controls are configured declaratively in a workflow's input
+schema. For example:
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "x-paperdotnet-selection": {
+    "preview": "image",
+    "itemLabel": "page",
+    "orderLabel": "Page order",
+    "primaryDescription": "This item retains the reviewed result."
+  }
+}
+```
+
+Both extension built-ins and custom workflows can use these hints. Workflow keys
+are not hard-coded in the UI. A review provider can choose the generic
+`pdfComposition` renderer with `name`, `primaryName`, `pageCount`, and ordered
+`sources` in its descriptor. It serves `candidate`, `page-N` (one-based rendered
+pages), and `source-N` (zero-based originals). Descriptor data may supply
+`description`, `approvedLabel` and `rejectedLabel`; the shared review dialog
+renders them as plain text. Custom renderers remain build-time contributions to
+the renderer registry. Providers must validate run binding, every source's Read
+access, and freshness before allowing a decision.

@@ -524,6 +524,10 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      */
     key?: string | null;
     /**
+     * The manualSelectionMode property
+     */
+    manualSelectionMode?: string | null;
+    /**
      * The name property
      */
     name?: string | null;
@@ -3731,6 +3735,7 @@ export function deserializeIntoBuiltInWorkflowResponse(builtInWorkflowResponse: 
         "enabledByDefault": n => { builtInWorkflowResponse.enabledByDefault = n.getBooleanValue() ?? false; },
         "inputSchema": n => { builtInWorkflowResponse.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "key": n => { builtInWorkflowResponse.key = n.getStringValue(); },
+        "manualSelectionMode": n => { builtInWorkflowResponse.manualSelectionMode = n.getStringValue(); },
         "name": n => { builtInWorkflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { builtInWorkflowResponse.odataEtag = n.getStringValue(); },
         "parameters": n => { builtInWorkflowResponse.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
@@ -6010,6 +6015,7 @@ export function deserializeIntoStartRunsRequest(startRunsRequest: Partial<StartR
         "inputs": n => { startRunsRequest.inputs = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "itemIds": n => { startRunsRequest.itemIds = n.getCollectionOfPrimitiveValues<Guid>("string"); },
         "listId": n => { startRunsRequest.listId = n.getGuidValue(); },
+        "primaryItemId": n => { startRunsRequest.primaryItemId = n.getGuidValue(); },
     }
 }
 /**
@@ -6525,6 +6531,7 @@ export function deserializeIntoWorkflowTrigger(workflowTrigger: Partial<Workflow
         "list": n => { workflowTrigger.list = n.getStringValue(); },
         "offsetHours": n => { workflowTrigger.offsetHours = n.getNumberValue(); },
         "parameters": n => { workflowTrigger.parameters = n.getObjectValue<WorkflowTriggerParameters>(createWorkflowTriggerParametersFromDiscriminatorValue); },
+        "selectionMode": n => { workflowTrigger.selectionMode = n.getStringValue(); },
         "terms": n => { workflowTrigger.terms = n.getCollectionOfPrimitiveValues<string>("string"); },
         "timeZone": n => { workflowTrigger.timeZone = n.getStringValue(); },
         "type": n => { workflowTrigger.type = n.getStringValue(); },
@@ -9245,6 +9252,7 @@ export function serializeBuiltInWorkflowResponse(writer: SerializationWriter, bu
     writer.writeBooleanValue("enabledByDefault", builtInWorkflowResponse.enabledByDefault ?? false);
     writer.writeObjectValue<JsonObject>("inputSchema", builtInWorkflowResponse.inputSchema, serializeJsonObject);
     writer.writeStringValue("key", builtInWorkflowResponse.key);
+    writer.writeStringValue("manualSelectionMode", builtInWorkflowResponse.manualSelectionMode);
     writer.writeStringValue("name", builtInWorkflowResponse.name);
     writer.writeStringValue("@odata.etag", builtInWorkflowResponse.odataEtag);
     writer.writeObjectValue<JsonObject>("parameters", builtInWorkflowResponse.parameters, serializeJsonObject);
@@ -11684,6 +11692,7 @@ export function serializeStartRunsRequest(writer: SerializationWriter, startRuns
     writer.writeObjectValue<JsonObject>("inputs", startRunsRequest.inputs, serializeJsonObject);
     writer.writeCollectionOfPrimitiveValues<Guid>("itemIds", startRunsRequest.itemIds);
     writer.writeGuidValue("listId", startRunsRequest.listId);
+    writer.writeGuidValue("primaryItemId", startRunsRequest.primaryItemId);
     writer.writeAdditionalData(startRunsRequest.additionalData);
 }
 /**
@@ -12232,6 +12241,7 @@ export function serializeWorkflowTrigger(writer: SerializationWriter, workflowTr
     writer.writeStringValue("list", workflowTrigger.list);
     writer.writeNumberValue("offsetHours", workflowTrigger.offsetHours);
     writer.writeObjectValue<WorkflowTriggerParameters>("parameters", workflowTrigger.parameters, serializeWorkflowTriggerParameters);
+    writer.writeStringValue("selectionMode", workflowTrigger.selectionMode);
     writer.writeCollectionOfPrimitiveValues<string>("terms", workflowTrigger.terms);
     writer.writeStringValue("timeZone", workflowTrigger.timeZone);
     writer.writeStringValue("type", workflowTrigger.type);
@@ -12570,6 +12580,10 @@ export interface StartRunsRequest extends AdditionalDataHolder, Parsable {
      * The listId property
      */
     listId?: Guid | null;
+    /**
+     * The primaryItemId property
+     */
+    primaryItemId?: Guid | null;
 }
 /**
  * Starts a `manual` workflow on an item, by name; `inputs` become run variables (checked against the trigger's `inputs`).
@@ -13418,6 +13432,10 @@ export interface WorkflowTrigger extends AdditionalDataHolder, Parsable {
      * The parameters property
      */
     parameters?: WorkflowTriggerParameters | null;
+    /**
+     * The selectionMode property
+     */
+    selectionMode?: string | null;
     /**
      * The terms property
      */

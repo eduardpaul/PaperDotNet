@@ -4,11 +4,11 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../src/Modules/Ocr/PaperDotNet.Ocr/PaperDotNet.Ocr.csproj" />
     <PackageReference Include="xunit.v3.mtp-v2" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/Extensions/PaperDotNet.StorageOptimization/PaperDotNet.StorageOptimization.csproj" />
     <ProjectReference Include="..\PaperDotNet.Performance\PaperDotNet.Performance.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\PaperDotNet.Api\PaperDotNet.Api.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\PaperDotNet.Persistence.PostgreSql\PaperDotNet.Persistence.PostgreSql.csproj" />

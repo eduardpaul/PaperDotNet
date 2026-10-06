@@ -6,9 +6,6 @@ for (const location of ['library', 'inbox'] as const) {
     test.setTimeout(90_000);
     await signIn(page);
     const headers = await adminHeaders(request);
-    expect(
-      (await request.post('/v1.0/extensions/paperdotnet.storageoptimization/enable', { headers })).ok(),
-    ).toBeTruthy();
     let ws: string;
     let list: string;
     if (location === 'inbox') {
@@ -105,9 +102,6 @@ for (const outcome of ['approved', 'rejected', 'stale', 'form'] as const) {
     test.setTimeout(120_000);
     await signIn(page);
     const headers = await adminHeaders(request);
-    expect(
-      (await request.post('/v1.0/extensions/paperdotnet.storageoptimization/enable', { headers })).ok(),
-    ).toBeTruthy();
     const workspace = await request.post('/v1.0/workspaces', { headers, data: { name: unique('Optimization') } });
     const ws = (await workspace.json()).id as string;
     const library = await request.post(`/v1.0/workspaces/${ws}/lists`, {

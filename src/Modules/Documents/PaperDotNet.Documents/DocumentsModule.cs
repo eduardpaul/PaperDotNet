@@ -5,6 +5,8 @@ using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.Documents.Features;
+using PaperDotNet.Documents.Features.PhotoToDocument;
+using PaperDotNet.Documents.Features.StorageOptimization;
 using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
@@ -38,18 +40,18 @@ public sealed class DocumentsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<DocumentsDbContext>(DocumentsDbContext.Schema);
+        services.AddStorageOptimizationFeature();
+        services.AddPhotoToDocumentFeature();
         services.AddScoped<IItemMoveParticipant, DocumentsItemMoveParticipant>();
         services.AddOptions<DocumentsOptions>().BindConfiguration(DocumentsOptions.Section);
-        services.AddHttpClient(GlmOcr.HttpClientName, (sp, client) =>
-        {
-            client.Timeout = sp.GetRequiredService<IOptions<DocumentsOptions>>().Value.OcrTimeout;
-        });
         services.AddScoped<FileIntake>();
         services.AddScoped<PaperDotNet.Documents.Contracts.IDocumentFileStore, DocumentFileStore>();
+        services.AddScoped<PaperDotNet.Documents.Contracts.IStagedDocumentStore, StagedDocumentStore>();
+        services.AddScoped<PaperDotNet.Documents.Contracts.IDocumentPublisher, DocumentPublisher>();
+        services.AddScoped<PaperDotNet.Documents.Contracts.IDocumentPdfRenderer, DocumentPdfRenderer>();
         services.AddScoped<DocumentService>();
         services.AddScoped<PageEditor>();
         services.AddScoped<DocumentEvents>();
-        services.AddScoped<OcrEngine>();
         services.AddScoped<PageRenderer>();
         services.AddOperationHandler<DocumentOcr>();
         services.AddWorkflowActivity<ReadTextActivity>();

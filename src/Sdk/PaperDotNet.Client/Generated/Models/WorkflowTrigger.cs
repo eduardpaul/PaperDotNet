@@ -89,6 +89,14 @@ namespace PaperDotNet.Client.Models
 #else
         public global::PaperDotNet.Client.Models.WorkflowTriggerParameters Parameters { get; set; }
 #endif
+        /// <summary>The selectionMode property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? SelectionMode { get; set; }
+#nullable restore
+#else
+        public string SelectionMode { get; set; }
+#endif
         /// <summary>The terms property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -148,6 +156,7 @@ namespace PaperDotNet.Client.Models
                 { "list", n => { List = n.GetStringValue(); } },
                 { "offsetHours", n => { OffsetHours = n.GetDoubleValue(); } },
                 { "parameters", n => { Parameters = n.GetObjectValue<global::PaperDotNet.Client.Models.WorkflowTriggerParameters>(global::PaperDotNet.Client.Models.WorkflowTriggerParameters.CreateFromDiscriminatorValue); } },
+                { "selectionMode", n => { SelectionMode = n.GetStringValue(); } },
                 { "terms", n => { Terms = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "timeZone", n => { TimeZone = n.GetStringValue(); } },
                 { "type", n => { Type = n.GetStringValue(); } },
@@ -170,6 +179,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteStringValue("list", List);
             writer.WriteDoubleValue("offsetHours", OffsetHours);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.WorkflowTriggerParameters>("parameters", Parameters);
+            writer.WriteStringValue("selectionMode", SelectionMode);
             writer.WriteCollectionOfPrimitiveValues<string>("terms", Terms);
             writer.WriteStringValue("timeZone", TimeZone);
             writer.WriteStringValue("type", Type);

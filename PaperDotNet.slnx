@@ -14,7 +14,6 @@
     <Project Path="src/BuildingBlocks/PaperDotNet.Storage/PaperDotNet.Storage.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/">
-    <Project Path="src/Extensions/PaperDotNet.StorageOptimization/PaperDotNet.StorageOptimization.csproj" />
     <Project Path="src/Extensions/PaperDotNet.Extensions.Abstractions/PaperDotNet.Extensions.Abstractions.csproj" />
     <Project Path="src/Extensions/PaperDotNet.Extensions.Analyzers/PaperDotNet.Extensions.Analyzers.csproj" />
     <Project Path="src/Extensions/PaperDotNet.Extensions.Generator/PaperDotNet.Extensions.Generator.csproj" />
@@ -33,6 +32,8 @@
   </Folder>
   <Folder Name="/src/Modules/Documents/">
     <Project Path="src/Modules/Documents/PaperDotNet.Documents.Contracts/PaperDotNet.Documents.Contracts.csproj" />
+    <Project Path="src/Modules/Ocr/PaperDotNet.Ocr/PaperDotNet.Ocr.csproj" />
+    <Project Path="src/Modules/Ocr/PaperDotNet.Ocr.Contracts/PaperDotNet.Ocr.Contracts.csproj" />
     <Project Path="src/Modules/Documents/PaperDotNet.Documents/PaperDotNet.Documents.csproj" />
   </Folder>
   <Folder Name="/src/Modules/ExtensionHost/">

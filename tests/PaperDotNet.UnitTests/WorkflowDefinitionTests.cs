@@ -6,6 +6,19 @@ namespace PaperDotNet.UnitTests;
 
 public sealed class WorkflowDefinitionTests
 {
+    [Theory]
+    [InlineData("manual", "list", "selection", true)]
+    [InlineData("manual", "list", "perItem", true)]
+    [InlineData("manual", "workspace", "selection", false)]
+    [InlineData("itemAdded", "list", "selection", false)]
+    [InlineData("manual", "list", "batch", false)]
+    public void Selection_mode_is_only_valid_for_item_based_manual_triggers(string trigger, string scope, string mode, bool valid)
+    {
+        var spec = new WorkflowSpec(new WorkflowTrigger(trigger, scope == "list" ? "Items" : null, SelectionMode: mode), null,
+            [Act("a")], Scope: scope);
+        Assert.Equal(valid, Definitions.Validate(spec, new[] { "manual", "itemAdded" }.ToHashSet(), Actions).Count == 0);
+    }
+
     private sealed class FakeAction(string key) : IWorkflowActivity
     {
         public string Key => key;

@@ -12,7 +12,7 @@ into the receipt's fields:
 It also creates one item per line (description, quantity, unit price, amount)
 in the list **Receipt lines**.
 
-**The package is configuration over the public workflow SDK.** It enables the compiled `paperdotnet.storageoptimization` extension included in the host. Everything is one template
+**The package is configuration over the public workflow SDK.** It uses the reviewed storage optimization built into Documents. Everything is one template
 ([template.xml](template.xml)), which you can apply to any organization,
 export, and change:
 - the tags, the content types and the views;
@@ -23,7 +23,7 @@ export, and change:
 The workflows cover the AI part too: the prompt, the JSON schema of the answer,
 batch execution and images. A small JavaScript script node,
 inside the workflow's JSON, saves the answer into the lists. It runs in the
-server's sandbox, while image optimization uses the reusable compiled extension.
+server's sandbox, while image optimization uses the built-in Documents feature.
 
 The library shows how documents are composed from workflows
 ([ADR-0038](../../docs/adr/0038-documents-composed-from-workflows.md)): an

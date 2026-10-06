@@ -8,7 +8,8 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Contracts;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.Documents.Features;
-using PaperDotNet.StorageOptimization;
+using PaperDotNet.Documents.Features.PhotoToDocument;
+using PaperDotNet.Documents.Features.StorageOptimization;
 using PaperDotNet.Tenancy.Contracts;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Core;
@@ -22,7 +23,7 @@ namespace PaperDotNet.IntegrationTests;
 public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-    private const string Extension = StorageOptimizationExtension.Id;
+    private const string Extension = StorageOptimizationWorkflows.Id;
 
     internal static byte[] ReceiptImage(string text = "RECEIPT TOTAL 123.45")
     {
@@ -47,7 +48,6 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
         host ??= factory;
         var tenant = await host.CreateTenantAsync(identifier);
         var client = await ApiClient.CreateAsync(host, identifier);
-        Assert.True((await client.PostAsync($"/v1.0/extensions/{Extension}/enable", null, Ct)).IsSuccessStatusCode);
         var ws = await client.CreateWorkspaceAsync("Receipts");
         var response = await client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name = "Photos", templateKey = "documents" }, Ct);
         var list = (await response.ReadJsonAsync()).GetProperty("id").GetGuid();
@@ -86,7 +86,6 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
         const string identifier = "storage-opt-manual";
         await factory.CreateTenantAsync(identifier);
         using var admin = await ApiClient.CreateAsync(factory, identifier);
-        Assert.True((await admin.PostAsync($"/v1.0/extensions/{Extension}/enable", null, Ct)).IsSuccessStatusCode);
         var ws = await admin.CreateWorkspaceAsync("Manual files");
         var userResponse = await admin.PostAsJsonAsync("/v1.0/users", new { userName = "writer", password = "writer-password-1" }, Ct);
         var writerId = (await userResponse.ReadJsonAsync()).GetProperty("id").GetGuid();
@@ -150,13 +149,13 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
         var inboxLaunch = $"{inboxPath}/workflows/builtIns/{Extension}.optimize/runs";
         var inboxRunResponse = await writer.PostAsJsonAsync(inboxLaunch, new { itemIds = new[] { inboxItem } }, Ct);
         Assert.Equal(HttpStatusCode.OK, inboxRunResponse.StatusCode);
-        var inboxWorkflowId = (await inboxRunResponse.ReadJsonAsync())[0].GetProperty("workflowId").GetGuid();
+        Assert.Single((await inboxRunResponse.ReadJsonAsync()).EnumerateArray());
         await factory.CreateTenantAsync("storage-opt-manual-foreign");
         using var foreign = await ApiClient.CreateAsync(factory, "storage-opt-manual-foreign");
         Assert.Equal(HttpStatusCode.NotFound, (await foreign.PostAsJsonAsync(inboxLaunch, new { itemIds = new[] { inboxItem } }, Ct)).StatusCode);
-        Assert.True((await admin.PostAsync($"/v1.0/extensions/{Extension}/disable", null, Ct)).IsSuccessStatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await writer.PostAsJsonAsync(inboxLaunch, new { itemIds = new[] { inboxItem } }, Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await writer.PostAsJsonAsync($"/v1.0/workspaces/{homeWs}/workflows/{inboxWorkflowId}/runs", new { listId = inbox, itemIds = new[] { inboxItem } }, Ct)).StatusCode);
+        var extensions = await (await admin.GetAsync("/v1.0/extensions", Ct)).ReadJsonAsync();
+        Assert.DoesNotContain(extensions.EnumerateArray(), e => e.GetProperty("id").GetString() == Extension);
+        Assert.Equal(HttpStatusCode.OK, (await writer.PostAsJsonAsync(inboxLaunch, new { itemIds = new[] { inboxItem } }, Ct)).StatusCode);
     }
 
     [Theory]
@@ -187,7 +186,7 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var item = await UploadAsync(client, path);
         var approval = await ApprovalAsync(client, item);
-        Assert.Equal(StorageOptimizationExtension.ReviewType, approval.GetProperty("review").GetProperty("type").GetString());
+        Assert.Equal(StorageOptimizationWorkflows.ReviewType, approval.GetProperty("review").GetProperty("type").GetString());
         Assert.True(approval.GetProperty("inputSchema").GetProperty("properties").TryGetProperty("reason", out _));
         var id = approval.GetProperty("id").GetGuid();
         var decision = $"/v1.0/me/approvals/{id}/decision";
@@ -373,10 +372,13 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
         await scope.ServiceProvider.GetRequiredService<StoredFileCleanupJob>().RunAsync(Ct);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/v1.0/me/approvals/{id}/review/content/candidate", Ct)).StatusCode);
         Assert.Single(await db.StoredFiles.ToListAsync(Ct));
+        await scope.ServiceProvider.GetRequiredService<StoredFileCleanupJob>().RunAsync(Ct);
+        Assert.Single(await db.StoredFiles.AsNoTracking().ToListAsync(Ct));
+        Assert.Equal(ReceiptImage(), await client.GetByteArrayAsync($"{path}/items/{item}/file", Ct));
     }
 
     [Fact]
-    public async Task Reviews_are_tenant_and_assignment_scoped_and_disabled_extensions_cannot_decide()
+    public async Task Reviews_remain_tenant_and_assignment_scoped_without_an_extension()
     {
         var (_, client, _, _, path) = await SetupAsync("storage-opt-isolation");
         var item = await UploadAsync(client, path);
@@ -387,9 +389,7 @@ public sealed class StorageOptimizationTests(PaperDotNetApiFactory factory)
         Assert.Equal(HttpStatusCode.NotFound, (await foreign.GetAsync($"/v1.0/me/approvals/{id}/review", Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await foreign.GetAsync($"/v1.0/me/approvals/{id}/review/content/source", Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await foreign.PostAsJsonAsync($"/v1.0/me/approvals/{id}/decision", new { outcome = "approved" }, Ct)).StatusCode);
-        Assert.True((await client.PostAsync($"/v1.0/extensions/{Extension}/disable", null, Ct)).IsSuccessStatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/v1.0/me/approvals/{id}/review", Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/v1.0/me/approvals/{id}/decision", new { outcome = "approved" }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/v1.0/me/approvals/{id}/review", Ct)).StatusCode);
         Assert.Equal(ReceiptImage(), await client.GetByteArrayAsync($"{path}/items/{item}/file", Ct));
     }
 

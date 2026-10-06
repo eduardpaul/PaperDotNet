@@ -41,6 +41,7 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
     public const long DocumentLimit = 2 * 1024 * 1024;
 
     public long UploadLimit { get; init; } = DocumentLimit;
+    public string? OcrPath { get; init; }
     public string OptimizationTextDetector { get; init; } = "paddleocr";
 
     public static string Provider { get; } =
@@ -120,6 +121,11 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Storage:DataPath", _dataPath);
         builder.UseSetting("Documents:MaxFileSize", UploadLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.UseSetting("StorageOptimization:TextDetector", OptimizationTextDetector);
+        if (OcrPath is not null)
+        {
+            builder.UseSetting("Ocr:Engine", "tesseract");
+            builder.UseSetting("Documents:TesseractPath", OcrPath);
+        }
 
         // The zvec search store (ADR-0044): PAPERDOTNET_ZVEC_LIBRARY points at libzvec_c_api (file or folder), and
         // PAPERDOTNET_TEST_SEARCH_STORE=zvec runs every test on it instead of the database store.
@@ -194,7 +200,11 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
 
         if (_sqliteFile is not null)
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            // Only this host's pool: ClearAllPools would also close connections the shared host is using in parallel tests.
+            using (var connection = new Microsoft.Data.Sqlite.SqliteConnection(_connectionString))
+            {
+                Microsoft.Data.Sqlite.SqliteConnection.ClearPool(connection);
+            }
             foreach (var file in new[] { _sqliteFile, _sqliteFile + "-wal", _sqliteFile + "-shm" }.Where(File.Exists))
             {
                 File.Delete(file);

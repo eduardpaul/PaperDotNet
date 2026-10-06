@@ -33,6 +33,8 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The listId property</summary>
         public Guid? ListId { get; set; }
+        /// <summary>The primaryItemId property</summary>
+        public Guid? PrimaryItemId { get; set; }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.Models.StartRunsRequest"/> and sets the default values.
         /// </summary>
@@ -61,6 +63,7 @@ namespace PaperDotNet.Client.Models
                 { "inputs", n => { Inputs = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "itemIds", n => { ItemIds = n.GetCollectionOfPrimitiveValues<Guid?>()?.AsList(); } },
                 { "listId", n => { ListId = n.GetGuidValue(); } },
+                { "primaryItemId", n => { PrimaryItemId = n.GetGuidValue(); } },
             };
         }
         /// <summary>
@@ -73,6 +76,7 @@ namespace PaperDotNet.Client.Models
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputs", Inputs);
             writer.WriteCollectionOfPrimitiveValues<Guid?>("itemIds", ItemIds);
             writer.WriteGuidValue("listId", ListId);
+            writer.WriteGuidValue("primaryItemId", PrimaryItemId);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

@@ -329,6 +329,103 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                     b.ToTable("library_settings", "documents");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Documents.Data.StagedFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Attributes")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("{}")
+                        .HasColumnName("attributes")
+                        .HasAnnotation("PaperDotNet:JsonDocument", true);
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<bool>("HasPreparedText")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_prepared_text");
+
+                    b.Property<string>("Languages")
+                        .HasColumnType("text")
+                        .HasColumnName("languages");
+
+                    b.Property<string>("Owner")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("owner");
+
+                    b.Property<int?>("PageCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("page_count");
+
+                    b.Property<Guid?>("PublishedVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("published_version_id");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("state");
+
+                    b.Property<Guid?>("StoredFileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("stored_file_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_staged_files");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_staged_files_tenant_id");
+
+                    b.ToTable("staged_files", "documents");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Documents.Data.StagedFileReference", b =>
+                {
+                    b.Property<Guid>("StagedFileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("staged_file_id");
+
+                    b.Property<Guid>("StoredFileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("stored_file_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("StagedFileId", "StoredFileId")
+                        .HasName("pk_staged_file_references");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_staged_file_references_tenant_id");
+
+                    b.ToTable("staged_file_references", "documents");
+                });
+
             modelBuilder.Entity("PaperDotNet.Documents.Data.StoredFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -463,6 +560,16 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Documents
                         .HasDatabaseName("ix_audit_log_tenant_id_at");
 
                     b.ToTable("audit_log", "documents");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Documents.Data.StagedFileReference", b =>
+                {
+                    b.HasOne("PaperDotNet.Documents.Data.StagedFile", null)
+                        .WithMany()
+                        .HasForeignKey("StagedFileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_staged_file_references_staged_files_staged_file_id");
                 });
 #pragma warning restore 612, 618
         }

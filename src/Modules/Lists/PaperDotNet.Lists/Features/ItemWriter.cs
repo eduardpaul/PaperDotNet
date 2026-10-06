@@ -283,7 +283,7 @@ internal sealed class ItemWriter(
         catch (DbUpdateConcurrencyException) { db.ChangeTracker.Clear(); return false; }
     }
 
-    public async Task<ItemWriteResult> DeleteAsync(ListSchema schema, ListItem item, CancellationToken ct)
+    public async Task<ItemWriteResult> DeleteAsync(ListSchema schema, ListItem item, CancellationToken ct, bool announce = true, Guid? workflowRunId = null, bool deferCommit = false)
     {
         if (item.IsFolder && await db.Items.AnyAsync(i => i.ParentId == item.Id, ct))
         {
@@ -299,8 +299,10 @@ internal sealed class ItemWriter(
         }
 
         db.Items.Remove(item);
-        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Deleting, item, schema, [])], cancellationToken: ct);
-        await PublishChangedAsync("deleted", schema, item, ct);
+        var deleted = Event(ItemEventKind.Deleting, item, schema, [], workflowRunId: workflowRunId);
+        if (deferCommit) await outbox.SaveChangesInTransactionAsync(db, [deleted], ct);
+        else await outbox.SaveChangesAsync(db, [deleted], cancellationToken: ct);
+        if (announce) await PublishChangedAsync("deleted", schema, item, ct);
         return new ItemWriteResult(item);
     }
 
@@ -676,6 +678,8 @@ internal sealed class ItemWriter(
         }
     }
 
+    internal Task FlushEventsAsync(CancellationToken ct) => outbox.FlushAsync(ct);
+
     /// <summary>Tells connected clients who can read the item (the principals of its scope, ADR-0035) that it changed.</summary>
     internal async Task PublishChangedAsync(string kind, ListSchema schema, ListItem item, CancellationToken ct, Guid[]? audienceOverride = null)
     {
@@ -698,7 +702,7 @@ internal sealed class ItemWriter(
         });
     }
 
-    private ItemEvent Event(ItemEventKind kind, ListItem item, ListSchema schema, IReadOnlyList<string> changed, ItemSnapshot? snapshotBefore = null)
+    private ItemEvent Event(ItemEventKind kind, ListItem item, ListSchema schema, IReadOnlyList<string> changed, ItemSnapshot? snapshotBefore = null, Guid? workflowRunId = null)
     {
         var snapshot = ItemSnapshots.Capture(item, schema);
         snapshotBefore ??= kind == ItemEventKind.Adding ? null : snapshot;
@@ -738,6 +742,7 @@ internal sealed class ItemWriter(
             },
             _ => new ItemDeleted
             {
+                WorkflowRunId = workflowRunId,
                 TenantId = tenantId,
                 TenantIdentifier = tenantIdentifier,
                 UserId = currentUser.UserId,

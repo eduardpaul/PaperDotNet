@@ -1032,3 +1032,30 @@ Do not assume mechanically translated filters have identical behavior: new
 conditions explicitly use ordinal, case-sensitive text comparisons, collection
 set semantics, and non-matches for missing or incompatible fields. Check these
 semantics when replacing an existing OData condition.
+
+## Manual workflows over a selection
+
+A manual trigger can specify `selectionMode: "selection"` to start **one run**
+for all selected items. Omitting it, or specifying `"perItem"`, retains one run
+per item. Selection execution requires 1–100 distinct items from the same list;
+workspace launches without items and other trigger types cannot use it.
+
+The existing workflow and library built-in launch endpoints accept ordered
+`itemIds` and an optional `primaryItemId` belonging to that selection. The first
+item is primary when omitted. Duplicates are removed while preserving order.
+Every target and the input form are validated before a run starts. The response
+remains an array, containing one run for selection execution.
+
+`context.items` contains ordered `{ workspaceId, listId, itemId }` references,
+and activities receive these as `WorkflowActivityContext.Items`. The singular
+item context remains the primary item for existing actions and approvals.
+Membership survives retries and recovery. `skip` and `replace` concurrency
+policies compare every member, including selections with different primary
+items. Run queries filtered by an item include runs where it is any member.
+Deleting or purging a member cancels its active selection runs; a workflow's own
+reviewed recycling excludes that originating run. A cross-library move does not
+rewrite the selection's original locations.
+
+The workflow editor offers **Once for the entire selection** on item-based
+manual triggers. Built-in catalogs expose `manualSelectionMode` so the launch
+form can display the correct behavior before a workflow row exists.
