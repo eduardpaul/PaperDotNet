@@ -52,13 +52,41 @@ describes the source, workflow and store boundaries.
   never shows while the index catches up. Counts and facets can be off by such
   items for a few seconds.
 
+## Indexing pipelines (the `search.index` role)
+
+Indexing is a process role ([ADR-0047](adr/0047-process-roles-for-system-workflows.md)). One workflow per list fills it:
+- **Index for search** (the default);
+- **Index for search with AI context** (needs `AI:Chat`): the chat model adds a sentence of context to each chunk;
+- a copy a developer changed. **List settings → Indexing pipeline → Customize**, or
+  `POST …/lists/{listId}/workflows/builtIns/search.index/copy`.
+
+Turning one on turns the others off. Status, the repair sweep and **Index now**
+(`POST …/lists/{listId}/workflows/roles/search.index/runs`) follow whichever workflow is active.
+
+A pipeline follows this contract:
+
+| Step | Activity | Notes |
+|---|---|---|
+| 1. Stage | `search.chunk` (chunker inputs) or `search.stage` (`chunks`: texts or `{ text, page }`, e.g. `"{step:split.json.chunks}"` from a script, OCR or AI step) | At most 400 chunks of up to 20,000 characters |
+| 2. Change chunks (optional) | `search.enrich` (`instructions`) | Answers cached by instructions, title and chunk text: an unchanged chunk is never asked twice, and its vector is reused |
+| 3. Publish | `search.publish` | Checks the item's revision, the list policy and the claim; never skipped |
+| 4. Embed (optional) | `search.embed` | |
+
+Connect each step's `skipped` port to an `end` node. Publication and the
+query-time filters are fixed code, so a pipeline can change chunks, quality
+and cost, never permissions or inclusion.
+
+A publication records the pipeline that made it (workflow and version).
+Switching or changing the pipeline marks publications stale, and the repair
+sweep indexes them again.
+
 Chunk parameters are `chunker` (`window`, `pages`, `whole`), `maxChars` and
 `overlap`.
 - `pages` splits a page longer than `maxChars` into windows, and `whole` keeps
   at most 20,000 characters (marked truncated), so no chunk is too long for the
   embedding model.
-- Changing the parameters marks publications stale, and the schedule indexes
-  them again.
+- Changing the parameters (a new version of the pipeline) marks publications
+  stale, and the schedule indexes them again.
 - Text-only hashes preserve vectors through renames and rebuilds.
 - Keyword results remain available after an embedding provider failure.
 - Stores do no implicit chunking, and there is no separate embedding executor.

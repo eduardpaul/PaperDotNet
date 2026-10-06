@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Search.Contracts;
@@ -28,9 +30,56 @@ internal static class SearchWorkflows
     /// <summary>The outcome of a step that had nothing to do (the list is excluded, the item is gone or changed meanwhile).</summary>
     public const string Skipped = "skipped";
 
+    /// <summary>The alternative pipeline for the <see cref="Index"/> role: chunks get a sentence of context from the chat model.</summary>
+    public const string IndexEnriched = "search.indexEnriched";
+
+    public const string DefaultInstructions =
+        "In one sentence, say which document this passage comes from and what it is about. Answer with the sentence only.";
+
+    private static readonly JsonObject ChunkParameters = JsonNode.Parse("""
+        {
+          "chunker": { "type": "string", "enum": ["window", "pages", "whole"], "default": "window" },
+          "maxChars": { "type": "integer", "minimum": 100, "maximum": 20000, "default": 1200 },
+          "overlap": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 150 }
+        }
+        """)!.AsObject();
+
+    /// <summary>
+    /// The default <see cref="Index"/> role: chunk, publish, embed. Copy it per list to change the pipeline (insert OCR, AI or
+    /// script steps, or stage chunks of your own with <c>search.stage</c>); the copy fills the role and replaces it there.
+    /// </summary>
     public static readonly BuiltInWorkflow IndexWorkflow = new(Index, "Index for search",
-        "Indexes this list's items and file text, then embeds the chunks. Run on demand or automatically after changes.",
-        JsonNode.Parse("""
+        "Indexes this list's items and file text, then embeds the chunks. Run on demand or automatically after changes.", IndexDefinition(enrich: false))
+    {
+        Scope = BuiltInScope.List,
+        EnabledByDefault = true,
+        AllowManualLaunch = true,
+        System = true,
+        Parameters = new JsonObject { ["type"] = "object", ["properties"] = ChunkParameters.DeepClone() },
+    };
+
+    /// <summary>An alternative workflow for the <see cref="Index"/> role (needs a chat model): turning it on in a list replaces the default there.</summary>
+    public static readonly BuiltInWorkflow IndexEnrichedWorkflow = new(IndexEnriched, "Index for search with AI context",
+        "Like Index for search, but the chat model adds a sentence of context to each chunk before it is published and embedded, so passages are found by what they are about. Replaces Index for search in the list.",
+        IndexDefinition(enrich: true))
+    {
+        Role = Index,
+        Scope = BuiltInScope.List,
+        AllowManualLaunch = true,
+        System = true,
+        Requires = BuiltInRequirements.Ai,
+        Parameters = new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject([.. ChunkParameters.Select(p => KeyValuePair.Create(p.Key, p.Value?.DeepClone())),
+                KeyValuePair.Create<string, JsonNode?>("instructions", new JsonObject { ["type"] = "string", ["default"] = DefaultInstructions, ["description"] = "What the chat model writes for each chunk." })]),
+        },
+    };
+
+    /// <summary>The indexing flow: chunk → (enrich →) publish → embed; a step with nothing to do ends at <c>skipped</c>.</summary>
+    private static JsonObject IndexDefinition(bool enrich)
+    {
+        var definition = JsonNode.Parse("""
             {
               "scope": "list",
               "concurrency": "replace",
@@ -55,20 +104,21 @@ internal static class SearchWorkflows
                 }
               }
             }
-            """)!.AsObject())
-    {
-        Scope = BuiltInScope.List,
-        EnabledByDefault = true,
-        AllowManualLaunch = true,
-        System = true,
-        Parameters = JsonNode.Parse("""
-            { "type": "object", "properties": {
-              "chunker": { "type": "string", "enum": ["window", "pages", "whole"], "default": "window" },
-              "maxChars": { "type": "integer", "minimum": 100, "maximum": 20000, "default": 1200 },
-              "overlap": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 150 }
-            } }
-            """)!.AsObject(),
-    };
+            """)!.AsObject();
+        if (enrich)
+        {
+            var nodes = definition["flow"]!["nodes"]!.AsObject();
+            nodes["chunk"]!["next"]!["done"] = "enrich";
+            nodes["enrich"] = new JsonObject
+            {
+                ["activity"] = "search.enrich",
+                ["inputs"] = new JsonObject { ["instructions"] = "{param:instructions}" },
+                ["next"] = new JsonObject { ["done"] = "publish", ["skipped"] = "end" },
+            };
+        }
+
+        return definition;
+    }
 
     public static readonly BuiltInWorkflow RebuildWorkflow = new("search.rebuild", "Rebuild search",
         "Rebuilds included lists through item workflows: on request every item, on its schedule only items whose index is stale.",
@@ -81,21 +131,24 @@ internal static class SearchWorkflows
     { EnabledByDefault = true, AllowManualLaunch = true, System = true };
 
     public static readonly BuiltInWorkflow RemoveWorkflow = ItemChangeWorkflows.Create("search.remove", "Remove deleted items from search",
-        "Removes the search records of deleted items; independent of automatic indexing.", "search.remove", [WorkflowTriggers.ItemDeleted]);
+        "Removes the search records of deleted items; independent of automatic indexing.", "search.remove", [WorkflowTriggers.ItemDeleted], locked: true);
 
     public static readonly BuiltInWorkflow ContainerWorkflow = ItemChangeWorkflows.Create("search.containers", "Maintain library search",
-        "Removes excluded or deleted libraries and requests indexing when they are included again.", "search.container", [SearchTriggers.ContainerChanged]);
+        "Removes excluded or deleted libraries and requests indexing when they are included again.", "search.container", [SearchTriggers.ContainerChanged], locked: true);
 
     public static readonly BuiltInWorkflow ScopesWorkflow = ItemChangeWorkflows.Create("search.scopes", "Update search permissions",
-        "Gives indexed items their new permission scopes, without indexing their text again.", "search.scopes", [SearchTriggers.ScopesChanged]);
+        "Gives indexed items their new permission scopes, without indexing their text again.", "search.scopes", [SearchTriggers.ScopesChanged], locked: true);
 
-    /// <summary>The chunk settings of the index workflow's parameters (defaults filled in), as stored with a publication.</summary>
-    public static string Settings(JsonObject? parameters) => Settings(
-        parameters?["chunker"]?.GetValue<string>() ?? "window",
-        parameters?["maxChars"]?.GetValue<int>() ?? Passages.MaxChars,
-        parameters?["overlap"]?.GetValue<int>() ?? Passages.Overlap);
+    /// <summary>
+    /// The pipeline that stages a generation (its workflow and version, from the engine-owned execution context): stored
+    /// with the publication, so changing the role's workflow, its version or its parameters marks publications stale.
+    /// </summary>
+    public static string? Pipeline(WorkflowActivityContext context) =>
+        context.ExecutionContext?["workflowId"]?.GetValue<string>() is { } id && Guid.TryParse(id, out var workflowId)
+            ? Pipeline(workflowId, context.ExecutionContext["workflowVersion"]?.GetValue<int>() ?? 0)
+            : null;
 
-    public static string Settings(string chunker, int maxChars, int overlap) => $"{chunker}:{maxChars}:{overlap}";
+    public static string Pipeline(Guid workflowId, int version) => $"{workflowId:N}:{version}";
 }
 
 /// <summary>Reads source-owned metadata and text, without depending on a search backend or search inclusion.</summary>
@@ -153,54 +206,45 @@ internal sealed class SearchInput(IEnumerable<ISearchItemSource> sources, IEnume
     public static string Revision(SearchDocumentData document) => Passages.Hash(JsonSerializer.Serialize(document with { ScopeId = Guid.Empty }));
 }
 
-internal sealed class SearchChunkActivity(SearchInput input, ISearchStore store, SearchDbContext db) : IWorkflowActivity
+/// <summary>
+/// What every pipeline of the <c>search.index</c> role shares: reading the item (skipped when its list is excluded or it is
+/// gone) and staging a generation of chunks under the run, outside the published index. Publication (<c>search.publish</c>)
+/// checks it again, so a custom pipeline can change chunks and cost, never permissions or inclusion.
+/// </summary>
+internal sealed class SearchStaging(SearchInput input, ISearchStore store, SearchDbContext db)
 {
-    /// <summary>Longest chunk of the <c>whole</c> chunker (embedding models take a few thousand tokens).</summary>
-    public const int MaxWholeChars = 20_000;
-
-    public string Key => "search.chunk";
-    public string Description => "Stages current item metadata and text as chunks without changing the published index; skipped when the list is excluded or the item is gone.";
-    public IReadOnlyList<string> Outcomes => [SearchWorkflows.Skipped];
-    public JsonObject? InputSchema => SearchWorkflows.IndexWorkflow.Parameters;
-    public JsonObject? OutputSchema => ActivitySchemas.Of([], ("chunks", ActivitySchemas.Number("Chunks staged.")),
-        ("truncated", ActivitySchemas.Boolean("Whether indexing reached its chunk limit.")));
-
-    public IEnumerable<string> Validate(JsonObject inputs)
+    /// <summary>The item's current document and policy version, or the result that ends the step (misused or skipped).</summary>
+    public async Task<(SearchDocumentData? Document, uint PolicyVersion, WorkflowActivityResult? Result)> ReadAsync(WorkflowActivityContext context, CancellationToken ct)
     {
-        var chunker = ActivityInputs.Text(inputs, "chunker");
-        if (chunker is not null && !chunker.Contains('{', StringComparison.Ordinal) && chunker is not ("window" or "pages" or "whole"))
-        { yield return "chunker must be window, pages or whole."; }
-        var max = ActivityInputs.Number(inputs, "maxChars") ?? Passages.MaxChars;
-        var overlap = ActivityInputs.Number(inputs, "overlap") ?? Passages.Overlap;
-        if (max < 100 || max > 20000 || overlap < 0 || overlap >= max) { yield return "maxChars must be 100–20000 and overlap must be smaller than maxChars."; }
-    }
+        if (context.Item is not { } item || context.RunId is null)
+        {
+            return (null, 0, WorkflowActivityResult.Fail("Indexing requires an item workflow run."));
+        }
 
-    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken ct)
-    {
-        if (context.Item is not { } item || context.RunId is not { } generation) { return WorkflowActivityResult.Fail("Indexing requires an item workflow run."); }
-        if (Validate(context.Inputs).FirstOrDefault() is { } error) { return WorkflowActivityResult.Fail(error); }
         var policy = await db.ContainerPolicies.AsNoTracking().FirstOrDefaultAsync(p => p.Id == item.ListId, ct);
         if (policy is { Included: false })
         {
-            return WorkflowActivityResult.Ok(SearchWorkflows.Skipped, new JsonObject { ["reason"] = "excluded" });
+            return (null, 0, WorkflowActivityResult.Ok(SearchWorkflows.Skipped, new JsonObject { ["reason"] = "excluded" }));
         }
 
         var document = await input.ReadAsync(item.ItemId, ct);
-        if (document is null || document.WorkspaceId != item.WorkspaceId || document.ContainerId != item.ListId)
-        {
-            return WorkflowActivityResult.Ok(SearchWorkflows.Skipped, new JsonObject { ["reason"] = "gone" });
-        }
+        return document is null || document.WorkspaceId != item.WorkspaceId || document.ContainerId != item.ListId
+            ? (null, 0, WorkflowActivityResult.Ok(SearchWorkflows.Skipped, new JsonObject { ["reason"] = "gone" }))
+            : (document, policy?.Version ?? 0, null);
+    }
 
-        var chunker = ActivityInputs.Text(context.Inputs, "chunker") ?? "window";
-        var max = (int)(ActivityInputs.Number(context.Inputs, "maxChars") ?? Passages.MaxChars);
-        var overlap = (int)(ActivityInputs.Number(context.Inputs, "overlap") ?? Passages.Overlap);
-        var (chunks, truncated) = Chunk(document, chunker, max, overlap);
+    /// <summary>Stages the chunks as the run's generation and makes it the item's next publication.</summary>
+    public async Task<WorkflowActivityResult> StageAsync(
+        WorkflowActivityContext context, SearchDocumentData document, uint policyVersion, List<PassageText> chunks, bool truncated, CancellationToken ct)
+    {
+        var item = context.Item!;
+        var generation = context.RunId!.Value;
         var revision = SearchInput.Revision(document);
         var stamp = (await input.StampsAsync([item.ItemId], ct)).GetValueOrDefault(item.ItemId);
-        await store.StageAsync(new SearchGeneration(generation, document with { Pages = [], Chunks = chunks }, revision, policy?.Version ?? 0)
+        await store.StageAsync(new SearchGeneration(generation, document with { Pages = [], Chunks = chunks }, revision, policyVersion)
         {
             Stamp = stamp,
-            Settings = SearchWorkflows.Settings(chunker, max, overlap),
+            Settings = SearchWorkflows.Pipeline(context),
             Truncated = truncated,
         }, ct);
         var previousGeneration = await ClaimAsync(item, generation, ct);
@@ -240,16 +284,52 @@ internal sealed class SearchChunkActivity(SearchInput input, ISearchStore store,
             }
         }
     }
+}
+
+internal sealed class SearchChunkActivity(SearchStaging staging) : IWorkflowActivity
+{
+    /// <summary>Longest chunk of the <c>whole</c> chunker (embedding models take a few thousand tokens).</summary>
+    public const int MaxWholeChars = 20_000;
+
+    public string Key => "search.chunk";
+    public string Description => "Stages current item metadata and text as chunks without changing the published index; skipped when the list is excluded or the item is gone.";
+    public IReadOnlyList<string> Outcomes => [SearchWorkflows.Skipped];
+    public JsonObject? InputSchema => SearchWorkflows.IndexWorkflow.Parameters;
+    public JsonObject? OutputSchema => ActivitySchemas.Of([], ("chunks", ActivitySchemas.Number("Chunks staged.")),
+        ("truncated", ActivitySchemas.Boolean("Whether indexing reached its chunk limit.")));
+
+    public IEnumerable<string> Validate(JsonObject inputs)
+    {
+        var chunker = ActivityInputs.Text(inputs, "chunker");
+        if (chunker is not null && !chunker.Contains('{', StringComparison.Ordinal) && chunker is not ("window" or "pages" or "whole"))
+        { yield return "chunker must be window, pages or whole."; }
+        var max = ActivityInputs.Number(inputs, "maxChars") ?? Passages.MaxChars;
+        var overlap = ActivityInputs.Number(inputs, "overlap") ?? Passages.Overlap;
+        if (max < 100 || max > 20000 || overlap < 0 || overlap >= max) { yield return "maxChars must be 100–20000 and overlap must be smaller than maxChars."; }
+    }
+
+    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken ct)
+    {
+        if (Validate(context.Inputs).FirstOrDefault() is { } error) { return WorkflowActivityResult.Fail(error); }
+        var (document, policyVersion, ended) = await staging.ReadAsync(context, ct);
+        if (ended is not null) { return ended; }
+        var chunker = ActivityInputs.Text(context.Inputs, "chunker") ?? "window";
+        var max = (int)(ActivityInputs.Number(context.Inputs, "maxChars") ?? Passages.MaxChars);
+        var overlap = (int)(ActivityInputs.Number(context.Inputs, "overlap") ?? Passages.Overlap);
+        var (chunks, truncated) = Chunk(document!, chunker, max, overlap);
+        return await staging.StageAsync(context, document!, policyVersion, chunks, truncated, ct);
+    }
 
     internal static (List<PassageText> Chunks, bool Truncated) Chunk(SearchDocumentData document, string chunker, int max, int overlap)
     {
-        var texts = new List<PassageText> { new(null, $"{document.Keywords}\n{document.Body}") };
+        var texts = new List<PassageText> { new(null, $"{document.Keywords}\n{document.Body}") { FromBody = true } };
         texts.AddRange(document.Pages.Select((text, i) => new PassageText(i + 1, text)));
-        if (texts.All(t => string.IsNullOrWhiteSpace(t.Text))) { texts = [new(null, document.Title)]; }
+        if (texts.All(t => string.IsNullOrWhiteSpace(t.Text))) { texts = [new(null, document.Title) { FromBody = true }]; }
         if (chunker == "whole")
         {
             var whole = Passages.Normalize(string.Join('\n', texts.Select(t => t.Text)));
-            return ([new PassageText(document.Pages.Count > 0 ? 1 : null, whole.Length > MaxWholeChars ? whole[..MaxWholeChars] : whole)], whole.Length > MaxWholeChars);
+            return ([new PassageText(document.Pages.Count > 0 ? 1 : null, whole.Length > MaxWholeChars ? whole[..MaxWholeChars] : whole) { FromBody = document.Pages.Count == 0 }],
+                whole.Length > MaxWholeChars);
         }
 
         var chunks = new List<PassageText>();
@@ -265,12 +345,155 @@ internal sealed class SearchChunkActivity(SearchInput input, ISearchStore store,
                     return (chunks, true);
                 }
 
-                chunks.Add(new PassageText(text.Page, part));
+                chunks.Add(new PassageText(text.Page, part) { FromBody = text.FromBody });
             }
         }
 
         return (chunks, false);
     }
+}
+
+/// <summary>
+/// Stages chunks a pipeline made itself (a script, an AI or OCR step) instead of a chunker: <c>chunks</c> is a list of
+/// texts or of <c>{ "text", "page" }</c>, usually a single token such as <c>{step:split.json.chunks}</c>.
+/// </summary>
+internal sealed class SearchStageActivity(SearchStaging staging) : IWorkflowActivity
+{
+    public string Key => "search.stage";
+    public string Description => "Stages the given chunks (texts or { text, page }) of the item for publication; skipped when the list is excluded or the item is gone.";
+    public IReadOnlyList<string> Outcomes => [SearchWorkflows.Skipped];
+    public JsonObject? InputSchema => JsonNode.Parse("""
+        { "type": "object", "required": ["chunks"], "properties": {
+          "chunks": { "type": "array", "description": "Texts, or objects with text and page (1 = first page); at most 400, each up to 20,000 characters." }
+        } }
+        """)!.AsObject();
+    public JsonObject? OutputSchema => ActivitySchemas.Of([], ("chunks", ActivitySchemas.Number("Chunks staged.")),
+        ("truncated", ActivitySchemas.Boolean("Whether chunks were cut to the limits.")));
+
+    public IEnumerable<string> Validate(JsonObject inputs)
+    {
+        if (inputs["chunks"] is not (JsonArray or JsonValue)) { yield return "chunks is required: a list, or a token that gives one."; }
+    }
+
+    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken ct)
+    {
+        var given = context.Inputs["chunks"] is JsonValue token && token.TryGetValue<string>(out var template)
+            ? await context.ResolveAsync(template, ct)
+            : context.Inputs["chunks"];
+        if (given is not JsonArray list)
+        {
+            return WorkflowActivityResult.Fail("chunks must be a list of texts or of { text, page }.");
+        }
+
+        var (document, policyVersion, ended) = await staging.ReadAsync(context, ct);
+        if (ended is not null) { return ended; }
+        var chunks = new List<PassageText>();
+        var truncated = list.Count > Passages.MaxPerDocument;
+        foreach (var entry in list.Take(Passages.MaxPerDocument))
+        {
+            var (text, page) = entry switch
+            {
+                JsonValue value when value.TryGetValue<string>(out var plain) => (plain, (int?)null),
+                JsonObject chunk => (chunk["text"]?.GetValue<string>(), chunk["page"] is JsonValue p && p.TryGetValue<int>(out var number) ? number : (int?)null),
+                _ => (null, null),
+            };
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                continue;
+            }
+
+            var normalized = Passages.Normalize(text);
+            truncated |= normalized.Length > SearchChunkActivity.MaxWholeChars;
+            chunks.Add(new PassageText(page, normalized.Length > SearchChunkActivity.MaxWholeChars ? normalized[..SearchChunkActivity.MaxWholeChars] : normalized));
+        }
+
+        return chunks.Count == 0
+            ? WorkflowActivityResult.Fail("chunks has no text.")
+            : await staging.StageAsync(context, document!, policyVersion, chunks, truncated, ct);
+    }
+}
+
+/// <summary>
+/// Asks the chat model for text to add to each staged chunk (by default a sentence of context), so passages are found by
+/// what they are about. Answers are cached by instructions, title and chunk text: an unchanged chunk is never asked again,
+/// and its vector is reused.
+/// </summary>
+internal sealed class SearchEnrichActivity(ISearchStore store, SearchDbContext db, IServiceProvider services, TimeProvider time) : IWorkflowActivity
+{
+    /// <summary>Longest added text per chunk.</summary>
+    private const int MaxContextChars = 1000;
+
+    public string Key => "search.enrich";
+    public string Description => "Adds text from the chat model (e.g. a sentence of context) to each staged chunk before it is published and embedded.";
+    public IReadOnlyList<string> Outcomes => [SearchWorkflows.Skipped];
+    public JsonObject? InputSchema => JsonNode.Parse("""
+        { "type": "object", "properties": {
+          "instructions": { "type": "string", "description": "What the chat model writes for each chunk (default: one sentence of context)." }
+        } }
+        """)!.AsObject();
+    public JsonObject? OutputSchema => ActivitySchemas.Of([], ("enriched", ActivitySchemas.Number("Chunks the model was asked about.")),
+        ("cached", ActivitySchemas.Number("Chunks whose text was known already.")));
+
+    public async Task<WorkflowActivityResult> ExecuteAsync(WorkflowActivityContext context, CancellationToken ct)
+    {
+        if (context.RunId is not { } id) { return WorkflowActivityResult.Fail("Enrichment requires a workflow run."); }
+        if (services.GetService<IChatClient>() is not { } chat) { return WorkflowActivityResult.Fail("search.enrich needs a chat model (AI:Chat)."); }
+        if (await store.GetStageAsync(id, ct) is not { } stage)
+        {
+            return WorkflowActivityResult.Ok(SearchWorkflows.Skipped, new JsonObject { ["reason"] = "superseded" });
+        }
+
+        var instructions = ActivityInputs.Text(context.Inputs, "instructions") is { Length: > 0 } given
+            ? await context.ExpandAsync(given, ct)
+            : SearchWorkflows.DefaultInstructions;
+        var title = stage.Document.Title;
+        var keys = stage.Document.Chunks.Select(c => CacheKey(instructions, title, c.Text)).ToList();
+        var distinct = keys.Distinct().ToArray();
+        var known = await db.Enrichments.AsNoTracking().Where(e => EF.Parameter(distinct).Contains(e.Id)).ToDictionaryAsync(e => e.Id, e => e.Text, ct);
+        var asked = 0;
+        var enriched = new List<PassageText>();
+        foreach (var (chunk, key) in stage.Document.Chunks.Zip(keys))
+        {
+            if (!known.TryGetValue(key, out var added))
+            {
+                ChatResponse answer;
+                try
+                {
+                    answer = await chat.GetResponseAsync(
+                        [new ChatMessage(ChatRole.System, instructions), new ChatMessage(ChatRole.User, $"Document: {title}\n\nPassage:\n{chunk.Text}")],
+                        cancellationToken: ct);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+                {
+                    return WorkflowActivityResult.Fail($"The chat model failed: {ex.Message}");
+                }
+
+                added = Passages.Normalize(answer.Text ?? string.Empty);
+                added = added.Length > MaxContextChars ? added[..MaxContextChars] : added;
+                known[key] = added;
+                db.Enrichments.Add(new SearchEnrichment { Id = key, Text = added, CreatedAt = time.GetUtcNow() });
+                asked++;
+            }
+
+            enriched.Add(string.IsNullOrWhiteSpace(added) ? chunk : chunk with { Text = $"{added}\n{chunk.Text}" });
+        }
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            // Another run cached the same answers meanwhile: theirs count.
+            db.ChangeTracker.Clear();
+        }
+
+        await store.StageAsync(stage with { Document = stage.Document with { Chunks = enriched } }, ct);
+        return WorkflowActivityResult.Ok(new JsonObject { ["enriched"] = asked, ["cached"] = enriched.Count - asked });
+    }
+
+    private static Guid CacheKey(string instructions, string title, string text) =>
+        new(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{instructions}\n{title}\n{text}"))[..16]);
 }
 
 internal sealed class SearchPublishActivity(SearchInput input, ISearchStore store, SearchDbContext db, TimeProvider time) : IWorkflowActivity

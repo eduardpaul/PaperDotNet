@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Search.Contracts;
@@ -198,6 +199,93 @@ public sealed class SearchWorkflowTests(PaperDotNetApiFactory factory)
             Assert.True(failed.GetProperty("indexed").GetBoolean());
         }
         finally { ConceptEmbeddingGenerator.Instance.FailingInputs.TryRemove(marker, out _); }
+    }
+
+    [Fact]
+    public async Task A_list_copy_of_indexing_replaces_the_built_in_and_stages_chunks_of_its_own()
+    {
+        var s = await SetupAsync("wf-search-custom");
+        await GetAsync(s.Client, $"{s.Url}/workflows/builtIns");
+        var copied = await s.Client.PostAsJsonAsync($"{s.Url}/workflows/builtIns/search.index/copy", new { name = "Custom index" }, Ct);
+        Assert.True(copied.IsSuccessStatusCode, await copied.Content.ReadAsStringAsync(Ct));
+        var copy = await copied.ReadJsonAsync();
+        Assert.Equal("search.index", copy.GetProperty("provides").GetString());
+        Assert.Equal(s.List, copy.GetProperty("listId").GetGuid());
+        Assert.False((await GetAsync(s.Client, $"{s.Url}/workflows/builtIns")).EnumerateArray()
+            .Single(w => w.GetProperty("key").GetString() == "search.index").GetProperty("enabled").GetBoolean());
+
+        // A developer's pipeline: chunks of its own (here fixed; a script or AI step would make them), then the usual publication.
+        var copyUrl = $"/v1.0/workspaces/{s.Workspace}/workflows/{copy.GetProperty("id").GetGuid()}";
+        var current = await s.Client.GetAsync(copyUrl, Ct);
+        var changed = await s.Client.SendWithEtagAsync(HttpMethod.Put, copyUrl, current.Headers.ETag!.Tag, new
+        {
+            name = "Custom index",
+            provides = "search.index",
+            scope = "list",
+            concurrency = "replace",
+            triggers = JsonSerializer.Deserialize<object>((await current.ReadJsonAsync()).GetProperty("triggers").GetRawText()),
+            flow = new
+            {
+                start = "stage",
+                nodes = new Dictionary<string, object>
+                {
+                    ["stage"] = new { activity = "search.stage", inputs = new { chunks = new object[] { "Bespoke passage about zebras", new { text = "Second bespoke passage", page = 1 } } }, next = new { done = "publish", skipped = "end" } },
+                    ["publish"] = new { activity = "search.publish", next = new { done = "embed", skipped = "end" } },
+                    ["embed"] = new { activity = "search.embed" },
+                    ["end"] = new { activity = "end" },
+                },
+            },
+        });
+        Assert.True(changed.IsSuccessStatusCode, await changed.Content.ReadAsStringAsync(Ct));
+
+        var id = (await s.Client.CreateItemAsync(s.Workspace, s.List, new { fields = new { title = "Custom indexed" } })).GetProperty("id").GetGuid();
+        var status = await IndexedAsync(s.Client, $"{s.Url}/items/{id}");
+        Assert.Equal(2, status.GetProperty("chunks").GetInt32());
+        var run = await GetAsync(s.Client, $"/v1.0/workspaces/{s.Workspace}/workflows/runs/{status.GetProperty("run").GetProperty("id").GetGuid()}");
+        Assert.Equal("Custom index", run.GetProperty("workflow").GetString());
+        Assert.Single((await GetAsync(s.Client, "/v1.0/search?q=zebras&mode=keyword")).GetProperty("value").EnumerateArray());
+
+        // "Index now" runs the role's active pipeline, the copy.
+        var started = await s.Client.PostAsJsonAsync($"{s.Url}/workflows/roles/search.index/runs", new { listId = s.List, itemIds = new[] { id } }, Ct);
+        Assert.True(started.IsSuccessStatusCode, await started.Content.ReadAsStringAsync(Ct));
+        Assert.Equal("Custom index", (await started.ReadJsonAsync())[0].GetProperty("workflow").GetString());
+    }
+
+    [Fact]
+    public async Task The_AI_context_pipeline_replaces_the_default_and_never_asks_twice_about_a_chunk()
+    {
+        var s = await SetupAsync("wf-search-enriched");
+        var enriched = (await GetAsync(s.Client, $"{s.Url}/workflows/builtIns")).EnumerateArray()
+            .Single(w => w.GetProperty("key").GetString() == "search.indexEnriched");
+        Assert.Equal("search.index", enriched.GetProperty("role").GetString());
+        Assert.True(enriched.GetProperty("available").GetBoolean());
+        var on = await s.Client.PutAsJsonAsync($"{s.Url}/workflows/builtIns/search.indexEnriched", new { enabled = true }, Ct);
+        Assert.True(on.IsSuccessStatusCode, await on.Content.ReadAsStringAsync(Ct));
+        Assert.False((await GetAsync(s.Client, $"{s.Url}/workflows/builtIns")).EnumerateArray()
+            .Single(w => w.GetProperty("key").GetString() == "search.index").GetProperty("enabled").GetBoolean());
+
+        var id = (await s.Client.CreateItemAsync(s.Workspace, s.List, new { fields = new { title = "Lighthouse", text = "The keeper climbs the stairs every night" } })).GetProperty("id").GetGuid();
+        var status = await IndexedAsync(s.Client, $"{s.Url}/items/{id}");
+        var first = await GetAsync(s.Client, $"/v1.0/workspaces/{s.Workspace}/workflows/runs/{status.GetProperty("run").GetProperty("id").GetGuid()}");
+        Assert.StartsWith("Index for search with AI context", first.GetProperty("workflow").GetString(), StringComparison.Ordinal);
+        Assert.True(first.GetProperty("outputs").GetProperty("enrich").GetProperty("enriched").GetInt32() > 0);
+        await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(s.Tenant.Id, s.Tenant.Identifier))
+        {
+            var passages = scope.ServiceProvider.GetRequiredService<PaperDotNet.Search.Data.SearchDbContext>().Passages;
+            Assert.True(await passages.AnyAsync(p => p.DocumentId == id && p.Text.Contains("Echo: Document: Lighthouse"), Ct));
+        }
+
+        // Indexing again asks the model nothing: every chunk's context is cached.
+        var started = await s.Client.PostAsJsonAsync($"{s.Url}/workflows/roles/search.index/runs", new { listId = s.List, itemIds = new[] { id } }, Ct);
+        Assert.True(started.IsSuccessStatusCode, await started.Content.ReadAsStringAsync(Ct));
+        var runId = (await started.ReadJsonAsync())[0].GetProperty("id").GetGuid();
+        var again = await Eventually.WaitForAsync(async () =>
+        {
+            var run = await GetAsync(s.Client, $"/v1.0/workspaces/{s.Workspace}/workflows/runs/{runId}");
+            return run.GetProperty("status").GetString() == "completed" ? (JsonElement?)run : null;
+        }, TimeSpan.FromSeconds(60));
+        Assert.Equal(0, again.GetProperty("outputs").GetProperty("enrich").GetProperty("enriched").GetInt32());
+        Assert.True(again.GetProperty("outputs").GetProperty("enrich").GetProperty("cached").GetInt32() > 0);
     }
 
     [Fact]

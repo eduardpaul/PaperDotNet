@@ -37,6 +37,53 @@ internal sealed partial class BuiltInWorkflows(
 
     public async Task<BuiltInWorkflow?> FindAsync(string key, CancellationToken ct) => (await ListAsync(ct)).FirstOrDefault(w => w.Key == key);
 
+    /// <summary>The process roles offered, each with its default built-in (whose key is the role; its flags are the role's).</summary>
+    public async Task<IReadOnlyDictionary<string, BuiltInWorkflow>> RolesAsync(CancellationToken ct) =>
+        (await ListAsync(ct)).Where(w => w.RoleKey is not null && w.RoleKey == w.Key).ToDictionary(w => w.Key, StringComparer.Ordinal);
+
+    /// <summary>Whether another enabled workflow (not <paramref name="except"/>) fills the role in the scope (a list, or the workspace).</summary>
+    public Task<bool> HasOtherProviderAsync(Guid workspaceId, Guid? listId, string role, Guid? except, CancellationToken ct) =>
+        db.Workflows.AnyAsync(w => w.WorkspaceId == workspaceId && w.ListId == listId && w.Role == role && w.Enabled && w.Id != except, ct);
+
+    /// <summary>
+    /// One active workflow per role: turns off the other workflows of the row's role in its scope when the row is on
+    /// (added to the context, not saved).
+    /// </summary>
+    public async Task ActivateAsync(WorkflowDefinition row, CancellationToken ct)
+    {
+        if (!row.Enabled || row.Role is not { } role)
+        {
+            return;
+        }
+
+        foreach (var other in await db.Workflows.Where(w => w.WorkspaceId == row.WorkspaceId && w.ListId == row.ListId && w.Role == role && w.Id != row.Id && w.Enabled).ToListAsync(ct))
+        {
+            other.Enabled = false;
+        }
+    }
+
+    /// <summary>A required role left without an active workflow (its replacement turned off or deleted) gets its default back (saved).</summary>
+    public async Task RestoreAsync(Guid workspaceId, Guid? listId, string? role, CancellationToken ct)
+    {
+        if (role is null || !(await RolesAsync(ct)).TryGetValue(role, out var fallback) || !fallback.Required || !IsAvailable(fallback)
+            || await HasOtherProviderAsync(workspaceId, listId, role, null, ct))
+        {
+            return;
+        }
+
+        var list = listId is { } id ? await items.AsSystem().GetListAsync(workspaceId, id, ct) : null;
+        if (listId is not null && list is null)
+        {
+            return;
+        }
+
+        var (row, errors, _) = await SetAsync(workspaceId, fallback, true, null, ct, list);
+        if (row is not null && errors.Count == 0)
+        {
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
     /// <summary>Whether the server has what the workflow needs.</summary>
     public bool IsAvailable(BuiltInWorkflow workflow) => workflow.Requires switch
     {
@@ -77,7 +124,8 @@ internal sealed partial class BuiltInWorkflows(
         }
 
         var (spec, invalid) = DefinitionJson.TryParse<WorkflowSpec>(Fill(workflow.Definition, filled)!.ToJsonString());
-        return (spec, values, invalid is null ? null : $"The definition is not valid: {invalid}");
+        // A system built-in fills its role; a copy keeps it, so it stays a system workflow and replaces the built-in.
+        return (spec is null ? null : spec with { Provides = workflow.RoleKey }, values, invalid is null ? null : $"The definition is not valid: {invalid}");
     }
 
     /// <summary>Why the workflow cannot run in the workspace with these values, or null.</summary>
@@ -127,12 +175,17 @@ internal sealed partial class BuiltInWorkflows(
             return (null, [$"'{workflow.Name}' works on document libraries; '{list.Name}' is a list."], false);
         }
 
-        if (!enabled && workflow.Required)
+        if (!enabled && workflow.Locked)
         {
-            return (null, [$"'{workflow.Name}' is required by the product and cannot be turned off."], false);
+            return (null, [$"'{workflow.Name}' is a guarantee of the product and cannot be turned off."], false);
         }
 
         var row = await RowAsync(workspaceId, workflow.Key, ct, list?.Id);
+        if (!enabled && workflow.Required && !await HasOtherProviderAsync(workspaceId, list?.Id, workflow.RoleKey!, row?.Id, ct))
+        {
+            return (null, [$"'{workflow.Name}' is required: replace it with a copy or another workflow for '{workflow.RoleKey}' instead of turning it off."], false);
+        }
+
         if (!enabled && parameters is null)
         {
             if (row is not null)
@@ -174,6 +227,7 @@ internal sealed partial class BuiltInWorkflows(
         }
 
         row.Parameters = values.ToJsonString();
+        await ActivateAsync(row, ct);
         return (row, [], false);
     }
 
@@ -220,32 +274,56 @@ internal sealed partial class BuiltInWorkflows(
             return;
         }
 
-        foreach (var workflow in (await ListAsync(ct)).Where(w => (w.Scope == BuiltInScope.List || (w.Scope == BuiltInScope.Library && list.IsLibrary) || w.Scope == BuiltInScope.Workspace) && w.EnabledByDefault && IsAvailable(w)))
+        // The first events of a new workspace arrive together: they wait for each other here instead of all creating the
+        // same rows and failing on the unique names (across servers, the unique indexes still decide).
+        var gate = EnsureGates.GetOrAdd((tenantId, list.WorkspaceId), _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct);
+        try
         {
-            if (await RowAsync(list.WorkspaceId, workflow.Key, ct, workflow.Scope == BuiltInScope.Workspace ? null : list.Id) is not null)
+            if (EnsuredLibraries.ContainsKey((tenantId, list.Id)))
             {
-                continue;
+                return;
             }
 
-            var (row, errors, _) = await SetAsync(list.WorkspaceId, workflow, true, null, ct, workflow.Scope == BuiltInScope.Workspace ? null : list);
-            if (row is null || errors.Count > 0)
+            var existing = (await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == list.WorkspaceId && w.BuiltInKey != null && (w.ListId == null || w.ListId == list.Id))
+                .Select(w => new { w.BuiltInKey, w.ListId }).ToListAsync(ct)).Select(w => (w.BuiltInKey, w.ListId)).ToHashSet();
+            foreach (var workflow in (await ListAsync(ct)).Where(w => (w.Scope == BuiltInScope.List || (w.Scope == BuiltInScope.Library && list.IsLibrary) || w.Scope == BuiltInScope.Workspace) && w.EnabledByDefault && IsAvailable(w)))
             {
-                continue;
+                var scope = workflow.Scope == BuiltInScope.Workspace ? null : list;
+                if (existing.Contains((workflow.Key, scope?.Id)))
+                {
+                    continue;
+                }
+
+                // A replacement already fills the role (e.g. made before the default existed): the default is created off.
+                var replaced = workflow.RoleKey is { } role && await HasOtherProviderAsync(list.WorkspaceId, scope?.Id, role, null, ct);
+                var (row, errors, _) = await SetAsync(list.WorkspaceId, workflow, !replaced, null, ct, scope);
+                if (row is null || errors.Count > 0)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await db.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException)
+                {
+                    // Created at the same moment by another server: that one counts.
+                    db.ChangeTracker.Clear();
+                }
             }
 
-            try
-            {
-                await db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateException)
-            {
-                // Created at the same moment by another request: that one counts.
-                db.ChangeTracker.Clear();
-            }
+            EnsuredLibraries.TryAdd((tenantId, list.Id), true);
         }
-
-        EnsuredLibraries.TryAdd((tenantId, list.Id), true);
+        finally
+        {
+            gate.Release();
+        }
     }
+
+    /// <summary>One provisioning at a time per workspace and process (see <see cref="EnsureDefaultsAsync"/>).</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(Guid Tenant, Guid Workspace), SemaphoreSlim> EnsureGates = new();
 
     /// <summary>Libraries whose default workflows exist (per tenant), so they are checked once per process.</summary>
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(Guid Tenant, Guid List), bool> EnsuredLibraries = new();
@@ -258,15 +336,22 @@ internal sealed partial class BuiltInWorkflows(
     /// built-in one is turned off there. Added to the context, not saved.
     /// </summary>
     public async Task<(WorkflowDefinition? Copy, List<string> Errors, bool NameTaken)> CopyAsync(
-        Guid workspaceId, BuiltInWorkflow workflow, string name, JsonObject? parameters, CancellationToken ct)
+        Guid workspaceId, BuiltInWorkflow workflow, string name, JsonObject? parameters, CancellationToken ct, ListData? list = null)
     {
-        if (workflow.Required)
+        if (workflow.Locked || (workflow.RoleKey is { } role && (await RolesAsync(ct)).GetValueOrDefault(role)?.Locked == true))
         {
-            return (null, [$"'{workflow.Name}' is required by the product; it cannot be copied and turned off."], false);
+            return (null, [$"'{workflow.Name}' is a guarantee of the product; it cannot be replaced."], false);
         }
 
-        var row = await RowAsync(workspaceId, workflow.Key, ct);
-        var (spec, _, errors) = await CheckAsync(workspaceId, workflow, parameters ?? Values(row), ct);
+        if ((workflow.Scope != BuiltInScope.Workspace) != (list is not null))
+        {
+            return (null, [workflow.Scope != BuiltInScope.Workspace
+                ? $"'{workflow.Name}' is copied per list (…/lists/{{listId}}/workflows/builtIns/{workflow.Key}/copy)."
+                : $"'{workflow.Name}' is copied in the workspace, not per list."], false);
+        }
+
+        var row = await RowAsync(workspaceId, workflow.Key, ct, list?.Id);
+        var (spec, _, errors) = await CheckAsync(workspaceId, workflow, parameters ?? Values(row), ct, list?.Name);
         if (errors.Count > 0)
         {
             return (null, errors, false);
@@ -277,13 +362,15 @@ internal sealed partial class BuiltInWorkflows(
             return (null, [$"A workflow named '{name}' already exists in the workspace."], true);
         }
 
-        var copy = WorkflowWriter.Create(db, workspaceId, name, workflow.Description, true, spec!, await WorkflowWriter.KeyForAsync(db, workspaceId, name, ct));
+        // The copy fills the built-in's role (spec.Provides) in the same scope and becomes its active workflow.
+        var copy = WorkflowWriter.Create(db, workspaceId, name, workflow.Description, true, spec!, await WorkflowWriter.KeyForAsync(db, workspaceId, name, ct), list?.Id);
         copy.CopiedFrom = workflow.Key;
         if (row is not null)
         {
             row.Enabled = false;
         }
 
+        await ActivateAsync(copy, ct);
         return (copy, [], false);
     }
 
@@ -315,6 +402,7 @@ internal sealed partial class BuiltInWorkflows(
                 }
             }
 
+            row.Role = workflow.RoleKey;
             var (spec, _, errors) = await CheckAsync(row.WorkspaceId, workflow, Values(row), ct, list?.Name);
             if (errors.Count == 0)
             {

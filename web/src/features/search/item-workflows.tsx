@@ -44,8 +44,9 @@ export function ItemWorkflows({
   const refresh = () => queryClient.invalidateQueries({ queryKey: keys.item(workspaceId, listId, itemId) });
   const index = useMutation({
     mutationFn: () =>
+      // The role's active pipeline (the built-in, an alternative or this list's own copy), also with automatic runs off.
       listBuilder(workspaceId, listId)
-        .workflows.builtIns.byKey('search.index')
+        .workflows.roles.byRole('search.index')
         .runs.post({ listId, itemIds: [itemId] }),
     onSuccess: () => toast.success('Indexing started.'),
     onSettled: refresh,

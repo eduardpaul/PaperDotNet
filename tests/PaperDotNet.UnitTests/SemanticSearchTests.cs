@@ -20,7 +20,7 @@ public sealed class SemanticSearchTests
         var words = string.Join(' ', Enumerable.Range(1, 600).Select(i => $"w{i}"));
         var passages = Passages.Split(Document("Fields  and\n tags", "Page one", words));
 
-        Assert.Equal(new PassageText(null, "Fields and tags"), passages[0]);
+        Assert.Equal(new PassageText(null, "Fields and tags") { FromBody = true }, passages[0]);
         Assert.Equal(new PassageText(1, "Page one"), passages[1]);
         var long2 = passages.Where(p => p.Page == 2).ToList();
         Assert.True(long2.Count > 1);
@@ -32,7 +32,7 @@ public sealed class SemanticSearchTests
         Assert.All(long2, p => Assert.Matches(@"^w\d+( w\d+)*$", p.Text));
 
         // A document with no text still has its title as a passage.
-        Assert.Equal([new PassageText(null, "Title")], Passages.Split(Document(string.Empty)));
+        Assert.Equal([new PassageText(null, "Title") { FromBody = true }], Passages.Split(Document(string.Empty)));
     }
 
     [Theory]

@@ -7,6 +7,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .built_ins.built_ins_request_builder import BuiltInsRequestBuilder
+    from .roles.roles_request_builder import RolesRequestBuilder
 
 class WorkflowsRequestBuilder(BaseRequestBuilder):
     """
@@ -29,5 +30,14 @@ class WorkflowsRequestBuilder(BaseRequestBuilder):
         from .built_ins.built_ins_request_builder import BuiltInsRequestBuilder
 
         return BuiltInsRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def roles(self) -> RolesRequestBuilder:
+        """
+        The roles property
+        """
+        from .roles.roles_request_builder import RolesRequestBuilder
+
+        return RolesRequestBuilder(self.request_adapter, self.path_parameters)
     
 

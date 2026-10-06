@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from .........models.api_problem import ApiProblem
     from .........models.built_in_settings_request import BuiltInSettingsRequest
     from .........models.built_in_workflow_response import BuiltInWorkflowResponse
+    from .copy.copy_request_builder import CopyRequestBuilder
     from .runs.runs_request_builder import RunsRequestBuilder
 
 class WithKeyItemRequestBuilder(BaseRequestBuilder):
@@ -78,6 +79,15 @@ class WithKeyItemRequestBuilder(BaseRequestBuilder):
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
         return WithKeyItemRequestBuilder(self.request_adapter, raw_url)
+    
+    @property
+    def copy(self) -> CopyRequestBuilder:
+        """
+        The copy property
+        """
+        from .copy.copy_request_builder import CopyRequestBuilder
+
+        return CopyRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def runs(self) -> RunsRequestBuilder:

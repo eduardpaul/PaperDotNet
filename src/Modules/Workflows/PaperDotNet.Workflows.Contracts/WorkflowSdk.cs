@@ -87,14 +87,18 @@ public sealed record WorkflowOpenWait(string Key, Guid RunId, JsonObject? Data, 
 public interface IWorkflowDirectory
 {
     /// <summary>
-    /// Whether the built-in workflow runs automatically there (per list for list built-ins): its row is on, or it has no row
-    /// yet and is on by default. Required ones always are.
+    /// Whether a process role (e.g. <c>search.index</c>) runs automatically there (per list for list roles): a workflow
+    /// filling it is on, or its built-in has no row yet and is on by default.
     /// </summary>
-    Task<bool> IsBuiltInEnabledAsync(Guid workspaceId, string key, Guid? listId, CancellationToken cancellationToken) => Task.FromResult(false);
+    Task<bool> IsRoleActiveAsync(Guid workspaceId, string role, Guid? listId, CancellationToken cancellationToken) => Task.FromResult(false);
 
-    /// <summary>The parameter values a built-in workflow has there (the defaults filled in), or null when it is unavailable.</summary>
-    Task<JsonObject?> GetBuiltInParametersAsync(Guid workspaceId, string key, Guid? listId, CancellationToken cancellationToken) =>
-        Task.FromResult<JsonObject?>(null);
+    /// <summary>
+    /// The workflow that fills a process role there: the one that is on (a replacement, a copy or the built-in), else the
+    /// role's built-in with its automatic runs off; null before it was ever set up. Its version identifies the pipeline
+    /// that produced derived data (e.g. a search publication).
+    /// </summary>
+    Task<WorkflowRoleInfo?> GetRoleWorkflowAsync(Guid workspaceId, string role, Guid? listId, CancellationToken cancellationToken) =>
+        Task.FromResult<WorkflowRoleInfo?>(null);
 
     /// <summary>Whether a trigger raised as <paramref name="requestId"/> started any run (yet).</summary>
     Task<bool> HasRequestRunsAsync(Guid requestId, CancellationToken cancellationToken) => Task.FromResult(false);
@@ -102,8 +106,8 @@ public interface IWorkflowDirectory
     /// <summary>The payload a completed wait was completed with (<c>{}</c> without one), or null while it is open or unknown.</summary>
     Task<JsonObject?> GetCompletionAsync(string kind, string key, CancellationToken cancellationToken) => Task.FromResult<JsonObject?>(null);
 
-    /// <summary>The latest run of a built-in workflow on an item, without exposing the engine's database.</summary>
-    Task<WorkflowRunInfo?> GetLatestRunAsync(Guid workspaceId, Guid itemId, string builtInKey, CancellationToken cancellationToken) =>
+    /// <summary>The latest run on an item of any workflow that filled a process role, without exposing the engine's database.</summary>
+    Task<WorkflowRunInfo?> GetLatestRunAsync(Guid workspaceId, Guid itemId, string role, CancellationToken cancellationToken) =>
         Task.FromResult<WorkflowRunInfo?>(null);
     /// <summary>
     /// Enables a registered workspace built-in workflow with its existing/default parameters.
@@ -120,6 +124,9 @@ public interface IWorkflowDirectory
 }
 
 public sealed record WorkflowRunInfo(Guid Id, string Status, string? Node, string? Error, DateTimeOffset StartedAt);
+
+/// <summary>The workflow filling a process role: which one, its current version, whether it is on, and its built-in key if any.</summary>
+public sealed record WorkflowRoleInfo(Guid WorkflowId, string Name, int Version, bool Enabled, string? BuiltInKey);
 
 /// <summary>
 /// Registering workflow parts from a module, the same parts extensions add with <c>IExtensionBuilder</c> (where they are

@@ -44,17 +44,21 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
     key: Optional[str] = None
     # The listId property
     list_id: Optional[UUID] = None
+    # A guarantee of the product: it cannot be replaced, copied or turned off.
+    locked: Optional[bool] = None
     # The name property
     name: Optional[str] = None
     # The ETag for `If-Match` on changes (the same as the `ETag` header).
     odata_etag: Optional[str] = None
-    # A system workflow the product depends on: it cannot be turned off.
+    # The provides property
+    provides: Optional[str] = None
+    # Its role must always have an active workflow: turning off the last replacement brings the built-in back.
     required: Optional[bool] = None
     # The scope property
     scope: Optional[str] = None
     # The steps property
     steps: Optional[list[WorkflowStep]] = None
-    # A built-in product process (indexing, timeline, notifications): cheap runs, kept briefly when they succeed.
+    # It fills a system process role (a system built-in, or a copy or replacement of one): cheap runs, kept briefly whenthey succeed.
     system: Optional[bool] = None
     # The trigger property
     trigger: Optional[WorkflowTrigger] = None
@@ -108,8 +112,10 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
             "inputSchema": lambda n : setattr(self, 'input_schema', n.get_object_value(JsonObject)),
             "key": lambda n : setattr(self, 'key', n.get_str_value()),
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
+            "locked": lambda n : setattr(self, 'locked', n.get_bool_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
+            "provides": lambda n : setattr(self, 'provides', n.get_str_value()),
             "required": lambda n : setattr(self, 'required', n.get_bool_value()),
             "scope": lambda n : setattr(self, 'scope', n.get_str_value()),
             "steps": lambda n : setattr(self, 'steps', n.get_collection_of_object_values(WorkflowStep)),
@@ -143,8 +149,10 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
         writer.write_object_value("inputSchema", self.input_schema)
         writer.write_str_value("key", self.key)
         writer.write_uuid_value("listId", self.list_id)
+        writer.write_bool_value("locked", self.locked)
         writer.write_str_value("name", self.name)
         writer.write_str_value("@odata.etag", self.odata_etag)
+        writer.write_str_value("provides", self.provides)
         writer.write_bool_value("required", self.required)
         writer.write_str_value("scope", self.scope)
         writer.write_collection_of_object_values("steps", self.steps)

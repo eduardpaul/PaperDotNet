@@ -87,6 +87,8 @@ namespace PaperDotNet.Client.Models
 #endif
         /// <summary>The listId property</summary>
         public Guid? ListId { get; set; }
+        /// <summary>A guarantee of the product: it cannot be replaced, copied or turned off.</summary>
+        public bool? Locked { get; set; }
         /// <summary>The name property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -103,7 +105,15 @@ namespace PaperDotNet.Client.Models
 #else
         public string OdataEtag { get; set; }
 #endif
-        /// <summary>A system workflow the product depends on: it cannot be turned off.</summary>
+        /// <summary>The provides property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Provides { get; set; }
+#nullable restore
+#else
+        public string Provides { get; set; }
+#endif
+        /// <summary>Its role must always have an active workflow: turning off the last replacement brings the built-in back.</summary>
         public bool? Required { get; set; }
         /// <summary>The scope property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -121,7 +131,7 @@ namespace PaperDotNet.Client.Models
 #else
         public List<global::PaperDotNet.Client.Models.WorkflowStep> Steps { get; set; }
 #endif
-        /// <summary>A built-in product process (indexing, timeline, notifications): cheap runs, kept briefly when they succeed.</summary>
+        /// <summary>It fills a system process role (a system built-in, or a copy or replacement of one): cheap runs, kept briefly whenthey succeed.</summary>
         public bool? System { get; set; }
         /// <summary>The trigger property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -190,8 +200,10 @@ namespace PaperDotNet.Client.Models
                 { "inputSchema", n => { InputSchema = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "key", n => { Key = n.GetStringValue(); } },
                 { "listId", n => { ListId = n.GetGuidValue(); } },
+                { "locked", n => { Locked = n.GetBoolValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
+                { "provides", n => { Provides = n.GetStringValue(); } },
                 { "required", n => { Required = n.GetBoolValue(); } },
                 { "scope", n => { Scope = n.GetStringValue(); } },
                 { "steps", n => { Steps = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>(global::PaperDotNet.Client.Models.WorkflowStep.CreateFromDiscriminatorValue)?.AsList(); } },
@@ -223,8 +235,10 @@ namespace PaperDotNet.Client.Models
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputSchema", InputSchema);
             writer.WriteStringValue("key", Key);
             writer.WriteGuidValue("listId", ListId);
+            writer.WriteBoolValue("locked", Locked);
             writer.WriteStringValue("name", Name);
             writer.WriteStringValue("@odata.etag", OdataEtag);
+            writer.WriteStringValue("provides", Provides);
             writer.WriteBoolValue("required", Required);
             writer.WriteStringValue("scope", Scope);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>("steps", Steps);

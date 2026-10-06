@@ -11,8 +11,8 @@ using PaperDotNet.Workflows.Data;
 namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
 {
     [DbContext(typeof(WorkflowsDbContext))]
-    [Migration("20261006131147_SystemWorkflowRuns")]
-    partial class SystemWorkflowRuns
+    [Migration("20261006142554_SystemWorkflowRoles")]
+    partial class SystemWorkflowRoles
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -346,6 +346,11 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                         .HasColumnType("TEXT")
                         .HasColumnName("parameters");
 
+                    b.Property<string>("Role")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("role");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");
@@ -385,6 +390,9 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Workflows
                     b.HasIndex("TenantId", "WorkspaceId", "Name")
                         .IsUnique()
                         .HasDatabaseName("ix_automation_definitions_tenant_id_workspace_id_name");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "Role")
+                        .HasDatabaseName("ix_automation_definitions_tenant_id_workspace_id_role");
 
                     b.HasIndex("TenantId", "WorkspaceId", "Trigger")
                         .HasDatabaseName("ix_automation_definitions_tenant_id_workspace_id_trigger");

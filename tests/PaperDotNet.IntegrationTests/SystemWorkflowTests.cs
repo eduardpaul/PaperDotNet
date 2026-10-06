@@ -49,30 +49,93 @@ public sealed class SystemWorkflowTests(PaperDotNetApiFactory factory)
             .Where(r => r.GetProperty("workflow").GetString() == workflow && r.GetProperty("status").GetString() is "completed" or "failed")
             .Cast<JsonElement?>().FirstOrDefault(), TimeSpan.FromSeconds(60));
 
-    [Fact]
-    public async Task Required_system_workflows_are_always_on_and_cannot_be_turned_off_copied_or_deleted()
-    {
-        var s = await SetupAsync("wf-system-required");
-        await s.Client.CreateItemAsync(s.Workspace, s.List, new { fields = new { title = "Provisions defaults" } });
-        var timeline = await Eventually.WaitForAsync(async () => (await GetAsync(s.Client, $"{s.Workflows}/builtIns")).EnumerateArray()
-            .Where(w => w.GetProperty("key").GetString() == "collaboration.recordChange" && w.TryGetProperty("@odata.etag", out var etag) && etag.ValueKind == JsonValueKind.String)
+    private static Task<JsonElement> BuiltInAsync(Setup s, string key) =>
+        Eventually.WaitForAsync(async () => (await GetAsync(s.Client, $"{s.Workflows}/builtIns")).EnumerateArray()
+            .Where(w => w.GetProperty("key").GetString() == key && w.TryGetProperty("@odata.etag", out var etag) && etag.ValueKind == JsonValueKind.String)
             .Cast<JsonElement?>().FirstOrDefault(), TimeSpan.FromSeconds(30));
-        Assert.True(timeline.GetProperty("required").GetBoolean());
-        Assert.True(timeline.GetProperty("system").GetBoolean());
-        Assert.True(timeline.GetProperty("enabled").GetBoolean());
 
-        var off = await s.Client.SendWithEtagAsync(HttpMethod.Put, $"{s.Workflows}/builtIns/collaboration.recordChange",
-            timeline.GetProperty("@odata.etag").GetString()!, new { enabled = false });
+    [Fact]
+    public async Task Locked_guarantees_cannot_be_turned_off_replaced_or_deleted()
+    {
+        var s = await SetupAsync("wf-system-locked");
+        await s.Client.CreateItemAsync(s.Workspace, s.List, new { fields = new { title = "Provisions defaults" } });
+        var changes = await BuiltInAsync(s, "notifications.queueChanges");
+        Assert.True(changes.GetProperty("locked").GetBoolean());
+        Assert.True(changes.GetProperty("enabled").GetBoolean());
+        Assert.Equal("notifications.queueChanges", changes.GetProperty("role").GetString());
+
+        var off = await s.Client.SendWithEtagAsync(HttpMethod.Put, $"{s.Workflows}/builtIns/notifications.queueChanges",
+            changes.GetProperty("@odata.etag").GetString()!, new { enabled = false });
         Assert.Equal(HttpStatusCode.BadRequest, off.StatusCode);
-        Assert.Contains("cannot be turned off", await off.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
-        Assert.False((await s.Client.PostAsJsonAsync($"{s.Workflows}/builtIns/collaboration.recordChange/copy", new { name = "My timeline" }, Ct)).IsSuccessStatusCode);
-        var row = timeline.GetProperty("workflowId").GetGuid();
+        Assert.Contains("guarantee", await off.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.BadRequest, (await s.Client.PostAsJsonAsync($"{s.Workflows}/builtIns/notifications.queueChanges/copy", new { name = "Mine" }, Ct)).StatusCode);
+        var impostor = await s.Client.PostAsJsonAsync(s.Workflows, new
+        {
+            name = "Impostor",
+            provides = "notifications.queueChanges",
+            trigger = new { type = "itemAdded" },
+            steps = new[] { new { type = "delay", hours = 1 } },
+        }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, impostor.StatusCode);
+        Assert.Contains("cannot be replaced", await impostor.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        var row = changes.GetProperty("workflowId").GetGuid();
         Assert.Equal(HttpStatusCode.Conflict, (await s.Client.DeleteAsync($"{s.Workflows}/{row}", Ct)).StatusCode);
-
-        // The workspace's workflows show which ones belong to the product.
         var listed = (await GetAsync(s.Client, s.Workflows)).EnumerateArray().Single(w => w.GetProperty("id").GetGuid() == row);
-        Assert.True(listed.GetProperty("required").GetBoolean());
-        Assert.True(listed.GetProperty("enabled").GetBoolean());
+        Assert.True(listed.GetProperty("locked").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Required_roles_are_replaced_by_copies_but_never_left_without_a_workflow()
+    {
+        var s = await SetupAsync("wf-system-roles");
+        await s.Client.CreateItemAsync(s.Workspace, s.List, new { fields = new { title = "Provisions defaults" } });
+        var alerts = await BuiltInAsync(s, "notifications.alertFollowers");
+        Assert.True(alerts.GetProperty("required").GetBoolean());
+        Assert.False(alerts.GetProperty("locked").GetBoolean());
+
+        // Turning the default off with nothing to replace it is refused.
+        var off = await s.Client.SendWithEtagAsync(HttpMethod.Put, $"{s.Workflows}/builtIns/notifications.alertFollowers",
+            alerts.GetProperty("@odata.etag").GetString()!, new { enabled = false });
+        Assert.Equal(HttpStatusCode.BadRequest, off.StatusCode);
+
+        // A copy fills the role, replaces the default and runs as a system workflow.
+        var copied = await s.Client.PostAsJsonAsync($"{s.Workflows}/builtIns/notifications.alertFollowers/copy", new { name = "Our alerts" }, Ct);
+        Assert.True(copied.IsSuccessStatusCode, await copied.Content.ReadAsStringAsync(Ct));
+        var copy = await copied.ReadJsonAsync();
+        Assert.Equal("notifications.alertFollowers", copy.GetProperty("provides").GetString());
+        Assert.True(copy.GetProperty("system").GetBoolean());
+        Assert.False((await BuiltInAsync(s, "notifications.alertFollowers")).GetProperty("enabled").GetBoolean());
+        var item = (await s.Client.CreateItemAsync(s.Workspace, s.List, new { fields = new { title = "Followed by the copy" } })).GetProperty("id").GetGuid();
+        Assert.Equal("completed", (await EndedRunAsync(s, item, "Our alerts")).GetProperty("status").GetString());
+        await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(s.Tenant.Id, s.Tenant.Identifier))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WorkflowsDbContext>();
+            Assert.True(await db.Runs.AnyAsync(r => r.ItemId == item && r.System && db.Workflows.Any(w => w.Id == r.WorkflowId && w.Name == "Our alerts"), Ct));
+            Assert.False(await db.Runs.AnyAsync(r => r.ItemId == item && db.Workflows.Any(w => w.Id == r.WorkflowId && w.BuiltInKey == "notifications.alertFollowers"), Ct));
+        }
+
+        // Turning the copy off brings the default back; it never stays without a workflow.
+        var copyId = copy.GetProperty("id").GetGuid();
+        var current = await s.Client.GetAsync($"{s.Workflows}/{copyId}", Ct);
+        var definition = await current.ReadJsonAsync();
+        var disabled = await s.Client.SendWithEtagAsync(HttpMethod.Put, $"{s.Workflows}/{copyId}", current.Headers.ETag!.Tag, new
+        {
+            name = "Our alerts",
+            enabled = false,
+            provides = "notifications.alertFollowers",
+            scope = "workspace",
+            triggers = JsonSerializer.Deserialize<object>(definition.GetProperty("triggers").GetRawText()),
+            flow = JsonSerializer.Deserialize<object>(definition.GetProperty("flow").GetRawText()),
+        });
+        Assert.True(disabled.IsSuccessStatusCode, await disabled.Content.ReadAsStringAsync(Ct));
+        Assert.True((await BuiltInAsync(s, "notifications.alertFollowers")).GetProperty("enabled").GetBoolean());
+
+        // A workflow cannot claim a role that does not exist, or a list role from the workspace.
+        var unknown = await s.Client.PostAsJsonAsync(s.Workflows, new { name = "Unknown", provides = "nothing.here", trigger = new { type = "manual" }, steps = new[] { new { type = "delay", hours = 1 } } }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+        var listRole = await s.Client.PostAsJsonAsync(s.Workflows, new { name = "Index", provides = "search.index", trigger = new { type = "manual" }, steps = new[] { new { type = "delay", hours = 1 } } }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, listRole.StatusCode);
+        Assert.Contains("per list", await listRole.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
     }
 
     [Fact]

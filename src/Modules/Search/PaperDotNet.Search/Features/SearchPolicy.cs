@@ -113,10 +113,13 @@ internal static class SearchPolicyEndpoints
         var publication = await db.Publications.AsNoTracking().FirstOrDefaultAsync(p => p.Id == itemId, ct);
         var source = await input.ReadAsync(itemId, ct);
         var revision = source is null ? null : SearchInput.Revision(source);
-        var settings = SearchWorkflows.Settings(await workflows.GetBuiltInParametersAsync(workspaceId, SearchWorkflows.Index, listId, ct));
+        // The pipeline that fills the search.index role now (the built-in, a copy or a replacement) and its version.
+        var pipeline = await workflows.GetRoleWorkflowAsync(workspaceId, SearchWorkflows.Index, listId, ct) is { } role
+            ? SearchWorkflows.Pipeline(role.WorkflowId, role.Version)
+            : null;
         var indexed = included && publication?.Revision is not null;
-        // Current only when the text and the chunk settings both match what was published.
-        var current = indexed && publication!.Revision == revision && (publication.Settings is null || publication.Settings == settings);
+        // Current only when the text and the pipeline both match what was published.
+        var current = indexed && publication!.Revision == revision && (pipeline is null || publication.Settings is null || publication.Settings == pipeline);
         var state = !included ? "excluded" : run?.Status is "running" or "waiting" ? run.Status
             : run?.Status == "failed" ? "failed" : !indexed ? "notIndexed" : current ? "indexed" : "stale";
         return TypedResults.Ok(new ItemSearchStatusResponse(state, included, indexed, revision, publication?.Revision,

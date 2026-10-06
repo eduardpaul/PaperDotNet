@@ -3,6 +3,7 @@
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows.BuiltIns;
+using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows.Roles;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -19,6 +20,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows.BuiltIns.BuiltInsRequestBuilder BuiltIns
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows.BuiltIns.BuiltInsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The roles property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows.Roles.RolesRequestBuilder Roles
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows.Roles.RolesRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows.WorkflowsRequestBuilder"/> and sets the default values.

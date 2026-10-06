@@ -168,13 +168,15 @@ internal sealed partial class WorkflowTriggerHandler(
             return;
         }
 
+        // System traits belong to process roles: a role's built-in, its copies and its replacements all have them.
         var offered = await builtIns.ListAsync(ct);
+        var roles = await builtIns.RolesAsync(ct);
         var deep = source.Depth >= MaxDepth;
         var folder = itemEvent?.IsFolder == true;
-        string[]? onlyKeys = deep || folder
-            ? [.. offered.Where(w => w.IsSystem && (!folder || w.IncludeFolders)).Select(w => w.Key)]
+        string[]? onlyRoles = deep || folder
+            ? [.. roles.Values.Where(w => !folder || w.IncludeFolders).Select(w => w.Key)]
             : null;
-        if (onlyKeys is { Length: 0 })
+        if (onlyRoles is { Length: 0 })
         {
             await CompleteRequestAsync(trigger, source, ct);
             return;
@@ -189,20 +191,25 @@ internal sealed partial class WorkflowTriggerHandler(
             await builtIns.EnsureDefaultsAsync(defaultList, tenant.TenantId!.Value, ct);
         }
 
+        // Explicit requests also start built-ins whose automatic runs are off, unless another workflow fills their role there
+        // (then that one, which is on, answers the request).
         var manualKeys = catalog.All.Any(t => t.Key == trigger && t.AllowDisabledBuiltIns)
             ? offered.Where(w => w.AllowManualLaunch).Select(w => w.Key).ToArray()
             : [];
-        // Required workflows run even if a row was turned off before they became required.
-        var requiredKeys = offered.Where(w => w.Required).Select(w => w.Key).ToArray();
+        // Locked workflows (guarantees of the product) run even if a row was turned off before they became locked.
+        var lockedKeys = roles.Values.Where(w => w.Locked).Select(w => w.Key).ToArray();
         // Fetch matching definitions and versions together, excluding events already handled.
         var query = db.Workflows.AsNoTracking()
             .Where(a => a.WorkspaceId == workspaceId
-                && (a.Enabled || (a.BuiltInKey != null && (manualKeys.Contains(a.BuiltInKey) || requiredKeys.Contains(a.BuiltInKey))))
+                && (a.Enabled
+                    || (a.BuiltInKey != null && lockedKeys.Contains(a.BuiltInKey))
+                    || (a.BuiltInKey != null && manualKeys.Contains(a.BuiltInKey)
+                        && (a.Role == null || !db.Workflows.Any(o => o.WorkspaceId == a.WorkspaceId && o.ListId == a.ListId && o.Role == a.Role && o.Enabled && o.Id != a.Id))))
                 && (a.ListId == null || a.ListId == (item == null ? null : (Guid?)item.ListId)))
             .Where(TriggerColumn.Has(trigger));
-        if (onlyKeys is not null)
+        if (onlyRoles is not null)
         {
-            query = query.Where(a => a.BuiltInKey != null && onlyKeys.Contains(a.BuiltInKey));
+            query = query.Where(a => (a.Role != null && onlyRoles.Contains(a.Role)) || (a.BuiltInKey != null && onlyRoles.Contains(a.BuiltInKey)));
         }
 
         var workflows = await query

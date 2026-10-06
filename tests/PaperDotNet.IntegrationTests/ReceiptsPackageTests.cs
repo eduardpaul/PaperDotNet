@@ -100,7 +100,7 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
         var receipts = $"/v1.0/workspaces/{ws}/lists/{lists["Receipts"]}";
         var libraryWorkflows = (await (await admin.GetAsync($"{receipts}/workflows/builtIns", Ct)).ReadJsonAsync()).EnumerateArray()
             .ToDictionary(w => w.GetProperty("key").GetString()!, w => w.GetProperty("enabled").GetBoolean());
-        Assert.Equal(new Dictionary<string, bool> { ["paperdotnet.storageoptimization.optimize"] = false, ["documents.ocr"] = false, ["documents.pages"] = true, ["documents.text"] = false, ["documents.thumbnail"] = true, ["search.index"] = true },
+        Assert.Equal(new Dictionary<string, bool> { ["paperdotnet.storageoptimization.optimize"] = false, ["documents.ocr"] = false, ["documents.pages"] = true, ["documents.text"] = false, ["documents.thumbnail"] = true, ["search.index"] = true, ["search.indexEnriched"] = false },
             libraryWorkflows);
 
         // A receipt is uploaded (its images are made), then tagged "ticket": its reading waits for the batch.

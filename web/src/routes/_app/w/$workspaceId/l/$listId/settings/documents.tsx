@@ -1,4 +1,5 @@
 import type { BuiltInWorkflowResponse, DuplicatePolicy } from '@paperdotnet/client';
+import { indexRole } from '@/features/search/search-settings';
 import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
@@ -135,14 +136,17 @@ function LibraryWorkflows({ workspaceId, listId }: { workspaceId: string; listId
       description="Uploads only store the file. These workflows read its text, make its images and recognize scans; turn off what this library does not need."
     >
       <ul className="divide-y">
-        {workflows.map((workflow) => (
-          <WorkflowSwitch
-            key={`${workflow.key}-${workflow.odataEtag ?? ''}`}
-            workflow={workflow}
-            disabled={!canManage || !workflow.available}
-            onToggle={(enabled) => toggle.mutateAsync({ workflow, enabled })}
-          />
-        ))}
+        {/* Search indexing has its own section (General settings): one pipeline of several is active. */}
+        {workflows
+          .filter((workflow) => workflow.role !== indexRole)
+          .map((workflow) => (
+            <WorkflowSwitch
+              key={`${workflow.key}-${workflow.odataEtag ?? ''}`}
+              workflow={workflow}
+              disabled={!canManage || !workflow.available}
+              onToggle={(enabled) => toggle.mutateAsync({ workflow, enabled })}
+            />
+          ))}
       </ul>
     </SettingsSection>
   );

@@ -62,7 +62,10 @@ public sealed class SearchModule : IModule
         { AllowDisabledBuiltIns = true, CompletionKind = SearchWorkflows.RebuildRequestKind });
         services.AddWorkflowTrigger(new(SearchTriggers.ContainerChanged, "A library's inclusion in search or its schema changed (data: containerId)."));
         services.AddWorkflowTrigger(new(SearchTriggers.ScopesChanged, "Items moved to other permission scopes (data: itemIds)."));
+        services.AddScoped<SearchStaging>();
         services.AddWorkflowActivity<SearchChunkActivity>();
+        services.AddWorkflowActivity<SearchStageActivity>();
+        services.AddWorkflowActivity<SearchEnrichActivity>();
         services.AddWorkflowActivity<SearchPublishActivity>();
         services.AddWorkflowActivity<SearchEmbedActivity>();
         services.AddWorkflowActivity<SearchRemoveActivity>();
@@ -70,6 +73,7 @@ public sealed class SearchModule : IModule
         services.AddWorkflowActivity<SearchContainerActivity>();
         services.AddWorkflowActivity<SearchRebuildActivity>();
         services.AddWorkflow(SearchWorkflows.IndexWorkflow);
+        services.AddWorkflow(SearchWorkflows.IndexEnrichedWorkflow);
         services.AddWorkflow(SearchWorkflows.RemoveWorkflow);
         services.AddWorkflow(SearchWorkflows.ContainerWorkflow);
         services.AddWorkflow(SearchWorkflows.ScopesWorkflow);

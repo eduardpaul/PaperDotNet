@@ -96,14 +96,15 @@ function Workflows() {
               <li key={workflow.id} className="flex items-center gap-3 px-5 py-3">
                 <EnabledToggle
                   workflow={workflow}
-                  disabled={!canManage || !!workflow.required}
+                  disabled={!canManage || !!workflow.locked}
                   onToggle={(enabled) => toggle.mutateAsync({ workflow, enabled })}
                 />
                 <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setEdit(workflow.id!)}>
                   <span className="flex items-center gap-2">
                     <span className="truncate text-[13px] font-medium">{workflow.name}</span>
                     {workflow.builtIn && <Badge tone="accent">{workflow.system ? 'System' : 'Built-in'}</Badge>}
-                    {workflow.required && <Badge>Always on</Badge>}
+                    {workflow.locked && <Badge>Always on</Badge>}
+                    {workflow.provides && !workflow.locked && <Badge>Fills {workflow.provides}</Badge>}
                     {!workflow.enabled && <Badge>Off</Badge>}
                   </span>
                   <span className="block truncate text-xs text-muted">

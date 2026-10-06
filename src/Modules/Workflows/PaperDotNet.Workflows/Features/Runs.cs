@@ -85,8 +85,9 @@ internal sealed class WorkflowStarter(
         }
 
         var now = time.GetUtcNow();
-        var systemKeys = starts.Any(s => s.Workflow.BuiltInKey is not null)
-            ? (await builtIns.ListAsync(ct)).Where(w => w.IsSystem).Select(w => w.Key).ToHashSet(StringComparer.Ordinal)
+        // A run of a workflow that fills a system role (the built-in, a copy or a replacement) is a system run.
+        var systemRoles = starts.Any(s => s.Workflow.Role is not null || s.Workflow.BuiltInKey is not null)
+            ? (await builtIns.RolesAsync(ct)).Keys.ToHashSet(StringComparer.Ordinal)
             : [];
         var runs = new List<WorkflowRun>();
         var messages = new List<ITenantMessage>();
@@ -163,6 +164,8 @@ internal sealed class WorkflowStarter(
                         ["itemId"] = start.Item?.ItemId.ToString(),
                         ["userId"] = start.StartedBy?.ToString(),
                         ["startedAt"] = now.ToString("O"),
+                        ["workflowId"] = start.Workflow.Id.ToString(),
+                        ["workflowVersion"] = start.Workflow.CurrentVersion,
                         [ItemChangeWorkflows.ContextKey] = start.ItemEvent?.DeepClone(),
                     },
                 }.ToJsonString(),
@@ -172,7 +175,7 @@ internal sealed class WorkflowStarter(
                 StartedBy = start.StartedBy,
                 StartedAt = now,
                 LastActivityAt = now,
-                System = start.System || (start.Workflow.BuiltInKey is { } builtInKey && systemKeys.Contains(builtInKey)),
+                System = start.System || (start.Workflow.Role ?? start.Workflow.BuiltInKey) is { } role && systemRoles.Contains(role),
             };
             if (start.Error is { } error)
             {

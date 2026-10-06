@@ -202,6 +202,36 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Search
                         .HasAnnotation("PaperDotNet:FullTextLanguage", "Language");
                 });
 
+            modelBuilder.Entity("PaperDotNet.Search.Data.SearchEnrichment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_search_enrichments");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_search_enrichments_tenant_id");
+
+                    b.ToTable("search_enrichments", (string)null);
+                });
+
             modelBuilder.Entity("PaperDotNet.Search.Data.SearchFieldValue", b =>
                 {
                     b.Property<Guid>("DocumentId")

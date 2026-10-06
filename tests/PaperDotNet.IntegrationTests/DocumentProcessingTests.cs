@@ -105,7 +105,7 @@ public sealed class DocumentProcessingTests(PaperDotNetApiFactory factory)
 
         // A library has text, thumbnails and pages on, OCR off.
         var workflows = await WorkflowsAsync(client, ws, list);
-        Assert.Equal(["documents.ocr", "documents.pages", "documents.text", "documents.thumbnail", "search.index"], workflows.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(["documents.ocr", "documents.pages", "documents.text", "documents.thumbnail", "search.index", "search.indexEnriched"], workflows.Keys.Order(StringComparer.Ordinal));
         Assert.True(workflows["documents.text"].GetProperty("enabled").GetBoolean());
         Assert.True(workflows["documents.thumbnail"].GetProperty("enabled").GetBoolean());
         Assert.True(workflows["documents.pages"].GetProperty("enabled").GetBoolean());

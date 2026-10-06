@@ -16033,6 +16033,185 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns/{key}/copy": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "CopyLibraryBuiltInWorkflow",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyBuiltInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/roles/{role}/runs": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "StartRoleWorkflowRuns",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRunsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/me/approvals": {
       "get": {
         "tags": [
@@ -17914,6 +18093,16 @@
           "required": {
             "type": "boolean",
             "default": false
+          },
+          "locked": {
+            "type": "boolean",
+            "default": false
+          },
+          "role": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "@odata.etag": {
             "type": [
@@ -24608,6 +24797,14 @@
                 "$ref": "#/components/schemas/JsonObject"
               }
             ]
+          },
+          "provides": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
           }
         },
         "description": "A workflow: \u0060trigger\u0060, or several \u0060triggers\u0060 (any of them starts a run), and its definition. \u0060key\u0060 names its events (\u0060wf.{key}.completed\u0060; default: made from the name when it is created)."
@@ -24761,6 +24958,12 @@
               }
             ]
           },
+          "provides": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "@odata.etag": {
             "type": [
               "null",
@@ -24770,11 +24973,15 @@
           },
           "system": {
             "type": "boolean",
-            "description": "A built-in product process (indexing, timeline, notifications): cheap runs, kept briefly when they succeed."
+            "description": "It fills a system process role (a system built-in, or a copy or replacement of one): cheap runs, kept briefly when\nthey succeed."
           },
           "required": {
             "type": "boolean",
-            "description": "A system workflow the product depends on: it cannot be turned off."
+            "description": "Its role must always have an active workflow: turning off the last replacement brings the built-in back."
+          },
+          "locked": {
+            "type": "boolean",
+            "description": "A guarantee of the product: it cannot be replaced, copied or turned off."
           }
         },
         "description": "A workflow with the definition of its current \u0060version\u0060 (runs keep the version they started with): its \u0060trigger\u0060 or \u0060triggers\u0060 (as it was defined), \u0060steps\u0060 or a \u0060flow\u0060, the initial \u0060variables\u0060, and \u0060concurrency\u0060 (runs on the same item: \u0060parallel\u0060, \u0060skip\u0060 or \u0060replace\u0060)."

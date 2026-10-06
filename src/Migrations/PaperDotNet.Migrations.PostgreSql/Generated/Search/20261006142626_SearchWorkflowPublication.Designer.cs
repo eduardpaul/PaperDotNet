@@ -14,7 +14,7 @@ using PaperDotNet.Search.Data;
 namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
 {
     [DbContext(typeof(SearchDbContext))]
-    [Migration("20261006131157_SearchWorkflowPublication")]
+    [Migration("20261006142626_SearchWorkflowPublication")]
     partial class SearchWorkflowPublication
     {
         /// <inheritdoc />
@@ -222,6 +222,36 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                     b
                         .HasAnnotation("PaperDotNet:FullText", "Title,Keywords,Body")
                         .HasAnnotation("PaperDotNet:FullTextLanguage", "Language");
+                });
+
+            modelBuilder.Entity("PaperDotNet.Search.Data.SearchEnrichment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_enrichments");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_enrichments_tenant_id");
+
+                    b.ToTable("enrichments", "search");
                 });
 
             modelBuilder.Entity("PaperDotNet.Search.Data.SearchFieldValue", b =>

@@ -59,7 +59,7 @@ internal sealed class SearchRebuildActivity(
 
             var listId = Guid.Parse(lists[cursor["list"]!.GetValue<int>()]!.GetValue<string>());
             if (await db.ContainerPolicies.AsNoTracking().AnyAsync(p => p.Id == listId && !p.Included, ct)
-                || (scheduled && !await workflows.IsBuiltInEnabledAsync(context.WorkspaceId, SearchWorkflows.Index, listId, ct))
+                || (scheduled && !await workflows.IsRoleActiveAsync(context.WorkspaceId, SearchWorkflows.Index, listId, ct))
                 || await items.AsSystem().GetListAsync(context.WorkspaceId, listId, ct) is null)
             {
                 NextList(cursor);
@@ -112,13 +112,15 @@ internal sealed class SearchRebuildActivity(
     private async Task<HashSet<Guid>> StaleAsync(Guid workspaceId, Guid listId, IReadOnlyCollection<Guid> ids, CancellationToken ct)
     {
         var embedded = embeddings.Enabled && store.Capabilities.HasFlag(SearchStoreCapabilities.Vector);
-        var settings = SearchWorkflows.Settings(await workflows.GetBuiltInParametersAsync(workspaceId, SearchWorkflows.Index, listId, ct));
+        var settings = await workflows.GetRoleWorkflowAsync(workspaceId, SearchWorkflows.Index, listId, ct) is { } role
+            ? SearchWorkflows.Pipeline(role.WorkflowId, role.Version)
+            : null;
         var stamps = await input.StampsAsync(ids, ct);
         var idArray = ids.ToArray();
         var publications = await db.Publications.AsNoTracking().Where(p => EF.Parameter(idArray).Contains(p.Id))
             .Select(p => new { p.Id, p.Revision, p.SourceStamp, p.Settings, p.EmbeddingModel }).ToDictionaryAsync(p => p.Id, ct);
         return [.. ids.Where(id => stamps.ContainsKey(id) && (!publications.TryGetValue(id, out var publication)
-            || publication.Revision is null || publication.SourceStamp != stamps[id] || publication.Settings != settings
+            || publication.Revision is null || publication.SourceStamp != stamps[id] || (settings is not null && publication.Settings != settings)
             || (embedded && publication.EmbeddingModel != embeddings.ModelKey)))];
     }
 }

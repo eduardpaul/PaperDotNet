@@ -13,12 +13,14 @@ public static class ItemChangeWorkflows
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     /// <summary>
-    /// A required system workflow (<see cref="BuiltInWorkflow.Required"/>) with one node running <paramref name="activity"/>
-    /// on the original item event. <paramref name="contentType"/> (name or key) keeps the triggers from starting runs for
-    /// items of other content types, so a reaction for notes or tasks costs nothing on other lists.
+    /// A required system workflow (<see cref="BuiltInWorkflow.Required"/>: replaceable, never missing; with
+    /// <paramref name="locked"/>, <see cref="BuiltInWorkflow.Locked"/>) with one node running <paramref name="activity"/> on
+    /// the original item event. <paramref name="contentType"/> (name or key) keeps the triggers from starting runs for items
+    /// of other content types, so a reaction for notes or tasks costs nothing on other lists.
     /// </summary>
     public static BuiltInWorkflow Create(
-        string key, string name, string description, string activity, IReadOnlyList<string> triggers, string? contentType = null, bool includeFolders = false) =>
+        string key, string name, string description, string activity, IReadOnlyList<string> triggers, string? contentType = null, bool includeFolders = false,
+        bool locked = false) =>
         new(key, name, description, new JsonObject
         {
             ["scope"] = "workspace",
@@ -29,7 +31,7 @@ public static class ItemChangeWorkflows
                 ["nodes"] = new JsonObject { ["process"] = new JsonObject { ["activity"] = activity } },
             },
         })
-        { EnabledByDefault = true, Required = true, IncludeFolders = includeFolders };
+        { EnabledByDefault = true, Required = true, Locked = locked, IncludeFolders = includeFolders };
 
     private static JsonObject Trigger(string type, string? contentType)
     {

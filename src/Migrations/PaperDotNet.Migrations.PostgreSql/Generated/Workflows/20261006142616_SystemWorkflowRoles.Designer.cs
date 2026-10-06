@@ -13,8 +13,8 @@ using PaperDotNet.Workflows.Data;
 namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
 {
     [DbContext(typeof(WorkflowsDbContext))]
-    [Migration("20261006131210_SystemWorkflowRuns")]
-    partial class SystemWorkflowRuns
+    [Migration("20261006142616_SystemWorkflowRoles")]
+    partial class SystemWorkflowRoles
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -353,6 +353,11 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                         .HasColumnType("text")
                         .HasColumnName("parameters");
 
+                    b.Property<string>("Role")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("role");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
@@ -392,6 +397,9 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                     b.HasIndex("TenantId", "WorkspaceId", "Name")
                         .IsUnique()
                         .HasDatabaseName("ix_definitions_tenant_id_workspace_id_name");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "Role")
+                        .HasDatabaseName("ix_definitions_tenant_id_workspace_id_role");
 
                     b.HasIndex("TenantId", "WorkspaceId", "Trigger")
                         .HasDatabaseName("ix_definitions_tenant_id_workspace_id_trigger");

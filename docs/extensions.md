@@ -230,6 +230,12 @@ organization with the extension:
   - It is offered only where the extension is enabled. Turning the extension
     off turns it off.
   - See `InvoiceWorkflows` in the sample.
+  - To offer another way to do a product process (for example your own search
+    indexing with an OCR or LLM step), set `Role` to the process role (such as
+    `search.index`, with the same `Scope`). Turning it on replaces the
+    built-in in that workspace or list. It must keep the role's contract (for
+    search: stage with `search.chunk`/`search.stage`, then `search.publish`).
+    See [ADR-0047](adr/0047-process-roles-for-system-workflows.md).
 - **Waiting:** to wait for something outside the run (a reply, a payment, a
   batch), return `WorkflowActivityResult.Wait("{extension id}.kind", key,
   resumeAt, data)` and complete it later with

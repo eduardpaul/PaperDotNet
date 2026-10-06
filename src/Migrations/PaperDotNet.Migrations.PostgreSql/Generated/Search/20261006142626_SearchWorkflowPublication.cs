@@ -27,6 +27,21 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                 });
 
             migrationBuilder.CreateTable(
+                name: "enrichments",
+                schema: "search",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    tenant_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    text = table.Column<string>(type: "character varying(4000)", maxLength: 4000, nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_enrichments", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "generations",
                 schema: "search",
                 columns: table => new
@@ -71,6 +86,12 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                 column: "tenant_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_enrichments_tenant_id",
+                schema: "search",
+                table: "enrichments",
+                column: "tenant_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_generations_tenant_id",
                 schema: "search",
                 table: "generations",
@@ -94,6 +115,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
         {
             migrationBuilder.DropTable(
                 name: "container_policies",
+                schema: "search");
+
+            migrationBuilder.DropTable(
+                name: "enrichments",
                 schema: "search");
 
             migrationBuilder.DropTable(

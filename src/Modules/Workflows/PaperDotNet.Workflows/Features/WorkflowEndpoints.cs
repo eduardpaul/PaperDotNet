@@ -28,24 +28,31 @@ public sealed record WorkflowRequest(
     JsonObject? Variables = null,
     [property: StringLength(20)] string? Concurrency = null,
     IReadOnlyList<WorkflowTrigger>? Triggers = null,
-    [property: StringLength(WorkflowKeys.MaxLength)] string? Key = null, string? Scope = null, JsonObject? InputSchema = null);
+    [property: StringLength(WorkflowKeys.MaxLength)] string? Key = null, string? Scope = null, JsonObject? InputSchema = null,
+    [property: StringLength(200)] string? Provides = null);
 
 /// <summary>A workflow with the definition of its current <c>version</c> (runs keep the version they started with): its <c>trigger</c> or <c>triggers</c> (as it was defined), <c>steps</c> or a <c>flow</c>, the initial <c>variables</c>, and <c>concurrency</c> (runs on the same item: <c>parallel</c>, <c>skip</c> or <c>replace</c>).</summary>
 public sealed record WorkflowResponse(
     Guid Id, Guid WorkspaceId, string Name, string? Description, bool Enabled, int Version, WorkflowTrigger? Trigger, string? Condition,
     IReadOnlyList<WorkflowStep>? Steps, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, FlowDefinition? Flow = null, JsonObject? Variables = null,
     string? BuiltIn = null, string? CopiedFrom = null, string? Concurrency = null, IReadOnlyList<WorkflowTrigger>? Triggers = null, string? Key = null,
-    Guid? ListId = null, string? Scope = null, JsonObject? InputSchema = null)
+    Guid? ListId = null, string? Scope = null, JsonObject? InputSchema = null, string? Provides = null)
 {
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
     [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
     public string? ETag { get; init; }
 
-    /// <summary>A built-in product process (indexing, timeline, notifications): cheap runs, kept briefly when they succeed.</summary>
+    /// <summary>
+    /// It fills a system process role (a system built-in, or a copy or replacement of one): cheap runs, kept briefly when
+    /// they succeed.
+    /// </summary>
     public bool System { get; init; }
 
-    /// <summary>A system workflow the product depends on: it cannot be turned off.</summary>
+    /// <summary>Its role must always have an active workflow: turning off the last replacement brings the built-in back.</summary>
     public bool Required { get; init; }
+
+    /// <summary>A guarantee of the product: it cannot be replaced, copied or turned off.</summary>
+    public bool Locked { get; init; }
 }
 
 /// <summary>
@@ -55,7 +62,7 @@ public sealed record WorkflowResponse(
 public sealed record BuiltInWorkflowResponse(
     string Key, string Name, string Description, JsonObject? Parameters, string? Requires, bool Available, bool Enabled, Guid? WorkflowId, JsonObject? Values,
     BuiltInScope Scope = BuiltInScope.Workspace, bool EnabledByDefault = false, bool AllowManualLaunch = false, JsonObject? InputSchema = null,
-    bool System = false, bool Required = false)
+    bool System = false, bool Required = false, bool Locked = false, string? Role = null)
 {
     /// <summary>
     /// Once it was turned on in the workspace: the ETag for <c>If-Match</c> on changes (the workflow's; the same as the
@@ -137,6 +144,10 @@ internal static class WorkflowEndpoints
         library.MapGet("", ListLibraryBuiltInsAsync).RequireScope(WorkflowScopes.Read).WithName("ListLibraryBuiltInWorkflows");
         library.MapPost("/{key}/runs", StartLibraryBuiltInRunsAsync).RequireScope(WorkflowScopes.Write).WithName("StartLibraryBuiltInWorkflowRuns");
         library.MapPut("/{key}", SetLibraryBuiltInAsync).RequireScope(WorkflowScopes.Write).WithName("SetLibraryBuiltInWorkflow");
+        library.MapPost("/{key}/copy", CopyLibraryBuiltInAsync).RequireScope(WorkflowScopes.Write).WithName("CopyLibraryBuiltInWorkflow");
+
+        endpoints.MapV1Group("workspaces/{workspaceId:guid}/lists/{listId:guid}/workflows/roles", "Workflows")
+            .MapPost("/{role}/runs", StartRoleRunsAsync).RequireScope(WorkflowScopes.Write).WithName("StartRoleWorkflowRuns");
 
         var me = endpoints.MapV1Group("me/approvals", "Workflows");
         me.MapGet("", ListApprovalsAsync).RequireScope(WorkflowScopes.Read).WithName("ListMyApprovals").WithQueryEnum<ApprovalStatus>("status");
@@ -165,12 +176,12 @@ internal static class WorkflowEndpoints
             .Join(db.Versions, w => new { WorkflowId = w.Id, Number = w.CurrentVersion }, v => new { v.WorkflowId, v.Number },
                 (workflow, version) => new { Workflow = workflow, Version = version })
             .OrderBy(row => row.Workflow.Name).ToListAsync(ct);
-        var offered = (await builtIns.ListAsync(ct)).ToDictionary(w => w.Key);
-        return TypedResults.Ok(workflows.Select(row => ToResponse(row.Workflow, row.Version, row.Workflow.BuiltInKey is { } key ? offered.GetValueOrDefault(key) : null)).ToList());
+        var roles = await builtIns.RolesAsync(ct);
+        return TypedResults.Ok(workflows.Select(row => ToResponse(row.Workflow, row.Version, row.Workflow.Role is { } role ? roles.GetValueOrDefault(role) : null)).ToList());
     }
 
     private static async Task<Results<Ok<WorkflowResponse>, ProblemHttpResult>> GetAsync(
-        Guid workspaceId, Guid id, IWorkspaceAccess workspaces, WorkflowsDbContext db, HttpResponse response, CancellationToken ct)
+        Guid workspaceId, Guid id, IWorkspaceAccess workspaces, WorkflowsDbContext db, BuiltInWorkflows builtIns, HttpResponse response, CancellationToken ct)
     {
         if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Read, ct) is { } denied)
         {
@@ -184,12 +195,12 @@ internal static class WorkflowEndpoints
         }
 
         ETags.Set(response, workflow.Version);
-        return TypedResults.Ok(await ToResponseAsync(db, workflow, ct));
+        return TypedResults.Ok(await ToResponseAsync(db, workflow, builtIns, ct));
     }
 
     private static async Task<Results<Created<WorkflowResponse>, ValidationProblem, ProblemHttpResult>> CreateAsync(
         Guid workspaceId, WorkflowRequest request, IWorkspaceAccess workspaces, WorkflowsDbContext db, WorkflowValidator validator,
-        HttpResponse response, CancellationToken ct)
+        BuiltInWorkflows builtIns, HttpResponse response, CancellationToken ct)
     {
         if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Manage, ct) is { } denied)
         {
@@ -200,6 +211,11 @@ internal static class WorkflowEndpoints
         if (invalid is not null)
         {
             return invalid;
+        }
+
+        if (await RoleProblemAsync(spec!, null, builtIns, ct) is { } roleProblem)
+        {
+            return roleProblem;
         }
 
         var name = request.Name.Trim();
@@ -215,15 +231,16 @@ internal static class WorkflowEndpoints
         }
 
         var workflow = WorkflowWriter.Create(db, workspaceId, name, request.Description, request.Enabled, spec!, key);
+        await builtIns.ActivateAsync(workflow, ct);
         await db.SaveChangesAsync(ct);
         ETags.Set(response, workflow.Version);
-        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/workflows/{workflow.Id}", await ToResponseAsync(db, workflow, ct));
+        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/workflows/{workflow.Id}", await ToResponseAsync(db, workflow, builtIns, ct));
     }
 
     /// <summary>Replaces the workflow; a changed definition becomes a new version (running runs keep theirs).</summary>
     private static async Task<Results<Ok<WorkflowResponse>, ValidationProblem, ProblemHttpResult>> ReplaceAsync(
         Guid workspaceId, Guid id, WorkflowRequest request, IWorkspaceAccess workspaces, WorkflowsDbContext db, WorkflowValidator validator,
-        HttpRequest http, HttpResponse response, CancellationToken ct)
+        BuiltInWorkflows builtIns, HttpRequest http, HttpResponse response, CancellationToken ct)
     {
         if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Manage, ct) is { } denied)
         {
@@ -252,6 +269,11 @@ internal static class WorkflowEndpoints
             return invalid;
         }
 
+        if (await RoleProblemAsync(spec!, workflow.ListId, builtIns, ct) is { } roleProblem)
+        {
+            return roleProblem;
+        }
+
         var name = request.Name.Trim();
         if (name != workflow.Name && await db.Workflows.AnyAsync(a => a.WorkspaceId == workspaceId && a.Name == name, ct))
         {
@@ -272,14 +294,20 @@ internal static class WorkflowEndpoints
         workflow.Name = name;
         workflow.Description = request.Description;
         workflow.Enabled = request.Enabled;
+        var previousRole = workflow.Role;
         await WorkflowWriter.SetSpecAsync(db, workflow, spec!, ct);
+        workflow.Role = spec!.Provides;
+        await builtIns.ActivateAsync(workflow, ct);
         if (await SaveAsync(db, ct) is { } conflict)
         {
             return conflict;
         }
 
+        // A required role this workflow no longer fills (turned off, or another role) gets its built-in back.
+        await builtIns.RestoreAsync(workspaceId, workflow.ListId, previousRole, ct);
+
         ETags.Set(response, workflow.Version);
-        return TypedResults.Ok(await ToResponseAsync(db, workflow, ct));
+        return TypedResults.Ok(await ToResponseAsync(db, workflow, builtIns, ct));
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteAsync(
@@ -313,6 +341,9 @@ internal static class WorkflowEndpoints
         await db.Versions.Where(v => v.WorkflowId == id).ExecuteDeleteAsync(ct);
         db.Workflows.Remove(workflow);
         await db.SaveChangesAsync(ct);
+
+        // Deleting the replacement of a required role brings its built-in back.
+        await builtIns.RestoreAsync(workspaceId, workflow.ListId, workflow.Role, ct);
         return TypedResults.NoContent();
     }
 
@@ -330,6 +361,28 @@ internal static class WorkflowEndpoints
             : null;
     }
 
+    /// <summary>
+    /// Why the workflow cannot fill the role it <c>provides</c>: the role must be offered, not a guarantee of the product
+    /// (locked), and its scope must match (a list role is filled by a copy of the list's built-in).
+    /// </summary>
+    private static async Task<ValidationProblem?> RoleProblemAsync(WorkflowSpec spec, Guid? listId, BuiltInWorkflows builtIns, CancellationToken ct)
+    {
+        if (spec.Provides is not { } role)
+        {
+            return null;
+        }
+
+        var roles = await builtIns.RolesAsync(ct);
+        var error = !roles.TryGetValue(role, out var fallback)
+            ? $"'{role}' is not a process role (roles: {string.Join(", ", roles.Keys.Order(StringComparer.Ordinal))})."
+            : fallback.Locked ? $"'{role}' is a guarantee of the product and cannot be replaced."
+            : fallback.Scope != BuiltInScope.Workspace && listId is null
+                ? $"'{role}' is filled per list: copy the list's built-in (…/lists/{{listId}}/workflows/builtIns/{role}/copy) and change the copy."
+            : fallback.Scope == BuiltInScope.Workspace && listId is not null ? $"'{role}' is filled in the workspace, not per list."
+            : null;
+        return error is null ? null : ApiErrors.Validation(new Dictionary<string, string[]> { ["provides"] = [error] });
+    }
+
     private static async Task<(WorkflowSpec? Spec, ValidationProblem? Problem)> ValidateAsync(
         Guid workspaceId, WorkflowRequest request, WorkflowValidator validator, CancellationToken ct)
     {
@@ -341,24 +394,26 @@ internal static class WorkflowEndpoints
         var spec = new WorkflowSpec(
             request.Trigger, string.IsNullOrWhiteSpace(request.Condition) ? null : request.Condition.Trim(),
             request.Flow is null ? request.Steps ?? [] : request.Steps is { Count: > 0 } ? request.Steps : null, request.Flow, request.Variables,
-            string.IsNullOrWhiteSpace(request.Concurrency) ? null : request.Concurrency, request.Triggers, request.Scope, request.InputSchema);
+            string.IsNullOrWhiteSpace(request.Concurrency) ? null : request.Concurrency, request.Triggers, request.Scope, request.InputSchema,
+            string.IsNullOrWhiteSpace(request.Provides) ? null : request.Provides.Trim());
         var errors = await validator.ValidateAsync(workspaceId, spec, ct);
         return errors.Count == 0 ? (spec, null) : (null, ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [.. errors] }));
     }
 
-    private static async Task<WorkflowResponse> ToResponseAsync(WorkflowsDbContext db, WorkflowDefinition workflow, CancellationToken ct)
+    private static async Task<WorkflowResponse> ToResponseAsync(WorkflowsDbContext db, WorkflowDefinition workflow, BuiltInWorkflows builtIns, CancellationToken ct)
     {
         var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, ct);
-        return ToResponse(workflow, version);
+        return ToResponse(workflow, version, workflow.Role is { } role ? (await builtIns.RolesAsync(ct)).GetValueOrDefault(role) : null);
     }
 
-    private static WorkflowResponse ToResponse(WorkflowDefinition workflow, WorkflowVersion version, BuiltInWorkflow? builtIn = null)
+    /// <summary>The workflow; <paramref name="role"/> is the default built-in of the role it fills (its flags are the role's).</summary>
+    private static WorkflowResponse ToResponse(WorkflowDefinition workflow, WorkflowVersion version, BuiltInWorkflow? role = null)
     {
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
-        return new WorkflowResponse(workflow.Id, workflow.WorkspaceId, workflow.Name, workflow.Description, workflow.Enabled || builtIn?.Required == true,
+        return new WorkflowResponse(workflow.Id, workflow.WorkspaceId, workflow.Name, workflow.Description, workflow.Enabled || role?.Locked == true,
             workflow.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, workflow.CreatedAt, workflow.UpdatedAt, spec.Flow, spec.Variables,
-            workflow.BuiltInKey, workflow.CopiedFrom, spec.Concurrency, spec.Triggers, workflow.EventKey, workflow.ListId, spec.Scope, spec.InputSchema)
-        { ETag = ETags.From(workflow.Version), System = builtIn?.IsSystem == true, Required = builtIn?.Required == true };
+            workflow.BuiltInKey, workflow.CopiedFrom, spec.Concurrency, spec.Triggers, workflow.EventKey, workflow.ListId, spec.Scope, spec.InputSchema, spec.Provides)
+        { ETag = ETags.From(workflow.Version), System = role?.IsSystem == true, Required = role?.Required == true, Locked = role?.Locked == true };
     }
 
     // ---- Built-in workflows ---------------------------------------------------------
@@ -442,6 +497,7 @@ internal static class WorkflowEndpoints
 
         if (row is not null)
         {
+            await builtIns.RestoreAsync(workspaceId, listId, row.Role, ct);
             ETags.Set(response, row.Version);
         }
 
@@ -489,15 +545,30 @@ internal static class WorkflowEndpoints
 
         if (row is not null)
         {
+            await builtIns.RestoreAsync(workspaceId, null, row.Role, ct);
             ETags.Set(response, row.Version);
         }
 
         return TypedResults.Ok(ToResponse(builtIns, workflow, row));
     }
 
-    private static async Task<Results<Created<WorkflowResponse>, ValidationProblem, ProblemHttpResult>> CopyBuiltInAsync(
+    private static Task<Results<Created<WorkflowResponse>, ValidationProblem, ProblemHttpResult>> CopyBuiltInAsync(
         Guid workspaceId, string key, CopyBuiltInRequest request, IWorkspaceAccess workspaces, BuiltInWorkflows builtIns, WorkflowsDbContext db,
-        HttpResponse response, CancellationToken ct)
+        IListItemStore items, HttpResponse response, CancellationToken ct) =>
+        CopyAsync(workspaceId, null, key, request, workspaces, builtIns, db, items, response, ct);
+
+    /// <summary>
+    /// Copies a list's built-in workflow (e.g. its search indexing) into a workflow of its own for that list, to change it:
+    /// the copy fills the same process role, so it replaces the built-in there and stays a system workflow.
+    /// </summary>
+    private static Task<Results<Created<WorkflowResponse>, ValidationProblem, ProblemHttpResult>> CopyLibraryBuiltInAsync(
+        Guid workspaceId, Guid listId, string key, CopyBuiltInRequest request, IWorkspaceAccess workspaces, BuiltInWorkflows builtIns, WorkflowsDbContext db,
+        IListItemStore items, HttpResponse response, CancellationToken ct) =>
+        CopyAsync(workspaceId, listId, key, request, workspaces, builtIns, db, items, response, ct);
+
+    private static async Task<Results<Created<WorkflowResponse>, ValidationProblem, ProblemHttpResult>> CopyAsync(
+        Guid workspaceId, Guid? listId, string key, CopyBuiltInRequest request, IWorkspaceAccess workspaces, BuiltInWorkflows builtIns, WorkflowsDbContext db,
+        IListItemStore items, HttpResponse response, CancellationToken ct)
     {
         if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Manage, ct) is { } denied)
         {
@@ -509,12 +580,13 @@ internal static class WorkflowEndpoints
             return invalid;
         }
 
-        if (await builtIns.FindAsync(key, ct) is not { } workflow)
+        ListData? list = null;
+        if (await builtIns.FindAsync(key, ct) is not { } workflow || (listId is { } id && (list = await items.GetListAsync(workspaceId, id, ct)) is null))
         {
             return ApiErrors.NotFound();
         }
 
-        var (copy, errors, nameTaken) = await builtIns.CopyAsync(workspaceId, workflow, request.Name.Trim(), request.Parameters, ct);
+        var (copy, errors, nameTaken) = await builtIns.CopyAsync(workspaceId, workflow, request.Name.Trim(), request.Parameters, ct, list);
         if (nameTaken)
         {
             return ApiErrors.Conflict("nameAlreadyExists", errors[0]);
@@ -531,7 +603,7 @@ internal static class WorkflowEndpoints
         }
 
         ETags.Set(response, copy!.Version);
-        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/workflows/{copy.Id}", await ToResponseAsync(db, copy, ct));
+        return TypedResults.Created($"{ApiRoutes.V1}/workspaces/{workspaceId}/workflows/{copy.Id}", await ToResponseAsync(db, copy, builtIns, ct));
     }
 
     private static BuiltInWorkflowResponse ToResponse(BuiltInWorkflows builtIns, BuiltInWorkflow workflow, WorkflowDefinition? row, string? listName = null)
@@ -539,8 +611,8 @@ internal static class WorkflowEndpoints
         var spec = workflow.AllowManualLaunch ? BuiltInWorkflows.Resolve(workflow, BuiltInWorkflows.Values(row), listName).Spec : null;
         var inputSchema = spec?.InputSchema ?? spec?.AllTriggers.FirstOrDefault(t => t.Type == WorkflowTriggers.Manual)?.Inputs;
         return new(workflow.Key, workflow.Name, workflow.Description, workflow.Parameters?.DeepClone().AsObject(), workflow.Requires, builtIns.IsAvailable(workflow),
-            row?.Enabled == true || (workflow.Required && builtIns.IsAvailable(workflow)), row?.Id, BuiltInWorkflows.Values(row), workflow.Scope,
-            workflow.EnabledByDefault, workflow.AllowManualLaunch, inputSchema, workflow.IsSystem, workflow.Required)
+            row?.Enabled == true || (workflow.Locked && builtIns.IsAvailable(workflow)), row?.Id, BuiltInWorkflows.Values(row), workflow.Scope,
+            workflow.EnabledByDefault, workflow.AllowManualLaunch, inputSchema, workflow.IsSystem, workflow.Required, workflow.Locked, workflow.RoleKey)
         { ETag = row is null ? null : ETags.From(row.Version) };
     }
 
@@ -596,6 +668,70 @@ internal static class WorkflowEndpoints
         return error is not null
             ? ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [error] })
             : TypedResults.Ok(await ToResponsesAsync(db, runs, ct));
+    }
+
+    /// <summary>
+    /// Runs the workflow that fills a process role (e.g. <c>search.index</c>) on items of the list: its active replacement,
+    /// else its built-in, also when automatic runs are off. Clients launch "index now" this way, whatever pipeline is set.
+    /// </summary>
+    private static async Task<Results<Ok<List<RunResponse>>, ValidationProblem, ProblemHttpResult>> StartRoleRunsAsync(
+        Guid workspaceId, Guid listId, string role, StartRunsRequest request, IWorkspaceAccess workspaces, IListItemStore items,
+        BuiltInWorkflows builtIns, WorkflowStarter starter, WorkflowsDbContext db, ICurrentUser user, CancellationToken ct)
+    {
+        if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Read, ct) is { } denied)
+        {
+            return denied;
+        }
+
+        var provider = await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == workspaceId && (w.ListId == listId || w.ListId == null) && w.Role == role && w.Enabled)
+            .OrderByDescending(w => w.ListId != null).FirstOrDefaultAsync(ct);
+        if (provider is null || provider.BuiltInKey is not null)
+        {
+            return await StartLibraryBuiltInRunsAsync(workspaceId, listId, provider?.BuiltInKey ?? role, request, workspaces, items, builtIns, starter, db, user, ct);
+        }
+
+        if (await items.GetListAsync(workspaceId, listId, ct) is null)
+        {
+            return ApiErrors.NotFound();
+        }
+
+        var (targets, problem) = await TargetsAsync(workspaceId, listId, request, items, ct);
+        if (problem is not null)
+        {
+            return problem;
+        }
+
+        var (runs, error) = await starter.StartManualAsync(provider, targets, request.Inputs, user.UserId, ct);
+        return error is not null
+            ? ApiErrors.Validation(new Dictionary<string, string[]> { ["workflow"] = [error] })
+            : TypedResults.Ok(await ToResponsesAsync(db, runs, ct));
+    }
+
+    /// <summary>The items a manual start on a list covers (1–100, Contribute on each), or the problem.</summary>
+    private static async Task<(List<WorkflowItem> Targets, Results<Ok<List<RunResponse>>, ValidationProblem, ProblemHttpResult>? Problem)> TargetsAsync(
+        Guid workspaceId, Guid listId, StartRunsRequest request, IListItemStore items, CancellationToken ct)
+    {
+        var ids = request.ItemIds?.Distinct().ToList() ?? [];
+        if (ids.Count is 0 or > WorkflowStarter.MaxItemsPerStart || request.ListId is { } requestedList && requestedList != listId)
+        {
+            return ([], ApiErrors.Validation(new Dictionary<string, string[]> { ["itemIds"] = [$"Choose 1–{WorkflowStarter.MaxItemsPerStart} items from this list."] }));
+        }
+
+        var targets = new List<WorkflowItem>();
+        foreach (var itemId in ids)
+        {
+            if (await items.GetAsync(workspaceId, listId, itemId, ct) is not { } item)
+            {
+                return ([], ApiErrors.NotFound());
+            }
+            if (item.Access < WorkspaceAccessLevel.Contribute)
+            {
+                return ([], ApiErrors.Problem(StatusCodes.Status403Forbidden, "accessDenied", "Contributing to each item is required."));
+            }
+            targets.Add(new WorkflowItem(workspaceId, listId, itemId));
+        }
+
+        return (targets, null);
     }
 
     /// <summary>Starts a workflow with the <c>manual</c> trigger on the item (Contribute on the item is required).</summary>
@@ -1003,6 +1139,7 @@ internal static class WorkflowWriter
             Enabled = enabled,
             Trigger = spec.TriggerTypes,
             CurrentVersion = 1,
+            Role = spec.Provides,
         };
         db.Workflows.Add(workflow);
         db.Versions.Add(new WorkflowVersion { Id = Ids.New(), WorkflowId = workflow.Id, Number = 1, Definition = DefinitionJson.Serialize(spec) });
@@ -1039,6 +1176,7 @@ internal static class WorkflowWriter
 
         workflow.CurrentVersion++;
         workflow.Trigger = spec.TriggerTypes;
+        workflow.Role = spec.Provides;
         db.Versions.Add(new WorkflowVersion { Id = Ids.New(), WorkflowId = workflow.Id, Number = workflow.CurrentVersion, Definition = json });
         return true;
     }

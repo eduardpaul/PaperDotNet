@@ -26,6 +26,20 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Search
                 });
 
             migrationBuilder.CreateTable(
+                name: "search_enrichments",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    tenant_id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    text = table.Column<string>(type: "TEXT", maxLength: 4000, nullable: false),
+                    created_at = table.Column<long>(type: "INTEGER", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_search_enrichments", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "search_generations",
                 columns: table => new
                 {
@@ -67,6 +81,11 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Search
                 column: "tenant_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_search_enrichments_tenant_id",
+                table: "search_enrichments",
+                column: "tenant_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_search_generations_tenant_id",
                 table: "search_generations",
                 column: "tenant_id");
@@ -87,6 +106,9 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Search
         {
             migrationBuilder.DropTable(
                 name: "search_container_policies");
+
+            migrationBuilder.DropTable(
+                name: "search_enrichments");
 
             migrationBuilder.DropTable(
                 name: "search_generations");

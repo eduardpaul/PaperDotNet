@@ -168,18 +168,23 @@ public sealed class HistoryTests(PaperDotNetApiFactory factory)
         Assert.Contains("Fields", entries[2].GetProperty("properties").EnumerateArray().Select(p => p.GetString()));
         Assert.All(entries, e => Assert.NotEqual(JsonValueKind.Null, e.GetProperty("userId").ValueKind));
 
-        // Paging walks across the audit tables of all modules without gaps or repeats.
-        var all = new List<Guid>();
-        string? next = "/v1.0/auditLog?$top=3";
-        while (next is not null)
+        // Paging walks across the audit tables of all modules without gaps or repeats. Item events set up the workspace's
+        // system workflows in the background (audited rows too), so the walk is compared once the log has settled.
+        await Eventually.WaitForAsync<bool>(async () =>
         {
-            var page = await (await client.GetAsync(next, Ct)).ReadJsonAsync();
-            all.AddRange(page.GetProperty("value").EnumerateArray().Select(e => e.GetProperty("id").GetGuid()));
-            next = page.TryGetProperty("@odata.nextLink", out var link) && link.ValueKind == JsonValueKind.String ? link.GetString() : null;
-        }
+            var before = (await ValuesAsync(client, "/v1.0/auditLog?$top=500")).Select(e => e.GetProperty("id").GetGuid()).ToList();
+            var all = new List<Guid>();
+            string? next = "/v1.0/auditLog?$top=3";
+            while (next is not null)
+            {
+                var page = await (await client.GetAsync(next, Ct)).ReadJsonAsync();
+                all.AddRange(page.GetProperty("value").EnumerateArray().Select(e => e.GetProperty("id").GetGuid()));
+                next = page.TryGetProperty("@odata.nextLink", out var link) && link.ValueKind == JsonValueKind.String ? link.GetString() : null;
+            }
 
-        var unpaged = (await ValuesAsync(client, "/v1.0/auditLog?$top=500")).Select(e => e.GetProperty("id").GetGuid()).ToList();
-        Assert.Equal(unpaged, all);
+            var after = (await ValuesAsync(client, "/v1.0/auditLog?$top=500")).Select(e => e.GetProperty("id").GetGuid()).ToList();
+            return before.SequenceEqual(after) && after.SequenceEqual(all) ? true : null;
+        }, TimeSpan.FromSeconds(30));
         Assert.Contains(await ValuesAsync(client, "/v1.0/auditLog?entityType=workspaces.Workspace"), e => e.GetProperty("action").GetString() is "created" or "Created");
     }
 

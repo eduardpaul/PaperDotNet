@@ -77,7 +77,7 @@ internal sealed class DatabaseSearchStore(SearchDbContext db, IFullTextSearch fu
             document.ContentTypeId = data.ContentTypeId;
             document.ScopeId = data.ScopeId;
             document.Title = data.Title.Length > 1024 ? data.Title[..1024] : data.Title;
-            var body = $"{data.Body}\n{string.Join('\n', data.Chunks.Where(p => p.Page != null).Select(p => p.Text))}";
+            var body = $"{data.Body}\n{string.Join('\n', data.Chunks.Where(p => p.Page != null || !p.FromBody).Select(p => p.Text))}";
             document.Body = body.Length > MaxBodyLength ? body[..MaxBodyLength] : body;
             document.Keywords = data.Keywords.Length > MaxBodyLength ? data.Keywords[..MaxBodyLength] : data.Keywords;
             document.Language = FullTextLanguages.All.Contains(data.Language ?? string.Empty) ? data.Language : null;

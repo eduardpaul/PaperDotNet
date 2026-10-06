@@ -36,6 +36,19 @@ public sealed class SearchPublication : ITenantOwned
     public string? Settings { get; set; }
 }
 
+/// <summary>
+/// Text the chat model added to a chunk (<c>search.enrich</c>), keyed by a hash of its instructions, the title and the
+/// chunk: derived data that costs money to compute again, so an unchanged chunk is never asked about twice.
+/// </summary>
+[NotAudited]
+public sealed class SearchEnrichment : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public required string Text { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
 /// <summary>Staging in the database store, outside workflow run JSON.</summary>
 [NotAudited]
 public sealed class StagedSearchGeneration : ITenantOwned
@@ -170,6 +183,7 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
     public DbSet<SearchContainerPolicy> ContainerPolicies => Set<SearchContainerPolicy>();
     public DbSet<SearchPublication> Publications => Set<SearchPublication>();
     public DbSet<StagedSearchGeneration> Generations => Set<StagedSearchGeneration>();
+    public DbSet<SearchEnrichment> Enrichments => Set<SearchEnrichment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -185,6 +199,11 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
             b.Property(p => p.Settings).HasMaxLength(100);
         });
         modelBuilder.Entity<StagedSearchGeneration>(b => b.ToTable("generations"));
+        modelBuilder.Entity<SearchEnrichment>(b =>
+        {
+            b.ToTable("enrichments");
+            b.Property(e => e.Text).HasMaxLength(4000);
+        });
         modelBuilder.Entity<SearchDocument>(b =>
         {
             b.ToTable("documents");

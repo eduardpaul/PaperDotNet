@@ -313,14 +313,35 @@ public sealed record BuiltInWorkflow(string Key, string Name, string Description
     /// </summary>
     public bool System { get; init; }
 
-    /// <summary>A system workflow the product depends on (e.g. change notifications promised to API subscribers): always on.</summary>
+    /// <summary>
+    /// A process the product needs done (e.g. following a note's links): its role must always have an active workflow. The
+    /// built-in is the default; a copy of it or an extension's workflow for the same role may replace it, but the role is
+    /// never left without one (turning off the last replacement brings the built-in back).
+    /// </summary>
     public bool Required { get; init; }
+
+    /// <summary>
+    /// The guarantee itself (e.g. removing deleted items from search, queueing change notifications promised to API
+    /// subscribers): it cannot be replaced, copied or turned off, and runs even where its row was turned off.
+    /// </summary>
+    public bool Locked { get; init; }
 
     /// <summary>Item events of folders start it too (by default, folders start no workflow).</summary>
     public bool IncludeFolders { get; init; }
 
-    /// <summary>Whether it is a system workflow (<see cref="System"/> or <see cref="Required"/>).</summary>
-    public bool IsSystem => System || Required;
+    /// <summary>
+    /// The process role it fills when it is not the role's default (e.g. an extension's <c>search.index</c> pipeline with AI
+    /// context). A role's default built-in is the one whose key is the role; its flags (<see cref="System"/>,
+    /// <see cref="Required"/>, <see cref="Locked"/>, <see cref="IncludeFolders"/>) are the role's. One workflow per role is
+    /// active in a workspace (per list for list built-ins); turning one on turns the others off.
+    /// </summary>
+    public string? Role { get; init; }
+
+    /// <summary>The role it fills: <see cref="Role"/>, or its own key for system workflows; null for plain built-ins.</summary>
+    public string? RoleKey => Role ?? (IsSystem ? Key : null);
+
+    /// <summary>Whether it is a system workflow (<see cref="System"/>, <see cref="Required"/> or <see cref="Locked"/>).</summary>
+    public bool IsSystem => System || Required || Locked;
 }
 
 public enum BuiltInScope

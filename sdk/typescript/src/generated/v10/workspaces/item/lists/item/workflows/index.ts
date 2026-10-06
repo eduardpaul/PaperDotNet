@@ -4,6 +4,8 @@
 // @ts-ignore
 import { BuiltInsRequestBuilderNavigationMetadata, BuiltInsRequestBuilderRequestsMetadata, type BuiltInsRequestBuilder } from './builtIns/index.js';
 // @ts-ignore
+import { RolesRequestBuilderNavigationMetadata, type RolesRequestBuilder } from './roles/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -14,6 +16,10 @@ export interface WorkflowsRequestBuilder extends BaseRequestBuilder<WorkflowsReq
      * The builtIns property
      */
     get builtIns(): BuiltInsRequestBuilder;
+    /**
+     * The roles property
+     */
+    get roles(): RolesRequestBuilder;
 }
 /**
  * Uri template for the request builder.
@@ -26,6 +32,9 @@ export const WorkflowsRequestBuilderNavigationMetadata: Record<Exclude<keyof Wor
     builtIns: {
         requestsMetadata: BuiltInsRequestBuilderRequestsMetadata,
         navigationMetadata: BuiltInsRequestBuilderNavigationMetadata,
+    },
+    roles: {
+        navigationMetadata: RolesRequestBuilderNavigationMetadata,
     },
 };
 /* tslint:enable */

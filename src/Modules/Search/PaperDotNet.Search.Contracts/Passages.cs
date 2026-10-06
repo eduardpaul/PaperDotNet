@@ -4,7 +4,14 @@ using System.Text;
 namespace PaperDotNet.Search.Contracts;
 
 /// <summary>A window of a document's text and the page it is on (null: not on a page).</summary>
-public sealed record PassageText(int? Page, string Text);
+public sealed record PassageText(int? Page, string Text)
+{
+    /// <summary>
+    /// The chunk is (part of) the document's own body and keywords, which stores index as the body already. Other chunks
+    /// (pages, chunks a pipeline made or enriched itself) are added to the body, so keyword search finds them.
+    /// </summary>
+    public bool FromBody { get; init; }
+}
 
 /// <summary>
 /// Shared window chunking used by workflow activities and store test fixtures (ADR-0043). It splits documents into passages (SRC-07, SRC-09): the title,
@@ -27,7 +34,7 @@ public static class Passages
             header = Normalize(document.Title);
         }
 
-        passages.AddRange(Windows(header).Select(t => new PassageText(null, t)));
+        passages.AddRange(Windows(header).Select(t => new PassageText(null, t) { FromBody = true }));
         for (var i = 0; i < document.Pages.Count && passages.Count < MaxPerDocument; i++)
         {
             passages.AddRange(Windows(Normalize(document.Pages[i])).Select(t => new PassageText(i + 1, t)));

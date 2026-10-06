@@ -145,7 +145,7 @@ internal sealed class ZvecSearchStore(ZvecCollections collections, ITenantContex
             var metadata = Metadata.Of(document);
             var title = document.Title.Length > 1024 ? document.Title[..1024] : document.Title;
             var keywords = Cut(document.Keywords);
-            var body = Cut($"{document.Body}\n{string.Join('\n', document.Chunks.Where(p => p.Page != null).Select(p => p.Text))}");
+            var body = Cut($"{document.Body}\n{string.Join('\n', document.Chunks.Where(p => p.Page != null || !p.FromBody).Select(p => p.Text))}");
             var content = $"{title}\n{keywords}\n{body}";
             var language = LanguageOf(document) is { } l && index.Catalog.Languages.Contains(l) ? l : null;
             var head = metadata.Write(new ZvecRow(Id(document.Id)), numberColumns, clear: false)

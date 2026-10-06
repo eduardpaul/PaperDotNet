@@ -124,29 +124,31 @@ internal sealed class WorkflowBookmarks(ITenantScopeFactory scopes, ITenantConte
 /// <summary>What activities may ask the engine about workflows and runs (<see cref="IWorkflowDirectory"/>).</summary>
 internal sealed class WorkflowDirectory(WorkflowsDbContext db, IServiceProvider services, PaperDotNet.Lists.Contracts.IListItemStore items) : IWorkflowDirectory
 {
-    public async Task<bool> IsBuiltInEnabledAsync(Guid workspaceId, string key, Guid? listId, CancellationToken cancellationToken)
+    public async Task<bool> IsRoleActiveAsync(Guid workspaceId, string role, Guid? listId, CancellationToken cancellationToken)
     {
         var builtIns = services.GetRequiredService<BuiltInWorkflows>();
-        var offered = await builtIns.FindAsync(key, cancellationToken);
-        if (offered is null || !builtIns.IsAvailable(offered))
+        if (!(await builtIns.RolesAsync(cancellationToken)).TryGetValue(role, out var fallback) || !builtIns.IsAvailable(fallback))
         {
             return false;
         }
 
-        var row = await db.Workflows.AsNoTracking().FirstOrDefaultAsync(w => w.WorkspaceId == workspaceId && w.BuiltInKey == key && w.ListId == listId, cancellationToken);
-        return offered.Required || (row?.Enabled ?? offered.EnabledByDefault);
-    }
-
-    public async Task<JsonObject?> GetBuiltInParametersAsync(Guid workspaceId, string key, Guid? listId, CancellationToken cancellationToken)
-    {
-        var builtIns = services.GetRequiredService<BuiltInWorkflows>();
-        if (await builtIns.FindAsync(key, cancellationToken) is not { } offered || !builtIns.IsAvailable(offered))
+        if (fallback.Locked || await db.Workflows.AnyAsync(w => w.WorkspaceId == workspaceId && w.ListId == listId && w.Role == role && w.Enabled, cancellationToken))
         {
-            return null;
+            return true;
         }
 
-        var row = await db.Workflows.AsNoTracking().FirstOrDefaultAsync(w => w.WorkspaceId == workspaceId && w.BuiltInKey == key && w.ListId == listId, cancellationToken);
-        return BuiltInWorkflows.Resolve(offered, BuiltInWorkflows.Values(row)).Values;
+        // Not set up yet: on where the built-in is on by default.
+        return fallback.EnabledByDefault
+            && !await db.Workflows.AnyAsync(w => w.WorkspaceId == workspaceId && w.ListId == listId && (w.Role == role || w.BuiltInKey == role), cancellationToken);
+    }
+
+    public async Task<WorkflowRoleInfo?> GetRoleWorkflowAsync(Guid workspaceId, string role, Guid? listId, CancellationToken cancellationToken)
+    {
+        var row = await db.Workflows.AsNoTracking()
+            .Where(w => w.WorkspaceId == workspaceId && (w.ListId == listId || w.ListId == null) && (w.Role == role || w.BuiltInKey == role))
+            .OrderByDescending(w => w.Enabled).ThenByDescending(w => w.ListId != null).ThenByDescending(w => w.BuiltInKey == null)
+            .FirstOrDefaultAsync(cancellationToken);
+        return row is null ? null : new WorkflowRoleInfo(row.Id, row.Name, row.CurrentVersion, row.Enabled, row.BuiltInKey);
     }
 
     public Task<bool> HasRequestRunsAsync(Guid requestId, CancellationToken cancellationToken) =>
@@ -159,10 +161,10 @@ internal sealed class WorkflowDirectory(WorkflowsDbContext db, IServiceProvider 
         return completed is null ? null : (completed.Payload is { } json ? JsonNode.Parse(json) as JsonObject : null) ?? [];
     }
 
-    public async Task<WorkflowRunInfo?> GetLatestRunAsync(Guid workspaceId, Guid itemId, string builtInKey, CancellationToken cancellationToken)
+    public async Task<WorkflowRunInfo?> GetLatestRunAsync(Guid workspaceId, Guid itemId, string role, CancellationToken cancellationToken)
     {
         var run = await db.Runs.AsNoTracking()
-            .Where(r => r.WorkspaceId == workspaceId && r.ItemId == itemId && db.Workflows.Any(w => w.Id == r.WorkflowId && w.BuiltInKey == builtInKey))
+            .Where(r => r.WorkspaceId == workspaceId && r.ItemId == itemId && db.Workflows.Any(w => w.Id == r.WorkflowId && (w.Role == role || w.BuiltInKey == role)))
             .OrderByDescending(r => r.StartedAt).ThenByDescending(r => r.Id).FirstOrDefaultAsync(cancellationToken);
         return run is null ? null : new WorkflowRunInfo(run.Id, run.Status.ToString().ToLowerInvariant(), run.Node, run.Error, run.StartedAt);
     }

@@ -524,6 +524,10 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      */
     key?: string | null;
     /**
+     * The locked property
+     */
+    locked?: boolean | null;
+    /**
      * The name property
      */
     name?: string | null;
@@ -543,6 +547,10 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      * The requires property
      */
     requires?: string | null;
+    /**
+     * The role property
+     */
+    role?: string | null;
     /**
      * The scope property
      */
@@ -3775,11 +3783,13 @@ export function deserializeIntoBuiltInWorkflowResponse(builtInWorkflowResponse: 
         "enabledByDefault": n => { builtInWorkflowResponse.enabledByDefault = n.getBooleanValue() ?? false; },
         "inputSchema": n => { builtInWorkflowResponse.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "key": n => { builtInWorkflowResponse.key = n.getStringValue(); },
+        "locked": n => { builtInWorkflowResponse.locked = n.getBooleanValue() ?? false; },
         "name": n => { builtInWorkflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { builtInWorkflowResponse.odataEtag = n.getStringValue(); },
         "parameters": n => { builtInWorkflowResponse.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "required": n => { builtInWorkflowResponse.required = n.getBooleanValue() ?? false; },
         "requires": n => { builtInWorkflowResponse.requires = n.getStringValue(); },
+        "role": n => { builtInWorkflowResponse.role = n.getStringValue(); },
         "scope": n => { builtInWorkflowResponse.scope = n.getEnumValue<BuiltInScope>(BuiltInScopeObject) ?? BuiltInScopeObject.Workspace; },
         "system": n => { builtInWorkflowResponse.system = n.getBooleanValue() ?? false; },
         "values": n => { builtInWorkflowResponse.values = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
@@ -6535,6 +6545,7 @@ export function deserializeIntoWorkflowRequest(workflowRequest: Partial<Workflow
         "inputSchema": n => { workflowRequest.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "key": n => { workflowRequest.key = n.getStringValue(); },
         "name": n => { workflowRequest.name = n.getStringValue(); },
+        "provides": n => { workflowRequest.provides = n.getStringValue(); },
         "scope": n => { workflowRequest.scope = n.getStringValue(); },
         "steps": n => { workflowRequest.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
         "trigger": n => { workflowRequest.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
@@ -6562,8 +6573,10 @@ export function deserializeIntoWorkflowResponse(workflowResponse: Partial<Workfl
         "inputSchema": n => { workflowResponse.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "key": n => { workflowResponse.key = n.getStringValue(); },
         "listId": n => { workflowResponse.listId = n.getGuidValue(); },
+        "locked": n => { workflowResponse.locked = n.getBooleanValue(); },
         "name": n => { workflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { workflowResponse.odataEtag = n.getStringValue(); },
+        "provides": n => { workflowResponse.provides = n.getStringValue(); },
         "required": n => { workflowResponse.required = n.getBooleanValue(); },
         "scope": n => { workflowResponse.scope = n.getStringValue(); },
         "steps": n => { workflowResponse.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
@@ -9424,11 +9437,13 @@ export function serializeBuiltInWorkflowResponse(writer: SerializationWriter, bu
     writer.writeBooleanValue("enabledByDefault", builtInWorkflowResponse.enabledByDefault ?? false);
     writer.writeObjectValue<JsonObject>("inputSchema", builtInWorkflowResponse.inputSchema, serializeJsonObject);
     writer.writeStringValue("key", builtInWorkflowResponse.key);
+    writer.writeBooleanValue("locked", builtInWorkflowResponse.locked ?? false);
     writer.writeStringValue("name", builtInWorkflowResponse.name);
     writer.writeStringValue("@odata.etag", builtInWorkflowResponse.odataEtag);
     writer.writeObjectValue<JsonObject>("parameters", builtInWorkflowResponse.parameters, serializeJsonObject);
     writer.writeBooleanValue("required", builtInWorkflowResponse.required ?? false);
     writer.writeStringValue("requires", builtInWorkflowResponse.requires);
+    writer.writeStringValue("role", builtInWorkflowResponse.role);
     writer.writeEnumValue<BuiltInScope>("scope", builtInWorkflowResponse.scope ?? BuiltInScopeObject.Workspace);
     writer.writeBooleanValue("system", builtInWorkflowResponse.system ?? false);
     writer.writeObjectValue<JsonObject>("values", builtInWorkflowResponse.values, serializeJsonObject);
@@ -12377,6 +12392,7 @@ export function serializeWorkflowRequest(writer: SerializationWriter, workflowRe
     writer.writeObjectValue<JsonObject>("inputSchema", workflowRequest.inputSchema, serializeJsonObject);
     writer.writeStringValue("key", workflowRequest.key);
     writer.writeStringValue("name", workflowRequest.name);
+    writer.writeStringValue("provides", workflowRequest.provides);
     writer.writeStringValue("scope", workflowRequest.scope);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowRequest.steps, serializeWorkflowStep);
     writer.writeObjectValue<WorkflowTrigger>("trigger", workflowRequest.trigger, serializeWorkflowTrigger);
@@ -12405,8 +12421,10 @@ export function serializeWorkflowResponse(writer: SerializationWriter, workflowR
     writer.writeObjectValue<JsonObject>("inputSchema", workflowResponse.inputSchema, serializeJsonObject);
     writer.writeStringValue("key", workflowResponse.key);
     writer.writeGuidValue("listId", workflowResponse.listId);
+    writer.writeBooleanValue("locked", workflowResponse.locked);
     writer.writeStringValue("name", workflowResponse.name);
     writer.writeStringValue("@odata.etag", workflowResponse.odataEtag);
+    writer.writeStringValue("provides", workflowResponse.provides);
     writer.writeBooleanValue("required", workflowResponse.required);
     writer.writeStringValue("scope", workflowResponse.scope);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowResponse.steps, serializeWorkflowStep);
@@ -13444,6 +13462,10 @@ export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
     /**
+     * The provides property
+     */
+    provides?: string | null;
+    /**
      * The scope property
      */
     scope?: string | null;
@@ -13517,6 +13539,10 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      */
     listId?: Guid | null;
     /**
+     * A guarantee of the product: it cannot be replaced, copied or turned off.
+     */
+    locked?: boolean | null;
+    /**
      * The name property
      */
     name?: string | null;
@@ -13525,7 +13551,11 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      */
     odataEtag?: string | null;
     /**
-     * A system workflow the product depends on: it cannot be turned off.
+     * The provides property
+     */
+    provides?: string | null;
+    /**
+     * Its role must always have an active workflow: turning off the last replacement brings the built-in back.
      */
     required?: boolean | null;
     /**
@@ -13537,7 +13567,7 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      */
     steps?: WorkflowStep[] | null;
     /**
-     * A built-in product process (indexing, timeline, notifications): cheap runs, kept briefly when they succeed.
+     * It fills a system process role (a system built-in, or a copy or replacement of one): cheap runs, kept briefly whenthey succeed.
      */
     system?: boolean | null;
     /**

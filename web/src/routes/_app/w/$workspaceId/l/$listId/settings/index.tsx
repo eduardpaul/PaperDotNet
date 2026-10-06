@@ -1,4 +1,4 @@
-import { SearchSettings } from '@/features/search/search-settings';
+import { IndexingPipeline, SearchSettings } from '@/features/search/search-settings';
 import type { ListVersioning } from '@paperdotnet/client';
 import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -90,6 +90,7 @@ function General() {
   return (
     <>
       <SearchSettings workspaceId={workspaceId} listId={listId} />
+      <IndexingPipeline workspaceId={workspaceId} listId={listId} />
       <form onSubmit={onSubmit}>
         <SettingsSection
           title="General"

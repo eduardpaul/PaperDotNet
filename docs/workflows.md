@@ -1041,9 +1041,22 @@ run per item change for each process, the engine keeps them cheap and safe:
 
 | Built-in flag | Effect |
 |---|---|
-| `System` | A product process. It still starts past the causation-depth limit (`MaxDepth` 5, a hard cap at 20) because its activities guard their own loops. It runs in its own queue (`ResumeSystemRun`), so a rebuild of thousands of items never makes people's workflows wait. Successful runs are deleted after `Workflows:SystemRunRetentionHours` (24); failures stay as long as other runs. It cannot be deleted. |
-| `Required` | A system workflow the product depends on, for example API change notifications. It is always on: it cannot be turned off, copied or deleted, a row turned off earlier still runs, and templates do not export it. |
+| `System` | A product process. It still starts past the causation-depth limit (`MaxDepth` 5, a hard cap at 20) because its activities guard their own loops. It runs in its own queue (`ResumeSystemRun`), so a rebuild of thousands of items never makes people's workflows wait. Successful runs are deleted after `Workflows:SystemRunRetentionHours` (24); failures stay as long as other runs. Built-in rows cannot be deleted. |
+| `Required` | Its role must always have an active workflow. A copy or an alternative can replace the built-in; turning off or deleting the last replacement brings the built-in back. |
+| `Locked` | A guarantee of the product (search removal, permission scopes, list maintenance, API change notifications): it cannot be replaced, copied, turned off or deleted, it runs even where its row was turned off, and templates do not export it. |
 | `IncludeFolders` | Folder events start it too. People's workflows never see folders. |
+| `Role` | The process role an alternative built-in fills (for example `search.index` for "Index for search with AI context"). A role's default is the built-in whose key is the role; its flags are the role's. |
+
+**Process roles ([ADR-0047](adr/0047-process-roles-for-system-workflows.md)).**
+- A workflow fills a role with `provides` in its definition. Built-ins provide their role, and copies keep it. One
+  workflow per role is active in its scope (the workspace, or the list for list roles); turning one on turns the others
+  off.
+- Every workflow that fills a system role gets the system treatment above.
+- To change a process, copy its built-in: `POST …/workflows/builtIns/{key}/copy`, or per list
+  `POST …/lists/{listId}/workflows/builtIns/{key}/copy`. Then edit the copy.
+- `POST …/lists/{listId}/workflows/roles/{role}/runs` runs whatever fills the role.
+- `IWorkflowDirectory` answers by role: `IsRoleActiveAsync`, `GetRoleWorkflowAsync` (the active workflow and its version)
+  and `GetLatestRunAsync(role)`.
 
 `ItemChangeWorkflows.Create(key, name, description, activity, triggers, contentType?, includeFolders?)`
 makes a required one-node reaction. A `contentType` filter means that items of
@@ -1085,17 +1098,22 @@ still going, so long sweeps never overlap.
 
 ## Saved item processing
 
-Search registers `search.chunk`, `search.publish`, `search.embed`,
-`search.remove`, `search.scopes`, `search.container` and `search.rebuild`. Its
-per-list **Index for search** is a system workflow that people can launch by
-hand while its automatic runs are off. Steps with nothing to do end at their
-`skipped` port, which leads to an `end` node, so they are not failures: the list
-is excluded, the item is gone, or a newer change superseded the step. See
-[search.md](search.md).
+Search registers these activities: `search.chunk`, `search.stage`, `search.enrich`,
+`search.publish`, `search.embed`, `search.remove`, `search.scopes`,
+`search.container` and `search.rebuild`.
+- The `search.index` role is filled per list: by **Index for search**, by **Index for search with AI context** (needs a
+  chat model), or by a copy a developer changed.
+- People can launch it by hand while its automatic runs are off.
+- Steps with nothing to do end at their `skipped` port, which leads to an `end` node, so they are not failures: the list
+  is excluded, the item is gone, or a newer change superseded the step.
 
-Note links, item activity, follower alerts, change notification queueing, task
-completion announcements, recurring task creation, search removal, search
-permission updates and library search maintenance are required system workflows.
+See [search.md](search.md) for the indexing contract.
+
+- **Required and replaceable:** note links, item activity, follower alerts, task completion announcements and recurring
+  task creation.
+- **Locked guarantees:** change notification queueing, search removal, search permission updates and library search
+  maintenance.
+
 The note and task reactions filter by content type in their triggers.
 
 `BuiltInScope.List` offers a built-in on ordinary lists as well as libraries.

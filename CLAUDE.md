@@ -100,8 +100,9 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   must be called with `CancellationToken.None` (with a cancellable token it runs without the tenant).
 - Searchable content → expose source data through `ISearchItemSource` (with cheap stamps) and versioned
   text through `IItemTextSource`; request indexing with `IListItemStore.ReindexAsync`
-  (workflow transport; trigger names in `SearchTriggers`). `search.*` activities stage, publish and embed prepared
-  chunks through `ISearchStore`; producers never write a search backend. Query-time
+  (workflow transport; trigger names in `SearchTriggers`). `search.*` activities stage (`search.chunk`/`search.stage`),
+  enrich, publish and embed prepared chunks through `ISearchStore` in the `search.index` role's pipeline; producers never
+  write a search backend. Query-time
   ACL and list-inclusion filters are mandatory, independent of async removal.
   AI providers remain optional (`IEmbeddingGenerator`, Microsoft.Extensions.AI).
 - Search stores implement `ISearchStore` (Search.Contracts, ADR-0043), are registered with `AddSearchStore<T>(name)`
@@ -141,8 +142,10 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   `wf.{key}.failed` and `event.raise` (`wf.{key}.{event}`), never by code that calls another workflow. Build workflow features
   from workflow parts (waits with JSON data, run-again activities, built-in workflows), not tables or jobs of their own
   (e.g. batched AI: `ai.batch` waits + the "AI batch" workflow). Product processes are
-  system built-ins (`System`/`Required`/`IncludeFolders` on `BuiltInWorkflow`: own lane, short retention,
-  item-event context only from the engine); coordinators fan out with `WorkflowRequests` (bounded, tolerant,
+  process roles (ADR-0047): system built-ins (`System`/`Required`/`Locked`/`IncludeFolders`/`Role` on `BuiltInWorkflow`:
+  own lane, short retention, item-event context only from the engine) that copies and extension alternatives replace via
+  `provides`, one active per scope; consumers ask by role (`IWorkflowDirectory.GetRoleWorkflowAsync`), never by built-in
+  key. Only guarantees are `Locked`. Coordinators fan out with `WorkflowRequests` (bounded, tolerant,
   waits on `CompletionKind` triggers), never by polling or tables of their own. Mapping data into lists is workflow JSON, not a new
   action: `item.update`/`item.create` with typed single tokens (`"total": "{step:read.json.total}"`) and `forEach`, or a
   `script` node (JavaScript in a sandbox, ADR-0037; samples/receipts-package). The script API is a contract of
