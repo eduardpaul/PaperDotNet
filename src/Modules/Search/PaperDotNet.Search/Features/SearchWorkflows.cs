@@ -124,11 +124,11 @@ internal static class SearchWorkflows
         "Rebuilds included lists through item workflows: on request every item, on its schedule only items whose index is stale.",
         JsonNode.Parse("""
             { "scope": "workspace", "triggers": [
-                { "type": "search.rebuildRequested" }, { "type": "manual" },
+                { "type": "search.rebuildRequested" },
                 { "type": "schedule", "cron": "*/15 * * * *", "concurrency": "skip" }
               ], "flow": { "start": "rebuild", "nodes": { "rebuild": { "activity": "search.rebuild" } } } }
             """)!.AsObject())
-    { EnabledByDefault = true, AllowManualLaunch = true, System = true };
+    { EnabledByDefault = true, System = true };
 
     public static readonly BuiltInWorkflow RemoveWorkflow = ItemChangeWorkflows.Create("search.remove", "Remove deleted items from search",
         "Removes the search records of deleted items; independent of automatic indexing.", "search.remove", [WorkflowTriggers.ItemDeleted], locked: true);
