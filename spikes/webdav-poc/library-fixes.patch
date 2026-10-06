@@ -1,0 +1,333 @@
+diff --git a/src/Dav.AspNetCore.Server/Handlers/CopyHandler.cs b/src/Dav.AspNetCore.Server/Handlers/CopyHandler.cs
+index 555e021..2fe9c74 100644
+--- a/src/Dav.AspNetCore.Server/Handlers/CopyHandler.cs
++++ b/src/Dav.AspNetCore.Server/Handlers/CopyHandler.cs
+@@ -77,7 +77,7 @@ internal class CopyHandler : RequestHandler
+         {
+             Context.SetResult(destinationItem != null
+                 ? DavStatusCode.NoContent
+-                : DavStatusCode.Ok);
++                : DavStatusCode.Created);
+             return;
+         }
+         
+diff --git a/src/Dav.AspNetCore.Server/Handlers/DeleteHandler.cs b/src/Dav.AspNetCore.Server/Handlers/DeleteHandler.cs
+index 1f533a7..796040b 100644
+--- a/src/Dav.AspNetCore.Server/Handlers/DeleteHandler.cs
++++ b/src/Dav.AspNetCore.Server/Handlers/DeleteHandler.cs
+@@ -13,7 +13,7 @@ internal class DeleteHandler : RequestHandler
+     {
+         if (Item == null)
+         {
+-            Context.SetResult(DavStatusCode.NoContent);
++            Context.SetResult(DavStatusCode.NotFound);
+             return;
+         }
+ 
+diff --git a/src/Dav.AspNetCore.Server/Handlers/GetHandler.cs b/src/Dav.AspNetCore.Server/Handlers/GetHandler.cs
+index 5bb0095..401e581 100644
+--- a/src/Dav.AspNetCore.Server/Handlers/GetHandler.cs
++++ b/src/Dav.AspNetCore.Server/Handlers/GetHandler.cs
+@@ -25,16 +25,16 @@ internal class GetHandler : RequestHandler
+             Context.Response.Headers["Content-Type"] = contentType;
+         
+         var contentLanguage = await GetNonExpensivePropertyAsync(Item, XmlNames.GetContentLanguage, cancellationToken);
+-        if (!string.IsNullOrWhiteSpace(contentType))
++        if (!string.IsNullOrWhiteSpace(contentLanguage))
+             Context.Response.Headers["Content-Language"] = contentLanguage;
+         
+         var lastModified = await GetNonExpensivePropertyAsync(Item, XmlNames.GetLastModified, cancellationToken);
+-        if (!string.IsNullOrWhiteSpace(contentType))
++        if (!string.IsNullOrWhiteSpace(lastModified))
+             Context.Response.Headers["Last-Modified"] = lastModified;
+         
+         var etag = await GetNonExpensivePropertyAsync(Item, XmlNames.GetEtag, cancellationToken);
+-        if (!string.IsNullOrWhiteSpace(contentType))
+-            Context.Response.Headers["ETag"] = etag;
++        if (!string.IsNullOrWhiteSpace(etag))
++            Context.Response.Headers["ETag"] = $"\"{etag}\"";
+         
+         var contentLength = await GetNonExpensivePropertyAsync(Item, XmlNames.GetContentLength, cancellationToken);
+         if (!string.IsNullOrWhiteSpace(contentLength))
+@@ -64,7 +64,7 @@ internal class GetHandler : RequestHandler
+         {
+             if (requestHeaders.IfRange.EntityTag != null &&
+                 !string.IsNullOrWhiteSpace(etag) &&
+-                requestHeaders.IfRange.EntityTag.Tag != etag)
++                requestHeaders.IfRange.EntityTag.Tag != $"\"{etag}\"")
+             {
+                 disableRanges = true;
+             }
+@@ -125,13 +125,15 @@ internal class GetHandler : RequestHandler
+             if (range.From != null && range.To != null)
+             {
+                 stream.Seek(range.From.Value, SeekOrigin.Begin);
+-                bytesToRead = range.To.Value - range.From.Value;
++                bytesToRead = Math.Min(range.To.Value, stream.Length - 1) - range.From.Value + 1;
+             }
++
++            var start = stream.Position;
+             
+             context.SetResult(DavStatusCode.PartialContent);
+             
+             context.Response.ContentLength = bytesToRead;
+-            context.Response.Headers["Content-Range"] = $"bytes {range}/{stream.Length}";
++            context.Response.Headers["Content-Range"] = $"bytes {start}-{start + bytesToRead - 1}/{stream.Length}";
+ 
+             while (bytesToRead > 0)
+             {
+diff --git a/src/Dav.AspNetCore.Server/Handlers/LockHandler.cs b/src/Dav.AspNetCore.Server/Handlers/LockHandler.cs
+index c0ce96f..f87720c 100644
+--- a/src/Dav.AspNetCore.Server/Handlers/LockHandler.cs
++++ b/src/Dav.AspNetCore.Server/Handlers/LockHandler.cs
+@@ -21,12 +21,13 @@ internal class LockHandler : RequestHandler
+             return;
+         }
+ 
+-        var timeout = WebDavHeaders.Timeouts
+-            .OrderByDescending(x => x.TotalSeconds)
+-            .First(x => x <= (Options.MaxLockTimeout ?? TimeSpan.MaxValue));
+-
+-        if (WebDavHeaders.Timeouts.Any(x => x == TimeSpan.Zero) && Options.MaxLockTimeout == null)
+-            timeout = TimeSpan.Zero;
++        // Timeout.Zero means Infinite. Without a maximum the client's first choice wins; with one, nothing exceeds it.
++        var maxTimeout = Options.MaxLockTimeout;
++        var timeout = maxTimeout == null
++            ? WebDavHeaders.Timeouts.First()
++            : WebDavHeaders.Timeouts
++                .Select(x => x == TimeSpan.Zero || x > maxTimeout.Value ? maxTimeout.Value : x)
++                .Max();
+ 
+         var depth = WebDavHeaders.Depth ?? Depth.Infinity;
+         if (depth == Depth.One)
+@@ -36,6 +37,7 @@ internal class LockHandler : RequestHandler
+         }
+ 
+         LockResult? result = null;
++        var createdResource = false;
+ 
+         // check if a lock should be refreshed
+         if (string.IsNullOrWhiteSpace(Context.Request.ContentType) &&
+@@ -43,8 +45,7 @@ internal class LockHandler : RequestHandler
+             (Context.Request.ContentLength == null ||
+              Context.Request.ContentLength == 0))
+         {
+-            var condition = WebDavHeaders.If
+-                .FirstOrDefault(x => x.Uri == null || x.Uri == requestUri);
++            var condition = WebDavHeaders.If.FirstOrDefault(x => x.Tokens.Length > 0);
+ 
+             if (condition == null)
+             {
+@@ -57,7 +58,7 @@ internal class LockHandler : RequestHandler
+                 cancellationToken);
+ 
+             var activeLock = activeLocks
+-                .FirstOrDefault(x => x.Uri == requestUri && condition.Tokens.Any(z => x.Id.AbsoluteUri == z.Value));
++                .FirstOrDefault(x => condition.Tokens.Any(z => x.Id.AbsoluteUri == z.Value));
+             
+             if (activeLock == null)
+             {
+@@ -66,7 +67,7 @@ internal class LockHandler : RequestHandler
+             }
+ 
+             result = await LockManager.RefreshLockAsync(
+-                requestUri,
++                activeLock.Uri,
+                 activeLock.Id,
+                 timeout,
+                 cancellationToken);
+@@ -86,7 +87,9 @@ internal class LockHandler : RequestHandler
+             var lockInfo = requestDocument.Element(XmlNames.LockInfo);
+             var lockScope = lockInfo?.Element(XmlNames.LockScope);
+             var lockType = lockInfo?.Element(XmlNames.LockType);
+-            var owner = lockInfo?.Element(XmlNames.Owner)?.FirstNode as XElement;
++            var ownerElement = lockInfo?.Element(XmlNames.Owner);
++            var owner = ownerElement?.FirstNode as XElement
++                ?? new XElement(XmlNames.Href, ownerElement?.Value ?? string.Empty);
+ 
+             var exclusive = lockScope?.Element(XmlNames.Exclusive);
+             var shared = lockScope?.Element(XmlNames.Shared);
+@@ -115,6 +118,18 @@ internal class LockHandler : RequestHandler
+                 await Context.SendLockedAsync(requestUri, cancellationToken);
+                 return;
+             }
++
++            // LOCK on an unmapped URL creates an empty resource (RFC 4918 9.10.4).
++            if (Item == null && result.ResourceLock != null)
++            {
++                var itemName = requestUri.GetRelativeUri(Collection.Uri).LocalPath.Trim('/');
++                var created = await Collection.CreateItemAsync(itemName, cancellationToken);
++                if (created.Item != null)
++                {
++                    await created.Item.WriteDataAsync(Stream.Null, cancellationToken);
++                    createdResource = true;
++                }
++            }
+         }
+ 
+         if (result == null)
+@@ -130,7 +145,8 @@ internal class LockHandler : RequestHandler
+         }
+ 
+         var document = BuildDocument(result.ResourceLock);
+-        await Context.WriteDocumentAsync(DavStatusCode.Ok, document, cancellationToken);
++        Context.Response.Headers["Lock-Token"] = $"<{result.ResourceLock.Id.AbsoluteUri}>";
++        await Context.WriteDocumentAsync(createdResource ? DavStatusCode.Created : DavStatusCode.Ok, document, cancellationToken);
+     }
+ 
+     /// <summary>
+diff --git a/src/Dav.AspNetCore.Server/Handlers/MkColHandler.cs b/src/Dav.AspNetCore.Server/Handlers/MkColHandler.cs
+index 06ec74a..424fe7e 100644
+--- a/src/Dav.AspNetCore.Server/Handlers/MkColHandler.cs
++++ b/src/Dav.AspNetCore.Server/Handlers/MkColHandler.cs
+@@ -9,6 +9,12 @@ internal class MkColHandler : RequestHandler
+     /// <returns></returns>
+     protected override async Task HandleRequestAsync(CancellationToken cancellationToken = default)
+     {
++        if (Context.Request.ContentLength > 0 || Context.Request.Headers.TransferEncoding.Count > 0)
++        {
++            Context.Response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status415UnsupportedMediaType;
++            return;
++        }
++
+         var requestUri = Context.Request.Path.ToUri();
+         var parentUri = requestUri.GetParent();
+ 
+diff --git a/src/Dav.AspNetCore.Server/Handlers/MoveHandler.cs b/src/Dav.AspNetCore.Server/Handlers/MoveHandler.cs
+index dd4ba82..82c025f 100644
+--- a/src/Dav.AspNetCore.Server/Handlers/MoveHandler.cs
++++ b/src/Dav.AspNetCore.Server/Handlers/MoveHandler.cs
+@@ -68,7 +68,7 @@ internal class MoveHandler : RequestHandler
+         {
+             Context.SetResult(destinationItem != null
+                 ? DavStatusCode.NoContent
+-                : DavStatusCode.Ok);
++                : DavStatusCode.Created);
+             return;
+         }
+         
+@@ -125,6 +125,26 @@ internal class MoveHandler : RequestHandler
+                 return false;
+         }
+         
++        var sourceName = item.Uri.GetRelativeUri(collection.Uri).LocalPath.Trim('/');
++        var moved = await collection.MoveItemAsync(sourceName, destination, name, true, cancellationToken);
++        if (moved.StatusCode != DavStatusCode.NotAllowed)
++        {
++            if (moved.Item == null)
++            {
++                errors.Add(new WebDavError(destinationUri, moved.StatusCode, null));
++                return false;
++            }
++
++            if (propertyStore != null)
++            {
++                await propertyStore.CopyPropertiesAsync(item, moved.Item, cancellationToken);
++                await propertyStore.DeletePropertiesAsync(item, cancellationToken);
++            }
++
++            return true;
++        }
++
++        // The store cannot move: fall back to copy + delete.
+         var result = await item.CopyAsync(destination, name, true, cancellationToken);
+         if (result.Item == null)
+         {
+diff --git a/src/Dav.AspNetCore.Server/Handlers/PutHandler.cs b/src/Dav.AspNetCore.Server/Handlers/PutHandler.cs
+index e37d934..6763eee 100644
+--- a/src/Dav.AspNetCore.Server/Handlers/PutHandler.cs
++++ b/src/Dav.AspNetCore.Server/Handlers/PutHandler.cs
+@@ -18,6 +18,7 @@ internal class PutHandler : RequestHandler
+             return;
+         }
+         
+-        await result.Item.WriteDataAsync(Context.Request.Body, cancellationToken);
++        var status = await result.Item.WriteDataAsync(Context.Request.Body, cancellationToken);
++        Context.SetResult(status != DavStatusCode.Ok ? status : Item == null ? DavStatusCode.Created : DavStatusCode.NoContent);
+     }
+ }
+\ No newline at end of file
+diff --git a/src/Dav.AspNetCore.Server/Handlers/RequestHandler.cs b/src/Dav.AspNetCore.Server/Handlers/RequestHandler.cs
+index 4bdf8a8..38e6a37 100644
+--- a/src/Dav.AspNetCore.Server/Handlers/RequestHandler.cs
++++ b/src/Dav.AspNetCore.Server/Handlers/RequestHandler.cs
+@@ -19,6 +19,7 @@ internal abstract class RequestHandler : IRequestHandler
+         WebDavMethods.Options,
+         WebDavMethods.Head,
+         WebDavMethods.Get,
++        WebDavMethods.Copy,
+         WebDavMethods.PropFind,
+         WebDavMethods.Unlock
+     };
+@@ -84,7 +85,9 @@ internal abstract class RequestHandler : IRequestHandler
+         var collection = await store.GetCollectionAsync(parentUri, cancellationToken);
+         if (collection == null)
+         {
+-            context.SetResult(DavStatusCode.NotFound);
++            context.SetResult(context.Request.Method is WebDavMethods.MkCol or WebDavMethods.Put
++                ? DavStatusCode.Conflict
++                : DavStatusCode.NotFound);
+             return;
+         }
+ 
+@@ -169,9 +172,8 @@ internal abstract class RequestHandler : IRequestHandler
+                 }
+             }
+             
+-            // check if we can generally unlock one of the locks
+-            var conditions = new List<IfHeaderValueCondition>(Matches(uri));
+-            conditions.AddRange(Matches(null));
++            // a lock token counts as submitted wherever it appears in the If header (RFC 4918 10.4.1)
++            var conditions = WebDavHeaders.If.ToList();
+             
+             var unlock = activeLocks
+                 .Any(x => conditions
+diff --git a/src/Dav.AspNetCore.Server/HttpContextExtensions.cs b/src/Dav.AspNetCore.Server/HttpContextExtensions.cs
+index 08c9a04..dd8f7fa 100644
+--- a/src/Dav.AspNetCore.Server/HttpContextExtensions.cs
++++ b/src/Dav.AspNetCore.Server/HttpContextExtensions.cs
+@@ -101,6 +101,18 @@ internal static class HttpContextExtensions
+     /// </summary>
+     /// <param name="request">The http request.</param>
+     /// <returns>The typed web dav headers.</returns>
++    private static Uri? ToStoreUri(Uri? uri, PathString pathBase)
++    {
++        if (uri == null || !uri.IsAbsoluteUri || uri.IsFile)
++            return uri;
++
++        var path = new PathString(uri.LocalPath);
++        if (pathBase.HasValue && path.StartsWithSegments(pathBase, out var remaining))
++            path = remaining;
++
++        return path.ToUri();
++    }
++
+     public static WebDavRequestHeaders GetTypedWebDavHeaders(this HttpRequest request)
+     {
+         ArgumentNullException.ThrowIfNull(request, nameof(request));
+@@ -114,7 +126,8 @@ internal static class HttpContextExtensions
+         
+         return new WebDavRequestHeaders
+         {
+-            If = ifHeaderValue?.Conditions ?? Array.Empty<IfHeaderValueCondition>(),
++            If = ifHeaderValue?.Conditions.Select(c => c with { Uri = ToStoreUri(c.Uri, request.PathBase) }).ToArray()
++                 ?? Array.Empty<IfHeaderValueCondition>(),
+             Depth = depthHeaderValue?.Depth,
+             Destination = destinationHeaderValue?.Destination,
+             Overwrite = overwriteHeaderValue?.Overwrite,
+diff --git a/src/Dav.AspNetCore.Server/Store/Properties/Property.cs b/src/Dav.AspNetCore.Server/Store/Properties/Property.cs
+index 87f8aab..ab07826 100644
+--- a/src/Dav.AspNetCore.Server/Store/Properties/Property.cs
++++ b/src/Dav.AspNetCore.Server/Store/Properties/Property.cs
+@@ -150,9 +150,9 @@ public class Property
+                         timeoutValue = $"Second-{(resourceLock.ExpireDate - DateTime.UtcNow).TotalSeconds:F0}";
+ 
+                     activelock.Add(new XElement(XmlNames.Depth, resourceLock.Recursive ? "infinity" : "0"));
+-                    activelock.Add(new XElement(XmlNames.Owner, new XElement(XmlNames.Href, resourceLock.Owner)));
++                    activelock.Add(new XElement(XmlNames.Owner, resourceLock.Owner));
+                     activelock.Add(new XElement(XmlNames.Timeout, timeoutValue));
+-                    activelock.Add(new XElement(XmlNames.LockToken, new XElement(XmlNames.Href, $"urn:uuid:{resourceLock.Id:D}")));
++                    activelock.Add(new XElement(XmlNames.LockToken, new XElement(XmlNames.Href, resourceLock.Id.AbsoluteUri)));
+                     activelock.Add(new XElement(XmlNames.LockRoot, new XElement(XmlNames.Href, $"{httpContextAccessor?.HttpContext?.Request.PathBase}{resourceLock.Uri.AbsolutePath}")));
+ 
+                     activeLocks.Add(activelock);

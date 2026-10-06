@@ -1,0 +1,3 @@
+<Project>
+  <!-- Isolates the spike from the repository's build rules and central package management. -->
+</Project>
