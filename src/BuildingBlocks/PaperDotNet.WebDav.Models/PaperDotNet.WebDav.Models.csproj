@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    WebDAV models and header parsing: FubarDev.WebDavServer.Models (MIT, LICENSE), vendored from release/2.0
+    (ADR-0047). Upstream sources are in Upstream/ with their namespaces; see ../PaperDotNet.WebDav/README.md.
+  -->
+  <PropertyGroup>
+    <RootNamespace>FubarDev.WebDavServer</RootNamespace>
+    <!-- CS8981: upstream XSD types have lower-case names (propfind, multistatus, …). -->
+    <NoWarn>$(NoWarn);CS8981</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Update="Upstream\Properties\Resources.Designer.cs" DependentUpon="Resources.resx" />
+    <EmbeddedResource Update="Upstream\Properties\Resources.resx" LogicalName="FubarDev.WebDavServer.Properties.Resources.resources" />
+    <!-- The German upstream strings are not used (they compiled to an unused satellite assembly). -->
+    <EmbeddedResource Remove="Upstream\Properties\Resources.de.resx" />
+    <Compile Remove="Upstream\Properties\Resources.de.Designer.cs" />
+    <None Include="Upstream\Models\webdav.xsd" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+  </ItemGroup>
+</Project>

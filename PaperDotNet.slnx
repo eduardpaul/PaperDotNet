@@ -12,6 +12,8 @@
     <Project Path="src/BuildingBlocks/PaperDotNet.Persistence/PaperDotNet.Persistence.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.AI/PaperDotNet.AI.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Storage/PaperDotNet.Storage.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.WebDav.Models/PaperDotNet.WebDav.Models.csproj" />
+    <Project Path="src/BuildingBlocks/PaperDotNet.WebDav/PaperDotNet.WebDav.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/">
     <Project Path="src/Extensions/PaperDotNet.StorageOptimization/PaperDotNet.StorageOptimization.csproj" />
