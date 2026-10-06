@@ -554,9 +554,18 @@ internal sealed class DocumentPageImages(DocumentsDbContext db, PageRenderer ren
     }
 }
 
-/// <summary>Adds the text of an item's current file to its search document, with its language (SRC-05).</summary>
+/// <summary>The text of an item's current file, with its language (SRC-05), for search and AI.</summary>
 internal sealed class DocumentSearchContent(DocumentsDbContext db) : IItemTextSource
 {
+    /// <summary>The current file version and whether its text was read, without loading page texts.</summary>
+    public async Task<IReadOnlyDictionary<Guid, (string Revision, bool Ready)>> GetRevisionsAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken)
+    {
+        var ids = itemIds.ToList();
+        return (await db.FileVersions.AsNoTracking().Where(v => ids.Contains(v.ItemId) && v.IsCurrent)
+                .Select(v => new { v.ItemId, v.Id, v.PageCount }).ToListAsync(cancellationToken))
+            .ToDictionary(v => v.ItemId, v => (v.Id.ToString("N"), v.PageCount is not null));
+    }
+
     public async Task<IReadOnlyDictionary<Guid, ItemTextContent>> GetTextAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken)
     {
         var ids = itemIds.ToList();

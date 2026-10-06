@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Linq.Expressions;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -9,13 +10,13 @@ using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Api;
 using PaperDotNet.Identity.Contracts;
-using PaperDotNet.Lists.Contracts;
-using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Jobs.Contracts;
+using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Persistence;
 using PaperDotNet.Search.Contracts;
 using PaperDotNet.Search.Data;
 using PaperDotNet.Taxonomy.Contracts;
+using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
 namespace PaperDotNet.Search.Features;
@@ -127,31 +128,51 @@ internal static class SearchEndpoints
 public sealed record ReindexPayload;
 
 /// <summary>
-/// Clears and refills the current tenant's index from every <see cref="ISearchSource"/> (SRC-10).
-/// Used by the reindex operation and by <c>paperdotnet reindex</c>.
+/// Rebuilds the current tenant's index (SRC-10) by requesting the <c>search.rebuild</c> workflow in each workspace and
+/// following it: the work, its progress and failures are visible workflow runs. Used by the reindex operation and by
+/// <c>paperdotnet reindex</c>.
 /// </summary>
-public sealed class SearchReindexer(IEnumerable<ISearchSource> sources, IListItemStore items, IWorkflowTriggers triggers, IWorkflowDirectory workflows)
+public sealed class SearchReindexer(
+    IEnumerable<ISearchItemSource> sources, IListItemStore items, IWorkflowTriggers triggers, IWorkflowDirectory workflows, TimeProvider time)
 {
+    /// <summary>How long a rebuild request may go without a run before it is reported as not started.</summary>
+    private static readonly TimeSpan StartTimeout = TimeSpan.FromMinutes(5);
+
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
+
     /// <summary>Rebuilds the index; <paramref name="progress"/> receives 0–100. Returns the source types.</summary>
     public async Task<IReadOnlyList<string>> ReindexAsync(Func<int, Task> progress, CancellationToken cancellationToken)
     {
         var workspaces = (await items.AsSystem().GetListsAsync(null, null, cancellationToken)).Select(l => l.WorkspaceId).Distinct().ToList();
         for (var i = 0; i < workspaces.Count; i++)
         {
-            var request = Guid.CreateVersion7();
+            var request = Ids.New();
+            var requestedAt = time.GetUtcNow();
             await triggers.RaiseAsync(SearchWorkflows.RebuildRequested, workspaces[i], null, null, request, cancellationToken);
-            while (true)
+
+            // The rebuild's completion is a durable wait keyed by the request (its trigger reports completions), also
+            // when no workflow matched ("none").
+            JsonObject? completion;
+            while ((completion = await workflows.GetCompletionAsync(SearchWorkflows.RebuildRequestKind, request.ToString(), cancellationToken)) is null)
             {
-                var runs = await workflows.GetEventRunsAsync(request, cancellationToken);
-                if (runs.FirstOrDefault(r => r.Status is "failed" or "cancelled") is { } failed)
+                if (time.GetUtcNow() - requestedAt > StartTimeout && !await workflows.HasRequestRunsAsync(request, cancellationToken))
                 {
-                    throw new InvalidOperationException($"Rebuild workflow {failed.Id} {failed.Status}: {failed.Error}");
+                    throw new InvalidOperationException($"The search rebuild of workspace {workspaces[i]} did not start.");
                 }
-                if (runs.Count > 0 && runs.All(r => r.Status == "completed")) { break; }
-                await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken);
+
+                await Task.Delay(PollInterval, time, cancellationToken);
             }
+
+            var status = completion["status"]?.GetValue<string>();
+            if (status != "completed")
+            {
+                var errors = string.Join("; ", (completion["runs"] as JsonArray ?? []).Select(r => $"{r?["id"]}: {r?["error"]}"));
+                throw new InvalidOperationException($"The search rebuild of workspace {workspaces[i]} ended {status}: {errors}");
+            }
+
             await progress((i + 1) * 100 / workspaces.Count);
         }
+
         await progress(100);
         return sources.Select(s => s.SourceType).ToList();
     }

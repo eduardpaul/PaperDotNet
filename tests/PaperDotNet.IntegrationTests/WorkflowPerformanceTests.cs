@@ -28,7 +28,8 @@ public sealed class WorkflowPerformanceTests(PaperDotNetApiFactory factory)
         var workspace = await client.CreateWorkspaceAsync("Performance");
         var list = (await (await client.PostAsJsonAsync($"/v1.0/workspaces/{workspace}/lists", new { name = "Tasks", templateKey = "tasks" }, Ct)).ReadJsonAsync()).GetProperty("id").GetGuid();
         var item = await client.CreateItemAsync(workspace, list, new { fields = new { title = "Tagged" } });
-        // Provision product defaults before measuring custom-workflow fan-out, then isolate those candidates.
+        // Provision product defaults before measuring custom-workflow fan-out, then isolate those candidates (required
+        // system workflows still start; only the custom workflows' runs are counted).
         await client.GetAsync($"/v1.0/workspaces/{workspace}/lists/{list}/workflows/builtIns", Ct);
         var scopes = factory.Services.GetRequiredService<ITenantScopeFactory>();
         await using var scope = scopes.CreateScope(tenant.Id, tenant.Identifier);
@@ -86,11 +87,11 @@ public sealed class WorkflowPerformanceTests(PaperDotNetApiFactory factory)
             var reads = counter.Count;
             Assert.Equal(0, itemReads.Count); // snapshot conditions need no item reads or condition queries
             Assert.Equal(1, reads); // one joined candidate/version query for the item event
-            Assert.Equal(count, await db.Runs.CountAsync(r => r.EventId == source.EventId, Ct));
+            Assert.Equal(count, await db.Runs.CountAsync(r => r.EventId == source.EventId && db.Workflows.Any(w => w.Id == r.WorkflowId && w.BuiltInKey == null), Ct));
             counter.Count = 0;
             await handler.HandleAsync(source, Ct);
             Assert.Equal(1, counter.Count); // redelivery stays bounded and creates nothing
-            Assert.Equal(count, await db.Runs.CountAsync(r => r.EventId == source.EventId, Ct));
+            Assert.Equal(count, await db.Runs.CountAsync(r => r.EventId == source.EventId && db.Workflows.Any(w => w.Id == r.WorkflowId && w.BuiltInKey == null), Ct));
             measurements.Add(new { workflows = count, versionQueries = reads, handlerMilliseconds = watch.Elapsed.TotalMilliseconds, eventPayloadBytes = JsonSerializer.SerializeToUtf8Bytes(source, DefinitionJson.Options).Length });
         }
         var requestMeasurements = new List<object>();

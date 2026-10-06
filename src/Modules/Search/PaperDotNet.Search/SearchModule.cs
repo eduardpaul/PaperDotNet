@@ -5,14 +5,14 @@ using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Mcp.Contracts;
+using PaperDotNet.Messaging;
 using PaperDotNet.Persistence;
+using PaperDotNet.Provisioning.Contracts;
 using PaperDotNet.Search.Contracts;
 using PaperDotNet.Search.Data;
 using PaperDotNet.Search.Features;
 using PaperDotNet.Search.Stores.Database;
 using PaperDotNet.Workflows.Contracts;
-using PaperDotNet.Provisioning.Contracts;
-using PaperDotNet.Messaging;
 
 namespace PaperDotNet.Search;
 
@@ -53,19 +53,26 @@ public sealed class SearchModule : IModule
         services.AddScoped<ITemplateHandler, SearchPolicyTemplateHandler>();
         services.AddIntegrationEvent<SearchPolicyChanged>();
         services.AddEventSubscriber<SearchPolicyChanged, SearchPolicySubscriber>();
-        services.AddWorkflowTrigger(new(SearchWorkflows.Requested, "An item's search data needs indexing."));
-        services.AddWorkflowTrigger(new(SearchWorkflows.ReindexItem, "An explicit rebuild requests indexing, also when automatic indexing is off.") { AllowDisabledBuiltIns = true, CompletionKind = "search.indexRequest" });
-        services.AddWorkflowTrigger(new(SearchWorkflows.RebuildRequested, "A rebuild was requested.") { AllowDisabledBuiltIns = true });
-        services.AddWorkflowTrigger(new(SearchWorkflows.ContainerChanged, "A library's inclusion in search changed."));
+        services.AddWorkflowTrigger(new(SearchTriggers.Requested, "An item's search data needs indexing."));
+        services.AddWorkflowTrigger(new(SearchWorkflows.ReindexItem, "A rebuild requests an item's indexing and waits for it, also when automatic indexing is off.")
+        { AllowDisabledBuiltIns = true, CompletionKind = SearchWorkflows.IndexRequestKind });
+        services.AddWorkflowTrigger(new(SearchWorkflows.IncludeItem, "A list included again requests an item's indexing, also when automatic indexing is off.")
+        { AllowDisabledBuiltIns = true });
+        services.AddWorkflowTrigger(new(SearchWorkflows.RebuildRequested, "A rebuild was requested.")
+        { AllowDisabledBuiltIns = true, CompletionKind = SearchWorkflows.RebuildRequestKind });
+        services.AddWorkflowTrigger(new(SearchTriggers.ContainerChanged, "A library's inclusion in search or its schema changed (data: containerId)."));
+        services.AddWorkflowTrigger(new(SearchTriggers.ScopesChanged, "Items moved to other permission scopes (data: itemIds)."));
         services.AddWorkflowActivity<SearchChunkActivity>();
         services.AddWorkflowActivity<SearchPublishActivity>();
         services.AddWorkflowActivity<SearchEmbedActivity>();
         services.AddWorkflowActivity<SearchRemoveActivity>();
+        services.AddWorkflowActivity<SearchScopesActivity>();
         services.AddWorkflowActivity<SearchContainerActivity>();
         services.AddWorkflowActivity<SearchRebuildActivity>();
         services.AddWorkflow(SearchWorkflows.IndexWorkflow);
         services.AddWorkflow(SearchWorkflows.RemoveWorkflow);
         services.AddWorkflow(SearchWorkflows.ContainerWorkflow);
+        services.AddWorkflow(SearchWorkflows.ScopesWorkflow);
         services.AddWorkflow(SearchWorkflows.RebuildWorkflow);
         services.AddScoped<IMcpTool, SearchTool>();
         services.AddOperationHandler<ReindexOperation>();

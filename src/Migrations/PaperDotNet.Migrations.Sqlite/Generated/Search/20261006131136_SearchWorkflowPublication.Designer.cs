@@ -11,7 +11,7 @@ using PaperDotNet.Search.Data;
 namespace PaperDotNet.Migrations.Sqlite.Generated.Search
 {
     [DbContext(typeof(SearchDbContext))]
-    [Migration("20261006081213_SearchWorkflowPublication")]
+    [Migration("20261006131136_SearchWorkflowPublication")]
     partial class SearchWorkflowPublication
     {
         /// <inheritdoc />
@@ -359,6 +359,16 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Search
                     b.Property<Guid?>("RunId")
                         .HasColumnType("TEXT")
                         .HasColumnName("run_id");
+
+                    b.Property<string>("Settings")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("settings");
+
+                    b.Property<string>("SourceStamp")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("source_stamp");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")

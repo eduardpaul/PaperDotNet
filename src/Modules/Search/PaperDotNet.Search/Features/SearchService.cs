@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using PaperDotNet.Search.Data;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Search.Contracts;
+using PaperDotNet.Search.Data;
 using PaperDotNet.Taxonomy.Contracts;
 
 namespace PaperDotNet.Search.Features;
@@ -35,6 +35,9 @@ internal sealed class SearchService(
     ISearchStore store, EmbeddingModel embeddings, ITermStore terms, IItemAccess access, IOptions<SearchOptions> options, SearchDbContext db)
 {
     public const int DefaultTop = 25;
+
+    /// <summary>Source type of list items (documents, tasks, notes…), whose hits are checked against the items as they are now.</summary>
+    private const string ItemSourceType = "listItem";
     public const int MaxTop = 100;
 
     private const int SnippetRadius = 80;
@@ -108,15 +111,21 @@ internal sealed class SearchService(
         }
 
         var found = await store.SearchAsync(storeQuery, ct);
+
+        // The index catches up with deletes and permission changes asynchronously; the page shown is checked against the
+        // items as they are now (bounded by the page size, never the caller's whole readable set).
+        var itemHits = found.Hits.Where(h => h.SourceType == ItemSourceType).Select(h => h.Id).ToList();
+        var readableItems = itemHits.Count == 0 ? null : await access.FilterReadableAsync(itemHits, ct);
+        var visible = readableItems is null ? found.Hits : [.. found.Hits.Where(h => h.SourceType != ItemSourceType || readableItems.Contains(h.Id))];
         var tokens = query?.PositiveTokens.ToList() ?? [];
-        var hits = found.Hits.Select(h => new SearchHit(h.Id, h.SourceType, h.WorkspaceId, h.ContainerId, h.ContentTypeId, h.Title,
+        var hits = visible.Select(h => new SearchHit(h.Id, h.SourceType, h.WorkspaceId, h.ContainerId, h.ContentTypeId, h.Title,
             Snippet(h.Text ?? string.Empty, tokens), h.Rank, h.CreatedBy, h.UpdatedAt)
         {
             Page = h.Page,
             MatchedBy = h.MatchedBy,
         }).ToList();
         var facets = found.Facets ?? (request.WithFacets ? NoFacets : null);
-        return (new SearchResult(hits, found.Count, facets, mode), null, null);
+        return (new SearchResult(hits, Math.Max(0, found.Count - (found.Hits.Count - visible.Count)), facets, mode), null, null);
     }
 
     /// <summary>The filters of the request, trimmed to the scopes the caller can read in the whole tenant (ADR-0035).</summary>
@@ -132,7 +141,6 @@ internal sealed class SearchService(
 
         return new StoreFilter(readable)
         {
-            ReadableItems = await access.GetReadableItemIdsAsync(request.WorkspaceId, ct),
             ExcludedContainers = await db.ContainerPolicies.AsNoTracking().Where(p => !p.Included).Select(p => p.Id).ToArrayAsync(ct),
             WorkspaceId = request.WorkspaceId,
             ContainerId = request.ContainerId,

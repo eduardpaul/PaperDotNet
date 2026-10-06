@@ -39,10 +39,10 @@ public sealed class NotificationsModule : IModule
     {
         services.AddWorkflowActivity<ChangeNotifier>();
         services.AddWorkflow(ItemChangeWorkflows.Create("notifications.queueChanges", "Queue change notifications", "Queues authenticated API change notifications.", "notifications.queueChanges",
-            WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted));
+            [WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted], includeFolders: true));
         services.AddWorkflowActivity<AlertSubscriber>();
         services.AddWorkflow(ItemChangeWorkflows.Create("notifications.alertFollowers", "Notify followers", "Notifies item and list followers of saved changes.", "notifications.alertFollowers",
-            WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted));
+            [WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted]));
         services.AddModuleDbContext<NotificationsDbContext>(NotificationsDbContext.Schema);
         services.AddScoped<IItemMoveParticipant, NotificationsItemMoveParticipant>();
         services.AddOptions<NotificationsOptions>().BindConfiguration(NotificationsOptions.Section);

@@ -1,4 +1,3 @@
-import { SearchSettings } from '@/features/search/search-settings';
 import type { BuiltInWorkflowResponse, DuplicatePolicy } from '@paperdotnet/client';
 import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -31,7 +30,6 @@ function Documents() {
   return (
     <div className="flex flex-col gap-6">
       <DocumentSettings />
-      <SearchSettings workspaceId={workspaceId} listId={listId} />
       <LibraryWorkflows workspaceId={workspaceId} listId={listId} />
     </div>
   );

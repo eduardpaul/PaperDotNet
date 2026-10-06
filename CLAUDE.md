@@ -87,7 +87,8 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
 - Events: changing or rejecting an item write → `IItemMutator` (Lists.Contracts, before
   the save). Product reactions to saved item changes → registered workflow activities
   and built-in workflows, using `ItemChangeActivity` / `ItemChangeWorkflows.Create`
-  for original item-event context. Integration events and subscribers transport
+  for original item-event context (required system workflows; `contentType` filters keep
+  them off other lists). Integration events and subscribers transport
   triggers; publish atomically through `IOutbox.SaveChangesAsync`. Activities must
   be idempotent. Only `PaperDotNet.Messaging` references Wolverine. Purge cleanup,
   retention and durable delivery remain infrastructure subscribers/jobs.
@@ -97,9 +98,9 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   permissions); workspace roles are principals (`WorkspaceRolePrincipals`). Caches of what a user
   may access carry `AccessCacheTags.Principals`; a `HybridCache` factory that queries tenant data
   must be called with `CancellationToken.None` (with a cancellable token it runs without the tenant).
-- Searchable content → expose source data through `ISearchItemSource` and versioned
+- Searchable content → expose source data through `ISearchItemSource` (with cheap stamps) and versioned
   text through `IItemTextSource`; request indexing with `IListItemStore.ReindexAsync`
-  (workflow transport). `search.*` activities stage, publish and embed prepared
+  (workflow transport; trigger names in `SearchTriggers`). `search.*` activities stage, publish and embed prepared
   chunks through `ISearchStore`; producers never write a search backend. Query-time
   ACL and list-inclusion filters are mandatory, independent of async removal.
   AI providers remain optional (`IEmbeddingGenerator`, Microsoft.Extensions.AI).
@@ -139,7 +140,10 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   turned on per library); the engine only runs workflows. Workflows follow each other by events: `wf.{key}.completed`,
   `wf.{key}.failed` and `event.raise` (`wf.{key}.{event}`), never by code that calls another workflow. Build workflow features
   from workflow parts (waits with JSON data, run-again activities, built-in workflows), not tables or jobs of their own
-  (e.g. batched AI: `ai.batch` waits + the "AI batch" workflow). Mapping data into lists is workflow JSON, not a new
+  (e.g. batched AI: `ai.batch` waits + the "AI batch" workflow). Product processes are
+  system built-ins (`System`/`Required`/`IncludeFolders` on `BuiltInWorkflow`: own lane, short retention,
+  item-event context only from the engine); coordinators fan out with `WorkflowRequests` (bounded, tolerant,
+  waits on `CompletionKind` triggers), never by polling or tables of their own. Mapping data into lists is workflow JSON, not a new
   action: `item.update`/`item.create` with typed single tokens (`"total": "{step:read.json.total}"`) and `forEach`, or a
   `script` node (JavaScript in a sandbox, ADR-0037; samples/receipts-package). The script API is a contract of
   `@paperdotnet/client` (`runWorkflowScript`): change it in both, with a case in `sdk/typescript/test/scripts.test.mjs`. Code that reacts to an event

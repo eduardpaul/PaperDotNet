@@ -218,15 +218,23 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
 internal sealed class ItemAccess(
     ListsDbContext db, IUserDirectory users, IWorkspaceAccess workspaces, ICurrentUser user, ITenantContext tenant, HybridCache cache) : IItemAccess
 {
-    public async Task<IReadOnlyCollection<Guid>> GetReadableItemIdsAsync(Guid? workspaceId, CancellationToken cancellationToken)
+    public async Task<IReadOnlySet<Guid>> FilterReadableAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken)
     {
-        var scopes = (await GetScopesAsync(null, cancellationToken)).Keys.ToArray();
-        var items = db.Items.AsNoTracking().Where(i => !i.IsFolder && EF.Parameter(scopes).Contains(i.ScopeId));
-        if (workspaceId is { } id)
+        if (itemIds.Count == 0)
         {
-            items = items.Where(i => db.Lists.Any(l => l.Id == i.ListId && l.WorkspaceId == id));
+            return new HashSet<Guid>();
         }
-        return await items.Select(i => i.Id).ToArrayAsync(cancellationToken);
+
+        var ids = itemIds.Distinct().ToArray();
+        var found = await db.Items.AsNoTracking().Where(i => !i.IsFolder && EF.Parameter(ids).Contains(i.Id))
+            .Select(i => new { i.Id, i.ListId, i.ScopeId }).ToListAsync(cancellationToken);
+        if (found.Count == 0)
+        {
+            return new HashSet<Guid>();
+        }
+
+        var scopes = await GetScopesAsync([.. found.Select(i => i.ListId).Distinct()], cancellationToken);
+        return found.Where(i => scopes.TryGetValue(i.ScopeId, out var level) && level >= WorkspaceAccessLevel.Read).Select(i => i.Id).ToHashSet();
     }
 
     private static readonly HybridCacheEntryOptions CacheOptions = new() { Expiration = TimeSpan.FromMinutes(1) };

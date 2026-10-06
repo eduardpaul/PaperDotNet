@@ -387,6 +387,16 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                         .HasColumnType("uuid")
                         .HasColumnName("run_id");
 
+                    b.Property<string>("Settings")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("settings");
+
+                    b.Property<string>("SourceStamp")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("source_stamp");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");

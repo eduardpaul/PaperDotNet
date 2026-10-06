@@ -46,7 +46,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         Returns: None
         """
         super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}", path_parameters)
-
+    
     async def delete(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> None:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -61,9 +61,9 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
             "XXX": ApiProblem,
         }
         if not self.request_adapter:
-            raise Exception("Http core is null")
+            raise Exception("Http core is null") 
         return await self.request_adapter.send_no_response_content_async(request_info, error_mapping)
-
+    
     async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ItemResponse]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -78,11 +78,11 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
             "XXX": ApiProblem,
         }
         if not self.request_adapter:
-            raise Exception("Http core is null")
+            raise Exception("Http core is null") 
         from ........models.item_response import ItemResponse
 
         return await self.request_adapter.send_async(request_info, ItemResponse, error_mapping)
-
+    
     async def patch(self,body: UpdateItemRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[ItemResponse]:
         """
         param body: PATCH body (documented shape; the handler reads raw JSON to tell a missing `parentId` from null): `fields`are merged (null removes a value), `parentId` moves the item (null: the list root).
@@ -101,11 +101,11 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
             "XXX": ApiProblem,
         }
         if not self.request_adapter:
-            raise Exception("Http core is null")
+            raise Exception("Http core is null") 
         from ........models.item_response import ItemResponse
 
         return await self.request_adapter.send_async(request_info, ItemResponse, error_mapping)
-
+    
     def to_delete_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -115,7 +115,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/problem+json")
         return request_info
-
+    
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
@@ -125,7 +125,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         request_info.configure(request_configuration)
         request_info.headers.try_add("Accept", "application/json")
         return request_info
-
+    
     def to_patch_request_information(self,body: UpdateItemRequest, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
         param body: PATCH body (documented shape; the handler reads raw JSON to tell a missing `parentId` from null): `fields`are merged (null removes a value), `parentId` moves the item (null: the list root).
@@ -139,7 +139,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         request_info.headers.try_add("Accept", "application/json")
         request_info.set_content_from_parsable(self.request_adapter, "application/json", body)
         return request_info
-
+    
     def with_url(self,raw_url: str) -> WithItemItemRequestBuilder:
         """
         Returns a request builder with the provided arbitrary URL. Using this method means any other path or query parameters are ignored.
@@ -149,7 +149,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         if raw_url is None:
             raise TypeError("raw_url cannot be null.")
         return WithItemItemRequestBuilder(self.request_adapter, raw_url)
-
+    
     @property
     def activity(self) -> ActivityRequestBuilder:
         """
@@ -158,7 +158,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .activity.activity_request_builder import ActivityRequestBuilder
 
         return ActivityRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def backlinks(self) -> BacklinksRequestBuilder:
         """
@@ -167,7 +167,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .backlinks.backlinks_request_builder import BacklinksRequestBuilder
 
         return BacklinksRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def calendar_source(self) -> CalendarSourceRequestBuilder:
         """
@@ -176,7 +176,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .calendar_source.calendar_source_request_builder import CalendarSourceRequestBuilder
 
         return CalendarSourceRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def checklist(self) -> ChecklistRequestBuilder:
         """
@@ -185,7 +185,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .checklist.checklist_request_builder import ChecklistRequestBuilder
 
         return ChecklistRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def children(self) -> ChildrenRequestBuilder:
         """
@@ -194,7 +194,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .children.children_request_builder import ChildrenRequestBuilder
 
         return ChildrenRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def comments(self) -> CommentsRequestBuilder:
         """
@@ -203,7 +203,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .comments.comments_request_builder import CommentsRequestBuilder
 
         return CommentsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def file(self) -> FileRequestBuilder:
         """
@@ -212,7 +212,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .file.file_request_builder import FileRequestBuilder
 
         return FileRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def links(self) -> LinksRequestBuilder:
         """
@@ -221,7 +221,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .links.links_request_builder import LinksRequestBuilder
 
         return LinksRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def note_links(self) -> NoteLinksRequestBuilder:
         """
@@ -230,7 +230,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .note_links.note_links_request_builder import NoteLinksRequestBuilder
 
         return NoteLinksRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def permissions(self) -> PermissionsRequestBuilder:
         """
@@ -239,7 +239,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .permissions.permissions_request_builder import PermissionsRequestBuilder
 
         return PermissionsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def recurrence(self) -> RecurrenceRequestBuilder:
         """
@@ -248,7 +248,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .recurrence.recurrence_request_builder import RecurrenceRequestBuilder
 
         return RecurrenceRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def search_index(self) -> SearchIndexRequestBuilder:
         """
@@ -257,7 +257,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .search_index.search_index_request_builder import SearchIndexRequestBuilder
 
         return SearchIndexRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def series(self) -> SeriesRequestBuilder:
         """
@@ -266,7 +266,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .series.series_request_builder import SeriesRequestBuilder
 
         return SeriesRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def tasks(self) -> TasksRequestBuilder:
         """
@@ -275,7 +275,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .tasks.tasks_request_builder import TasksRequestBuilder
 
         return TasksRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def versions(self) -> VersionsRequestBuilder:
         """
@@ -284,7 +284,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .versions.versions_request_builder import VersionsRequestBuilder
 
         return VersionsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @property
     def workflows(self) -> WorkflowsRequestBuilder:
         """
@@ -293,26 +293,26 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .workflows.workflows_request_builder import WorkflowsRequestBuilder
 
         return WorkflowsRequestBuilder(self.request_adapter, self.path_parameters)
-
+    
     @dataclass
     class WithItemItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """
         warn("This class is deprecated. Please use the generic RequestConfiguration class generated by the generator.", DeprecationWarning)
-
+    
     @dataclass
     class WithItemItemRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """
         warn("This class is deprecated. Please use the generic RequestConfiguration class generated by the generator.", DeprecationWarning)
-
+    
     @dataclass
     class WithItemItemRequestBuilderPatchRequestConfiguration(RequestConfiguration[QueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """
         warn("This class is deprecated. Please use the generic RequestConfiguration class generated by the generator.", DeprecationWarning)
-
+    
 

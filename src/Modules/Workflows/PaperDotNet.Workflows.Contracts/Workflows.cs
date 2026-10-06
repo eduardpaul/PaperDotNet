@@ -243,7 +243,11 @@ public sealed record WorkflowTriggerDefinition(string Key, string Description)
     /// <summary>Explicit system requests may launch opted-in built-ins while automatic execution is disabled.</summary>
     public bool AllowDisabledBuiltIns { get; init; }
 
-    /// <summary>Completes a bookmark of this kind, keyed by the request event ID, when its runs end.</summary>
+    /// <summary>
+    /// Completes a bookmark of this kind, keyed by the request event ID, once every run the request started has ended
+    /// (payload: <c>status</c> <c>completed</c>, <c>failed</c>, <c>cancelled</c> or <c>none</c> when nothing matched, and
+    /// <c>runs</c>). Only these triggers publish <see cref="WorkflowRunFinished"/>, so other runs pay nothing for it.
+    /// </summary>
     public string? CompletionKind { get; init; }
 }
 
@@ -299,6 +303,24 @@ public sealed record BuiltInWorkflow(string Key, string Name, string Description
 
     /// <summary>People can launch this built-in manually even when automatic runs are off in their library.</summary>
     public bool AllowManualLaunch { get; init; }
+
+    /// <summary>
+    /// A product process (search indexing, the activity timeline, notifications) rather than a template people adapt. Its
+    /// runs are visible and retryable like any other, but cheap: they react to item events at any causation depth (the
+    /// activities protect themselves against loops), execute in the system lane so they never wait behind people's
+    /// workflows, are kept only <c>Workflows:SystemRunRetentionDays</c> after they succeed, and the workflow is not exported
+    /// with templates.
+    /// </summary>
+    public bool System { get; init; }
+
+    /// <summary>A system workflow the product depends on (e.g. change notifications promised to API subscribers): always on.</summary>
+    public bool Required { get; init; }
+
+    /// <summary>Item events of folders start it too (by default, folders start no workflow).</summary>
+    public bool IncludeFolders { get; init; }
+
+    /// <summary>Whether it is a system workflow (<see cref="System"/> or <see cref="Required"/>).</summary>
+    public bool IsSystem => System || Required;
 }
 
 public enum BuiltInScope

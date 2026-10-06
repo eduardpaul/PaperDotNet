@@ -395,7 +395,7 @@ internal sealed class ActionExecutor(ActionCatalog catalog, TokenExpander tokens
             return await found.ExecuteAsync(new WorkflowActivityContext
             {
                 WorkspaceId = workspaceId,
-                ItemChange = ItemChangeWorkflows.ReadEvent(data),
+                ItemChange = ItemChangeWorkflows.ReadEvent(executionContext) is { } change && change.ItemId == item?.ItemId ? change : null,
                 Item = item,
                 Inputs = (action.Inputs ?? []).DeepClone().AsObject(),
                 Services = services,

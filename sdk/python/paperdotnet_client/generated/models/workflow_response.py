@@ -48,10 +48,14 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
     name: Optional[str] = None
     # The ETag for `If-Match` on changes (the same as the `ETag` header).
     odata_etag: Optional[str] = None
+    # A system workflow the product depends on: it cannot be turned off.
+    required: Optional[bool] = None
     # The scope property
     scope: Optional[str] = None
     # The steps property
     steps: Optional[list[WorkflowStep]] = None
+    # A built-in product process (indexing, timeline, notifications): cheap runs, kept briefly when they succeed.
+    system: Optional[bool] = None
     # The trigger property
     trigger: Optional[WorkflowTrigger] = None
     # The triggers property
@@ -106,8 +110,10 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
             "listId": lambda n : setattr(self, 'list_id', n.get_uuid_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
+            "required": lambda n : setattr(self, 'required', n.get_bool_value()),
             "scope": lambda n : setattr(self, 'scope', n.get_str_value()),
             "steps": lambda n : setattr(self, 'steps', n.get_collection_of_object_values(WorkflowStep)),
+            "system": lambda n : setattr(self, 'system', n.get_bool_value()),
             "trigger": lambda n : setattr(self, 'trigger', n.get_object_value(WorkflowTrigger)),
             "triggers": lambda n : setattr(self, 'triggers', n.get_collection_of_object_values(WorkflowTrigger)),
             "updatedAt": lambda n : setattr(self, 'updated_at', n.get_datetime_value()),
@@ -139,8 +145,10 @@ class WorkflowResponse(AdditionalDataHolder, Parsable):
         writer.write_uuid_value("listId", self.list_id)
         writer.write_str_value("name", self.name)
         writer.write_str_value("@odata.etag", self.odata_etag)
+        writer.write_bool_value("required", self.required)
         writer.write_str_value("scope", self.scope)
         writer.write_collection_of_object_values("steps", self.steps)
+        writer.write_bool_value("system", self.system)
         writer.write_object_value("trigger", self.trigger)
         writer.write_collection_of_object_values("triggers", self.triggers)
         writer.write_datetime_value("updatedAt", self.updated_at)

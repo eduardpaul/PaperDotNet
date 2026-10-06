@@ -33,7 +33,7 @@ public sealed class NotesModule : IModule
     {
         services.AddWorkflowActivity<NoteLinkIndexer>();
         services.AddWorkflow(ItemChangeWorkflows.Create("notes.links", "Update note links", "Updates wiki links and backlinks after a note changes.", "notes.links",
-            WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted, WorkflowTriggers.ItemRestored));
+            [WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted, WorkflowTriggers.ItemRestored], NoteTemplates.ContentTypeKey));
         services.AddModuleDbContext<NotesDbContext>(NotesDbContext.Schema);
         services.AddScoped<IItemMoveParticipant, NotesItemMoveParticipant>();
         services.AddSingleton(NoteTemplates.ContentType);

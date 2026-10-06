@@ -40,6 +40,12 @@ public sealed record WorkflowResponse(
     /// <summary>The ETag for <c>If-Match</c> on changes (the same as the <c>ETag</c> header).</summary>
     [System.Text.Json.Serialization.JsonPropertyName("@odata.etag")]
     public string? ETag { get; init; }
+
+    /// <summary>A built-in product process (indexing, timeline, notifications): cheap runs, kept briefly when they succeed.</summary>
+    public bool System { get; init; }
+
+    /// <summary>A system workflow the product depends on: it cannot be turned off.</summary>
+    public bool Required { get; init; }
 }
 
 /// <summary>
@@ -48,7 +54,8 @@ public sealed record WorkflowResponse(
 /// </summary>
 public sealed record BuiltInWorkflowResponse(
     string Key, string Name, string Description, JsonObject? Parameters, string? Requires, bool Available, bool Enabled, Guid? WorkflowId, JsonObject? Values,
-    BuiltInScope Scope = BuiltInScope.Workspace, bool EnabledByDefault = false, bool AllowManualLaunch = false, JsonObject? InputSchema = null)
+    BuiltInScope Scope = BuiltInScope.Workspace, bool EnabledByDefault = false, bool AllowManualLaunch = false, JsonObject? InputSchema = null,
+    bool System = false, bool Required = false)
 {
     /// <summary>
     /// Once it was turned on in the workspace: the ETag for <c>If-Match</c> on changes (the workflow's; the same as the
@@ -147,7 +154,7 @@ internal static class WorkflowEndpoints
     // ---- Workflows ----------------------------------------------------------------
 
     private static async Task<Results<Ok<List<WorkflowResponse>>, ProblemHttpResult>> ListAsync(
-        Guid workspaceId, IWorkspaceAccess workspaces, WorkflowsDbContext db, CancellationToken ct)
+        Guid workspaceId, IWorkspaceAccess workspaces, WorkflowsDbContext db, BuiltInWorkflows builtIns, CancellationToken ct)
     {
         if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Read, ct) is { } denied)
         {
@@ -158,7 +165,8 @@ internal static class WorkflowEndpoints
             .Join(db.Versions, w => new { WorkflowId = w.Id, Number = w.CurrentVersion }, v => new { v.WorkflowId, v.Number },
                 (workflow, version) => new { Workflow = workflow, Version = version })
             .OrderBy(row => row.Workflow.Name).ToListAsync(ct);
-        return TypedResults.Ok(workflows.Select(row => ToResponse(row.Workflow, row.Version)).ToList());
+        var offered = (await builtIns.ListAsync(ct)).ToDictionary(w => w.Key);
+        return TypedResults.Ok(workflows.Select(row => ToResponse(row.Workflow, row.Version, row.Workflow.BuiltInKey is { } key ? offered.GetValueOrDefault(key) : null)).ToList());
     }
 
     private static async Task<Results<Ok<WorkflowResponse>, ProblemHttpResult>> GetAsync(
@@ -275,7 +283,7 @@ internal static class WorkflowEndpoints
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteAsync(
-        Guid workspaceId, Guid id, IWorkspaceAccess workspaces, WorkflowsDbContext db, CancellationToken ct)
+        Guid workspaceId, Guid id, IWorkspaceAccess workspaces, WorkflowsDbContext db, BuiltInWorkflows builtIns, CancellationToken ct)
     {
         if (await AccessAsync(workspaces, workspaceId, WorkspaceAccessLevel.Manage, ct) is { } denied)
         {
@@ -286,6 +294,11 @@ internal static class WorkflowEndpoints
         if (workflow is null)
         {
             return ApiErrors.NotFound();
+        }
+
+        if (workflow.BuiltInKey is { } key && (await builtIns.FindAsync(key, ct))?.IsSystem == true)
+        {
+            return ApiErrors.Conflict("systemWorkflow", "A system workflow belongs to the product and cannot be deleted; turn off its automatic runs instead, where allowed.");
         }
 
         if (await db.Runs.AnyAsync(r => r.WorkflowId == id && (r.Status == RunStatus.Running || r.Status == RunStatus.Waiting), ct))
@@ -339,13 +352,13 @@ internal static class WorkflowEndpoints
         return ToResponse(workflow, version);
     }
 
-    private static WorkflowResponse ToResponse(WorkflowDefinition workflow, WorkflowVersion version)
+    private static WorkflowResponse ToResponse(WorkflowDefinition workflow, WorkflowVersion version, BuiltInWorkflow? builtIn = null)
     {
         var spec = DefinitionJson.Deserialize<WorkflowSpec>(version.Definition);
-        return new WorkflowResponse(workflow.Id, workflow.WorkspaceId, workflow.Name, workflow.Description, workflow.Enabled,
+        return new WorkflowResponse(workflow.Id, workflow.WorkspaceId, workflow.Name, workflow.Description, workflow.Enabled || builtIn?.Required == true,
             workflow.CurrentVersion, spec.Trigger, spec.Condition, spec.Steps, workflow.CreatedAt, workflow.UpdatedAt, spec.Flow, spec.Variables,
             workflow.BuiltInKey, workflow.CopiedFrom, spec.Concurrency, spec.Triggers, workflow.EventKey, workflow.ListId, spec.Scope, spec.InputSchema)
-        { ETag = ETags.From(workflow.Version) };
+        { ETag = ETags.From(workflow.Version), System = builtIn?.IsSystem == true, Required = builtIn?.Required == true };
     }
 
     // ---- Built-in workflows ---------------------------------------------------------
@@ -526,7 +539,8 @@ internal static class WorkflowEndpoints
         var spec = workflow.AllowManualLaunch ? BuiltInWorkflows.Resolve(workflow, BuiltInWorkflows.Values(row), listName).Spec : null;
         var inputSchema = spec?.InputSchema ?? spec?.AllTriggers.FirstOrDefault(t => t.Type == WorkflowTriggers.Manual)?.Inputs;
         return new(workflow.Key, workflow.Name, workflow.Description, workflow.Parameters?.DeepClone().AsObject(), workflow.Requires, builtIns.IsAvailable(workflow),
-            row?.Enabled == true, row?.Id, BuiltInWorkflows.Values(row), workflow.Scope, workflow.EnabledByDefault, workflow.AllowManualLaunch, inputSchema)
+            row?.Enabled == true || (workflow.Required && builtIns.IsAvailable(workflow)), row?.Id, BuiltInWorkflows.Values(row), workflow.Scope,
+            workflow.EnabledByDefault, workflow.AllowManualLaunch, inputSchema, workflow.IsSystem, workflow.Required)
         { ETag = row is null ? null : ETags.From(row.Version) };
     }
 
@@ -707,6 +721,9 @@ internal static class WorkflowEndpoints
     }
 
     /// <summary>Runs in the workspace, newest first; filter by <c>workflowId</c>, <c>itemId</c> or <c>status</c>.</summary>
+    /// <summary>Most reads one page of runs makes while leaving out runs on items the caller cannot read.</summary>
+    private const int MaxRunPageBatches = 10;
+
     private static async Task<Results<Ok<Page<RunResponse>>, ValidationProblem, ProblemHttpResult>> ListRunsAsync(
         Guid workspaceId, Guid? workflowId, Guid? itemId, string? status, IWorkspaceAccess workspaces, WorkflowsDbContext db, HttpRequest http, IItemAccess itemAccess,
         CancellationToken ct)
@@ -722,19 +739,40 @@ internal static class WorkflowEndpoints
         }
 
         var page = PageRequest.From(http);
-        var readable = (await itemAccess.GetReadableItemIdsAsync(workspaceId, ct)).ToArray();
         var canManage = await workspaces.GetPermissionAsync(workspaceId, ct) >= WorkspaceAccessLevel.Manage;
-        var query = db.Runs.AsNoTracking().Where(r => r.WorkspaceId == workspaceId && (canManage || r.ItemId == null || EF.Parameter(readable).Contains(r.ItemId.Value)));
+        var query = db.Runs.AsNoTracking().Where(r => r.WorkspaceId == workspaceId);
         query = itemId is { } item ? query.Where(r => r.ItemId == item) : query;
         query = workflowId is { } workflow ? query.Where(r => r.WorkflowId == workflow) : query;
         query = statusFilter is { } wanted ? query.Where(r => r.Status == wanted) : query;
-        if (page.After is { } after)
+
+        // Below Manage, runs on items the caller cannot read are left out: each page is checked against the items as they
+        // are now (bounded by the page, never the caller's whole readable set), reading on while rows were left out.
+        var runs = new List<WorkflowRun>();
+        var cursor = page.After;
+        for (var batch = 0; runs.Count <= page.Top && batch < MaxRunPageBatches; batch++)
         {
-            query = query.Where(r => r.Id.CompareTo(after) < 0);
+            var next = cursor is { } after ? query.Where(r => r.Id.CompareTo(after) < 0) : query;
+            var chunk = await next.OrderByDescending(r => r.Id).Take(page.Top + 1).ToListAsync(ct);
+            if (chunk.Count == 0)
+            {
+                break;
+            }
+
+            cursor = chunk[^1].Id;
+            if (!canManage)
+            {
+                var readable = await itemAccess.FilterReadableAsync([.. chunk.Where(r => r.ItemId is not null).Select(r => r.ItemId!.Value)], ct);
+                chunk = [.. chunk.Where(r => r.ItemId is not { } target || readable.Contains(target))];
+            }
+
+            runs.AddRange(chunk);
+            if (canManage)
+            {
+                break;
+            }
         }
 
-        var runs = await query.OrderByDescending(r => r.Id).Take(page.Top + 1).ToListAsync(ct);
-        var result = await ToResponsesAsync(db, runs, ct);
+        var result = await ToResponsesAsync(db, [.. runs.Take(page.Top + 1)], ct);
 
         return TypedResults.Ok(Page.Create(result, page, http, r => r.Id));
     }

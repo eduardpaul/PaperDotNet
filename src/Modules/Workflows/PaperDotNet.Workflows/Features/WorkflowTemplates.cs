@@ -40,10 +40,17 @@ internal class WorkflowTemplateHandler(
 
         var section = new XElement(Element);
         var lists = (await items.AsSystem().GetListsAsync(context.WorkspaceId!.Value, null, cancellationToken)).ToDictionary(l => l.Id, l => l.Name);
+        // Required system workflows are part of the product, not of the workspace's configuration: every target has them.
+        var required = (await builtIns.ListAsync(cancellationToken)).Where(w => w.Required).Select(w => w.Key).ToHashSet(StringComparer.Ordinal);
         foreach (var workflow in workflows)
         {
             if (workflow.BuiltInKey is { } key)
             {
+                if (required.Contains(key))
+                {
+                    continue;
+                }
+
                 if (workflow.ListId is { } listId && !lists.ContainsKey(listId))
                 {
                     continue; // Its library is gone.

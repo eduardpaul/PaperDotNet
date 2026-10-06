@@ -507,6 +507,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                         .HasColumnType("uuid")
                         .HasColumnName("step_execution_id");
 
+                    b.Property<bool>("System")
+                        .HasColumnType("boolean")
+                        .HasColumnName("system");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");

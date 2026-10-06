@@ -9,6 +9,8 @@ import { listBuilder } from '@/features/lists/queries';
 import { workspaceBuilder, workspaceQuery } from '@/features/workspaces/queries';
 import { problemMessage } from '@/lib/errors';
 
+const busy = new Set(['running', 'waiting']);
+
 const labels: Record<string, string> = {
   excluded: 'Excluded',
   notIndexed: 'Not indexed',
@@ -32,12 +34,13 @@ export function ItemWorkflows({
 }) {
   const queryClient = useQueryClient();
   const { data: workspace } = useQuery(workspaceQuery(workspaceId));
+  // Quickly while indexing is going, slowly otherwise (automatic runs start in the background after a change).
   const { data: status, isError } = useQuery({
     queryKey: keys.searchIndex(workspaceId, listId, itemId),
     queryFn: () => listBuilder(workspaceId, listId).items.byItemId(itemId).searchIndex.get(),
-    refetchInterval: 2000,
+    refetchInterval: (query) => (busy.has(query.state.data?.state ?? '') ? 2000 : 15000),
   });
-  const { data: runs } = useQuery({ ...documentRunsQuery(workspaceId, listId, itemId), refetchInterval: 2000 });
+  const { data: runs } = useQuery(documentRunsQuery(workspaceId, listId, itemId));
   const refresh = () => queryClient.invalidateQueries({ queryKey: keys.item(workspaceId, listId, itemId) });
   const index = useMutation({
     mutationFn: () =>

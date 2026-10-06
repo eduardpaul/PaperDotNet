@@ -52,7 +52,9 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Search
                     published_at = table.Column<long>(type: "INTEGER", nullable: true),
                     chunks = table.Column<int>(type: "INTEGER", nullable: false),
                     truncated = table.Column<bool>(type: "INTEGER", nullable: false),
-                    embedding_model = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true)
+                    embedding_model = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
+                    source_stamp = table.Column<string>(type: "TEXT", maxLength: 300, nullable: true),
+                    settings = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true)
                 },
                 constraints: table =>
                 {

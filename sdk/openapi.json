@@ -17907,6 +17907,14 @@
               }
             ]
           },
+          "system": {
+            "type": "boolean",
+            "default": false
+          },
+          "required": {
+            "type": "boolean",
+            "default": false
+          },
           "@odata.etag": {
             "type": [
               "null",
@@ -24759,6 +24767,14 @@
               "string"
             ],
             "description": "The ETag for \u0060If-Match\u0060 on changes (the same as the \u0060ETag\u0060 header)."
+          },
+          "system": {
+            "type": "boolean",
+            "description": "A built-in product process (indexing, timeline, notifications): cheap runs, kept briefly when they succeed."
+          },
+          "required": {
+            "type": "boolean",
+            "description": "A system workflow the product depends on: it cannot be turned off."
           }
         },
         "description": "A workflow with the definition of its current \u0060version\u0060 (runs keep the version they started with): its \u0060trigger\u0060 or \u0060triggers\u0060 (as it was defined), \u0060steps\u0060 or a \u0060flow\u0060, the initial \u0060variables\u0060, and \u0060concurrency\u0060 (runs on the same item: \u0060parallel\u0060, \u0060skip\u0060 or \u0060replace\u0060)."

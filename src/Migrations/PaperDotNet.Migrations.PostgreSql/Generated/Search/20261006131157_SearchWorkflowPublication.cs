@@ -55,7 +55,9 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                     published_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     chunks = table.Column<int>(type: "integer", nullable: false),
                     truncated = table.Column<bool>(type: "boolean", nullable: false),
-                    embedding_model = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true)
+                    embedding_model = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    source_stamp = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: true),
+                    settings = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
                 },
                 constraints: table =>
                 {

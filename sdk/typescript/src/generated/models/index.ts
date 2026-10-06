@@ -536,6 +536,10 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      */
     parameters?: JsonObject | null;
     /**
+     * The required property
+     */
+    required?: boolean | null;
+    /**
      * The requires property
      */
     requires?: string | null;
@@ -543,6 +547,10 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      * The scope property
      */
     scope?: BuiltInScope | null;
+    /**
+     * The system property
+     */
+    system?: boolean | null;
     /**
      * The values property
      */
@@ -3770,8 +3778,10 @@ export function deserializeIntoBuiltInWorkflowResponse(builtInWorkflowResponse: 
         "name": n => { builtInWorkflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { builtInWorkflowResponse.odataEtag = n.getStringValue(); },
         "parameters": n => { builtInWorkflowResponse.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "required": n => { builtInWorkflowResponse.required = n.getBooleanValue() ?? false; },
         "requires": n => { builtInWorkflowResponse.requires = n.getStringValue(); },
         "scope": n => { builtInWorkflowResponse.scope = n.getEnumValue<BuiltInScope>(BuiltInScopeObject) ?? BuiltInScopeObject.Workspace; },
+        "system": n => { builtInWorkflowResponse.system = n.getBooleanValue() ?? false; },
         "values": n => { builtInWorkflowResponse.values = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "workflowId": n => { builtInWorkflowResponse.workflowId = n.getGuidValue(); },
     }
@@ -6554,8 +6564,10 @@ export function deserializeIntoWorkflowResponse(workflowResponse: Partial<Workfl
         "listId": n => { workflowResponse.listId = n.getGuidValue(); },
         "name": n => { workflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { workflowResponse.odataEtag = n.getStringValue(); },
+        "required": n => { workflowResponse.required = n.getBooleanValue(); },
         "scope": n => { workflowResponse.scope = n.getStringValue(); },
         "steps": n => { workflowResponse.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
+        "system": n => { workflowResponse.system = n.getBooleanValue(); },
         "trigger": n => { workflowResponse.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
         "triggers": n => { workflowResponse.triggers = n.getCollectionOfObjectValues<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
         "updatedAt": n => { workflowResponse.updatedAt = n.getDateValue(); },
@@ -9415,8 +9427,10 @@ export function serializeBuiltInWorkflowResponse(writer: SerializationWriter, bu
     writer.writeStringValue("name", builtInWorkflowResponse.name);
     writer.writeStringValue("@odata.etag", builtInWorkflowResponse.odataEtag);
     writer.writeObjectValue<JsonObject>("parameters", builtInWorkflowResponse.parameters, serializeJsonObject);
+    writer.writeBooleanValue("required", builtInWorkflowResponse.required ?? false);
     writer.writeStringValue("requires", builtInWorkflowResponse.requires);
     writer.writeEnumValue<BuiltInScope>("scope", builtInWorkflowResponse.scope ?? BuiltInScopeObject.Workspace);
+    writer.writeBooleanValue("system", builtInWorkflowResponse.system ?? false);
     writer.writeObjectValue<JsonObject>("values", builtInWorkflowResponse.values, serializeJsonObject);
     writer.writeGuidValue("workflowId", builtInWorkflowResponse.workflowId);
     writer.writeAdditionalData(builtInWorkflowResponse.additionalData);
@@ -12393,8 +12407,10 @@ export function serializeWorkflowResponse(writer: SerializationWriter, workflowR
     writer.writeGuidValue("listId", workflowResponse.listId);
     writer.writeStringValue("name", workflowResponse.name);
     writer.writeStringValue("@odata.etag", workflowResponse.odataEtag);
+    writer.writeBooleanValue("required", workflowResponse.required);
     writer.writeStringValue("scope", workflowResponse.scope);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowResponse.steps, serializeWorkflowStep);
+    writer.writeBooleanValue("system", workflowResponse.system);
     writer.writeObjectValue<WorkflowTrigger>("trigger", workflowResponse.trigger, serializeWorkflowTrigger);
     writer.writeCollectionOfObjectValues<WorkflowTrigger>("triggers", workflowResponse.triggers, serializeWorkflowTrigger);
     writer.writeDateValue("updatedAt", workflowResponse.updatedAt);
@@ -13509,6 +13525,10 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      */
     odataEtag?: string | null;
     /**
+     * A system workflow the product depends on: it cannot be turned off.
+     */
+    required?: boolean | null;
+    /**
      * The scope property
      */
     scope?: string | null;
@@ -13516,6 +13536,10 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      * The steps property
      */
     steps?: WorkflowStep[] | null;
+    /**
+     * A built-in product process (indexing, timeline, notifications): cheap runs, kept briefly when they succeed.
+     */
+    system?: boolean | null;
     /**
      * The trigger property
      */

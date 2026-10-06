@@ -127,6 +127,11 @@ internal sealed partial class BuiltInWorkflows(
             return (null, [$"'{workflow.Name}' works on document libraries; '{list.Name}' is a list."], false);
         }
 
+        if (!enabled && workflow.Required)
+        {
+            return (null, [$"'{workflow.Name}' is required by the product and cannot be turned off."], false);
+        }
+
         var row = await RowAsync(workspaceId, workflow.Key, ct, list?.Id);
         if (!enabled && parameters is null)
         {
@@ -255,6 +260,11 @@ internal sealed partial class BuiltInWorkflows(
     public async Task<(WorkflowDefinition? Copy, List<string> Errors, bool NameTaken)> CopyAsync(
         Guid workspaceId, BuiltInWorkflow workflow, string name, JsonObject? parameters, CancellationToken ct)
     {
+        if (workflow.Required)
+        {
+            return (null, [$"'{workflow.Name}' is required by the product; it cannot be copied and turned off."], false);
+        }
+
         var row = await RowAsync(workspaceId, workflow.Key, ct);
         var (spec, _, errors) = await CheckAsync(workspaceId, workflow, parameters ?? Values(row), ct);
         if (errors.Count > 0)

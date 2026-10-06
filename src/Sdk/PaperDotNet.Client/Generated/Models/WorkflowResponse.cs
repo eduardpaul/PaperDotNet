@@ -103,6 +103,8 @@ namespace PaperDotNet.Client.Models
 #else
         public string OdataEtag { get; set; }
 #endif
+        /// <summary>A system workflow the product depends on: it cannot be turned off.</summary>
+        public bool? Required { get; set; }
         /// <summary>The scope property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -119,6 +121,8 @@ namespace PaperDotNet.Client.Models
 #else
         public List<global::PaperDotNet.Client.Models.WorkflowStep> Steps { get; set; }
 #endif
+        /// <summary>A built-in product process (indexing, timeline, notifications): cheap runs, kept briefly when they succeed.</summary>
+        public bool? System { get; set; }
         /// <summary>The trigger property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -188,8 +192,10 @@ namespace PaperDotNet.Client.Models
                 { "listId", n => { ListId = n.GetGuidValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
+                { "required", n => { Required = n.GetBoolValue(); } },
                 { "scope", n => { Scope = n.GetStringValue(); } },
                 { "steps", n => { Steps = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>(global::PaperDotNet.Client.Models.WorkflowStep.CreateFromDiscriminatorValue)?.AsList(); } },
+                { "system", n => { System = n.GetBoolValue(); } },
                 { "trigger", n => { Trigger = n.GetObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>(global::PaperDotNet.Client.Models.WorkflowTrigger.CreateFromDiscriminatorValue); } },
                 { "triggers", n => { Triggers = n.GetCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowTrigger>(global::PaperDotNet.Client.Models.WorkflowTrigger.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "updatedAt", n => { UpdatedAt = n.GetDateTimeOffsetValue(); } },
@@ -219,8 +225,10 @@ namespace PaperDotNet.Client.Models
             writer.WriteGuidValue("listId", ListId);
             writer.WriteStringValue("name", Name);
             writer.WriteStringValue("@odata.etag", OdataEtag);
+            writer.WriteBoolValue("required", Required);
             writer.WriteStringValue("scope", Scope);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowStep>("steps", Steps);
+            writer.WriteBoolValue("system", System);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.WorkflowTrigger>("trigger", Trigger);
             writer.WriteCollectionOfObjectValues<global::PaperDotNet.Client.Models.WorkflowTrigger>("triggers", Triggers);
             writer.WriteDateTimeOffsetValue("updatedAt", UpdatedAt);

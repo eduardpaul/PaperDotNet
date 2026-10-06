@@ -91,15 +91,16 @@ public sealed class ReceiptsPackageTests(PaperDotNetApiFactory factory)
         var lists = (await (await admin.GetAsync($"/v1.0/workspaces/{ws}/lists", Ct)).ReadJsonAsync()).EnumerateArray()
             .ToDictionary(l => l.GetProperty("name").GetString()!, l => l.GetProperty("id").GetGuid());
         var workflows = (await (await admin.GetAsync($"/v1.0/workspaces/{ws}/workflows", Ct)).ReadJsonAsync()).EnumerateArray()
+            .Where(w => !w.GetProperty("system").GetBoolean())
             .ToDictionary(w => w.GetProperty("name").GetString()!, w => w.GetProperty("id").GetGuid());
-        // Besides its own, the workspace lists the library's document workflows ("… (Receipts)").
+        // Besides its own and the product's system workflows, the workspace lists the library's document workflows ("… (Receipts)").
         Assert.Equal(["AI batch", "Read receipts"], workflows.Keys.Where(k => !k.EndsWith("(Receipts)", StringComparison.Ordinal)).Order(StringComparer.Ordinal));
 
         // The library makes thumbnails and page images, but reads no text and runs no OCR.
         var receipts = $"/v1.0/workspaces/{ws}/lists/{lists["Receipts"]}";
         var libraryWorkflows = (await (await admin.GetAsync($"{receipts}/workflows/builtIns", Ct)).ReadJsonAsync()).EnumerateArray()
             .ToDictionary(w => w.GetProperty("key").GetString()!, w => w.GetProperty("enabled").GetBoolean());
-        Assert.Equal(new Dictionary<string, bool> { ["paperdotnet.storageoptimization.optimize"] = false, ["documents.ocr"] = false, ["documents.pages"] = true, ["documents.text"] = false, ["documents.thumbnail"] = true },
+        Assert.Equal(new Dictionary<string, bool> { ["paperdotnet.storageoptimization.optimize"] = false, ["documents.ocr"] = false, ["documents.pages"] = true, ["documents.text"] = false, ["documents.thumbnail"] = true, ["search.index"] = true },
             libraryWorkflows);
 
         // A receipt is uploaded (its images are made), then tagged "ticket": its reading waits for the batch.

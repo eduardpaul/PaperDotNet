@@ -1033,29 +1033,71 @@ conditions explicitly use ordinal, case-sensitive text comparisons, collection
 set semantics, and non-matches for missing or incompatible fields. Check these
 semantics when replacing an existing OData condition.
 
+## System workflows (product processes)
+
+Product processes that react to saved items run on the same engine as people's
+workflows, so their runs are visible and can be retried. Because there is one
+run per item change for each process, the engine keeps them cheap and safe:
+
+| Built-in flag | Effect |
+|---|---|
+| `System` | A product process. It still starts past the causation-depth limit (`MaxDepth` 5, a hard cap at 20) because its activities guard their own loops. It runs in its own queue (`ResumeSystemRun`), so a rebuild of thousands of items never makes people's workflows wait. Successful runs are deleted after `Workflows:SystemRunRetentionHours` (24); failures stay as long as other runs. It cannot be deleted. |
+| `Required` | A system workflow the product depends on, for example API change notifications. It is always on: it cannot be turned off, copied or deleted, a row turned off earlier still runs, and templates do not export it. |
+| `IncludeFolders` | Folder events start it too. People's workflows never see folders. |
+
+`ItemChangeWorkflows.Create(key, name, description, activity, triggers, contentType?, includeFolders?)`
+makes a required one-node reaction. A `contentType` filter means that items of
+other types create no run at all. When an item's content type changes, its old
+type also matches, so a reaction can clean up.
+
+**Item-event context.** The engine writes the item event that started a run
+into the run's execution context (`$workflowContext.itemEvent`). The snapshots
+are stored once, in the trigger data. `WorkflowActivityContext.ItemChange` is
+read only from there: only for item triggers, and only for the run's own item.
+Data that a workflow raises (`event.raise`) or that a manual start passes cannot
+forge it. Activities derive from `ItemChangeActivity` and must stay safe to
+repeat.
+
+**Completion events only when someone listens.** A finished run raises
+`wf.{key}.completed` / `failed` only if a workflow of the workspace listens to
+that event. It publishes `WorkflowRunFinished` only if its trigger reports
+completions (`CompletionKind`). A run nobody follows ends with one save and no
+messages. Explicit `event.raise` events are always raised.
+
+**Requests and coordination.** Trigger definitions can set `AllowDisabledBuiltIns`
+(explicit requests also start built-ins whose automatic runs are off, if they
+allow manual launch) and `CompletionKind`. A request's wait (kind
+`CompletionKind`, key = the request's event id) completes once every run the
+request started has ended. Its payload has `status` (`completed`, `failed`,
+`cancelled`, or `none` when nothing matched) and `runs`.
+
+`WorkflowRequests` (Workflows.Contracts) is the bounded fan-out for coordinator
+activities. It pages through a set, raises requests with ids that are
+deterministic per execution (a retry raises nothing twice), and waits for them
+with `WaitAndRunAgain`. It collects failures without stopping and yields after a
+bounded amount of work (`workflows.yield`), with all state in the wait's data.
+`IWorkflowDirectory` answers coordinators: `GetCompletionAsync`,
+`IsBuiltInEnabledAsync`, `GetBuiltInParametersAsync`, `GetLatestRunAsync(builtInKey)`.
+`YieldAsync` completes its own wait first, so the run continues at once, behind
+the messages already queued. A trigger without an item (for example a schedule)
+that sets `"concurrency": "skip"` starts no run while one of the workflow is
+still going, so long sweeps never overlap.
+
 ## Saved item processing
 
-Product reactions to item add/update/delete/restore run through the shared engine.
-Search registers `search.chunk`, `search.publish`, `search.embed`, `search.remove`,
-`search.container` and `search.rebuild`. Its per-list **Index for search** built-in
-supports manual launch while automatic execution is disabled. Source text is read
-through its owner contracts, and stores persist prepared chunks. See [search.md](search.md).
+Search registers `search.chunk`, `search.publish`, `search.embed`,
+`search.remove`, `search.scopes`, `search.container` and `search.rebuild`. Its
+per-list **Index for search** is a system workflow that people can launch by
+hand while its automatic runs are off. Steps with nothing to do end at their
+`skipped` port, which leads to an `end` node, so they are not failures: the list
+is excluded, the item is gone, or a newer change superseded the step. See
+[search.md](search.md).
 
 Note links, item activity, follower alerts, change notification queueing, task
-completion announcements and recurring task creation are enabled workspace
-built-ins. Their activities use `ItemChangeActivity` to access the original
-`ItemEvent` in `WorkflowActivityContext.ItemChange`. `ItemChangeWorkflows.Create`
-provides a reusable one-node definition; no source event is reconstructed from
-mutable current fields. Each implementation must remain safe to replay.
+completion announcements, recurring task creation, search removal, search
+permission updates and library search maintenance are required system workflows.
+The note and task reactions filter by content type in their triggers.
 
-`BuiltInScope.List` offers a built-in on ordinary lists as well as libraries;
+`BuiltInScope.List` offers a built-in on ordinary lists as well as libraries.
 `BuiltInScope.Library` remains restricted to document libraries. Defaults are
-provisioned before an event is matched; explicit on/off choices are preserved.
-
-Registered trigger definitions can opt into `AllowDisabledBuiltIns` for explicit
-requests. This only starts built-ins with `AllowManualLaunch`, preserving disabled
-user workflows. `CompletionKind` connects a run's completion to a durable bookmark
-whose key is the request event ID. Success, failure and cancellation emit
-`WorkflowRunFinished`; early completions are retained by the shared bookmark
-infrastructure. Rebuild coordinators can wait and run again using bounded state
-without polling inside an activity or storing content in workflow outputs.
+provisioned before an event is matched, and explicit on/off choices are kept.

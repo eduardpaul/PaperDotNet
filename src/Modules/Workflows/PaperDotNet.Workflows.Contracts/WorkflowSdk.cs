@@ -86,12 +86,24 @@ public sealed record WorkflowOpenWait(string Key, Guid RunId, JsonObject? Data, 
 /// <summary>What the engine knows about workflows, for activities that work across runs (e.g. a batch).</summary>
 public interface IWorkflowDirectory
 {
+    /// <summary>
+    /// Whether the built-in workflow runs automatically there (per list for list built-ins): its row is on, or it has no row
+    /// yet and is on by default. Required ones always are.
+    /// </summary>
     Task<bool> IsBuiltInEnabledAsync(Guid workspaceId, string key, Guid? listId, CancellationToken cancellationToken) => Task.FromResult(false);
-    /// <summary>Executions caused by a durable trigger request, for coordinating parent workflow waits.</summary>
-    Task<IReadOnlyList<WorkflowRunInfo>> GetEventRunsAsync(Guid eventId, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<WorkflowRunInfo>>([]);
-    /// <summary>Latest execution of an activity for an item, without exposing the engine's database.</summary>
-    Task<WorkflowRunInfo?> GetLatestRunAsync(Guid workspaceId, Guid itemId, string activityKey, CancellationToken cancellationToken) =>
+
+    /// <summary>The parameter values a built-in workflow has there (the defaults filled in), or null when it is unavailable.</summary>
+    Task<JsonObject?> GetBuiltInParametersAsync(Guid workspaceId, string key, Guid? listId, CancellationToken cancellationToken) =>
+        Task.FromResult<JsonObject?>(null);
+
+    /// <summary>Whether a trigger raised as <paramref name="requestId"/> started any run (yet).</summary>
+    Task<bool> HasRequestRunsAsync(Guid requestId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+    /// <summary>The payload a completed wait was completed with (<c>{}</c> without one), or null while it is open or unknown.</summary>
+    Task<JsonObject?> GetCompletionAsync(string kind, string key, CancellationToken cancellationToken) => Task.FromResult<JsonObject?>(null);
+
+    /// <summary>The latest run of a built-in workflow on an item, without exposing the engine's database.</summary>
+    Task<WorkflowRunInfo?> GetLatestRunAsync(Guid workspaceId, Guid itemId, string builtInKey, CancellationToken cancellationToken) =>
         Task.FromResult<WorkflowRunInfo?>(null);
     /// <summary>
     /// Enables a registered workspace built-in workflow with its existing/default parameters.

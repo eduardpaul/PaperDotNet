@@ -21,10 +21,14 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
     allow_manual_launch: Optional[bool] = False
     # The enabledByDefault property
     enabled_by_default: Optional[bool] = False
+    # The required property
+    required: Optional[bool] = False
     from .built_in_scope import BuiltInScope
 
     # The scope property
     scope: Optional[BuiltInScope] = BuiltInScope("workspace")
+    # The system property
+    system: Optional[bool] = False
     # The available property
     available: Optional[bool] = None
     # The description property
@@ -81,8 +85,10 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "@odata.etag": lambda n : setattr(self, 'odata_etag', n.get_str_value()),
             "parameters": lambda n : setattr(self, 'parameters', n.get_object_value(JsonObject)),
+            "required": lambda n : setattr(self, 'required', n.get_bool_value()),
             "requires": lambda n : setattr(self, 'requires', n.get_str_value()),
             "scope": lambda n : setattr(self, 'scope', n.get_enum_value(BuiltInScope)),
+            "system": lambda n : setattr(self, 'system', n.get_bool_value()),
             "values": lambda n : setattr(self, 'values', n.get_object_value(JsonObject)),
             "workflowId": lambda n : setattr(self, 'workflow_id', n.get_uuid_value()),
         }
@@ -106,8 +112,10 @@ class BuiltInWorkflowResponse(AdditionalDataHolder, Parsable):
         writer.write_str_value("name", self.name)
         writer.write_str_value("@odata.etag", self.odata_etag)
         writer.write_object_value("parameters", self.parameters)
+        writer.write_bool_value("required", self.required)
         writer.write_str_value("requires", self.requires)
         writer.write_enum_value("scope", self.scope)
+        writer.write_bool_value("system", self.system)
         writer.write_object_value("values", self.values)
         writer.write_uuid_value("workflowId", self.workflow_id)
         writer.write_additional_data_value(self.additional_data)

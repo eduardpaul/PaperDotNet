@@ -14,7 +14,7 @@ using PaperDotNet.Search.Data;
 namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
 {
     [DbContext(typeof(SearchDbContext))]
-    [Migration("20261006081213_SearchWorkflowPublication")]
+    [Migration("20261006131157_SearchWorkflowPublication")]
     partial class SearchWorkflowPublication
     {
         /// <inheritdoc />
@@ -389,6 +389,16 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Search
                     b.Property<Guid?>("RunId")
                         .HasColumnType("uuid")
                         .HasColumnName("run_id");
+
+                    b.Property<string>("Settings")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("settings");
+
+                    b.Property<string>("SourceStamp")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("source_stamp");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")

@@ -58,7 +58,8 @@ internal sealed class WorkflowBookmarks(ITenantScopeFactory scopes, ITenantConte
                 }
 
                 runs.Complete(bookmark, payload);
-                await outbox.SaveChangesAsync(db, [], [runs.Resume(bookmark.RunId, bookmark.Id)], cancellationToken);
+                var system = await db.Runs.AsNoTracking().AnyAsync(r => r.Id == bookmark.RunId && r.System, cancellationToken);
+                await outbox.SaveChangesAsync(db, [], [runs.Resume(bookmark.RunId, bookmark.Id, system)], cancellationToken);
                 return true;
             }
             catch (DbUpdateException) when (attempt < 3)
@@ -125,21 +126,44 @@ internal sealed class WorkflowDirectory(WorkflowsDbContext db, IServiceProvider 
 {
     public async Task<bool> IsBuiltInEnabledAsync(Guid workspaceId, string key, Guid? listId, CancellationToken cancellationToken)
     {
-        var row = await db.Workflows.AsNoTracking().FirstOrDefaultAsync(w => w.WorkspaceId == workspaceId && w.BuiltInKey == key && w.ListId == listId, cancellationToken);
-        if (row is not null) { return row.Enabled; }
         var builtIns = services.GetRequiredService<BuiltInWorkflows>();
         var offered = await builtIns.FindAsync(key, cancellationToken);
-        return offered is not null && offered.EnabledByDefault && builtIns.IsAvailable(offered);
+        if (offered is null || !builtIns.IsAvailable(offered))
+        {
+            return false;
+        }
+
+        var row = await db.Workflows.AsNoTracking().FirstOrDefaultAsync(w => w.WorkspaceId == workspaceId && w.BuiltInKey == key && w.ListId == listId, cancellationToken);
+        return offered.Required || (row?.Enabled ?? offered.EnabledByDefault);
     }
-    public async Task<IReadOnlyList<WorkflowRunInfo>> GetEventRunsAsync(Guid eventId, CancellationToken cancellationToken) =>
-        (await db.Runs.AsNoTracking().Where(r => r.EventId == eventId).OrderBy(r => r.Id).ToListAsync(cancellationToken))
-        .Select(r => new WorkflowRunInfo(r.Id, r.Status.ToString().ToLowerInvariant(), r.Node, r.Error, r.StartedAt)).ToList();
-    public async Task<WorkflowRunInfo?> GetLatestRunAsync(Guid workspaceId, Guid itemId, string activityKey, CancellationToken cancellationToken)
+
+    public async Task<JsonObject?> GetBuiltInParametersAsync(Guid workspaceId, string key, Guid? listId, CancellationToken cancellationToken)
     {
-        var quoted = System.Text.Json.JsonSerializer.Serialize(activityKey);
-        var run = await db.Runs.AsNoTracking().Where(r => r.WorkspaceId == workspaceId && r.ItemId == itemId
-            && db.Versions.Any(v => v.WorkflowId == r.WorkflowId && v.Number == r.WorkflowVersion && v.Definition.Contains(quoted)))
-            .OrderByDescending(r => r.Id).FirstOrDefaultAsync(cancellationToken);
+        var builtIns = services.GetRequiredService<BuiltInWorkflows>();
+        if (await builtIns.FindAsync(key, cancellationToken) is not { } offered || !builtIns.IsAvailable(offered))
+        {
+            return null;
+        }
+
+        var row = await db.Workflows.AsNoTracking().FirstOrDefaultAsync(w => w.WorkspaceId == workspaceId && w.BuiltInKey == key && w.ListId == listId, cancellationToken);
+        return BuiltInWorkflows.Resolve(offered, BuiltInWorkflows.Values(row)).Values;
+    }
+
+    public Task<bool> HasRequestRunsAsync(Guid requestId, CancellationToken cancellationToken) =>
+        db.Runs.AsNoTracking().AnyAsync(r => r.EventId == requestId, cancellationToken);
+
+    public async Task<JsonObject?> GetCompletionAsync(string kind, string key, CancellationToken cancellationToken)
+    {
+        var completed = await db.Bookmarks.AsNoTracking().Where(b => b.Kind == kind && b.Key == key && b.CompletedAt != null)
+            .Select(b => new { b.Payload }).FirstOrDefaultAsync(cancellationToken);
+        return completed is null ? null : (completed.Payload is { } json ? JsonNode.Parse(json) as JsonObject : null) ?? [];
+    }
+
+    public async Task<WorkflowRunInfo?> GetLatestRunAsync(Guid workspaceId, Guid itemId, string builtInKey, CancellationToken cancellationToken)
+    {
+        var run = await db.Runs.AsNoTracking()
+            .Where(r => r.WorkspaceId == workspaceId && r.ItemId == itemId && db.Workflows.Any(w => w.Id == r.WorkflowId && w.BuiltInKey == builtInKey))
+            .OrderByDescending(r => r.StartedAt).ThenByDescending(r => r.Id).FirstOrDefaultAsync(cancellationToken);
         return run is null ? null : new WorkflowRunInfo(run.Id, run.Status.ToString().ToLowerInvariant(), run.Node, run.Error, run.StartedAt);
     }
 

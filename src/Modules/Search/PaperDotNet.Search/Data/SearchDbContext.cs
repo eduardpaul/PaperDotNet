@@ -28,6 +28,12 @@ public sealed class SearchPublication : ITenantOwned
     public int Chunks { get; set; }
     public bool Truncated { get; set; }
     public string? EmbeddingModel { get; set; }
+
+    /// <summary>The cheap source stamp at publication (item change and file version), compared by the stale sweep.</summary>
+    public string? SourceStamp { get; set; }
+
+    /// <summary>The chunk settings of the publication (e.g. <c>window:1200:150</c>).</summary>
+    public string? Settings { get; set; }
 }
 
 /// <summary>Staging in the database store, outside workflow run JSON.</summary>
@@ -175,6 +181,8 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
             b.HasIndex(p => new { p.TenantId, p.ContainerId });
             b.Property(p => p.Revision).HasMaxLength(64);
             b.Property(p => p.EmbeddingModel).HasMaxLength(200);
+            b.Property(p => p.SourceStamp).HasMaxLength(300);
+            b.Property(p => p.Settings).HasMaxLength(100);
         });
         modelBuilder.Entity<StagedSearchGeneration>(b => b.ToTable("generations"));
         modelBuilder.Entity<SearchDocument>(b =>

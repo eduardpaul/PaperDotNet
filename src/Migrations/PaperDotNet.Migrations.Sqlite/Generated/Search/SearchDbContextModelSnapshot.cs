@@ -357,6 +357,16 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Search
                         .HasColumnType("TEXT")
                         .HasColumnName("run_id");
 
+                    b.Property<string>("Settings")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("settings");
+
+                    b.Property<string>("SourceStamp")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("source_stamp");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT")
                         .HasColumnName("tenant_id");

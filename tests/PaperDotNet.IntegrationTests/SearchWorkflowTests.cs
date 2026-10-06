@@ -106,7 +106,14 @@ public sealed class SearchWorkflowTests(PaperDotNetApiFactory factory)
         var manual = await s.Client.PostAsJsonAsync($"{s.Url}/workflows/builtIns/search.index/runs", new { listId = s.List, itemIds = new[] { id } }, Ct);
         Assert.True(manual.IsSuccessStatusCode);
         var runId = (await manual.ReadJsonAsync())[0].GetProperty("id").GetGuid();
-        await Eventually.WaitForAsync<bool>(async () => (await GetAsync(s.Client, $"/v1.0/workspaces/{s.Workspace}/workflows/runs/{runId}")).GetProperty("status").GetString() == "failed" ? true : null);
+        // Nothing to do in an excluded list is not a failure: the run ends at its "skipped" port.
+        var skipped = await Eventually.WaitForAsync(async () =>
+        {
+            var run = await GetAsync(s.Client, $"/v1.0/workspaces/{s.Workspace}/workflows/runs/{runId}");
+            return run.GetProperty("status").GetString() == "completed" ? (JsonElement?)run : null;
+        });
+        Assert.Equal("excluded", skipped.GetProperty("outputs").GetProperty("chunk").GetProperty("reason").GetString());
+        Assert.False(skipped.GetProperty("outputs").TryGetProperty("publish", out _));
         var operation = await s.Client.PostAsync("/v1.0/search/reindex", null, Ct);
         await Eventually.WaitForAsync<bool>(async () => (await GetAsync(s.Client, operation.Headers.Location!.ToString())).GetProperty("status").GetString() == "succeeded" ? true : null, TimeSpan.FromSeconds(60));
         Assert.Empty((await GetAsync(s.Client, "/v1.0/search?q=orchid")).GetProperty("value").EnumerateArray());
@@ -162,6 +169,38 @@ public sealed class SearchWorkflowTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task An_explicit_rebuild_indexes_every_item_and_reports_the_ones_that_fail()
+    {
+        var s = await SetupAsync("wf-search-rebuild");
+        var builtin = (await GetAsync(s.Client, $"{s.Url}/workflows/builtIns")).EnumerateArray()
+            .Single(w => w.GetProperty("key").GetString() == "search.index");
+        Assert.True((await s.Client.SendWithEtagAsync(HttpMethod.Put, $"{s.Url}/workflows/builtIns/search.index",
+            builtin.GetProperty("@odata.etag").GetString()!, new { enabled = false })).IsSuccessStatusCode);
+        var marker = $"rebuildfailure{Guid.NewGuid():N}";
+        ConceptEmbeddingGenerator.Instance.FailingInputs[marker] = true;
+        try
+        {
+            var broken = (await s.Client.CreateItemAsync(s.Workspace, s.List, new { fields = new { title = "Broken", text = marker } })).GetProperty("id").GetGuid();
+            var healthy = (await s.Client.CreateItemAsync(s.Workspace, s.List, new { fields = new { title = "Healthy", text = "A cardiologist reads this" } })).GetProperty("id").GetGuid();
+            Assert.Equal("notIndexed", (await GetAsync(s.Client, $"{s.Url}/items/{healthy}/searchIndex")).GetProperty("state").GetString());
+
+            // One item whose embedding fails does not stop the rebuild: the other is indexed, and the rebuild reports the failure.
+            var operation = await s.Client.PostAsync("/v1.0/search/reindex", null, Ct);
+            var ended = await Eventually.WaitForAsync(async () =>
+            {
+                var status = (await GetAsync(s.Client, operation.Headers.Location!.ToString())).GetProperty("status").GetString();
+                return status is "succeeded" or "failed" ? (JsonElement?)JsonSerializer.SerializeToElement(status) : null;
+            }, TimeSpan.FromSeconds(90));
+            Assert.Equal("failed", ended.GetString());
+            await IndexedAsync(s.Client, $"{s.Url}/items/{healthy}");
+            var failed = await GetAsync(s.Client, $"{s.Url}/items/{broken}/searchIndex");
+            Assert.Equal("failed", failed.GetProperty("state").GetString());
+            Assert.True(failed.GetProperty("indexed").GetBoolean());
+        }
+        finally { ConceptEmbeddingGenerator.Instance.FailingInputs.TryRemove(marker, out _); }
+    }
+
+    [Fact]
     public async Task Staged_generations_do_not_publish_after_source_or_inclusion_changes()
     {
         var s = await SetupAsync("wf-search-staging");
@@ -194,14 +233,19 @@ public sealed class SearchWorkflowTests(PaperDotNetApiFactory factory)
         var itemUrl = $"{s.Url}/items/{id}";
         var etag = (await s.Client.GetAsync(itemUrl, Ct)).Headers.ETag!.Tag;
         Assert.True((await s.Client.SendWithEtagAsync(HttpMethod.Patch, itemUrl, etag, new { fields = new { text = "New content" } })).IsSuccessStatusCode);
-        Assert.False((await activities["search.publish"].ExecuteAsync(Context(run), Ct)).Succeeded);
+        var superseded = await activities["search.publish"].ExecuteAsync(Context(run), Ct);
+        Assert.Equal("skipped", superseded.Outcome);
+        Assert.Equal("superseded", superseded.Output!["reason"]!.GetValue<string>());
         Assert.Null(await store.GetStageAsync(run, Ct));
+        Assert.False((await GetAsync(s.Client, $"{s.Url}/items/{id}/searchIndex")).GetProperty("indexed").GetBoolean());
         run = Guid.CreateVersion7();
         Assert.True((await activities["search.chunk"].ExecuteAsync(Context(run), Ct)).Succeeded);
         var settings = await GetAsync(s.Client, $"{s.Url}/searchSettings");
         Assert.True((await s.Client.SendWithEtagAsync(HttpMethod.Put, $"{s.Url}/searchSettings",
             settings.GetProperty("@odata.etag").GetString()!, new { included = false })).IsSuccessStatusCode);
-        Assert.False((await activities["search.publish"].ExecuteAsync(Context(run), Ct)).Succeeded);
+        var excluded = await activities["search.publish"].ExecuteAsync(Context(run), Ct);
+        Assert.Equal("skipped", excluded.Outcome);
+        Assert.Equal("excluded", excluded.Output!["reason"]!.GetValue<string>());
         Assert.Empty((await GetAsync(s.Client, "/v1.0/search?q=content")).GetProperty("value").EnumerateArray());
     }
 
@@ -211,11 +255,15 @@ public sealed class SearchWorkflowTests(PaperDotNetApiFactory factory)
         var s = await SetupAsync("wf-item-processes");
         var id = (await s.Client.CreateItemAsync(s.Workspace, s.List, new { fields = new { title = "Visible processing" } })).GetProperty("id").GetGuid();
         await IndexedAsync(s.Client, $"{s.Url}/items/{id}");
+        var runs = new List<JsonElement>();
         await Eventually.WaitForAsync<bool>(async () =>
         {
-            var runs = (await GetAsync(s.Client, $"/v1.0/workspaces/{s.Workspace}/workflows/runs?itemId={id}")).GetProperty("value").EnumerateArray().ToList();
-            return new[] { "Record item activity", "Update note links", "Notify followers", "Queue change notifications" }
+            runs = (await GetAsync(s.Client, $"/v1.0/workspaces/{s.Workspace}/workflows/runs?itemId={id}")).GetProperty("value").EnumerateArray().ToList();
+            return new[] { "Record item activity", "Notify followers", "Queue change notifications" }
                 .All(name => runs.Any(r => r.GetProperty("workflow").GetString() == name && r.GetProperty("status").GetString() == "completed")) ? true : null;
         }, TimeSpan.FromSeconds(60));
+
+        // Reactions for notes and tasks filter by content type in their triggers: no runs at all for other items.
+        Assert.DoesNotContain(runs, r => r.GetProperty("workflow").GetString() is "Update note links" or "Create next recurring task" or "Announce completed tasks");
     }
 }

@@ -10,8 +10,8 @@ using PaperDotNet.Api;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
 using PaperDotNet.Provisioning.Contracts;
-using PaperDotNet.Search.Data;
 using PaperDotNet.Search.Contracts;
+using PaperDotNet.Search.Data;
 using PaperDotNet.Workflows.Contracts;
 using PaperDotNet.Workspaces.Contracts;
 
@@ -57,7 +57,7 @@ internal sealed class SearchPolicy(SearchDbContext db, IOutbox outbox, ITenantCo
 internal sealed class SearchPolicySubscriber(IWorkflowTriggers triggers) : IEventSubscriber<SearchPolicyChanged>
 {
     public Task HandleAsync(SearchPolicyChanged change, CancellationToken ct) =>
-        triggers.RaiseAsync(SearchWorkflows.ContainerChanged, change.WorkspaceId, null,
+        triggers.RaiseAsync(SearchTriggers.ContainerChanged, change.WorkspaceId, null,
             new JsonObject { ["containerId"] = change.ContainerId.ToString() }, change, ct);
 }
 
@@ -109,13 +109,16 @@ internal static class SearchPolicyEndpoints
     {
         if (await items.GetAsync(workspaceId, listId, itemId, ct) is null) { return ApiErrors.NotFound(); }
         var included = !await db.ContainerPolicies.AsNoTracking().AnyAsync(p => p.Id == listId && !p.Included, ct);
-        var run = await workflows.GetLatestRunAsync(workspaceId, itemId, "search.chunk", ct);
+        var run = await workflows.GetLatestRunAsync(workspaceId, itemId, SearchWorkflows.Index, ct);
         var publication = await db.Publications.AsNoTracking().FirstOrDefaultAsync(p => p.Id == itemId, ct);
         var source = await input.ReadAsync(itemId, ct);
         var revision = source is null ? null : SearchInput.Revision(source);
+        var settings = SearchWorkflows.Settings(await workflows.GetBuiltInParametersAsync(workspaceId, SearchWorkflows.Index, listId, ct));
         var indexed = included && publication?.Revision is not null;
+        // Current only when the text and the chunk settings both match what was published.
+        var current = indexed && publication!.Revision == revision && (publication.Settings is null || publication.Settings == settings);
         var state = !included ? "excluded" : run?.Status is "running" or "waiting" ? run.Status
-            : run?.Status == "failed" ? "failed" : !indexed ? "notIndexed" : publication!.Revision == revision ? "indexed" : "stale";
+            : run?.Status == "failed" ? "failed" : !indexed ? "notIndexed" : current ? "indexed" : "stale";
         return TypedResults.Ok(new ItemSearchStatusResponse(state, included, indexed, revision, publication?.Revision,
             publication?.PublishedAt, publication?.Chunks ?? 0, publication?.Truncated ?? false, publication?.EmbeddingModel,
             !embeddings.Enabled ? "notConfigured" : !store.Capabilities.HasFlag(SearchStoreCapabilities.Vector) ? "notSupported"

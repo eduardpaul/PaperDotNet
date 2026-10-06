@@ -32,15 +32,45 @@ describes the source, workflow and store boundaries.
 - Manual launch uses the existing
   `POST .../lists/{listId}/workflows/builtIns/search.index/runs` endpoint.
   A failed embedding step can be retried through workflow retry without publishing again.
-- **Rebuild search** (`search.rebuild`) requests bounded pages of child indexing
-  runs and waits durably for them. API/CLI reindex progress follows this workflow.
-  Its default 15-minute schedule repairs stale/missing publications where
-  automation is enabled. Excluded lists are skipped by every rebuild.
+- **Rebuild search** (`search.rebuild`) requests item indexing in pages of 100
+  and waits durably for each page (`WorkflowRequests`).
+  - A failed item is counted and the rebuild goes on. An explicit rebuild (API,
+    `paperdotnet reindex`) then ends failed and lists the first failures. The
+    reindex operation follows this workflow.
+  - Its 15-minute schedule requests only items whose publication is missing or
+    stale, and only where automatic indexing is on.
+  - Stale is judged by cheap stamps (the item's last change, its file version
+    and readiness, the chunk settings, the embedding model), compared in batches
+    without reading text. It yields after 2,000 items.
+  - Excluded lists are skipped by every rebuild.
+- Steps with nothing to do end at their `skipped` port instead of failing: the
+  list is excluded, the item is gone, or a newer change superseded the step.
+- Permission changes only move the indexed items' scopes (`search.scopes`). Text
+  and vectors stay, and nothing is indexed again.
+- Search results are checked against the items as they are now (existing and
+  readable). The check is bounded by the page, so a delete or permission change
+  never shows while the index catches up. Counts and facets can be off by such
+  items for a few seconds.
 
 Chunk parameters are `chunker` (`window`, `pages`, `whole`), `maxChars` and
-`overlap`. Text-only hashes preserve vectors through renames and rebuilds. Keyword
-results remain available after an embedding provider failure. Stores do no implicit
-chunking, and there is no separate embedding executor.
+`overlap`.
+- `pages` splits a page longer than `maxChars` into windows, and `whole` keeps
+  at most 20,000 characters (marked truncated), so no chunk is too long for the
+  embedding model.
+- Changing the parameters marks publications stale, and the schedule indexes
+  them again.
+- Text-only hashes preserve vectors through renames and rebuilds.
+- Keyword results remain available after an embedding provider failure.
+- Stores do no implicit chunking, and there is no separate embedding executor.
+
+**Upgrading:** passage hashes no longer include the title. The first rebuild
+after upgrading therefore embeds every passage once more, and the 15-minute
+schedule starts it automatically. Plan for that cost with a paid embedding
+provider.
+
+Not covered by the stamps: a renamed taxonomy term or a changed comment. A
+comment change requests indexing itself (where automatic indexing is on). An
+item's status shows `stale` until it is indexed again.
 
 ## Queries
 

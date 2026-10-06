@@ -35,7 +35,7 @@ public sealed class CollaborationModule : IModule
     {
         services.AddWorkflowActivity<ItemActivityRecorder>();
         services.AddWorkflow(ItemChangeWorkflows.Create("collaboration.recordChange", "Record item activity", "Records the original item event in the activity timeline.", "collaboration.recordChange",
-            WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted, WorkflowTriggers.ItemRestored));
+            [WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted, WorkflowTriggers.ItemRestored], includeFolders: true));
         services.AddModuleDbContext<CollaborationDbContext>(CollaborationDbContext.Schema);
         services.AddScoped<IItemMoveParticipant, CollaborationItemMoveParticipant>();
         services.AddScoped<ItemActivity>();

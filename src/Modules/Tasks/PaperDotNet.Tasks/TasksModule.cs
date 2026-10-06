@@ -35,7 +35,7 @@ public sealed class TasksModule : IModule
     {
         services.AddWorkflowActivity<RecurringTaskSpawner>();
         services.AddWorkflow(ItemChangeWorkflows.Create("tasks.nextOccurrence", "Create next recurring task", "Creates the next occurrence after a repeating task completes.", "tasks.nextOccurrence",
-            WorkflowTriggers.ItemUpdated));
+            [WorkflowTriggers.ItemUpdated], TaskTemplates.ContentTypeKey));
         services.AddModuleDbContext<TasksDbContext>(TasksDbContext.Schema);
         services.AddScoped<IItemMoveParticipant, TasksItemMoveParticipant>();
         services.AddSingleton(TaskTemplates.ContentType);
@@ -44,7 +44,7 @@ public sealed class TasksModule : IModule
         services.AddEventSubscriber<ItemPurged, PurgedTaskData>();
         services.AddWorkflowActivity<TaskCompletedTrigger>();
         services.AddWorkflow(ItemChangeWorkflows.Create("tasks.completed", "Announce completed tasks", "Announces completed tasks to following workflows.", "tasks.raiseCompleted",
-            WorkflowTriggers.ItemUpdated));
+            [WorkflowTriggers.ItemUpdated], TaskTemplates.ContentTypeKey));
         services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggers.TaskCompleted, "A task was completed (data: completedBy)."));
         services.AddWorkflowActivity<TaskCreateActivity>();
         services.AddTenantRecurringJob<DueTaskReminderJob>(DueTaskReminderJob.Name, DueTaskReminderJob.Schedule);

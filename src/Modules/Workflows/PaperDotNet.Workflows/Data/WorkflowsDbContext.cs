@@ -199,6 +199,9 @@ public sealed class WorkflowRun : ITenantOwned, IVersioned
     /// <summary>The user who started the run or whose change triggered it.</summary>
     public Guid? StartedBy { get; set; }
 
+    /// <summary>A run of a system workflow (<c>BuiltInWorkflow.IsSystem</c>): resumed in the system lane, kept shorter.</summary>
+    public bool System { get; set; }
+
     public DateTimeOffset StartedAt { get; set; }
 
     public DateTimeOffset? CompletedAt { get; set; }

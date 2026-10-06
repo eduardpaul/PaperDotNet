@@ -24,6 +24,13 @@ namespace PaperDotNet.Workflows.Features;
 /// </summary>
 public sealed record ResumeRun(Guid RunId, Guid? BookmarkId, Guid TenantId, string TenantIdentifier, Guid? UserId = null) : ITenantMessage;
 
+/// <summary>
+/// <see cref="ResumeRun"/> for a run of a system workflow (search indexing, the timeline, notifications). Its own message
+/// type gives it its own durable local queue: a rebuild of thousands of items never makes people's workflows wait, and
+/// people's long workflows never hold up indexing.
+/// </summary>
+public sealed record ResumeSystemRun(Guid RunId, Guid? BookmarkId, Guid TenantId, string TenantIdentifier, Guid? UserId = null) : ITenantMessage;
+
 /// <summary>Wolverine handler for <see cref="ResumeRun"/> (discovered by convention).</summary>
 public static class ResumeRunHandler
 {
@@ -34,14 +41,31 @@ public static class ResumeRunHandler
     }
 }
 
+/// <summary>Wolverine handler for <see cref="ResumeSystemRun"/> (discovered by convention).</summary>
+public static class ResumeSystemRunHandler
+{
+    public static async Task Handle(ResumeSystemRun message, ITenantScopeFactory scopes, CancellationToken cancellationToken)
+    {
+        await using var scope = scopes.CreateScope(message.TenantId, message.TenantIdentifier);
+        await scope.ServiceProvider.GetRequiredService<WorkflowInterpreter>().RunAsync(message.RunId, message.BookmarkId, cancellationToken);
+    }
+}
+
 /// <summary>A run to start; with an <see cref="Error"/> (e.g. a condition that cannot be checked) it is saved as failed.</summary>
 internal sealed record WorkflowStart(
     WorkflowDefinition Workflow, WorkflowItem? Item, Guid? EventId, string? Data, int Depth, Guid? StartedBy, string? Error = null,
-    JsonObject? Variables = null, string? Concurrency = null, string? TriggerType = null, WorkflowSpec? Spec = null);
+    JsonObject? Variables = null, string? Concurrency = null, string? TriggerType = null, WorkflowSpec? Spec = null)
+{
+    /// <summary>The item event that started it (without snapshots), kept in the engine-owned execution context.</summary>
+    public JsonObject? ItemEvent { get; init; }
+
+    /// <summary>A run of a system workflow (<see cref="BuiltInWorkflow.IsSystem"/>).</summary>
+    public bool System { get; init; }
+}
 
 /// <summary>Starts runs of a workspace's workflows.</summary>
 internal sealed class WorkflowStarter(
-    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, ITenantContext tenant, TimeProvider time,
+    WorkflowsDbContext db, IListItemStore items, IOutbox outbox, EventCausation causation, TimeProvider time,
     RunService runService, ITermStore terms, IUserDirectory users, BuiltInWorkflows builtIns)
 {
     /// <summary>Whether the item matches an OData condition; an error when the condition cannot be checked.</summary>
@@ -61,6 +85,9 @@ internal sealed class WorkflowStarter(
         }
 
         var now = time.GetUtcNow();
+        var systemKeys = starts.Any(s => s.Workflow.BuiltInKey is not null)
+            ? (await builtIns.ListAsync(ct)).Where(w => w.IsSystem).Select(w => w.Key).ToHashSet(StringComparer.Ordinal)
+            : [];
         var runs = new List<WorkflowRun>();
         var messages = new List<ITenantMessage>();
         var concurrency = new Dictionary<Guid, string>();
@@ -102,6 +129,17 @@ internal sealed class WorkflowStarter(
 
                 starting.Add((start.Workflow.Id, target.ItemId));
             }
+            else if (start.Item is null && start.Error is null && start.Concurrency == RunConcurrency.Skip)
+            {
+                // A trigger without an item that asks for skip (e.g. a schedule): one run of the workflow at a time.
+                if (starting.Contains((start.Workflow.Id, Guid.Empty)) || await db.Runs.AnyAsync(r => r.WorkflowId == start.Workflow.Id && r.ItemId == null
+                    && (r.Status == RunStatus.Running || r.Status == RunStatus.Waiting), ct))
+                {
+                    continue;
+                }
+
+                starting.Add((start.Workflow.Id, Guid.Empty));
+            }
 
             var run = new WorkflowRun
             {
@@ -125,6 +163,7 @@ internal sealed class WorkflowStarter(
                         ["itemId"] = start.Item?.ItemId.ToString(),
                         ["userId"] = start.StartedBy?.ToString(),
                         ["startedAt"] = now.ToString("O"),
+                        [ItemChangeWorkflows.ContextKey] = start.ItemEvent?.DeepClone(),
                     },
                 }.ToJsonString(),
                 Variables = start.Variables?.ToJsonString() ?? "{}",
@@ -133,6 +172,7 @@ internal sealed class WorkflowStarter(
                 StartedBy = start.StartedBy,
                 StartedAt = now,
                 LastActivityAt = now,
+                System = start.System || (start.Workflow.BuiltInKey is { } builtInKey && systemKeys.Contains(builtInKey)),
             };
             if (start.Error is { } error)
             {
@@ -143,7 +183,7 @@ internal sealed class WorkflowStarter(
             }
             else
             {
-                messages.Add(new ResumeRun(run.Id, null, tenant.TenantId!.Value, tenant.TenantIdentifier!));
+                messages.Add(runService.Resume(run.Id, null, run.System));
             }
 
             runs.Add(run);
@@ -151,12 +191,7 @@ internal sealed class WorkflowStarter(
 
         // Cancellation retries may clear the tracker. Attach new runs only after every older run is settled.
         db.Runs.AddRange(runs);
-        await outbox.SaveChangesAsync(db, runs.Where(r => r.Status == RunStatus.Failed).Select(r => (IntegrationEvent)new WorkflowRunFinished
-        {
-            TenantId = tenant.TenantId!.Value, TenantIdentifier = tenant.TenantIdentifier!, UserId = r.StartedBy,
-            RunId = r.Id, WorkspaceId = r.WorkspaceId, CauseEventId = r.EventId, Status = "failed", Error = r.Error,
-            Trigger = (r.Data is null ? null : JsonNode.Parse(r.Data))?["$workflowContext"]?["trigger"]?.GetValue<string>(),
-        }).ToList(), messages, ct);
+        await outbox.SaveChangesAsync(db, [.. runs.Where(r => r.Status == RunStatus.Failed).Select(runService.Finished).OfType<IntegrationEvent>()], messages, ct);
         return runs;
     }
 
@@ -707,14 +742,26 @@ internal sealed partial class WorkflowInterpreter(
             Data = payload?.ToJsonString(),
         };
 
-        WorkflowRunFinished Finished() => new()
+        // What a finished run tells others. Its wf.{key}.completed / failed event only when a workflow of the workspace
+        // listens to it, and a completion notice only for triggers that report completions: a run nobody follows (most
+        // system runs) ends with a single save and no messages.
+        async Task<IReadOnlyCollection<IntegrationEvent>> EndEventsAsync(string name, JsonObject payload, params object[] source)
         {
-            EventId = TriggerSchedules.EventId("finished", run.Id, run.Status, run.CompletedAt!.Value.UtcTicks),
-            TenantId = tenant.TenantId!.Value, TenantIdentifier = tenant.TenantIdentifier!, UserId = run.StartedBy,
-            RunId = run.Id, WorkspaceId = run.WorkspaceId, CauseEventId = run.EventId,
-            Status = run.Status.ToString().ToLowerInvariant(), Error = run.Error,
-            Trigger = executionContext?["trigger"]?.GetValue<string>(),
-        };
+            var events = new List<IntegrationEvent>();
+            var type = $"{WorkflowTriggers.WorkflowEventPrefix}{workflow.EventKey}.{name}";
+            if (await db.Workflows.AsNoTracking().Where(w => w.WorkspaceId == run.WorkspaceId && (w.Enabled || w.BuiltInKey != null))
+                .Where(TriggerColumn.Has(type)).AnyAsync(ct))
+            {
+                events.Add(Event(name, payload, source));
+            }
+
+            if (runService.Finished(run) is { } finished)
+            {
+                events.Add(finished);
+            }
+
+            return events;
+        }
 
         void Advance(string node)
         {
@@ -732,8 +779,8 @@ internal sealed partial class WorkflowInterpreter(
             run.FailedNode = node;
             run.WaitingOn = null;
             run.CompletedAt = time.GetUtcNow();
-            await SaveAsync(events: [Event(WorkflowEvents.Failed,
-                new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = "failed", ["error"] = run.Error }, run.CompletedAt.Value.UtcTicks), Finished()]);
+            await SaveAsync(events: await EndEventsAsync(WorkflowEvents.Failed,
+                new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = "failed", ["error"] = run.Error }, run.CompletedAt.Value.UtcTicks));
             LogRunFailed(run.Id, error);
         }
 
@@ -742,7 +789,7 @@ internal sealed partial class WorkflowInterpreter(
             run.Status = RunStatus.Completed;
             run.CompletedAt = time.GetUtcNow();
             Log("Completed");
-            await SaveAsync(events: [Event(WorkflowEvents.Completed, new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = "completed" }), Finished()]);
+            await SaveAsync(events: await EndEventsAsync(WorkflowEvents.Completed, new JsonObject { ["runId"] = run.Id.ToString(), ["status"] = "completed" }));
         }
 
         // Moves on along the outcome's port (done when that port is not connected); false when the run ended.
@@ -995,7 +1042,7 @@ internal sealed partial class WorkflowInterpreter(
                     Log("Skipped: another run of this workflow on the item is going (concurrency: skip).");
                     run.Status = RunStatus.Cancelled;
                     run.CompletedAt = time.GetUtcNow();
-                    await SaveAsync(events: [Finished()]);
+                    await SaveAsync(events: runService.Finished(run) is { } finished ? [finished] : null);
                     return;
                 }
 
@@ -1074,7 +1121,7 @@ internal sealed partial class WorkflowInterpreter(
             if (executed >= MaxNodesPerExecution)
             {
                 // Long runs (loops) continue in a new message instead of holding this server.
-                await SaveAsync([new ResumeRun(run.Id, null, tenant.TenantId!.Value, tenant.TenantIdentifier!)], pause: true);
+                await SaveAsync([runService.Resume(run.Id, null, run.System)], pause: true);
                 return;
             }
 
@@ -1342,7 +1389,7 @@ internal sealed partial class WorkflowInterpreter(
                         }
 
                         Log($"{id}: waiting ({wait.Kind})");
-                        await WaitAsync(waitOn, waitOn.CompletedAt is null ? null : [new ResumeRun(run.Id, waitOn.Id, tenant.TenantId!.Value, tenant.TenantIdentifier!)]);
+                        await WaitAsync(waitOn, waitOn.CompletedAt is null ? null : [runService.Resume(run.Id, waitOn.Id, run.System)]);
                         return;
                     }
 
@@ -1471,7 +1518,7 @@ internal sealed partial class WorkflowInterpreter(
 /// <summary>Decisions on approvals, completing bookmarks, and cancelling and retrying runs.</summary>
 internal sealed class RunService(
     WorkflowsDbContext db, IOutbox outbox, ITenantContext tenant, TimeProvider time, IItemActivity activity,
-    IListItemStore items, ITermStore terms, IUserDirectory users, IEnumerable<IApprovalReviewProvider> reviews)
+    IListItemStore items, ITermStore terms, IUserDirectory users, IEnumerable<IApprovalReviewProvider> reviews, TriggerCatalog triggers)
 {
     public enum DecisionResult
     {
@@ -1541,7 +1588,7 @@ internal sealed class RunService(
                     ["comment"] = comment,
                     ["input"] = values.DeepClone()
                 });
-                messages.Add(Resume(bookmark.RunId, bookmark.Id));
+                messages.Add(Resume(bookmark.RunId, bookmark.Id, await db.Runs.AsNoTracking().AnyAsync(r => r.Id == bookmark.RunId && r.System, ct)));
             }
 
             // Workflows can react to the decision (approval.decided), one level deeper than the run that asked.
@@ -1596,7 +1643,37 @@ internal sealed class RunService(
         bookmark.Payload = payload?.ToJsonString();
     }
 
-    public ResumeRun Resume(Guid runId, Guid? bookmarkId) => new(runId, bookmarkId, tenant.TenantId!.Value, tenant.TenantIdentifier!);
+    /// <summary>The message that resumes a run, in the system lane for runs of system workflows.</summary>
+    public ITenantMessage Resume(Guid runId, Guid? bookmarkId, bool system) => system
+        ? new ResumeSystemRun(runId, bookmarkId, tenant.TenantId!.Value, tenant.TenantIdentifier!)
+        : new ResumeRun(runId, bookmarkId, tenant.TenantId!.Value, tenant.TenantIdentifier!);
+
+    /// <summary>
+    /// The completion notice of a finished run, only when its trigger reports completions
+    /// (<see cref="WorkflowTriggerDefinition.CompletionKind"/>): other runs pay nothing for it.
+    /// </summary>
+    public WorkflowRunFinished? Finished(WorkflowRun run)
+    {
+        var trigger = (run.Data is null ? null : JsonNode.Parse(run.Data))?["$workflowContext"]?["trigger"]?.GetValue<string>();
+        if (run.EventId is null || trigger is null || triggers.All.FirstOrDefault(t => t.Key == trigger)?.CompletionKind is null)
+        {
+            return null;
+        }
+
+        return new WorkflowRunFinished
+        {
+            EventId = TriggerSchedules.EventId("finished", run.Id, run.Status, (run.CompletedAt ?? time.GetUtcNow()).UtcTicks),
+            TenantId = tenant.TenantId!.Value,
+            TenantIdentifier = tenant.TenantIdentifier!,
+            UserId = run.StartedBy,
+            RunId = run.Id,
+            WorkspaceId = run.WorkspaceId,
+            CauseEventId = run.EventId,
+            Status = run.Status.ToString().ToLowerInvariant(),
+            Error = run.Error,
+            Trigger = trigger,
+        };
+    }
 
     /// <summary>
     /// Stops a run, cancels its pending approvals and removes its open waits. Retries when the run was changed
@@ -1618,12 +1695,15 @@ internal sealed class RunService(
             db.Bookmarks.RemoveRange(await db.Bookmarks.Where(b => b.RunId == run.Id && b.CompletedAt == null).ToListAsync(ct));
             try
             {
-                await outbox.SaveChangesAsync(db, [new WorkflowRunFinished
+                if (Finished(run) is { } finished)
                 {
-                    TenantId = tenant.TenantId!.Value, TenantIdentifier = tenant.TenantIdentifier!, UserId = run.StartedBy,
-                    RunId = run.Id, WorkspaceId = run.WorkspaceId, CauseEventId = run.EventId, Status = "cancelled",
-                    Trigger = (run.Data is null ? null : JsonNode.Parse(run.Data))?["$workflowContext"]?["trigger"]?.GetValue<string>(),
-                }], cancellationToken: ct);
+                    await outbox.SaveChangesAsync(db, [finished], cancellationToken: ct);
+                }
+                else
+                {
+                    await db.SaveChangesAsync(ct);
+                }
+
                 return;
             }
             catch (DbUpdateConcurrencyException) when (attempt < 3)
@@ -1662,7 +1742,7 @@ internal sealed class RunService(
         var log = JsonNode.Parse(run.Log) as JsonArray ?? [];
         log.Add(new JsonObject { ["at"] = now.ToString("O"), ["message"] = $"Retried from {node}" + (userId is null ? string.Empty : " by a person") });
         run.Log = log.ToJsonString();
-        await outbox.SaveChangesAsync(db, [], [Resume(run.Id, null)], ct);
+        await outbox.SaveChangesAsync(db, [], [Resume(run.Id, null, run.System)], ct);
         return true;
     }
 }
@@ -1700,9 +1780,11 @@ internal sealed class WorkflowTimerJob(WorkflowsDbContext db, RunService runs, I
                 runs.Complete(bookmark, bookmark.Kind is BookmarkKinds.Delay or BookmarkKinds.Retry ? null : new JsonObject { ["outcome"] = "timeout" });
             }
 
+            var runIds = dueBookmarks.Select(b => b.RunId).Distinct().ToList();
+            var system = (await db.Runs.AsNoTracking().Where(r => runIds.Contains(r.Id) && r.System).Select(r => r.Id).ToListAsync(cancellationToken)).ToHashSet();
             try
             {
-                await outbox.SaveChangesAsync(db, [], [.. dueBookmarks.Select(b => runs.Resume(b.RunId, b.Id))], cancellationToken);
+                await outbox.SaveChangesAsync(db, [], [.. dueBookmarks.Select(b => runs.Resume(b.RunId, b.Id, system.Contains(b.RunId)))], cancellationToken);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -1718,12 +1800,12 @@ internal sealed class WorkflowTimerJob(WorkflowsDbContext db, RunService runs, I
                 || (r.Status == RunStatus.Waiting && r.LastActivityAt < stalled
                     && db.Bookmarks.Any(b => b.Id == r.WaitingOn && b.CompletedAt != null && b.CompletedAt < stalled)))
             .OrderBy(r => r.LastActivityAt)
-            .Select(r => new { r.Id, r.WaitingOn })
+            .Select(r => new { r.Id, r.WaitingOn, r.System })
             .Take(500)
             .ToListAsync(cancellationToken);
         if (due.Count > 0)
         {
-            await outbox.SaveChangesAsync(db, [], [.. due.Select(r => runs.Resume(r.Id, r.WaitingOn))], cancellationToken);
+            await outbox.SaveChangesAsync(db, [], [.. due.Select(r => runs.Resume(r.Id, r.WaitingOn, r.System))], cancellationToken);
             var ids = due.Select(r => r.Id).ToList();
             await db.Runs.Where(r => ids.Contains(r.Id)).ExecuteUpdateAsync(u => u.SetProperty(r => r.NextCheckAt, now + Recheck), cancellationToken);
         }
@@ -1753,18 +1835,29 @@ public sealed class WorkflowOptions
 {
     /// <summary>Finished runs (and their approvals) are deleted after this many days.</summary>
     public int RunRetentionDays { get; set; } = 30;
+
+    /// <summary>
+    /// Completed or cancelled runs of system workflows (indexing, timeline, notifications; one per item change each) are
+    /// deleted after this many hours. Their failures are kept as long as other runs (<see cref="RunRetentionDays"/>).
+    /// </summary>
+    public int SystemRunRetentionHours { get; set; } = 24;
 }
 
-/// <summary>Daily: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals and bookmarks, old unclaimed completions.</summary>
+/// <summary>
+/// Hourly: deletes finished runs older than <see cref="WorkflowOptions.RunRetentionDays"/> with their approvals and
+/// bookmarks, successful system runs older than <see cref="WorkflowOptions.SystemRunRetentionHours"/>, and old unclaimed completions.
+/// </summary>
 internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<WorkflowOptions> options, TimeProvider time) : ITenantRecurringJob
 {
     public const string Name = "workflows.runCleanup";
-    public const string Schedule = "17 3 * * *";
+    public const string Schedule = "17 * * * *";
     private const int Batch = 500;
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        var cutoff = time.GetUtcNow().AddDays(-Math.Max(1, options.Value.RunRetentionDays));
+        var now = time.GetUtcNow();
+        var cutoff = now.AddDays(-Math.Max(1, options.Value.RunRetentionDays));
+        var systemCutoff = now.AddHours(-Math.Max(1, options.Value.SystemRunRetentionHours));
 
         // Completions no run ever waited for.
         await db.Bookmarks.Where(b => b.RunId == WorkflowBookmarks.Unclaimed && b.CompletedAt < cutoff).ExecuteDeleteAsync(cancellationToken);
@@ -1772,7 +1865,8 @@ internal sealed class WorkflowRunCleanupJob(WorkflowsDbContext db, IOptions<Work
         while (true)
         {
             var ids = await db.Runs
-                .Where(r => (r.Status == RunStatus.Completed || r.Status == RunStatus.Failed || r.Status == RunStatus.Cancelled) && r.CompletedAt < cutoff)
+                .Where(r => ((r.Status == RunStatus.Completed || r.Status == RunStatus.Failed || r.Status == RunStatus.Cancelled) && r.CompletedAt < cutoff)
+                    || (r.System && (r.Status == RunStatus.Completed || r.Status == RunStatus.Cancelled) && r.CompletedAt < systemCutoff))
                 .Select(r => r.Id).Take(Batch).ToListAsync(cancellationToken);
             if (ids.Count == 0)
             {
