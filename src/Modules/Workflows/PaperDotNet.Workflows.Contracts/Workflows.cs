@@ -1,10 +1,22 @@
 using System.Text.Json.Nodes;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Lists.Contracts;
 
 namespace PaperDotNet.Workflows.Contracts;
 
 /// <summary>The item a workflow runs on.</summary>
 public sealed record WorkflowItem(Guid WorkspaceId, Guid ListId, Guid ItemId);
+
+/// <summary>Durable completion notification for coordinating workflows through events and bookmarks.</summary>
+public sealed record WorkflowRunFinished : IntegrationEvent
+{
+    public required Guid RunId { get; init; }
+    public required Guid WorkspaceId { get; init; }
+    public Guid? CauseEventId { get; init; }
+    public required string Status { get; init; }
+    public string? Trigger { get; init; }
+    public string? Error { get; init; }
+}
 
 /// <summary>
 /// Outcome of an activity: done with an <see cref="Output"/> (recorded with the run), failed with an
@@ -157,6 +169,9 @@ public sealed class WorkflowActivityContext
     /// <summary>Data of an extension trigger, if any.</summary>
     public JsonObject? Data { get; init; }
 
+    /// <summary>The immutable item event that started this run, including its snapshots and actor.</summary>
+    public ItemEvent? ItemChange { get; init; }
+
     /// <summary>Uniform run context: trigger, input, data, workspaceId, listId, itemId, userId and startedAt.</summary>
     public JsonObject? ExecutionContext { get; init; }
 
@@ -223,7 +238,18 @@ public interface IWorkflowActivity
 }
 
 /// <summary>A trigger an extension offers to workflows (key starts with the extension id).</summary>
-public sealed record WorkflowTriggerDefinition(string Key, string Description);
+public sealed record WorkflowTriggerDefinition(string Key, string Description)
+{
+    /// <summary>Explicit system requests may launch opted-in built-ins while automatic execution is disabled.</summary>
+    public bool AllowDisabledBuiltIns { get; init; }
+
+    /// <summary>
+    /// Completes a bookmark of this kind, keyed by the request event ID, once every run the request started has ended
+    /// (payload: <c>status</c> <c>completed</c>, <c>failed</c>, <c>cancelled</c> or <c>none</c> when nothing matched, and
+    /// <c>runs</c>). Only these triggers publish <see cref="WorkflowRunFinished"/>, so other runs pay nothing for it.
+    /// </summary>
+    public string? CompletionKind { get; init; }
+}
 
 /// <summary>Starts the workflows of an extension trigger (in the background, like item events).</summary>
 public interface IWorkflowTriggers
@@ -277,6 +303,58 @@ public sealed record BuiltInWorkflow(string Key, string Name, string Description
 
     /// <summary>People can launch this built-in manually even when automatic runs are off in their library.</summary>
     public bool AllowManualLaunch { get; init; }
+
+    /// <summary>
+    /// A product process (search indexing, the activity timeline, notifications) rather than a template people adapt. Its
+    /// runs are visible and retryable like any other, but cheap: they react to item events at any causation depth (the
+    /// activities protect themselves against loops), execute in the system lane so they never wait behind people's
+    /// workflows, are kept only <c>Workflows:SystemRunRetentionDays</c> after they succeed, and the workflow is not exported
+    /// with templates.
+    /// </summary>
+    public bool System { get; init; }
+
+    /// <summary>
+    /// A process the product needs done (e.g. following a note's links): its role must always have an active workflow. The
+    /// built-in is the default; a copy of it or an extension's workflow for the same role may replace it, but the role is
+    /// never left without one (turning off the last replacement brings the built-in back).
+    /// </summary>
+    public bool Required { get; init; }
+
+    /// <summary>
+    /// The guarantee itself (e.g. removing deleted items from search, queueing change notifications promised to API
+    /// subscribers): it cannot be replaced, copied or turned off, and runs even where its row was turned off.
+    /// </summary>
+    public bool Locked { get; init; }
+
+    /// <summary>Item events of folders start it too (by default, folders start no workflow).</summary>
+    public bool IncludeFolders { get; init; }
+
+    /// <summary>
+    /// A solution's reaction that runs once per item change (e.g. a task solution creating the next occurrence): cheap like
+    /// system workflows (own queue, short history) but not a process role of the core. People turn it off or copy it like
+    /// any built-in; a different behavior is a different solution.
+    /// </summary>
+    public bool Lightweight { get; init; }
+
+    /// <summary>
+    /// The process role it fills when it is not the role's default (e.g. an extension's <c>search.index</c> pipeline with AI
+    /// context). A role's default built-in is the one whose key is the role; its flags (<see cref="System"/>,
+    /// <see cref="Required"/>, <see cref="Locked"/>, <see cref="IncludeFolders"/>) are the role's. One workflow per role is
+    /// active in a workspace (per list for list built-ins); turning one on turns the others off.
+    /// </summary>
+    public string? Role { get; init; }
+
+    /// <summary>The role it fills: <see cref="Role"/>, or its own key for system workflows; null for plain built-ins.</summary>
+    public string? RoleKey => Role ?? (IsSystem ? Key : null);
+
+    /// <summary>
+    /// Whether it is a system workflow (<see cref="System"/>, <see cref="Required"/> or <see cref="Locked"/>): a process role of
+    /// the core (lists, libraries, search, collaboration, notifications).
+    /// </summary>
+    public bool IsSystem => System || Required || Locked;
+
+    /// <summary>Whether its runs are cheap (system lane, short history): a system workflow or a <see cref="Lightweight"/> one.</summary>
+    public bool RunsCheap => IsSystem || Lightweight;
 }
 
 public enum BuiltInScope
@@ -285,6 +363,9 @@ public enum BuiltInScope
 
     /// <summary>Turned on per document library (e.g. reading the text of its files).</summary>
     Library = 1,
+
+    /// <summary>Turned on per list, including ordinary lists and document libraries.</summary>
+    List = 2,
 }
 
 public static class BuiltInRequirements

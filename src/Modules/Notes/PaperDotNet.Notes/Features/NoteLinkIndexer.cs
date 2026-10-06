@@ -4,6 +4,8 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Notes.Data;
 
+using PaperDotNet.Workflows.Contracts;
+
 namespace PaperDotNet.Notes.Features;
 
 /// <summary>
@@ -18,8 +20,15 @@ namespace PaperDotNet.Notes.Features;
 /// transaction, so readers never see a note without its links while it is indexed again.
 /// </summary>
 internal sealed class NoteLinkIndexer(NotesDbContext db, IListItemStore items, EventCausation causation)
-    : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemRestored>, IEventSubscriber<ItemDeleted>, IEventSubscriber<ItemPurged>
+    : ItemChangeActivity, IEventSubscriber<ItemPurged>
 {
+    public override string Key => "notes.links";
+
+    public override string Description => "Updates wiki links and backlinks after a note changes.";
+
+    protected override Task ExecuteAsync(ItemEvent change, CancellationToken cancellationToken) =>
+        change switch { ItemAdded e => HandleAsync(e, cancellationToken), ItemUpdated e => HandleAsync(e, cancellationToken), ItemRestored e => HandleAsync(e, cancellationToken), ItemDeleted e => HandleAsync(e, cancellationToken), _ => Task.CompletedTask };
+
     /// <summary>Renames made by automatic changes stop rewriting links at this depth (loop protection).</summary>
     private const int MaxRewriteDepth = 3;
 

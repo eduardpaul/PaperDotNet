@@ -47,6 +47,8 @@ namespace PaperDotNet.Client.Models
 #else
         public string Key { get; set; }
 #endif
+        /// <summary>The locked property</summary>
+        public bool? Locked { get; set; }
         /// <summary>The name property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -71,6 +73,8 @@ namespace PaperDotNet.Client.Models
 #else
         public global::PaperDotNet.Client.Models.JsonObject Parameters { get; set; }
 #endif
+        /// <summary>The required property</summary>
+        public bool? Required { get; set; }
         /// <summary>The requires property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -79,8 +83,18 @@ namespace PaperDotNet.Client.Models
 #else
         public string Requires { get; set; }
 #endif
+        /// <summary>The role property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Role { get; set; }
+#nullable restore
+#else
+        public string Role { get; set; }
+#endif
         /// <summary>The scope property</summary>
         public global::PaperDotNet.Client.Models.BuiltInScope? Scope { get; set; }
+        /// <summary>The system property</summary>
+        public bool? System { get; set; }
         /// <summary>The values property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -99,7 +113,10 @@ namespace PaperDotNet.Client.Models
             AdditionalData = new Dictionary<string, object>();
             AllowManualLaunch = false;
             EnabledByDefault = false;
+            Locked = false;
+            Required = false;
             Scope = global::PaperDotNet.Client.Models.BuiltInScope.Workspace;
+            System = false;
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
@@ -126,11 +143,15 @@ namespace PaperDotNet.Client.Models
                 { "enabledByDefault", n => { EnabledByDefault = n.GetBoolValue(); } },
                 { "inputSchema", n => { InputSchema = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "key", n => { Key = n.GetStringValue(); } },
+                { "locked", n => { Locked = n.GetBoolValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
                 { "@odata.etag", n => { OdataEtag = n.GetStringValue(); } },
                 { "parameters", n => { Parameters = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
+                { "required", n => { Required = n.GetBoolValue(); } },
                 { "requires", n => { Requires = n.GetStringValue(); } },
+                { "role", n => { Role = n.GetStringValue(); } },
                 { "scope", n => { Scope = n.GetEnumValue<global::PaperDotNet.Client.Models.BuiltInScope>(); } },
+                { "system", n => { System = n.GetBoolValue(); } },
                 { "values", n => { Values = n.GetObjectValue<global::PaperDotNet.Client.Models.JsonObject>(global::PaperDotNet.Client.Models.JsonObject.CreateFromDiscriminatorValue); } },
                 { "workflowId", n => { WorkflowId = n.GetGuidValue(); } },
             };
@@ -149,11 +170,15 @@ namespace PaperDotNet.Client.Models
             writer.WriteBoolValue("enabledByDefault", EnabledByDefault);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("inputSchema", InputSchema);
             writer.WriteStringValue("key", Key);
+            writer.WriteBoolValue("locked", Locked);
             writer.WriteStringValue("name", Name);
             writer.WriteStringValue("@odata.etag", OdataEtag);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("parameters", Parameters);
+            writer.WriteBoolValue("required", Required);
             writer.WriteStringValue("requires", Requires);
+            writer.WriteStringValue("role", Role);
             writer.WriteEnumValue<global::PaperDotNet.Client.Models.BuiltInScope>("scope", Scope);
+            writer.WriteBoolValue("system", System);
             writer.WriteObjectValue<global::PaperDotNet.Client.Models.JsonObject>("values", Values);
             writer.WriteGuidValue("workflowId", WorkflowId);
             writer.WriteAdditionalData(AdditionalData);

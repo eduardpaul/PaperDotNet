@@ -14,7 +14,9 @@ namespace PaperDotNet.Documents.Features;
 /// <item>"Recognize text" (<c>documents.ocr</c>, off): OCR of scans and photos after <c>noText</c>.</item>
 /// </list>
 /// Each can also be started by hand on a document (to run it again). OCR's result is a new version, announced like any
-/// other, so its text is read and its images made by the same workflows. Classifying and extracting with AI (turned on
+/// other, so its text is read and its images made by the same workflows. The four are process roles of libraries
+/// (ADR-0047): a library may replace one with a copy or an extension's workflow (e.g. text from an LLM or another OCR
+/// engine, saved with <c>document.saveText</c>); a replacement raises the role's events, so search, OCR and AI follow it. Classifying and extracting with AI (turned on
 /// per workspace, when a chat model is configured) follow the text: <c>wf.documents.text.hasText</c>.
 /// </summary>
 internal static class DocumentWorkflows
@@ -63,18 +65,21 @@ internal static class DocumentWorkflows
         {
             Scope = BuiltInScope.Library,
             EnabledByDefault = true,
+            System = true,
         },
         new(Thumbnail, "Make thumbnails", "Makes the thumbnail of each new file, for lists and grids.",
             OnNewFiles("""{ "start": "thumbnail", "nodes": { "thumbnail": { "activity": "document.thumbnail" } } }"""))
         {
             Scope = BuiltInScope.Library,
             EnabledByDefault = true,
+            System = true,
         },
         new(Pages, "Render pages", "Renders the pages of each new file as images, for viewing documents.",
             OnNewFiles("""{ "start": "render", "nodes": { "render": { "activity": "document.renderPages" } } }"""))
         {
             Scope = BuiltInScope.Library,
             EnabledByDefault = true,
+            System = true,
         },
         new(Ocr, "Recognize text", "Recognizes the text of scans and photos (OCR) as a searchable PDF version, after reading found no text.",
             JsonNode.Parse($$"""
@@ -99,6 +104,7 @@ internal static class DocumentWorkflows
                 }
                 """)!.AsObject(),
             Scope = BuiltInScope.Library,
+            System = true,
         },
         new(Classify, "Classify new documents", "Picks the term of a term set that fits each new document best and sets it in a field.",
             JsonNode.Parse($$"""

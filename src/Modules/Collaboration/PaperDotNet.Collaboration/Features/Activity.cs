@@ -5,6 +5,8 @@ using PaperDotNet.Collaboration.Contracts;
 using PaperDotNet.Collaboration.Data;
 using PaperDotNet.Lists.Contracts;
 
+using PaperDotNet.Workflows.Contracts;
+
 namespace PaperDotNet.Collaboration.Features;
 
 /// <summary>Records activity entries; idempotent by deduplication key.</summary>
@@ -53,8 +55,15 @@ internal sealed class ItemActivity(CollaborationDbContext db, ICurrentUser user,
 
 /// <summary>Writes item changes to the timeline (the event id makes it idempotent) and removes data of purged items.</summary>
 internal sealed class ItemActivityRecorder(CollaborationDbContext db, ItemActivity activity)
-    : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemDeleted>, IEventSubscriber<ItemRestored>, IEventSubscriber<ItemPurged>
+    : ItemChangeActivity, IEventSubscriber<ItemPurged>
 {
+    public override string Key => "collaboration.recordChange";
+
+    public override string Description => "Records the original item event in the activity timeline.";
+
+    protected override Task ExecuteAsync(ItemEvent change, CancellationToken cancellationToken) =>
+        change switch { ItemAdded e => HandleAsync(e, cancellationToken), ItemUpdated e => HandleAsync(e, cancellationToken), ItemRestored e => HandleAsync(e, cancellationToken), ItemDeleted e => HandleAsync(e, cancellationToken), _ => Task.CompletedTask };
+
     public Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken) => RecordAsync(integrationEvent, ActivityKinds.Created, cancellationToken);
 
     public Task HandleAsync(ItemUpdated integrationEvent, CancellationToken cancellationToken) => RecordAsync(integrationEvent, ActivityKinds.Updated, cancellationToken);

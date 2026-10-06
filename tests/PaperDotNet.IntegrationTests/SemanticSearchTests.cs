@@ -58,11 +58,15 @@ public sealed class SemanticSearchTests(PaperDotNetApiFactory factory)
     private static JsonElement? Hit(JsonElement result, Guid id) =>
         result.GetProperty("value").EnumerateArray().Cast<JsonElement?>().FirstOrDefault(h => h!.Value.GetProperty("id").GetGuid() == id);
 
-    /// <summary>Runs the embedding job of the tenant (normally every minute).</summary>
+    /// <summary>Waits for item workflows to publish their embeddings.</summary>
     private async Task EmbedAsync(TenantSummary tenant)
     {
-        await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier);
-        await scope.ServiceProvider.GetRequiredService<EmbeddingJob>().RunAsync(Ct);
+        await Eventually.WaitForAsync<bool>(async () =>
+        {
+            await using var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier);
+            var db = scope.ServiceProvider.GetRequiredService<SearchDbContext>();
+            return !await db.Passages.AnyAsync(p => p.EmbeddingModel == null, Ct) ? true : null;
+        }, TimeSpan.FromSeconds(90));
     }
 
     /// <summary>Waits until the item has passages in the index (indexing is asynchronous).</summary>
@@ -136,7 +140,7 @@ public sealed class SemanticSearchTests(PaperDotNetApiFactory factory)
         await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier))
         {
             await scope.ServiceProvider.GetRequiredService<PaperDotNet.Lists.Contracts.IListItemStore>().ReindexAsync(note, Ct);
-            await scope.ServiceProvider.GetRequiredService<EmbeddingJob>().RunAsync(Ct);
+            await EmbedAsync(tenant);
             Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<SearchDbContext>().Passages.CountAsync(p => p.EmbeddingModel == null, Ct));
         }
 

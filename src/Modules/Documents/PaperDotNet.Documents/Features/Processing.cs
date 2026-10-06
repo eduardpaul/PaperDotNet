@@ -554,30 +554,39 @@ internal sealed class DocumentPageImages(DocumentsDbContext db, PageRenderer ren
     }
 }
 
-/// <summary>Adds the text of an item's current file to its search document, with its language (SRC-05).</summary>
-internal sealed class DocumentSearchContent(DocumentsDbContext db) : IItemSearchContributor
+/// <summary>The text of an item's current file, with its language (SRC-05), for search and AI.</summary>
+internal sealed class DocumentSearchContent(DocumentsDbContext db) : IItemTextSource
 {
-    public async Task<IReadOnlyDictionary<Guid, ItemSearchContent>> GetContentAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken)
+    /// <summary>The current file version and whether its text was read, without loading page texts.</summary>
+    public async Task<IReadOnlyDictionary<Guid, (string Revision, bool Ready)>> GetRevisionsAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken)
+    {
+        var ids = itemIds.ToList();
+        return (await db.FileVersions.AsNoTracking().Where(v => ids.Contains(v.ItemId) && v.IsCurrent)
+                .Select(v => new { v.ItemId, v.Id, v.PageCount }).ToListAsync(cancellationToken))
+            .ToDictionary(v => v.ItemId, v => (v.Id.ToString("N"), v.PageCount is not null));
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, ItemTextContent>> GetTextAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken)
     {
         var ids = itemIds.ToList();
         var versions = await db.FileVersions.AsNoTracking()
             .Where(v => ids.Contains(v.ItemId) && v.IsCurrent)
-            .Select(v => new { v.ItemId, v.StoredFileId, v.TextLanguage })
+            .Select(v => new { v.ItemId, v.StoredFileId, v.TextLanguage, v.Id, v.PageCount })
             .ToListAsync(cancellationToken);
         if (versions.Count == 0)
         {
-            return new Dictionary<Guid, ItemSearchContent>();
+            return new Dictionary<Guid, ItemTextContent>();
         }
 
         var storedIds = versions.Select(v => v.StoredFileId).Distinct().ToList();
         var pages = (await db.Pages.AsNoTracking().Where(p => storedIds.Contains(p.StoredFileId)).OrderBy(p => p.PageNumber).ToListAsync(cancellationToken))
             .ToLookup(p => p.StoredFileId);
         return versions
-            .Where(v => pages[v.StoredFileId].Any())
             .ToDictionary(
                 v => v.ItemId,
-                v => new ItemSearchContent(string.Join('\n', pages[v.StoredFileId].Select(p => p.Text)), FullTextLanguages.FromCode(v.TextLanguage))
+                v => new ItemTextContent(v.Id.ToString("N"), string.Join('\n', pages[v.StoredFileId].Select(p => p.Text)), FullTextLanguages.FromCode(v.TextLanguage))
                 {
+                    Ready = v.PageCount is not null,
                     Pages = PageTexts(pages[v.StoredFileId].Select(p => (p.PageNumber, p.Text))),
                 });
     }

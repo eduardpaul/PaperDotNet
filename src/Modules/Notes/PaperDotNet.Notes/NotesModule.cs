@@ -7,6 +7,8 @@ using PaperDotNet.Notes.Data;
 using PaperDotNet.Notes.Features;
 using PaperDotNet.Persistence;
 
+using PaperDotNet.Workflows.Contracts;
+
 namespace PaperDotNet.Notes;
 
 public static class NoteScopes
@@ -29,15 +31,14 @@ public sealed class NotesModule : IModule
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddWorkflowActivity<NoteLinkIndexer>();
+        services.AddWorkflow(ItemChangeWorkflows.Reaction("notes.links", "Update note links", "Updates wiki links and backlinks after a note changes.", "notes.links",
+            [WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted, WorkflowTriggers.ItemRestored], NoteTemplates.ContentTypeKey));
         services.AddModuleDbContext<NotesDbContext>(NotesDbContext.Schema);
         services.AddScoped<IItemMoveParticipant, NotesItemMoveParticipant>();
         services.AddSingleton(NoteTemplates.ContentType);
         services.AddSingleton(NoteTemplates.List);
         services.AddScoped<IItemMutator, NoteTagsMutator>();
-        services.AddEventSubscriber<ItemAdded, NoteLinkIndexer>();
-        services.AddEventSubscriber<ItemUpdated, NoteLinkIndexer>();
-        services.AddEventSubscriber<ItemRestored, NoteLinkIndexer>();
-        services.AddEventSubscriber<ItemDeleted, NoteLinkIndexer>();
         services.AddEventSubscriber<ItemPurged, NoteLinkIndexer>();
         services.AddScopes(NoteScopes.All);
     }

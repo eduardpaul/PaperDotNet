@@ -4,6 +4,8 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createBuiltInWorkflowResponseFromDiscriminatorValue, serializeBuiltInSettingsRequest, serializeBuiltInWorkflowResponse, type ApiProblem, type BuiltInSettingsRequest, type BuiltInWorkflowResponse } from '../../../../../../../../models/index.js';
 // @ts-ignore
+import { CopyRequestBuilderRequestsMetadata, type CopyRequestBuilder } from './copy/index.js';
+// @ts-ignore
 import { RunsRequestBuilderRequestsMetadata, type RunsRequestBuilder } from './runs/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
@@ -12,6 +14,10 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  * Builds and executes requests for operations under /v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns/{key}
  */
 export interface WithKeyItemRequestBuilder extends BaseRequestBuilder<WithKeyItemRequestBuilder> {
+    /**
+     * The copy property
+     */
+    get copy(): CopyRequestBuilder;
     /**
      * The runs property
      */
@@ -39,6 +45,9 @@ export const WithKeyItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/
  * Metadata for all the navigation properties in the request builder.
  */
 export const WithKeyItemRequestBuilderNavigationMetadata: Record<Exclude<keyof WithKeyItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+    copy: {
+        requestsMetadata: CopyRequestBuilderRequestsMetadata,
+    },
     runs: {
         requestsMetadata: RunsRequestBuilderRequestsMetadata,
     },

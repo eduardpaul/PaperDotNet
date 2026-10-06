@@ -524,6 +524,10 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      */
     key?: string | null;
     /**
+     * The locked property
+     */
+    locked?: boolean | null;
+    /**
      * The name property
      */
     name?: string | null;
@@ -536,13 +540,25 @@ export interface BuiltInWorkflowResponse extends AdditionalDataHolder, Parsable 
      */
     parameters?: JsonObject | null;
     /**
+     * The required property
+     */
+    required?: boolean | null;
+    /**
      * The requires property
      */
     requires?: string | null;
     /**
+     * The role property
+     */
+    role?: string | null;
+    /**
      * The scope property
      */
     scope?: BuiltInScope | null;
+    /**
+     * The system property
+     */
+    system?: boolean | null;
     /**
      * The values property
      */
@@ -1975,6 +1991,15 @@ export function createItemResponseFromDiscriminatorValue(parseNode: ParseNode | 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ItemSearchStatusResponse}
+ */
+// @ts-ignore
+export function createItemSearchStatusResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoItemSearchStatusResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ItemVersionResponse}
  */
 // @ts-ignore
@@ -2707,6 +2732,24 @@ export function createSearchHitFromDiscriminatorValue(parseNode: ParseNode | und
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SearchPolicyRequest}
+ */
+// @ts-ignore
+export function createSearchPolicyRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSearchPolicyRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SearchPolicyResponse}
+ */
+// @ts-ignore
+export function createSearchPolicyResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSearchPolicyResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {SearchResponse}
  */
 // @ts-ignore
@@ -3183,6 +3226,15 @@ export function createWorkflowRequestFromDiscriminatorValue(parseNode: ParseNode
 // @ts-ignore
 export function createWorkflowResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoWorkflowResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {WorkflowRunInfo}
+ */
+// @ts-ignore
+export function createWorkflowRunInfoFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoWorkflowRunInfo;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -3731,11 +3783,15 @@ export function deserializeIntoBuiltInWorkflowResponse(builtInWorkflowResponse: 
         "enabledByDefault": n => { builtInWorkflowResponse.enabledByDefault = n.getBooleanValue() ?? false; },
         "inputSchema": n => { builtInWorkflowResponse.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "key": n => { builtInWorkflowResponse.key = n.getStringValue(); },
+        "locked": n => { builtInWorkflowResponse.locked = n.getBooleanValue() ?? false; },
         "name": n => { builtInWorkflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { builtInWorkflowResponse.odataEtag = n.getStringValue(); },
         "parameters": n => { builtInWorkflowResponse.parameters = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
+        "required": n => { builtInWorkflowResponse.required = n.getBooleanValue() ?? false; },
         "requires": n => { builtInWorkflowResponse.requires = n.getStringValue(); },
+        "role": n => { builtInWorkflowResponse.role = n.getStringValue(); },
         "scope": n => { builtInWorkflowResponse.scope = n.getEnumValue<BuiltInScope>(BuiltInScopeObject) ?? BuiltInScopeObject.Workspace; },
+        "system": n => { builtInWorkflowResponse.system = n.getBooleanValue() ?? false; },
         "values": n => { builtInWorkflowResponse.values = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "workflowId": n => { builtInWorkflowResponse.workflowId = n.getGuidValue(); },
     }
@@ -4754,6 +4810,28 @@ export function deserializeIntoItemResponse(itemResponse: Partial<ItemResponse> 
         "parentId": n => { itemResponse.parentId = n.getGuidValue(); },
         "updatedAt": n => { itemResponse.updatedAt = n.getDateValue(); },
         "updatedBy": n => { itemResponse.updatedBy = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ItemSearchStatusResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoItemSearchStatusResponse(itemSearchStatusResponse: Partial<ItemSearchStatusResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "chunks": n => { itemSearchStatusResponse.chunks = n.getNumberValue(); },
+        "contentState": n => { itemSearchStatusResponse.contentState = n.getStringValue(); },
+        "currentRevision": n => { itemSearchStatusResponse.currentRevision = n.getStringValue(); },
+        "embeddingModel": n => { itemSearchStatusResponse.embeddingModel = n.getStringValue(); },
+        "embeddingState": n => { itemSearchStatusResponse.embeddingState = n.getStringValue(); },
+        "included": n => { itemSearchStatusResponse.included = n.getBooleanValue(); },
+        "indexed": n => { itemSearchStatusResponse.indexed = n.getBooleanValue(); },
+        "indexedAt": n => { itemSearchStatusResponse.indexedAt = n.getDateValue(); },
+        "indexedRevision": n => { itemSearchStatusResponse.indexedRevision = n.getStringValue(); },
+        "run": n => { itemSearchStatusResponse.run = n.getObjectValue<WorkflowRunInfo>(createWorkflowRunInfoFromDiscriminatorValue); },
+        "state": n => { itemSearchStatusResponse.state = n.getStringValue(); },
+        "truncated": n => { itemSearchStatusResponse.truncated = n.getBooleanValue(); },
     }
 }
 /**
@@ -5804,6 +5882,30 @@ export function deserializeIntoSearchHit(searchHit: Partial<SearchHit> | undefin
 }
 /**
  * The deserialization information for the current model
+ * @param SearchPolicyRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSearchPolicyRequest(searchPolicyRequest: Partial<SearchPolicyRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "included": n => { searchPolicyRequest.included = n.getBooleanValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SearchPolicyResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSearchPolicyResponse(searchPolicyResponse: Partial<SearchPolicyResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "containerId": n => { searchPolicyResponse.containerId = n.getGuidValue(); },
+        "included": n => { searchPolicyResponse.included = n.getBooleanValue(); },
+        "@odata.etag": n => { searchPolicyResponse.odataEtag = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param SearchResponse The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -6443,6 +6545,7 @@ export function deserializeIntoWorkflowRequest(workflowRequest: Partial<Workflow
         "inputSchema": n => { workflowRequest.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "key": n => { workflowRequest.key = n.getStringValue(); },
         "name": n => { workflowRequest.name = n.getStringValue(); },
+        "provides": n => { workflowRequest.provides = n.getStringValue(); },
         "scope": n => { workflowRequest.scope = n.getStringValue(); },
         "steps": n => { workflowRequest.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
         "trigger": n => { workflowRequest.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
@@ -6470,16 +6573,35 @@ export function deserializeIntoWorkflowResponse(workflowResponse: Partial<Workfl
         "inputSchema": n => { workflowResponse.inputSchema = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "key": n => { workflowResponse.key = n.getStringValue(); },
         "listId": n => { workflowResponse.listId = n.getGuidValue(); },
+        "locked": n => { workflowResponse.locked = n.getBooleanValue(); },
         "name": n => { workflowResponse.name = n.getStringValue(); },
         "@odata.etag": n => { workflowResponse.odataEtag = n.getStringValue(); },
+        "provides": n => { workflowResponse.provides = n.getStringValue(); },
+        "required": n => { workflowResponse.required = n.getBooleanValue(); },
         "scope": n => { workflowResponse.scope = n.getStringValue(); },
         "steps": n => { workflowResponse.steps = n.getCollectionOfObjectValues<WorkflowStep>(createWorkflowStepFromDiscriminatorValue); },
+        "system": n => { workflowResponse.system = n.getBooleanValue(); },
         "trigger": n => { workflowResponse.trigger = n.getObjectValue<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
         "triggers": n => { workflowResponse.triggers = n.getCollectionOfObjectValues<WorkflowTrigger>(createWorkflowTriggerFromDiscriminatorValue); },
         "updatedAt": n => { workflowResponse.updatedAt = n.getDateValue(); },
         "variables": n => { workflowResponse.variables = n.getObjectValue<JsonObject>(createJsonObjectFromDiscriminatorValue); },
         "version": n => { workflowResponse.version = n.getNumberValue(); },
         "workspaceId": n => { workflowResponse.workspaceId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param WorkflowRunInfo The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoWorkflowRunInfo(workflowRunInfo: Partial<WorkflowRunInfo> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "error": n => { workflowRunInfo.errorEscaped = n.getStringValue(); },
+        "id": n => { workflowRunInfo.id = n.getGuidValue(); },
+        "node": n => { workflowRunInfo.node = n.getStringValue(); },
+        "startedAt": n => { workflowRunInfo.startedAt = n.getDateValue(); },
+        "status": n => { workflowRunInfo.status = n.getStringValue(); },
     }
 }
 /**
@@ -7365,6 +7487,56 @@ export interface ItemResponse extends AdditionalDataHolder, Parsable {
      * The updatedBy property
      */
     updatedBy?: Guid | null;
+}
+export interface ItemSearchStatusResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The chunks property
+     */
+    chunks?: number | null;
+    /**
+     * The contentState property
+     */
+    contentState?: string | null;
+    /**
+     * The currentRevision property
+     */
+    currentRevision?: string | null;
+    /**
+     * The embeddingModel property
+     */
+    embeddingModel?: string | null;
+    /**
+     * The embeddingState property
+     */
+    embeddingState?: string | null;
+    /**
+     * The included property
+     */
+    included?: boolean | null;
+    /**
+     * The indexed property
+     */
+    indexed?: boolean | null;
+    /**
+     * The indexedAt property
+     */
+    indexedAt?: Date | null;
+    /**
+     * The indexedRevision property
+     */
+    indexedRevision?: string | null;
+    /**
+     * The run property
+     */
+    run?: WorkflowRunInfo | null;
+    /**
+     * The state property
+     */
+    state?: string | null;
+    /**
+     * The truncated property
+     */
+    truncated?: boolean | null;
 }
 /**
  * A version of an item; `fields` holds the values after that change (including `title`).
@@ -8794,6 +8966,26 @@ export interface SearchHit extends AdditionalDataHolder, Parsable {
     workspaceId?: Guid | null;
 }
 export type SearchMode = (typeof SearchModeObject)[keyof typeof SearchModeObject];
+export interface SearchPolicyRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The included property
+     */
+    included?: boolean | null;
+}
+export interface SearchPolicyResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The containerId property
+     */
+    containerId?: Guid | null;
+    /**
+     * The included property
+     */
+    included?: boolean | null;
+    /**
+     * The OdataEtag property
+     */
+    odataEtag?: string | null;
+}
 /**
  * Results; `mode` is how they were found. In `semantic` and `hybrid` mode the count and facets cover thebest candidates only (see `Search:CandidateLimit`).
  */
@@ -9245,11 +9437,15 @@ export function serializeBuiltInWorkflowResponse(writer: SerializationWriter, bu
     writer.writeBooleanValue("enabledByDefault", builtInWorkflowResponse.enabledByDefault ?? false);
     writer.writeObjectValue<JsonObject>("inputSchema", builtInWorkflowResponse.inputSchema, serializeJsonObject);
     writer.writeStringValue("key", builtInWorkflowResponse.key);
+    writer.writeBooleanValue("locked", builtInWorkflowResponse.locked ?? false);
     writer.writeStringValue("name", builtInWorkflowResponse.name);
     writer.writeStringValue("@odata.etag", builtInWorkflowResponse.odataEtag);
     writer.writeObjectValue<JsonObject>("parameters", builtInWorkflowResponse.parameters, serializeJsonObject);
+    writer.writeBooleanValue("required", builtInWorkflowResponse.required ?? false);
     writer.writeStringValue("requires", builtInWorkflowResponse.requires);
+    writer.writeStringValue("role", builtInWorkflowResponse.role);
     writer.writeEnumValue<BuiltInScope>("scope", builtInWorkflowResponse.scope ?? BuiltInScopeObject.Workspace);
+    writer.writeBooleanValue("system", builtInWorkflowResponse.system ?? false);
     writer.writeObjectValue<JsonObject>("values", builtInWorkflowResponse.values, serializeJsonObject);
     writer.writeGuidValue("workflowId", builtInWorkflowResponse.workflowId);
     writer.writeAdditionalData(builtInWorkflowResponse.additionalData);
@@ -10338,6 +10534,29 @@ export function serializeItemResponse(writer: SerializationWriter, itemResponse:
     writer.writeDateValue("updatedAt", itemResponse.updatedAt);
     writer.writeGuidValue("updatedBy", itemResponse.updatedBy);
     writer.writeAdditionalData(itemResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ItemSearchStatusResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeItemSearchStatusResponse(writer: SerializationWriter, itemSearchStatusResponse: Partial<ItemSearchStatusResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!itemSearchStatusResponse || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("chunks", itemSearchStatusResponse.chunks);
+    writer.writeStringValue("contentState", itemSearchStatusResponse.contentState);
+    writer.writeStringValue("currentRevision", itemSearchStatusResponse.currentRevision);
+    writer.writeStringValue("embeddingModel", itemSearchStatusResponse.embeddingModel);
+    writer.writeStringValue("embeddingState", itemSearchStatusResponse.embeddingState);
+    writer.writeBooleanValue("included", itemSearchStatusResponse.included);
+    writer.writeBooleanValue("indexed", itemSearchStatusResponse.indexed);
+    writer.writeDateValue("indexedAt", itemSearchStatusResponse.indexedAt);
+    writer.writeStringValue("indexedRevision", itemSearchStatusResponse.indexedRevision);
+    writer.writeObjectValue<WorkflowRunInfo>("run", itemSearchStatusResponse.run, serializeWorkflowRunInfo);
+    writer.writeStringValue("state", itemSearchStatusResponse.state);
+    writer.writeBooleanValue("truncated", itemSearchStatusResponse.truncated);
+    writer.writeAdditionalData(itemSearchStatusResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -11464,6 +11683,32 @@ export function serializeSearchHit(writer: SerializationWriter, searchHit: Parti
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SearchPolicyRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSearchPolicyRequest(writer: SerializationWriter, searchPolicyRequest: Partial<SearchPolicyRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!searchPolicyRequest || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("included", searchPolicyRequest.included);
+    writer.writeAdditionalData(searchPolicyRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SearchPolicyResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSearchPolicyResponse(writer: SerializationWriter, searchPolicyResponse: Partial<SearchPolicyResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!searchPolicyResponse || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("containerId", searchPolicyResponse.containerId);
+    writer.writeBooleanValue("included", searchPolicyResponse.included);
+    writer.writeStringValue("@odata.etag", searchPolicyResponse.odataEtag);
+    writer.writeAdditionalData(searchPolicyResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param SearchResponse The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -12147,6 +12392,7 @@ export function serializeWorkflowRequest(writer: SerializationWriter, workflowRe
     writer.writeObjectValue<JsonObject>("inputSchema", workflowRequest.inputSchema, serializeJsonObject);
     writer.writeStringValue("key", workflowRequest.key);
     writer.writeStringValue("name", workflowRequest.name);
+    writer.writeStringValue("provides", workflowRequest.provides);
     writer.writeStringValue("scope", workflowRequest.scope);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowRequest.steps, serializeWorkflowStep);
     writer.writeObjectValue<WorkflowTrigger>("trigger", workflowRequest.trigger, serializeWorkflowTrigger);
@@ -12175,10 +12421,14 @@ export function serializeWorkflowResponse(writer: SerializationWriter, workflowR
     writer.writeObjectValue<JsonObject>("inputSchema", workflowResponse.inputSchema, serializeJsonObject);
     writer.writeStringValue("key", workflowResponse.key);
     writer.writeGuidValue("listId", workflowResponse.listId);
+    writer.writeBooleanValue("locked", workflowResponse.locked);
     writer.writeStringValue("name", workflowResponse.name);
     writer.writeStringValue("@odata.etag", workflowResponse.odataEtag);
+    writer.writeStringValue("provides", workflowResponse.provides);
+    writer.writeBooleanValue("required", workflowResponse.required);
     writer.writeStringValue("scope", workflowResponse.scope);
     writer.writeCollectionOfObjectValues<WorkflowStep>("steps", workflowResponse.steps, serializeWorkflowStep);
+    writer.writeBooleanValue("system", workflowResponse.system);
     writer.writeObjectValue<WorkflowTrigger>("trigger", workflowResponse.trigger, serializeWorkflowTrigger);
     writer.writeCollectionOfObjectValues<WorkflowTrigger>("triggers", workflowResponse.triggers, serializeWorkflowTrigger);
     writer.writeDateValue("updatedAt", workflowResponse.updatedAt);
@@ -12186,6 +12436,22 @@ export function serializeWorkflowResponse(writer: SerializationWriter, workflowR
     writer.writeNumberValue("version", workflowResponse.version);
     writer.writeGuidValue("workspaceId", workflowResponse.workspaceId);
     writer.writeAdditionalData(workflowResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param WorkflowRunInfo The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeWorkflowRunInfo(writer: SerializationWriter, workflowRunInfo: Partial<WorkflowRunInfo> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!workflowRunInfo || isSerializingDerivedType) { return; }
+    writer.writeStringValue("error", workflowRunInfo.errorEscaped);
+    writer.writeGuidValue("id", workflowRunInfo.id);
+    writer.writeStringValue("node", workflowRunInfo.node);
+    writer.writeDateValue("startedAt", workflowRunInfo.startedAt);
+    writer.writeStringValue("status", workflowRunInfo.status);
+    writer.writeAdditionalData(workflowRunInfo.additionalData);
 }
 /**
  * Serializes information the current object
@@ -13196,6 +13462,10 @@ export interface WorkflowRequest extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
     /**
+     * The provides property
+     */
+    provides?: string | null;
+    /**
      * The scope property
      */
     scope?: string | null;
@@ -13269,6 +13539,10 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      */
     listId?: Guid | null;
     /**
+     * A guarantee of the product: it cannot be replaced, copied or turned off.
+     */
+    locked?: boolean | null;
+    /**
      * The name property
      */
     name?: string | null;
@@ -13277,6 +13551,14 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      */
     odataEtag?: string | null;
     /**
+     * The provides property
+     */
+    provides?: string | null;
+    /**
+     * Its role must always have an active workflow: turning off the last replacement brings the built-in back.
+     */
+    required?: boolean | null;
+    /**
      * The scope property
      */
     scope?: string | null;
@@ -13284,6 +13566,10 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      * The steps property
      */
     steps?: WorkflowStep[] | null;
+    /**
+     * It fills a system process role (a system built-in, or a copy or replacement of one): cheap runs, kept briefly whenthey succeed.
+     */
+    system?: boolean | null;
     /**
      * The trigger property
      */
@@ -13308,6 +13594,28 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
      * The workspaceId property
      */
     workspaceId?: Guid | null;
+}
+export interface WorkflowRunInfo extends AdditionalDataHolder, Parsable {
+    /**
+     * The error property
+     */
+    errorEscaped?: string | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The node property
+     */
+    node?: string | null;
+    /**
+     * The startedAt property
+     */
+    startedAt?: Date | null;
+    /**
+     * The status property
+     */
+    status?: string | null;
 }
 /**
  * A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, `group:Name`,`field:fieldName` (a person field of the item) or `creator`.
@@ -13546,6 +13854,7 @@ export const AuditActionObject = {
 export const BuiltInScopeObject = {
     Workspace: "workspace",
     Library: "library",
+    List: "list",
 } as const;
 /**
  * What happens when an upload has the same content as an existing document (DOC-10).

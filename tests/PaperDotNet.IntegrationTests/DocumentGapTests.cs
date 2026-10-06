@@ -65,6 +65,52 @@ public sealed class DocumentGapTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task A_library_replaces_reading_the_text_with_its_own_pipeline_and_search_follows()
+    {
+        await factory.CreateTenantAsync("gaps-text-role");
+        var client = await ApiClient.CreateAsync(factory, "gaps-text-role");
+        var (ws, list) = await LibraryAsync(client, "Own text");
+        var library = $"/v1.0/workspaces/{ws}/lists/{list}";
+        var builtIns = (await (await client.GetAsync($"{library}/workflows/builtIns", Ct)).ReadJsonAsync()).EnumerateArray().ToList();
+        Assert.Equal("documents.text", builtIns.Single(w => w.GetProperty("key").GetString() == "documents.text").GetProperty("role").GetString());
+
+        // The copy fills the documents.text role: here its "reader" is a fixed text (an LLM or another OCR engine in practice).
+        var copied = await client.PostAsJsonAsync($"{library}/workflows/builtIns/documents.text/copy", new { name = "Our reader" }, Ct);
+        Assert.True(copied.IsSuccessStatusCode, await copied.Content.ReadAsStringAsync(Ct));
+        var copyUrl = $"/v1.0/workspaces/{ws}/workflows/{(await copied.ReadJsonAsync()).GetProperty("id").GetGuid()}";
+        var current = await client.GetAsync(copyUrl, Ct);
+        var changed = await client.SendWithEtagAsync(HttpMethod.Put, copyUrl, current.Headers.ETag!.Tag, new
+        {
+            name = "Our reader",
+            provides = "documents.text",
+            triggers = JsonSerializer.Deserialize<object>((await current.ReadJsonAsync()).GetProperty("triggers").GetRawText()),
+            flow = new
+            {
+                start = "save",
+                nodes = new Dictionary<string, object>
+                {
+                    ["save"] = new { activity = "document.saveText", inputs = new { pages = new[] { "Pelicans read by our own reader" } }, next = new { text = "has text", noText = "no text" } },
+                    ["has text"] = new { activity = "event.raise", inputs = new { @event = "hasText" } },
+                    ["no text"] = new { activity = "event.raise", inputs = new { @event = "noText" } },
+                },
+            },
+        });
+        Assert.True(changed.IsSuccessStatusCode, await changed.Content.ReadAsStringAsync(Ct));
+        Assert.False((await (await client.GetAsync($"{library}/workflows/builtIns", Ct)).ReadJsonAsync()).EnumerateArray()
+            .Single(w => w.GetProperty("key").GetString() == "documents.text").GetProperty("enabled").GetBoolean());
+
+        // The replacement raises the role's events (wf.documents.text.hasText), so search indexes what it saved.
+        var item = (await UploadAsync(client, $"{library}/documents", Pages("Original layer"), "own.pdf")).GetProperty("itemId").GetGuid();
+        await Eventually.WaitForAsync<bool>(async () =>
+        {
+            var hits = (await (await client.GetAsync("/v1.0/search?q=pelicans", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray();
+            return hits.Any(h => h.GetProperty("id").GetGuid() == item && h.TryGetProperty("page", out var page) && page.GetInt32() == 1) ? true : null;
+        }, TimeSpan.FromSeconds(60));
+        Assert.DoesNotContain((await (await client.GetAsync("/v1.0/search?q=layer", Ct)).ReadJsonAsync()).GetProperty("value").EnumerateArray(),
+            h => h.GetProperty("id").GetGuid() == item);
+    }
+
+    [Fact]
     public async Task Folders_hold_optional_field_values()
     {
         await factory.CreateTenantAsync("gaps-folders");

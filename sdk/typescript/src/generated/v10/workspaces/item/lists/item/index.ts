@@ -22,6 +22,8 @@ import { PermissionsRequestBuilderNavigationMetadata, PermissionsRequestBuilderR
 // @ts-ignore
 import { RecycleBinRequestBuilderNavigationMetadata, RecycleBinRequestBuilderRequestsMetadata, type RecycleBinRequestBuilder } from './recycleBin/index.js';
 // @ts-ignore
+import { SearchSettingsRequestBuilderRequestsMetadata, type SearchSettingsRequestBuilder } from './searchSettings/index.js';
+// @ts-ignore
 import { type ViewsRequestBuilder, ViewsRequestBuilderNavigationMetadata, ViewsRequestBuilderRequestsMetadata } from './views/index.js';
 // @ts-ignore
 import { type WorkflowsRequestBuilder, WorkflowsRequestBuilderNavigationMetadata } from './workflows/index.js';
@@ -68,6 +70,10 @@ export interface WithListItemRequestBuilder extends BaseRequestBuilder<WithListI
      * The recycleBin property
      */
     get recycleBin(): RecycleBinRequestBuilder;
+    /**
+     * The searchSettings property
+     */
+    get searchSettings(): SearchSettingsRequestBuilder;
     /**
      * The views property
      */
@@ -152,6 +158,9 @@ export const WithListItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     recycleBin: {
         requestsMetadata: RecycleBinRequestBuilderRequestsMetadata,
         navigationMetadata: RecycleBinRequestBuilderNavigationMetadata,
+    },
+    searchSettings: {
+        requestsMetadata: SearchSettingsRequestBuilderRequestsMetadata,
     },
     views: {
         requestsMetadata: ViewsRequestBuilderRequestsMetadata,

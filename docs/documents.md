@@ -41,9 +41,15 @@ Each one can be turned on or off per library (library settings → Workflows, or
   clients that text, a thumbnail, pages or an OCR version was made.
 - **AI with images** (`includeImages`) renders the pages it sends itself, so a
   library without page images can still send them to a model.
-- **Your own workflows** can follow these, e.g. on
-  `wf.documents.text.hasText`, or replace them: turn one off and copy it
-  (`…/workflows/builtIns/{key}/copy`) to change it.
+- **Your own workflows** can follow these, for example on `wf.documents.text.hasText`.
+- **Replacing a workflow.** The four are process roles of libraries
+  ([ADR-0047](adr/0047-process-roles-for-system-workflows.md)). Copy one per library (**Customize** in library settings,
+  or `POST …/lists/{listId}/workflows/builtIns/{key}/copy`) and change the copy. It takes over in that library, and the
+  built-in is turned off there.
+  - A replacement raises the role's events (`wf.documents.text.hasText` / `noText`), so search, OCR and AI follow it.
+  - A replacement of "Read the text" (an LLM, another OCR engine, a script) saves its page texts with `document.saveText`
+    (`pages`: the texts in order, often a token such as `{step:llm.json.pages}`; optional `language`). Then it raises
+    `hasText` or `noText` from that step's outcome.
 
 ## Page operations
 

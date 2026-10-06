@@ -5,6 +5,101 @@ their text, list items, tasks, events, comments): SRC-01…09. Design:
 [ADR-0012](adr/0012-full-text-search.md) (full text) and
 [ADR-0027](adr/0027-semantic-and-hybrid-search.md) (meaning, hybrid, pages).
 
+Indexing executes through the existing workflow engine. **Index for search**
+(`search.index`) is enabled per list/library and runs after saved item changes
+and completed file-text extraction. Its steps stage configurable chunks, publish
+the current revision, and embed missing vectors. Failures and retries are visible
+in workflow history. [ADR-0043](adr/0043-search-indexing-as-workflows-over-a-search-store.md)
+describes the source, workflow and store boundaries.
+
+## Indexing controls and status
+
+- Open an item's **Workflows** tab to see current indexing status, text and
+  embedding readiness, chunk truncation, and all processing runs. **Index now**
+  launches indexing even when automatic indexing is disabled.
+- List/library workflow settings control automatic `search.index` execution.
+- List settings → **Search** → **Include this list in search** controls complete
+  inclusion. Exclusion immediately hides titles, fields, comments and file text
+  across every query mode and facets; re-enabling requests item indexing workflows.
+- `GET .../lists/{listId}/searchSettings` returns inclusion and an ETag.
+  `PUT` changes inclusion with `If-Match`; requires `search.write` and workspace
+  Manage permission.
+- `GET .../lists/{listId}/items/{itemId}/searchIndex` returns `notIndexed`,
+  `running`, `waiting`, `indexed`, `stale`, `failed` or `excluded`, current/published
+  revisions, publication time, chunk count, truncation, and latest indexing run.
+  `embeddingState` and `contentState` distinguish usable metadata from pending text
+  or embeddings. Access follows the current item's permissions.
+- Manual launch uses the existing
+  `POST .../lists/{listId}/workflows/builtIns/search.index/runs` endpoint.
+  A failed embedding step can be retried through workflow retry without publishing again.
+- **Rebuild search** (`search.rebuild`) requests item indexing in pages of 100
+  and waits durably for each page (`WorkflowRequests`).
+  - A failed item is counted and the rebuild goes on. An explicit rebuild (API,
+    `paperdotnet reindex`) then ends failed and lists the first failures. The
+    reindex operation follows this workflow.
+  - Its 15-minute schedule requests only items whose publication is missing or
+    stale, and only where automatic indexing is on.
+  - Stale is judged by cheap stamps (the item's last change, its file version
+    and readiness, the chunk settings, the embedding model), compared in batches
+    without reading text. It yields after 2,000 items.
+  - Excluded lists are skipped by every rebuild.
+- Steps with nothing to do end at their `skipped` port instead of failing: the
+  list is excluded, the item is gone, or a newer change superseded the step.
+- Permission changes only move the indexed items' scopes (`search.scopes`). Text
+  and vectors stay, and nothing is indexed again.
+- Search results are checked against the items as they are now (existing and
+  readable). The check is bounded by the page, so a delete or permission change
+  never shows while the index catches up. Counts and facets can be off by such
+  items for a few seconds.
+
+## Indexing pipelines (the `search.index` role)
+
+Indexing is a process role ([ADR-0047](adr/0047-process-roles-for-system-workflows.md)). One workflow per list fills it:
+- **Index for search** (the default);
+- **Index for search with AI context** (needs `AI:Chat`): the chat model adds a sentence of context to each chunk;
+- a copy a developer changed. **List settings → Indexing pipeline → Customize**, or
+  `POST …/lists/{listId}/workflows/builtIns/search.index/copy`.
+
+Turning one on turns the others off. Status, the repair sweep and **Index now**
+(`POST …/lists/{listId}/workflows/roles/search.index/runs`) follow whichever workflow is active.
+
+A pipeline follows this contract:
+
+| Step | Activity | Notes |
+|---|---|---|
+| 1. Stage | `search.chunk` (chunker inputs) or `search.stage` (`chunks`: texts or `{ text, page }`, e.g. `"{step:split.json.chunks}"` from a script, OCR or AI step) | At most 400 chunks of up to 20,000 characters |
+| 2. Change chunks (optional) | `search.enrich` (`instructions`) | Answers cached by instructions, title and chunk text: an unchanged chunk is never asked twice, and its vector is reused |
+| 3. Publish | `search.publish` | Checks the item's revision, the list policy and the claim; never skipped |
+| 4. Embed (optional) | `search.embed` | |
+
+Connect each step's `skipped` port to an `end` node. Publication and the
+query-time filters are fixed code, so a pipeline can change chunks, quality
+and cost, never permissions or inclusion.
+
+A publication records the pipeline that made it (workflow and version).
+Switching or changing the pipeline marks publications stale, and the repair
+sweep indexes them again.
+
+Chunk parameters are `chunker` (`window`, `pages`, `whole`), `maxChars` and
+`overlap`.
+- `pages` splits a page longer than `maxChars` into windows, and `whole` keeps
+  at most 20,000 characters (marked truncated), so no chunk is too long for the
+  embedding model.
+- Changing the parameters (a new version of the pipeline) marks publications
+  stale, and the schedule indexes them again.
+- Text-only hashes preserve vectors through renames and rebuilds.
+- Keyword results remain available after an embedding provider failure.
+- Stores do no implicit chunking, and there is no separate embedding executor.
+
+**Upgrading:** passage hashes no longer include the title. The first rebuild
+after upgrading therefore embeds every passage once more, and the 15-minute
+schedule starts it automatically. Plan for that cost with a paid embedding
+provider.
+
+Not covered by the stamps: a renamed taxonomy term or a changed comment. A
+comment change requests indexing itself (where automatic indexing is on). An
+item's status shows `stale` until it is indexed again.
+
 ## Queries
 
 | Parameter | Meaning |
@@ -122,7 +217,7 @@ PAPERDOTNET__AI__Embeddings__ApiKey=sk-…
 
 **How content is embedded:**
 - Documents are split into passages of about 1,200 characters, with the page
-  each is on. The embedding job (`search.embeddings`, every minute) embeds new
+  each is on. The item workflow activity (`search.embed`) embeds new
   and changed passages in the background.
 - Unchanged text is never embedded again.
 - Changing the model embeds everything again with the new model. Until that is
@@ -138,8 +233,6 @@ PAPERDOTNET__AI__Embeddings__ApiKey=sk-…
 | `MinSimilarity` | 0.3 | Cosine similarity below which a passage is no match; tune it for your model |
 | `CandidateLimit` | 200 | Documents per side before fusion |
 | `EmbeddingBatchSize` | 64 | Passages per call to the model |
-| `EmbeddingsPerRun` | 2000 | Passages per tenant and run |
-| `EmbeddingSchedule` | `* * * * *` | Cron schedule of the embedding job |
 
 **Limits:**
 - Vectors are searched in memory on each server, on SQLite and PostgreSQL

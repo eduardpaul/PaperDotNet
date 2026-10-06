@@ -33,14 +33,18 @@ public sealed class TasksModule : IModule
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddWorkflowActivity<RecurringTaskSpawner>();
+        services.AddWorkflow(ItemChangeWorkflows.Reaction("tasks.nextOccurrence", "Create next recurring task", "Creates the next occurrence after a repeating task completes.", "tasks.nextOccurrence",
+            [WorkflowTriggers.ItemUpdated], TaskTemplates.ContentTypeKey));
         services.AddModuleDbContext<TasksDbContext>(TasksDbContext.Schema);
         services.AddScoped<IItemMoveParticipant, TasksItemMoveParticipant>();
         services.AddSingleton(TaskTemplates.ContentType);
         services.AddSingleton(TaskTemplates.List);
         services.AddScoped<TaskAccess>();
-        services.AddEventSubscriber<ItemUpdated, RecurringTaskSpawner>();
         services.AddEventSubscriber<ItemPurged, PurgedTaskData>();
-        services.AddEventSubscriber<ItemUpdated, TaskCompletedTrigger>();
+        services.AddWorkflowActivity<TaskCompletedTrigger>();
+        services.AddWorkflow(ItemChangeWorkflows.Reaction("tasks.completed", "Announce completed tasks", "Announces completed tasks to following workflows.", "tasks.raiseCompleted",
+            [WorkflowTriggers.ItemUpdated], TaskTemplates.ContentTypeKey));
         services.AddWorkflowTrigger(new WorkflowTriggerDefinition(WorkflowTriggers.TaskCompleted, "A task was completed (data: completedBy)."));
         services.AddWorkflowActivity<TaskCreateActivity>();
         services.AddTenantRecurringJob<DueTaskReminderJob>(DueTaskReminderJob.Name, DueTaskReminderJob.Schedule);

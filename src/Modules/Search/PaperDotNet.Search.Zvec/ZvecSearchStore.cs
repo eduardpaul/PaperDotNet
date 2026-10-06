@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Search.Contracts;
@@ -64,6 +65,38 @@ internal sealed class ZvecSearchStore(ZvecCollections collections, ITenantContex
         }
     }
 
+    private string StagePath(Guid id) => System.IO.Path.Combine(collections.Path, Id(TenantId), "staged", $"{id:N}.json");
+
+    public async Task StageAsync(SearchGeneration generation, CancellationToken cancellationToken)
+    {
+        var path = StagePath(generation.Id);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+        var temporary = path + $".{Ids.New():N}.tmp";
+        try
+        {
+            await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(generation), cancellationToken);
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
+    }
+
+    public async Task<SearchGeneration?> GetStageAsync(Guid generationId, CancellationToken cancellationToken)
+    {
+        try { return JsonSerializer.Deserialize<SearchGeneration>(await File.ReadAllTextAsync(StagePath(generationId), cancellationToken)); }
+        catch (FileNotFoundException) { return null; }
+        catch (DirectoryNotFoundException) { return null; }
+    }
+
+    public Task DeleteStageAsync(Guid generationId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        File.Delete(StagePath(generationId));
+        return Task.CompletedTask;
+    }
+
     public async Task UpsertAsync(IReadOnlyCollection<SearchDocumentData> documents, CancellationToken cancellationToken)
     {
         if (documents.Count == 0)
@@ -112,7 +145,7 @@ internal sealed class ZvecSearchStore(ZvecCollections collections, ITenantContex
             var metadata = Metadata.Of(document);
             var title = document.Title.Length > 1024 ? document.Title[..1024] : document.Title;
             var keywords = Cut(document.Keywords);
-            var body = Cut(document.Pages.Count == 0 ? document.Body : $"{document.Body}\n{string.Join('\n', document.Pages)}");
+            var body = Cut($"{document.Body}\n{string.Join('\n', document.Chunks.Where(p => p.Page != null || !p.FromBody).Select(p => p.Text))}");
             var content = $"{title}\n{keywords}\n{body}";
             var language = LanguageOf(document) is { } l && index.Catalog.Languages.Contains(l) ? l : null;
             var head = metadata.Write(new ZvecRow(Id(document.Id)), numberColumns, clear: false)
@@ -130,9 +163,9 @@ internal sealed class ZvecSearchStore(ZvecCollections collections, ITenantContex
             upserts.Add(head);
             var reusable = existing[Id(document.Id)].GroupBy(h => h.Text(ContentHash) ?? string.Empty)
                 .ToDictionary(g => g.Key, g => new Queue<string>(g.Select(h => h.Pk)));
-            foreach (var (passage, ordinal) in Passages.Split(document).Select((p, i) => (p, i)))
+            foreach (var (passage, ordinal) in document.Chunks.Select((p, i) => (p, i)))
             {
-                var hash = Passages.Hash(Passages.EmbeddingInput(title, passage.Text));
+                var hash = Passages.Hash(passage.Text);
                 string? kept = null;
                 if (reusable.TryGetValue(hash, out var queue) && queue.TryDequeue(out var reused))
                 {
@@ -398,6 +431,19 @@ internal sealed class ZvecSearchStore(ZvecCollections collections, ITenantContex
         return passages
             .Select(p => new PassageToEmbed(Guid.Parse(p.Pk), Passages.EmbeddingInput(titles.GetValueOrDefault(p.Text(DocumentId)!, string.Empty), p.Text(Text) ?? string.Empty)))
             .ToList();
+    }
+
+    public async Task<IReadOnlyList<PassageToEmbed>> GetPassagesToEmbedAsync(Guid documentId, string model, int limit, CancellationToken cancellationToken)
+    {
+        using var lease = await ReadLeaseAsync(cancellationToken);
+        if (lease is null || lease.Index.Vectors?.Key != model)
+        {
+            return [];
+        }
+        var index = lease.Index;
+        var filter = ZvecFilter.And([PassagesOf([documentId]), ZvecFilter.Or([$"{EmbeddingModel} IS NULL", $"{EmbeddingModel} != {ZvecFilter.Quote(index.Catalog.VectorModel!)}"])]);
+        return index.Collection.Text(Heading, AllToken, filter, limit, [(Text, ZvecNative.TypeString)])
+            .Select(p => new PassageToEmbed(Guid.Parse(p.Pk), p.Text(Text) ?? string.Empty)).ToList();
     }
 
     public async Task SetEmbeddingsAsync(string model, IReadOnlyCollection<PassageEmbedding> embeddings, CancellationToken cancellationToken)

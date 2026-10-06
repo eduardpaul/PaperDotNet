@@ -79,7 +79,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var byKeywords = Document(scope, "Tagged") with { Keywords = "zephyr" };
         var byPage = Document(scope, "Scan", pages: ["nothing here", "a zephyr on page two"]);
         var other = Document(scope, "Unrelated", "calm weather");
-        await ctx.RunAsync(s => s.UpsertAsync([byTitle, byBody, byKeywords, byPage, other], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([byTitle, byBody, byKeywords, byPage, other], Ct));
 
         var result = await ctx.RunAsync(s => s.SearchAsync(Keyword("zephyr", Readable(scope)), Ct));
 
@@ -98,7 +98,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var scope = Guid.NewGuid();
         var body = Document(scope, "Minutes", "we discussed the quokka budget at length");
         var title = Document(scope, "Quokka budget", "figures for next year");
-        await ctx.RunAsync(s => s.UpsertAsync([body, title], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([body, title], Ct));
 
         var result = await ctx.RunAsync(s => s.SearchAsync(Keyword("quokka", Readable(scope)), Ct));
 
@@ -113,7 +113,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var a = Document(scope, "A", "red apple pie");
         var b = Document(scope, "B", "apple red pie");
         var c = Document(scope, "C", "green pear tart");
-        await ctx.RunAsync(s => s.UpsertAsync([a, b, c], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([a, b, c], Ct));
 
         async Task<List<Guid>> Find(string q) => Ids(await ctx.RunAsync(s => s.SearchAsync(Keyword(q, Readable(scope)), Ct)));
 
@@ -131,7 +131,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var theirs = Guid.NewGuid();
         var visible = Document(mine, "Walrus plan");
         var hidden = Document(theirs, "Walrus secret");
-        await ctx.RunAsync(s => s.UpsertAsync([visible, hidden], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([visible, hidden], Ct));
 
         var result = await ctx.RunAsync(s => s.SearchAsync(Keyword("walrus", Readable(mine)), Ct));
         Assert.Equal([visible.Id], Ids(result));
@@ -148,7 +148,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var second = await NewTenantAsync();
         var scope = Guid.NewGuid();
         var document = Document(scope, "Narwhal ledger");
-        await first.RunAsync(s => s.UpsertAsync([document], Ct));
+        await first.RunAsync(s => s.SeedAsync([document], Ct));
 
         var other = await second.RunAsync(s => s.SearchAsync(Keyword("narwhal", Readable(scope)), Ct));
         Assert.Empty(other.Hits);
@@ -169,7 +169,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var d1 = Document(scope, "Ibis one", workspace: ws1, container: list, contentType: type, author: author, terms: [term], updated: jan);
         var d2 = Document(scope, "Ibis two", workspace: ws1, updated: mar);
         var d3 = Document(scope, "Ibis three", workspace: ws2, updated: mar);
-        await ctx.RunAsync(s => s.UpsertAsync([d1, d2, d3], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([d1, d2, d3], Ct));
 
         async Task<List<Guid>> Find(StoreFilter filter) => Ids(await ctx.RunAsync(s => s.SearchAsync(Keyword("ibis", filter), Ct)));
         var all = Readable(scope);
@@ -192,7 +192,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var older = Document(scope, "Older", workspace: ws, updated: DateTimeOffset.UnixEpoch.AddDays(1));
         var newer = Document(scope, "Newer", workspace: ws, updated: DateTimeOffset.UnixEpoch.AddDays(2));
         var elsewhere = Document(scope, "Elsewhere", updated: DateTimeOffset.UnixEpoch.AddDays(3));
-        await ctx.RunAsync(s => s.UpsertAsync([older, newer, elsewhere], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([older, newer, elsewhere], Ct));
 
         var result = await ctx.RunAsync(s => s.SearchAsync(Keyword(null, Readable(scope) with { WorkspaceId = ws }), Ct));
 
@@ -206,7 +206,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var ctx = await NewTenantAsync();
         var scope = Guid.NewGuid();
         var documents = Enumerable.Range(0, 7).Select(i => Document(scope, $"Okapi {i}")).ToList();
-        await ctx.RunAsync(s => s.UpsertAsync(documents, Ct));
+        await ctx.RunAsync(s => s.SeedAsync(documents, Ct));
 
         var first = await ctx.RunAsync(s => s.SearchAsync(Keyword("okapi", Readable(scope), top: 3), Ct));
         var last = await ctx.RunAsync(s => s.SearchAsync(Keyword("okapi", Readable(scope), top: 3, skip: 6), Ct));
@@ -223,7 +223,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var ctx = await NewTenantAsync();
         var scope = Guid.NewGuid();
         var (ws, list, type, term) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
-        await ctx.RunAsync(s => s.UpsertAsync(
+        await ctx.RunAsync(s => s.SeedAsync(
         [
             Document(scope, "Tapir a", workspace: ws, container: list, contentType: type, terms: [term]),
             Document(scope, "Tapir b", workspace: ws, container: list, terms: [term]),
@@ -245,8 +245,8 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var ctx = await NewTenantAsync();
         var scope = Guid.NewGuid();
         var document = Document(scope, "Draft", "the marmot section");
-        await ctx.RunAsync(s => s.UpsertAsync([document], Ct));
-        await ctx.RunAsync(s => s.UpsertAsync([document with { Body = "the badger section" }], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([document], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([document with { Body = "the badger section" }], Ct));
 
         Assert.Empty((await ctx.RunAsync(s => s.SearchAsync(Keyword("marmot", Readable(scope)), Ct))).Hits);
         Assert.Equal([document.Id], Ids(await ctx.RunAsync(s => s.SearchAsync(Keyword("badger", Readable(scope)), Ct))));
@@ -262,7 +262,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var inList = Document(scope, "Gecko list", container: list);
         var ofSource = Document(scope, "Gecko source", source: "other");
         var kept = Document(scope, "Gecko kept");
-        await ctx.RunAsync(s => s.UpsertAsync([byId, inList, ofSource, kept], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([byId, inList, ofSource, kept], Ct));
 
         await ctx.RunAsync(s => s.DeleteAsync([byId.Id], Ct));
         await ctx.RunAsync(s => s.DeleteContainerAsync(list, Ct));
@@ -277,7 +277,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var ctx = await NewTenantAsync();
         var (before, after) = (Guid.NewGuid(), Guid.NewGuid());
         var document = Document(before, "Lemur memo");
-        await ctx.RunAsync(s => s.UpsertAsync([document], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([document], Ct));
 
         await ctx.RunAsync(s => s.SetScopesAsync(new Dictionary<Guid, Guid> { [document.Id] = after, [Guid.NewGuid()] = after }, Ct));
 
@@ -291,7 +291,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var ctx = await NewTenantAsync();
         var scope = Guid.NewGuid();
         var (used, twice, unused) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
-        await ctx.RunAsync(s => s.UpsertAsync([Document(scope, "a", terms: [used, twice]), Document(scope, "b", terms: [twice])], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([Document(scope, "a", terms: [used, twice]), Document(scope, "b", terms: [twice])], Ct));
 
         var counts = await ctx.RunAsync(s => s.CountTermsAsync([used, twice, unused], Ct));
 
@@ -332,7 +332,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
             ],
         };
         var plain = Document(scope, "Field three");
-        await ctx.RunAsync(s => s.UpsertAsync([first, second, plain], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([first, second, plain], Ct));
         return new FieldSetup(ctx, scope, first, second, plain, alice, term);
     }
 
@@ -402,7 +402,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
             new SearchFieldInfo("total", SearchFieldKind.Number), new SearchFieldInfo("vendor", SearchFieldKind.Keyword),
         }, fields);
 
-        await f.Ctx.RunAsync(s => s.UpsertAsync([f.Second with { Fields = [new SearchField("total", SearchFieldKind.Number, [SearchValue.Of(500)])] }], Ct));
+        await f.Ctx.RunAsync(s => s.SeedAsync([f.Second with { Fields = [new SearchField("total", SearchFieldKind.Number, [SearchValue.Of(500)])] }], Ct));
         Assert.Equal([f.Second.Id], await FindAsync(f, new SearchCompare("total", SearchFieldKind.Number, SearchOperator.GreaterThan, SearchValue.Of(400))));
         Assert.Equivalent(new[] { f.Plain.Id, f.Second.Id }, await FindAsync(f, new SearchNot(new SearchHasValue("status", SearchFieldKind.Keyword))));
 
@@ -454,7 +454,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var garage = Document(scope, "Household", pages: ["shopping list", "the car is parked"]);
         var money = Document(scope, "Accounts", "invoice and payment terms");
         var hidden = Document(Guid.NewGuid(), "Elsewhere", "a car");
-        await ctx.RunAsync(s => s.UpsertAsync([garage, money, hidden], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([garage, money, hidden], Ct));
         var model = await EmbedAllAsync(ctx);
         Assert.Empty(await ctx.RunAsync(s => s.GetPassagesToEmbedAsync(model, 10, Ct)));
 
@@ -476,7 +476,7 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var meaningOnly = Document(scope, "Garage", "automobile repair");
         var keywordOnly = Document(scope, "Reminder", "water the plants");
         var excluded = Document(scope, "Draft reminder", "car draft");
-        await ctx.RunAsync(s => s.UpsertAsync([both, meaningOnly, keywordOnly, excluded], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([both, meaningOnly, keywordOnly, excluded], Ct));
         await EmbedAllAsync(ctx);
 
         var query = await SemanticAsync(ctx, SearchMode.Hybrid, "reminder -draft", "vehicle", Readable(scope));
@@ -495,10 +495,10 @@ public abstract class SearchStoreConformanceTests(PaperDotNetApiFactory factory)
         var ctx = await NewTenantAsync();
         var scope = Guid.NewGuid();
         var document = Document(scope, "Notes", pages: ["first page about rain", "second page about cats"]);
-        await ctx.RunAsync(s => s.UpsertAsync([document], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([document], Ct));
         var model = await EmbedAllAsync(ctx);
 
-        await ctx.RunAsync(s => s.UpsertAsync([document with { Pages = ["first page about rain", "second page about invoices"] }], Ct));
+        await ctx.RunAsync(s => s.SeedAsync([document with { Pages = ["first page about rain", "second page about invoices"] }], Ct));
         var pending = await ctx.RunAsync(s => s.GetPassagesToEmbedAsync(model, 10, Ct));
 
         var passage = Assert.Single(pending);

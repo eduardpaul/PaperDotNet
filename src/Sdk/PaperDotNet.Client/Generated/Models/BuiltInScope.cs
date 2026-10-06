@@ -16,5 +16,9 @@ namespace PaperDotNet.Client.Models
         #pragma warning disable CS1591
         Library,
         #pragma warning restore CS1591
+        [EnumMember(Value = "list")]
+        #pragma warning disable CS1591
+        List,
+        #pragma warning restore CS1591
     }
 }

@@ -43,6 +43,10 @@ public enum SearchStoreCapabilities
 /// </summary>
 public sealed record StoreFilter(IReadOnlyCollection<Guid> ReadableScopes)
 {
+    /// <summary>Authoritative active readable list-item IDs; null for standalone store queries.</summary>
+    public IReadOnlyCollection<Guid>? ReadableItems { get; init; }
+    /// <summary>Containers excluded by current policy, before candidate selection, facets and paging.</summary>
+    public IReadOnlyCollection<Guid> ExcludedContainers { get; init; } = [];
     public Guid? WorkspaceId { get; init; }
 
     public Guid? ContainerId { get; init; }
@@ -120,6 +124,12 @@ public sealed record PassageEmbedding(Guid PassageId, ReadOnlyMemory<float> Vect
 /// </summary>
 public interface ISearchStore : ISearchIndex
 {
+    Task StageAsync(SearchGeneration generation, CancellationToken cancellationToken);
+
+    Task<SearchGeneration?> GetStageAsync(Guid generationId, CancellationToken cancellationToken);
+
+    Task DeleteStageAsync(Guid generationId, CancellationToken cancellationToken);
+
     /// <summary>The configured name (<c>Search:Store</c>), e.g. <c>database</c>.</summary>
     string Name { get; }
 
@@ -135,6 +145,9 @@ public interface ISearchStore : ISearchIndex
 
     /// <summary>Up to <paramref name="limit"/> passages without an embedding of <paramref name="model"/>.</summary>
     Task<IReadOnlyList<PassageToEmbed>> GetPassagesToEmbedAsync(string model, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Pending embeddings of one item; a workflow never embeds other items as a side effect.</summary>
+    Task<IReadOnlyList<PassageToEmbed>> GetPassagesToEmbedAsync(Guid documentId, string model, int limit, CancellationToken cancellationToken);
 
     /// <summary>Stores embeddings of <paramref name="model"/>; unknown passages are skipped.</summary>
     Task SetEmbeddingsAsync(string model, IReadOnlyCollection<PassageEmbedding> embeddings, CancellationToken cancellationToken);

@@ -84,24 +84,26 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
 - Endpoints: Minimal APIs under `/v1.0`, `TypedResults`, `RequireScope(...)`,
   `ApiErrors` for problems, `Page.Create` for lists, ETags for mutable resources.
 - IDs via `Ids.New()` (UUIDv7); time via `TimeProvider`.
-- Events: changing or rejecting an item write → `IItemMutator` (Lists.Contracts, runs
-  before the save, ADR-0023); every reaction to a saved change → `IntegrationEvent` +
-  `IEventSubscriber<T>` (idempotent, registered with `services.AddEventSubscriber<TEvent, TSubscriber>()`,
-  one message per subscriber), published with `IOutbox.SaveChangesAsync(db, events)`. Only `PaperDotNet.Messaging`
-  references Wolverine.
+- Events: changing or rejecting an item write → `IItemMutator` (Lists.Contracts, before
+  the save). Product reactions to saved item changes → registered workflow activities
+  and built-in workflows, using `ItemChangeActivity` / `ItemChangeWorkflows.Create` (core roles) or `.Reaction`
+  (solutions) for original item-event context (`contentType` filters keep them off other lists). Integration events and subscribers transport
+  triggers; publish atomically through `IOutbox.SaveChangesAsync`. Activities must
+  be idempotent. Only `PaperDotNet.Messaging` references Wolverine. Purge cleanup,
+  retention and durable delivery remain infrastructure subscribers/jobs.
 - Item access (ADR-0035): check `schema.Access.Level(item.ScopeId)` (404 below Read) and
   filter queries with `schema.Access.Filter(level)`; other modules use `IItemAccess`
   (Lists.Contracts). Permissions are `acl_entries` per scope (the list, or an item with unique
   permissions); workspace roles are principals (`WorkspaceRolePrincipals`). Caches of what a user
   may access carry `AccessCacheTags.Principals`; a `HybridCache` factory that queries tenant data
   must be called with `CancellationToken.None` (with a cancellable token it runs without the tenant).
-- Searchable content → push `SearchDocumentData` through `ISearchIndex`
-  (Search.Contracts) from an event subscriber, with the content's permission scope
-  (`ScopeId`, ADR-0035: search trims by the caller's readable scopes); implement `ISearchSource` for reindexing. Text with pages goes in
-  `Pages` (page hits, SRC-09); filterable metadata in `Fields` (typed `SearchField`, `$filter` on `/v1.0/search`);
-  semantic search embeds passages automatically when
-  `AI:Embeddings` is configured (ADR-0027). AI providers come from `PaperDotNet.AI`
-  (`IEmbeddingGenerator`, Microsoft.Extensions.AI), off by default.
+- Searchable content → expose source data through `ISearchItemSource` (with cheap stamps) and versioned
+  text through `IItemTextSource`; request indexing with `IListItemStore.ReindexAsync`
+  (workflow transport; trigger names in `SearchTriggers`). `search.*` activities stage (`search.chunk`/`search.stage`),
+  enrich, publish and embed prepared chunks through `ISearchStore` in the `search.index` role's pipeline; producers never
+  write a search backend. Query-time
+  ACL and list-inclusion filters are mandatory, independent of async removal.
+  AI providers remain optional (`IEmbeddingGenerator`, Microsoft.Extensions.AI).
 - Search stores implement `ISearchStore` (Search.Contracts, ADR-0043), are registered with `AddSearchStore<T>(name)`
   and must pass `SearchStoreConformanceTests`; `SearchService` only talks to the store. Only
   `PaperDotNet.Search.Zvec` calls zvec (ADR-0044, opt-in).
@@ -138,7 +140,15 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   turned on per library); the engine only runs workflows. Workflows follow each other by events: `wf.{key}.completed`,
   `wf.{key}.failed` and `event.raise` (`wf.{key}.{event}`), never by code that calls another workflow. Build workflow features
   from workflow parts (waits with JSON data, run-again activities, built-in workflows), not tables or jobs of their own
-  (e.g. batched AI: `ai.batch` waits + the "AI batch" workflow). Mapping data into lists is workflow JSON, not a new
+  (e.g. batched AI: `ai.batch` waits + the "AI batch" workflow). Product processes are
+  process roles of the core only (ADR-0047: lists/libraries incl. search and document processing, collaboration,
+  notifications): system built-ins (`System`/`Required`/`Locked`/`IncludeFolders`/`Role` on `BuiltInWorkflow`: own lane,
+  short retention, item-event context only from the engine) that copies and extension alternatives replace via
+  `provides`, one active per scope, raising the role's `wf.{role}.…` events; consumers ask by role
+  (`IWorkflowDirectory.GetRoleWorkflowAsync`), never by built-in key. Only guarantees are `Locked`. Solutions (tasks,
+  notes, calendar, extensions) ship plain built-ins, `ItemChangeWorkflows.Reaction` for item-change reactions
+  (`Lightweight`: cheap, no role). Coordinators fan out with `WorkflowRequests` (bounded, tolerant,
+  waits on `CompletionKind` triggers), never by polling or tables of their own. Mapping data into lists is workflow JSON, not a new
   action: `item.update`/`item.create` with typed single tokens (`"total": "{step:read.json.total}"`) and `forEach`, or a
   `script` node (JavaScript in a sandbox, ADR-0037; samples/receipts-package). The script API is a contract of
   `@paperdotnet/client` (`runWorkflowScript`): change it in both, with a case in `sdk/typescript/test/scripts.test.mjs`. Code that reacts to an event

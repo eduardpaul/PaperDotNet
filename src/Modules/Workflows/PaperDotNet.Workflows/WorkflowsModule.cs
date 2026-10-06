@@ -53,6 +53,8 @@ public sealed class WorkflowsModule : IModule
         services.AddWorkflowActivity<ItemsQueryAction>();
 
         services.AddIntegrationEvent<WorkflowTriggerRaised>();
+        services.AddIntegrationEvent<WorkflowRunFinished>();
+        services.AddEventSubscriber<WorkflowRunFinished, WorkflowCompletionSubscriber>();
         services.AddScoped<IWorkflowTriggers, WorkflowTriggerPublisher>();
         services.AddEventSubscriber<ItemAdded, WorkflowTriggerHandler>();
         services.AddEventSubscriber<ItemUpdated, WorkflowTriggerHandler>();

@@ -10,15 +10,21 @@ export interface LaunchOption {
   builtInKey?: string;
 }
 
-/** Manual library built-ins are available independently of their automatic upload setting. */
+/**
+ * Manual library built-ins are available independently of their automatic upload setting. Workflows that fill a process
+ * role (e.g. search indexing) are left out: they have their own controls ("Index now", rebuilding search).
+ */
 export function launchOptions(
   workflows: WorkflowResponse[],
   list?: { id?: string | null; name?: string | null },
   builtIns: BuiltInWorkflowResponse[] = [],
 ): LaunchOption[] {
-  const manualBuiltIns = list ? builtIns.filter((builtIn) => builtIn.available && builtIn.allowManualLaunch) : [];
+  const manualBuiltIns = list
+    ? builtIns.filter((builtIn) => builtIn.available && builtIn.allowManualLaunch && !builtIn.role)
+    : [];
   const regular = manualWorkflows(workflows, list).filter(
     (workflow) =>
+      !workflow.provides &&
       !manualBuiltIns.some((builtIn) => builtIn.key === workflow.builtIn) &&
       (!list ||
         !workflow.listId ||

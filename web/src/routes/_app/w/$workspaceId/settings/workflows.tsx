@@ -1,3 +1,4 @@
+import { listBuilder } from '@/features/lists/queries';
 import type { WorkflowResponse } from '@paperdotnet/client';
 import { ifMatch } from '@paperdotnet/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -52,7 +53,10 @@ function Workflows() {
   const toggle = useMutation({
     mutationFn: ({ workflow, enabled }: { workflow: WorkflowResponse; enabled: boolean }): Promise<unknown> =>
       workflow.builtIn
-        ? workspaceBuilder(workspaceId).workflows.builtIns.byKey(workflow.builtIn).put({ enabled })
+        ? (workflow.listId
+            ? listBuilder(workspaceId, workflow.listId).workflows.builtIns.byKey(workflow.builtIn)
+            : workspaceBuilder(workspaceId).workflows.builtIns.byKey(workflow.builtIn)
+          ).put({ enabled }, ifMatch(workflow))
         : workspaceBuilder(workspaceId)
             .workflows.byId(workflow.id!)
             .put({ ...requestFrom(draftFrom(workflow)), enabled }, ifMatch(workflow)),
@@ -92,13 +96,15 @@ function Workflows() {
               <li key={workflow.id} className="flex items-center gap-3 px-5 py-3">
                 <EnabledToggle
                   workflow={workflow}
-                  disabled={!canManage}
+                  disabled={!canManage || !!workflow.locked}
                   onToggle={(enabled) => toggle.mutateAsync({ workflow, enabled })}
                 />
                 <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setEdit(workflow.id!)}>
                   <span className="flex items-center gap-2">
                     <span className="truncate text-[13px] font-medium">{workflow.name}</span>
-                    {workflow.builtIn && <Badge tone="accent">Built-in</Badge>}
+                    {workflow.builtIn && <Badge tone="accent">{workflow.system ? 'System' : 'Built-in'}</Badge>}
+                    {workflow.locked && <Badge>Always on</Badge>}
+                    {workflow.provides && !workflow.locked && <Badge>Fills {workflow.provides}</Badge>}
                     {!workflow.enabled && <Badge>Off</Badge>}
                   </span>
                   <span className="block truncate text-xs text-muted">
@@ -115,7 +121,7 @@ function Workflows() {
                     <History />
                   </Link>
                 </Button>
-                {canManage && (
+                {canManage && !workflow.system && (
                   <Button
                     variant="ghost"
                     size="icon"

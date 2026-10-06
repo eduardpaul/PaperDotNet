@@ -8995,6 +8995,203 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/searchSettings": {
+      "get": {
+        "tags": [
+          "Search indexing"
+        ],
+        "operationId": "GetListSearchSettings",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchPolicyResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Search indexing"
+        ],
+        "operationId": "SetListSearchSettings",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchPolicyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchPolicyResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}/searchIndex": {
+      "get": {
+        "tags": [
+          "Search indexing"
+        ],
+        "operationId": "GetItemSearchStatus",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemSearchStatusResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/workspaces/{workspaceId}/lists/{listId}/documents": {
       "post": {
         "tags": [
@@ -15836,6 +16033,185 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/builtIns/{key}/copy": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "CopyLibraryBuiltInWorkflow",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyBuiltInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/workflows/roles/{role}/runs": {
+      "post": {
+        "tags": [
+          "Workflows"
+        ],
+        "operationId": "StartRoleWorkflowRuns",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRunsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/me/approvals": {
       "get": {
         "tags": [
@@ -17600,7 +17976,8 @@
       "BuiltInScope": {
         "enum": [
           "workspace",
-          "library"
+          "library",
+          "list"
         ],
         "default": "workspace"
       },
@@ -17707,6 +18084,24 @@
               {
                 "$ref": "#/components/schemas/JsonObject"
               }
+            ]
+          },
+          "system": {
+            "type": "boolean",
+            "default": false
+          },
+          "required": {
+            "type": "boolean",
+            "default": false
+          },
+          "locked": {
+            "type": "boolean",
+            "default": false
+          },
+          "role": {
+            "type": [
+              "null",
+              "string"
             ]
           },
           "@odata.etag": {
@@ -20332,6 +20727,82 @@
         },
         "description": "A list item as returned by the API. \u0060fields\u0060 contains \u0060title\u0060 and all field values."
       },
+      "ItemSearchStatusResponse": {
+        "required": [
+          "state",
+          "included",
+          "indexed",
+          "currentRevision",
+          "indexedRevision",
+          "indexedAt",
+          "chunks",
+          "truncated",
+          "embeddingModel",
+          "embeddingState",
+          "contentState",
+          "run"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "included": {
+            "type": "boolean"
+          },
+          "indexed": {
+            "type": "boolean"
+          },
+          "currentRevision": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "indexedRevision": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "indexedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "chunks": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "embeddingModel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "embeddingState": {
+            "type": "string"
+          },
+          "contentState": {
+            "type": "string"
+          },
+          "run": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowRunInfo"
+              }
+            ]
+          }
+        }
+      },
       "ItemVersionResponse": {
         "required": [
           "id",
@@ -22632,6 +23103,39 @@
         ],
         "description": "How results are found (SRC-08)."
       },
+      "SearchPolicyRequest": {
+        "required": [
+          "included"
+        ],
+        "type": "object",
+        "properties": {
+          "included": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SearchPolicyResponse": {
+        "required": [
+          "containerId",
+          "included"
+        ],
+        "type": "object",
+        "properties": {
+          "containerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "included": {
+            "type": "boolean"
+          },
+          "@odata.etag": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "SearchResponse": {
         "required": [
           "value",
@@ -24293,6 +24797,14 @@
                 "$ref": "#/components/schemas/JsonObject"
               }
             ]
+          },
+          "provides": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
           }
         },
         "description": "A workflow: \u0060trigger\u0060, or several \u0060triggers\u0060 (any of them starts a run), and its definition. \u0060key\u0060 names its events (\u0060wf.{key}.completed\u0060; default: made from the name when it is created)."
@@ -24446,15 +24958,68 @@
               }
             ]
           },
+          "provides": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "@odata.etag": {
             "type": [
               "null",
               "string"
             ],
             "description": "The ETag for \u0060If-Match\u0060 on changes (the same as the \u0060ETag\u0060 header)."
+          },
+          "system": {
+            "type": "boolean",
+            "description": "It fills a system process role (a system built-in, or a copy or replacement of one): cheap runs, kept briefly when\nthey succeed."
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Its role must always have an active workflow: turning off the last replacement brings the built-in back."
+          },
+          "locked": {
+            "type": "boolean",
+            "description": "A guarantee of the product: it cannot be replaced, copied or turned off."
           }
         },
         "description": "A workflow with the definition of its current \u0060version\u0060 (runs keep the version they started with): its \u0060trigger\u0060 or \u0060triggers\u0060 (as it was defined), \u0060steps\u0060 or a \u0060flow\u0060, the initial \u0060variables\u0060, and \u0060concurrency\u0060 (runs on the same item: \u0060parallel\u0060, \u0060skip\u0060 or \u0060replace\u0060)."
+      },
+      "WorkflowRunInfo": {
+        "required": [
+          "id",
+          "status",
+          "node",
+          "error",
+          "startedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "node": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       },
       "WorkflowStep": {
         "required": [
@@ -24896,6 +25461,9 @@
     },
     {
       "name": "Search"
+    },
+    {
+      "name": "Search indexing"
     },
     {
       "name": "Documents"

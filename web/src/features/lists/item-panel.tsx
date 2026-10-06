@@ -1,3 +1,4 @@
+import { ItemWorkflows } from '@/features/search/item-workflows';
 import { itemCalendarSourceQuery } from '@/features/calendar/source-queries';
 import type { ListResponse } from '@paperdotnet/client';
 import { fieldsOf, ifMatch } from '@paperdotnet/client';
@@ -142,6 +143,7 @@ export function ItemPanel({
             <TabsList>
               <TabsTrigger value="details">Details</TabsTrigger>
               {!item.isFolder && <TabsTrigger value="related">Related</TabsTrigger>}
+              {!item.isFolder && <TabsTrigger value="workflows">Workflows</TabsTrigger>}
               {panels.map((panel) => (
                 <TabsTrigger key={panel.key} value={panel.key}>
                   {panel.label}
@@ -159,6 +161,11 @@ export function ItemPanel({
                 onCancel={onClose}
               />
             </TabsContent>
+            {!item.isFolder && (
+              <TabsContent value="workflows" className="min-h-0 flex-1 overflow-y-auto p-5">
+                <ItemWorkflows workspaceId={workspaceId} listId={list.id!} itemId={item.id!} canWrite={canWrite} />
+              </TabsContent>
+            )}
             {!item.isFolder && (
               <TabsContent value="related" className="min-h-0 flex-1 overflow-y-auto">
                 <RelatedItems item={item} canWrite={canWrite} />

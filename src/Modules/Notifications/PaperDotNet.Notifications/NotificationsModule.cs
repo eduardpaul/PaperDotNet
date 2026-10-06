@@ -37,6 +37,12 @@ public sealed class NotificationsModule : IModule
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddWorkflowActivity<ChangeNotifier>();
+        services.AddWorkflow(ItemChangeWorkflows.Create("notifications.queueChanges", "Queue change notifications", "Queues authenticated API change notifications.", "notifications.queueChanges",
+            [WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted], includeFolders: true, locked: true));
+        services.AddWorkflowActivity<AlertSubscriber>();
+        services.AddWorkflow(ItemChangeWorkflows.Create("notifications.alertFollowers", "Notify followers", "Notifies item and list followers of saved changes.", "notifications.alertFollowers",
+            [WorkflowTriggers.ItemAdded, WorkflowTriggers.ItemUpdated, WorkflowTriggers.ItemDeleted]));
         services.AddModuleDbContext<NotificationsDbContext>(NotificationsDbContext.Schema);
         services.AddScoped<IItemMoveParticipant, NotificationsItemMoveParticipant>();
         services.AddOptions<NotificationsOptions>().BindConfiguration(NotificationsOptions.Section);
@@ -49,14 +55,8 @@ public sealed class NotificationsModule : IModule
         services.AddTenantRecurringJob<WebhookDispatcher>(WebhookDispatcher.Name, WebhookDispatcher.Schedule);
         services.AddTenantRecurringJob<DigestJob>(DigestJob.Name, DigestJob.Schedule);
         services.AddScoped<AlertSubscriber>();
-        services.AddEventSubscriber<ItemAdded, AlertSubscriber>();
-        services.AddEventSubscriber<ItemUpdated, AlertSubscriber>();
-        services.AddEventSubscriber<ItemDeleted, AlertSubscriber>();
         services.AddEventSubscriber<ItemPurged, PurgedFollows>();
         services.AddScoped<ChangeNotifier>();
-        services.AddEventSubscriber<ItemAdded, ChangeNotifier>();
-        services.AddEventSubscriber<ItemUpdated, ChangeNotifier>();
-        services.AddEventSubscriber<ItemDeleted, ChangeNotifier>();
         services.AddTenantRecurringJob<ChangeDispatcher>(ChangeDispatcher.Name, ChangeDispatcher.Schedule);
         services.AddTenantRecurringJob<ChangeSubscriptionCleanupJob>(ChangeSubscriptionCleanupJob.Name, ChangeSubscriptionCleanupJob.Schedule);
         services.AddWorkflowActivity<NotifyActivity>();

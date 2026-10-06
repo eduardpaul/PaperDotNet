@@ -52,7 +52,8 @@ public sealed record ActionDefinition(string Type, JsonObject? Inputs = null);
 /// </summary>
 public sealed record WorkflowSpec(
     WorkflowTrigger? Trigger, string? Condition, IReadOnlyList<WorkflowStep>? Steps, FlowDefinition? Flow = null, JsonObject? Variables = null,
-    string? Concurrency = null, IReadOnlyList<WorkflowTrigger>? Triggers = null, string? Scope = null, JsonObject? InputSchema = null)
+    string? Concurrency = null, IReadOnlyList<WorkflowTrigger>? Triggers = null, string? Scope = null, JsonObject? InputSchema = null,
+    string? Provides = null)
 {
     /// <summary>Most triggers of a workflow.</summary>
     public const int MaxTriggers = 10;

@@ -14,6 +14,13 @@ namespace PaperDotNet.Lists.Contracts;
 public interface IItemAccess : IPrincipalSet
 {
     /// <summary>
+    /// Which of <paramref name="itemIds"/> exist (not deleted, not folders) and the current user can read: for results of
+    /// derived data (a search page, a page of runs) while it catches up with deletes or permission changes. Bounded by
+    /// the ids given, never the user's whole readable set.
+    /// </summary>
+    Task<IReadOnlySet<Guid>> FilterReadableAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken);
+
+    /// <summary>
     /// The permission scopes the current user reaches in the given lists (every list of the tenant when null), with
     /// the highest level any of their principals has. A scope that is not returned gives no access.
     /// </summary>

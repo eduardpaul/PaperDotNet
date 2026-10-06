@@ -9,6 +9,8 @@ using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Notifications.Contracts;
 using PaperDotNet.Notifications.Data;
 
+using PaperDotNet.Workflows.Contracts;
+
 namespace PaperDotNet.Notifications.Features;
 
 /// <summary>
@@ -18,8 +20,15 @@ namespace PaperDotNet.Notifications.Features;
 /// </summary>
 internal sealed class AlertSubscriber(
     NotificationsDbContext db, IListItemStore items, INotificationSender sender, ITenantScopeFactory scopes, TimeProvider time)
-    : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemDeleted>
+    : ItemChangeActivity
 {
+    public override string Key => "notifications.alertFollowers";
+
+    public override string Description => "Notifies item and list followers of saved changes.";
+
+    protected override Task ExecuteAsync(ItemEvent change, CancellationToken cancellationToken) =>
+        change switch { ItemAdded e => HandleAsync(e, cancellationToken), ItemUpdated e => HandleAsync(e, cancellationToken), ItemDeleted e => HandleAsync(e, cancellationToken), _ => Task.CompletedTask };
+
     public Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken) => AlertAsync(integrationEvent, "added", cancellationToken);
 
     public Task HandleAsync(ItemUpdated integrationEvent, CancellationToken cancellationToken) => AlertAsync(integrationEvent, "updated", cancellationToken);
@@ -61,9 +70,12 @@ internal sealed class AlertSubscriber(
             }
             else
             {
+                var digestId = new Guid(System.Security.Cryptography.SHA256.HashData(
+                    Encoding.UTF8.GetBytes($"{change.EventId:N}:{follower.UserId:N}"))[..16]);
+                if (await db.Digest.AnyAsync(d => d.Id == digestId, ct)) { continue; }
                 db.Digest.Add(new DigestEntry
                 {
-                    Id = Ids.New(),
+                    Id = digestId,
                     UserId = follower.UserId,
                     WorkspaceId = change.WorkspaceId,
                     ListId = change.ListId,

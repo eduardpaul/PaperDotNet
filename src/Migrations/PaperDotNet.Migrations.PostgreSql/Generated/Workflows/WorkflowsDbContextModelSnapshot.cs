@@ -350,6 +350,11 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                         .HasColumnType("text")
                         .HasColumnName("parameters");
 
+                    b.Property<string>("Role")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("role");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
@@ -389,6 +394,9 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                     b.HasIndex("TenantId", "WorkspaceId", "Name")
                         .IsUnique()
                         .HasDatabaseName("ix_definitions_tenant_id_workspace_id_name");
+
+                    b.HasIndex("TenantId", "WorkspaceId", "Role")
+                        .HasDatabaseName("ix_definitions_tenant_id_workspace_id_role");
 
                     b.HasIndex("TenantId", "WorkspaceId", "Trigger")
                         .HasDatabaseName("ix_definitions_tenant_id_workspace_id_trigger");
@@ -506,6 +514,10 @@ namespace PaperDotNet.Migrations.PostgreSql.Generated.Workflows
                     b.Property<Guid?>("StepExecutionId")
                         .HasColumnType("uuid")
                         .HasColumnName("step_execution_id");
+
+                    b.Property<bool>("System")
+                        .HasColumnType("boolean")
+                        .HasColumnName("system");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")

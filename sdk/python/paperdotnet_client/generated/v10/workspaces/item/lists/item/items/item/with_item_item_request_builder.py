@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from .note_links.note_links_request_builder import NoteLinksRequestBuilder
     from .permissions.permissions_request_builder import PermissionsRequestBuilder
     from .recurrence.recurrence_request_builder import RecurrenceRequestBuilder
+    from .search_index.search_index_request_builder import SearchIndexRequestBuilder
     from .series.series_request_builder import SeriesRequestBuilder
     from .tasks.tasks_request_builder import TasksRequestBuilder
     from .versions.versions_request_builder import VersionsRequestBuilder
@@ -247,6 +248,15 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         from .recurrence.recurrence_request_builder import RecurrenceRequestBuilder
 
         return RecurrenceRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def search_index(self) -> SearchIndexRequestBuilder:
+        """
+        The searchIndex property
+        """
+        from .search_index.search_index_request_builder import SearchIndexRequestBuilder
+
+        return SearchIndexRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def series(self) -> SeriesRequestBuilder:

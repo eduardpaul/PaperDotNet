@@ -230,6 +230,15 @@ organization with the extension:
   - It is offered only where the extension is enabled. Turning the extension
     off turns it off.
   - See `InvoiceWorkflows` in the sample.
+  - A solution's reaction to item changes (like the task and notes
+    solutions have) is `ItemChangeWorkflows.Reaction(…)`: a `Lightweight`
+    built-in, cheap to run and turned off like any other.
+  - To offer another way to do a core process (for example your own search
+    indexing or document text with an OCR or LLM step), set `Role` to the process role (such as
+    `search.index` or `documents.text`, with the same `Scope`). Turning it on replaces the
+    built-in in that workspace or list. It must keep the role's contract (for
+    search: stage with `search.chunk`/`search.stage`, then `search.publish`).
+    See [ADR-0047](adr/0047-process-roles-for-system-workflows.md).
 - **Waiting:** to wait for something outside the run (a reply, a payment, a
   batch), return `WorkflowActivityResult.Wait("{extension id}.kind", key,
   resumeAt, data)` and complete it later with

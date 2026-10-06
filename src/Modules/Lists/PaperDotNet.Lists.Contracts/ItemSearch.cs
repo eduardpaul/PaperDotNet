@@ -1,5 +1,22 @@
 namespace PaperDotNet.Lists.Contracts;
 
+/// <summary>Versioned item text, available independently of whether it is included in search.</summary>
+public sealed record ItemTextContent(string Revision, string Text, string? Language)
+{
+    public IReadOnlyList<string> Pages { get; init; } = [];
+    public bool Ready { get; init; } = true;
+}
+
+/// <summary>The text of items (e.g. of their files), for search and AI, whether or not their list is included in search.</summary>
+public interface IItemTextSource
+{
+    Task<IReadOnlyDictionary<Guid, ItemTextContent>> GetTextAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken);
+
+    /// <summary>The revision and readiness of each item's text, without reading it (e.g. for a sweep of many items).</summary>
+    async Task<IReadOnlyDictionary<Guid, (string Revision, bool Ready)>> GetRevisionsAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken) =>
+        (await GetTextAsync(itemIds, cancellationToken)).ToDictionary(e => e.Key, e => (e.Value.Revision, e.Value.Ready));
+}
+
 /// <summary>Extra searchable content of an item, e.g. the text of its file.</summary>
 /// <param name="Text">Text added to the item's search body (ignored when <see cref="Pages"/> is set).</param>
 /// <param name="Language">Language of the text for stemming (e.g. <c>english</c>), or null.</param>

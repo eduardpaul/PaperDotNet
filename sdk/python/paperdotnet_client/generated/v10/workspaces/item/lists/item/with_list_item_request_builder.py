@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from .items.items_request_builder import ItemsRequestBuilder
     from .permissions.permissions_request_builder import PermissionsRequestBuilder
     from .recycle_bin.recycle_bin_request_builder import RecycleBinRequestBuilder
+    from .search_settings.search_settings_request_builder import SearchSettingsRequestBuilder
     from .views.views_request_builder import ViewsRequestBuilder
     from .workflows.workflows_request_builder import WorkflowsRequestBuilder
 
@@ -225,6 +226,15 @@ class WithListItemRequestBuilder(BaseRequestBuilder):
         from .recycle_bin.recycle_bin_request_builder import RecycleBinRequestBuilder
 
         return RecycleBinRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def search_settings(self) -> SearchSettingsRequestBuilder:
+        """
+        The searchSettings property
+        """
+        from .search_settings.search_settings_request_builder import SearchSettingsRequestBuilder
+
+        return SearchSettingsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def views(self) -> ViewsRequestBuilder:

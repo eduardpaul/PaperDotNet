@@ -4,10 +4,17 @@ using System.Text;
 namespace PaperDotNet.Search.Contracts;
 
 /// <summary>A window of a document's text and the page it is on (null: not on a page).</summary>
-public sealed record PassageText(int? Page, string Text);
+public sealed record PassageText(int? Page, string Text)
+{
+    /// <summary>
+    /// The chunk is (part of) the document's own body and keywords, which stores index as the body already. Other chunks
+    /// (pages, chunks a pipeline made or enriched itself) are added to the body, so keyword search finds them.
+    /// </summary>
+    public bool FromBody { get; init; }
+}
 
 /// <summary>
-/// The default chunker of every store (ADR-0043). It splits documents into passages (SRC-07, SRC-09): the title,
+/// Shared window chunking used by workflow activities and store test fixtures (ADR-0043). It splits documents into passages (SRC-07, SRC-09): the title,
 /// keywords and body first, then each page on its own,
 /// in windows of about <see cref="MaxChars"/> characters that overlap by <see cref="Overlap"/> and end at word
 /// boundaries, so a sentence cut by one window is whole in the next.
@@ -27,7 +34,7 @@ public static class Passages
             header = Normalize(document.Title);
         }
 
-        passages.AddRange(Windows(header).Select(t => new PassageText(null, t)));
+        passages.AddRange(Windows(header).Select(t => new PassageText(null, t) { FromBody = true }));
         for (var i = 0; i < document.Pages.Count && passages.Count < MaxPerDocument; i++)
         {
             passages.AddRange(Windows(Normalize(document.Pages[i])).Select(t => new PassageText(i + 1, t)));
@@ -36,22 +43,22 @@ public static class Passages
         return passages.Count > MaxPerDocument ? passages[..MaxPerDocument] : passages;
     }
 
-    /// <summary>What is embedded for a passage: the title gives context to every passage of the document.</summary>
-    public static string EmbeddingInput(string title, string text) => $"{title}\n\n{text}";
+    /// <summary>Embedding input is passage text, independent of mutable titles.</summary>
+    public static string EmbeddingInput(string title, string text) => text;
 
     public static string Hash(string input) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
 
     /// <summary>Windows of <paramref name="text"/> (already normalized).</summary>
-    public static IEnumerable<string> Windows(string text)
+    public static IEnumerable<string> Windows(string text, int maxChars = MaxChars, int overlap = Overlap)
     {
         var start = 0;
         while (start < text.Length)
         {
-            var end = Math.Min(text.Length, start + MaxChars);
+            var end = Math.Min(text.Length, start + maxChars);
             if (end < text.Length)
             {
                 var space = text.LastIndexOf(' ', end, end - start);
-                if (space > start + (MaxChars / 2))
+                if (space > start + (maxChars / 2))
                 {
                     end = space;
                 }
@@ -64,7 +71,7 @@ public static class Passages
             }
 
             // Step back by the overlap, to the start of a word.
-            var next = Math.Max(start + 1, end - Overlap);
+            var next = Math.Max(start + 1, end - overlap);
             var boundary = text.IndexOf(' ', next);
             start = boundary >= 0 && boundary < end ? boundary + 1 : end;
         }

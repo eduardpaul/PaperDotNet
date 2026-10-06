@@ -40,10 +40,17 @@ internal class WorkflowTemplateHandler(
 
         var section = new XElement(Element);
         var lists = (await items.AsSystem().GetListsAsync(context.WorkspaceId!.Value, null, cancellationToken)).ToDictionary(l => l.Id, l => l.Name);
+        // Required system workflows are part of the product, not of the workspace's configuration: every target has them.
+        var required = (await builtIns.ListAsync(cancellationToken)).Where(w => w.Required).Select(w => w.Key).ToHashSet(StringComparer.Ordinal);
         foreach (var workflow in workflows)
         {
             if (workflow.BuiltInKey is { } key)
             {
+                if (required.Contains(key))
+                {
+                    continue;
+                }
+
                 if (workflow.ListId is { } listId && !lists.ContainsKey(listId))
                 {
                     continue; // Its library is gone.
@@ -54,10 +61,16 @@ internal class WorkflowTemplateHandler(
                 continue;
             }
 
+            if (workflow.ListId is { } ownList && !lists.ContainsKey(ownList))
+            {
+                continue; // Its list is gone.
+            }
+
+            // A copy of a list's built-in (e.g. its own search indexing) names its list, like the built-in does.
             var version = await db.Versions.AsNoTracking().FirstAsync(v => v.WorkflowId == workflow.Id && v.Number == workflow.CurrentVersion, cancellationToken);
             section.Add(new XElement(ItemName, version.Definition)
                 .With("Name", workflow.Name).With("Key", workflow.EventKey).With("Description", workflow.Description).With("Enabled", workflow.Enabled)
-                .With("CopiedFrom", workflow.CopiedFrom));
+                .With("CopiedFrom", workflow.CopiedFrom).With("List", workflow.ListId is { } copyList ? lists[copyList] : null));
         }
 
         return section;
@@ -115,35 +128,70 @@ internal class WorkflowTemplateHandler(
                 throw new TemplateException($"Workflow '{name}': {string.Join(" ", errors)}", element);
             }
 
-            var description = element.Attr("Description");
-            var enabled = element.BoolAttr("Enabled", true);
-            var workflow = context.IsPlanned ? null : await db.Workflows.FirstOrDefaultAsync(a => a.WorkspaceId == workspaceId && a.Name == name, cancellationToken);
-            if (workflow is null)
+            if (element.Attr("List") is { } ownList)
             {
-                context.Created("workflow", $"{prefix}: {name}");
-                if (!context.DryRun)
+                // A workflow of one list once the template's lists exist (they are applied after the workspace's sections).
+                var (workspace, planned) = (workspaceId, context.IsPlanned);
+                context.Defer(async ct =>
                 {
-                    var eventKey = element.Attr("Key") is { } wanted && !await WorkflowWriter.KeyTakenAsync(db, workspaceId, wanted, null, cancellationToken)
-                        ? wanted
-                        : await WorkflowWriter.KeyForAsync(db, workspaceId, name, cancellationToken);
-                    WorkflowWriter.Create(db, workspaceId, name, description, enabled, spec!, eventKey).CopiedFrom = element.Attr("CopiedFrom");
-                }
-
+                    await ApplyOwnAsync(element, name, spec!, prefix, workspace, ownList, planned, context, ct);
+                    if (!context.DryRun)
+                    {
+                        await db.SaveChangesAsync(ct);
+                    }
+                });
                 continue;
             }
 
-            var changed = await WorkflowWriter.SetSpecAsync(db, workflow, spec!, cancellationToken);
-            if (changed || workflow.Description != description || workflow.Enabled != enabled)
-            {
-                context.Updated("workflow", $"{prefix}: {name}", changed ? $"version {workflow.CurrentVersion}" : null);
-                workflow.Description = description;
-                workflow.Enabled = enabled;
-            }
+            await ApplyOwnAsync(element, name, spec!, prefix, workspaceId, null, context.IsPlanned, context, cancellationToken);
         }
 
         if (!context.DryRun)
         {
             await db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    /// <summary>A workflow of the workspace's own, in the workspace or (a copy of a list's built-in) in the list it names.</summary>
+    private async Task ApplyOwnAsync(
+        XElement element, string name, WorkflowSpec spec, string? prefix, Guid workspaceId, string? listName, bool isPlanned, TemplateContext context, CancellationToken ct)
+    {
+        ListData? list = null;
+        if (listName is not null && !isPlanned)
+        {
+            list = (await items.AsSystem().GetListsAsync(workspaceId, null, ct)).FirstOrDefault(l => l.Name == listName);
+            if (list is null && !context.DryRun)
+            {
+                throw new TemplateException($"Workflow '{name}': the list '{listName}' does not exist in the workspace.", element);
+            }
+        }
+
+        var description = element.Attr("Description");
+        var enabled = element.BoolAttr("Enabled", true);
+        var workflow = isPlanned ? null : await db.Workflows.FirstOrDefaultAsync(a => a.WorkspaceId == workspaceId && a.Name == name, ct);
+        if (workflow is null)
+        {
+            context.Created("workflow", $"{prefix}: {name}");
+            if (!context.DryRun)
+            {
+                var eventKey = element.Attr("Key") is { } wanted && !await WorkflowWriter.KeyTakenAsync(db, workspaceId, wanted, null, ct)
+                    ? wanted
+                    : await WorkflowWriter.KeyForAsync(db, workspaceId, name, ct);
+                var created = WorkflowWriter.Create(db, workspaceId, name, description, enabled, spec, eventKey, list?.Id);
+                created.CopiedFrom = element.Attr("CopiedFrom");
+                await builtIns.ActivateAsync(created, ct);
+            }
+
+            return;
+        }
+
+        var changed = await WorkflowWriter.SetSpecAsync(db, workflow, spec, ct);
+        if (changed || workflow.Description != description || workflow.Enabled != enabled)
+        {
+            context.Updated("workflow", $"{prefix}: {name}", changed ? $"version {workflow.CurrentVersion}" : null);
+            workflow.Description = description;
+            workflow.Enabled = enabled;
+            await builtIns.ActivateAsync(workflow, ct);
         }
     }
 
@@ -166,7 +214,7 @@ internal class WorkflowTemplateHandler(
 
         // A per-library workflow belongs to the library the template names (created earlier in the same template, or existing).
         var listName = element.Attr("List");
-        if ((builtIn.Scope == BuiltInScope.Library) != (listName is not null))
+        if ((builtIn.Scope != BuiltInScope.Workspace) != (listName is not null))
         {
             throw new TemplateException(builtIn.Scope == BuiltInScope.Library
                 ? $"Workflow '{name}': the built-in workflow '{key}' is turned on per library; name it with List."
@@ -218,6 +266,7 @@ internal class WorkflowTemplateHandler(
                 var created = WorkflowWriter.Create(db, workspaceId, rowName, builtIn.Description, enabled, spec!, key, list?.Id);
                 created.BuiltInKey = key;
                 created.Parameters = values?.ToJsonString() ?? "{}";
+                await builtIns.ActivateAsync(created, ct);
             }
 
             return;
@@ -230,6 +279,7 @@ internal class WorkflowTemplateHandler(
             context.Updated("workflow", $"{workspaceName}: {row.Name}", changed ? $"version {row.CurrentVersion}" : null);
             row.Enabled = enabled;
             row.Parameters = parameters;
+            await builtIns.ActivateAsync(row, ct);
         }
     }
 }

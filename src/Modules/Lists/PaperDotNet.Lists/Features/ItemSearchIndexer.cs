@@ -9,6 +9,7 @@ using PaperDotNet.Lists.Fields;
 using PaperDotNet.Persistence;
 using PaperDotNet.Search.Contracts;
 using PaperDotNet.Taxonomy.Contracts;
+using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Lists.Features;
 
@@ -17,89 +18,64 @@ public sealed record ListIndexInvalidated : IntegrationEvent
 {
     public required Guid ListId { get; init; }
 
-    internal static ListIndexInvalidated For(ITenantContext tenant, ICurrentUser user, Guid listId) => new()
+    public Guid WorkspaceId { get; init; }
+
+    internal static ListIndexInvalidated For(ITenantContext tenant, ICurrentUser user, Guid listId, Guid workspaceId) => new()
     {
         TenantId = tenant.TenantId!.Value,
         TenantIdentifier = tenant.TenantIdentifier!,
         UserId = user.UserId,
         ListId = listId,
+        WorkspaceId = workspaceId,
     };
 }
 
 /// <summary>Builds search documents for list items: text of the fields, term labels, and the item's permission scope.</summary>
-internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore terms, ISearchIndex index, IEnumerable<IItemSearchContributor> contributors) : ISearchSource
+internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore terms, IEnumerable<IItemSearchContributor> contributors, IWorkflowTriggers triggers) : ISearchItemSource
 {
     public const string ItemSourceType = "listItem";
-    private const int BatchSize = 200;
 
     private static readonly HashSet<string> TextTypes = ["text", "note", "email", "url", "choice", "number", "currency", "date", "dateTime"];
     private static readonly HashSet<string> TermTypes = [ManagedMetadataFieldType.TypeName, KeywordsFieldType.TypeName];
 
     public string SourceType => ItemSourceType;
 
-    public async Task ReindexAsync(ISearchIndex target, Func<double, Task> progress, CancellationToken cancellationToken)
+    public async Task<SearchDocumentData?> GetDocumentAsync(Guid itemId, CancellationToken ct)
     {
-        var lists = await db.Lists.AsNoTracking().OrderBy(l => l.Id).Select(l => l.Id).ToListAsync(cancellationToken);
-        for (var i = 0; i < lists.Count; i++)
-        {
-            await IndexListAsync(lists[i], target, cancellationToken);
-            await progress((i + 1) / (double)lists.Count);
-        }
+        var item = await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId, ct);
+        var list = item is null ? null : await db.Lists.AsNoTracking().FirstOrDefaultAsync(l => l.Id == item.ListId, ct);
+        return item is null || item.IsFolder || list is null ? null : (await BuildAsync(list, [item], ct))[0];
     }
 
-    /// <summary>Indexes one item again, or removes it when it is deleted or a folder.</summary>
+    /// <summary>The item's last change and its list's schema version: what its document is built from, apart from comments and term labels.</summary>
+    public async Task<IReadOnlyDictionary<Guid, string>> GetStampsAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken ct)
+    {
+        var ids = itemIds.ToArray();
+        return (await db.Items.AsNoTracking().Where(i => EF.Parameter(ids).Contains(i.Id) && !i.IsFolder)
+                .Select(i => new { i.Id, i.ListId, i.ContentTypeId, i.UpdatedAt }).ToListAsync(ct))
+            .ToDictionary(i => i.Id, i => $"{i.ListId:N}:{i.ContentTypeId:N}:{i.UpdatedAt.UtcTicks}");
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, Guid>> GetScopesAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken ct)
+    {
+        var ids = itemIds.ToArray();
+        return await db.Items.AsNoTracking().Where(i => EF.Parameter(ids).Contains(i.Id) && !i.IsFolder).ToDictionaryAsync(i => i.Id, i => i.ScopeId, ct);
+    }
+
+    /// <summary>Requests indexing through the workflow transport; never writes derived search data.</summary>
     public async Task IndexItemAsync(Guid itemId, CancellationToken ct)
     {
         var item = await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId, ct);
         var list = item is null ? null : await db.Lists.AsNoTracking().FirstOrDefaultAsync(l => l.Id == item.ListId, ct);
-        if (item is null || item.IsFolder || list is null)
+        if (item is not null && list is not null && !item.IsFolder)
         {
-            await index.DeleteAsync([itemId], ct);
-            return;
-        }
-
-        await index.UpsertAsync(await BuildAsync(list, [item], ct), ct);
-    }
-
-    /// <summary>Gives the documents of these items their items' current permission scope; text and embeddings stay.</summary>
-    public async Task UpdateScopesAsync(IReadOnlyList<Guid> itemIds, CancellationToken ct)
-    {
-        var ids = itemIds.ToArray();
-        var scopes = await db.Items.AsNoTracking()
-            .Where(i => EF.Parameter(ids).Contains(i.Id) && !i.IsFolder)
-            .ToDictionaryAsync(i => i.Id, i => i.ScopeId, ct);
-        await index.SetScopesAsync(scopes, ct);
-    }
-
-    /// <summary>Replaces the documents of a list (none when the list is deleted).</summary>
-    public Task IndexListAsync(Guid listId, CancellationToken ct) => IndexListAsync(listId, index, ct);
-
-    private async Task IndexListAsync(Guid listId, ISearchIndex target, CancellationToken ct)
-    {
-        await target.DeleteContainerAsync(listId, ct);
-        var list = await db.Lists.AsNoTracking().FirstOrDefaultAsync(l => l.Id == listId, ct);
-        if (list is null)
-        {
-            return;
-        }
-
-        Guid? after = null;
-        while (true)
-        {
-            var batch = await db.Items.AsNoTracking()
-                .Where(i => i.ListId == listId && !i.IsFolder && (after == null || i.Id.CompareTo(after.Value) > 0))
-                .OrderBy(i => i.Id)
-                .Take(BatchSize)
-                .ToListAsync(ct);
-            if (batch.Count == 0)
-            {
-                return;
-            }
-
-            await target.UpsertAsync(await BuildAsync(list, batch, ct), ct);
-            after = batch[^1].Id;
+            await triggers.RaiseAsync(SearchTriggers.Requested, list.WorkspaceId, new WorkflowItem(list.WorkspaceId, list.Id, itemId), null, ct);
         }
     }
+
+    /// <summary>The workspace of a list, or null when it is gone.</summary>
+    public async Task<Guid?> WorkspaceOfAsync(Guid listId, CancellationToken ct) =>
+        await db.Lists.AsNoTracking().Where(l => l.Id == listId).Select(l => (Guid?)l.WorkspaceId).FirstOrDefaultAsync(ct);
 
     private async Task<List<SearchDocumentData>> BuildAsync(ListDefinition list, IReadOnlyList<ListItem> items, CancellationToken ct)
     {
@@ -151,6 +127,7 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
                     itemTerms.AddRange(Ids(value));
                 }
 
+                if (field.Name == "title") { continue; }
                 var target = weight == FieldSearchWeight.High ? keywords : body;
                 if (weight == FieldSearchWeight.None)
                 {
@@ -242,26 +219,30 @@ internal sealed class ListItemSearchDocuments(ListsDbContext db, ITermStore term
     };
 }
 
-/// <summary>Keeps the search index in sync with item and list changes (asynchronous, idempotent).</summary>
-internal sealed class ItemSearchIndexer(ListItemSearchDocuments documents)
-    : IEventSubscriber<ItemAdded>, IEventSubscriber<ItemUpdated>, IEventSubscriber<ItemRestored>, IEventSubscriber<ItemDeleted>,
-      IEventSubscriber<ListIndexInvalidated>, IEventSubscriber<ItemScopesChanged>
+/// <summary>
+/// Tells search about list changes that items' own events do not cover (asynchronous, idempotent): a list deleted or its
+/// schema changed, and items moved to other permission scopes (only their scopes change in the index).
+/// </summary>
+internal sealed class ItemSearchIndexer(ListItemSearchDocuments documents, IWorkflowTriggers triggers)
+    : IEventSubscriber<ListIndexInvalidated>, IEventSubscriber<ItemScopesChanged>
 {
-    public Task HandleAsync(ItemAdded integrationEvent, CancellationToken cancellationToken) =>
-        documents.IndexItemAsync(integrationEvent.ItemId, cancellationToken);
+    public async Task HandleAsync(ListIndexInvalidated integrationEvent, CancellationToken cancellationToken)
+    {
+        // Events saved before the workspace was part of them: the list is deleted, so its records are hidden by queries.
+        if (integrationEvent.WorkspaceId != Guid.Empty)
+        {
+            await triggers.RaiseAsync(SearchTriggers.ContainerChanged, integrationEvent.WorkspaceId, null,
+                new JsonObject { ["containerId"] = integrationEvent.ListId.ToString() }, integrationEvent, cancellationToken);
+        }
+    }
 
-    public Task HandleAsync(ItemUpdated integrationEvent, CancellationToken cancellationToken) =>
-        documents.IndexItemAsync(integrationEvent.ItemId, cancellationToken);
-
-    public Task HandleAsync(ItemRestored integrationEvent, CancellationToken cancellationToken) =>
-        documents.IndexItemAsync(integrationEvent.ItemId, cancellationToken);
-
-    public Task HandleAsync(ItemDeleted integrationEvent, CancellationToken cancellationToken) =>
-        documents.IndexItemAsync(integrationEvent.ItemId, cancellationToken);
-
-    public Task HandleAsync(ListIndexInvalidated integrationEvent, CancellationToken cancellationToken) =>
-        documents.IndexListAsync(integrationEvent.ListId, cancellationToken);
-
-    public Task HandleAsync(ItemScopesChanged integrationEvent, CancellationToken cancellationToken) =>
-        documents.UpdateScopesAsync(integrationEvent.ItemIds, cancellationToken);
+    public async Task HandleAsync(ItemScopesChanged integrationEvent, CancellationToken cancellationToken)
+    {
+        if (await documents.WorkspaceOfAsync(integrationEvent.ListId, cancellationToken) is { } workspaceId)
+        {
+            await triggers.RaiseAsync(SearchTriggers.ScopesChanged, workspaceId, null,
+                new JsonObject { ["itemIds"] = new JsonArray([.. integrationEvent.ItemIds.Select(id => JsonValue.Create(id.ToString()))]) },
+                integrationEvent, cancellationToken);
+        }
+    }
 }

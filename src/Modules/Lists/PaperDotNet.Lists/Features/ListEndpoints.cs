@@ -242,7 +242,7 @@ internal static class ListEndpoints
         db.Lists.Remove(schema.List);
         try
         {
-            await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, listId)], cancellationToken: ct);
+            await outbox.SaveChangesAsync(db, [ListIndexInvalidated.For(tenant, user, listId, workspaceId)], cancellationToken: ct);
             return TypedResults.NoContent();
         }
         catch (DbUpdateConcurrencyException)

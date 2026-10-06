@@ -8,6 +8,8 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Tasks.Data;
 
+using PaperDotNet.Workflows.Contracts;
+
 namespace PaperDotNet.Tasks.Features;
 
 /// <summary>RRULE handling with Ical.Net (RFC 5545).</summary>
@@ -51,8 +53,15 @@ internal static class Recurrences
 /// its checklist is saved before the task is created (so it never appears without it), and a repeated
 /// event finds the task created before; once the rule moved, a redelivered event finds nothing to do.
 /// </summary>
-internal sealed class RecurringTaskSpawner(TasksDbContext db, IListItemStore items) : IEventSubscriber<ItemUpdated>
+internal sealed class RecurringTaskSpawner(TasksDbContext db, IListItemStore items) : ItemChangeActivity
 {
+    public override string Key => "tasks.nextOccurrence";
+
+    public override string Description => "Creates the next occurrence after a repeating task completes.";
+
+    protected override Task ExecuteAsync(ItemEvent change, CancellationToken cancellationToken) =>
+        change is ItemUpdated updated ? HandleAsync(updated, cancellationToken) : Task.CompletedTask;
+
     private static readonly string[] CopiedFields = ["title", "priority", "assignedTo", "description"];
 
     public async Task HandleAsync(ItemUpdated integrationEvent, CancellationToken cancellationToken)
@@ -107,7 +116,7 @@ internal sealed class RecurringTaskSpawner(TasksDbContext db, IListItemStore ite
         var created = await system.CreateAsync(task.WorkspaceId, task.ListId, nextId, fields, task.ContentTypeId, cancellationToken);
         if (!created.Succeeded)
         {
-            return;
+            throw new InvalidOperationException($"Creating the next recurring task failed: {created.Describe()}");
         }
 
         recurrence.ItemId = nextId;

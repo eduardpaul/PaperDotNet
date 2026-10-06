@@ -47,6 +47,8 @@ export interface WorkflowDraft {
   variables?: Record<string, unknown>;
   /** Runs on the same item: parallel (default), skip or replace; kept as the API has it. */
   concurrency?: string;
+  /** The process role it fills (e.g. search.index for a copy of a list's indexing); kept so saving keeps the role. */
+  provides?: string;
 }
 
 /** The trigger in the form: text inputs as strings; terms and manual inputs are kept as the API's JSON. */
@@ -124,6 +126,7 @@ export interface PlainWorkflow {
   flow?: PlainFlow;
   variables?: Record<string, unknown>;
   concurrency?: string | null;
+  provides?: string | null;
 }
 
 let counter = 0;
@@ -225,6 +228,7 @@ export function fromPlain(plain: PlainWorkflow): WorkflowDraft {
     ...(plain.flow ? { flow: plain.flow } : {}),
     ...(plain.variables ? { variables: plain.variables } : {}),
     ...(plain.concurrency ? { concurrency: plain.concurrency } : {}),
+    ...(plain.provides ? { provides: plain.provides } : {}),
   };
 }
 
@@ -271,6 +275,7 @@ export function toPlain(draft: WorkflowDraft): PlainWorkflow {
     ...(draft.flow ? { flow: draft.flow } : { steps: draft.steps.map(stepToPlain) }),
     ...(draft.variables ? { variables: draft.variables } : {}),
     ...(draft.concurrency ? { concurrency: draft.concurrency } : {}),
+    ...(draft.provides ? { provides: draft.provides } : {}),
   };
 }
 
@@ -360,6 +365,7 @@ export function draftFrom(workflow: WorkflowResponse): WorkflowDraft {
       : {}),
     ...(workflow.variables ? { variables: { ...fieldsOf({ fields: workflow.variables }) } } : {}),
     concurrency: workflow.concurrency,
+    provides: workflow.provides,
   } as PlainWorkflow);
 }
 

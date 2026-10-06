@@ -34,6 +34,8 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
     key: Optional[str] = None
     # The name property
     name: Optional[str] = None
+    # The provides property
+    provides: Optional[str] = None
     # The scope property
     scope: Optional[str] = None
     # The steps property
@@ -80,6 +82,7 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
             "inputSchema": lambda n : setattr(self, 'input_schema', n.get_object_value(JsonObject)),
             "key": lambda n : setattr(self, 'key', n.get_str_value()),
             "name": lambda n : setattr(self, 'name', n.get_str_value()),
+            "provides": lambda n : setattr(self, 'provides', n.get_str_value()),
             "scope": lambda n : setattr(self, 'scope', n.get_str_value()),
             "steps": lambda n : setattr(self, 'steps', n.get_collection_of_object_values(WorkflowStep)),
             "trigger": lambda n : setattr(self, 'trigger', n.get_object_value(WorkflowTrigger)),
@@ -104,6 +107,7 @@ class WorkflowRequest(AdditionalDataHolder, Parsable):
         writer.write_object_value("inputSchema", self.input_schema)
         writer.write_str_value("key", self.key)
         writer.write_str_value("name", self.name)
+        writer.write_str_value("provides", self.provides)
         writer.write_str_value("scope", self.scope)
         writer.write_collection_of_object_values("steps", self.steps)
         writer.write_object_value("trigger", self.trigger)

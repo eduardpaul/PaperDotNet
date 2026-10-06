@@ -15,6 +15,7 @@ using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Links;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.NoteLinks;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Permissions;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Recurrence;
+using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.SearchIndex;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Series;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Tasks;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Versions;
@@ -86,6 +87,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Recurrence.RecurrenceRequestBuilder Recurrence
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Recurrence.RecurrenceRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The searchIndex property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.SearchIndex.SearchIndexRequestBuilder SearchIndex
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.SearchIndex.SearchIndexRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The series property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.Series.SeriesRequestBuilder Series

@@ -42,4 +42,30 @@ describe('manual launch options', () => {
     const inputSchema = { additionalData: { type: 'object', properties: { note: { type: 'string' } } } };
     expect(launchOptions([], list, [{ ...optimization, inputSchema }])[0]?.inputSchema).toEqual(inputSchema);
   });
+
+  it('leaves out workflows that fill a process role, which have their own controls', () => {
+    const index: BuiltInWorkflowResponse = {
+      key: 'search.index',
+      name: 'Index for search',
+      available: true,
+      enabled: true,
+      allowManualLaunch: true,
+      role: 'search.index',
+    };
+    const workflows: WorkflowResponse[] = [
+      {
+        id: 'copy',
+        name: 'My indexing',
+        provides: 'search.index',
+        listId: list.id,
+        enabled: true,
+        trigger: { type: 'manual' },
+      },
+      { id: 'custom', name: 'Custom manual', enabled: true, trigger: { type: 'manual', list: list.name } },
+    ];
+    expect(launchOptions(workflows, list, [index, optimization]).map((option) => option.id)).toEqual([
+      'custom',
+      `builtin:${optimization.key}`,
+    ]);
+  });
 });

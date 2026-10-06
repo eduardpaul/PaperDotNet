@@ -241,7 +241,7 @@ public interface IListItemStore
 
     Task<RelationshipTypeData> EnsureRelationshipTypeAsync(RelationshipTypeOptions options, CancellationToken cancellationToken);
 
-    /// <summary>Indexes the item again for search (e.g. after its <see cref="IItemSearchContributor"/> content changed).</summary>
+    /// <summary>Requests an indexing workflow for the item (e.g. after its <see cref="IItemSearchContributor"/> content changed).</summary>
     Task ReindexAsync(Guid itemId, CancellationToken cancellationToken);
 
     /// <summary>Moves the item to the recycle bin.</summary>

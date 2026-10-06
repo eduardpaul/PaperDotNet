@@ -49,6 +49,12 @@ public sealed class WorkflowDefinition : ITenantOwned, IAuditable, IVersioned
     /// <summary>The built-in workflow this one was copied from, if any.</summary>
     public string? CopiedFrom { get; set; }
 
+    /// <summary>
+    /// The process role it fills (its definition's <c>provides</c>, e.g. <c>search.index</c>): one workflow per role is
+    /// active in the workspace, or per list for list roles.
+    /// </summary>
+    public string? Role { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public Guid? CreatedBy { get; set; }
@@ -198,6 +204,9 @@ public sealed class WorkflowRun : ITenantOwned, IVersioned
 
     /// <summary>The user who started the run or whose change triggered it.</summary>
     public Guid? StartedBy { get; set; }
+
+    /// <summary>A run of a system workflow (<c>BuiltInWorkflow.IsSystem</c>): resumed in the system lane, kept shorter.</summary>
+    public bool System { get; set; }
 
     public DateTimeOffset StartedAt { get; set; }
 
@@ -380,6 +389,8 @@ public sealed class WorkflowsDbContext(DbContextOptions<WorkflowsDbContext> opti
             b.Property(a => a.Key).HasMaxLength(200);
             b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.BuiltInKey, a.ListId }).IsUnique();
             b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.Key });
+            b.Property(a => a.Role).HasMaxLength(200);
+            b.HasIndex(a => new { a.TenantId, a.WorkspaceId, a.Role });
         });
         modelBuilder.Entity<WorkflowVersion>(b =>
         {

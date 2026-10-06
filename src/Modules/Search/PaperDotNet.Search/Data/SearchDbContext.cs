@@ -4,6 +4,60 @@ using PaperDotNet.Persistence;
 
 namespace PaperDotNet.Search.Data;
 
+/// <summary>Visibility is authoritative even while a removal workflow is still queued.</summary>
+public sealed class SearchContainerPolicy : ITenantOwned, IVersioned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public bool Included { get; set; } = true;
+    public uint Version { get; set; }
+}
+
+/// <summary>Publication facts, independent of execution state (owned by workflows).</summary>
+[NotAudited]
+public sealed class SearchPublication : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid WorkspaceId { get; set; }
+    public Guid ContainerId { get; set; }
+    public Guid GenerationId { get; set; }
+    public string? Revision { get; set; }
+    public Guid? RunId { get; set; }
+    public DateTimeOffset? PublishedAt { get; set; }
+    public int Chunks { get; set; }
+    public bool Truncated { get; set; }
+    public string? EmbeddingModel { get; set; }
+
+    /// <summary>The cheap source stamp at publication (item change and file version), compared by the stale sweep.</summary>
+    public string? SourceStamp { get; set; }
+
+    /// <summary>The chunk settings of the publication (e.g. <c>window:1200:150</c>).</summary>
+    public string? Settings { get; set; }
+}
+
+/// <summary>
+/// Text the chat model added to a chunk (<c>search.enrich</c>), keyed by a hash of its instructions, the title and the
+/// chunk: derived data that costs money to compute again, so an unchanged chunk is never asked about twice.
+/// </summary>
+[NotAudited]
+public sealed class SearchEnrichment : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public required string Text { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>Staging in the database store, outside workflow run JSON.</summary>
+[NotAudited]
+public sealed class StagedSearchGeneration : ITenantOwned
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public required string Payload { get; set; }
+}
+
 /// <summary>One searchable document of any data type (SRC-01), maintained by the owning module.</summary>
 [NotAudited]
 public sealed class SearchDocument : ITenantOwned
@@ -126,9 +180,30 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
 
     public DbSet<SearchFieldValue> FieldValues => Set<SearchFieldValue>();
 
+    public DbSet<SearchContainerPolicy> ContainerPolicies => Set<SearchContainerPolicy>();
+    public DbSet<SearchPublication> Publications => Set<SearchPublication>();
+    public DbSet<StagedSearchGeneration> Generations => Set<StagedSearchGeneration>();
+    public DbSet<SearchEnrichment> Enrichments => Set<SearchEnrichment>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
+        modelBuilder.Entity<SearchContainerPolicy>(b => b.ToTable("container_policies"));
+        modelBuilder.Entity<SearchPublication>(b =>
+        {
+            b.ToTable("publications");
+            b.HasIndex(p => new { p.TenantId, p.ContainerId });
+            b.Property(p => p.Revision).HasMaxLength(64);
+            b.Property(p => p.EmbeddingModel).HasMaxLength(200);
+            b.Property(p => p.SourceStamp).HasMaxLength(300);
+            b.Property(p => p.Settings).HasMaxLength(100);
+        });
+        modelBuilder.Entity<StagedSearchGeneration>(b => b.ToTable("generations"));
+        modelBuilder.Entity<SearchEnrichment>(b =>
+        {
+            b.ToTable("enrichments");
+            b.Property(e => e.Text).HasMaxLength(4000);
+        });
         modelBuilder.Entity<SearchDocument>(b =>
         {
             b.ToTable("documents");

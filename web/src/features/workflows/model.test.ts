@@ -35,6 +35,19 @@ describe('workflow model', () => {
     expect(draft.variables).toEqual({ limit: 100 });
   });
 
+  it('keeps the process role a copy fills, so saving it keeps replacing the built-in', () => {
+    const response = {
+      name: 'Index for search (custom)',
+      trigger: { type: 'manual' },
+      flow: { start: 'big?', nodes: { additionalData: flow.nodes } },
+      provides: 'search.index',
+    } as unknown as WorkflowResponse;
+    const draft = draftFrom(response);
+    expect(draft.provides).toBe('search.index');
+    expect(toPlain(draft)).toMatchObject({ provides: 'search.index' });
+    expect(requestFrom(draft).provides).toBe('search.index');
+  });
+
   it('keeps concurrency from the API through the JSON view to a request', () => {
     const response = {
       name: 'Once per item',
