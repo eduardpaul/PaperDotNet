@@ -318,7 +318,7 @@ public sealed class DocumentsOptions
 /// <summary>Upload, replace and restore: spool, check, store once, then create the item and the version.</summary>
 internal sealed class DocumentService(
     IListItemStore items, DocumentsDbContext db, FileIntake intake, DocumentEvents events, IOptions<DocumentsOptions> options,
-    AuditOverrides stamps)
+    AuditOverrides stamps, ICurrentUser user, TimeProvider time)
 {
     private const int MaxDuplicates = 20;
 
@@ -336,6 +336,15 @@ internal sealed class DocumentService(
             return MissingFile();
         }
 
+        await using var content = file.OpenReadStream();
+        return await UploadAsync(workspaceId, listId, content, file.FileName, title, contentTypeId, languages, ct, folderId);
+    }
+
+    /// <summary>An upload of <paramref name="content"/> (REST, MCP and <c>IDocumentUploads</c> share it).</summary>
+    public async Task<Results<Created<DocumentResponse>, ValidationProblem, ProblemHttpResult>> UploadAsync(
+        Guid workspaceId, Guid listId, Stream content, string? fileName, string? title, Guid? contentTypeId, string? languages, CancellationToken ct,
+        Guid? folderId = null)
+    {
         if (InvalidLanguages(languages) is { } invalidLanguages)
         {
             return invalidLanguages;
@@ -362,7 +371,7 @@ internal sealed class DocumentService(
             return ApiErrors.Validation(new Dictionary<string, string[]> { ["folderId"] = ["No folder with this id in the library."] });
         }
 
-        await using var spooled = await SpoolAsync(file, ct);
+        await using var spooled = await FileIntake.SpoolAsync(content, options.Value.MaxFileSize, ct);
         if (Check(spooled) is { } invalid)
         {
             return invalid;
@@ -376,8 +385,8 @@ internal sealed class DocumentService(
         }
 
         var stored = await intake.StoreAsync(spooled, ct);
-        var fileName = FileName(file.FileName, spooled.MediaType);
-        var fields = new JsonObject { ["title"] = string.IsNullOrWhiteSpace(title) ? Path.GetFileNameWithoutExtension(fileName) : title };
+        var storedName = FileName(fileName, spooled.MediaType);
+        var fields = new JsonObject { ["title"] = string.IsNullOrWhiteSpace(title) ? Path.GetFileNameWithoutExtension(storedName) : title };
         var created = await items.CreateAsync(workspaceId, listId, fields, contentTypeId, folderId, ct);
         if (!created.Succeeded)
         {
@@ -385,7 +394,7 @@ internal sealed class DocumentService(
         }
 
         var item = created.Item!;
-        var version = NewVersion(item, stored, fileName, number: 1, "upload", Languages(languages));
+        var version = NewVersion(item, stored, storedName, number: 1, "upload", Languages(languages));
         db.FileVersions.Add(version);
         await db.SaveChangesAsync(ct);
         await events.AddedAsync(version, newDocument: true, ct);
@@ -402,6 +411,18 @@ internal sealed class DocumentService(
             return MissingFile();
         }
 
+        await using var content = file.OpenReadStream();
+        return await ReplaceAsync(workspaceId, listId, itemId, content, file.FileName, languages, ifMatch, null, ct);
+    }
+
+    /// <summary>
+    /// A new version from <paramref name="content"/>. With <paramref name="replaceEmptyWithin"/>, an empty first version
+    /// the caller uploaded that recently is replaced instead (WebDAV clients create files empty, then write them).
+    /// </summary>
+    public async Task<Results<Ok<DocumentResponse>, ValidationProblem, ProblemHttpResult>> ReplaceAsync(
+        Guid workspaceId, Guid listId, Guid itemId, Stream content, string? fileName, string? languages, string? ifMatch, TimeSpan? replaceEmptyWithin,
+        CancellationToken ct)
+    {
         if (InvalidLanguages(languages) is { } invalidLanguages)
         {
             return invalidLanguages;
@@ -424,7 +445,7 @@ internal sealed class DocumentService(
             return ApiErrors.PreconditionFailed();
         }
 
-        await using var spooled = await SpoolAsync(file, ct);
+        await using var spooled = await FileIntake.SpoolAsync(content, options.Value.MaxFileSize, ct);
         if (Check(spooled) is { } invalid)
         {
             return invalid;
@@ -438,7 +459,9 @@ internal sealed class DocumentService(
         }
 
         var stored = await intake.StoreAsync(spooled, ct);
-        var version = await AddVersionAsync(item, current, stored, FileName(file.FileName, spooled.MediaType), "upload", Languages(languages), ct);
+        var version = current is not null && IsFreshEmpty(current, replaceEmptyWithin)
+            ? await OverwriteAsync(current, stored, FileName(fileName, spooled.MediaType), ct)
+            : await AddVersionAsync(item, current, stored, FileName(fileName, spooled.MediaType), "upload", Languages(languages), ct);
         return version is null
             ? ApiErrors.Conflict("concurrentChange", "The file was changed at the same time; try again.")
             : TypedResults.Ok(Response(item, version, policy == DuplicatePolicy.Warn ? duplicates : []));
@@ -634,10 +657,32 @@ internal sealed class DocumentService(
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task<SpooledFile> SpoolAsync(IFormFile file, CancellationToken ct)
+    /// <summary>The empty first version the caller uploaded within <paramref name="within"/>.</summary>
+    private bool IsFreshEmpty(FileVersion current, TimeSpan? within) =>
+        within is { } window && current is { Number: 1, Size: 0 } && current.CreatedBy == user.UserId && time.GetUtcNow() - current.CreatedAt <= window;
+
+    /// <summary>Puts new content into <paramref name="version"/> (an empty first version) and announces it like an upload.</summary>
+    private async Task<FileVersion?> OverwriteAsync(FileVersion version, StoredFile stored, string fileName, CancellationToken ct)
     {
-        await using var content = file.OpenReadStream();
-        return await FileIntake.SpoolAsync(content, options.Value.MaxFileSize, ct);
+        version.StoredFileId = stored.Id;
+        version.Sha256 = stored.Sha256;
+        version.Size = stored.Size;
+        version.MediaType = FileTypes.ForVersion(stored.MediaType, fileName);
+        version.FileName = fileName;
+        version.PageCount = null;
+        version.TextLanguage = null;
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            db.ChangeTracker.Clear();
+            return null;
+        }
+
+        await events.AddedAsync(version, newDocument: true, ct);
+        return version;
     }
 
     private ProblemHttpResult? Check(SpooledFile spooled) =>
@@ -695,8 +740,9 @@ internal sealed class DocumentService(
     };
 
     /// <summary>
-    /// The client's file name without path: with the extension of the detected type for the types we process, with its
-    /// own extension for other files (the content decides what is processed, the name only how it is downloaded).
+    /// The client's file name without path. Files we process keep their extension when it names the detected type
+    /// (<c>.jpeg</c>, <c>.PDF</c>) and get the type's usual one otherwise; other files keep theirs (the content decides
+    /// what is processed, the name only how it is downloaded).
     /// </summary>
     private static string FileName(string? clientName, string mediaType)
     {
@@ -708,15 +754,17 @@ internal sealed class DocumentService(
             name = "document";
         }
 
-        var extension = mediaType switch
-        {
-            FileTypes.Pdf => ".pdf",
-            FileTypes.Tiff => ".tiff",
-            FileTypes.Jpeg => ".jpg",
-            FileTypes.Png => ".png",
-            FileTypes.Webp => ".webp",
-            _ => Path.GetExtension(baseName).Trim(),
-        };
+        var own = Path.GetExtension(baseName).Trim();
+        var extension = !FileTypes.IsProcessable(mediaType) || FileTypes.ForName(own) == mediaType
+            ? own
+            : mediaType switch
+            {
+                FileTypes.Pdf => ".pdf",
+                FileTypes.Tiff => ".tiff",
+                FileTypes.Jpeg => ".jpg",
+                FileTypes.Png => ".png",
+                _ => ".webp",
+            };
         return (name.Length > 200 ? name[..200] : name) + (extension.Length > 20 ? string.Empty : extension);
     }
 

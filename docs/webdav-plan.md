@@ -1,6 +1,6 @@
 # Plan: WebDAV for libraries (API-10)
 
-Status: **in progress** (WD-0, WD-1 and WD-2 done; guide: [webdav.md](webdav.md)). Decisions: [ADR-0047](adr/0047-webdav-for-libraries.md).
+Status: **in progress** (WD-0 to WD-3 done; guide: [webdav.md](webdav.md)). Decisions: [ADR-0047](adr/0047-webdav-for-libraries.md).
 Idea: [0018](../ideas/0018-webdav-access-to-libraries.md).
 
 ## Goal
@@ -300,7 +300,34 @@ merged.
 - Docs: `documents.md` (what happens to an uploaded file), `features.md`
   (DOC-02 note).
 
-### WD-3: Writes and locking
+### WD-3: Writes and locking ✅
+
+**As built** (differences from the plan below):
+- `IDocumentUploads` (Documents.Contracts) has `UploadAsync`, `ReplaceAsync`
+  (with `expectedSha256` and `replaceEmptyWithin`) and `RenameAsync` (the
+  current file's name; a PDF or image keeps its extension). REST and MCP
+  uploads share the same `DocumentService` code.
+- The library got two small additions: `IContentCollection`/`IContentDocument`
+  (a PUT is one upload) and `IMovableEntry` (MOVE keeps identity; the file
+  system decides what replacing a target means), plus failures keeping the
+  file system's status in COPY results.
+- Locks are on paths, as the library expects them, not bound to item ids.
+  `Home/…` locks only apply to their holder (every user has their own Home).
+  The library's per-request implicit locks are stored with an expiry of
+  `MaxLockTimeout`, so a broken request cannot block a file.
+- `COPY` is in (a new document per file), not WD-4.
+- `DELETE` of a folder recycles its content first (no 409).
+- A PUT below a missing folder answers `404` (upstream), not `409`.
+- Temporary files may be as large as documents (`MaxTransientFileSize`,
+  100 MB): Office writes the whole document into `~WRD….tmp`. Excel's
+  8-hex-digit temporary names count too.
+- Office's safe save: renaming a document to a temporary name in the same
+  folder hides it under that name (`transient_files.item_id`); moving a
+  temporary file onto the original name stores a new version of that document
+  and shows the renamed entry with the old content until the app deletes it.
+- litmus: basic 16/16, copymove 13/13, locks 35/41 (the three conditional-PUT
+  cases upstream fails too, and `owner_modify` because custom properties are
+  not stored), props 11/14 (custom properties, by design).
 
 **Documents contracts:**
 ```csharp

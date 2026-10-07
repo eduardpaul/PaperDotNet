@@ -47,6 +47,7 @@ public sealed class DocumentsModule : IModule
         services.AddScoped<FileIntake>();
         services.AddScoped<PaperDotNet.Documents.Contracts.IDocumentFileStore, DocumentFileStore>();
         services.AddScoped<DocumentService>();
+        services.AddScoped<PaperDotNet.Documents.Contracts.IDocumentUploads, DocumentUploads>();
         services.AddScoped<PageEditor>();
         services.AddScoped<DocumentEvents>();
         services.AddScoped<OcrEngine>();

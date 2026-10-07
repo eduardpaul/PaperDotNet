@@ -30,7 +30,10 @@ namespace FubarDev.WebDavServer
             {
                 var documentActionStatus =
                     collectionResult.DocumentActionResults!.Select(x => x.Status).Distinct().Single();
-                var documentStatus = GetWebDavStatusCode(documentActionStatus);
+
+                // PaperDotNet: a failure the file system reported keeps its status (e.g. 409 duplicate, 413 too large).
+                var documentStatus = collectionResult.DocumentActionResults!.Select(x => x.Exception).OfType<WebDavException>().FirstOrDefault()?.StatusCode
+                    ?? GetWebDavStatusCode(documentActionStatus);
                 if (documentStatus is null)
                 {
                     return new WebDavResult(WebDavStatusCode.NoContent);
@@ -49,7 +52,8 @@ namespace FubarDev.WebDavServer
                  // Updated collections should be ignored
                  where item.Status != ActionStatus.Updated || item.Target is not CollectionTarget
 
-                 let statusCode = GetWebDavStatusCode(item.Status)
+                 // PaperDotNet: a failure the file system reported keeps its status (e.g. 409 duplicate, 413 too large).
+                 let statusCode = item.Exception is WebDavException failure ? failure.StatusCode : GetWebDavStatusCode(item.Status)
                  where statusCode != null
                  select (StatusCode: statusCode.Value, Item: item))
                 .GroupBy(x => x.StatusCode)

@@ -2,12 +2,9 @@
 
 PaperDotNet serves document libraries over WebDAV (API-10), so Windows
 Explorer, macOS Finder, rclone, Cyberduck and other WebDAV clients can browse
-them and open their files. Design: [ADR-0047](adr/0047-webdav-for-libraries.md),
-plan and slices: [webdav-plan.md](webdav-plan.md).
-
-> **Status:** read-only (WD-1). Saving, creating, renaming and deleting files
-> through WebDAV come with WD-3; until then, these operations are refused with
-> `403 Forbidden`.
+them, and desktop apps such as Word or Excel can open and save their files.
+Design: [ADR-0047](adr/0047-webdav-for-libraries.md), plan and slices:
+[webdav-plan.md](webdav-plan.md).
 
 ## What you see
 
@@ -43,6 +40,47 @@ https://{your installation}/dav/
   (`WebDav:MaxFolderEntries`), because WebDAV clients cannot page. Use
   subfolders for more.
 
+## What changing files does
+
+Everything goes through the same rules as the web UI and the API: your
+permissions, the size limit, the library's duplicate policy, versions, search,
+the audit log and the library's workflows.
+
+| In the client | In PaperDotNet |
+|---|---|
+| Save a file | A new **version** of the document (`document.added`, the library's workflows run) |
+| Copy a file in | A new document, titled by the file name without its extension |
+| New folder | A folder of the library |
+| Rename | The title changes (and the file name; a PDF or image keeps its extension, since its type comes from its content) |
+| Move to another folder | The same document in the other folder |
+| Move to another library | The same document, with its versions and links (`MoveToAsync`) |
+| Copy a file within the drive | A new document with the same content |
+| Delete a file or folder | To the library's **recycle bin**, with everything in the folder |
+
+- **Files created empty, then written** (Explorer does this when copying a
+  file in) become one version, not two: the content that follows within
+  `WebDav:EmptyFileGrace` (2 minutes) fills the empty version.
+- **Office's safe save** works on mapped drives: Word and Excel write the new
+  content into a temporary file, rename the original, rename the temporary
+  file to the original name and delete the renamed original. PaperDotNet sees
+  through this: the document keeps its identity, history, fields and links,
+  and gets one new version.
+- **Temporary files** of desktop apps (`~$Report.docx`, `~WRD0001.tmp`,
+  Excel's `9A3B2C00`, LibreOffice's `.~lock.…#`, `Thumbs.db`, `desktop.ini`,
+  `.DS_Store`, `._…`) are never documents. They are kept for the user who
+  wrote them only (others do not see them), at most
+  `WebDav:MaxTransientFileSize` (100 MB) each, and removed after a day.
+- **Locks:** desktop apps lock a file while it is open (WebDAV class 2).
+  Others can still open it, but saving it, moving it or deleting it fails
+  with `423 Locked` until the app closes it. Locks last at most
+  `WebDav:MaxLockTimeout` (1 hour; apps refresh them) and are kept in the
+  database, so they hold across restarts and servers. The REST API and the
+  web UI are not blocked by a WebDAV lock; their saves still check versions
+  (`If-Match`).
+- **Not supported:** writing part of a file (`Content-Range`, `501`), and
+  client-defined properties (`PROPPATCH` of custom properties is `403`;
+  Windows' file times and attributes are accepted but not stored).
+
 The web UI shows a library's address: open the library and choose
 **Open in Explorer** (the drive icon). The API has it too:
 `GET /v1.0/workspaces/{workspaceId}/lists/{listId}/webDav` → `{ "url": … }`.
@@ -53,8 +91,10 @@ WebDAV clients sign in with **HTTP Basic**:
 
 - **User name:** anything (for example your user name). It is not checked.
 - **Password:** an **API token** (Settings → API tokens) with the scopes
-  `list.read` and `document.read`. **Open in Explorer → Create a token**
-  opens the token dialog with these scopes selected.
+  `list.read`, `document.read`, `list.write` and `document.write`.
+  **Open in Explorer → Create a token** opens the token dialog with these
+  scopes selected. A token with only `list.read` and `document.read` gives a
+  read-only drive: files show as read-only, and apps open them read-only.
 
 Your account password does not work here, and Basic is only accepted under
 `/dav`. The token decides the tenant, so no tenant header or host name is
@@ -141,13 +181,24 @@ curl -u paperdotnet:pdn_… -O https://dms.example.com/dav/Projects/Contracts/Le
 |---|---|---|
 | `WebDav:Enabled` (`PAPERDOTNET__WebDav__Enabled`) | `true` | Serve `/dav`. When `false`, `/dav` answers `404` and the address endpoint `404 webDavDisabled`. |
 | `WebDav:MaxFolderEntries` | `5000` | Most entries one folder lists; larger folders are cut off with a warning in the log. |
+| `WebDav:EmptyFileGrace` | `00:02:00` | A file created empty and written within this time gets one version, not two. |
+| `WebDav:MaxTransientFileSize` | `104857600` | Largest temporary file of a desktop app (Office writes the whole document into one). |
+| `WebDav:MaxLockTimeout` | `01:00:00` | Longest lock; longer or infinite requests are shortened. |
+
+Documents written through WebDAV follow `Documents:MaxFileSize` (100 MB) like
+any upload. Expired locks and temporary files are removed by the recurring job
+`dav.cleanup` (hourly).
 
 Behind a reverse proxy:
 - Forward `/dav` with the `Authorization` header unchanged. Do not put the
   proxy's own Basic authentication (such as an NPM access list) in front of
   `/dav`: it would replace the token.
-- Allow the WebDAV methods (`OPTIONS`, `PROPFIND`, and with WD-3 `PUT`,
-  `MKCOL`, `MOVE`, `COPY`, `DELETE`, `LOCK`, `UNLOCK`, `PROPPATCH`).
+- Allow the WebDAV methods (`OPTIONS`, `PROPFIND`, `PUT`, `MKCOL`, `MOVE`,
+  `COPY`, `DELETE`, `LOCK`, `UNLOCK`, `PROPPATCH`) and request bodies as large
+  as `Documents:MaxFileSize` (Nginx: `client_max_body_size`; the Nginx Proxy
+  Manager sample allows 520 MB).
+- Forward the `Destination` header unchanged (MOVE and COPY), with the
+  public scheme and host.
 - Explorer first asks `OPTIONS /` at the server root. PaperDotNet answers it,
   so the proxy must forward the root as well.
 
@@ -158,6 +209,9 @@ Behind a reverse proxy:
 | Explorer keeps asking for the password | Not HTTPS (see above), a wrong or revoked token, or a token without `list.read` and `document.read` |
 | "The folder you entered does not appear to be valid" | The WebClient service is not running, or the address is not under `/dav/` |
 | `401` for every request with curl | Basic is only accepted under `/dav`; the password must be an API token |
-| `403` on save, rename or delete | Read-only for now (WD-3) |
+| `403` on save, rename or delete | The token lacks `list.write` and `document.write`, you may only read the library or folder, or a PDF or image was renamed to another extension |
+| `409` when copying a file in | The library blocks duplicates and the file exists already (the web UI shows where) |
+| `423 Locked`, or "The file is in use" | Someone has it open in a desktop app; it unlocks when they close it, or after an hour |
+| Word or Excel opens files read-only | The token has no write scopes, or you may only read the library |
 | A folder shows fewer items than the web UI | It has more than `WebDav:MaxFolderEntries` entries (warning in the log) |
 | Download over 50 MB fails | `FileSizeLimitInBytes` (see above) |

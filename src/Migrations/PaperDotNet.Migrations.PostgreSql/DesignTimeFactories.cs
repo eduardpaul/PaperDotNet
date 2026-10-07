@@ -4,6 +4,7 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.AiWorkflows.Data;
 using PaperDotNet.Calendar.Data;
 using PaperDotNet.Collaboration.Data;
+using PaperDotNet.Dav.Data;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.ExtensionHost.Data;
 using PaperDotNet.Identity.Data;
@@ -132,6 +133,12 @@ internal sealed class CalendarDesignTimeFactory : IDesignTimeDbContextFactory<Ca
 {
     public CalendarDbContext CreateDbContext(string[] args) =>
         new(DesignTime.Options<CalendarDbContext>(CalendarDbContext.Schema), DesignTime.NoTenant);
+}
+
+internal sealed class DavDesignTimeFactory : IDesignTimeDbContextFactory<DavDbContext>
+{
+    public DavDbContext CreateDbContext(string[] args) =>
+        new(DesignTime.Options<DavDbContext>(DavDbContext.Schema), DesignTime.NoTenant);
 }
 
 internal sealed class NotificationsDesignTimeFactory : IDesignTimeDbContextFactory<NotificationsDbContext>

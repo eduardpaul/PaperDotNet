@@ -40,6 +40,9 @@ public static class FileTypes
     /// <summary>Whether the server processes files of this type (the types <see cref="Detect"/> finds).</summary>
     public static bool IsProcessable(string? mediaType) => mediaType is Pdf or Tiff or Jpeg or Png or Webp;
 
+    /// <summary>The media type a file name suggests (by its extension), or null.</summary>
+    public static string? ForName(string? fileName) => Names.TryGetContentType(fileName ?? string.Empty, out var type) ? type : null;
+
     /// <summary>
     /// The media type of a file version: the detected type of its content, or for other content the type its name
     /// suggests, for downloads only. A name never makes content processable: <c>scan.pdf</c> without a PDF header is
@@ -47,7 +50,7 @@ public static class FileTypes
     /// </summary>
     public static string ForVersion(string contentType, string? fileName) =>
         IsProcessable(contentType) ? contentType
-        : Names.TryGetContentType(fileName ?? string.Empty, out var byName) && !IsProcessable(byName) ? byName
+        : ForName(fileName) is { } byName && !IsProcessable(byName) ? byName
         : Other;
 }
 

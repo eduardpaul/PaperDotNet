@@ -196,11 +196,35 @@ namespace FubarDev.WebDavServer.Handlers.Impl
                     Debug.Assert(selectionResult.MissingNames.Count == 1, "selectionResult.MissingNames.Count == 1");
                     Debug.Assert(selectionResult.Collection != null, "selectionResult.Collection != null");
                     var newName = selectionResult.MissingNames.Single();
+                    if (selectionResult.Collection is IContentCollection contentCollection)
+                    {
+                        // PaperDotNet: the store creates the document with its content in one step (an upload).
+                        document = await contentCollection.CreateDocumentAsync(newName, data, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
                     document = await selectionResult.Collection.CreateDocumentAsync(newName, cancellationToken)
                         .ConfigureAwait(false);
+                    }
                 }
 
                 Debug.Assert(document != null, nameof(document) + " != null");
+                if (document is IContentDocument contentDocument)
+                {
+                    // PaperDotNet: one-step stores replace the whole content (a new version); partial writes are not supported.
+                    if (operation == PutOperation.Modify)
+                    {
+                        return new WebDavResult(WebDavStatusCode.NotImplemented);
+                    }
+
+                    if (operation == PutOperation.Overwrite)
+                    {
+                        await contentDocument.ReplaceAsync(data, cancellationToken).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
                 var fileStream = operation == PutOperation.Modify
                     ? await document.OpenWriteAsync(startPosition ?? 0, cancellationToken)
                         .ConfigureAwait(false)
@@ -221,6 +245,7 @@ namespace FubarDev.WebDavServer.Handlers.Impl
                             contentLength.Value);
                         await Copy(data, fileStream, contentLength.Value, cancellationToken).ConfigureAwait(false);
                     }
+                }
                 }
 
                 var docPropertyStore = document.FileSystem.PropertyStore;

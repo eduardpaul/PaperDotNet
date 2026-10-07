@@ -33,7 +33,10 @@ The WebDAV protocol for the `Dav` module ([ADR-0047](../../../docs/adr/0047-webd
 | Replaced the MVC controller, XML input formatter and exception filter with `AspNetCore/WebDavEndpoints.cs` (`MapWebDav`) | No MVC in the host; XML bodies read with DTDs prohibited and a 1 MB limit |
 | No server-to-server COPY/MOVE (the remote target factories are not registered) | The server never sends requests to hosts named in a `Destination` header |
 | Only the escaped request context (`WebDavContextAccessor`) | The unescaped variant was a litmus switch |
-| `IMovableCollection` + fast path in `CopyMoveHandlerBase` | Folder MOVE keeps the folder (id, permissions, values) instead of re-creating it |
+| `IMovableEntry` + fast path in `CopyMoveHandlerBase` | MOVE keeps the entry (id, versions, permissions, values) instead of re-creating it, and the file system decides what replacing a target means (e.g. a new version) |
+| `CopyMoveHandlerBase`: a MOVE whose destination differs only in case renames the entry | Case-only renames in Explorer (`report.docx` → `Report.docx`) were 403 |
+| `IContentCollection` / `IContentDocument` in `PutHandler` | A PUT is one upload (create or new version) instead of an empty document plus a write stream; partial PUT (`Content-Range`) answers 501 |
+| `CollectionActionResultExtensions.Evaluate`: a `WebDavException` from the file system keeps its status | COPY into a library that blocks duplicates is 409, not 403 |
 | `TimeoutHeader.Parse`: comma lists, values above `Int32`, unknown units ignored | `Timeout: Infinite, Second-4100000000` was a 500 |
 | `WebDavRequestHeaders`: malformed headers → 400; malformed conditional and `Timeout` headers ignored | Were 500s |
 | HEAD sends `Content-Length`, `Content-Type` and the other entity headers of GET; GET sends `Content-Length` | Upstream sent none |

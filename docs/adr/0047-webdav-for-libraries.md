@@ -130,7 +130,8 @@ fixes, two of them blocking.
      properties are accepted but not stored.
    - Temporary files of Office and Explorer (`~$*`, `*.tmp`, `desktop.ini`,
      `Thumbs.db`, `._*`, `.DS_Store`) never become items.
-   - Details are in the plan.
+   - Details are in the plan. (Built in WD-3; its "as built" notes list the
+     differences, e.g. locks on paths and Office's safe save.)
 8. **HTTPS is required.** Documentation shows the reverse-proxy setups we
    already have. It also describes the `BasicAuthLevel` registry change for
    tests on a LAN only (with a warning), and the `FileSizeLimitInBytes`
@@ -145,8 +146,8 @@ fixes, two of them blocking.
 - The Minimal API endpoint keeps MVC out of the host. XML request bodies are
   read with `XmlSerializer` like upstream; trimming or Native AOT for the
   WebDAV endpoint is not a goal yet.
-- WebDAV adds no tables until locks arrive. It adds one Documents contract
-  for bulk file metadata, and later one for uploads and replacements.
+- WebDAV adds two tables in the `dav` schema (locks, temporary files) and two
+  Documents contracts: bulk file metadata and uploads (`IDocumentUploads`).
 - Allowing any file type changes behaviour for every client. Libraries that
   want only scans can use a workflow or a later per-library setting.
 - Explorer cannot page, so very large folders are listed up to

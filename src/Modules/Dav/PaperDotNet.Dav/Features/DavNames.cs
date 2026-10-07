@@ -36,6 +36,13 @@ internal static class DavNames
             : ExtensionByMediaType.GetValueOrDefault(mediaType, string.Empty);
     }
 
+    /// <summary>The title of a file written as <paramref name="name"/>: the name without its extension (<c>.gitignore</c> stays).</summary>
+    public static string Title(string name)
+    {
+        var title = Path.GetFileNameWithoutExtension(name);
+        return title.Length == 0 ? name : title;
+    }
+
     /// <summary>
     /// <c>\ / : * ? " &lt; &gt; |</c> and control characters become <c>_</c>, outer spaces and trailing dots are removed,
     /// reserved device names get a <c>_</c>, and the name fits in 255 characters with its extension.

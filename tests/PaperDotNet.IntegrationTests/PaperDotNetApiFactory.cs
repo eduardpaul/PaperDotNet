@@ -119,6 +119,7 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseSetting("Search:MinSimilarity", "0.15");
         builder.UseSetting("Storage:DataPath", _dataPath);
         builder.UseSetting("Documents:MaxFileSize", UploadLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        builder.UseSetting("WebDav:MaxTransientFileSize", UploadLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.UseSetting("StorageOptimization:TextDetector", OptimizationTextDetector);
 
         // The zvec search store (ADR-0044): PAPERDOTNET_ZVEC_LIBRARY points at libzvec_c_api (file or folder), and

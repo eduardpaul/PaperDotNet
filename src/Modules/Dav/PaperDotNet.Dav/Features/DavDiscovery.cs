@@ -32,7 +32,7 @@ internal static class DavDiscovery
             return ApiErrors.Problem(StatusCodes.Status404NotFound, "webDavDisabled", "WebDAV is turned off on this server.");
         }
 
-        var fileSystem = ActivatorUtilities.CreateInstance<DavFileSystem>(http.RequestServices, true);
+        var fileSystem = ActivatorUtilities.CreateInstance<DavFileSystem>(http.RequestServices, true, false);
         var workspace = (await fileSystem.RootCollection.GetChildrenAsync(ct)).OfType<DavWorkspace>()
             .FirstOrDefault(w => w.WorkspaceId == workspaceId);
         var library = workspace is null

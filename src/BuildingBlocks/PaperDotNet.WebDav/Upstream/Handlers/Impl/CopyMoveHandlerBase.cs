@@ -113,8 +113,10 @@ namespace FubarDev.WebDavServer.Handlers.Impl
             var uriComparer = _uriComparer ?? DefaultUriComparer.Create(context);
 
             // Check if source and destination overlap
-            if (uriComparer.Compare(sourceUrl, destinationUrl)
-                is UriComparisonResult.Child or UriComparisonResult.Equal)
+            // PaperDotNet: a destination equal but for case is a rename (MOVE report.docx → Report.docx).
+            var overlap = uriComparer.Compare(sourceUrl, destinationUrl);
+            if (overlap is UriComparisonResult.Child
+                || (overlap is UriComparisonResult.Equal && (!isMove || string.Equals(sourceUrl.AbsoluteUri, destinationUrl.AbsoluteUri, StringComparison.Ordinal))))
             {
                 throw new WebDavException(WebDavStatusCode.Forbidden);
             }
@@ -229,7 +231,10 @@ namespace FubarDev.WebDavServer.Handlers.Impl
                             string.Join("/", destinationSelectionResult.MissingNames));
                         throw new WebDavException(WebDavStatusCode.Conflict);
                     }
-                    else if (!destinationSelectionResult.IsMissing && isMove && !overwrite)
+                    // PaperDotNet: a destination that differs only in case is the source itself (a case-only rename).
+                    var renamesItself = isMove && !destinationSelectionResult.IsMissing
+                        && ReferenceEquals(destinationSelectionResult.TargetEntry, sourceSelectionResult.TargetEntry);
+                    if (!destinationSelectionResult.IsMissing && isMove && !overwrite && !renamesItself)
                     {
                         // We're not allowed to overwrite existing collections
                         throw new WebDavException(WebDavStatusCode.PreconditionFailed);
@@ -244,7 +249,10 @@ namespace FubarDev.WebDavServer.Handlers.Impl
                         LockAccessType.Write,
                         LockShareMode.Exclusive,
                         TimeoutHeader.Infinite);
-                    var destTempLock = await _implicitLockFactory.CreateAsync(
+                    // PaperDotNet: renaming an entry onto itself is covered by the source lock.
+                    var destTempLock = renamesItself
+                        ? new ImplicitLock(isSuccess: true)
+                        : await _implicitLockFactory.CreateAsync(
                             destLockRequirements,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -273,31 +281,32 @@ namespace FubarDev.WebDavServer.Handlers.Impl
                             ? RecursiveProcessingMode.PreferFastest
                             : RecursiveProcessingMode.PreferCrossFileSystem;
                         if (isMove && isSameFileSystem
-                            && sourceSelectionResult.ResultType == SelectionResultType.FoundCollection
-                            && sourceSelectionResult.Collection is IMovableCollection movable)
+                            && sourceSelectionResult.TargetEntry is IMovableEntry movable)
                         {
-                            // PaperDotNet: fast path, the file system moves the collection itself (identity, permissions, children).
+                            // PaperDotNet: fast path, the file system moves the entry itself (identity, versions, permissions,
+                            // children) and decides what replacing an existing target means.
                             ICollection targetParent;
                             string targetName;
+                            IEntry? replaced = null;
                             if (destinationSelectionResult.IsMissing)
                             {
                                 targetParent = destinationSelectionResult.Collection;
                                 targetName = destinationSelectionResult.MissingNames.Single();
                             }
+                            else if (renamesItself)
+                            {
+                                targetParent = sourceSelectionResult.TargetEntry.Parent ?? throw new WebDavException(WebDavStatusCode.Forbidden);
+                                targetName = destinationPath.TrimEnd('/').Split('/').Last();
+                            }
                             else
                             {
-                                var existing = destinationSelectionResult.TargetEntry;
-                                targetParent = existing.Parent ?? throw new WebDavException(WebDavStatusCode.Forbidden);
-                                targetName = existing.Name;
-                                var deleted = await existing.DeleteAsync(cancellationToken).ConfigureAwait(false);
-                                if (deleted.StatusCode != WebDavStatusCode.OK)
-                                {
-                                    throw new WebDavException(deleted.StatusCode);
-                                }
+                                replaced = destinationSelectionResult.TargetEntry;
+                                targetParent = replaced.Parent ?? throw new WebDavException(WebDavStatusCode.Forbidden);
+                                targetName = replaced.Name;
                             }
 
-                            await movable.MoveToAsync(targetParent, targetName, cancellationToken).ConfigureAwait(false);
-                            result = new WebDavResult(destinationSelectionResult.IsMissing ? WebDavStatusCode.Created : WebDavStatusCode.NoContent);
+                            await movable.MoveToAsync(targetParent, targetName, replaced, cancellationToken).ConfigureAwait(false);
+                            result = new WebDavResult(destinationSelectionResult.IsMissing || renamesItself ? WebDavStatusCode.Created : WebDavStatusCode.NoContent);
                         }
                         else
                         {

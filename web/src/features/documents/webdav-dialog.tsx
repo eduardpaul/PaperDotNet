@@ -17,8 +17,8 @@ import { listBuilder } from '@/features/lists/queries';
 import { CopyField } from '@/features/settings/section';
 import { problemMessage } from '@/lib/errors';
 
-/** The scopes a WebDAV token needs (read-only mount, ADR-0047). */
-export const webDavScopes = ['list.read', 'document.read'];
+/** The scopes a WebDAV token needs to read and save files (ADR-0047); without the write scopes the drive is read-only. */
+export const webDavScopes = ['list.read', 'document.read', 'list.write', 'document.write'];
 
 /**
  * "Open in Explorer" (API-10): the library's WebDAV address from the server (names follow the server's rules) and how
@@ -47,8 +47,8 @@ export function WebDavDialog({
         <DialogHeader>
           <DialogTitle>Open in Explorer</DialogTitle>
           <DialogDescription>
-            Map this library as a network drive to browse and open its files from your desktop apps. It is read-only for
-            now.
+            Map this library as a network drive to open, edit and save its files from your desktop apps. Saving a file
+            stores a new version.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4 px-5 pb-4 text-sm">
@@ -63,8 +63,9 @@ export function WebDavDialog({
               <CopyField label="WebDAV address" value={url} />
               <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-muted">
                 <li>
-                  Create an API token with the scopes <code>list.read</code> and <code>document.read</code>. It is your
-                  password for the drive.
+                  Create an API token with the scopes <code>list.read</code>, <code>document.read</code>,{' '}
+                  <code>list.write</code> and <code>document.write</code> (only the first two for a read-only drive). It
+                  is your password for the drive.
                 </li>
                 <li>
                   In Windows Explorer choose <strong>This PC → Map network drive</strong>, paste the address and select{' '}

@@ -6,32 +6,33 @@ using System.Xml.Linq;
 
 namespace PaperDotNet.IntegrationTests;
 
-/// <summary>WebDAV for libraries (API-10, ADR-0047): the read-only mount at /dav.</summary>
-public sealed class DavTests(PaperDotNetApiFactory factory)
+/// <summary>WebDAV for libraries (API-10, ADR-0047): the mount at /dav; reading here, writing in DavTests.Writes.cs.</summary>
+public sealed partial class DavTests(PaperDotNetApiFactory factory)
 {
     private static readonly XNamespace D = "DAV:";
     private static readonly XNamespace Ms = "urn:schemas-microsoft-com:";
     private static readonly string[] ReadScopes = ["list.read", "document.read"];
+    private static readonly string[] WriteScopes = ["list.read", "document.read", "list.write", "document.write"];
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static byte[] Pdf(string marker) => Encoding.ASCII.GetBytes($"%PDF-1.4\n% {marker}\n%%EOF\n");
 
-    private sealed record Library(HttpClient Admin, HttpClient Dav, string Tenant, Guid Workspace, Guid List)
+    private sealed record Library(HttpClient Admin, HttpClient Dav, string Tenant, Guid Workspace, Guid List, Guid TenantId)
     {
         public string Url => $"/v1.0/workspaces/{Workspace}/lists/{List}";
     }
 
     /// <summary>Workspace "Projects" with the library "Contracts", and a WebDAV client for the administrator.</summary>
-    private async Task<Library> SetupAsync(string tenant)
+    private async Task<Library> SetupAsync(string tenant, string[]? scopes = null)
     {
-        await factory.CreateTenantAsync(tenant);
+        var summary = await factory.CreateTenantAsync(tenant);
         var admin = await ApiClient.CreateAsync(factory, tenant);
         var ws = await admin.CreateWorkspaceAsync("Projects");
         var created = await admin.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name = "Contracts", templateKey = "documents" }, Ct);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var list = (await created.ReadJsonAsync()).GetProperty("id").GetGuid();
-        return new Library(admin, await DavClientAsync(admin, tenant, ReadScopes), tenant, ws, list);
+        return new Library(admin, await DavClientAsync(admin, tenant, scopes ?? ReadScopes), tenant, ws, list, summary.Id);
     }
 
     /// <summary>A client that sends HTTP Basic with a new API token of <paramref name="api"/>'s user as the password.</summary>
@@ -94,13 +95,13 @@ public sealed class DavTests(PaperDotNetApiFactory factory)
     /// <summary>The unescaped names directly below <paramref name="url"/>.</summary>
     private static async Task<List<string>> NamesAsync(HttpClient client, string url) =>
         (await PropFindAsync(client, url)).Keys
-            .Where(href => href.TrimEnd('/') != url.TrimEnd('/'))
+            .Where(href => Uri.UnescapeDataString(href).TrimEnd('/') != Uri.UnescapeDataString(url).TrimEnd('/'))
             .Select(href => Uri.UnescapeDataString(href.TrimEnd('/').Split('/')[^1]))
             .Order(StringComparer.Ordinal)
             .ToList();
 
     [Fact]
-    public async Task Options_is_anonymous_and_advertises_a_read_only_server()
+    public async Task Options_is_anonymous_and_advertises_a_locking_server()
     {
         await factory.CreateTenantAsync("dav-options");
         var anonymous = factory.CreateClient();
@@ -109,10 +110,10 @@ public sealed class DavTests(PaperDotNetApiFactory factory)
         var response = await SendAsync(anonymous, "OPTIONS", "/dav/", depth: null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("1", Assert.Single(response.Headers.GetValues("DAV")));
+        Assert.Equal(["1", "2"], response.Headers.GetValues("DAV"));
         Assert.Equal("DAV", Assert.Single(response.Headers.GetValues("MS-Author-Via")));
         var root = await SendAsync(anonymous, "OPTIONS", "/", depth: null);
-        Assert.Equal("1", Assert.Single(root.Headers.GetValues("DAV")));
+        Assert.Equal("1, 2", Assert.Single(root.Headers.GetValues("DAV")));
     }
 
     [Fact]
@@ -252,7 +253,7 @@ public sealed class DavTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
-    public async Task Infinite_depth_and_writes_are_refused()
+    public async Task Infinite_depth_and_writes_without_the_write_scopes_are_refused()
     {
         var library = await SetupAsync("dav-readonly");
         await UploadAsync(library, Pdf("x"), "x.pdf", "Doc");
@@ -272,7 +273,8 @@ public sealed class DavTests(PaperDotNetApiFactory factory)
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
 
-        Assert.Equal(HttpStatusCode.MethodNotAllowed, (await SendAsync(library.Dav, "LOCK", "/dav/Projects/Contracts/Doc.pdf", depth: null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(library.Dav, "LOCK", "/dav/Projects/Contracts/Doc.pdf", depth: null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync(library.Dav, "DELETE", "/dav/Projects/Contracts/Doc.pdf", depth: null)).StatusCode);
         Assert.Equal(["Doc.pdf"], await NamesAsync(library.Dav, "/dav/Projects/Contracts/"));
     }
 

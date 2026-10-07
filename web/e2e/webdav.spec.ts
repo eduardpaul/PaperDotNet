@@ -22,12 +22,14 @@ test('a library shows its WebDAV address, and a token from the dialog opens it a
   expect(decodeURIComponent(url)).toContain(`/dav/${workspace}/Contracts/`);
   await expect(dialog.getByRole('textbox', { name: 'Command' })).toHaveValue(`net use * "${url}" /user:paperdotnet *`);
 
-  // The token dialog opens with the name and the read scopes WebDAV needs.
+  // The token dialog opens with the name and the scopes WebDAV needs to read and save.
+  const libraryUrl = page.url();
   await dialog.getByRole('link', { name: 'Create a token' }).click();
   const tokenDialog = page.getByRole('dialog', { name: 'New API token' });
   await expect(tokenDialog.getByLabel('Name', { exact: true })).toHaveValue('WebDAV');
   await expect(tokenDialog.getByRole('checkbox', { name: /^list\.read\b/ })).toBeChecked();
   await expect(tokenDialog.getByRole('checkbox', { name: /^document\.read\b/ })).toBeChecked();
+  await expect(tokenDialog.getByRole('checkbox', { name: /^document\.write\b/ })).toBeChecked();
   await tokenDialog.getByRole('button', { name: 'Create token' }).click();
   const secret = await page.getByRole('textbox', { name: 'API token' }).inputValue();
 
@@ -38,4 +40,14 @@ test('a library shows its WebDAV address, and a token from the dialog opens it a
   });
   expect(listing.status()).toBe(207);
   expect(await listing.text()).toContain('lease.pdf');
+
+  // Saving through the drive adds a file to the library.
+  const saved = await request.fetch(`${new URL(url).pathname}notes.txt`, {
+    method: 'PUT',
+    headers: { Authorization: `Basic ${Buffer.from(`anyone:${secret}`).toString('base64')}` },
+    data: 'saved from a desktop app',
+  });
+  expect(saved.status()).toBe(201);
+  await page.goto(libraryUrl);
+  await expect(page.getByRole('row', { name: /notes/ })).toBeVisible();
 });
