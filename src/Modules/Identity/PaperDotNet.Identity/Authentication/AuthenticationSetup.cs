@@ -9,6 +9,7 @@ using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using OpenIddict.Validation.AspNetCore;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Api;
 using PaperDotNet.Identity.Data;
 
 namespace PaperDotNet.Identity.Authentication;
@@ -25,9 +26,16 @@ internal static class AuthenticationSetup
         services.AddAuthentication(AuthSchemes.Default)
             .AddPolicyScheme(AuthSchemes.Default, "OAuth access token or API token", o =>
                 o.ForwardDefaultSelector = ctx =>
-                    ApiTokenSecret.LooksLikeToken(ApiTokenAuthenticationHandler.GetBearerToken(ctx.Request.Headers[HeaderNames.Authorization].ToString()))
+                {
+                    var header = ctx.Request.Headers[HeaderNames.Authorization].ToString();
+                    var token = ApiTokenAuthenticationHandler.GetBearerToken(header)
+                        ?? (ApiRoutes.IsDav(ctx.Request) ? ApiTokenAuthenticationHandler.GetBasicPassword(header) : null);
+
+                    // WebDAV clients (Basic) only reach the API token scheme under /dav.
+                    return ApiTokenSecret.LooksLikeToken(token) || ApiRoutes.IsDav(ctx.Request)
                         ? AuthSchemes.ApiToken
-                        : OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
+                        : OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+                })
             .AddScheme<AuthenticationSchemeOptions, ApiTokenAuthenticationHandler>(AuthSchemes.ApiToken, null)
             .AddCookie(AuthSchemes.Session, o =>
             {

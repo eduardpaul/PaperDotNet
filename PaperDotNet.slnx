@@ -64,6 +64,9 @@
     <Project Path="src/Modules/Collaboration/PaperDotNet.Collaboration.Contracts/PaperDotNet.Collaboration.Contracts.csproj" />
     <Project Path="src/Modules/Collaboration/PaperDotNet.Collaboration/PaperDotNet.Collaboration.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Dav/">
+    <Project Path="src/Modules/Dav/PaperDotNet.Dav/PaperDotNet.Dav.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Mcp/">
     <Project Path="src/Modules/Mcp/PaperDotNet.Mcp.Contracts/PaperDotNet.Mcp.Contracts.csproj" />
     <Project Path="src/Modules/Mcp/PaperDotNet.Mcp/PaperDotNet.Mcp.csproj" />

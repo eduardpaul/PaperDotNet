@@ -14039,6 +14039,66 @@
         }
       }
     },
+    "/v1.0/workspaces/{workspaceId}/lists/{listId}/webDav": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "operationId": "GetLibraryWebDav",
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "listId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebDavLocationResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Server error",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1.0/provisioning/schema": {
       "get": {
         "tags": [
@@ -24178,6 +24238,18 @@
             "type": "boolean"
           }
         }
+      },
+      "WebDavLocationResponse": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "description": "Where a library is in the WebDAV tree, e.g. \u0060https://host/dav/Projects/Contracts/\u0060."
       },
       "WorkflowRequest": {
         "required": [

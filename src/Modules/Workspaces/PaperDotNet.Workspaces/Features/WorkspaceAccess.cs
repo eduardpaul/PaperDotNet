@@ -93,6 +93,10 @@ internal sealed class WorkspaceAccess(ICurrentUser user, IEffectiveScopeProvider
     public async Task<IReadOnlyDictionary<Guid, string>> GetNamesAsync(IReadOnlyCollection<Guid> workspaceIds, CancellationToken cancellationToken) =>
         await db.Workspaces.AsNoTracking().Where(w => workspaceIds.Contains(w.Id)).ToDictionaryAsync(w => w.Id, w => w.Name, cancellationToken);
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetSharedNamesAsync(IReadOnlyCollection<Guid> workspaceIds, CancellationToken cancellationToken) =>
+        await db.Workspaces.AsNoTracking().Where(w => w.PersonalOwnerId == null && workspaceIds.Contains(w.Id))
+            .ToDictionaryAsync(w => w.Id, w => w.Name, cancellationToken);
+
     public async Task<Guid?> FindSharedAsync(string name, CancellationToken cancellationToken) =>
         await db.Workspaces.AsNoTracking().Where(w => w.PersonalOwnerId == null && w.Name == name)
             .OrderBy(w => w.CreatedAt).Select(w => (Guid?)w.Id).FirstOrDefaultAsync(cancellationToken);

@@ -14,6 +14,7 @@ using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Permissions;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.RecycleBin;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Views;
+using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.WebDav;
 using PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows;
 using System.Collections.Generic;
 using System.IO;
@@ -77,6 +78,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Views.ViewsRequestBuilder Views
         {
             get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Views.ViewsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The webDav property</summary>
+        public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.WebDav.WebDavRequestBuilder WebDav
+        {
+            get => new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.WebDav.WebDavRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The workflows property</summary>
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Workflows.WorkflowsRequestBuilder Workflows

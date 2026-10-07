@@ -25,6 +25,8 @@ export const keys = {
     ['workspaces', workspaceId, 'lists', listId, 'items', itemId] as const,
   calendarSources: (workspaceId: string, listId: string) =>
     ['workspaces', workspaceId, 'lists', listId, 'calendarSources'] as const,
+  /** A library's WebDAV address (API-10). */
+  webDav: (workspaceId: string, listId: string) => ['workspaces', workspaceId, 'lists', listId, 'webDav'] as const,
   /** A library's document workflows (ADR-0038: reading the text, thumbnails, pages, OCR). */
   libraryWorkflows: (workspaceId: string, listId: string) =>
     ['workspaces', workspaceId, 'lists', listId, 'workflows', 'builtIns'] as const,

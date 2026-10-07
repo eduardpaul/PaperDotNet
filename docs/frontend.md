@@ -56,7 +56,7 @@ Tailwind ([ADR-0033](adr/0033-web-frontend.md)). This page describes:
 | Home | `/` | LST-07, TSK-03, CAL-03, NTF-01, EVT-08 (approvals) |
 | Inbox (personal and group inboxes) | `/inbox`, `/inbox/$groupId` | LST-07, DOC-01, DOC-09, DOC-10, DOC-16, AI-02/03 suggestions |
 | Workspaces, workspace overview, members | `/w`, `/w/$workspaceId` | PLT-07, IAM-07 |
-| List or library view (table, board, calendar, gallery; folders; filters; bulk edit; upload) | `/w/$workspaceId/l/$listId` | LST-01, LST-04…06, LST-09, LST-10, DOC-01, TSK-04 |
+| List or library view (table, board, calendar, gallery; folders; filters; bulk edit; upload) | `/w/$workspaceId/l/$listId` | LST-01, LST-04…06, LST-09, LST-10, DOC-01, TSK-04, API-10 ("Open in Explorer": the library's WebDAV address and a prefilled token, [webdav.md](webdav.md)) |
 | Item panel: details and field editors | `…?item=$itemId` | LST-03, LST-04, LST-15, LST-19, TAX-04, TAX-06 |
 | Item panel: preview and page tools | `…&tab=preview` | DOC-04, DOC-05, DOC-06, DOC-07, DOC-08, DOC-09, DOC-17 |
 | Item panel: versions and file versions | `…&tab=versions` | LST-12, DOC-03 |
@@ -102,7 +102,8 @@ Known API gaps (the UI works around them, to be closed in the API):
   recycles the original. Versions, comments and links stay on the original. A move endpoint that keeps them is planned.
 
 Not in the web UI: operator work done with the CLI or configuration (backup,
-tenants, quotas), and protocol clients (MCP, WebDAV, CalDAV, the client CLI).
+tenants, quotas), and protocol clients (MCP, WebDAV, CalDAV, the client CLI); for WebDAV, libraries show their
+address ("Open in Explorer").
 
 ## Code organization (`web/`)
 

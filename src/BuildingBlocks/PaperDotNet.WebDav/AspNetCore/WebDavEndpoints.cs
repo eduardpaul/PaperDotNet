@@ -25,9 +25,12 @@ public static partial class WebDavEndpoints
     public static readonly string[] Methods =
         ["OPTIONS", "GET", "HEAD", "PUT", "DELETE", "PROPFIND", "PROPPATCH", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK"];
 
-    /// <summary>Maps <paramref name="prefix"/> and everything below it (route value <c>path</c>) to the WebDAV server.</summary>
-    public static IEndpointConventionBuilder MapWebDav(this IEndpointRouteBuilder endpoints, string prefix) =>
-        endpoints.MapMethods(prefix.TrimEnd('/') + "/{**path}", Methods, HandleAsync).ExcludeFromDescription();
+    /// <summary>
+    /// Maps <paramref name="methods"/> (default: all WebDAV methods) on <paramref name="prefix"/> and everything below it
+    /// (route value <c>path</c>) to the WebDAV server. Map methods separately to give them different authorization.
+    /// </summary>
+    public static IEndpointConventionBuilder MapWebDav(this IEndpointRouteBuilder endpoints, string prefix, params string[] methods) =>
+        endpoints.MapMethods(prefix.TrimEnd('/') + "/{**path}", methods.Length == 0 ? Methods : methods, HandleAsync).ExcludeFromDescription();
 
     private static async Task HandleAsync(HttpContext http)
     {

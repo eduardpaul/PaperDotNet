@@ -36,7 +36,7 @@ The WebDAV protocol for the `Dav` module ([ADR-0047](../../../docs/adr/0047-webd
 | `IMovableCollection` + fast path in `CopyMoveHandlerBase` | Folder MOVE keeps the folder (id, permissions, values) instead of re-creating it |
 | `TimeoutHeader.Parse`: comma lists, values above `Int32`, unknown units ignored | `Timeout: Infinite, Second-4100000000` was a 500 |
 | `WebDavRequestHeaders`: malformed headers → 400; malformed conditional and `Timeout` headers ignored | Were 500s |
-| HEAD sends `Content-Length`, `Content-Type` and the other entity headers of GET | Upstream sent none |
+| HEAD sends `Content-Length`, `Content-Type` and the other entity headers of GET; GET sends `Content-Length` | Upstream sent none |
 | German resources (`Resources.de.resx`) not compiled | Unused |
 
 ## Tests

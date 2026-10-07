@@ -5,6 +5,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import type { RowSelectionState } from '@tanstack/react-table';
 import {
   FolderPlus,
+  HardDrive,
   Inbox,
   LayoutGrid,
   List as ListLayout,
@@ -25,6 +26,7 @@ import { Card } from '@/components/ui/card';
 import { EmptyState, Skeleton, Spinner } from '@/components/ui/feedback';
 import { Input } from '@/components/ui/input';
 import { DropZone, FilePickerButton } from '@/features/documents/drop-zone';
+import { WebDavDialog } from '@/features/documents/webdav-dialog';
 import { acceptedTypes } from '@/features/documents/paths';
 import { useUploads } from '@/features/documents/uploads';
 import { ValueNamesProvider } from '@/features/fields/lookups';
@@ -93,6 +95,7 @@ function ListPage() {
   const [selection, setSelection] = useState<RowSelectionState>({});
   const [bulkEdit, setBulkEdit] = useState(false);
   const [newFolder, setNewFolder] = useState(false);
+  const [webDav, setWebDav] = useState(false);
   const { upload } = useUploads();
 
   const setSearch = (patch: Partial<ListSearch>, replace = false) =>
@@ -201,6 +204,11 @@ function ListPage() {
         actions={
           <>
             <FollowButton workspaceId={workspaceId} listId={listId} label="Follow this list" />
+            {isLibrary && (
+              <Button variant="ghost" size="icon" aria-label="Open in Explorer" onClick={() => setWebDav(true)}>
+                <HardDrive />
+              </Button>
+            )}
             {access.canManage && (
               <Button asChild variant="ghost" size="icon" aria-label="List settings">
                 <Link to="/w/$workspaceId/l/$listId/settings" params={{ workspaceId, listId }}>
@@ -425,6 +433,7 @@ function ListPage() {
         onOpenChange={setBulkEdit}
         onDone={() => setSelection({})}
       />
+      {webDav && <WebDavDialog workspaceId={workspaceId} listId={listId} onClose={() => setWebDav(false)} />}
       {newFolder && (
         <NameDialog
           open

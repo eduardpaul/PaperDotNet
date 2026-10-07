@@ -1,6 +1,6 @@
 # Plan: WebDAV for libraries (API-10)
 
-Status: **proposed**. Decisions: [ADR-0047](adr/0047-webdav-for-libraries.md).
+Status: **in progress** (WD-0 and WD-1 done; guide: [webdav.md](webdav.md)). Decisions: [ADR-0047](adr/0047-webdav-for-libraries.md).
 Idea: [0018](../ideas/0018-webdav-access-to-libraries.md).
 
 ## Goal
@@ -107,7 +107,7 @@ it (it would carry `AccessCacheTags.Principals`).
 
 ## Slices
 
-### WD-0: Vendor the library (building block)
+### WD-0: Vendor the library (building block) ✅
 
 1. Copy `src/FubarDev.WebDavServer` and `src/FubarDev.WebDavServer.Models`
    of `release/2.0` at `1f78db5` into one project,
@@ -149,7 +149,7 @@ it (it would carry `AccessCacheTags.Principals`).
 **Done when:** the solution builds, the ported tests pass, and the
 architecture test "only Dav references WebDav" exists.
 
-### WD-1: Read-only mount (first delivery)
+### WD-1: Read-only mount (first delivery) ✅
 
 **Authentication (Identity module)**
 - `ApiTokenAuthenticationHandler` reads `Authorization: Basic base64(user:pdn_…)`

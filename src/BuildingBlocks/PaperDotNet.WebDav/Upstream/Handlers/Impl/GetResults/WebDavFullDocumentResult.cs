@@ -79,6 +79,9 @@ namespace FubarDev.WebDavServer.Handlers.Impl.GetResults
                     // look up the header names and the formatting of its values.
                     await SetPropertiesToContentHeaderAsync(content, properties, ct).ConfigureAwait(false);
 
+                    // PaperDotNet: the length is known; upstream left it to StreamContent, which had not computed it yet.
+                    content.Headers.ContentLength = stream.CanSeek ? stream.Length - stream.Position : _document.Length;
+
                     foreach (var header in content.Headers)
                     {
                         response.Headers.Add(header.Key, header.Value.ToArray());
