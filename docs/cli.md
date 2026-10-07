@@ -31,8 +31,9 @@ export PAPERDOTNET_TENANT=acme              # only when the host name does not s
 - `--url`, `--token` and `--tenant` override the environment.
 
 **Upload rules:**
-- Only PDF, TIFF, JPEG and PNG files are uploaded; other files are skipped
-  with a message.
+- Files of any type are uploaded (the library's workflows read the text of
+  PDFs and images). Hidden files (`.DS_Store`), `Thumbs.db`, `desktop.ini`
+  and Office lock files (`~$…`) are skipped with a message.
 - The server's duplicate policy applies. A duplicate is reported, and a
   blocked duplicate counts as a failure.
 

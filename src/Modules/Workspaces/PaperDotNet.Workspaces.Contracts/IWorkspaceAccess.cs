@@ -46,6 +46,12 @@ public interface IWorkspaceAccess
     /// <summary>Names of workspaces by id (unknown ids are left out), e.g. to reference lists by name in templates.</summary>
     Task<IReadOnlyDictionary<Guid, string>> GetNamesAsync(IReadOnlyCollection<Guid> workspaceIds, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Names of the shared (non-personal) workspaces among <paramref name="workspaceIds"/>; personal workspaces ("Home")
+    /// and unknown ids are left out. Lets a client show an administrator's workspaces without everyone's Home.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetSharedNamesAsync(IReadOnlyCollection<Guid> workspaceIds, CancellationToken cancellationToken);
+
     /// <summary>The shared (non-personal) workspace with this name, if any.</summary>
     Task<Guid?> FindSharedAsync(string name, CancellationToken cancellationToken);
 

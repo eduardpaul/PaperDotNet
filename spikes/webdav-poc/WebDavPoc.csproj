@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- Default: the published NuGet package (1.0.1, May 2023).
+       -p:DavSourcePath=<clone>/src/Dav.AspNetCore.Server/Dav.AspNetCore.Server.csproj builds against git HEAD instead. -->
+  <ItemGroup Condition="'$(DavSourcePath)' == ''">
+    <PackageReference Include="Dav.AspNetCore.Server" Version="1.0.1" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(DavSourcePath)' != ''">
+    <ProjectReference Include="$(DavSourcePath)" />
+  </ItemGroup>
+
+</Project>

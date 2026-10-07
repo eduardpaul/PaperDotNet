@@ -9,6 +9,6 @@ export const thumbnailPath = (workspaceId: string, listId: string, itemId: strin
 export const pageImagePath = (workspaceId: string, listId: string, itemId: string, page: number) =>
   `${filePath(workspaceId, listId, itemId)}/pages/${page}/image`;
 
-/** Uploads the server accepts (DOC-01); the server checks the content, this only filters the file picker. */
-export const acceptedTypes =
-  'application/pdf,image/tiff,image/jpeg,image/png,image/webp,.webp,.pdf,.tif,.tiff,.jpg,.jpeg,.png';
+/** Files the server reads (text, pages, OCR); libraries take any file and store others as they are (ADR-0047). */
+export const isProcessable = (mediaType: string | null | undefined) =>
+  ['application/pdf', 'image/tiff', 'image/jpeg', 'image/png', 'image/webp'].includes(mediaType ?? '');

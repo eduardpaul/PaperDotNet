@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    WebDAV server: FubarDev.WebDavServer (MIT, LICENSE), vendored from release/2.0 (ADR-0047), with a Minimal API
+    endpoint instead of the upstream MVC layer. Upstream sources are in Upstream/ with their namespaces; our changes
+    are listed in README.md. Only the Dav module references this project (architecture test).
+  -->
+  <PropertyGroup>
+    <RootNamespace>FubarDev.WebDavServer</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\PaperDotNet.WebDav.Models\PaperDotNet.WebDav.Models.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Upstream\Properties\Resources.Designer.cs" DependentUpon="Resources.resx" />
+    <EmbeddedResource Update="Upstream\Properties\Resources.resx" LogicalName="FubarDev.WebDavServer.Properties.Resources.resources" />
+    <!-- The German upstream strings are not used. -->
+    <EmbeddedResource Remove="Upstream\Properties\Resources.de.resx" />
+    <Compile Remove="Upstream\Properties\Resources.de.Designer.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+  </ItemGroup>
+</Project>

@@ -35,6 +35,23 @@ internal sealed class DocumentFileStore(
             ? Describe(version) with { AnalysisLanguages = await DocumentText.LanguagesAsync(db, preferences, version, null, cancellationToken) } : null;
     }
 
+    public async Task<IReadOnlyDictionary<Guid, DocumentFile>> GetCurrentAsync(IReadOnlyCollection<Guid> readableItemIds, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<Guid, DocumentFile>(readableItemIds.Count);
+        foreach (var chunk in readableItemIds.Distinct().Chunk(500))
+        {
+            var versions = await db.FileVersions.AsNoTracking()
+                .Where(v => v.IsCurrent && chunk.Contains(v.ItemId))
+                .ToListAsync(cancellationToken);
+            foreach (var version in versions)
+            {
+                result[version.ItemId] = Describe(version);
+            }
+        }
+
+        return result;
+    }
+
     public async Task<Stream?> OpenVersionAsync(Guid versionId, CancellationToken cancellationToken)
     {
         var version = await db.FileVersions.AsNoTracking().FirstOrDefaultAsync(v => v.Id == versionId, cancellationToken);
@@ -146,7 +163,7 @@ internal sealed class DocumentFileStore(
         }
 
         await using var spooled = await FileIntake.SpoolAsync(content, source.Size, cancellationToken);
-        if (spooled.TooLarge || spooled.Size >= source.Size || spooled.MediaType is null)
+        if (spooled.TooLarge || spooled.Size >= source.Size || !FileTypes.IsProcessable(spooled.MediaType))
         {
             throw new InvalidOperationException("The candidate must be a smaller supported file.");
         }

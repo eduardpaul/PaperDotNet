@@ -1,6 +1,7 @@
 # Documents: workflows, pages, languages and inboxes
 
 This guide covers document libraries:
+- file types: libraries take any file;
 - what happens to uploaded files: the library's workflows ([ADR-0038](adr/0038-documents-composed-from-workflows.md));
 - page operations (DOC-05, DOC-06);
 - languages per file (DOC-17);
@@ -10,6 +11,22 @@ This guide covers document libraries:
 Uploads and versions are also described in [features.md](features.md)
 (phase 3). Library uploads accept `folderId`, which places the new document in
 a folder of the library.
+
+## File types
+
+Libraries take files of any type (DOC-02, [ADR-0047](adr/0047-webdav-for-libraries.md)): PDFs and images, but also
+Office documents, text files, archives or empty files (Explorer creates files empty through WebDAV).
+
+- **The content decides what is processed.** The first bytes are checked for PDF, TIFF, JPEG, PNG and WebP. Only these
+  files are read, rendered and OCRed; their file name gets the extension of the detected type.
+- **Other files are stored as they are.** They keep their file name and extension, and their media type comes from the
+  extension (`report.docx` →
+  `application/vnd.openxmlformats-officedocument.wordprocessingml.document`), or is `application/octet-stream`. A name
+  never makes a file processable: `scan.pdf` without PDF content is `application/octet-stream`.
+- **Downloads** are always attachments with `X-Content-Type-Options: nosniff`, so HTML or SVG from users never runs in
+  the browser.
+- They have no text in search yet (their title and fields are searchable); text from Office files is a later feature.
+- Size limit (`Documents:MaxFileSize`) and the library's duplicate policy apply to every file.
 
 ## What happens to an uploaded file
 
@@ -21,11 +38,13 @@ Each one can be turned on or off per library (library settings → Workflows, or
 
 | Workflow | Key | Default | What it does |
 |---|---|---|---|
-| Read the text | `documents.text` | on | The PDF's text layer as page texts, the page count and search. Raises `wf.documents.text.hasText` or `wf.documents.text.noText` (scans and photos). |
+| Read the text | `documents.text` | on | The PDF's text layer as page texts, the page count and search. Raises `wf.documents.text.hasText` or `wf.documents.text.noText` (scans and photos). Other files end with the outcome `skipped`. |
 | Make thumbnails | `documents.thumbnail` | on | The thumbnail of the first page. |
 | Render pages | `documents.pages` | on | Every page as an image at 800 and 1600 pixels, for viewing. |
 | Recognize text | `documents.ocr` | off | After `noText`: OCR into a new, searchable PDF version (the original stays). Parameter `languages`. |
 
+- **Files that are not PDFs or images** are left as they are: reading the text and OCR end with the outcome
+  `skipped`, thumbnails and pages make nothing, and the runs complete (they do not fail).
 - **Only what the workflows made exists.** Without "Render pages" a library
   shows no page images (`…/pages/{n}/image` is 404); without "Make thumbnails"
   no thumbnails; without "Read the text" and OCR its files have no text in

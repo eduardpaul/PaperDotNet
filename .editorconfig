@@ -402,3 +402,11 @@ dotnet_analyzer_diagnostic.severity = none
 [src/Sdk/PaperDotNet.Client/Generated/**.cs]
 generated_code = true
 dotnet_analyzer_diagnostic.severity = none
+
+# Vendored FubarDev.WebDavServer (ADR-0047): upstream code style is kept, so diffs against upstream stay readable.
+[src/BuildingBlocks/PaperDotNet.WebDav*/Upstream/**.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none
+[tests/PaperDotNet.UnitTests/WebDav/Upstream/**.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none

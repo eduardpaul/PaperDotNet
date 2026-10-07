@@ -1,0 +1,27 @@
+﻿#nullable enable // PaperDotNet: vendored files are generated code for the analyzers (ADR-0047).
+// <copyright file="IOptionsHandler.cs" company="Fubar Development Junker">
+// Copyright (c) Fubar Development Junker. All rights reserved.
+// </copyright>
+
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace FubarDev.WebDavServer.Handlers
+{
+    /// <summary>
+    /// Interface for the <c>OPTIONS</c> handler
+    /// </summary>
+    public interface IOptionsHandler : IClass1Handler
+    {
+        /// <summary>
+        /// Queries the options for a given path.
+        /// </summary>
+        /// <remarks>
+        /// This is used to identify the WebDAV capabilities at a given URL.
+        /// </remarks>
+        /// <param name="path">The root-relataive file system path to query the options for.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The result of the operation.</returns>
+        Task<IWebDavResult> OptionsAsync(string path, CancellationToken cancellationToken);
+    }
+}

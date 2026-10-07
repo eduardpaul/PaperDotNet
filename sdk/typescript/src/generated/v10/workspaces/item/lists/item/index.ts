@@ -24,6 +24,8 @@ import { RecycleBinRequestBuilderNavigationMetadata, RecycleBinRequestBuilderReq
 // @ts-ignore
 import { type ViewsRequestBuilder, ViewsRequestBuilderNavigationMetadata, ViewsRequestBuilderRequestsMetadata } from './views/index.js';
 // @ts-ignore
+import { type WebDavRequestBuilder, WebDavRequestBuilderRequestsMetadata } from './webDav/index.js';
+// @ts-ignore
 import { type WorkflowsRequestBuilder, WorkflowsRequestBuilderNavigationMetadata } from './workflows/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
@@ -72,6 +74,10 @@ export interface WithListItemRequestBuilder extends BaseRequestBuilder<WithListI
      * The views property
      */
     get views(): ViewsRequestBuilder;
+    /**
+     * The webDav property
+     */
+    get webDav(): WebDavRequestBuilder;
     /**
      * The workflows property
      */
@@ -156,6 +162,9 @@ export const WithListItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     views: {
         requestsMetadata: ViewsRequestBuilderRequestsMetadata,
         navigationMetadata: ViewsRequestBuilderNavigationMetadata,
+    },
+    webDav: {
+        requestsMetadata: WebDavRequestBuilderRequestsMetadata,
     },
     workflows: {
         navigationMetadata: WorkflowsRequestBuilderNavigationMetadata,

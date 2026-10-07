@@ -19,6 +19,13 @@ public interface IDocumentFileStore
 
     Task<DocumentFile?> GetCurrentAsync(Guid itemId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The current files of many items in one query (e.g. a folder listing). Pass only items the caller has read through
+    /// the item store (which checked their access); access is not checked again here. Items without a file are missing
+    /// from the result.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, DocumentFile>> GetCurrentAsync(IReadOnlyCollection<Guid> readableItemIds, CancellationToken cancellationToken);
+
     Task<Stream?> OpenVersionAsync(Guid versionId, CancellationToken cancellationToken);
 
     Task<DocumentCandidate?> GetCandidateAsync(Guid id, CancellationToken cancellationToken);

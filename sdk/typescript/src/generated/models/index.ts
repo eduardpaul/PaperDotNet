@@ -3169,6 +3169,15 @@ export function createViewResponseFromDiscriminatorValue(parseNode: ParseNode | 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {WebDavLocationResponse}
+ */
+// @ts-ignore
+export function createWebDavLocationResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoWebDavLocationResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {WorkflowRequest}
  */
 // @ts-ignore
@@ -6425,6 +6434,17 @@ export function deserializeIntoViewResponse(viewResponse: Partial<ViewResponse> 
         "listId": n => { viewResponse.listId = n.getGuidValue(); },
         "name": n => { viewResponse.name = n.getStringValue(); },
         "orderBy": n => { viewResponse.orderBy = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param WebDavLocationResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoWebDavLocationResponse(webDavLocationResponse: Partial<WebDavLocationResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "url": n => { webDavLocationResponse.url = n.getStringValue(); },
     }
 }
 /**
@@ -12133,6 +12153,18 @@ export function serializeViewResponse(writer: SerializationWriter, viewResponse:
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param WebDavLocationResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeWebDavLocationResponse(writer: SerializationWriter, webDavLocationResponse: Partial<WebDavLocationResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!webDavLocationResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("url", webDavLocationResponse.url);
+    writer.writeAdditionalData(webDavLocationResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param WorkflowRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -13158,6 +13190,15 @@ export interface ViewResponse extends AdditionalDataHolder, Parsable {
      * The orderBy property
      */
     orderBy?: string | null;
+}
+/**
+ * Where a library is in the WebDAV tree, e.g. `https://host/dav/Projects/Contracts/`.
+ */
+export interface WebDavLocationResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The url property
+     */
+    url?: string | null;
 }
 /**
  * A workflow: `trigger`, or several `triggers` (any of them starts a run), and its definition. `key` names its events (`wf.{key}.completed`; default: made from the name when it is created).

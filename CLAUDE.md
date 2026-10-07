@@ -122,6 +122,7 @@ dotnet ef migrations add <Name> -p src/Migrations/PaperDotNet.Migrations.Postgre
   missing pieces to the SDK/contracts, never reference module implementations.
   An upload only stores the file and raises `document.added`; text, thumbnails, page images and OCR are built-in
   workflows per library (ADR-0038), so new document work is a workflow activity, never code in the upload.
+  Uploads from code (e.g. WebDAV) go through `IDocumentUploads` (Documents.Contracts), the REST pipeline.
   Binary content goes through `IBlobStore`; extra item text for search through
   `IItemSearchContributor`; client notifications through `ILiveEvents`
   (`/v1.0/me/events`, SSE; across servers via LISTEN/NOTIFY on PostgreSQL, ADR-0026); user notifications (inbox, webhook) through

@@ -29,6 +29,7 @@ There are two ways to sign in. Pick one:
 | Web UI | Opening it signs you in through the proxy. There is no PaperDotNet password page. |
 | API, SDKs, `pdn` CLI | `Authorization: Bearer` with an OAuth access token from `/connect/token`, or an API token (`pdn_…`). |
 | MCP (`/v1.0/mcp`) | An API token with `mcp.use` in the client's headers (see [MCP clients](#mcp-clients)). |
+| WebDAV (`/dav`) | HTTP Basic with an API token as the password ([guide](../../docs/webdav.md)). It works because the access list protects only `/auth/proxy/`. |
 | Groups | The proxy names groups at sign-in. PaperDotNet creates missing ones and keeps memberships in sync. Roles given to a group apply to its members. |
 | Live events (`/v1.0/me/events`) | Server-sent events. PaperDotNet turns off NPM's buffering for them and sends a keep-alive every 30 s. |
 | Uploads | Up to 520 MB at NPM (the sample's limit), within PaperDotNet's own limits (100 MB per document). |

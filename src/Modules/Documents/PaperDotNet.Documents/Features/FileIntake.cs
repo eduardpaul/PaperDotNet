@@ -1,18 +1,27 @@
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
 
 namespace PaperDotNet.Documents.Features;
 
-/// <summary>Detects file types by content (DOC-02): the first bytes decide, never the file name.</summary>
+/// <summary>
+/// Detects file types by content (DOC-02): the first bytes decide, never the file name. Libraries take any file
+/// (ADR-0047); only the types detected here are processed (text, images, OCR), others are stored as they are.
+/// </summary>
 public static class FileTypes
 {
+    private static readonly FileExtensionContentTypeProvider Names = new();
+
     public const string Pdf = "application/pdf";
     public const string Tiff = "image/tiff";
     public const string Jpeg = "image/jpeg";
     public const string Png = "image/png";
     public const string Webp = "image/webp";
+
+    /// <summary>Content of any other type.</summary>
+    public const string Other = "application/octet-stream";
 
     /// <summary>Bytes needed by <see cref="Detect"/>.</summary>
     public const int HeaderLength = 12;
@@ -27,10 +36,26 @@ public static class FileTypes
         [0x52, 0x49, 0x46, 0x46, _, _, _, _, 0x57, 0x45, 0x42, 0x50, ..] => Webp,
         _ => null,
     };
+
+    /// <summary>Whether the server processes files of this type (the types <see cref="Detect"/> finds).</summary>
+    public static bool IsProcessable(string? mediaType) => mediaType is Pdf or Tiff or Jpeg or Png or Webp;
+
+    /// <summary>The media type a file name suggests (by its extension), or null.</summary>
+    public static string? ForName(string? fileName) => Names.TryGetContentType(fileName ?? string.Empty, out var type) ? type : null;
+
+    /// <summary>
+    /// The media type of a file version: the detected type of its content, or for other content the type its name
+    /// suggests, for downloads only. A name never makes content processable: <c>scan.pdf</c> without a PDF header is
+    /// <see cref="Other"/>.
+    /// </summary>
+    public static string ForVersion(string contentType, string? fileName) =>
+        IsProcessable(contentType) ? contentType
+        : ForName(fileName) is { } byName && !IsProcessable(byName) ? byName
+        : Other;
 }
 
-/// <summary>An upload spooled to a temporary file, with its hash and detected type.</summary>
-internal sealed class SpooledFile(string path, string sha256, long size, string? mediaType) : IAsyncDisposable
+/// <summary>An upload spooled to a temporary file, with its hash and detected type (<see cref="FileTypes.Other"/> if none).</summary>
+internal sealed class SpooledFile(string path, string sha256, long size, string mediaType) : IAsyncDisposable
 {
     public string Path { get; } = path;
 
@@ -38,7 +63,7 @@ internal sealed class SpooledFile(string path, string sha256, long size, string?
 
     public long Size { get; } = size;
 
-    public string? MediaType { get; } = mediaType;
+    public string MediaType { get; } = mediaType;
 
     public bool TooLarge { get; init; }
 
@@ -71,7 +96,7 @@ internal sealed class FileIntake(DocumentsDbContext db, IBlobStore blobs, TimePr
                 size += read;
                 if (size > maxSize)
                 {
-                    return new SpooledFile(path, string.Empty, size, null) { TooLarge = true };
+                    return new SpooledFile(path, string.Empty, size, FileTypes.Other) { TooLarge = true };
                 }
 
                 if (headerLength < header.Length)
@@ -86,7 +111,7 @@ internal sealed class FileIntake(DocumentsDbContext db, IBlobStore blobs, TimePr
             }
         }
 
-        return new SpooledFile(path, Convert.ToHexStringLower(hash.GetHashAndReset()), size, FileTypes.Detect(header.AsSpan(0, headerLength)));
+        return new SpooledFile(path, Convert.ToHexStringLower(hash.GetHashAndReset()), size, FileTypes.Detect(header.AsSpan(0, headerLength)) ?? FileTypes.Other);
     }
 
     /// <summary>The stored file for the content, writing the blob only when the tenant does not have it yet.</summary>
@@ -113,7 +138,7 @@ internal sealed class FileIntake(DocumentsDbContext db, IBlobStore blobs, TimePr
                 Id = Ids.New(),
                 Sha256 = file.Sha256,
                 Size = file.Size,
-                MediaType = file.MediaType!,
+                MediaType = file.MediaType,
                 CreatedAt = now,
                 LastUsedAt = now,
             };

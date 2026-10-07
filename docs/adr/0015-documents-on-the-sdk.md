@@ -37,7 +37,8 @@ can move to S3-compatible storage later.
 - **Uploads** are multipart, streamed to a temporary file while hashing, with
   a configurable size limit (`Documents:MaxFileSize`, 100 MB). The type is
   detected from the first bytes (PDF, TIFF, JPEG, PNG); the file name only
-  supplies the base name.
+  supplies the base name. (Since ADR-0047 other files are accepted too, stored
+  as they are and not processed.)
 
 ## Processing (3b)
 

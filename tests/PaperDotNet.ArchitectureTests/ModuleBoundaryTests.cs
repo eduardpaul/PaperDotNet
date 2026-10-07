@@ -9,7 +9,7 @@ namespace PaperDotNet.ArchitectureTests;
 /// </summary>
 public sealed partial class ModuleBoundaryTests
 {
-    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents", "Tasks", "Calendar", "Notes", "Notifications", "Provisioning", "Workflows", "AiWorkflows", "Collaboration", "Mcp"];
+    private static readonly string[] Modules = ["Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Audit", "Search", "ExtensionHost", "Documents", "Tasks", "Calendar", "Notes", "Notifications", "Provisioning", "Workflows", "AiWorkflows", "Collaboration", "Mcp", "Dav"];
 
     /// <summary>Modules that expose a contracts assembly.</summary>
     private static readonly string[] ContractModules = ["Documents", "Tenancy", "Identity", "Workspaces", "Lists", "Jobs", "Taxonomy", "Search", "Notifications", "Provisioning", "Workflows", "Collaboration", "Mcp"];
@@ -87,6 +87,7 @@ public sealed partial class ModuleBoundaryTests
     [InlineData("PaperDotNet.Provisioning")]
     [InlineData("PaperDotNet.Collaboration")]
     [InlineData("PaperDotNet.Mcp")]
+    [InlineData("PaperDotNet.Dav")]
     public void The_sdk_and_extensions_only_reference_contracts(string assembly)
     {
         var references = Load(assembly).GetReferencedAssemblies().Select(a => a.Name!).ToList();
@@ -127,6 +128,18 @@ public sealed partial class ModuleBoundaryTests
         var references = Load("PaperDotNet.Search.Zvec").GetReferencedAssemblies().Select(a => a.Name!).Where(r => r.StartsWith("PaperDotNet.", StringComparison.Ordinal)).ToList();
 
         Assert.Equal(["PaperDotNet.Abstractions", "PaperDotNet.Search.Contracts"], references.Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>The vendored WebDAV library (ADR-0047) is used by the Dav module only.</summary>
+    [Fact]
+    public void Only_the_dav_module_references_the_webdav_library()
+    {
+        var offenders = ProviderAgnostic.Append("paperdotnet").Where(a => a != "PaperDotNet.Dav")
+            .Where(a => Load(a).GetReferencedAssemblies().Any(r => r.Name is "PaperDotNet.WebDav" or "PaperDotNet.WebDav.Models"))
+            .ToList();
+
+        Assert.Empty(offenders);
+        Assert.Contains(Load("PaperDotNet.Dav").GetReferencedAssemblies(), r => r.Name == "PaperDotNet.WebDav");
     }
 
     [Fact]

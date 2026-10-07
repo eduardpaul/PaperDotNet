@@ -17,7 +17,19 @@ import { problemMessage } from '@/lib/errors';
 import { useFormat } from '@/lib/preferences';
 import { useNow } from '@/lib/use-now';
 
-export const Route = createFileRoute('/_app/settings/tokens')({ component: ApiTokens });
+/** <c>?new=Name&scopes=a,b</c> opens a new token with these values (e.g. from "Open in Explorer"). */
+interface TokensSearch {
+  new?: string;
+  scopes?: string;
+}
+
+export const Route = createFileRoute('/_app/settings/tokens')({
+  component: ApiTokens,
+  validateSearch: (search: Record<string, unknown>): TokensSearch => ({
+    new: typeof search.new === 'string' ? search.new : undefined,
+    scopes: typeof search.scopes === 'string' ? search.scopes : undefined,
+  }),
+});
 
 const tokensQuery = {
   queryKey: ['me', 'apiTokens'],
@@ -36,7 +48,9 @@ function ApiTokens() {
   const now = useNow();
   const queryClient = useQueryClient();
   const { data, isPending } = useQuery(tokensQuery);
-  const [creating, setCreating] = useState(false);
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [creating, setCreating] = useState(search.new !== undefined);
   const [revoking, setRevoking] = useState<ApiTokenResponse>();
   const revoke = useMutation({
     meta: { silent: true },
@@ -54,8 +68,8 @@ function ApiTokens() {
       description={
         <>
           For scripts, the command-line client and integrations: send it as{' '}
-          <code className="rounded bg-surface-muted px-1">Authorization: Bearer …</code>. A token can do only what its
-          scopes allow, and never more than you can.
+          <code className="rounded bg-surface-muted px-1">Authorization: Bearer …</code>, or use it as the password of a
+          WebDAV drive. A token can do only what its scopes allow, and never more than you can.
         </>
       }
       className="px-0 pb-0"
@@ -108,7 +122,16 @@ function ApiTokens() {
       ) : (
         <EmptyState icon={KeyRound} title="No API tokens" className="border-t py-6" />
       )}
-      {creating && <NewTokenDialog onClose={() => setCreating(false)} />}
+      {creating && (
+        <NewTokenDialog
+          initialName={search.new}
+          initialScopes={search.scopes?.split(',')}
+          onClose={() => {
+            setCreating(false);
+            if (search.new !== undefined) void navigate({ search: {}, replace: true });
+          }}
+        />
+      )}
       <ConfirmDialog
         open={!!revoking}
         onOpenChange={(open) => !open && setRevoking(undefined)}
@@ -123,21 +146,29 @@ function ApiTokens() {
   );
 }
 
-function NewTokenDialog({ onClose }: { onClose: () => void }) {
+function NewTokenDialog({
+  initialName,
+  initialScopes,
+  onClose,
+}: {
+  initialName?: string;
+  initialScopes?: string[];
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const { data: catalog } = useQuery(scopesQuery);
   const held = me?.scopes ?? [];
   const description = new Map((catalog ?? []).map((s) => [s.name, s.description]));
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName ?? '');
   const [days, setDays] = useState('90');
-  const [scopes, setScopes] = useState<string[]>([]);
+  const [scopes, setScopes] = useState<string[]>(initialScopes ?? []);
   const create = useMutation({
     meta: { silent: true },
     mutationFn: async () =>
       (await api.v10.me.apiTokens.post({
         name: name.trim(),
-        scopes,
+        scopes: scopes.filter((scope) => held.includes(scope)),
         expiresInDays: days ? Number(days) : undefined,
       }))!,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: tokensQuery.queryKey }),

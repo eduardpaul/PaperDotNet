@@ -1,0 +1,73 @@
+diff --git a/src/FubarDev.WebDavServer/FileSystem/IMovableCollection.cs b/src/FubarDev.WebDavServer/FileSystem/IMovableCollection.cs
+new file mode 100644
+index 0000000..c52a345
+--- /dev/null
++++ b/src/FubarDev.WebDavServer/FileSystem/IMovableCollection.cs
+@@ -0,0 +1,19 @@
++// <copyright file="IMovableCollection.cs" company="Fubar Development Junker">
++// Copyright (c) Fubar Development Junker. All rights reserved.
++// </copyright>
++
++using System.Threading;
++using System.Threading.Tasks;
++
++namespace FubarDev.WebDavServer.FileSystem
++{
++    /// <summary>
++    /// A collection that can move itself (with its children) inside its file system, keeping its identity.
++    /// Without it, MOVE re-creates the collection at the target and moves the children one by one.
++    /// </summary>
++    public interface IMovableCollection : ICollection
++    {
++        /// <summary>Moves this collection into <paramref name="collection"/> as <paramref name="name"/>.</summary>
++        Task<ICollection> MoveToAsync(ICollection collection, string name, CancellationToken cancellationToken);
++    }
++}
+diff --git a/src/FubarDev.WebDavServer/Handlers/Impl/CopyMoveHandlerBase.cs b/src/FubarDev.WebDavServer/Handlers/Impl/CopyMoveHandlerBase.cs
+index 6bedc22..49ccdfa 100644
+--- a/src/FubarDev.WebDavServer/Handlers/Impl/CopyMoveHandlerBase.cs
++++ b/src/FubarDev.WebDavServer/Handlers/Impl/CopyMoveHandlerBase.cs
+@@ -270,6 +270,35 @@ namespace FubarDev.WebDavServer.Handlers.Impl
+                         var localMode = isSameFileSystem && mode == RecursiveProcessingMode.PreferFastest
+                             ? RecursiveProcessingMode.PreferFastest
+                             : RecursiveProcessingMode.PreferCrossFileSystem;
++                        if (isMove && isSameFileSystem
++                            && sourceSelectionResult.ResultType == SelectionResultType.FoundCollection
++                            && sourceSelectionResult.Collection is IMovableCollection movable)
++                        {
++                            // Fast path: the file system moves the collection itself (identity, permissions, children).
++                            ICollection targetParent;
++                            string targetName;
++                            if (destinationSelectionResult.IsMissing)
++                            {
++                                targetParent = destinationSelectionResult.Collection;
++                                targetName = destinationSelectionResult.MissingNames.Single();
++                            }
++                            else
++                            {
++                                var existing = destinationSelectionResult.TargetEntry;
++                                targetParent = existing.Parent ?? throw new WebDavException(WebDavStatusCode.Forbidden);
++                                targetName = existing.Name;
++                                var deleted = await existing.DeleteAsync(cancellationToken).ConfigureAwait(false);
++                                if (deleted.StatusCode != WebDavStatusCode.OK)
++                                {
++                                    throw new WebDavException(deleted.StatusCode);
++                                }
++                            }
++
++                            await movable.MoveToAsync(targetParent, targetName, cancellationToken).ConfigureAwait(false);
++                            result = new WebDavResult(destinationSelectionResult.IsMissing ? WebDavStatusCode.Created : WebDavStatusCode.NoContent);
++                        }
++                        else
++                        {
+                         var handler = CreateLocalTargetActions(localMode);
+ 
+                         var targetInfo = FileSystemTarget.FromSelectionResult(
+@@ -285,6 +314,7 @@ namespace FubarDev.WebDavServer.Handlers.Impl
+                             overwrite,
+                             cancellationToken).ConfigureAwait(false);
+                         result = targetResult.Evaluate(context);
++                        }
+                     }
+                     finally
+                     {

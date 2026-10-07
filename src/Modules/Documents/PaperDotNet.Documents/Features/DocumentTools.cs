@@ -91,10 +91,10 @@ internal sealed class UploadDocumentTool(DocumentService documents, IOptions<Doc
     public string Name => "upload_document";
 
     public string Description =>
-        "Uploads a PDF, TIFF, JPEG or PNG into a library (isLibrary from list_lists) and creates the item. " +
-        "contentBase64 is the raw file, or a data URL. Text extraction starts automatically. " +
-        "folderId places the file in a folder from create_folder or ensure_folder. " +
-        "Only these file types are accepted; the content is checked, not the extension.";
+        "Uploads a file of any type into a library (isLibrary from list_lists) and creates the item. " +
+        "contentBase64 is the raw file, or a data URL. The library's workflows read the text of PDFs and images " +
+        "(the content is checked, not the extension); other files are stored as they are. " +
+        "folderId places the file in a folder from create_folder or ensure_folder.";
 
     public JsonElement InputSchema { get; } = McpSchema.ObjectSchema(
         ("workspaceId", "string", "Workspace id.", true),
@@ -133,7 +133,7 @@ internal sealed class ReplaceDocumentTool(DocumentService documents, IOptions<Do
 
     public string Description =>
         "Stores a new version of a library item's file. Pass sha256 from get_file so you do not replace a version you have not seen. " +
-        "contentBase64 is the new PDF, TIFF, JPEG or PNG.";
+        "contentBase64 is the new file.";
 
     public JsonElement InputSchema { get; } = McpSchema.ObjectSchema(
         ("workspaceId", "string", "Workspace id.", true),

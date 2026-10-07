@@ -11,6 +11,7 @@ using PaperDotNet.Api;
 using PaperDotNet.Audit;
 using PaperDotNet.Calendar;
 using PaperDotNet.Collaboration;
+using PaperDotNet.Dav;
 using PaperDotNet.Documents;
 using PaperDotNet.ExtensionHost;
 using PaperDotNet.ExtensionHost.Runtime;
@@ -66,6 +67,7 @@ public static class PaperDotNetHost
         new NotificationsModule(),
         new CollaborationModule(),
         new McpModule(),
+        new DavModule(),
         new ProvisioningModule(),
         new WorkflowsModule(),
         new AiWorkflowsModule(),
