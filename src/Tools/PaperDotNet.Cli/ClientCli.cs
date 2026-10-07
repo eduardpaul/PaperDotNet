@@ -107,7 +107,8 @@ internal sealed class CliException(string message) : Exception(message);
 internal sealed class CliSession
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private static readonly HashSet<string> Supported = new(StringComparer.OrdinalIgnoreCase) { ".pdf", ".tif", ".tiff", ".jpg", ".jpeg", ".png" };
+    /// <summary>Files of the operating system and of open Office documents, not documents (hidden files are skipped too).</summary>
+    private static readonly HashSet<string> SystemFiles = new(StringComparer.OrdinalIgnoreCase) { "Thumbs.db", "desktop.ini" };
 
     private readonly HttpClient _http;
     private readonly PaperDotNetApiClient _api;
@@ -233,16 +234,17 @@ internal sealed class CliSession
 
     private async Task<bool> UploadFileAsync(string url, string path, Guid? folderId, string? languages, CancellationToken ct)
     {
-        if (!Supported.Contains(Path.GetExtension(path)))
+        var name = Path.GetFileName(path);
+        if (name.StartsWith('.') || name.StartsWith("~$", StringComparison.Ordinal) || SystemFiles.Contains(name))
         {
-            await _output.WriteLineAsync($"{path}: skipped (only PDF, TIFF, JPEG and PNG files)");
+            await _output.WriteLineAsync($"{path}: skipped (hidden or system file)");
             return true;
         }
 
         await using var content = File.OpenRead(path);
         using var form = new MultipartFormDataContent
         {
-            { new StreamContent(content), "file", Path.GetFileName(path) },
+            { new StreamContent(content), "file", name },
             { new StringContent(Path.GetFileNameWithoutExtension(path)), "title" },
         };
         if (folderId is { } folder)

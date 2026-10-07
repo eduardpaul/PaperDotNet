@@ -44,18 +44,22 @@ public sealed class ClientCliTests(PaperDotNetApiFactory factory)
         Assert.Contains($"{ws}  Office", output, StringComparison.Ordinal);
         Assert.Contains($"{library}  Archive", (await RunAsync("cli", token, "libraries", "-w", "Office")).Output, StringComparison.Ordinal);
 
-        // A folder tree: its structure becomes folders under --folder; other files are skipped.
+        // A folder tree: its structure becomes folders under --folder; files of any type, but not hidden or system files.
         var root = Directory.CreateTempSubdirectory("pdn_cli_");
         try
         {
             Directory.CreateDirectory(Path.Combine(root.FullName, "Bank"));
             await File.WriteAllBytesAsync(Path.Combine(root.FullName, "contract.pdf"), Pdf("Rental contract"), Ct);
             await File.WriteAllBytesAsync(Path.Combine(root.FullName, "Bank", "statement.pdf"), Pdf("Bank statement zebra"), Ct);
-            await File.WriteAllTextAsync(Path.Combine(root.FullName, "notes.txt"), "not a document", Ct);
+            await File.WriteAllTextAsync(Path.Combine(root.FullName, "notes.txt"), "plain text", Ct);
+            await File.WriteAllTextAsync(Path.Combine(root.FullName, ".DS_Store"), "finder", Ct);
+            await File.WriteAllTextAsync(Path.Combine(root.FullName, "Thumbs.db"), "explorer", Ct);
 
             (exit, output, var error) = await RunAsync("cli", token, "upload", root.FullName, "-w", "Office", "-l", "Archive", "-f", "2026");
             Assert.True(exit == 0, error);
-            Assert.Contains("notes.txt: skipped", output, StringComparison.Ordinal);
+            Assert.Contains(".DS_Store: skipped", output, StringComparison.Ordinal);
+            Assert.Contains("Thumbs.db: skipped", output, StringComparison.Ordinal);
+            Assert.DoesNotContain("notes.txt: skipped", output, StringComparison.Ordinal);
 
             var items = (await (await admin.GetAsync($"/v1.0/workspaces/{ws}/lists/{library}/items?$top=100", Ct)).ReadJsonAsync())
                 .GetProperty("value").EnumerateArray().ToList();
@@ -67,6 +71,7 @@ public sealed class ClientCliTests(PaperDotNetApiFactory factory)
             var statement = items.Single(i => Title(i) == "statement");
             Assert.Equal(bank.GetProperty("id").GetGuid(), Parent(statement));
             Assert.Equal(year.GetProperty("id").GetGuid(), Parent(items.Single(i => Title(i) == "contract")));
+            Assert.Equal(year.GetProperty("id").GetGuid(), Parent(items.Single(i => Title(i) == "notes")));
 
             // Uploading again reuses the folders.
             Assert.Equal(0, (await RunAsync("cli", token, "upload", Path.Combine(root.FullName, "Bank"), "-w", "Office", "-l", "Archive", "-f", "2026/Bank")).Exit);

@@ -34,8 +34,11 @@ https://{your installation}/dav/
   - Names are cut at 255 characters.
   - When two entries of a folder get the same name, the newer ones get
     ` (2)`, ` (3)`, … (in the order they were created, so names stay stable).
-- **Files:** the current version of each document. Downloads support ranges
-  (`206`) and ETags, so clients can resume and cache.
+- **Files:** the current version of each document, of any type (libraries
+  take any file, see [documents.md](documents.md#file-types)). Downloads
+  support ranges (`206`) and ETags, so clients can resume and cache. A browser
+  that opens one never sniffs it or runs its scripts (`nosniff`, CSP
+  `sandbox`).
 - **Large folders:** a folder lists at most 5,000 entries
   (`WebDav:MaxFolderEntries`), because WebDAV clients cannot page. Use
   subfolders for more.

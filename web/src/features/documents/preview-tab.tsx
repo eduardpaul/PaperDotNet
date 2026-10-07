@@ -36,7 +36,7 @@ import { useFormat } from '@/lib/preferences';
 import { cn } from '@/lib/utils';
 import { FilePickerButton } from './drop-zone';
 import { MovePagesDialog } from './move-pages-dialog';
-import { acceptedTypes, filePath, pageImagePath } from './paths';
+import { filePath, isProcessable, pageImagePath } from './paths';
 import { documentRunsQuery, fileVersionsQuery } from './queries';
 
 interface PageState {
@@ -218,7 +218,12 @@ function FileHeader({
         <h3 className="min-w-0 flex-1 truncate text-[13px] font-semibold">{file.fileName}</h3>
       </div>
       <p className="text-xs text-muted">
-        {format.fileSize(file.size)} · {file.pageCount ?? '?'} {file.pageCount === 1 ? 'page' : 'pages'} ·{' '}
+        {format.fileSize(file.size)} ·{' '}
+        {isProcessable(file.mediaType) && (
+          <>
+            {file.pageCount ?? '?'} {file.pageCount === 1 ? 'page' : 'pages'} ·{' '}
+          </>
+        )}
         {file.mediaType}
         {file.languages && <> · languages {file.languages}</>}
         {file.textLanguage && <> · text in {file.textLanguage}</>}
@@ -230,7 +235,6 @@ function FileHeader({
         {canWrite && (
           <FilePickerButton
             size="sm"
-            accept={acceptedTypes}
             multiple={false}
             disabled={replace.isPending}
             onFiles={([f]) => replace.mutate(f!)}

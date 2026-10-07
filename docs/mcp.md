@@ -51,7 +51,7 @@ Example client configuration (Streamable HTTP with a header):
 | `ensure_folder` | `list.write` | The folder at a path such as `Invoices/2026`, created where it is missing |
 | `move_item` | `list.write` | Moves an item or folder. Omit `folderId` for the list root |
 | `delete_item` | `list.write` | Moves an item, or an empty folder, to the recycle bin |
-| `upload_document` | `document.write` | Uploads a PDF, TIFF, JPEG or PNG (`contentBase64`) into a library and creates the item |
+| `upload_document` | `document.write` | Uploads a file of any type (`contentBase64`) into a library and creates the item; the text of PDFs and images is read |
 | `replace_document` | `document.write` | A new file version. Pass `sha256` from `get_file` |
 | `get_file` | `document.read` | Name, type, size, sha256 and page count of the current file |
 | `read_document` | `document.read` | Extracted text, page by page. `nextPage` continues a long document |

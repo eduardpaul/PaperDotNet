@@ -231,6 +231,27 @@ public sealed class DavTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task Files_of_any_type_are_listed_and_never_run_in_the_browser()
+    {
+        var library = await SetupAsync("dav-any-type");
+        await UploadAsync(library, [0x50, 0x4B, 0x03, 0x04, 1, 2], "Report.docx", "Quarterly report");
+        await UploadAsync(library, Encoding.UTF8.GetBytes("<script>alert(1)</script>"), "page.html", "Page");
+        await UploadAsync(library, [], "empty.txt", "Empty");
+
+        Assert.Equal(["Empty.txt", "Page.html", "Quarterly report.docx"], await NamesAsync(library.Dav, "/dav/Projects/Contracts/"));
+
+        var html = await library.Dav.GetAsync("/dav/Projects/Contracts/Page.html", Ct);
+        Assert.Equal(HttpStatusCode.OK, html.StatusCode);
+        Assert.Equal("text/html", html.Content.Headers.ContentType!.MediaType);
+        Assert.Equal("nosniff", Assert.Single(html.Headers.GetValues("X-Content-Type-Options")));
+        Assert.StartsWith("sandbox", Assert.Single(html.Headers.GetValues("Content-Security-Policy")), StringComparison.Ordinal);
+
+        var empty = await library.Dav.GetAsync("/dav/Projects/Contracts/Empty.txt", Ct);
+        Assert.Equal(HttpStatusCode.OK, empty.StatusCode);
+        Assert.Empty(await empty.Content.ReadAsByteArrayAsync(Ct));
+    }
+
+    [Fact]
     public async Task Infinite_depth_and_writes_are_refused()
     {
         var library = await SetupAsync("dav-readonly");

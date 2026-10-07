@@ -115,10 +115,6 @@ public sealed class DocumentTests(PaperDotNetApiFactory factory)
         var (ws, library) = await LibraryAsync(client);
         var plainList = await client.CreateListAsync(ws, "Plain");
 
-        var text = await UploadAsync(client, ws, library, Encoding.UTF8.GetBytes("just text"), "fake.pdf");
-        Assert.Equal(HttpStatusCode.UnsupportedMediaType, text.StatusCode);
-        Assert.Equal("unsupportedFileType", (await text.ReadJsonAsync()).GetProperty("code").GetString());
-
         var notLibrary = await UploadAsync(client, ws, plainList, Pdf("x"), "x.pdf");
         Assert.Equal("notALibrary", (await notLibrary.ReadJsonAsync()).GetProperty("code").GetString());
 
@@ -129,6 +125,56 @@ public sealed class DocumentTests(PaperDotNetApiFactory factory)
 
         var noFile = await client.PostAsync($"/v1.0/workspaces/{ws}/lists/{library}/documents", new MultipartFormDataContent { { new StringContent("t"), "title" } }, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, noFile.StatusCode);
+    }
+
+    [Fact]
+    public async Task Libraries_take_any_file_and_process_only_pdfs_and_images()
+    {
+        await factory.CreateTenantAsync("doc-any-type");
+        var client = await ApiClient.CreateAsync(factory, "doc-any-type");
+        var (ws, library) = await LibraryAsync(client);
+
+        // The content decides what is processed; for other files the name only gives the download type.
+        byte[] docx = [0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00, 1, 2, 3, 4];
+        var files = new (byte[] Content, string Name, string MediaType, string FileName)[]
+        {
+            (docx, "report.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "report.docx"),
+            (Encoding.UTF8.GetBytes("<script>alert(1)</script>"), "page.html", "text/html", "page.html"),
+            ([], "empty.txt", "text/plain", "empty.txt"),
+            (Encoding.UTF8.GetBytes("just text"), "fake.pdf", "application/octet-stream", "fake.pdf"),
+            (Encoding.UTF8.GetBytes("no extension"), "README", "application/octet-stream", "README"),
+        };
+        foreach (var (content, name, mediaType, fileName) in files)
+        {
+            var created = await UploadOkAsync(client, ws, library, content, name);
+            var file = created.GetProperty("file");
+            Assert.Equal(mediaType, file.GetProperty("mediaType").GetString());
+            Assert.Equal(fileName, file.GetProperty("fileName").GetString());
+            Assert.Equal(content.Length, file.GetProperty("size").GetInt64());
+
+            var item = created.GetProperty("itemId").GetGuid();
+            var download = await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{library}/items/{item}/file", Ct);
+            Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+            Assert.Equal(content, await download.Content.ReadAsByteArrayAsync(Ct));
+            Assert.Equal(mediaType, download.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("attachment", download.Content.Headers.ContentDisposition?.DispositionType);
+            Assert.Equal("nosniff", Assert.Single(download.Headers.GetValues("X-Content-Type-Options")));
+
+            // Read the text, thumbnails and pages complete without doing anything; nothing raises noText for OCR.
+            var runs = await DocumentWorkflowRuns.WaitAsync(client, ws, item, 3);
+            Assert.Equal(3, runs.Count);
+            Assert.All(runs, r => Assert.Equal("completed", r.GetProperty("status").GetString()));
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/v1.0/workspaces/{ws}/lists/{library}/items/{item}/file/thumbnail", Ct)).StatusCode);
+        }
+
+        // A file the server processes may replace another one, and the other way round.
+        var replaced = await UploadOkAsync(client, ws, library, docx, "draft.docx");
+        var url = $"/v1.0/workspaces/{ws}/lists/{library}/items/{replaced.GetProperty("itemId").GetGuid()}/file";
+        var pdf = await client.PutAsync(url, Form(Pdf("final"), "final.docx"), Ct);
+        Assert.True(pdf.StatusCode == HttpStatusCode.OK, await pdf.Content.ReadAsStringAsync(Ct));
+        var final = (await pdf.ReadJsonAsync()).GetProperty("file");
+        Assert.Equal("application/pdf", final.GetProperty("mediaType").GetString());
+        Assert.Equal("final.pdf", final.GetProperty("fileName").GetString());
     }
 
     [Fact]

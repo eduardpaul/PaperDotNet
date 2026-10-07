@@ -15,6 +15,12 @@ internal static class DocumentActivity
 {
     public const string NoFile = "The item has no file (document steps work on documents of a library).";
 
+    /// <summary>The outcome of steps that leave files the server does not process (not a PDF or an image) as they are.</summary>
+    public const string Skipped = "skipped";
+
+    public static WorkflowActivityResult Skip(FileVersion version) =>
+        WorkflowActivityResult.Ok(Skipped, Output(version, ("reason", $"Files of type {version.MediaType} are not processed.")));
+
     public static async Task<FileVersion?> CurrentAsync(DocumentsDbContext db, WorkflowActivityContext context, CancellationToken ct) =>
         context.Item is { } item ? await db.FileVersions.FirstOrDefaultAsync(v => v.ItemId == item.ItemId && v.IsCurrent, ct) : null;
 
@@ -47,7 +53,8 @@ internal static class DocumentActivity
 
 /// <summary>
 /// <c>document.readText</c> (ADR-0038): the text layer of a PDF as page texts, the page count and the search text of the
-/// item. Continues on <c>text</c> when the file has text, on <c>noText</c> for scans and photos (e.g. to OCR them).
+/// item. Continues on <c>text</c> when the file has text, on <c>noText</c> for scans and photos (e.g. to OCR them), and
+/// on <c>skipped</c> for other files (Office documents, archives…), which are stored as they are.
 /// </summary>
 internal sealed class ReadTextActivity(
     DocumentsDbContext db, IBlobStore blobs, IListItemStore items, IUserPreferences preferences, ILiveEvents live, ITenantContext tenant, ICurrentUser user)
@@ -55,9 +62,10 @@ internal sealed class ReadTextActivity(
 {
     public string Key => "document.readText";
 
-    public string Description => "Reads the text layer of a PDF into page texts for search; continues on text, or noText for scans and photos.";
+    public string Description =>
+        "Reads the text layer of a PDF into page texts for search; continues on text, noText for scans and photos, or skipped for other files.";
 
-    public IReadOnlyList<string> Outcomes => ["text", "noText"];
+    public IReadOnlyList<string> Outcomes => ["text", "noText", DocumentActivity.Skipped];
 
     public JsonObject? OutputSchema => ActivitySchemas.Of([],
         ("version", ActivitySchemas.Number("The file version read.")), ("pageCount", ActivitySchemas.Number("Its pages.")),
@@ -71,6 +79,11 @@ internal sealed class ReadTextActivity(
         if (await DocumentActivity.CurrentAsync(db, context, cancellationToken) is not { } version)
         {
             return WorkflowActivityResult.Fail(DocumentActivity.NoFile);
+        }
+
+        if (!FileTypes.IsProcessable(version.MediaType))
+        {
+            return DocumentActivity.Skip(version);
         }
 
         var pages = await DocumentText.PagesAsync(db, version.StoredFileId, cancellationToken);
@@ -186,7 +199,7 @@ internal sealed class RenderPagesActivity(
 /// <summary>
 /// <c>document.ocr</c> (DOC-07, ADR-0038): recognizes the text of a scan or photo as a new PDF version with page texts. It
 /// starts the OCR operation and waits for it (the run holds no server meanwhile). A file that has text is left as it is,
-/// unless <c>force</c>. <c>languages</c> (e.g. <c>deu+eng</c>) default to the file's, the library's, then the uploader's.
+/// unless <c>force</c>, and so are files that are not PDFs or images (outcome <c>skipped</c>). <c>languages</c> (e.g. <c>deu+eng</c>) default to the file's, the library's, then the uploader's.
 /// </summary>
 internal sealed class OcrActivity(DocumentsDbContext db, IOperations operations, TimeProvider time) : IWorkflowActivity
 {
@@ -196,6 +209,8 @@ internal sealed class OcrActivity(DocumentsDbContext db, IOperations operations,
     public string Key => "document.ocr";
 
     public string Description => "Recognizes the text of scans and photos (OCR) as a new, searchable PDF version; files with text are left as they are.";
+
+    public IReadOnlyList<string> Outcomes => [DocumentActivity.Skipped];
 
     public IEnumerable<string> Validate(JsonObject inputs) =>
         ActivityInputs.Text(inputs, "languages") is { } languages && !languages.Contains('{', StringComparison.Ordinal) && !DocumentText.IsValidLanguageList(languages)
@@ -233,6 +248,11 @@ internal sealed class OcrActivity(DocumentsDbContext db, IOperations operations,
         if (await DocumentActivity.CurrentAsync(db, context, cancellationToken) is not { } version)
         {
             return WorkflowActivityResult.Fail(DocumentActivity.NoFile);
+        }
+
+        if (!FileTypes.IsProcessable(version.MediaType))
+        {
+            return DocumentActivity.Skip(version);
         }
 
         var force = context.Inputs["force"] switch

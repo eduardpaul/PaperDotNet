@@ -63,7 +63,7 @@ export function FilePickerButton({
   multiple = true,
   onFiles,
   ...props
-}: Omit<ButtonProps, 'onClick'> & { accept: string; multiple?: boolean; onFiles: (files: File[]) => void }) {
+}: Omit<ButtonProps, 'onClick'> & { accept?: string; multiple?: boolean; onFiles: (files: File[]) => void }) {
   const input = useRef<HTMLInputElement>(null);
   return (
     <>

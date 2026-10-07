@@ -9,7 +9,6 @@ import { EmptyState, Skeleton, Spinner } from '@/components/ui/feedback';
 import { Button } from '@/components/ui/button';
 import { DocumentGrid } from '@/features/documents/document-grid';
 import { DropZone, FilePickerButton } from '@/features/documents/drop-zone';
-import { acceptedTypes } from '@/features/documents/paths';
 import { useUploads, type UploadTarget } from '@/features/documents/uploads';
 import { ItemPanel } from '@/features/lists/item-panel';
 import { itemsQuery, listQuery } from '@/features/lists/queries';
@@ -58,11 +57,7 @@ function Inbox() {
         description="New documents land here. Check them, add details and move them where they belong."
         actions={
           inbox && (
-            <FilePickerButton
-              variant="primary"
-              accept={acceptedTypes}
-              onFiles={(files) => upload(files, targetOf(inbox))}
-            >
+            <FilePickerButton variant="primary" onFiles={(files) => upload(files, targetOf(inbox))}>
               <Upload /> Upload
             </FilePickerButton>
           )

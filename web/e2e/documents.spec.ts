@@ -102,10 +102,25 @@ test('uploading the same file twice warns about the duplicate', async ({ page })
   await expect(page.getByRole('region', { name: 'Uploads' }).getByText(/Same file as/)).toBeVisible();
 });
 
-test('unsupported files are refused with a clear message', async ({ page }) => {
-  await createList(page, 'Documents', 'Refused');
+test('files of any type are stored as they are and downloaded', async ({ page }) => {
+  await createList(page, 'Documents', 'Anything');
+  const name = `${unique('notes')}.txt`;
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Upload' }).click();
-  await (await chooser).setFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('plain text') });
-  await expect(page.getByRole('region', { name: 'Uploads' })).toContainText(/PDF|supported|type/i);
+  await (await chooser).setFiles({ name, mimeType: 'text/plain', buffer: Buffer.from('plain text') });
+
+  const tray = page.getByRole('region', { name: 'Uploads' });
+  await tray.getByRole('link', { name }).click();
+  const panel = page.getByRole('dialog');
+  // Size and type, no page count: the server does not read other files.
+  await expect(panel.getByText('text/plain')).toBeVisible();
+  await expect(panel.getByText('text/plain')).not.toContainText('page');
+  const workflows = panel.getByRole('region', { name: 'Workflows' });
+  await expect(workflows.getByRole('listitem').filter({ hasText: 'Read the text (Anything)' })).toContainText('Done', {
+    timeout: 30_000,
+  });
+
+  const download = page.waitForEvent('download');
+  await panel.getByRole('button', { name: 'Download' }).click();
+  expect((await download).suggestedFilename()).toBe(name);
 });

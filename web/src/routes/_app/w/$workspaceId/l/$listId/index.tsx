@@ -27,7 +27,6 @@ import { EmptyState, Skeleton, Spinner } from '@/components/ui/feedback';
 import { Input } from '@/components/ui/input';
 import { DropZone, FilePickerButton } from '@/features/documents/drop-zone';
 import { WebDavDialog } from '@/features/documents/webdav-dialog';
-import { acceptedTypes } from '@/features/documents/paths';
 import { useUploads } from '@/features/documents/uploads';
 import { ValueNamesProvider } from '@/features/fields/lookups';
 import { BulkEditDialog } from '@/features/lists/bulk-edit-dialog';
@@ -223,7 +222,7 @@ function ListPage() {
             )}
             {access.canContribute &&
               (isLibrary ? (
-                <FilePickerButton variant="primary" accept={acceptedTypes} onFiles={uploadHere}>
+                <FilePickerButton variant="primary" onFiles={uploadHere}>
                   <Upload /> Upload
                 </FilePickerButton>
               ) : (

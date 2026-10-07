@@ -296,7 +296,8 @@ outbox dispatcher (BackgroundService)
 - **Processing pipeline** (in-process, `Channel<T>` stages, bounded
   concurrency per stage and per tenant):
   1. **Sniff** the file type by magic bytes (own small code for PDF, TIFF,
-     JPEG and PNG).
+     JPEG, PNG and WebP). Libraries take any file (ADR-0047); other types are
+     stored as they are and skipped by processing.
   2. **Normalize:** convert images to PDF with PDFsharp + SkiaSharp
      (+ LibTiff.Net for TIFF).
   3. **Extract** existing text with PdfPig. Skip OCR if the text layer is

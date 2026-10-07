@@ -34,6 +34,10 @@ public static partial class WebDavEndpoints
 
     private static async Task HandleAsync(HttpContext http)
     {
+        // Files are user content served from the application's origin: a browser opening one must not sniff it or run
+        // its scripts (HTML, SVG). WebDAV clients ignore both headers.
+        http.Response.Headers.XContentTypeOptions = "nosniff";
+        http.Response.Headers.ContentSecurityPolicy = "sandbox; default-src 'none'";
         var services = http.RequestServices;
         IWebDavResult result;
         try

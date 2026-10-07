@@ -102,19 +102,21 @@ internal static class DocumentEndpoints
     }
 
     private static async Task<Results<FileStreamHttpResult, ProblemHttpResult>> DownloadAsync(
-        Guid workspaceId, Guid listId, Guid itemId, IListItemStore items, DocumentsDbContext db, IBlobStore blobs, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, IListItemStore items, DocumentsDbContext db, IBlobStore blobs, HttpResponse response,
+        CancellationToken ct)
     {
         var item = await items.GetAsync(workspaceId, listId, itemId, ct);
         var version = item is null ? null : await db.FileVersions.AsNoTracking().FirstOrDefaultAsync(v => v.ItemId == itemId && v.IsCurrent, ct);
-        return version is null ? ApiErrors.NotFound("The item has no file.") : await FileAsync(db, blobs, version, ct);
+        return version is null ? ApiErrors.NotFound("The item has no file.") : await FileAsync(db, blobs, version, response, ct);
     }
 
     private static async Task<Results<FileStreamHttpResult, ProblemHttpResult>> DownloadVersionAsync(
-        Guid workspaceId, Guid listId, Guid itemId, int number, IListItemStore items, DocumentsDbContext db, IBlobStore blobs, CancellationToken ct)
+        Guid workspaceId, Guid listId, Guid itemId, int number, IListItemStore items, DocumentsDbContext db, IBlobStore blobs, HttpResponse response,
+        CancellationToken ct)
     {
         var item = await items.GetAsync(workspaceId, listId, itemId, ct);
         var version = item is null ? null : await db.FileVersions.AsNoTracking().FirstOrDefaultAsync(v => v.ItemId == itemId && v.Number == number, ct);
-        return version is null ? ApiErrors.NotFound() : await FileAsync(db, blobs, version, ct);
+        return version is null ? ApiErrors.NotFound() : await FileAsync(db, blobs, version, response, ct);
     }
 
     private static async Task<Results<Ok<FileVersionList>, ProblemHttpResult>> VersionsAsync(
@@ -250,8 +252,12 @@ internal static class DocumentEndpoints
         return TypedResults.Ok(LibrarySettingsResponse.From(listId, settings, (await preferences.GetDefaultsAsync(ct)).DocumentLanguages));
     }
 
+    /// <summary>
+    /// The file as an attachment, never sniffed: libraries hold any file (ADR-0047), and user content such as HTML or SVG
+    /// must not run in the browser.
+    /// </summary>
     private static async Task<Results<FileStreamHttpResult, ProblemHttpResult>> FileAsync(
-        DocumentsDbContext db, IBlobStore blobs, FileVersion version, CancellationToken ct)
+        DocumentsDbContext db, IBlobStore blobs, FileVersion version, HttpResponse response, CancellationToken ct)
     {
         var stored = await db.StoredFiles.AsNoTracking().FirstAsync(f => f.Id == version.StoredFileId, ct);
         var stream = await blobs.OpenReadAsync(stored.BlobKey, ct);
@@ -260,6 +266,7 @@ internal static class DocumentEndpoints
             return ApiErrors.Problem(StatusCodes.Status500InternalServerError, "fileContentMissing", "The stored content of the file is missing.");
         }
 
+        response.Headers.XContentTypeOptions = "nosniff";
         return TypedResults.File(stream, version.MediaType, version.FileName, version.CreatedAt,
             new EntityTagHeaderValue(DocumentService.ETag(version)), enableRangeProcessing: true);
     }
@@ -369,7 +376,7 @@ internal sealed class DocumentService(
         }
 
         var stored = await intake.StoreAsync(spooled, ct);
-        var fileName = FileName(file.FileName, spooled.MediaType!);
+        var fileName = FileName(file.FileName, spooled.MediaType);
         var fields = new JsonObject { ["title"] = string.IsNullOrWhiteSpace(title) ? Path.GetFileNameWithoutExtension(fileName) : title };
         var created = await items.CreateAsync(workspaceId, listId, fields, contentTypeId, folderId, ct);
         if (!created.Succeeded)
@@ -431,7 +438,7 @@ internal sealed class DocumentService(
         }
 
         var stored = await intake.StoreAsync(spooled, ct);
-        var version = await AddVersionAsync(item, current, stored, FileName(file.FileName, spooled.MediaType!), "upload", Languages(languages), ct);
+        var version = await AddVersionAsync(item, current, stored, FileName(file.FileName, spooled.MediaType), "upload", Languages(languages), ct);
         return version is null
             ? ApiErrors.Conflict("concurrentChange", "The file was changed at the same time; try again.")
             : TypedResults.Ok(Response(item, version, policy == DuplicatePolicy.Warn ? duplicates : []));
@@ -461,7 +468,7 @@ internal sealed class DocumentService(
     }
 
     /// <summary>
-    /// Gives an item its first file (templates and imports, PRV-04): checked like an upload (size, type) and processed
+    /// Gives an item its first file (templates and imports, PRV-04): checked like an upload (size) and processed
     /// like one. Nothing happens when the item already has a file. Returns an error message, or null.
     /// </summary>
     public async Task<string?> AttachAsync(ListItemData item, Stream content, string fileName, CancellationToken ct)
@@ -475,11 +482,6 @@ internal sealed class DocumentService(
         if (spooled.TooLarge)
         {
             return $"the file has more than {options.Value.MaxFileSize} bytes";
-        }
-
-        if (spooled.MediaType is null)
-        {
-            return "only PDF, TIFF, JPEG and PNG files are supported";
         }
 
         var stored = await intake.StoreAsync(spooled, ct);
@@ -499,11 +501,6 @@ internal sealed class DocumentService(
         if (spooled.TooLarge)
         {
             return $"the file has more than {options.Value.MaxFileSize} bytes";
-        }
-
-        if (spooled.MediaType is null)
-        {
-            return "only PDF, TIFF, JPEG and PNG files are supported";
         }
 
         var stored = await intake.StoreAsync(spooled, ct);
@@ -646,9 +643,7 @@ internal sealed class DocumentService(
     private ProblemHttpResult? Check(SpooledFile spooled) =>
         spooled.TooLarge
             ? ApiErrors.Problem(StatusCodes.Status413PayloadTooLarge, "fileTooLarge", $"Files may have at most {options.Value.MaxFileSize} bytes.")
-            : spooled.MediaType is null
-                ? ApiErrors.Problem(StatusCodes.Status415UnsupportedMediaType, "unsupportedFileType", "Only PDF, TIFF, JPEG, PNG and WebP files are supported.")
-                : null;
+            : null;
 
     /// <summary>Current files with the same content that the caller can read.</summary>
     private async Task<List<DuplicateResponse>> DuplicatesAsync(string sha256, Guid? exceptItem, CancellationToken ct)
@@ -694,12 +689,15 @@ internal sealed class DocumentService(
         StoredFileId = stored.Id,
         Sha256 = stored.Sha256,
         Size = stored.Size,
-        MediaType = stored.MediaType,
+        MediaType = FileTypes.ForVersion(stored.MediaType, fileName),
         FileName = fileName,
         Source = source,
     };
 
-    /// <summary>The client's file name without path, with the extension of the detected type.</summary>
+    /// <summary>
+    /// The client's file name without path: with the extension of the detected type for the types we process, with its
+    /// own extension for other files (the content decides what is processed, the name only how it is downloaded).
+    /// </summary>
     private static string FileName(string? clientName, string mediaType)
     {
         // Browsers and tools may send full paths, with either separator.
@@ -715,10 +713,11 @@ internal sealed class DocumentService(
             FileTypes.Pdf => ".pdf",
             FileTypes.Tiff => ".tiff",
             FileTypes.Jpeg => ".jpg",
+            FileTypes.Png => ".png",
             FileTypes.Webp => ".webp",
-            _ => ".png",
+            _ => Path.GetExtension(baseName).Trim(),
         };
-        return (name.Length > 200 ? name[..200] : name) + extension;
+        return (name.Length > 200 ? name[..200] : name) + (extension.Length > 20 ? string.Empty : extension);
     }
 
     private static DocumentResponse Response(ListItemData item, FileVersion version, IReadOnlyList<DuplicateResponse> duplicates) =>

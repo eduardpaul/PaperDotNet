@@ -1,6 +1,6 @@
 # Plan: WebDAV for libraries (API-10)
 
-Status: **in progress** (WD-0 and WD-1 done; guide: [webdav.md](webdav.md)). Decisions: [ADR-0047](adr/0047-webdav-for-libraries.md).
+Status: **in progress** (WD-0, WD-1 and WD-2 done; guide: [webdav.md](webdav.md)). Decisions: [ADR-0047](adr/0047-webdav-for-libraries.md).
 Idea: [0018](../ideas/0018-webdav-access-to-libraries.md).
 
 ## Goal
@@ -276,7 +276,7 @@ architecture test "only Dav references WebDav" exists.
 opens files, every test above passes on both providers, and the docs are
 merged.
 
-### WD-2: Any file type in libraries (DOC-02 change)
+### WD-2: Any file type in libraries (DOC-02 change) ✅
 
 - `FileTypes.Detect` stays for the types we process.
   - An unknown header is no longer `415 unsupportedFileType`: the file is

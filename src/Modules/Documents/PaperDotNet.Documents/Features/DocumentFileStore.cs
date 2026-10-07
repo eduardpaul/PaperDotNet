@@ -163,7 +163,7 @@ internal sealed class DocumentFileStore(
         }
 
         await using var spooled = await FileIntake.SpoolAsync(content, source.Size, cancellationToken);
-        if (spooled.TooLarge || spooled.Size >= source.Size || spooled.MediaType is null)
+        if (spooled.TooLarge || spooled.Size >= source.Size || !FileTypes.IsProcessable(spooled.MediaType))
         {
             throw new InvalidOperationException("The candidate must be a smaller supported file.");
         }
