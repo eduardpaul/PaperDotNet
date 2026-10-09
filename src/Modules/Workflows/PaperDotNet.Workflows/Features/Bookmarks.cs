@@ -176,7 +176,8 @@ internal sealed class WorkflowRecipientResolver(RecipientResolver resolver, Pape
     public async Task<WorkflowRecipients> ResolveAsync(IEnumerable<string> people, WorkflowActivityContext context, CancellationToken cancellationToken)
     {
         var item = context.Item is { } target ? await items.AsSystem().GetAsync(target.WorkspaceId, target.ListId, target.ItemId, cancellationToken) : null;
-        var (users, unknown) = await resolver.ResolveAsync(people, item, context.UserId, cancellationToken);
+        var (users, unknown) = await resolver.ResolveAsync(
+            people, item, context.UserId, cancellationToken, template => context.ResolveAsync(template, cancellationToken));
         return new WorkflowRecipients(users, unknown);
     }
 }

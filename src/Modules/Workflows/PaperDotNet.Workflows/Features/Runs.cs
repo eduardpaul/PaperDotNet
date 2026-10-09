@@ -785,6 +785,12 @@ internal sealed partial class WorkflowInterpreter(
             return await tokens.ExpandAsync(template, scope, ct);
         }
 
+        async Task<JsonNode?> ValueAsync(string template)
+        {
+            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct, executionContext);
+            return await tokens.ValueAsync(template, scope, ct);
+        }
+
         // An order of loop events in this run (one more than any loop recorded): tells which loops started in a pass.
         long LoopStamp() => 1 + flow.Nodes.Where(n => n.Value.Activity == FlowActivities.ForEach)
             .Select(n => outputs[n.Key] as JsonObject)
@@ -1224,17 +1230,7 @@ internal sealed partial class WorkflowInterpreter(
                         return;
                     }
 
-                    var approvalInputs = inputs.DeepClone().AsObject();
-                    foreach (var people in new[] { "assignees", "escalateTo" })
-                    {
-                        if (approvalInputs[people] is JsonValue peopleTemplate && peopleTemplate.TryGetValue<string>(out var peopleText))
-                        {
-                            scope ??= await TokenScope.LoadAsync(items, item, outputs, variables, data, ct, executionContext);
-                            approvalInputs[people] = await tokens.ValueAsync(peopleText, scope, ct);
-                        }
-                    }
-
-                    var approval = await CreateApprovalAsync(run, item, id, approvalInputs, ExpandAsync, ct);
+                    var approval = await CreateApprovalAsync(run, item, id, inputs, ExpandAsync, ValueAsync, ct);
                     if (approval is null)
                     {
                         await FailAsync($"{id}: no assignee could be found.", id);
@@ -1411,7 +1407,8 @@ internal sealed partial class WorkflowInterpreter(
 
     /// <summary>The pending request of this node (reused when the node runs again), or a new one (not saved yet).</summary>
     private async Task<ApprovalRequest?> CreateApprovalAsync(
-        WorkflowRun run, WorkflowItem? item, string node, JsonObject inputs, Func<string, Task<string>> expand, CancellationToken ct)
+        WorkflowRun run, WorkflowItem? item, string node, JsonObject inputs, Func<string, Task<string>> expand,
+        Func<string, Task<JsonNode?>> resolve, CancellationToken ct)
     {
         var existing = await db.Approvals.FirstOrDefaultAsync(a => a.RunId == run.Id && a.StepName == node && a.Status == ApprovalStatus.Pending, ct);
         if (existing is not null)
@@ -1420,13 +1417,14 @@ internal sealed partial class WorkflowInterpreter(
         }
 
         var current = item is null ? null : await items.AsSystem().GetAsync(item.WorkspaceId, item.ListId, item.ItemId, ct);
-        var (assignees, _) = await recipients.ResolveAsync(ActivityInputs.Texts(inputs, "assignees") ?? [], current, run.StartedBy, ct);
+        // People entries may be tokens ("{input:reviewers}", or the whole input as one token): resolved per entry.
+        var (assignees, _) = await recipients.ResolveAsync(ActivityInputs.Texts(inputs, "assignees") ?? [], current, run.StartedBy, ct, resolve);
         if (assignees.Count == 0)
         {
             return null;
         }
 
-        var (escalateTo, _) = await recipients.ResolveAsync(ActivityInputs.Texts(inputs, "escalateTo") ?? [], current, run.StartedBy, ct);
+        var (escalateTo, _) = await recipients.ResolveAsync(ActivityInputs.Texts(inputs, "escalateTo") ?? [], current, run.StartedBy, ct, resolve);
         var title = await expand(ActivityInputs.Text(inputs, "title") ?? $"Approve {{title}} ({node})");
         var approval = new ApprovalRequest
         {

@@ -13310,7 +13310,7 @@ export interface WorkflowResponse extends AdditionalDataHolder, Parsable {
     workspaceId?: Guid | null;
 }
 /**
- * A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, `group:Name`,`field:fieldName` (a person field of the item) or `creator`.
+ * A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, user or group ids,`group:Name`, `field:fieldName` (a person field of the item), `creator`, `actor` or tokens such as`{input:reviewers}`.
  */
 export interface WorkflowStep extends AdditionalDataHolder, Parsable {
     /**

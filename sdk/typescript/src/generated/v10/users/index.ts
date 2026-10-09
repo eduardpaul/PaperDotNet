@@ -21,6 +21,7 @@ export interface UsersRequestBuilder extends BaseRequestBuilder<UsersRequestBuil
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PageOfUserResponse>}
+     * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 4XX or 5XX status code
      */
      get(requestConfiguration?: RequestConfiguration<UsersRequestBuilderGetQueryParameters> | undefined) : Promise<PageOfUserResponse | undefined>;
@@ -45,6 +46,8 @@ export interface UsersRequestBuilder extends BaseRequestBuilder<UsersRequestBuil
      toPostRequestInformation(body: CreateUserRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
 }
 export interface UsersRequestBuilderGetQueryParameters {
+    assignable?: boolean;
+    ids?: string;
     /**
      * Continuation token from @odata.nextLink.
      */
@@ -57,7 +60,7 @@ export interface UsersRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const UsersRequestBuilderUriTemplate = "{+baseurl}/v1.0/users{?%24skiptoken*,%24top*}";
+export const UsersRequestBuilderUriTemplate = "{+baseurl}/v1.0/users{?%24skiptoken*,%24top*,assignable*,ids*}";
 /**
  * Mapper for query parameters from symbol name to serialization name represented as a constant.
  */
@@ -83,6 +86,7 @@ export const UsersRequestBuilderRequestsMetadata: RequestsMetadata = {
         uriTemplate: UsersRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
+            400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             XXX: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "send",

@@ -64,16 +64,18 @@ public static class ActivitySchemas
     public static JsonObject Any(string description) => new() { ["description"] = description };
 
     /// <summary>A list of people as <see cref="IWorkflowRecipients"/> reads them.</summary>
-    public static JsonObject People(string description) => Texts(description + " User names, group:Name, field:name, creator or actor.");
+    public static JsonObject People(string description) =>
+        Texts(description + " User names, user or group ids, group:Name, field:name, creator, actor or tokens such as {input:reviewers}.");
 }
 
 /// <summary>People resolved from an activity's input: users, and the entries that named nobody.</summary>
 public sealed record WorkflowRecipients(IReadOnlyList<Guid> Users, IReadOnlyList<string> Unknown);
 
 /// <summary>
-/// Resolves people inputs of activities the way the built-in ones do: user names, <c>group:Name</c> (its members, groups
-/// inside groups included), <c>field:name</c> (person values of the run's item), <c>creator</c> (of the item) and
-/// <c>actor</c> (the user who started the run or whose change triggered it).
+/// Resolves people inputs of activities the way the built-in ones do: user names, user and group ids (as people pickers
+/// store them), <c>group:Name</c> (a group is its members, groups inside groups included), <c>field:name</c> (person values
+/// of the run's item), <c>creator</c> (of the item) and <c>actor</c> (the user who started the run or whose change
+/// triggered it). An entry with a token (<c>{input:reviewers}</c>) is resolved first; a list value gives one entry per element.
 /// </summary>
 public interface IWorkflowRecipients
 {

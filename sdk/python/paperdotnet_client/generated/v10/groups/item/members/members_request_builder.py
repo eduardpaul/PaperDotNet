@@ -31,7 +31,7 @@ class MembersRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/groups/{id}/members", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/groups/{id}/members{?assignable*,transitive*}", path_parameters)
     
     def by_user_id(self,user_id: UUID) -> WithUserItemRequestBuilder:
         """
@@ -47,7 +47,7 @@ class MembersRequestBuilder(BaseRequestBuilder):
         url_tpl_params["userId"] = user_id
         return WithUserItemRequestBuilder(self.request_adapter, url_tpl_params)
     
-    async def get(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[list[UserResponse]]:
+    async def get(self,request_configuration: Optional[RequestConfiguration[MembersRequestBuilderGetQueryParameters]] = None) -> Optional[list[UserResponse]]:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[list[UserResponse]]
@@ -87,7 +87,7 @@ class MembersRequestBuilder(BaseRequestBuilder):
             raise Exception("Http core is null") 
         return await self.request_adapter.send_no_response_content_async(request_info, error_mapping)
     
-    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[MembersRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
@@ -122,7 +122,14 @@ class MembersRequestBuilder(BaseRequestBuilder):
         return MembersRequestBuilder(self.request_adapter, raw_url)
     
     @dataclass
-    class MembersRequestBuilderGetRequestConfiguration(RequestConfiguration[QueryParameters]):
+    class MembersRequestBuilderGetQueryParameters():
+        assignable: Optional[bool] = None
+
+        transitive: Optional[bool] = None
+
+    
+    @dataclass
+    class MembersRequestBuilderGetRequestConfiguration(RequestConfiguration[MembersRequestBuilderGetQueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """

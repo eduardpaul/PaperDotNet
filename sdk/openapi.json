@@ -981,6 +981,20 @@
         "operationId": "ListUsers",
         "parameters": [
           {
+            "name": "assignable",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "$top",
             "in": "query",
             "description": "Page size.",
@@ -1004,6 +1018,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PageOfUserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
                 }
               }
             }
@@ -1381,6 +1405,20 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "transitive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "assignable",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -24572,7 +24610,7 @@
             ]
           }
         },
-        "description": "A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, \u0060group:Name\u0060,\n\u0060field:fieldName\u0060 (a person field of the item) or \u0060creator\u0060."
+        "description": "A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, user or group ids,\n\u0060group:Name\u0060, \u0060field:fieldName\u0060 (a person field of the item), \u0060creator\u0060, \u0060actor\u0060 or tokens such as\n\u0060{input:reviewers}\u0060."
       },
       "WorkflowTrigger": {
         "required": [

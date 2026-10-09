@@ -20,9 +20,20 @@ still resolve, but it is anonymized:
 - **Memberships:** the user leaves every group and role.
 - **Tokens:** every token and session ends.
 - **Other modules:** permission grants and workspace memberships are removed
-  in the background (event `PrincipalDeleted`).
+  in the background (event `PrincipalDeleted`); workflows remove the user from
+  the defaults of people inputs, and a deleted group from `memberOf` limits.
 
 Deleted users no longer appear in `/v1.0/users`.
+
+## Listing people
+
+Needs `user.read` (users) or `group.read` (members); members have both.
+
+| Request | What it returns |
+|---|---|
+| `GET /v1.0/users?assignable=true` | Only people that can be assigned or picked: enabled users that are not service accounts |
+| `GET /v1.0/users?ids=a,b,c` | Only these users (at most 200), e.g. the names of selected values; unknown ids are left out |
+| `GET /v1.0/groups/{id}/members?transitive=true` | The effective members: members of groups inside the group too (`assignable=true` keeps only the people to pick) |
 
 Nobody can disable or delete their own account (`409 cannotChangeSelf`).
 

@@ -207,8 +207,9 @@ public static class Comparison
 }
 
 /// <summary>
-/// A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, <c>group:Name</c>,
-/// <c>field:fieldName</c> (a person field of the item) or <c>creator</c>.
+/// A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, user or group ids,
+/// <c>group:Name</c>, <c>field:fieldName</c> (a person field of the item), <c>creator</c>, <c>actor</c> or tokens such as
+/// <c>{input:reviewers}</c>.
 /// </summary>
 public sealed record WorkflowStep(
     string Type,

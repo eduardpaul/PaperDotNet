@@ -32,7 +32,7 @@ class UsersRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/users{?%24skiptoken*,%24top*}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/users{?%24skiptoken*,%24top*,assignable*,ids*}", path_parameters)
     
     def by_id(self,id: UUID) -> UsersItemRequestBuilder:
         """
@@ -59,6 +59,7 @@ class UsersRequestBuilder(BaseRequestBuilder):
         from ...models.api_problem import ApiProblem
 
         error_mapping: dict[str, type[ParsableFactory]] = {
+            "400": ApiProblem,
             "XXX": ApiProblem,
         }
         if not self.request_adapter:
@@ -138,8 +139,16 @@ class UsersRequestBuilder(BaseRequestBuilder):
                 return "%24skiptoken"
             if original_name == "top":
                 return "%24top"
+            if original_name == "assignable":
+                return "assignable"
+            if original_name == "ids":
+                return "ids"
             return original_name
         
+        assignable: Optional[bool] = None
+
+        ids: Optional[str] = None
+
         # Continuation token from @odata.nextLink.
         skiptoken: Optional[str] = None
 

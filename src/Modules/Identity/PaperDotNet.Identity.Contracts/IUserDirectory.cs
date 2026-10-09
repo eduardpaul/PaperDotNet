@@ -30,6 +30,13 @@ public interface IUserDirectory
     /// <summary>Enabled members of a group, including the members of groups inside it.</summary>
     Task<IReadOnlyList<Guid>> GetGroupMembersAsync(Guid groupId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The users among <paramref name="userIds"/> that people can be assigned or picked as (one query): enabled, not
+    /// deleted and not service accounts; with <paramref name="memberOf"/>, only members of that group, including the
+    /// members of groups inside it. Unknown ids and group ids are left out.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetAssignableUsersAsync(IReadOnlyCollection<Guid> userIds, Guid? memberOf, CancellationToken cancellationToken);
+
     /// <summary>The user with this user name in the current tenant, if any.</summary>
     Task<Guid?> FindUserAsync(string userName, CancellationToken cancellationToken);
 

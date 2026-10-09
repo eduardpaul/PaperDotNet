@@ -8,6 +8,63 @@ namespace PaperDotNet.Workflows.Features;
 /// <summary>Domain selections remain plain IDs in execution inputs; their constraints live in the schema.</summary>
 internal static class DomainInputs
 {
+    /// <summary>
+    /// The options of each kind besides <c>kind</c>. <c>groupId</c> is a taxonomy group (terms and keywords) and
+    /// <c>memberOf</c> an identity group (people), so one key never means both.
+    /// </summary>
+    private static string[] KeysOf(string kind) => kind switch
+    {
+        "relationship" => ["relationshipType"],
+        "people" => ["memberOf", "people", "groups"],
+        _ => ["groupId", "termSetId", "termIds"],
+    };
+
+    /// <summary>
+    /// Removes a deleted user or group from the people inputs anywhere in <paramref name="node"/> (a definition or a
+    /// schema): a <c>memberOf</c> limit to it and its id in defaults. Returns whether anything changed.
+    /// </summary>
+    public static bool ForgetPrincipal(JsonNode? node, Guid principal)
+    {
+        bool Is(JsonNode? value) => value is JsonValue text && Guid.TryParse(text.ToString(), out var id) && id == principal;
+        var changed = false;
+        if (node is JsonObject schema)
+        {
+            if (schema["x-paperdotnet"] is JsonObject options && options["kind"]?.ToString() == "people")
+            {
+                if (Is(options["memberOf"]))
+                {
+                    options.Remove("memberOf");
+                    changed = true;
+                }
+
+                if (Is(schema["default"]))
+                {
+                    schema.Remove("default");
+                    changed = true;
+                }
+                else if (schema["default"] is JsonArray defaults && defaults.Where(Is).ToList() is { Count: > 0 } gone)
+                {
+                    gone.ForEach(value => defaults.Remove(value));
+                    changed = true;
+                }
+            }
+
+            foreach (var (_, child) in schema.ToList())
+            {
+                changed |= ForgetPrincipal(child, principal);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (var child in array.ToList())
+            {
+                changed |= ForgetPrincipal(child, principal);
+            }
+        }
+
+        return changed;
+    }
+
     public static IEnumerable<string> Validate(JsonObject schema)
     {
         if (!schema.ContainsKey("x-paperdotnet"))
@@ -26,12 +83,18 @@ internal static class DomainInputs
             yield return "Domain selections must be strings or arrays of strings.";
         }
 
-        if (options["kind"]?.ToString() == "relationship" && string.IsNullOrWhiteSpace(options["relationshipType"]?.ToString()))
+        var kind = options["kind"]!.ToString();
+        if (kind == "relationship" && string.IsNullOrWhiteSpace(options["relationshipType"]?.ToString()))
         {
             yield return "Relationship selections require relationshipType (type ID or name).";
         }
 
-        foreach (var key in new[] { "groupId", "termSetId" })
+        foreach (var key in options.Select(o => o.Key).Where(key => key != "kind" && !KeysOf(kind).Contains(key)))
+        {
+            yield return $"inputs.x-paperdotnet.{key} does not apply to {kind} selections.";
+        }
+
+        foreach (var key in new[] { "groupId", "termSetId", "memberOf" })
         {
             if (options.ContainsKey(key) && !Guid.TryParse(options[key]?.ToString(), out _))
             {
@@ -39,7 +102,7 @@ internal static class DomainInputs
             }
         }
 
-        if (options["kind"]?.ToString() == "people")
+        if (kind == "people")
         {
             foreach (var key in new[] { "people", "groups" })
             {
@@ -70,10 +133,10 @@ internal static class DomainInputs
 
         if (schema["x-paperdotnet"] is JsonObject options)
         {
-            if (options["kind"]?.ToString() == "people" && options["groupId"] is { } peopleGroupId
-                && !await users.GroupExistsAsync(Guid.Parse(peopleGroupId.ToString()), ct))
+            if (options["kind"]?.ToString() == "people" && options["memberOf"] is { } memberOf
+                && !await users.GroupExistsAsync(Guid.Parse(memberOf.ToString()), ct))
             {
-                return "The configured people group does not exist.";
+                return "The configured people group (memberOf) does not exist.";
             }
 
             if (options["termSetId"] is { } setId)
@@ -124,19 +187,22 @@ internal static class DomainInputs
             }
             if (options["kind"]?.ToString() == "people")
             {
-                var allowPeople = options["people"]?.ToString() != "false";
-                var allowGroups = options["groups"]?.ToString() != "false";
-                var members = options["groupId"] is { } groupId
-                    ? (await users.GetGroupMembersAsync(Guid.Parse(groupId.ToString()), ct)).ToHashSet()
-                    : null;
-                foreach (var id in ids)
+                // One query for the people, one for the groups among the rest; membership is part of the people query.
+                var remaining = ids.ToHashSet();
+                if (options["people"]?.ToString() != "false")
                 {
-                    var person = allowPeople && await users.IsActiveAsync(id, ct) && (members is null || members.Contains(id));
-                    var group = allowGroups && await users.GroupExistsAsync(id, ct);
-                    if (!person && !group)
-                    {
-                        return "A selected person or group is unavailable or outside the configured scope.";
-                    }
+                    var memberOf = options["memberOf"] is { } group ? Guid.Parse(group.ToString()) : (Guid?)null;
+                    remaining.ExceptWith(await users.GetAssignableUsersAsync(ids, memberOf, ct));
+                }
+
+                if (remaining.Count > 0 && options["groups"]?.ToString() != "false")
+                {
+                    remaining.ExceptWith((await users.GetGroupNamesAsync(remaining, ct)).Keys);
+                }
+
+                if (remaining.Count > 0)
+                {
+                    return "A selected person or group is unavailable or outside the configured scope.";
                 }
             }
             else if (options["kind"]?.ToString() == "relationship")

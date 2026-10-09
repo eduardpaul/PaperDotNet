@@ -23,7 +23,7 @@ export interface MembersRequestBuilder extends BaseRequestBuilder<MembersRequest
      * @returns {Promise<UserResponse[]>}
      * @throws {ApiProblem} error when the service returns a 4XX or 5XX status code
      */
-     get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<UserResponse[] | undefined>;
+     get(requestConfiguration?: RequestConfiguration<MembersRequestBuilderGetQueryParameters> | undefined) : Promise<UserResponse[] | undefined>;
     /**
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
@@ -35,7 +35,7 @@ export interface MembersRequestBuilder extends BaseRequestBuilder<MembersRequest
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
-     toGetRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
+     toGetRequestInformation(requestConfiguration?: RequestConfiguration<MembersRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
     /**
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
@@ -43,10 +43,14 @@ export interface MembersRequestBuilder extends BaseRequestBuilder<MembersRequest
      */
      toPostRequestInformation(body: AddGroupMemberRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
 }
+export interface MembersRequestBuilderGetQueryParameters {
+    assignable?: boolean;
+    transitive?: boolean;
+}
 /**
  * Uri template for the request builder.
  */
-export const MembersRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups/{id}/members";
+export const MembersRequestBuilderUriTemplate = "{+baseurl}/v1.0/groups/{id}/members{?assignable*,transitive*}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

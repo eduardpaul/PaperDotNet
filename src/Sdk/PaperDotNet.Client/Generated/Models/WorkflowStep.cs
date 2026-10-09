@@ -8,7 +8,7 @@ using System;
 namespace PaperDotNet.Client.Models
 {
     /// <summary>
-    /// A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, `group:Name`,`field:fieldName` (a person field of the item) or `creator`.
+    /// A step of a workflow (EVT-07, EVT-08). Assignees and recipients are user names, user or group ids,`group:Name`, `field:fieldName` (a person field of the item), `creator`, `actor` or tokens such as`{input:reviewers}`.
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WorkflowStep : IAdditionalDataHolder, IParsable

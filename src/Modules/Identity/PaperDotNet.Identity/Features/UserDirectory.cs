@@ -43,6 +43,21 @@ internal sealed class UserDirectory(
             .Select(u => u.Id)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Guid>> GetAssignableUsersAsync(IReadOnlyCollection<Guid> userIds, Guid? memberOf, CancellationToken cancellationToken) =>
+        userIds.Count == 0
+            ? []
+            : await Assignable(db, memberOf).Where(u => userIds.Contains(u.Id)).Select(u => u.Id).ToListAsync(cancellationToken);
+
+    /// <summary>
+    /// Users people can be assigned or picked as: enabled, not deleted, not service accounts; with <paramref name="memberOf"/>,
+    /// members of that group or of groups inside it (through <see cref="IdentityDbContext.GroupClosures"/>).
+    /// </summary>
+    internal static IQueryable<User> Assignable(IdentityDbContext db, Guid? memberOf) =>
+        db.Users.Where(u => !u.IsDisabled && !u.IsServiceAccount && u.DeletedAt == null
+                            && (memberOf == null
+                                || db.GroupMembers.Any(m => m.UserId == u.Id
+                                                            && db.GroupClosures.Any(c => c.AncestorId == memberOf && c.GroupId == m.GroupId))));
+
     public async Task<Guid?> FindUserAsync(string userName, CancellationToken cancellationToken)
     {
         var normalized = users.NormalizeName(userName);

@@ -36,6 +36,21 @@ public sealed class WorkflowDefinitionTests
         Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema("""{"type":"number","x-paperdotnet":{"kind":"terms"}}""")));
         Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema("""{"type":"string","x-paperdotnet":{"kind":"terms","groupId":"invalid"}}""")));
         Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema("""{"type":"string","x-paperdotnet":{"kind":"keywords","termIds":[]}}""")));
+
+        // People restrict to an identity group with memberOf; the taxonomy and relationship keys do not apply to them.
+        var group = Guid.NewGuid();
+        Assert.Empty(WorkflowInputs.ValidateSchema(Schema($$$"""{"type":"string","x-paperdotnet":{"kind":"people","memberOf":"{{{group}}}","groups":false}}""")));
+        Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema("""{"type":"string","x-paperdotnet":{"kind":"people","memberOf":"invalid"}}""")));
+        Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema("""{"type":"string","x-paperdotnet":{"kind":"people","people":false,"groups":false}}""")));
+        Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema("""{"type":"string","x-paperdotnet":{"kind":"people","people":"yes"}}""")));
+        foreach (var option in new[] { $"\"groupId\":\"{group}\"", $"\"termSetId\":\"{group}\"", $"\"termIds\":[\"{group}\"]", "\"relationshipType\":\"Depends on\"" })
+        {
+            Assert.Contains(WorkflowInputs.ValidateSchema(Schema("{\"type\":\"string\",\"x-paperdotnet\":{\"kind\":\"people\"," + option + "}}")),
+                error => error.Contains("does not apply to people", StringComparison.Ordinal));
+        }
+
+        Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema($$$"""{"type":"string","x-paperdotnet":{"kind":"terms","memberOf":"{{{group}}}"}}""")));
+        Assert.NotEmpty(WorkflowInputs.ValidateSchema(Schema("""{"type":"string","x-paperdotnet":{"kind":"relationship","relationshipType":"Depends on","people":true}}""")));
         var schema = Schema("""{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":2,"uniqueItems":true,"x-paperdotnet":{"kind":"terms"}}""");
         Assert.Empty(WorkflowInputs.ValidateSchema(schema));
         Assert.NotNull(WorkflowInputs.Check(schema, new JsonObject { ["selection"] = new JsonArray() }));

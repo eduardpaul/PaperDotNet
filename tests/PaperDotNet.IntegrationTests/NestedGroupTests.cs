@@ -77,6 +77,53 @@ public sealed class NestedGroupTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task Effective_members_and_assignable_people_are_listed_per_tenant()
+    {
+        await factory.CreateTenantAsync("nest-members-a");
+        await factory.CreateTenantAsync("nest-members-b");
+        var admin = await ApiClient.CreateAsync(factory, "nest-members-a");
+        var other = await ApiClient.CreateAsync(factory, "nest-members-b");
+        var lead = await UserAsync(admin, "lead");
+        var junior = await UserAsync(admin, "junior");
+        var off = await UserAsync(admin, "off");
+        var leads = await GroupAsync(admin, "Leads");
+        var juniors = await GroupAsync(admin, "Juniors");
+        await NestAsync(admin, leads, juniors);
+        await admin.PostAsJsonAsync($"/v1.0/groups/{leads}/members", new { userId = lead }, Ct);
+        await admin.PostAsJsonAsync($"/v1.0/groups/{juniors}/members", new { userId = junior }, Ct);
+        await admin.PostAsJsonAsync($"/v1.0/groups/{juniors}/members", new { userId = off }, Ct);
+        var disabling = new HttpRequestMessage(HttpMethod.Patch, $"/v1.0/users/{off}") { Content = JsonContent.Create(new { isDisabled = true }) };
+        Assert.True((await admin.SendAsync(disabling, Ct)).IsSuccessStatusCode);
+        var application = await admin.PostAsJsonAsync("/v1.0/applications",
+            new { displayName = "Robot", clientType = "confidential", grantTypes = new[] { "client_credentials" }, scopes = new[] { "workspace.read" } }, Ct);
+        var robot = (await application.ReadJsonAsync()).GetProperty("application").GetProperty("serviceUserId").GetGuid();
+        await admin.PostAsJsonAsync($"/v1.0/groups/{leads}/members", new { userId = robot }, Ct);
+
+        static async Task<Guid[]> IdsAsync(HttpClient client, string url)
+        {
+            var json = await (await client.GetAsync(url, Ct)).ReadJsonAsync();
+            var rows = json.ValueKind == System.Text.Json.JsonValueKind.Array ? json : json.GetProperty("value");
+            return [.. rows.EnumerateArray().Select(u => u.GetProperty("id").GetGuid()).Order()];
+        }
+
+        // Direct members, effective members (groups inside included), and the people among them to pick.
+        Assert.Equal(new[] { lead, robot }.Order(), await IdsAsync(admin, $"/v1.0/groups/{leads}/members"));
+        Assert.Equal(new[] { lead, junior, off, robot }.Order(), await IdsAsync(admin, $"/v1.0/groups/{leads}/members?transitive=true"));
+        Assert.Equal(new[] { lead, junior }.Order(), await IdsAsync(admin, $"/v1.0/groups/{leads}/members?transitive=true&assignable=true"));
+        var assignable = await IdsAsync(admin, "/v1.0/users?assignable=true&top=200");
+        Assert.Contains(junior, assignable);
+        Assert.DoesNotContain(robot, assignable);
+        Assert.DoesNotContain(off, assignable);
+        Assert.Equal(new[] { junior, robot }.Order(), await IdsAsync(admin, $"/v1.0/users?ids={junior},{leads},{robot}"));
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/v1.0/users?ids=nope", Ct)).StatusCode);
+
+        // Another tenant sees neither the group nor the users.
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/v1.0/groups/{leads}/members?transitive=true", Ct)).StatusCode);
+        Assert.Empty(await IdsAsync(other, $"/v1.0/users?ids={junior},{lead}"));
+        Assert.DoesNotContain(junior, await IdsAsync(other, "/v1.0/users?assignable=true&top=200"));
+    }
+
+    [Fact]
     public async Task Roles_of_a_group_reach_the_groups_inside_it()
     {
         await factory.CreateTenantAsync("nest-roles");

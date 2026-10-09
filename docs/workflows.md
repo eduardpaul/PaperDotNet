@@ -404,10 +404,18 @@ stays a number, a list a list, and terms and people stay ids. Text fields
 **People** (`to`, `assignedTo`, `assignees`, `escalateTo`):
 
 - user names;
+- user and group ids, as a `kind: "people"` input stores them (a group is its
+  members);
 - `group:Name` (its members);
 - `field:name` (a person field of the item);
 - `creator` (of the item);
-- `actor` (the user who started the run or whose change triggered it).
+- `actor` (the user who started the run or whose change triggered it);
+- tokens such as `{input:reviewers}` or `{step:Review.input.owner}`: a list
+  value gives one entry per element, so `["{input:reviewers}"]` reaches every
+  selected person and the members of every selected group.
+
+Group members include the members of groups inside the group. Disabled users
+and service accounts given by id reach no one.
 
 ## AI activities
 
@@ -881,7 +889,7 @@ validated on the server as well as in the form.
       "items": { "type": "string" },
       "x-paperdotnet": {
         "kind": "people",
-        "groupId": "44444444-4444-4444-4444-444444444444",
+        "memberOf": "44444444-4444-4444-4444-444444444444",
         "people": true,
         "groups": false
       }
@@ -910,8 +918,30 @@ and repeated object sections use the same pickers.
 For people and groups, use `kind: "people"`. Values are user or group IDs, and a
 string property selects one while an array selects multiple. `people` and `groups`
 control which kinds can be selected (both default to true); set one to false for
-people-only or groups-only fields. An optional identity `groupId` limits people
-to active members of that group. The group must exist when the workflow is saved.
+people-only or groups-only fields. People are enabled users; service accounts
+cannot be selected. An optional `memberOf` (an identity group ID) limits people
+to members of that group, including the members of groups inside it; the group
+must exist when the workflow is saved. `groupId`, `termSetId`, `termIds` and
+`relationshipType` do not apply to people (and `memberOf`, `people` and `groups`
+apply only to people), so a schema that mixes them is rejected.
+
+Steps use the selection as people: with the schema above as the launch
+`inputSchema`, this approval goes to every selected reviewer (a selected group
+would reach its members):
+
+```json
+{ "type": "approval", "name": "Review", "assignees": ["{input:reviewers}"] }
+```
+
+When a user or group is deleted, workflows forget it: a `memberOf` limit to a
+deleted group is removed (the field then offers everyone), and deleted IDs are
+removed from `default` values. This changes every version of the workflow in
+place, as well as the forms of pending approvals.
+
+The forms load their choices from the directory: `GET /v1.0/users?assignable=true`
+(enabled users that are not service accounts), `GET /v1.0/groups/{id}/members?transitive=true&assignable=true`
+(the members of a `memberOf` group, groups inside it included) and
+`GET /v1.0/users?ids=…` (the names of the selected users).
 
 ### Parameterized item triggers
 

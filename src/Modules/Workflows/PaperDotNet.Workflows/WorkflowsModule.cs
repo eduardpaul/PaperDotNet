@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
+using PaperDotNet.Identity.Contracts;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
 using PaperDotNet.Messaging;
@@ -59,6 +60,7 @@ public sealed class WorkflowsModule : IModule
         services.AddEventSubscriber<ItemDeleted, WorkflowTriggerHandler>();
         services.AddEventSubscriber<ItemRestored, WorkflowTriggerHandler>();
         services.AddEventSubscriber<WorkflowTriggerRaised, WorkflowTriggerHandler>();
+        services.AddEventSubscriber<PrincipalDeleted, PrincipalDeletedSubscriber>();
 
         services.Configure<WorkflowOptions>(configuration.GetSection("Workflows"));
         services.AddScoped<WorkflowStarter>();

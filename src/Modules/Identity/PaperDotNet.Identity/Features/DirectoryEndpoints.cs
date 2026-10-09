@@ -87,11 +87,40 @@ internal static class DirectoryEndpoints
             .WithName("ListScopes");
     }
 
-    private static async Task<Ok<Page<UserResponse>>> ListUsersAsync(HttpRequest http, IdentityDbContext db, CancellationToken ct)
+    private const int MaxUsersById = 200;
+
+    /// <summary>
+    /// Users of the organization. <c>assignable=true</c> keeps only the people that can be assigned or picked (enabled, not
+    /// service accounts); <c>ids=a,b,c</c> (at most 200) only those users, e.g. to show the names of selected values
+    /// (unknown ids, group ids among them, are left out).
+    /// </summary>
+    private static async Task<Results<Ok<Page<UserResponse>>, ValidationProblem>> ListUsersAsync(
+        HttpRequest http, IdentityDbContext db, bool? assignable, string? ids, CancellationToken ct)
     {
+        HashSet<Guid>? wanted = null;
+        if (ids is not null)
+        {
+            wanted = [];
+            foreach (var part in ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!Guid.TryParse(part, out var id))
+                {
+                    return ApiErrors.Validation(new Dictionary<string, string[]> { ["ids"] = [$"'{part}' is not a user id."] });
+                }
+
+                wanted.Add(id);
+            }
+
+            if (wanted.Count is 0 or > MaxUsersById)
+            {
+                return ApiErrors.Validation(new Dictionary<string, string[]> { ["ids"] = [$"Give 1 to {MaxUsersById} user ids, separated by commas."] });
+            }
+        }
+
         var page = PageRequest.From(http);
-        var items = await db.Users.AsNoTracking()
+        var items = await (assignable == true ? UserDirectory.Assignable(db, null) : db.Users).AsNoTracking()
             .Where(u => u.DeletedAt == null)
+            .Where(u => wanted == null || wanted.Contains(u.Id))
             .Where(u => page.After == null || u.Id.CompareTo(page.After.Value) > 0)
             .OrderBy(u => u.Id)
             .Take(page.Top + 1)
@@ -163,15 +192,24 @@ internal static class DirectoryEndpoints
         return TypedResults.Created($"{ApiRoutes.V1}/groups/{group.Id}", new GroupResponse(group.Id, group.Name, group.Description, group.CreatedAt) { ETag = ETags.From(group.Version) });
     }
 
-    private static async Task<Results<Ok<List<UserResponse>>, ProblemHttpResult>> ListMembersAsync(Guid id, IdentityDbContext db, CancellationToken ct)
+    /// <summary>
+    /// The members of a group: its direct members, or with <c>transitive=true</c> its effective members, the members of
+    /// groups inside it included (ADR-0035). <c>assignable=true</c> keeps only the people that can be assigned or picked
+    /// (enabled, not service accounts), e.g. for a people picker limited to the group.
+    /// </summary>
+    private static async Task<Results<Ok<List<UserResponse>>, ProblemHttpResult>> ListMembersAsync(
+        Guid id, IdentityDbContext db, bool? transitive, bool? assignable, CancellationToken ct)
     {
         if (!await db.Groups.AnyAsync(g => g.Id == id, ct))
         {
             return ApiErrors.NotFound();
         }
 
-        var members = await db.GroupMembers.Where(m => m.GroupId == id)
-            .Join(db.Users, m => m.UserId, u => u.Id, (m, u) => u)
+        var users = assignable == true ? UserDirectory.Assignable(db, null) : db.Users;
+        var members = await (transitive == true
+                ? users.Where(u => db.GroupMembers.Any(m => m.UserId == u.Id && db.GroupClosures.Any(c => c.AncestorId == id && c.GroupId == m.GroupId)))
+                : users.Where(u => db.GroupMembers.Any(m => m.UserId == u.Id && m.GroupId == id)))
+            .AsNoTracking()
             .OrderBy(u => u.Id)
             .Select(u => new UserResponse(u.Id, u.UserName, u.DisplayName, u.Email, u.IsDisabled, u.CreatedAt))
             .ToListAsync(ct);

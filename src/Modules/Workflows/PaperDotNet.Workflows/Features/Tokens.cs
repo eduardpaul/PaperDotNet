@@ -242,20 +242,49 @@ internal sealed class TokenExpander(ITermStore terms, IUserDirectory users, Time
 }
 
 /// <summary>
-/// Resolves recipient and assignee specifications: user names, <c>group:Name</c> (its members),
-/// <c>field:fieldName</c> (person values of the item), <c>creator</c> (of the item) and <c>actor</c>
-/// (the user whose change started the workflow).
+/// Resolves recipient and assignee specifications: user names, user and group ids (what people pickers store; a group
+/// is its members), <c>group:Name</c> (its members), <c>field:fieldName</c> (person values of the item), <c>creator</c>
+/// (of the item) and <c>actor</c> (the user whose change started the workflow). Group members include the members of
+/// groups inside the group. With <c>resolve</c>, an entry with a token (<c>{input:reviewers}</c>) is resolved first, and
+/// a list value gives one entry per element.
 /// </summary>
 internal sealed class RecipientResolver(IUserDirectory users)
 {
     public async Task<(List<Guid> Users, List<string> Unknown)> ResolveAsync(
-        IEnumerable<string> specs, ListItemData? item, Guid? actor, CancellationToken ct)
+        IEnumerable<string> specs, ListItemData? item, Guid? actor, CancellationToken ct, Func<string, Task<JsonNode?>>? resolve = null)
     {
-        var result = new List<Guid>();
-        var unknown = new List<string>();
+        var entries = new List<string>();
         foreach (var spec in specs.Select(s => s.Trim()).Where(s => s.Length > 0))
         {
-            if (spec == "creator")
+            if (resolve is not null && spec.Contains('{', StringComparison.Ordinal))
+            {
+                var value = await resolve(spec);
+                entries.AddRange((value is JsonArray array ? [.. array] : new JsonNode?[] { value })
+                    .Select(v => v is JsonValue text && text.TryGetValue<string>(out var entry) ? entry.Trim() : null)
+                    .OfType<string>()
+                    .Where(entry => entry.Length > 0));
+            }
+            else
+            {
+                entries.Add(spec);
+            }
+        }
+
+        // Ids in two queries: the people among them, then the groups among the rest.
+        var ids = entries.Select(e => Guid.TryParse(e, out var id) ? id : Guid.Empty).Where(id => id != Guid.Empty).Distinct().ToList();
+        var people = ids.Count == 0 ? [] : (await users.GetAssignableUsersAsync(ids, null, ct)).ToHashSet();
+        var rest = ids.Where(id => !people.Contains(id)).ToList();
+        var groups = rest.Count == 0 ? new Dictionary<Guid, string>() : await users.GetGroupNamesAsync(rest, ct);
+
+        var result = new List<Guid>();
+        var unknown = new List<string>();
+        foreach (var spec in entries)
+        {
+            if (Guid.TryParse(spec, out var principal) && (people.Contains(principal) || groups.ContainsKey(principal)))
+            {
+                result.AddRange(people.Contains(principal) ? [principal] : await users.GetGroupMembersAsync(principal, ct));
+            }
+            else if (spec == "creator")
             {
                 result.AddRange(item?.CreatedBy is { } creator ? [creator] : []);
             }
