@@ -285,8 +285,8 @@ test('people selectors offer the members of a group and name the selected people
   }
   const memberName = unique('Nested member');
   const outsiderName = unique('Outsider');
-  const member = await createUser(request, unique('member').toLowerCase(), memberName);
-  const outsider = await createUser(request, unique('outsider').toLowerCase(), outsiderName);
+  const member = await createUser(request, unique('member').replace(' ', '-'), memberName);
+  const outsider = await createUser(request, unique('outsider').replace(' ', '-'), outsiderName);
   const reviewers = await create('/v1.0/groups', { name: unique('Reviewers') });
   const juniors = await create('/v1.0/groups', { name: unique('Juniors') });
   expect((await request.post(`/v1.0/groups/${juniors}/members`, { headers, data: { userId: member } })).ok()).toBe(
