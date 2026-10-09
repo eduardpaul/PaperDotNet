@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { adminHeaders, createList, signIn, unique } from './helpers';
+import { adminHeaders, createList, createUser, signIn, unique } from './helpers';
 
 test('launch forms, workspace event filters, and approval forms', async ({ page, request }) => {
   test.setTimeout(90_000);
@@ -269,4 +269,92 @@ test('domain selectors collect scoped tags, keywords and relationship targets', 
   );
   await row.getByRole('button', { name: 'Approve', exact: true }).click();
   expect((await (await decided).json()).inputs).toEqual({ target, tags: [tag], keyword });
+});
+
+test('people selectors offer the members of a group and name the selected people', async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const headers = await adminHeaders(request);
+  await signIn(page);
+  const listUrl = await createList(page, 'Tasks', unique('People tasks'));
+  const workspaceUrl = listUrl.replace(/\/l\/.*$/, '');
+  const workspaceId = /\/w\/([^/]+)/.exec(workspaceUrl)![1];
+  async function create(url: string, data: object): Promise<string> {
+    const response = await request.post(url, { headers, data });
+    expect(response.ok()).toBe(true);
+    return (await response.json()).id;
+  }
+  const memberName = unique('Nested member');
+  const outsiderName = unique('Outsider');
+  const member = await createUser(request, unique('member').toLowerCase(), memberName);
+  const outsider = await createUser(request, unique('outsider').toLowerCase(), outsiderName);
+  const reviewers = await create('/v1.0/groups', { name: unique('Reviewers') });
+  const juniors = await create('/v1.0/groups', { name: unique('Juniors') });
+  expect((await request.post(`/v1.0/groups/${juniors}/members`, { headers, data: { userId: member } })).ok()).toBe(
+    true,
+  );
+  expect((await request.post(`/v1.0/groups/${reviewers}/groups`, { headers, data: { groupId: juniors } })).ok()).toBe(
+    true,
+  );
+  const robotName = unique('Robot');
+  const application = await request.post('/v1.0/applications', {
+    headers,
+    data: {
+      displayName: robotName,
+      clientType: 'confidential',
+      grantTypes: ['client_credentials'],
+      scopes: ['workspace.read'],
+    },
+  });
+  expect(application.ok()).toBe(true);
+  const robot = (await application.json()).application.serviceUserId;
+  expect((await request.post(`/v1.0/groups/${reviewers}/members`, { headers, data: { userId: robot } })).ok()).toBe(
+    true,
+  );
+  const inputSchema = {
+    type: 'object',
+    properties: {
+      reviewers: {
+        type: 'array',
+        title: 'Reviewers',
+        items: { type: 'string' },
+        'x-paperdotnet': { kind: 'people', memberOf: reviewers, groups: false },
+      },
+      owner: { type: 'string', title: 'Owner', default: outsider, 'x-paperdotnet': { kind: 'people' } },
+    },
+    required: ['reviewers'],
+  };
+  const workflow = await create(`/v1.0/workspaces/${workspaceId}/workflows`, {
+    name: unique('People workflow'),
+    scope: 'workspace',
+    trigger: { type: 'manual' },
+    inputSchema,
+    steps: [{ type: 'approval', name: 'People review', assignees: ['{input:reviewers}'] }],
+  });
+  await page.goto(workspaceUrl);
+  await page.getByRole('button', { name: 'Run workflow' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Run workflow' });
+  await dialog.getByLabel('Workflow').selectOption(workflow);
+  // The default shows its name, not its id.
+  await expect(dialog.getByRole('combobox', { name: 'Owner' })).toContainText(outsiderName);
+  await expect(dialog.getByRole('combobox', { name: 'Owner' })).not.toContainText(outsider);
+  // Only the people in the group (groups inside it included), never service accounts.
+  await dialog.getByRole('combobox', { name: 'Reviewers' }).click();
+  await expect(page.getByRole('option', { name: memberName })).toBeVisible();
+  await expect(page.getByRole('option', { name: outsiderName })).toHaveCount(0);
+  await expect(page.getByRole('option', { name: robotName })).toHaveCount(0);
+  await page.getByRole('option', { name: memberName }).click();
+  await page.keyboard.press('Escape');
+  const launched = page.waitForResponse(
+    (response) => response.url().endsWith('/runs') && response.request().method() === 'POST',
+  );
+  await dialog.getByRole('button', { name: 'Launch workflow' }).click();
+  const run = (await (await launched).json())[0];
+  expect(run.executionContext.input).toEqual({ reviewers: [member], owner: outsider });
+  // The selected reviewer gets the approval.
+  await expect
+    .poll(async () => {
+      const response = await request.get(`/v1.0/workspaces/${workspaceId}/workflows/runs/${run.id}`, { headers });
+      return (await response.json()).status;
+    })
+    .toBe('waiting');
 });

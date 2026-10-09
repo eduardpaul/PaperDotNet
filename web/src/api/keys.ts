@@ -28,6 +28,21 @@ export const keys = {
   /** A library's document workflows (ADR-0038: reading the text, thumbnails, pages, OCR). */
   libraryWorkflows: (workspaceId: string, listId: string) =>
     ['workspaces', workspaceId, 'lists', listId, 'workflows', 'builtIns'] as const,
+  /** The organization's users (the directory). */
+  users: ['users'] as const,
+  /** Users by id, e.g. the names of selected values (ids sorted, so the key is stable). */
+  usersById: (ids: readonly string[]) => ['users', 'byId', ids] as const,
+  groups: ['groups'] as const,
+  group: (groupId: string) => ['groups', groupId] as const,
+  groupMembers: (groupId: string) => ['groups', groupId, 'members'] as const,
+  groupInbox: (groupId: string) => ['groups', groupId, 'inbox'] as const,
+  nestedGroups: (groupId: string) => ['groups', groupId, 'groups'] as const,
+  /**
+   * People that can be picked (enabled, not service accounts). Limited to a group, they are its effective members and
+   * the key is under the groups, so membership changes (which invalidate keys.groups) refresh them.
+   */
+  assignablePeople: (memberOf?: string): readonly string[] =>
+    memberOf ? ['groups', memberOf, 'assignable'] : ['users', 'assignable'],
   smartFolders: ['smartFolders'] as const,
   search: (query: object) => ['search', query] as const,
 };

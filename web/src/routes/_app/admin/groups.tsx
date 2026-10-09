@@ -6,6 +6,7 @@ import { ChevronRight, Pencil, Plus, Trash2, UserMinus, UserPlus, Users, X } fro
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { api } from '@/api/client';
+import { keys } from '@/api/keys';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
@@ -116,8 +117,8 @@ function Groups() {
 
 function GroupDetails({ group }: { group: GroupResponse }) {
   const queryClient = useQueryClient();
-  const membersKey = ['groups', group.id, 'members'];
-  const inboxKey = ['groups', group.id, 'inbox'];
+  const membersKey = keys.groupMembers(group.id!);
+  const inboxKey = keys.groupInbox(group.id!);
   const { data: members } = useQuery({
     queryKey: membersKey,
     queryFn: async () => (await api.v10.groups.byId(group.id!).members.get()) ?? [],
@@ -135,14 +136,15 @@ function GroupDetails({ group }: { group: GroupResponse }) {
   });
   // Groups inside this group: their members are members too (ADR-0035).
   const { data: nested } = useQuery({
-    queryKey: ['groups', group.id, 'groups'],
+    queryKey: keys.nestedGroups(group.id!),
     queryFn: async () => (await api.v10.groups.byId(group.id!).groups.get()) ?? [],
   });
   const { data: users } = useQuery(usersQuery);
   const { data: groups } = useQuery(groupsQuery);
   const libraries = useLibraries();
   const [adding, setAdding] = useState<ComboboxOption[]>([]);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['groups', group.id] });
+  // Every group: a change of members or nesting also changes the effective members of the groups above (pickers).
+  const refresh = () => queryClient.invalidateQueries({ queryKey: keys.groups });
   const add = useMutation({
     mutationFn: async () => {
       for (const person of adding) await api.v10.groups.byId(group.id!).members.post({ userId: person.value });

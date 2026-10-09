@@ -1,20 +1,21 @@
+import type { UserResponse } from '@paperdotnet/client';
 import type { FieldProps } from '@rjsf/utils';
 import { useQuery } from '@tanstack/react-query';
 import { UserRound, Users } from 'lucide-react';
-import { useMemo } from 'react';
-import { api } from '@/api/client';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Alert } from '@/components/ui/feedback';
 import { Label } from '@/components/ui/input';
-import { groupsQuery, userName, usersQuery } from '@/features/fields/directory';
+import { assignablePeopleQuery, groupsQuery, userName, usersByIdQuery } from '@/features/fields/directory';
 
 interface PeopleOptions {
   kind: 'people';
-  groupId?: string;
+  /** An identity group: only its members (groups inside it included) can be picked. */
+  memberOf?: string;
   people?: boolean;
   groups?: boolean;
 }
 
+/** A people input (`kind: "people"`): the choices and the names of selected ids come from the directory API. */
 export function PeopleSelection({
   schema,
   formData,
@@ -26,44 +27,23 @@ export function PeopleSelection({
   rawErrors,
 }: FieldProps) {
   const config = schema['x-paperdotnet'] as PeopleOptions;
+  const allowPeople = config.people ?? true;
+  const allowGroups = config.groups ?? true;
   const multiple = schema.type === 'array';
   const selected = (Array.isArray(formData) ? formData : typeof formData === 'string' ? [formData] : []) as string[];
-  const users = useQuery(usersQuery);
-  const groups = useQuery(groupsQuery);
-  const groupMembers = useQuery({
-    queryKey: ['workflowPeopleGroupMembers', config.groupId],
-    queryFn: async () => {
-      const members = new Set<string>();
-      const visited = new Set<string>();
-      const visit = async (groupId: string) => {
-        if (visited.has(groupId)) return;
-        visited.add(groupId);
-        const [people, nested] = await Promise.all([
-          api.v10.groups.byId(groupId).members.get(),
-          api.v10.groups.byId(groupId).groups.get(),
-        ]);
-        for (const person of people ?? []) if (person.id) members.add(person.id);
-        await Promise.all((nested ?? []).filter((group) => group.id).map((group) => visit(group.id!)));
-      };
-      await visit(config.groupId!);
-      return [...members];
-    },
-    enabled: !!config.groupId && (config.people ?? true),
-    staleTime: 5 * 60_000,
+  const people = useQuery({ ...assignablePeopleQuery(config.memberOf), enabled: allowPeople });
+  const groups = useQuery({ ...groupsQuery, enabled: allowGroups });
+  // Selected users that are not choices (e.g. disabled since, or a default) still show their names.
+  const names = useQuery(usersByIdQuery(selected));
+  const personOption = (user: UserResponse): ComboboxOption => ({
+    value: user.id!,
+    label: userName(user, user.id!),
+    hint: user.userName ?? undefined,
+    icon: <UserRound className="size-3.5" />,
   });
-  const allowedMembers = useMemo(() => new Set(groupMembers.data ?? []), [groupMembers.data]);
   const options: ComboboxOption[] = [
-    ...((config.people ?? true)
-      ? (users.data ?? [])
-          .filter((user) => !user.isDisabled && user.id && (!config.groupId || allowedMembers.has(user.id)))
-          .map((user) => ({
-            value: user.id!,
-            label: userName(user, user.id!),
-            hint: user.userName ?? undefined,
-            icon: <UserRound className="size-3.5" />,
-          }))
-      : []),
-    ...((config.groups ?? true)
+    ...(allowPeople ? (people.data ?? []).filter((user) => user.id).map(personOption) : []),
+    ...(allowGroups
       ? (groups.data ?? [])
           .filter((group) => group.id)
           .map((group) => ({
@@ -74,7 +54,10 @@ export function PeopleSelection({
           }))
       : []),
   ];
-  const known = new Map(options.map((option) => [option.value, option]));
+  const known = new Map([
+    ...(names.data ?? []).filter((user) => user.id).map((user) => [user.id!, personOption(user)] as const),
+    ...options.map((option) => [option.value, option] as const),
+  ]);
   const id = fieldPathId.$id;
   return (
     <div className="flex flex-col gap-2">
@@ -88,16 +71,19 @@ export function PeopleSelection({
         aria-labelledby={`${id}-label`}
         multiple={multiple}
         disabled={disabled || readonly}
-        loading={users.isFetching || groups.isFetching || groupMembers.isFetching}
+        loading={people.isFetching || groups.isFetching}
         aria-invalid={!!rawErrors?.length}
         placeholder="Choose people or groups…"
-        selected={selected.map((value) => known.get(value) ?? { value, label: value })}
+        selected={selected.map(
+          (value) =>
+            known.get(value) ?? { value, label: names.isLoading || groups.isLoading ? '…' : 'Unknown person or group' },
+        )}
         options={options}
         onChange={(values) =>
           onChange(multiple ? values.map((option) => option.value) : values[0]?.value, fieldPathId.path)
         }
       />
-      {(users.isError || groups.isError || groupMembers.isError) && <Alert>Could not load choices. Try again.</Alert>}
+      {(people.isError || groups.isError || names.isError) && <Alert>Could not load choices. Try again.</Alert>}
       {rawErrors?.map((error) => (
         <p key={error} className="text-sm text-danger">
           {error}
