@@ -3,18 +3,25 @@ using PaperDotNet.Abstractions;
 using PaperDotNet.Documents.Data;
 using PaperDotNet.Jobs.Contracts;
 using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Persistence;
 using PaperDotNet.Workflows.Contracts;
 
 namespace PaperDotNet.Documents.Features;
 
 /// <summary>Removes the file versions of permanently deleted items (their content is then collected by the job).</summary>
-internal sealed class PurgedItemFiles(DocumentsDbContext db) : IEventSubscriber<ItemPurged>
+internal sealed class PurgedItemFiles(DocumentsDbContext db, IContentMigrationState? migration = null, IContentMigrationLock? migrationLock = null) : IEventSubscriber<ItemPurged>
 {
     public async Task HandleAsync(ItemPurged integrationEvent, CancellationToken cancellationToken)
     {
+        await using var transaction = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
+        if (migrationLock is not null && db.CurrentTenantId is { } tenantId)
+            await migrationLock.AcquireAsync(db, tenantId, cancellationToken);
+        // A delayed source purge must not remove versions whose bytes were preserved by cutover.
+        if (migration is not null && (await migration.GetMigratedWorkspacesAsync(cancellationToken)).Contains(integrationEvent.WorkspaceId)) return;
         await db.FileVersions.Where(v => v.ItemId == integrationEvent.ItemId).ExecuteDeleteAsync(cancellationToken);
         await db.Candidates.Where(c => c.ItemId == integrationEvent.ItemId && c.State == "pending")
             .ExecuteUpdateAsync(u => u.SetProperty(c => c.State, "abandoned"), cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
     }
 }
 

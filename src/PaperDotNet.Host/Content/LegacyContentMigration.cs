@@ -56,18 +56,36 @@ internal sealed partial class LegacyContentMigration(ListsDbContext lists, Works
         // Deliberately project non-secret directory data: password hashes/tokens never enter a migration snapshot.
         var directoryUsers = await identity.Users.AsNoTracking().OrderBy(x => x.Id).Select(x => new
         {
-            x.Id, x.CreatedAt, x.DeletedAt, Active = !x.IsDisabled && x.DeletedAt == null, Service = x.IsServiceAccount,
+            x.Id,
+            x.CreatedAt,
+            x.DeletedAt,
+            Active = !x.IsDisabled && x.DeletedAt == null,
+            Service = x.IsServiceAccount,
             DisplayName = x.DeletedAt != null ? "Deleted user" : x.DisplayName ?? x.UserName ?? "",
             Email = x.DeletedAt != null ? "" : x.Email ?? ""
         }).ToListAsync(ct);
         // Normalize timestamps after materialization: PostgreSQL's DateTimeOffset converter cannot coerce nullable UTC projections.
-        var users = directoryUsers.Select(x => new IdentityUsersRow { Id = x.Id.ToString(), CreatedAt = At(x.CreatedAt),
-            DeletedAt = x.DeletedAt is null ? null : At(x.DeletedAt.Value), Active = x.Active, Service = x.Service,
-            DisplayName = x.DisplayName, Email = x.Email }).ToArray();
+        var users = directoryUsers.Select(x => new IdentityUsersRow
+        {
+            Id = x.Id.ToString(),
+            CreatedAt = At(x.CreatedAt),
+            DeletedAt = x.DeletedAt is null ? null : At(x.DeletedAt.Value),
+            Active = x.Active,
+            Service = x.Service,
+            DisplayName = x.DisplayName,
+            Email = x.Email
+        }).ToArray();
         var directoryGroups = await identity.Groups.AsNoTracking().OrderBy(x => x.Id).Select(x => new
         { x.Id, x.CreatedAt, x.Name, x.Description, x.Source, x.Version }).ToListAsync(ct);
-        var groups = directoryGroups.Select(x => new IdentityGroupsRow { Id = x.Id.ToString(), CreatedAt = At(x.CreatedAt),
-            Name = x.Name, Description = x.Description ?? "", Source = x.Source == GroupSource.Local ? "local" : "oidc", Version = x.Version }).ToArray();
+        var groups = directoryGroups.Select(x => new IdentityGroupsRow
+        {
+            Id = x.Id.ToString(),
+            CreatedAt = At(x.CreatedAt),
+            Name = x.Name,
+            Description = x.Description ?? "",
+            Source = x.Source == GroupSource.Local ? "local" : "oidc",
+            Version = x.Version
+        }).ToArray();
         var memberships = await identity.GroupMembers.AsNoTracking().OrderBy(x => x.GroupId).ThenBy(x => x.UserId)
             .Select(x => new { x.GroupId, x.UserId }).ToListAsync(ct);
         var nestings = await identity.GroupNestings.AsNoTracking().OrderBy(x => x.GroupId).ThenBy(x => x.MemberGroupId).ToListAsync(ct);
@@ -156,7 +174,7 @@ internal sealed partial class LegacyContentMigration(ListsDbContext lists, Works
             var attached = sourceTypes.Where(x => list.ContentTypeIds.Contains(x.Id)).ToArray();
             var schemaFields = attached.SelectMany(type => type.Fields.Where(x => x.Name != "title").Select(field =>
                 new SchemaField(Key(field.Name), field.DisplayName, MapType(field.Type), field.Required, field.Choices, field.Indexed,
-                    DefinitionId: Stable("field", Key(field.Name)), Options: new SchemaFieldOptions(Multiple: field.AllowMultiple || field.Type == "keywords",
+                    DefinitionId: Stable("field", JsonSerializer.Serialize(field, Json)), Options: new SchemaFieldOptions(Multiple: field.AllowMultiple || field.Type == "keywords",
                         MaxLength: field.MaxLength, Minimum: field.Minimum?.ToString(CultureInfo.InvariantCulture), Maximum: field.Maximum?.ToString(CultureInfo.InvariantCulture),
                         TermSetId: field.Type == "keywords" || field.TermSetId is { } termSet && keywordSets.Contains(termSet) ? SystemKeywords : field.TermSetId?.ToString(),
                         LookupContainerId: field.LookupListId?.ToString(), CurrencyCode: field.CurrencyCode, Description: field.Description,

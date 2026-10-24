@@ -6,6 +6,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PaperDotNet.Abstractions;
 using PaperDotNet.Lists.Data;
+using PaperDotNet.Lists.Contracts;
+using PaperDotNet.Documents.Data;
 
 namespace PaperDotNet.IntegrationTests;
 
@@ -136,6 +138,8 @@ public sealed class ContentApiTests(PaperDotNetApiFactory factory)
         var edit = await admin.SendWithEtagAsync(HttpMethod.Put, $"{Root}/items/{itemId}", Etag(imported), new { name = "Imported", contentTypeId = type, values = new { status = "canonical" } });
         edit.EnsureSuccessStatusCode();
         Assert.Equal("canonical", (await GetAsync(admin, $"{Root}/items/{itemId}")).GetProperty("values").GetProperty("status").GetString());
+        // Unmigrated modules keep their taxonomy; the destination holds an independent imported catalog.
+        await PostAsync(admin, "/v1.0/termStore/keywords", new { name = "Still available to other workspaces" });
     }
     [Fact]
     public async Task Published_files_remain_pinned_when_a_replacement_is_saved_as_a_draft()
@@ -163,6 +167,59 @@ public sealed class ContentApiTests(PaperDotNetApiFactory factory)
         Assert.Equal(HttpStatusCode.BadRequest, (await Upload([1, 2, 3, 4], Etag(head))).StatusCode);
         Assert.Equal(HttpStatusCode.PreconditionFailed, (await Upload(original, Etag(created))).StatusCode);
         Assert.Equal(head.GetProperty("revisionId").GetString(), (await GetAsync(client, $"{Root}/items/{id}?surface=head")).GetProperty("revisionId").GetString());
+    }
+
+    [Fact]
+    public async Task Migration_preserves_different_definitions_that_share_the_same_field_key()
+    {
+        await factory.CreateTenantAsync("content-import-fields");
+        using var client = await ApiClient.CreateAsync(factory, "content-import-fields");
+        var workspace = await client.CreateWorkspaceAsync("Distinct schemas");
+        var text = await client.CreateContentTypeAsync("Free status", [new { name = "status", displayName = "Status", type = "text" }]);
+        var choice = await client.CreateContentTypeAsync("Controlled status", [new { name = "status", displayName = "Status", type = "choice", choices = new[] { "Open", "Closed" } }]);
+        var first = await client.CreateListAsync(workspace, "Free", text);
+        var second = await client.CreateListAsync(workspace, "Controlled", choice);
+        await client.CreateItemAsync(workspace, first, new { fields = new { title = "Free item", status = "Open" } });
+        await client.CreateItemAsync(workspace, second, new { fields = new { title = "Controlled item", status = "Open" } });
+        var preview = await GetAsync(client, $"{Root}/migrations/{workspace}/preview");
+        Assert.Empty(preview.GetProperty("blockers").EnumerateArray());
+        await PostAsync(client, $"{Root}/migrations/{workspace}", new { sourceHash = preview.GetProperty("sourceHash").GetString() });
+        var firstField = (await GetAsync(client, $"{Root}/collections/{first}")).GetProperty("schema").GetProperty("fields")[0];
+        var secondField = (await GetAsync(client, $"{Root}/collections/{second}")).GetProperty("schema").GetProperty("fields")[0];
+        Assert.Equal("status", firstField.GetProperty("id").GetString());
+        Assert.Equal("status", secondField.GetProperty("id").GetString());
+        Assert.NotEqual(firstField.GetProperty("definition_id").GetString(), secondField.GetProperty("definition_id").GetString());
+        Assert.Equal("text", firstField.GetProperty("type").GetString());
+        Assert.Equal("choice", secondField.GetProperty("type").GetString());
+    }
+
+    [Fact]
+    public async Task Imported_file_references_survive_delayed_legacy_purge_handlers()
+    {
+        var tenant = await factory.CreateTenantAsync("content-import-file-purge");
+        using var client = await ApiClient.CreateAsync(factory, tenant.Identifier);
+        var workspace = await client.CreateWorkspaceAsync("File import");
+        var type = await client.CreateContentTypeAsync("Document", []);
+        var createdList = await PostAsync(client, $"/v1.0/workspaces/{workspace}/lists", new { name = "Files", kind = "library", contentTypeIds = new[] { type } });
+        var list = createdList.GetProperty("id").GetGuid();
+        var bytes = "%PDF-1.4\n% retained import\n%%EOF"u8.ToArray();
+        using var form = new MultipartFormDataContent { { new ByteArrayContent(bytes), "file", "retained.pdf" } };
+        var upload = await client.PostAsync($"/v1.0/workspaces/{workspace}/lists/{list}/documents", form, Ct);
+        upload.EnsureSuccessStatusCode();
+        var item = (await upload.ReadJsonAsync()).GetProperty("itemId").GetGuid();
+        var preview = await GetAsync(client, $"{Root}/migrations/{workspace}/preview");
+        await PostAsync(client, $"{Root}/migrations/{workspace}", new { sourceHash = preview.GetProperty("sourceHash").GetString() });
+        await using (var scope = factory.Services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier))
+        {
+            var registration = scope.ServiceProvider.GetServices<EventSubscriberRegistration>().Single(x => x.EventType == typeof(ItemPurged)
+                && x.Name == "PaperDotNet.Documents.Features.PurgedItemFiles");
+            var subscriber = scope.ServiceProvider.GetRequiredKeyedService<IEventSubscriber<ItemPurged>>(registration.Name);
+            await subscriber.HandleAsync(new ItemPurged { TenantId = tenant.Id, TenantIdentifier = tenant.Identifier, WorkspaceId = workspace,
+                ListId = list, ItemId = item, ContentTypeId = type }, Ct);
+            var documents = scope.ServiceProvider.GetRequiredService<DocumentsDbContext>();
+            Assert.True(await documents.FileVersions.AnyAsync(x => x.ItemId == item, Ct));
+        }
+        Assert.Equal(bytes, await client.GetByteArrayAsync($"{Root}/items/{item}/file", Ct));
     }
 
 }
