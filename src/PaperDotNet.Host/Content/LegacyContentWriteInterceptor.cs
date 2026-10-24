@@ -34,6 +34,10 @@ internal sealed class LegacyContentWriteInterceptor(ContentDatabaseFactory facto
     {
         if (tenant.TenantId is not { } tenantId || context is not (ListsDbContext or WorkspacesDbContext or DocumentsDbContext or IdentityDbContext or TaxonomyDbContext)
             || !context.ChangeTracker.HasChanges()) return;
+        // OAuth client/token/key changes are outside the imported directory snapshot. Holding a source
+        // write transaction for them would defeat OpenIddict's competing-save/retry behavior.
+        if (context is IdentityDbContext && !context.ChangeTracker.Entries().Any(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted
+            && x.Entity is User or Group or GroupMember or GroupNesting)) return;
         try
         {
             if (context.Database.CurrentTransaction is null) owned[context] = await context.Database.BeginTransactionAsync(ct);
@@ -64,7 +68,6 @@ internal sealed class LegacyContentWriteInterceptor(ContentDatabaseFactory facto
                 blocked = changed.Any(x => x.Entity is Workspace workspace && ids.Contains(workspace.Id) || x.Entity is WorkspaceMember member && ids.Contains(member.WorkspaceId));
             else if (context is DocumentsDbContext)
                 blocked = changed.Any(x => x.Entity is FileVersion file && ids.Contains(file.WorkspaceId));
-            else if (context is TaxonomyDbContext) blocked = true;
             if (blocked) throw new ContentMigratedException();
         }
         catch { await CompleteAsync(context, false, CancellationToken.None); throw; }
