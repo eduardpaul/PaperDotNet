@@ -133,6 +133,21 @@ Tried and dropped, because the gain was not measurable or not worth the change:
 - GC settings: pauses were about 1% of the time, and Workstation GC is a deliberate memory choice
   ([memory investigation](memory-footprint-2026-09-30.md)).
 
+.NET runtime and code-level checks after those fixes (same harness, three repeats per run): two runs of the same
+binary differ by up to ±7% per step in requests per second and server CPU per request, so a change has to beat that.
+`perf` with perf maps shows a flat profile: about half the CPU in managed code, 15–28% in SQLite, 16% in the runtime,
+no method above 2%. Nothing below was kept:
+
+- `DOTNET_SYSTEM_NET_SOCKETS_INLINE_COMPLETIONS=1`, `DOTNET_ThreadPool_UnfairSemaphoreSpinLimit=0` and
+  `DOTNET_HillClimbing_Disable=1`: within noise, with mixed signs. They target many concurrent socket requests, not one
+  or two callers waiting on the database.
+- Building each module context's provider options once and adding only the scoped interceptors per resolution:
+  −1.9% CPU per request on average over six repeats, inside the noise in every scenario.
+- Logging is already quiet in Production (about 30 lines per run), and the code already uses ordinal comparisons, so
+  those tips have nothing to fix. JSON serialization is 3–5% of a request, too little for source generation to show.
+- About a quarter of the CPU in the first measured step is JIT tier-up after startup. The harness publishes without a
+  runtime identifier; the container image is ReadyToRun, so that cost does not reach deployments.
+
 Not covered by the harness: once a tenant has a PaperGo content database, every workspace request asks it which
 workspaces were migrated (`ContentMigrationState`, `ContentMigrationMiddleware`), several times per request and without
 caching. On PostgreSQL even the existence check is a query until the content database is opened.
