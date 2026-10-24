@@ -8,6 +8,11 @@ if (args is ["healthcheck", ..])
     return await HealthProbe.RunAsync(args);
 }
 
+if (args is ["content-db", ..])
+{
+    return await ContentCli.RunAsync(args);
+}
+
 var isCodegen = args is ["codegen", ..];
 var isCli = AdminCli.IsCommand(args);
 var builder = WebApplication.CreateBuilder(isCli || isCodegen ? [] : args);

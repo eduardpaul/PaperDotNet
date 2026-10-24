@@ -48,6 +48,7 @@ Enforce it in CI with a license check over the NuGet dependency graph (e.g. the
 | `OpenTelemetry` | Apache-2.0 | Tracing / metrics |
 | `PdfPig` 0.1.16 | Apache-2.0 | PDF text layer per page (3b); PDF builder in tests |
 | `PDFsharp` 6.2.4 (+ `System.Security.Cryptography.Pkcs`, `Microsoft.Extensions.Logging.Abstractions`) | MIT | Page operations: delete, reorder, rotate, extract, move (7f) |
+| `System.Security.Cryptography.Pkcs`, `System.Security.Cryptography.Xml` 10.0.13 | MIT | Centrally pin patched transitive cryptography dependencies used by PDFsharp and .NET tooling; resolves NU1902/NU1903 restore failures |
 | `PDFtoImage` 5.4 (+ `bblanchon.PDFium.*` natives) | MIT (bundles PDFium, see below) | Page rendering for thumbnails, previews and OCR input (3b) |
 | `SkiaSharp` (+ `SkiaSharp.NativeAssets.*`, via PDFtoImage) | MIT (bundles Skia, see below) | JPEG/PNG/WebP decode, EXIF normalization, resize, JPEG/WebP encode (3b, storage optimization) |
 | Tesseract engine and tessdata (container package, run as CLI) | Apache-2.0 (bundles Leptonica, see below) | OCR (3b). No NuGet wrapper: the CLI via `CliWrap` |

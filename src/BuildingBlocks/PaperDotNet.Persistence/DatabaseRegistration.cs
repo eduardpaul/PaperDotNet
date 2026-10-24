@@ -1,11 +1,21 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using PaperDotNet.Abstractions;
 
 namespace PaperDotNet.Persistence;
+
+/// <summary>Additional host policies applied to all module saves, including background writers.</summary>
+public interface IModuleDatabaseInterceptor : IInterceptor;
+
+/// <summary>Serializes source writers and content cutover within the current module transaction.</summary>
+public interface IContentMigrationLock
+{
+    Task AcquireAsync(DbContext context, Guid tenantId, CancellationToken cancellationToken);
+}
 
 /// <summary>
 /// Configures a module DbContext for the chosen database provider:
@@ -67,6 +77,7 @@ public static class DatabaseRegistration
             var provider = sp.GetRequiredService<IDatabaseProvider>();
             provider.Configure(options, schema, migrationsAssemblyPrefix is null ? null : $"{migrationsAssemblyPrefix}.{provider.Name}");
             options.AddInterceptors(sp.GetRequiredService<AuditingInterceptor>());
+            options.AddInterceptors(sp.GetServices<IModuleDatabaseInterceptor>());
         });
 
         return services;

@@ -134,6 +134,8 @@ ideas/                          raw ideas, mapped to features
 
 ## Documentation
 
+- [PaperGo functionality alignment and remaining parity work](docs/papergo-parity.md)
+- [PaperGo-compatible EF database and lifecycle commands](docs/papergo-database.md)
 - [Architecture vision](docs/architecture-vision.md)
 - [Feature catalog, user stories and roadmap](docs/features.md)
 - [Technical approach](docs/technical-approach.md)

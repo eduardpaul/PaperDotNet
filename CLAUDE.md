@@ -10,6 +10,7 @@ inspired by Papermerge and SharePoint lists/libraries.
 - .NET building blocks (libraries/platform features to use): `docs/dotnet-building-blocks.md`
 - Dependency license register and policy: `docs/dependency-licenses.md`
 - Web frontend (screens, UX principles, slices): `docs/frontend.md`
+- **PaperGo feature/behavior parity and acceptance requirements: `docs/papergo-parity.md` (ADR-0047).** Match user-visible capabilities while retaining the .NET architecture, native APIs and existing product features; track unresolved gaps explicitly.
 - Raw ideas (to be mapped to features): `ideas/` (see `ideas/README.md`)
 
 ## Guiding principle
@@ -34,6 +35,7 @@ consumer: gaps are fixed in the API and regenerated, never worked around in
 
 ## Decided
 
+- **PaperGo-compatible content storage (ADR-0048):** `PaperDotNet.Content` uses one organization per database, with exact pinned PaperGo tables and explicit provider migrations. `content-db` bypasses modular bootstrap. Never apply tenant filters, module migrations or `EnsureCreated` to this database. The following multitenancy rules apply to existing module storage.
 - Multitenancy from the start: shared DB, `TenantId` on every tenant-owned row,
   enforced via EF Core global query filters (+ PostgreSQL RLS when used).
 - Databases: **SQLite by default, PostgreSQL optional; everything must work on

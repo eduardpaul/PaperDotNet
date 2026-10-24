@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/eduardpaul/PaperGo",
+  "commit": "485be496d5c3b9077c9a6238cd8f11d3e4bffeda",
+  "schemas": {
+    "sqlite": {
+      "path": "internal/dal/schema/sqlite.sql",
+      "sha256Base64": "y/uvIEuIhTbxhfpHhByoOw2CJrsRB4bIfH0rXcStBIM=",
+      "catalogSha256Base64": "RDk4yvBuY+Nev0KFTlJTzv/QdJ8acP2RsZ53qQKSqNg="
+    },
+    "postgresql": {
+      "path": "internal/dal/schema/postgres.sql",
+      "sha256Base64": "uGJz7bDkYF44sKUYFZcDICzlwYTZ/Pkx7uy9mxqz1mI="
+    }
+  }
+}

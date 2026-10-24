@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <ProjectReference Include="../../src/BuildingBlocks/PaperDotNet.Persistence.Sqlite/PaperDotNet.Persistence.Sqlite.csproj" />
+    <ProjectReference Include="../../src/BuildingBlocks/PaperDotNet.Persistence.PostgreSql/PaperDotNet.Persistence.PostgreSql.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../tools/papergo/reference.json" Link="reference.json" />
+  </ItemGroup>
+</Project>

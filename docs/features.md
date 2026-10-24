@@ -12,6 +12,12 @@ Each feature has at least one end-user story. The technical approach is in
 
 **Scope:** the backend covers P0–P7; the web UI is Phase 8 ([frontend.md](frontend.md), ADR-0033).
 
+**Cross-implementation target:** PaperGo and PaperDotNet should have the same
+user-visible feature set and similar behavior while keeping their native
+architectures. The [PaperGo parity register](papergo-parity.md) tracks current
+differences and acceptance requirements (ADR-0047); existing phase completion
+does not mean PaperGo parity is complete. The [compatible EF database and lifecycle engine](papergo-database.md) is available separately from existing web/module storage (ADR-0048).
+
 ## Legend
 
 **Personas**
@@ -344,7 +350,7 @@ Delivered in slices ([ADR-0007](adr/0007-odata-for-item-queries.md), [ADR-0008](
 | **Database providers** | PLT-14: SQLite default, PostgreSQL optional, full test suite on both (ADR-0009) | ✅ |
 | **1c Events & jobs** | EVT-01 before receivers (modify/cancel), EVT-02 after receivers (sync) + async integration events, EVT-03 ordering & scope filter (per-list registration comes with the extension runtime), EVT-04 Wolverine outbox on SQLite/PostgreSQL, EVT-05 recurring jobs (cron) + delayed messages, EVT-06 operations (`/v1.0/operations/{id}`), LST-05 bulk update as an operation | ✅ |
 | **1d Taxonomy** | TAX-01 term store (`/v1.0/termStore`: groups → sets → hierarchical terms), TAX-02 synonyms, labels per language, colors, descriptions, deprecate, move, merge (term reuse across sets comes later), TAX-03 open/closed sets, TAX-04 keywords set with autocomplete and get-or-create, TAX-06 `managedMetadata` and `keywords` field types on any content type (values by id or label), TAX-07 filtering on a term includes its descendants; merges rewrite stored values in the background (`TermMerged` event) | ✅ |
-| **1e.1 History** | LST-11 versioning per list (off / major, max versions; libraries on by default), LST-12 version list, version details with changed fields, restore, LST-13 recycle bin (restore, purge, 93-day retention job), LST-14 audit log for every module (`/v1.0/auditLog`, same transaction as the change). Minor versions (drafts) come with documents | ✅ |
+| **1e.1 History** | LST-11 versioning per list (off / major, max versions; off by default for lists and libraries), LST-12 version list, version details with changed fields, restore, LST-13 recycle bin (restore, purge, 93-day retention job), LST-14 audit log for every module (`/v1.0/auditLog`, same transaction as the change). Draft/published content surfaces remain a parity requirement (LIFE-05) | ✅ |
 | **1e.2 Access** | IAM-07 permission inheritance workspace → list → folder → item with break/reset and user/group grants (Read, Contribute, Manage), security-trimmed queries ([ADR-0011](adr/0011-permission-scopes.md)); workspace visitor role; LST-07 personal Home workspace with Documents and Inbox libraries (`/v1.0/me/home`) | ✅ |
 | **1e.3 Search** | SRC-01 unified search over list items (`/v1.0/search`, title/text fields/tag labels), SRC-02 words, phrases, OR, NOT, prefix, SRC-03 filters (workspace, list, content type, hierarchical tag, author, dates) with facet counts, SRC-04 principal-based trimming; FTS5 on SQLite, `tsvector` on PostgreSQL; reindex operation ([ADR-0012](adr/0012-full-text-search.md)) | ✅ |
 | **1f Identity hardening** | IAM-02 OAuth 2.0 / OIDC server (OpenIddict: authorization code + PKCE, refresh, client credentials as service accounts, first-party password grant, `/v1.0/applications`), IAM-01 passkeys and sign-in session, PostgreSQL row-level security on every tenant-owned table, Data Protection keys and server keys in the database ([ADR-0013](adr/0013-openiddict-passkeys-rls.md)). MFA/TOTP and external IdPs later | ✅ |

@@ -4,6 +4,7 @@
     <Project Path="src/PaperDotNet.ServiceDefaults/PaperDotNet.ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/PaperDotNet.Content/PaperDotNet.Content.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Abstractions/PaperDotNet.Abstractions.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Api/PaperDotNet.Api.csproj" />
     <Project Path="src/BuildingBlocks/PaperDotNet.Messaging/PaperDotNet.Messaging.csproj" />
@@ -110,6 +111,7 @@
     <Project Path="samples/PaperDotNet.Samples.Invoices.Tests/PaperDotNet.Samples.Invoices.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/PaperDotNet.Content.Tests/PaperDotNet.Content.Tests.csproj" />
     <Project Path="tests/PaperDotNet.ArchitectureTests/PaperDotNet.ArchitectureTests.csproj" />
     <Project Path="tests/PaperDotNet.IntegrationTests/PaperDotNet.IntegrationTests.csproj" />
     <Project Path="tests/PaperDotNet.UnitTests/PaperDotNet.UnitTests.csproj" />

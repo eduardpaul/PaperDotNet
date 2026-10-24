@@ -19,6 +19,7 @@ public sealed partial class ModuleBoundaryTests
         "PaperDotNet.Abstractions",
         "PaperDotNet.Api",
         "PaperDotNet.Persistence",
+        "PaperDotNet.Content",
         "PaperDotNet.Extensions.Abstractions",
         .. Modules.Select(m => $"PaperDotNet.{m}"),
         .. ContractModules.Select(m => $"PaperDotNet.{m}.Contracts"),

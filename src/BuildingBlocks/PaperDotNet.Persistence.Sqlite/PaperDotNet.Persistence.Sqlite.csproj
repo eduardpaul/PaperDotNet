@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- SQLite database provider (the default). The ONLY project allowed to reference SQLite packages. -->
   <ItemGroup>
+    <ProjectReference Include="../PaperDotNet.Content/PaperDotNet.Content.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\PaperDotNet.Persistence\PaperDotNet.Persistence.csproj" />
   </ItemGroup>
@@ -10,5 +11,8 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PaperDotNet.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Content/PaperGo.sql" />
   </ItemGroup>
 </Project>
