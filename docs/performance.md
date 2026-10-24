@@ -96,6 +96,47 @@ half assigned to them. The same runner on the commit before step 5 and after it:
 Before, each list loaded its own schema and access and ran its own query; now the 20 lists are one group and one
 query.
 
+## SQLite planner statistics and the search scope index (2026-10-24)
+
+Separate-process harness, SQLite, `PERF_ITEMS=200 PERF_SECONDS=10 PERF_WARMUP_SECONDS=3 PERF_MAX_CONCURRENCY=2
+PERF_REPEATS=2`, published host without a RID, cloud container with 4 cores. Each row is the range of the two repeats.
+
+| Keyword search | req/s, 1 caller | req/s, 2 callers | p95 |
+|---|---:|---:|---:|
+| Before | 30–31 | 48–50 | 42–59 ms |
+| `PRAGMA optimize` | 67–68 | 134–142 | 19–21 ms |
+| and the `(scope_id)` index | 142–151 | 244–247 | 9–12 ms |
+
+Read, query, shared, My tasks and create stayed within run-to-run noise.
+
+How it was found: a CPU trace of the search step (`dotnet-trace`) spent its time in `SqliteDataReader.NextResult`, and
+EF's command log put most of it in the page and facet queries (12.9 and 6 ms) while the count with the same full-text
+join took under a millisecond. `EXPLAIN QUERY PLAN` on a copy of the fixture showed why:
+
+1. **No statistics.** Nothing ever ran `ANALYZE`, so SQLite took `tenant_id = ?` as selective and drove the joins
+   through `ix_search_documents_tenant_id` (every row of a single-tenant database): it re-ran the FTS `MATCH` once per
+   document, or scanned the tenant once per hit. `SqliteOptimizer` now runs `PRAGMA optimize = 0x10002` every minute
+   on its own connection, as SQLite recommends for long-lived (pooled) connections. It analyzes only tables that were
+   never analyzed or changed tenfold, under an analysis limit; empty tables are skipped, and a run with nothing to do
+   costs a few milliseconds.
+2. **A composite index that looked like a key.** With statistics, SQLite looked up each hit through
+   `(scope_id, id)`, once per readable scope (71 in the fixture) instead of once by primary key. The index is now
+   `(scope_id)`: hits go through the key, and filter-only searches still trim by scope through it. PostgreSQL never got
+   index-only scans from the old index, because every query also filters `tenant_id` and `workspace_id`.
+
+Tried and dropped, because the gain was not measurable or not worth the change:
+
+- Skipping the connection PRAGMAs and function registration on reused pooled connections: 1–4 µs per open, about 1%
+  of a request.
+- Singleton `DbContextOptions`: building them is about 5% of a request in the traces, but the auditing and content
+  interceptors are scoped, so every module context would have to change.
+- GC settings: pauses were about 1% of the time, and Workstation GC is a deliberate memory choice
+  ([memory investigation](memory-footprint-2026-09-30.md)).
+
+Not covered by the harness: once a tenant has a PaperGo content database, every workspace request asks it which
+workspaces were migrated (`ContentMigrationState`, `ContentMigrationMiddleware`), several times per request and without
+caching. On PostgreSQL even the existence check is a query until the content database is opened.
+
 ## Build-time compilation
 
 Native AOT and trimming were not turned on. Wolverine, the EF JSON translators and the event dispatcher bind handlers with reflection (`MakeGenericMethod` and `GetMethod`), and one binary contains both SQLite and PostgreSQL. Trimming or AOT drops that code and the process fails at runtime. The Minimal API request-delegate generator was tried and turned back off: for several `Results<…>` endpoints it emits source that does not compile.
