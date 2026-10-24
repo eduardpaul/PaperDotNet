@@ -29,7 +29,7 @@ public sealed class BackupService(
     IEnumerable<IBackupFolder> folders,
     TimeProvider time)
 {
-    public const string Format = "paperdotnet-backup/1";
+    public const string Format = "paperdotnet-backup/2";
 
     private const string ManifestName = "manifest.json";
     private const string BlobFolder = "blobs/";
@@ -112,7 +112,7 @@ public sealed class BackupService(
         var first = await tar.GetNextEntryAsync(copyData: false, ct);
         if (first is not { Name: ManifestName, DataStream: { } manifestData }
             || await JsonSerializer.DeserializeAsync<BackupManifest>(manifestData, Json, ct) is not { } manifest
-            || manifest.Format != Format)
+            || manifest.Format is not (Format or "paperdotnet-backup/1"))
         {
             throw new InvalidOperationException($"'{path}' is not a PaperDotNet backup.");
         }
