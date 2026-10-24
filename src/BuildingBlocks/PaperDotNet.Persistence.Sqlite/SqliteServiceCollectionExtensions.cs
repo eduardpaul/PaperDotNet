@@ -23,6 +23,7 @@ public static class SqliteServiceCollectionExtensions
         services.AddSingleton<IDatabaseProvider, SqliteDatabaseProvider>();
         services.AddSingleton<IFullTextSearch, SqliteFullTextSearch>();
         services.AddSingleton<IDatabaseBackup, SqliteDatabaseBackup>();
+        services.AddHostedService<SqliteOptimizer>();
         services.AddHealthChecks().AddCheck<SqliteHealthCheck>("sqlite", tags: ["ready"]);
         return services;
     }
