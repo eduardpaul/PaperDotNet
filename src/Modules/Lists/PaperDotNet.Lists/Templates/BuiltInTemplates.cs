@@ -37,13 +37,12 @@ internal static class BuiltInTemplates
 
     public static readonly ListTemplateDefinition[] Lists =
     [
-        new(DocumentsListKey, "Documents", "A document library with keywords and version history.", [DocumentKey],
+        new(DocumentsListKey, "Documents", "A document library with keywords.", [DocumentKey],
         [
             new ViewTemplate("All documents", ["title", "description", "keywords"], IsDefault: true),
         ])
         {
             IsLibrary = true,
-            Versioning = true,
         },
         new("contacts", "Contacts", "People and organizations.", ["contact"],
         [

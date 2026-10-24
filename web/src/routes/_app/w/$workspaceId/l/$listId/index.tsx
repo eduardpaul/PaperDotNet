@@ -41,6 +41,7 @@ import { ItemsCalendar, ItemsGallery } from '@/features/lists/items-layouts';
 import { itemsQuery, listBuilder, listQuery, odataString, viewsQuery } from '@/features/lists/queries';
 import { listFields } from '@/features/lists/schema';
 import { LaunchWorkflowButton } from '@/features/workflows/launch-workflow';
+import { ConfirmDialog } from '@/features/settings/section';
 import { problemMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 
@@ -93,6 +94,7 @@ function ListPage() {
   const [selection, setSelection] = useState<RowSelectionState>({});
   const [bulkEdit, setBulkEdit] = useState(false);
   const [newFolder, setNewFolder] = useState(false);
+  const [deletingFolders, setDeletingFolders] = useState(false);
   const { upload } = useUploads();
 
   const setSearch = (patch: Partial<ListSearch>, replace = false) =>
@@ -150,7 +152,12 @@ function ListPage() {
       const failed: string[] = [];
       for (const item of rows.filter((r) => selection[r.id!])) {
         try {
-          await listBuilder(workspaceId, listId).items.byItemId(item.id!).delete(ifMatch(item));
+          await listBuilder(workspaceId, listId)
+            .items.byItemId(item.id!)
+            .delete({
+              ...ifMatch(item),
+              queryParameters: { recursive: item.isFolder || undefined },
+            });
         } catch {
           failed.push(item.id!);
         }
@@ -158,6 +165,7 @@ function ListPage() {
       return failed;
     },
     onSuccess: async (failed) => {
+      setDeletingFolders(false);
       setSelection(Object.fromEntries(failed.map((id) => [id, true])));
       if (failed.length)
         toast.error(
@@ -311,7 +319,15 @@ function ListPage() {
           <Button size="sm" onClick={() => setBulkEdit(true)}>
             <Pencil /> Edit field
           </Button>
-          <Button size="sm" disabled={removeSelected.isPending} onClick={() => removeSelected.mutate()}>
+          <Button
+            size="sm"
+            disabled={removeSelected.isPending}
+            onClick={() =>
+              rows.some((item) => selection[item.id!] && item.isFolder)
+                ? setDeletingFolders(true)
+                : removeSelected.mutate()
+            }
+          >
             <Trash2 /> Delete
           </Button>
           <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setSelection({})}>
@@ -424,6 +440,16 @@ function ListPage() {
         open={bulkEdit}
         onOpenChange={setBulkEdit}
         onDone={() => setSelection({})}
+      />
+      <ConfirmDialog
+        open={deletingFolders}
+        onOpenChange={setDeletingFolders}
+        title="Delete selected folders and items?"
+        description="Selected folders, everything inside them, and selected items will move to the recycle bin. A folder stays unchanged if any item inside cannot be deleted."
+        confirm="Delete folders and contents"
+        busy={removeSelected.isPending}
+        error={removeSelected.error}
+        onConfirm={() => removeSelected.mutate()}
       />
       {newFolder && (
         <NameDialog

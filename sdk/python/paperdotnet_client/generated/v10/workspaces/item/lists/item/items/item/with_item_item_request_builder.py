@@ -44,9 +44,9 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         param request_adapter: The request adapter to use to execute the requests.
         Returns: None
         """
-        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}", path_parameters)
+        super().__init__(request_adapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}{?recursive*}", path_parameters)
     
-    async def delete(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> None:
+    async def delete(self,request_configuration: Optional[RequestConfiguration[WithItemItemRequestBuilderDeleteQueryParameters]] = None) -> None:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: None
@@ -105,7 +105,7 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
 
         return await self.request_adapter.send_async(request_info, ItemResponse, error_mapping)
     
-    def to_delete_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
+    def to_delete_request_information(self,request_configuration: Optional[RequestConfiguration[WithItemItemRequestBuilderDeleteQueryParameters]] = None) -> RequestInformation:
         """
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
@@ -285,7 +285,12 @@ class WithItemItemRequestBuilder(BaseRequestBuilder):
         return WorkflowsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @dataclass
-    class WithItemItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):
+    class WithItemItemRequestBuilderDeleteQueryParameters():
+        recursive: Optional[bool] = None
+
+    
+    @dataclass
+    class WithItemItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[WithItemItemRequestBuilderDeleteQueryParameters]):
         """
         Configuration for the request such as headers, query parameters, and middleware options.
         """

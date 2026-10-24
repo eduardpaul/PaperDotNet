@@ -75,6 +75,46 @@ public sealed class HistoryTests(PaperDotNetApiFactory factory)
     }
 
     [Fact]
+    public async Task New_libraries_and_document_templates_start_with_metadata_history_off()
+    {
+        var (client, ws, _) = await SetupAsync("history-library-default", new { });
+        var requests = new object[]
+        {
+            new { name = "Plain library", kind = "library" },
+            new { name = "Document library", templateKey = "documents" },
+        };
+        foreach (var request in requests)
+        {
+            var created = await client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", request, Ct);
+            created.EnsureSuccessStatusCode();
+            var library = await created.ReadJsonAsync();
+            Assert.Equal("off", library.GetProperty("versioning").GetString());
+            var id = library.GetProperty("id").GetGuid();
+            var item = await client.CreateItemAsync(ws, id, new { fields = new { title = "Record" } });
+            var url = $"/v1.0/workspaces/{ws}/lists/{id}/items/{item.GetProperty("id").GetGuid()}";
+            (await PatchItemAsync(client, url, new { title = "Edited record" })).EnsureSuccessStatusCode();
+            Assert.Empty(await ValuesAsync(client, $"{url}/versions"));
+
+            var listUrl = $"/v1.0/workspaces/{ws}/lists/{id}";
+            var etag = (await client.GetAsync(listUrl, Ct)).Headers.ETag!.Tag;
+            (await client.SendWithEtagAsync(HttpMethod.Patch, listUrl, etag, new { versioning = "major" })).EnsureSuccessStatusCode();
+            (await PatchItemAsync(client, url, new { title = "Recorded edit" })).EnsureSuccessStatusCode();
+            Assert.Single(await ValuesAsync(client, $"{url}/versions"));
+        }
+
+        var home = await (await client.GetAsync("/v1.0/me/home", Ct)).ReadJsonAsync();
+        foreach (var name in new[] { "inboxListId", "documentsListId" })
+        {
+            var list = await (await client.GetAsync($"/v1.0/workspaces/{home.GetProperty("workspaceId").GetGuid()}/lists/{home.GetProperty(name).GetGuid()}", Ct)).ReadJsonAsync();
+            Assert.Equal("off", list.GetProperty("versioning").GetString());
+        }
+
+        var explicitHistory = await client.PostAsJsonAsync($"/v1.0/workspaces/{ws}/lists", new { name = "Opt-in", templateKey = "documents", versioning = "major" }, Ct);
+        explicitHistory.EnsureSuccessStatusCode();
+        Assert.Equal("major", (await explicitHistory.ReadJsonAsync()).GetProperty("versioning").GetString());
+    }
+
+    [Fact]
     public async Task Lists_without_versioning_keep_no_versions()
     {
         var (client, ws, list) = await SetupAsync("history-off", new { });

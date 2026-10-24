@@ -283,24 +283,70 @@ internal sealed class ItemWriter(
         catch (DbUpdateConcurrencyException) { db.ChangeTracker.Clear(); return false; }
     }
 
-    public async Task<ItemWriteResult> DeleteAsync(ListSchema schema, ListItem item, CancellationToken ct)
+    /// <summary>
+    /// Recycles an item or an empty folder. Explicit recursive deletion validates the entire live tree before
+    /// saving its tombstones, audit entries and deletion events in one transaction.
+    /// </summary>
+    public async Task<ItemWriteResult> DeleteAsync(ListSchema schema, ListItem item, CancellationToken ct, bool recursive = false)
     {
-        if (item.IsFolder && await db.Items.AnyAsync(i => i.ParentId == item.Id, ct))
+        await using var transaction = recursive && db.Database.CurrentTransaction is null
+            ? await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct)
+            : null;
+        if (item.IsFolder && !recursive && await db.Items.AnyAsync(i => i.ListId == schema.List.Id && i.ParentId == item.Id, ct))
         {
             return new ItemWriteResult(null, Conflict: "The folder is not empty.");
         }
 
-        var before = Values(item);
-        var scope = Scope(schema, item);
-        var context = new ItemMutationContext { Kind = ItemEventKind.Deleting, Scope = scope, ItemId = item.Id, UserId = currentUser.UserId, Before = before };
-        if (await MutateAsync(context, ct) is { } cancelled)
+        List<ListItem> items = [item];
+        if (recursive && item.IsFolder)
         {
-            return cancelled;
+            List<Guid> parents = [item.Id];
+            while (parents.Count > 0)
+            {
+                var folders = new List<Guid>();
+                foreach (var batch in parents.Chunk(200))
+                {
+                    var children = await db.Items.Where(i => i.ListId == schema.List.Id && i.ParentId != null && batch.Contains(i.ParentId.Value)).ToListAsync(ct);
+                    if (children.Any(child => schema.Access.Level(child.ScopeId) < WorkspaceAccessLevel.Contribute))
+                    {
+                        return ItemWriteResult.Denied;
+                    }
+
+                    items.AddRange(children);
+                    folders.AddRange(children.Where(child => child.IsFolder).Select(child => child.Id));
+                }
+
+                parents = folders;
+            }
         }
 
-        db.Items.Remove(item);
-        await outbox.SaveChangesAsync(db, [Event(ItemEventKind.Deleting, item, schema, [])], cancellationToken: ct);
-        await PublishChangedAsync("deleted", schema, item, ct);
+        // A mutator rejecting any descendant leaves the whole selection intact.
+        foreach (var candidate in items)
+        {
+            var context = new ItemMutationContext
+            {
+                Kind = ItemEventKind.Deleting,
+                Scope = Scope(schema, candidate),
+                ItemId = candidate.Id,
+                UserId = currentUser.UserId,
+                Before = Values(candidate),
+            };
+            if (await MutateAsync(context, ct) is { } cancelled)
+            {
+                return cancelled;
+            }
+        }
+
+        var events = items.Select(candidate => (IntegrationEvent)Event(ItemEventKind.Deleting, candidate, schema, [])).ToList();
+        db.Items.RemoveRange(items);
+        // The outbox saves and commits its enlisted transaction, including these tombstones and audit rows.
+        await outbox.SaveChangesAsync(db, events, cancellationToken: ct);
+
+        foreach (var candidate in items)
+        {
+            await PublishChangedAsync("deleted", schema, candidate, ct);
+        }
+
         return new ItemWriteResult(item);
     }
 

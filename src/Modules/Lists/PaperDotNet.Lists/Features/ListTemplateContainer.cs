@@ -138,7 +138,7 @@ internal sealed class ListTemplateContainer(
                 Kind = kind,
                 AllowFolders = element.BoolAttr("AllowFolders", true),
                 ContentTypeIds = [.. contentTypes.Select(c => c.Id)],
-                Versioning = element.EnumAttr("Versioning", kind == ListKind.Library ? ListVersioning.Major : ListVersioning.Off),
+                Versioning = element.EnumAttr("Versioning", ListVersioning.Off),
                 MaxVersions = element.IntAttr("MaxVersions") ?? ListDefinition.DefaultMaxVersions,
                 TemplateKey = templateKey,
             };

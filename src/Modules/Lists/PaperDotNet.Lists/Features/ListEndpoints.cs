@@ -170,7 +170,7 @@ internal static class ListEndpoints
 
         // Libraries keep versions by default (like SharePoint document libraries).
         list.Versioning = request.Versioning
-            ?? (template?.Versioning == true || list.Kind == ListKind.Library ? ListVersioning.Major : ListVersioning.Off);
+            ?? (template?.Versioning == true ? ListVersioning.Major : ListVersioning.Off);
         db.Lists.Add(list);
         await db.SaveChangesAsync(ct);
         if (template is not null)

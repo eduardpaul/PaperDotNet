@@ -112,7 +112,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public WithItemItemRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}", pathParameters)
+        public WithItemItemRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}{?recursive*}", pathParameters)
         {
         }
         /// <summary>
@@ -120,7 +120,7 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public WithItemItemRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}", rawUrl)
+        public WithItemItemRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}{?recursive*}", rawUrl)
         {
         }
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -128,11 +128,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item
         /// <exception cref="global::PaperDotNet.Client.Models.ApiProblem">When receiving a 4XX or 5XX status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public async Task DeleteAsync(Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task DeleteAsync(Action<RequestConfiguration<global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.WithItemItemRequestBuilder.WithItemItemRequestBuilderDeleteQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #nullable restore
 #else
-        public async Task DeleteAsync(Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task DeleteAsync(Action<RequestConfiguration<global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.WithItemItemRequestBuilder.WithItemItemRequestBuilderDeleteQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #endif
             var requestInfo = ToDeleteRequestInformation(requestConfiguration);
@@ -190,11 +190,11 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public RequestInformation ToDeleteRequestInformation(Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default)
+        public RequestInformation ToDeleteRequestInformation(Action<RequestConfiguration<global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.WithItemItemRequestBuilder.WithItemItemRequestBuilderDeleteQueryParameters>>? requestConfiguration = default)
         {
 #nullable restore
 #else
-        public RequestInformation ToDeleteRequestInformation(Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default)
+        public RequestInformation ToDeleteRequestInformation(Action<RequestConfiguration<global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.WithItemItemRequestBuilder.WithItemItemRequestBuilderDeleteQueryParameters>> requestConfiguration = default)
         {
 #endif
             var requestInfo = new RequestInformation(Method.DELETE, UrlTemplate, PathParameters);
@@ -245,6 +245,16 @@ namespace PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item
         public global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.WithItemItemRequestBuilder WithUrl(string rawUrl)
         {
             return new global::PaperDotNet.Client.V10.Workspaces.Item.Lists.Item.Items.Item.WithItemItemRequestBuilder(rawUrl, RequestAdapter);
+        }
+        [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
+        #pragma warning disable CS1591
+        public partial class WithItemItemRequestBuilderDeleteQueryParameters 
+        #pragma warning restore CS1591
+        {
+            #pragma warning disable CS1591
+            [QueryParameter("recursive")]
+            public bool? Recursive { get; set; }
+            #pragma warning restore CS1591
         }
     }
 }

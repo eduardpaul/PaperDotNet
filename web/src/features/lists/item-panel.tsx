@@ -17,6 +17,7 @@ import { MoveItemDialog } from '@/features/documents/move-dialog';
 import { useItemAccess, useListAccess } from '@/features/list-settings/queries';
 import { AddToFolderDialog } from '@/features/smart-folders/add-dialog';
 import { CreateTaskDialog } from '@/features/tasks/create-task-dialog';
+import { ConfirmDialog } from '@/features/settings/section';
 import { useFormat } from '@/lib/preferences';
 import { ItemForm } from './item-form';
 import { itemQuery, listBuilder } from './queries';
@@ -52,6 +53,7 @@ export function ItemPanel({
   const [moving, setMoving] = useState(false);
   const [classifying, setClassifying] = useState(false);
   const [task, setTask] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const itemAccess = useItemAccess(workspaceId, list.id!, isNew ? '' : itemId);
   const listAccess = useListAccess(workspaceId, list.id!);
   const canWrite = isNew ? listAccess.canContribute : itemAccess.canContribute;
@@ -63,7 +65,13 @@ export function ItemPanel({
     enabled: !isNew && contentTypeOf(list, item?.contentTypeId)?.key === 'event',
   });
   const remove = useMutation({
-    mutationFn: () => listBuilder(workspaceId, list.id!).items.byItemId(itemId).delete(ifMatch(item)),
+    mutationFn: () =>
+      listBuilder(workspaceId, list.id!)
+        .items.byItemId(itemId)
+        .delete({
+          ...ifMatch(item),
+          queryParameters: { recursive: item?.isFolder || undefined },
+        }),
     onSuccess: async () => {
       toast.success('Moved to the recycle bin.');
       onClose();
@@ -113,7 +121,11 @@ export function ItemPanel({
                 <DropdownMenuItem onSelect={() => setClassifying(true)}>
                   <FolderSearch /> Add to smart folder…
                 </DropdownMenuItem>
-                <DropdownMenuItem tone="danger" disabled={!!source?.sourceId} onSelect={() => remove.mutate()}>
+                <DropdownMenuItem
+                  tone="danger"
+                  disabled={!!source?.sourceId}
+                  onSelect={() => (item.isFolder ? setDeleting(true) : remove.mutate())}
+                >
                   <Trash2 /> Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -200,6 +212,16 @@ export function ItemPanel({
             onMoved={onClose}
           />
         )}
+        <ConfirmDialog
+          open={deleting}
+          onOpenChange={setDeleting}
+          title={`Delete folder “${title}”?`}
+          description="This folder and everything inside it will move to the recycle bin. You must have permission to delete every item inside."
+          confirm="Delete folder and contents"
+          busy={remove.isPending}
+          error={remove.error}
+          onConfirm={() => remove.mutate()}
+        />
       </SheetContent>
     </Sheet>
   );

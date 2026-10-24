@@ -104,7 +104,7 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @throws {ApiProblem} error when the service returns a 4XX or 5XX status code
      */
-     delete(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<void>;
+     delete(requestConfiguration?: RequestConfiguration<WithItemItemRequestBuilderDeleteQueryParameters> | undefined) : Promise<void>;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ItemResponse>}
@@ -123,7 +123,7 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
-     toDeleteRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
+     toDeleteRequestInformation(requestConfiguration?: RequestConfiguration<WithItemItemRequestBuilderDeleteQueryParameters> | undefined) : RequestInformation;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
@@ -136,10 +136,13 @@ export interface WithItemItemRequestBuilder extends BaseRequestBuilder<WithItemI
      */
      toPatchRequestInformation(body: UpdateItemRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
 }
+export interface WithItemItemRequestBuilderDeleteQueryParameters {
+    recursive?: boolean;
+}
 /**
  * Uri template for the request builder.
  */
-export const WithItemItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}";
+export const WithItemItemRequestBuilderUriTemplate = "{+baseurl}/v1.0/workspaces/{workspaceId}/lists/{listId}/items/{itemId}{?recursive*}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

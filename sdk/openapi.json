@@ -5414,6 +5414,13 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "recursive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {

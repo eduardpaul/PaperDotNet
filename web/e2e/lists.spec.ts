@@ -1,7 +1,39 @@
 import { expect, test, type Page } from '@playwright/test';
-import { createList, signIn, unique } from './helpers';
+import { adminHeaders, createList, signIn, unique } from './helpers';
 
 test.beforeEach(async ({ page }) => signIn(page));
+
+test('populated folder deletion requires confirmation and recycles every descendant', async ({ page, request }) => {
+  const url = await createList(page, 'Tasks', unique('Folder deletion'));
+  const path = new URL(url).pathname.replace(/\/$/, '');
+  const match = path.match(/\/w\/([^/]+)\/l\/([^/]+)/)!;
+  const apiPath = `/v1.0/workspaces/${match[1]}/lists/${match[2]}/items`;
+  const headers = await adminHeaders(request);
+  const folderName = unique('Parent folder');
+  const childName = unique('Nested task');
+  const folder = await request.post(apiPath, { headers, data: { isFolder: true, fields: { title: folderName } } });
+  expect(folder.status()).toBe(201);
+  const parentId = (await folder.json()).id as string;
+  const child = await request.post(apiPath, { headers, data: { parentId, fields: { title: childName } } });
+  expect(child.status()).toBe(201);
+
+  await page.goto(path);
+  const row = page.getByRole('row', { name: new RegExp(folderName) });
+  await row.getByRole('checkbox').check();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  const confirmation = page.getByRole('alertdialog', { name: 'Delete selected folders and items?' });
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button', { name: 'Cancel' }).click();
+  await expect(row).toBeVisible();
+
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await confirmation.getByRole('button', { name: 'Delete folders and contents' }).click();
+  await expect(confirmation).toBeHidden();
+  await expect(row).toBeHidden();
+  await page.goto(`${path}/recycle-bin`);
+  await expect(page.getByRole('listitem').filter({ hasText: folderName })).toBeVisible();
+  await expect(page.getByRole('listitem').filter({ hasText: childName })).toBeVisible();
+});
 
 async function newTask(page: Page, title: string, priority?: string) {
   await page.getByRole('button', { name: 'New task' }).click();

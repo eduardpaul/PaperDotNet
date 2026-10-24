@@ -47,6 +47,31 @@ public sealed class PermissionTests(PaperDotNetApiFactory factory)
         (await client.QueryTitlesAsync(setup.Workspace, setup.List, "")).Order(StringComparer.Ordinal).ToList();
 
     [Fact]
+    public async Task Recursive_folder_deletion_requires_write_access_to_every_descendant()
+    {
+        var setup = await SetupAsync("perm-delete-tree");
+        var folder = await CreateAsync(setup.Admin, setup, "Team", isFolder: true);
+        var writable = await CreateAsync(setup.Admin, setup, "Shared", folder);
+        var secret = await CreateAsync(setup.Admin, setup, "Restricted", folder);
+        var secretUrl = $"{setup.ListUrl}/items/{secret}";
+        (await setup.Admin.PostAsJsonAsync($"{secretUrl}/permissions/breakInheritance", new { copyGrants = false }, Ct)).EnsureSuccessStatusCode();
+
+        var alice = await AsAsync(setup, "alice");
+        var url = $"{setup.ListUrl}/items/{folder}";
+        var etag = (await alice.GetAsync(url, Ct)).Headers.ETag!.Tag;
+        Assert.Equal(HttpStatusCode.NotFound, (await alice.GetAsync(secretUrl, Ct)).StatusCode);
+        // Even when a child is invisible, ordinary deletion still reports a populated folder.
+        Assert.Equal(HttpStatusCode.Conflict, (await alice.SendWithEtagAsync(HttpMethod.Delete, url, etag)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await alice.SendWithEtagAsync(HttpMethod.Delete, $"{url}?recursive=true", etag)).StatusCode);
+        Assert.Equal(etag, (await alice.GetAsync(url, Ct)).Headers.ETag!.Tag);
+        Assert.Equal(HttpStatusCode.OK, (await alice.GetAsync($"{setup.ListUrl}/items/{writable}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await setup.Admin.GetAsync(secretUrl, Ct)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await setup.Admin.SendWithEtagAsync(HttpMethod.Delete, $"{url}?recursive=true", etag)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await setup.Admin.GetAsync(secretUrl, Ct)).StatusCode);
+    }
+
+    [Fact]
     public async Task Folders_with_unique_permissions_hide_and_protect_their_content()
     {
         var setup = await SetupAsync("perm-folder");

@@ -62,7 +62,6 @@ internal static class HomeEndpoints
                 Name = name,
                 Description = description,
                 Kind = ListKind.Library,
-                Versioning = ListVersioning.Major,
                 SystemKey = key,
                 TemplateKey = BuiltInTemplates.DocumentsListKey,
                 ContentTypeIds = [document.Id],

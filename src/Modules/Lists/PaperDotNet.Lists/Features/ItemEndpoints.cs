@@ -234,7 +234,7 @@ internal static class ItemEndpoints
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> DeleteAsync(
-        Guid workspaceId, Guid listId, Guid itemId, ListSchemaLoader loader, ListsDbContext db, ItemWriter writer,
+        Guid workspaceId, Guid listId, Guid itemId, bool? recursive, ListSchemaLoader loader, ListsDbContext db, ItemWriter writer,
         HttpRequest http, CancellationToken ct)
     {
         var (schema, item, problem) = await LoadForChangeAsync(workspaceId, listId, itemId, loader, db, http, ct);
@@ -245,9 +245,10 @@ internal static class ItemEndpoints
 
         try
         {
-            var result = await writer.DeleteAsync(schema!, item!, ct);
+            var result = await writer.DeleteAsync(schema!, item!, ct, recursive == true);
             return result switch
             {
+                { Forbidden: true } => ListEndpoints.Forbidden(),
                 { Conflict: { } conflict } => ApiErrors.Conflict("folderNotEmpty", conflict),
                 { Cancelled: { } message } => CancelledByMutator(message),
                 _ => TypedResults.NoContent(),
