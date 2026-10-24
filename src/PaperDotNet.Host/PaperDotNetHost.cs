@@ -105,6 +105,16 @@ public static class PaperDotNetHost
         services.AddSingleton<DatabaseMigrator>();
         services.AddScoped<PaperDotNet.Host.Backup.BackupService>();
         services.AddScopeAuthorization();
+        services.AddScopes(PaperDotNet.Host.Content.ContentScopes.All);
+        services.AddSingleton<PaperDotNet.Host.Content.ContentDatabaseFactory>();
+        services.AddScoped<IBackupFolder, PaperDotNet.Host.Content.ContentBackupFolder>();
+        services.AddScoped<PaperDotNet.Host.Content.ContentSession>();
+        services.AddScoped<PaperDotNet.Host.Content.LegacyContentMigration>();
+        services.AddScoped<IContentMigrationState, PaperDotNet.Host.Content.ContentMigrationState>();
+        services.AddScoped<PaperDotNet.Persistence.IModuleDatabaseInterceptor, PaperDotNet.Host.Content.LegacyContentWriteInterceptor>();
+        if (IsPostgreSql(builder.Configuration))
+            services.AddSingleton<PaperDotNet.Persistence.IContentMigrationLock, PaperDotNet.Persistence.PostgreSql.Content.PostgreSqlContentMigrationLock>();
+        else services.AddSingleton<PaperDotNet.Persistence.IContentMigrationLock, PaperDotNet.Persistence.Sqlite.Content.SqliteContentMigrationLock>();
 
         // Registered first: hosted services start in order, so migrations run before
         // Wolverine and the job scheduler touch the database.
@@ -210,10 +220,12 @@ public static class PaperDotNetHost
         app.UsePaperDotNetTenantGuard();
         app.UseAuthorization();
         app.UseRateLimiter();
+        app.Use(PaperDotNet.Host.Content.ContentMigrationMiddleware.InvokeAsync);
 
         app.MapDefaultEndpoints();
         app.MapOpenApi("/openapi/{documentName}.json").AllowAnonymous();
         app.MapGet("/version", () => TypedResults.Ok(new { version = Version })).AllowAnonymous().ExcludeFromDescription();
+        PaperDotNet.Host.Content.ContentEndpoints.Map(app);
         foreach (var module in Modules)
         {
             module.MapEndpoints(app);

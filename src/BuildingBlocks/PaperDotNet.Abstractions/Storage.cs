@@ -35,4 +35,7 @@ public interface IBackupFolder
 
     /// <summary>Closes the folder's files and holds new users until the returned handle is disposed.</summary>
     Task<IAsyncDisposable> FreezeAsync(CancellationToken cancellationToken);
+
+    /// <summary>Called during a stopped restore, after the folder's snapshot files have been replaced.</summary>
+    Task RestoreAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

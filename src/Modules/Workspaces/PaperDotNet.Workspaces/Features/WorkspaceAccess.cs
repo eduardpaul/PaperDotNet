@@ -10,10 +10,11 @@ namespace PaperDotNet.Workspaces.Features;
 /// and holders of <c>workspace.manage</c> administer all of them. Invisible
 /// workspaces return 404, never 403, so their existence isn't leaked.
 /// </summary>
-internal sealed class WorkspaceAccess(ICurrentUser user, IEffectiveScopeProvider scopes, WorkspacesDbContext db) : IWorkspaceAccess
+internal sealed class WorkspaceAccess(ICurrentUser user, IEffectiveScopeProvider scopes, WorkspacesDbContext db, IContentMigrationState? migration = null) : IWorkspaceAccess
 {
     public async Task<WorkspaceAccessLevel> GetPermissionAsync(Guid workspaceId, CancellationToken cancellationToken)
     {
+        if (migration is not null && (await migration.GetMigratedWorkspacesAsync(cancellationToken)).Contains(workspaceId)) return WorkspaceAccessLevel.None;
         if (!await db.Workspaces.AnyAsync(w => w.Id == workspaceId, cancellationToken))
         {
             return WorkspaceAccessLevel.None;
@@ -42,15 +43,16 @@ internal sealed class WorkspaceAccess(ICurrentUser user, IEffectiveScopeProvider
 
     public async Task<IReadOnlyList<WorkspaceMembership>> GetMembershipsAsync(Guid userId, CancellationToken cancellationToken)
     {
+        var migrated = migration is null ? Array.Empty<Guid>() : (await migration.GetMigratedWorkspacesAsync(cancellationToken)).ToArray();
         if ((await scopes.GetScopesAsync(userId, cancellationToken))?.Contains(WorkspaceScopes.Manage) == true)
         {
-            return (await db.Workspaces.AsNoTracking().Select(w => w.Id).ToListAsync(cancellationToken))
+            return (await db.Workspaces.AsNoTracking().Where(w => !migrated.Contains(w.Id)).Select(w => w.Id).ToListAsync(cancellationToken))
                 .Select(id => new WorkspaceMembership(id, WorkspaceAccessLevel.Manage))
                 .ToList();
         }
 
         return (await db.Members.AsNoTracking()
-                .Where(m => m.UserId == userId && db.Workspaces.Any(w => w.Id == m.WorkspaceId))
+                .Where(m => m.UserId == userId && !migrated.Contains(m.WorkspaceId) && db.Workspaces.Any(w => w.Id == m.WorkspaceId))
                 .ToListAsync(cancellationToken))
             .Select(m => new WorkspaceMembership(m.WorkspaceId, LevelOf(m.Role)))
             .ToList();
@@ -99,6 +101,11 @@ internal sealed class WorkspaceAccess(ICurrentUser user, IEffectiveScopeProvider
 
     public async Task<IQueryable<Workspace>> VisibleAsync(IQueryable<Workspace> query, CancellationToken ct)
     {
+        if (migration is not null)
+        {
+            var migrated = (await migration.GetMigratedWorkspacesAsync(ct)).ToArray();
+            query = query.Where(x => !migrated.Contains(x.Id));
+        }
         if (await IsAdministratorAsync(ct))
         {
             return query;

@@ -98,6 +98,7 @@ public sealed class PaperDotNetApiFactory : WebApplicationFactory<Program>, IAsy
         builder.UseEnvironment("Testing");
         builder.UseSetting("Database:Provider", Provider == "sqlite" ? "Sqlite" : "PostgreSql");
         builder.UseSetting("ConnectionStrings:PaperDotNet", _connectionString);
+        if (AdminConnectionString is not null) builder.UseSetting("Content:ProvisioningConnectionString", AdminConnectionString);
         builder.UseSetting("Auth:RequireHttps", "false");
         builder.UseSetting("Auth:PasskeyOrigins:0", "http://localhost");
         builder.UseSetting("Tenancy:AllowHeader", "true");

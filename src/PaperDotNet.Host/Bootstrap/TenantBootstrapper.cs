@@ -67,6 +67,12 @@ internal sealed class StartupBootstrapService(IServiceProvider services, IOption
 
         await using var scope = services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<TenantBootstrapper>().RunAsync(cancellationToken);
+        foreach (var tenant in await scope.ServiceProvider.GetRequiredService<ITenantDirectory>().ListAsync(cancellationToken))
+        {
+            await using var tenantScope = services.GetRequiredService<ITenantScopeFactory>().CreateScope(tenant.Id, tenant.Identifier);
+            await tenantScope.ServiceProvider.GetRequiredService<IRoleProvisioning>().GrantToMembersAsync(
+                PaperDotNet.Host.Content.ContentScopes.All.Where(x => x.GrantedToMembers).Select(x => x.Name).ToArray(), cancellationToken);
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

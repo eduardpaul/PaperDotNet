@@ -14,6 +14,8 @@ import { CalendarFeedsRequestBuilderNavigationMetadata, type CalendarFeedsReques
 // @ts-ignore
 import { ChangeSubscriptionsRequestBuilderNavigationMetadata, ChangeSubscriptionsRequestBuilderRequestsMetadata, type ChangeSubscriptionsRequestBuilder } from './changeSubscriptions/index.js';
 // @ts-ignore
+import { ContentRequestBuilderNavigationMetadata, type ContentRequestBuilder } from './content/index.js';
+// @ts-ignore
 import { ContentTypesRequestBuilderNavigationMetadata, ContentTypesRequestBuilderRequestsMetadata, type ContentTypesRequestBuilder } from './contentTypes/index.js';
 // @ts-ignore
 import { ExtRequestBuilderNavigationMetadata, type ExtRequestBuilder } from './ext/index.js';
@@ -86,6 +88,10 @@ export interface V10RequestBuilder extends BaseRequestBuilder<V10RequestBuilder>
      * The changeSubscriptions property
      */
     get changeSubscriptions(): ChangeSubscriptionsRequestBuilder;
+    /**
+     * The content property
+     */
+    get content(): ContentRequestBuilder;
     /**
      * The contentTypes property
      */
@@ -198,6 +204,9 @@ export const V10RequestBuilderNavigationMetadata: Record<Exclude<keyof V10Reques
     changeSubscriptions: {
         requestsMetadata: ChangeSubscriptionsRequestBuilderRequestsMetadata,
         navigationMetadata: ChangeSubscriptionsRequestBuilderNavigationMetadata,
+    },
+    content: {
+        navigationMetadata: ContentRequestBuilderNavigationMetadata,
     },
     contentTypes: {
         requestsMetadata: ContentTypesRequestBuilderRequestsMetadata,

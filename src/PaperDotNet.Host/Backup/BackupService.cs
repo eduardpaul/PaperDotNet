@@ -43,8 +43,11 @@ public sealed class BackupService(
         path = Path.GetFullPath(path);
         var snapshot = Path.Combine(Path.GetTempPath(), $"pdn_snapshot_{Guid.NewGuid():N}");
         var partial = path + ".partial";
+        var frozenFolders = new List<IAsyncDisposable>();
         try
         {
+            // Capture external databases before enumerating blobs, so every referenced file is included.
+            foreach (var folder in folders) frozenFolders.Add(await folder.FreezeAsync(ct));
             await database.BackupAsync(snapshot, ct);
             var files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
                 .Select(file => Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/'))
@@ -71,7 +74,6 @@ public sealed class BackupService(
 
                 foreach (var folder in folders)
                 {
-                    await using var frozen = await folder.FreezeAsync(ct);
                     if (!Directory.Exists(folder.Path))
                     {
                         continue;
@@ -90,6 +92,7 @@ public sealed class BackupService(
         }
         finally
         {
+            foreach (var frozen in frozenFolders.AsEnumerable().Reverse()) await frozen.DisposeAsync();
             File.Delete(snapshot);
             File.Delete(partial);
         }
@@ -192,6 +195,7 @@ public sealed class BackupService(
             {
                 frozen[folder.Name] = await ClearAsync(folder, ct);
             }
+            foreach (var folder in byName.Values) await folder.RestoreAsync(ct);
         }
         finally
         {

@@ -27,6 +27,19 @@ public sealed class BackupTests(PaperDotNetApiFactory factory)
         await Eventually.WaitForAsync<bool>(async () =>
             (await (await source.GetAsync("/v1.0/search?q=zeppelin", Ct)).ReadJsonAsync()).GetProperty("value").GetArrayLength() == 1 ? true : null);
 
+        // The compatible organization database is independent of module storage and must travel with the archive.
+        var canonicalWorkspaceResponse = await source.PostAsJsonAsync("/v1.0/content/workspaces", new { name = "Published records" }, Ct);
+        canonicalWorkspaceResponse.EnsureSuccessStatusCode();
+        var canonicalWorkspace = (await canonicalWorkspaceResponse.ReadJsonAsync()).GetProperty("id").GetString();
+        var canonicalCollectionResponse = await source.PostAsJsonAsync($"/v1.0/content/workspaces/{canonicalWorkspace}/collections", new { name = "Records" }, Ct);
+        canonicalCollectionResponse.EnsureSuccessStatusCode();
+        var canonicalCollection = (await canonicalCollectionResponse.ReadJsonAsync()).GetProperty("id").GetString();
+        var canonicalSchema = await (await source.GetAsync($"/v1.0/content/collections/{canonicalCollection}", Ct)).ReadJsonAsync();
+        var canonicalType = canonicalSchema.GetProperty("schema").GetProperty("content_types")[0].GetProperty("id").GetString();
+        var canonicalCreated = await source.PostAsJsonAsync($"/v1.0/content/resources/{canonicalCollection}/items", new { content = new { name = "Kept content", contentTypeId = canonicalType, values = new { } } }, Ct);
+        canonicalCreated.EnsureSuccessStatusCode();
+        var canonicalItem = (await canonicalCreated.ReadJsonAsync()).GetProperty("resource").GetProperty("id").GetString();
+
         var archive = Path.Combine(Path.GetTempPath(), $"pdn_backup_{Guid.NewGuid():N}.tar.gz");
         try
         {
@@ -38,6 +51,7 @@ public sealed class BackupTests(PaperDotNetApiFactory factory)
 
             var entries = await EntriesAsync(archive);
             Assert.Contains("manifest.json", entries);
+            Assert.Contains(entries, e => e.StartsWith("folders/content-databases/", StringComparison.Ordinal));
             Assert.Contains(entries, e => e.StartsWith("database.", StringComparison.Ordinal));
             Assert.Contains(entries, e => e.StartsWith("blobs/", StringComparison.Ordinal));
             Assert.DoesNotContain(entries, e => e.Contains("/renders/", StringComparison.Ordinal) || e.Contains(".tmp", StringComparison.Ordinal));
@@ -55,6 +69,11 @@ public sealed class BackupTests(PaperDotNetApiFactory factory)
             }
 
             var restored = await ApiClient.CreateAsync(target, "backup-src");
+            var restoredContentResponse = await restored.GetAsync($"/v1.0/content/items/{canonicalItem}", Ct);
+            restoredContentResponse.EnsureSuccessStatusCode();
+            var restoredContent = await restoredContentResponse.ReadJsonAsync();
+            Assert.Equal("Kept content", restoredContent.GetProperty("resource").GetProperty("name").GetString());
+            Assert.Equal(canonicalItem, restoredContent.GetProperty("resource").GetProperty("id").GetString());
             Assert.Equal(content, await restored.GetByteArrayAsync($"/v1.0/workspaces/{ws}/lists/{list}/items/{item}/file", Ct));
             var hits = await (await restored.GetAsync("/v1.0/search?q=zeppelin", Ct)).ReadJsonAsync();
             Assert.Equal(1, hits.GetProperty("value").GetArrayLength());

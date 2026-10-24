@@ -357,6 +357,7 @@ export interface ApproveRequest extends AdditionalDataHolder, Parsable {
      */
     comment?: string | null;
 }
+export type ArchiveFilter = (typeof ArchiveFilterObject)[keyof typeof ArchiveFilterObject];
 export type AuditAction = (typeof AuditActionObject)[keyof typeof AuditActionObject];
 export interface AuditEntryResponse extends AdditionalDataHolder, Parsable {
     /**
@@ -921,6 +922,260 @@ export interface CommentUpdateRequest extends AdditionalDataHolder, Parsable {
      */
     text?: string | null;
 }
+export interface ContentArchiveRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The archived property
+     */
+    archived?: boolean | null;
+}
+export interface ContentCollectionResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The canManage property
+     */
+    canManage?: boolean | null;
+    /**
+     * The canPublish property
+     */
+    canPublish?: boolean | null;
+    /**
+     * The canReadDraft property
+     */
+    canReadDraft?: boolean | null;
+    /**
+     * The canWrite property
+     */
+    canWrite?: boolean | null;
+    /**
+     * The resource property
+     */
+    resource?: ContentResourceResponse | null;
+    /**
+     * The schema property
+     */
+    schema?: EffectiveSchema | null;
+    /**
+     * The schemaRevisionId property
+     */
+    schemaRevisionId?: string | null;
+}
+export interface ContentGrant extends AdditionalDataHolder, Parsable {
+    /**
+     * The action property
+     */
+    action?: string | null;
+    /**
+     * The principalId property
+     */
+    principalId?: string | null;
+    /**
+     * The principalType property
+     */
+    principalType?: string | null;
+}
+export interface ContentGrantsRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The grants property
+     */
+    grants?: ContentGrant[] | null;
+    /**
+     * The inherit property
+     */
+    inherit?: boolean | null;
+}
+export interface ContentHistoryView extends AdditionalDataHolder, Parsable {
+    /**
+     * The changedFields property
+     */
+    changedFields?: string[] | null;
+    /**
+     * The number property
+     */
+    number?: number | null;
+    /**
+     * The revision property
+     */
+    revision?: ItemRevisionsRow | null;
+    /**
+     * The schema property
+     */
+    schema?: SchemaRevisionsRow | null;
+}
+export interface ContentInput extends AdditionalDataHolder, Parsable {
+    /**
+     * The blobId property
+     */
+    blobId?: string | null;
+    /**
+     * The contentTypeId property
+     */
+    contentTypeId?: string | null;
+    /**
+     * The keywords property
+     */
+    keywords?: string[] | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The values property
+     */
+    values?: UntypedNode | null;
+}
+export interface ContentItemResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The contentTypeId property
+     */
+    contentTypeId?: string | null;
+    /**
+     * The filename property
+     */
+    filename?: string | null;
+    /**
+     * The hasFile property
+     */
+    hasFile?: boolean | null;
+    /**
+     * The isDraft property
+     */
+    isDraft?: boolean | null;
+    /**
+     * The keywords property
+     */
+    keywords?: string[] | null;
+    /**
+     * The resource property
+     */
+    resource?: ContentResourceResponse | null;
+    /**
+     * The revisionId property
+     */
+    revisionId?: string | null;
+    /**
+     * The revisionNumber property
+     */
+    revisionNumber?: number | null;
+    /**
+     * The schema property
+     */
+    schema?: EffectiveSchema | null;
+    /**
+     * The schemaRevisionId property
+     */
+    schemaRevisionId?: string | null;
+    /**
+     * The values property
+     */
+    values?: UntypedNode | null;
+}
+export interface ContentMigrationPreview extends AdditionalDataHolder, Parsable {
+    /**
+     * The alreadyImported property
+     */
+    alreadyImported?: boolean | null;
+    /**
+     * The blockers property
+     */
+    blockers?: string[] | null;
+    /**
+     * The collections property
+     */
+    collections?: number | null;
+    /**
+     * The files property
+     */
+    files?: number | null;
+    /**
+     * The historyEntries property
+     */
+    historyEntries?: number | null;
+    /**
+     * The items property
+     */
+    items?: number | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The sourceHash property
+     */
+    sourceHash?: string | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: string | null;
+}
+export interface ContentMigrationRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The sourceHash property
+     */
+    sourceHash?: string | null;
+}
+export interface ContentResourceResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The archivedAt property
+     */
+    archivedAt?: Date | null;
+    /**
+     * The archivedBy property
+     */
+    archivedBy?: string | null;
+    /**
+     * The containerId property
+     */
+    containerId?: string | null;
+    /**
+     * The id property
+     */
+    id?: string | null;
+    /**
+     * The kind property
+     */
+    kind?: string | null;
+    /**
+     * The maxVersions property
+     */
+    maxVersions?: number | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The parentId property
+     */
+    parentId?: string | null;
+    /**
+     * The publishingEnabled property
+     */
+    publishingEnabled?: boolean | null;
+    /**
+     * The version property
+     */
+    version?: number | null;
+    /**
+     * The versioning property
+     */
+    versioning?: string | null;
+    /**
+     * The workspaceId property
+     */
+    workspaceId?: string | null;
+}
+export interface ContentSettings extends AdditionalDataHolder, Parsable {
+    /**
+     * The maxVersions property
+     */
+    maxVersions?: number | null;
+    /**
+     * The publishingEnabled property
+     */
+    publishingEnabled?: boolean | null;
+    /**
+     * The versioning property
+     */
+    versioning?: string | null;
+}
 export interface ContentTypeRequest extends AdditionalDataHolder, Parsable {
     /**
      * The description property
@@ -1468,6 +1723,129 @@ export function createCommentUpdateRequestFromDiscriminatorValue(parseNode: Pars
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContentArchiveRequest}
+ */
+// @ts-ignore
+export function createContentArchiveRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContentArchiveRequest;
+}
+export interface CreateContentCollectionRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The library property
+     */
+    library?: boolean | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The publishingEnabled property
+     */
+    publishingEnabled?: boolean | null;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContentCollectionResponse}
+ */
+// @ts-ignore
+export function createContentCollectionResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContentCollectionResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContentGrant}
+ */
+// @ts-ignore
+export function createContentGrantFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContentGrant;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContentGrantsRequest}
+ */
+// @ts-ignore
+export function createContentGrantsRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContentGrantsRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContentHistoryView}
+ */
+// @ts-ignore
+export function createContentHistoryViewFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContentHistoryView;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContentInput}
+ */
+// @ts-ignore
+export function createContentInputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContentInput;
+}
+export interface CreateContentItem extends AdditionalDataHolder, Parsable {
+    /**
+     * The content property
+     */
+    content?: ContentInput | null;
+    /**
+     * The folder property
+     */
+    folder?: boolean | null;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContentItemResponse}
+ */
+// @ts-ignore
+export function createContentItemResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContentItemResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContentMigrationPreview}
+ */
+// @ts-ignore
+export function createContentMigrationPreviewFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContentMigrationPreview;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContentMigrationRequest}
+ */
+// @ts-ignore
+export function createContentMigrationRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContentMigrationRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContentResourceResponse}
+ */
+// @ts-ignore
+export function createContentResourceResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContentResourceResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContentSettings}
+ */
+// @ts-ignore
+export function createContentSettingsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContentSettings;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ContentTypeRequest}
  */
 // @ts-ignore
@@ -1482,6 +1860,12 @@ export function createContentTypeRequestFromDiscriminatorValue(parseNode: ParseN
 // @ts-ignore
 export function createContentTypeResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoContentTypeResponse;
+}
+export interface CreateContentWorkspace extends AdditionalDataHolder, Parsable {
+    /**
+     * The name property
+     */
+    name?: string | null;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1518,6 +1902,33 @@ export function createCreateApiTokenRequestFromDiscriminatorValue(parseNode: Par
 // @ts-ignore
 export function createCreateApplicationRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoCreateApplicationRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CreateContentCollectionRequest}
+ */
+// @ts-ignore
+export function createCreateContentCollectionRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCreateContentCollectionRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CreateContentItem}
+ */
+// @ts-ignore
+export function createCreateContentItemFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCreateContentItem;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CreateContentWorkspace}
+ */
+// @ts-ignore
+export function createCreateContentWorkspaceFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCreateContentWorkspace;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1675,6 +2086,15 @@ export function createDuplicateResponseFromDiscriminatorValue(parseNode: ParseNo
 // @ts-ignore
 export function createEditPagesRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoEditPagesRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {EffectiveSchema}
+ */
+// @ts-ignore
+export function createEffectiveSchemaFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoEffectiveSchema;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1971,6 +2391,15 @@ export interface CreateItemRequest extends AdditionalDataHolder, Parsable {
 // @ts-ignore
 export function createItemResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoItemResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ItemRevisionsRow}
+ */
+// @ts-ignore
+export function createItemRevisionsRowFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoItemRevisionsRow;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2621,6 +3050,15 @@ export function createReplaceGrantsRequestFromDiscriminatorValue(parseNode: Pars
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RestoreContentRequest}
+ */
+// @ts-ignore
+export function createRestoreContentRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRestoreContentRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {RoleAssignmentRequest}
  */
 // @ts-ignore
@@ -2676,6 +3114,51 @@ export function createRunResponse_outcomesFromDiscriminatorValue(parseNode: Pars
 // @ts-ignore
 export function createRunResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoRunResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SchemaContentType}
+ */
+// @ts-ignore
+export function createSchemaContentTypeFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSchemaContentType;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SchemaField}
+ */
+// @ts-ignore
+export function createSchemaFieldFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSchemaField;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SchemaFieldOptions}
+ */
+// @ts-ignore
+export function createSchemaFieldOptionsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSchemaFieldOptions;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SchemaRevisionsRow}
+ */
+// @ts-ignore
+export function createSchemaRevisionsRowFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSchemaRevisionsRow;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SchemaRule}
+ */
+// @ts-ignore
+export function createSchemaRuleFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSchemaRule;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -4000,6 +4483,174 @@ export function deserializeIntoCommentUpdateRequest(commentUpdateRequest: Partia
 }
 /**
  * The deserialization information for the current model
+ * @param ContentArchiveRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContentArchiveRequest(contentArchiveRequest: Partial<ContentArchiveRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "archived": n => { contentArchiveRequest.archived = n.getBooleanValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ContentCollectionResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContentCollectionResponse(contentCollectionResponse: Partial<ContentCollectionResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "canManage": n => { contentCollectionResponse.canManage = n.getBooleanValue(); },
+        "canPublish": n => { contentCollectionResponse.canPublish = n.getBooleanValue(); },
+        "canReadDraft": n => { contentCollectionResponse.canReadDraft = n.getBooleanValue(); },
+        "canWrite": n => { contentCollectionResponse.canWrite = n.getBooleanValue(); },
+        "resource": n => { contentCollectionResponse.resource = n.getObjectValue<ContentResourceResponse>(createContentResourceResponseFromDiscriminatorValue); },
+        "schema": n => { contentCollectionResponse.schema = n.getObjectValue<EffectiveSchema>(createEffectiveSchemaFromDiscriminatorValue); },
+        "schemaRevisionId": n => { contentCollectionResponse.schemaRevisionId = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ContentGrant The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContentGrant(contentGrant: Partial<ContentGrant> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "action": n => { contentGrant.action = n.getStringValue(); },
+        "principalId": n => { contentGrant.principalId = n.getStringValue(); },
+        "principalType": n => { contentGrant.principalType = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ContentGrantsRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContentGrantsRequest(contentGrantsRequest: Partial<ContentGrantsRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "grants": n => { contentGrantsRequest.grants = n.getCollectionOfObjectValues<ContentGrant>(createContentGrantFromDiscriminatorValue); },
+        "inherit": n => { contentGrantsRequest.inherit = n.getBooleanValue() ?? false; },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ContentHistoryView The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContentHistoryView(contentHistoryView: Partial<ContentHistoryView> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "changedFields": n => { contentHistoryView.changedFields = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "number": n => { contentHistoryView.number = n.getNumberValue(); },
+        "revision": n => { contentHistoryView.revision = n.getObjectValue<ItemRevisionsRow>(createItemRevisionsRowFromDiscriminatorValue); },
+        "schema": n => { contentHistoryView.schema = n.getObjectValue<SchemaRevisionsRow>(createSchemaRevisionsRowFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ContentInput The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContentInput(contentInput: Partial<ContentInput> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "blobId": n => { contentInput.blobId = n.getStringValue(); },
+        "contentTypeId": n => { contentInput.contentTypeId = n.getStringValue(); },
+        "keywords": n => { contentInput.keywords = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "name": n => { contentInput.name = n.getStringValue(); },
+        "values": n => { contentInput.values = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ContentItemResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContentItemResponse(contentItemResponse: Partial<ContentItemResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "contentTypeId": n => { contentItemResponse.contentTypeId = n.getStringValue(); },
+        "filename": n => { contentItemResponse.filename = n.getStringValue(); },
+        "hasFile": n => { contentItemResponse.hasFile = n.getBooleanValue(); },
+        "isDraft": n => { contentItemResponse.isDraft = n.getBooleanValue(); },
+        "keywords": n => { contentItemResponse.keywords = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "resource": n => { contentItemResponse.resource = n.getObjectValue<ContentResourceResponse>(createContentResourceResponseFromDiscriminatorValue); },
+        "revisionId": n => { contentItemResponse.revisionId = n.getStringValue(); },
+        "revisionNumber": n => { contentItemResponse.revisionNumber = n.getNumberValue(); },
+        "schema": n => { contentItemResponse.schema = n.getObjectValue<EffectiveSchema>(createEffectiveSchemaFromDiscriminatorValue); },
+        "schemaRevisionId": n => { contentItemResponse.schemaRevisionId = n.getStringValue(); },
+        "values": n => { contentItemResponse.values = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ContentMigrationPreview The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContentMigrationPreview(contentMigrationPreview: Partial<ContentMigrationPreview> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "alreadyImported": n => { contentMigrationPreview.alreadyImported = n.getBooleanValue(); },
+        "blockers": n => { contentMigrationPreview.blockers = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "collections": n => { contentMigrationPreview.collections = n.getNumberValue(); },
+        "files": n => { contentMigrationPreview.files = n.getNumberValue(); },
+        "historyEntries": n => { contentMigrationPreview.historyEntries = n.getNumberValue(); },
+        "items": n => { contentMigrationPreview.items = n.getNumberValue(); },
+        "name": n => { contentMigrationPreview.name = n.getStringValue(); },
+        "sourceHash": n => { contentMigrationPreview.sourceHash = n.getStringValue(); },
+        "workspaceId": n => { contentMigrationPreview.workspaceId = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ContentMigrationRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContentMigrationRequest(contentMigrationRequest: Partial<ContentMigrationRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "sourceHash": n => { contentMigrationRequest.sourceHash = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ContentResourceResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContentResourceResponse(contentResourceResponse: Partial<ContentResourceResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "archivedAt": n => { contentResourceResponse.archivedAt = n.getDateValue(); },
+        "archivedBy": n => { contentResourceResponse.archivedBy = n.getStringValue(); },
+        "containerId": n => { contentResourceResponse.containerId = n.getStringValue(); },
+        "id": n => { contentResourceResponse.id = n.getStringValue(); },
+        "kind": n => { contentResourceResponse.kind = n.getStringValue(); },
+        "maxVersions": n => { contentResourceResponse.maxVersions = n.getNumberValue(); },
+        "name": n => { contentResourceResponse.name = n.getStringValue(); },
+        "parentId": n => { contentResourceResponse.parentId = n.getStringValue(); },
+        "publishingEnabled": n => { contentResourceResponse.publishingEnabled = n.getBooleanValue(); },
+        "version": n => { contentResourceResponse.version = n.getNumberValue(); },
+        "versioning": n => { contentResourceResponse.versioning = n.getStringValue(); },
+        "workspaceId": n => { contentResourceResponse.workspaceId = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ContentSettings The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContentSettings(contentSettings: Partial<ContentSettings> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "maxVersions": n => { contentSettings.maxVersions = n.getNumberValue() ?? 50; },
+        "publishingEnabled": n => { contentSettings.publishingEnabled = n.getBooleanValue(); },
+        "versioning": n => { contentSettings.versioning = n.getStringValue() ?? "off"; },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ContentTypeRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -4081,6 +4732,42 @@ export function deserializeIntoCreateApplicationRequest(createApplicationRequest
         "postLogoutRedirectUris": n => { createApplicationRequest.postLogoutRedirectUris = n.getCollectionOfPrimitiveValues<string>("string"); },
         "redirectUris": n => { createApplicationRequest.redirectUris = n.getCollectionOfPrimitiveValues<string>("string"); },
         "scopes": n => { createApplicationRequest.scopes = n.getCollectionOfPrimitiveValues<string>("string"); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CreateContentCollectionRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCreateContentCollectionRequest(createContentCollectionRequest: Partial<CreateContentCollectionRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "library": n => { createContentCollectionRequest.library = n.getBooleanValue() ?? false; },
+        "name": n => { createContentCollectionRequest.name = n.getStringValue(); },
+        "publishingEnabled": n => { createContentCollectionRequest.publishingEnabled = n.getBooleanValue() ?? false; },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CreateContentItem The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCreateContentItem(createContentItem: Partial<CreateContentItem> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "content": n => { createContentItem.content = n.getObjectValue<ContentInput>(createContentInputFromDiscriminatorValue); },
+        "folder": n => { createContentItem.folder = n.getBooleanValue() ?? false; },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CreateContentWorkspace The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCreateContentWorkspace(createContentWorkspace: Partial<CreateContentWorkspace> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "name": n => { createContentWorkspace.name = n.getStringValue(); },
     }
 }
 /**
@@ -4308,6 +4995,19 @@ export function deserializeIntoDuplicateResponse(duplicateResponse: Partial<Dupl
 export function deserializeIntoEditPagesRequest(editPagesRequest: Partial<EditPagesRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "pages": n => { editPagesRequest.pages = n.getCollectionOfObjectValues<PageSpec>(createPageSpecFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param EffectiveSchema The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoEffectiveSchema(effectiveSchema: Partial<EffectiveSchema> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "content_types": n => { effectiveSchema.contentTypes = n.getCollectionOfObjectValues<SchemaContentType>(createSchemaContentTypeFromDiscriminatorValue); },
+        "fields": n => { effectiveSchema.fields = n.getCollectionOfObjectValues<SchemaField>(createSchemaFieldFromDiscriminatorValue); },
+        "rules": n => { effectiveSchema.rules = n.getCollectionOfObjectValues<SchemaRule>(createSchemaRuleFromDiscriminatorValue); },
     }
 }
 /**
@@ -4754,6 +5454,29 @@ export function deserializeIntoItemResponse(itemResponse: Partial<ItemResponse> 
         "parentId": n => { itemResponse.parentId = n.getGuidValue(); },
         "updatedAt": n => { itemResponse.updatedAt = n.getDateValue(); },
         "updatedBy": n => { itemResponse.updatedBy = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ItemRevisionsRow The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoItemRevisionsRow(itemRevisionsRow: Partial<ItemRevisionsRow> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "blobId": n => { itemRevisionsRow.blobId = n.getStringValue(); },
+        "containerId": n => { itemRevisionsRow.containerId = n.getStringValue(); },
+        "contentTypeId": n => { itemRevisionsRow.contentTypeId = n.getStringValue(); },
+        "createdAt": n => { itemRevisionsRow.createdAt = n.getDateValue(); },
+        "createdBy": n => { itemRevisionsRow.createdBy = n.getStringValue(); },
+        "filename": n => { itemRevisionsRow.filename = n.getStringValue(); },
+        "id": n => { itemRevisionsRow.id = n.getStringValue(); },
+        "itemId": n => { itemRevisionsRow.itemId = n.getStringValue(); },
+        "keywords": n => { itemRevisionsRow.keywords = n.getStringValue(); },
+        "name": n => { itemRevisionsRow.name = n.getStringValue(); },
+        "payload": n => { itemRevisionsRow.payload = n.getStringValue(); },
+        "revisionNumber": n => { itemRevisionsRow.revisionNumber = n.getNumberValue(); },
+        "schemaRevisionId": n => { itemRevisionsRow.schemaRevisionId = n.getStringValue(); },
     }
 }
 /**
@@ -5673,6 +6396,17 @@ export function deserializeIntoReplaceGrantsRequest(replaceGrantsRequest: Partia
 }
 /**
  * The deserialization information for the current model
+ * @param RestoreContentRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRestoreContentRequest(restoreContentRequest: Partial<RestoreContentRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "number": n => { restoreContentRequest.number = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param RoleAssignmentRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -5752,6 +6486,96 @@ export function deserializeIntoRunResponse(runResponse: Partial<RunResponse> | u
 // @ts-ignore
 export function deserializeIntoRunResponse_outcomes(runResponse_outcomes: Partial<RunResponse_outcomes> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SchemaContentType The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSchemaContentType(schemaContentType: Partial<SchemaContentType> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "field_keys": n => { schemaContentType.fieldKeys = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "id": n => { schemaContentType.id = n.getStringValue(); },
+        "is_default": n => { schemaContentType.isDefault = n.getBooleanValue() ?? false; },
+        "key": n => { schemaContentType.key = n.getStringValue(); },
+        "name": n => { schemaContentType.name = n.getStringValue(); },
+        "rules": n => { schemaContentType.rules = n.getCollectionOfObjectValues<SchemaRule>(createSchemaRuleFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SchemaField The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSchemaField(schemaField: Partial<SchemaField> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "choices": n => { schemaField.choices = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "definition_id": n => { schemaField.definitionId = n.getStringValue(); },
+        "id": n => { schemaField.id = n.getStringValue(); },
+        "indexed": n => { schemaField.indexed = n.getBooleanValue() ?? false; },
+        "label": n => { schemaField.label = n.getStringValue(); },
+        "options": n => { schemaField.options = n.getObjectValue<SchemaFieldOptions>(createSchemaFieldOptionsFromDiscriminatorValue); },
+        "required": n => { schemaField.required = n.getBooleanValue() ?? false; },
+        "scale": n => { schemaField.scale = n.getNumberValue() ?? 0; },
+        "type": n => { schemaField.type = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SchemaFieldOptions The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSchemaFieldOptions(schemaFieldOptions: Partial<SchemaFieldOptions> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "apply_parents": n => { schemaFieldOptions.applyParents = n.getBooleanValue() ?? false; },
+        "currency_code": n => { schemaFieldOptions.currencyCode = n.getStringValue(); },
+        "default_value": n => { schemaFieldOptions.defaultValue = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+        "description": n => { schemaFieldOptions.description = n.getStringValue(); },
+        "lookup_container_id": n => { schemaFieldOptions.lookupContainerId = n.getStringValue(); },
+        "maximum": n => { schemaFieldOptions.maximum = n.getStringValue(); },
+        "max_length": n => { schemaFieldOptions.maxLength = n.getNumberValue(); },
+        "minimum": n => { schemaFieldOptions.minimum = n.getStringValue(); },
+        "multiple": n => { schemaFieldOptions.multiple = n.getBooleanValue() ?? false; },
+        "search_weight": n => { schemaFieldOptions.searchWeight = n.getStringValue(); },
+        "term_set_id": n => { schemaFieldOptions.termSetId = n.getStringValue(); },
+        "unique": n => { schemaFieldOptions.unique = n.getBooleanValue() ?? false; },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SchemaRevisionsRow The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSchemaRevisionsRow(schemaRevisionsRow: Partial<SchemaRevisionsRow> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "containerId": n => { schemaRevisionsRow.containerId = n.getStringValue(); },
+        "createdAt": n => { schemaRevisionsRow.createdAt = n.getDateValue(); },
+        "createdBy": n => { schemaRevisionsRow.createdBy = n.getStringValue(); },
+        "definition": n => { schemaRevisionsRow.definition = n.getStringValue(); },
+        "id": n => { schemaRevisionsRow.id = n.getStringValue(); },
+        "revisionNumber": n => { schemaRevisionsRow.revisionNumber = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SchemaRule The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSchemaRule(schemaRule: Partial<SchemaRule> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "field": n => { schemaRule.field = n.getStringValue(); },
+        "key": n => { schemaRule.key = n.getStringValue(); },
+        "message": n => { schemaRule.message = n.getStringValue(); },
+        "op": n => { schemaRule.op = n.getStringValue(); },
+        "other_field": n => { schemaRule.otherField = n.getStringValue(); },
+        "when_field": n => { schemaRule.whenField = n.getStringValue(); },
+        "when_value": n => { schemaRule.whenValue = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
     }
 }
 /**
@@ -6652,6 +7476,20 @@ export interface EditPagesRequest extends AdditionalDataHolder, Parsable {
      */
     pages?: PageSpec[] | null;
 }
+export interface EffectiveSchema extends AdditionalDataHolder, Parsable {
+    /**
+     * The content_types property
+     */
+    contentTypes?: SchemaContentType[] | null;
+    /**
+     * The fields property
+     */
+    fields?: SchemaField[] | null;
+    /**
+     * The rules property
+     */
+    rules?: SchemaRule[] | null;
+}
 export interface EventSeriesRequest extends AdditionalDataHolder, Parsable {
     /**
      * The rule property
@@ -7365,6 +8203,60 @@ export interface ItemResponse extends AdditionalDataHolder, Parsable {
      * The updatedBy property
      */
     updatedBy?: Guid | null;
+}
+export interface ItemRevisionsRow extends AdditionalDataHolder, Parsable {
+    /**
+     * The blobId property
+     */
+    blobId?: string | null;
+    /**
+     * The containerId property
+     */
+    containerId?: string | null;
+    /**
+     * The contentTypeId property
+     */
+    contentTypeId?: string | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The createdBy property
+     */
+    createdBy?: string | null;
+    /**
+     * The filename property
+     */
+    filename?: string | null;
+    /**
+     * The id property
+     */
+    id?: string | null;
+    /**
+     * The itemId property
+     */
+    itemId?: string | null;
+    /**
+     * The keywords property
+     */
+    keywords?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The payload property
+     */
+    payload?: string | null;
+    /**
+     * The revisionNumber property
+     */
+    revisionNumber?: number | null;
+    /**
+     * The schemaRevisionId property
+     */
+    schemaRevisionId?: string | null;
 }
 /**
  * A version of an item; `fields` holds the values after that change (including `title`).
@@ -8566,6 +9458,12 @@ export interface ReplaceGrantsRequest extends AdditionalDataHolder, Parsable {
      */
     grants?: PermissionGrantDto[] | null;
 }
+export interface RestoreContentRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The number property
+     */
+    number?: number | null;
+}
 export interface RoleAssignmentRequest extends AdditionalDataHolder, Parsable {
     /**
      * The principalId property
@@ -8712,6 +9610,176 @@ export interface RunResponse extends AdditionalDataHolder, Parsable {
 export interface RunResponse_outcomes extends AdditionalDataHolder, Parsable {
 }
 export type RunStatus = (typeof RunStatusObject)[keyof typeof RunStatusObject];
+export interface SchemaContentType extends AdditionalDataHolder, Parsable {
+    /**
+     * The field_keys property
+     */
+    fieldKeys?: string[] | null;
+    /**
+     * The id property
+     */
+    id?: string | null;
+    /**
+     * The is_default property
+     */
+    isDefault?: boolean | null;
+    /**
+     * The key property
+     */
+    key?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The rules property
+     */
+    rules?: SchemaRule[] | null;
+}
+export interface SchemaField extends AdditionalDataHolder, Parsable {
+    /**
+     * The choices property
+     */
+    choices?: string[] | null;
+    /**
+     * The definition_id property
+     */
+    definitionId?: string | null;
+    /**
+     * The id property
+     */
+    id?: string | null;
+    /**
+     * The indexed property
+     */
+    indexed?: boolean | null;
+    /**
+     * The label property
+     */
+    label?: string | null;
+    /**
+     * The options property
+     */
+    options?: SchemaFieldOptions | null;
+    /**
+     * The required property
+     */
+    required?: boolean | null;
+    /**
+     * The scale property
+     */
+    scale?: number | null;
+    /**
+     * The type property
+     */
+    type?: string | null;
+}
+export interface SchemaFieldOptions extends AdditionalDataHolder, Parsable {
+    /**
+     * The apply_parents property
+     */
+    applyParents?: boolean | null;
+    /**
+     * The currency_code property
+     */
+    currencyCode?: string | null;
+    /**
+     * The default_value property
+     */
+    defaultValue?: UntypedNode | null;
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The lookup_container_id property
+     */
+    lookupContainerId?: string | null;
+    /**
+     * The maximum property
+     */
+    maximum?: string | null;
+    /**
+     * The max_length property
+     */
+    maxLength?: number | null;
+    /**
+     * The minimum property
+     */
+    minimum?: string | null;
+    /**
+     * The multiple property
+     */
+    multiple?: boolean | null;
+    /**
+     * The search_weight property
+     */
+    searchWeight?: string | null;
+    /**
+     * The term_set_id property
+     */
+    termSetId?: string | null;
+    /**
+     * The unique property
+     */
+    unique?: boolean | null;
+}
+export interface SchemaRevisionsRow extends AdditionalDataHolder, Parsable {
+    /**
+     * The containerId property
+     */
+    containerId?: string | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The createdBy property
+     */
+    createdBy?: string | null;
+    /**
+     * The definition property
+     */
+    definition?: string | null;
+    /**
+     * The id property
+     */
+    id?: string | null;
+    /**
+     * The revisionNumber property
+     */
+    revisionNumber?: number | null;
+}
+export interface SchemaRule extends AdditionalDataHolder, Parsable {
+    /**
+     * The field property
+     */
+    field?: string | null;
+    /**
+     * The key property
+     */
+    key?: string | null;
+    /**
+     * The message property
+     */
+    message?: string | null;
+    /**
+     * The op property
+     */
+    op?: string | null;
+    /**
+     * The other_field property
+     */
+    otherField?: string | null;
+    /**
+     * The when_field property
+     */
+    whenField?: string | null;
+    /**
+     * The when_value property
+     */
+    whenValue?: UntypedNode | null;
+}
 export interface ScopeResponse extends AdditionalDataHolder, Parsable {
     /**
      * The description property
@@ -9532,6 +10600,185 @@ export function serializeCommentUpdateRequest(writer: SerializationWriter, comme
 }
 /**
  * Serializes information the current object
+ * @param ContentArchiveRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContentArchiveRequest(writer: SerializationWriter, contentArchiveRequest: Partial<ContentArchiveRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!contentArchiveRequest || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("archived", contentArchiveRequest.archived);
+    writer.writeAdditionalData(contentArchiveRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ContentCollectionResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContentCollectionResponse(writer: SerializationWriter, contentCollectionResponse: Partial<ContentCollectionResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!contentCollectionResponse || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("canManage", contentCollectionResponse.canManage);
+    writer.writeBooleanValue("canPublish", contentCollectionResponse.canPublish);
+    writer.writeBooleanValue("canReadDraft", contentCollectionResponse.canReadDraft);
+    writer.writeBooleanValue("canWrite", contentCollectionResponse.canWrite);
+    writer.writeObjectValue<ContentResourceResponse>("resource", contentCollectionResponse.resource, serializeContentResourceResponse);
+    writer.writeObjectValue<EffectiveSchema>("schema", contentCollectionResponse.schema, serializeEffectiveSchema);
+    writer.writeStringValue("schemaRevisionId", contentCollectionResponse.schemaRevisionId);
+    writer.writeAdditionalData(contentCollectionResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ContentGrant The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContentGrant(writer: SerializationWriter, contentGrant: Partial<ContentGrant> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!contentGrant || isSerializingDerivedType) { return; }
+    writer.writeStringValue("action", contentGrant.action);
+    writer.writeStringValue("principalId", contentGrant.principalId);
+    writer.writeStringValue("principalType", contentGrant.principalType);
+    writer.writeAdditionalData(contentGrant.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ContentGrantsRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContentGrantsRequest(writer: SerializationWriter, contentGrantsRequest: Partial<ContentGrantsRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!contentGrantsRequest || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<ContentGrant>("grants", contentGrantsRequest.grants, serializeContentGrant);
+    writer.writeBooleanValue("inherit", contentGrantsRequest.inherit ?? false);
+    writer.writeAdditionalData(contentGrantsRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ContentHistoryView The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContentHistoryView(writer: SerializationWriter, contentHistoryView: Partial<ContentHistoryView> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!contentHistoryView || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("changedFields", contentHistoryView.changedFields);
+    writer.writeNumberValue("number", contentHistoryView.number);
+    writer.writeObjectValue<ItemRevisionsRow>("revision", contentHistoryView.revision, serializeItemRevisionsRow);
+    writer.writeObjectValue<SchemaRevisionsRow>("schema", contentHistoryView.schema, serializeSchemaRevisionsRow);
+    writer.writeAdditionalData(contentHistoryView.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ContentInput The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContentInput(writer: SerializationWriter, contentInput: Partial<ContentInput> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!contentInput || isSerializingDerivedType) { return; }
+    writer.writeStringValue("blobId", contentInput.blobId);
+    writer.writeStringValue("contentTypeId", contentInput.contentTypeId);
+    writer.writeCollectionOfPrimitiveValues<string>("keywords", contentInput.keywords);
+    writer.writeStringValue("name", contentInput.name);
+    writer.writeObjectValue("values", contentInput.values);
+    writer.writeAdditionalData(contentInput.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ContentItemResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContentItemResponse(writer: SerializationWriter, contentItemResponse: Partial<ContentItemResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!contentItemResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("contentTypeId", contentItemResponse.contentTypeId);
+    writer.writeStringValue("filename", contentItemResponse.filename);
+    writer.writeBooleanValue("hasFile", contentItemResponse.hasFile);
+    writer.writeBooleanValue("isDraft", contentItemResponse.isDraft);
+    writer.writeCollectionOfPrimitiveValues<string>("keywords", contentItemResponse.keywords);
+    writer.writeObjectValue<ContentResourceResponse>("resource", contentItemResponse.resource, serializeContentResourceResponse);
+    writer.writeStringValue("revisionId", contentItemResponse.revisionId);
+    writer.writeNumberValue("revisionNumber", contentItemResponse.revisionNumber);
+    writer.writeObjectValue<EffectiveSchema>("schema", contentItemResponse.schema, serializeEffectiveSchema);
+    writer.writeStringValue("schemaRevisionId", contentItemResponse.schemaRevisionId);
+    writer.writeObjectValue("values", contentItemResponse.values);
+    writer.writeAdditionalData(contentItemResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ContentMigrationPreview The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContentMigrationPreview(writer: SerializationWriter, contentMigrationPreview: Partial<ContentMigrationPreview> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!contentMigrationPreview || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("alreadyImported", contentMigrationPreview.alreadyImported);
+    writer.writeCollectionOfPrimitiveValues<string>("blockers", contentMigrationPreview.blockers);
+    writer.writeNumberValue("collections", contentMigrationPreview.collections);
+    writer.writeNumberValue("files", contentMigrationPreview.files);
+    writer.writeNumberValue("historyEntries", contentMigrationPreview.historyEntries);
+    writer.writeNumberValue("items", contentMigrationPreview.items);
+    writer.writeStringValue("name", contentMigrationPreview.name);
+    writer.writeStringValue("sourceHash", contentMigrationPreview.sourceHash);
+    writer.writeStringValue("workspaceId", contentMigrationPreview.workspaceId);
+    writer.writeAdditionalData(contentMigrationPreview.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ContentMigrationRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContentMigrationRequest(writer: SerializationWriter, contentMigrationRequest: Partial<ContentMigrationRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!contentMigrationRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("sourceHash", contentMigrationRequest.sourceHash);
+    writer.writeAdditionalData(contentMigrationRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ContentResourceResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContentResourceResponse(writer: SerializationWriter, contentResourceResponse: Partial<ContentResourceResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!contentResourceResponse || isSerializingDerivedType) { return; }
+    writer.writeDateValue("archivedAt", contentResourceResponse.archivedAt);
+    writer.writeStringValue("archivedBy", contentResourceResponse.archivedBy);
+    writer.writeStringValue("containerId", contentResourceResponse.containerId);
+    writer.writeStringValue("id", contentResourceResponse.id);
+    writer.writeStringValue("kind", contentResourceResponse.kind);
+    writer.writeNumberValue("maxVersions", contentResourceResponse.maxVersions);
+    writer.writeStringValue("name", contentResourceResponse.name);
+    writer.writeStringValue("parentId", contentResourceResponse.parentId);
+    writer.writeBooleanValue("publishingEnabled", contentResourceResponse.publishingEnabled);
+    writer.writeNumberValue("version", contentResourceResponse.version);
+    writer.writeStringValue("versioning", contentResourceResponse.versioning);
+    writer.writeStringValue("workspaceId", contentResourceResponse.workspaceId);
+    writer.writeAdditionalData(contentResourceResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ContentSettings The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContentSettings(writer: SerializationWriter, contentSettings: Partial<ContentSettings> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!contentSettings || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("maxVersions", contentSettings.maxVersions ?? 50);
+    writer.writeBooleanValue("publishingEnabled", contentSettings.publishingEnabled);
+    writer.writeStringValue("versioning", contentSettings.versioning ?? "off");
+    writer.writeAdditionalData(contentSettings.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param ContentTypeRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -9620,6 +10867,45 @@ export function serializeCreateApplicationRequest(writer: SerializationWriter, c
     writer.writeCollectionOfPrimitiveValues<string>("redirectUris", createApplicationRequest.redirectUris);
     writer.writeCollectionOfPrimitiveValues<string>("scopes", createApplicationRequest.scopes);
     writer.writeAdditionalData(createApplicationRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CreateContentCollectionRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCreateContentCollectionRequest(writer: SerializationWriter, createContentCollectionRequest: Partial<CreateContentCollectionRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!createContentCollectionRequest || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("library", createContentCollectionRequest.library ?? false);
+    writer.writeStringValue("name", createContentCollectionRequest.name);
+    writer.writeBooleanValue("publishingEnabled", createContentCollectionRequest.publishingEnabled ?? false);
+    writer.writeAdditionalData(createContentCollectionRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CreateContentItem The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCreateContentItem(writer: SerializationWriter, createContentItem: Partial<CreateContentItem> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!createContentItem || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<ContentInput>("content", createContentItem.content, serializeContentInput);
+    writer.writeBooleanValue("folder", createContentItem.folder ?? false);
+    writer.writeAdditionalData(createContentItem.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CreateContentWorkspace The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCreateContentWorkspace(writer: SerializationWriter, createContentWorkspace: Partial<CreateContentWorkspace> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!createContentWorkspace || isSerializingDerivedType) { return; }
+    writer.writeStringValue("name", createContentWorkspace.name);
+    writer.writeAdditionalData(createContentWorkspace.additionalData);
 }
 /**
  * Serializes information the current object
@@ -9863,6 +11149,20 @@ export function serializeEditPagesRequest(writer: SerializationWriter, editPages
     if (!editPagesRequest || isSerializingDerivedType) { return; }
     writer.writeCollectionOfObjectValues<PageSpec>("pages", editPagesRequest.pages, serializePageSpec);
     writer.writeAdditionalData(editPagesRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param EffectiveSchema The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeEffectiveSchema(writer: SerializationWriter, effectiveSchema: Partial<EffectiveSchema> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!effectiveSchema || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<SchemaContentType>("content_types", effectiveSchema.contentTypes, serializeSchemaContentType);
+    writer.writeCollectionOfObjectValues<SchemaField>("fields", effectiveSchema.fields, serializeSchemaField);
+    writer.writeCollectionOfObjectValues<SchemaRule>("rules", effectiveSchema.rules, serializeSchemaRule);
+    writer.writeAdditionalData(effectiveSchema.additionalData);
 }
 /**
  * Serializes information the current object
@@ -10338,6 +11638,30 @@ export function serializeItemResponse(writer: SerializationWriter, itemResponse:
     writer.writeDateValue("updatedAt", itemResponse.updatedAt);
     writer.writeGuidValue("updatedBy", itemResponse.updatedBy);
     writer.writeAdditionalData(itemResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ItemRevisionsRow The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeItemRevisionsRow(writer: SerializationWriter, itemRevisionsRow: Partial<ItemRevisionsRow> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!itemRevisionsRow || isSerializingDerivedType) { return; }
+    writer.writeStringValue("blobId", itemRevisionsRow.blobId);
+    writer.writeStringValue("containerId", itemRevisionsRow.containerId);
+    writer.writeStringValue("contentTypeId", itemRevisionsRow.contentTypeId);
+    writer.writeDateValue("createdAt", itemRevisionsRow.createdAt);
+    writer.writeStringValue("createdBy", itemRevisionsRow.createdBy);
+    writer.writeStringValue("filename", itemRevisionsRow.filename);
+    writer.writeStringValue("id", itemRevisionsRow.id);
+    writer.writeStringValue("itemId", itemRevisionsRow.itemId);
+    writer.writeStringValue("keywords", itemRevisionsRow.keywords);
+    writer.writeStringValue("name", itemRevisionsRow.name);
+    writer.writeStringValue("payload", itemRevisionsRow.payload);
+    writer.writeNumberValue("revisionNumber", itemRevisionsRow.revisionNumber);
+    writer.writeStringValue("schemaRevisionId", itemRevisionsRow.schemaRevisionId);
+    writer.writeAdditionalData(itemRevisionsRow.additionalData);
 }
 /**
  * Serializes information the current object
@@ -11325,6 +12649,18 @@ export function serializeReplaceGrantsRequest(writer: SerializationWriter, repla
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RestoreContentRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRestoreContentRequest(writer: SerializationWriter, restoreContentRequest: Partial<RestoreContentRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!restoreContentRequest || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("number", restoreContentRequest.number);
+    writer.writeAdditionalData(restoreContentRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param RoleAssignmentRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -11409,6 +12745,101 @@ export function serializeRunResponse(writer: SerializationWriter, runResponse: P
 export function serializeRunResponse_outcomes(writer: SerializationWriter, runResponse_outcomes: Partial<RunResponse_outcomes> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!runResponse_outcomes || isSerializingDerivedType) { return; }
     writer.writeAdditionalData(runResponse_outcomes.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SchemaContentType The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSchemaContentType(writer: SerializationWriter, schemaContentType: Partial<SchemaContentType> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!schemaContentType || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("field_keys", schemaContentType.fieldKeys);
+    writer.writeStringValue("id", schemaContentType.id);
+    writer.writeBooleanValue("is_default", schemaContentType.isDefault ?? false);
+    writer.writeStringValue("key", schemaContentType.key);
+    writer.writeStringValue("name", schemaContentType.name);
+    writer.writeCollectionOfObjectValues<SchemaRule>("rules", schemaContentType.rules, serializeSchemaRule);
+    writer.writeAdditionalData(schemaContentType.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SchemaField The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSchemaField(writer: SerializationWriter, schemaField: Partial<SchemaField> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!schemaField || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("choices", schemaField.choices);
+    writer.writeStringValue("definition_id", schemaField.definitionId);
+    writer.writeStringValue("id", schemaField.id);
+    writer.writeBooleanValue("indexed", schemaField.indexed ?? false);
+    writer.writeStringValue("label", schemaField.label);
+    writer.writeObjectValue<SchemaFieldOptions>("options", schemaField.options, serializeSchemaFieldOptions);
+    writer.writeBooleanValue("required", schemaField.required ?? false);
+    writer.writeNumberValue("scale", schemaField.scale ?? 0);
+    writer.writeStringValue("type", schemaField.type);
+    writer.writeAdditionalData(schemaField.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SchemaFieldOptions The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSchemaFieldOptions(writer: SerializationWriter, schemaFieldOptions: Partial<SchemaFieldOptions> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!schemaFieldOptions || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("apply_parents", schemaFieldOptions.applyParents ?? false);
+    writer.writeStringValue("currency_code", schemaFieldOptions.currencyCode);
+    writer.writeObjectValue("default_value", schemaFieldOptions.defaultValue);
+    writer.writeStringValue("description", schemaFieldOptions.description);
+    writer.writeStringValue("lookup_container_id", schemaFieldOptions.lookupContainerId);
+    writer.writeStringValue("maximum", schemaFieldOptions.maximum);
+    writer.writeNumberValue("max_length", schemaFieldOptions.maxLength);
+    writer.writeStringValue("minimum", schemaFieldOptions.minimum);
+    writer.writeBooleanValue("multiple", schemaFieldOptions.multiple ?? false);
+    writer.writeStringValue("search_weight", schemaFieldOptions.searchWeight);
+    writer.writeStringValue("term_set_id", schemaFieldOptions.termSetId);
+    writer.writeBooleanValue("unique", schemaFieldOptions.unique ?? false);
+    writer.writeAdditionalData(schemaFieldOptions.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SchemaRevisionsRow The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSchemaRevisionsRow(writer: SerializationWriter, schemaRevisionsRow: Partial<SchemaRevisionsRow> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!schemaRevisionsRow || isSerializingDerivedType) { return; }
+    writer.writeStringValue("containerId", schemaRevisionsRow.containerId);
+    writer.writeDateValue("createdAt", schemaRevisionsRow.createdAt);
+    writer.writeStringValue("createdBy", schemaRevisionsRow.createdBy);
+    writer.writeStringValue("definition", schemaRevisionsRow.definition);
+    writer.writeStringValue("id", schemaRevisionsRow.id);
+    writer.writeNumberValue("revisionNumber", schemaRevisionsRow.revisionNumber);
+    writer.writeAdditionalData(schemaRevisionsRow.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SchemaRule The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSchemaRule(writer: SerializationWriter, schemaRule: Partial<SchemaRule> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!schemaRule || isSerializingDerivedType) { return; }
+    writer.writeStringValue("field", schemaRule.field);
+    writer.writeStringValue("key", schemaRule.key);
+    writer.writeStringValue("message", schemaRule.message);
+    writer.writeStringValue("op", schemaRule.op);
+    writer.writeStringValue("other_field", schemaRule.otherField);
+    writer.writeStringValue("when_field", schemaRule.whenField);
+    writer.writeObjectValue("when_value", schemaRule.whenValue);
+    writer.writeAdditionalData(schemaRule.additionalData);
 }
 /**
  * Serializes information the current object
@@ -13535,6 +14966,11 @@ export const ApprovalStatusObject = {
     Approved: "approved",
     Rejected: "rejected",
     Cancelled: "cancelled",
+} as const;
+export const ArchiveFilterObject = {
+    Active: "active",
+    Archived: "archived",
+    All: "all",
 } as const;
 export const AuditActionObject = {
     Created: "created",

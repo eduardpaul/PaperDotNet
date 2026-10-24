@@ -93,7 +93,7 @@ internal sealed class ListAccess(Guid listId, bool fullControl, IReadOnlyDiction
 }
 
 /// <summary>Loads a list schema with the user's access; null (404) when the list is not visible.</summary>
-internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess workspaces, ItemAccess access)
+internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess workspaces, ItemAccess access, IContentMigrationState? migration = null)
 {
     public async Task<ListSchema?> LoadAsync(Guid workspaceId, Guid listId, CancellationToken ct, bool tracking = false)
     {
@@ -136,6 +136,11 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
         }
 
         var lists = await db.Lists.AsNoTracking().Where(l => EF.Parameter(ids).Contains(l.Id)).ToListAsync(ct);
+        if (migration is not null)
+        {
+            var migrated = await migration.GetMigratedWorkspacesAsync(ct);
+            lists.RemoveAll(x => migrated.Contains(x.WorkspaceId));
+        }
         var typeIds = lists.SelectMany(l => l.ContentTypeIds).Distinct().ToArray();
         var contentTypes = await db.ContentTypes.AsNoTracking().Where(c => EF.Parameter(typeIds).Contains(c.Id)).ToListAsync(ct);
         if (system)
@@ -162,6 +167,7 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
     /// <summary>Loads a list of the current tenant with full control, without checking the user (system work).</summary>
     public async Task<ListSchema?> LoadAsSystemAsync(Guid workspaceId, Guid listId, CancellationToken ct, bool tracking = false)
     {
+        if (migration is not null && (await migration.GetMigratedWorkspacesAsync(ct)).Contains(workspaceId)) return null;
         var lists = tracking ? db.Lists : db.Lists.AsNoTracking();
         var list = await lists.FirstOrDefaultAsync(l => l.Id == listId && l.WorkspaceId == workspaceId, ct);
         if (list is null)
@@ -216,7 +222,8 @@ internal sealed class ListSchemaLoader(ListsDbContext db, IWorkspaceAccess works
 /// <see cref="AccessCacheTags.Principals"/> when groups, roles or workspace memberships change.
 /// </summary>
 internal sealed class ItemAccess(
-    ListsDbContext db, IUserDirectory users, IWorkspaceAccess workspaces, ICurrentUser user, ITenantContext tenant, HybridCache cache) : IItemAccess
+    ListsDbContext db, IUserDirectory users, IWorkspaceAccess workspaces, ICurrentUser user, ITenantContext tenant, HybridCache cache,
+    IContentMigrationState? migration = null) : IItemAccess
 {
     private static readonly HybridCacheEntryOptions CacheOptions = new() { Expiration = TimeSpan.FromMinutes(1) };
     private Guid[]? principals;
@@ -255,6 +262,11 @@ internal sealed class ItemAccess(
         }
 
         var entries = db.AclEntries.AsNoTracking().Where(e => EF.Parameter(ids).Contains(e.PrincipalId));
+        if (migration is not null)
+        {
+            var migrated = (await migration.GetMigratedWorkspacesAsync(cancellationToken)).ToArray();
+            entries = entries.Where(x => !migrated.Contains(x.WorkspaceId));
+        }
         if (listIds is { Count: 1 })
         {
             var listId = listIds.First();

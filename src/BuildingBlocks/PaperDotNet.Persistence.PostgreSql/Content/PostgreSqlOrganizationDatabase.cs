@@ -5,6 +5,15 @@ namespace PaperDotNet.Persistence.PostgreSql.Content;
 /// <summary>One physical PaperGo organization database per tenant, owned by the application role.</summary>
 public static class PostgreSqlOrganizationDatabase
 {
+    public static async Task DeleteAsync(string provisioningConnection, Guid tenantId, CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(provisioningConnection);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        using var quotes = new NpgsqlCommandBuilder();
+        command.CommandText = "DROP DATABASE IF EXISTS " + quotes.QuoteIdentifier("pdn_content_" + tenantId.ToString("N")) + " WITH (FORCE)";
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
     public static async Task<bool> ExistsAsync(string applicationConnection, Guid tenantId, CancellationToken cancellationToken)
     {
         await using var connection = new NpgsqlConnection(applicationConnection);

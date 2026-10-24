@@ -8,6 +8,7 @@ using PaperDotNet.Client.V10.Auth;
 using PaperDotNet.Client.V10.Batch;
 using PaperDotNet.Client.V10.CalendarFeeds;
 using PaperDotNet.Client.V10.ChangeSubscriptions;
+using PaperDotNet.Client.V10.Content;
 using PaperDotNet.Client.V10.ContentTypes;
 using PaperDotNet.Client.V10.Ext;
 using PaperDotNet.Client.V10.Extensions;
@@ -70,6 +71,11 @@ namespace PaperDotNet.Client.V10
         public global::PaperDotNet.Client.V10.ChangeSubscriptions.ChangeSubscriptionsRequestBuilder ChangeSubscriptions
         {
             get => new global::PaperDotNet.Client.V10.ChangeSubscriptions.ChangeSubscriptionsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The content property</summary>
+        public global::PaperDotNet.Client.V10.Content.ContentRequestBuilder Content
+        {
+            get => new global::PaperDotNet.Client.V10.Content.ContentRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The contentTypes property</summary>
         public global::PaperDotNet.Client.V10.ContentTypes.ContentTypesRequestBuilder ContentTypes
