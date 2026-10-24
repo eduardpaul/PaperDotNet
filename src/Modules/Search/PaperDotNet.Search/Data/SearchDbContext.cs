@@ -135,7 +135,7 @@ public sealed class SearchDbContext(DbContextOptions<SearchDbContext> options, I
             b.Property(d => d.SourceType).HasMaxLength(50);
             b.Property(d => d.Title).HasMaxLength(1024);
             b.HasIndex(d => new { d.TenantId, d.ContainerId });
-            b.HasIndex(d => new { d.ScopeId, d.Id });
+            b.HasIndex(d => d.ScopeId);
             b.Property(d => d.Language).HasMaxLength(20);
             b.HasFullTextIndex(nameof(SearchDocument.Title), nameof(SearchDocument.Keywords), nameof(SearchDocument.Body));
             b.HasFullTextLanguage(nameof(SearchDocument.Language));

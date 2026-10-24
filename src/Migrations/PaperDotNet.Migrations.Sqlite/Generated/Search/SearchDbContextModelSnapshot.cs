@@ -157,11 +157,11 @@ namespace PaperDotNet.Migrations.Sqlite.Generated.Search
                     b.HasKey("Id")
                         .HasName("pk_search_documents");
 
+                    b.HasIndex("ScopeId")
+                        .HasDatabaseName("ix_search_documents_scope_id");
+
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_search_documents_tenant_id");
-
-                    b.HasIndex("ScopeId", "Id")
-                        .HasDatabaseName("ix_search_documents_scope_id_id");
 
                     b.HasIndex("TenantId", "ContainerId")
                         .HasDatabaseName("ix_search_documents_tenant_id_container_id");
