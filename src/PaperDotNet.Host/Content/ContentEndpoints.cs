@@ -89,10 +89,9 @@ internal static class ContentEndpoints
     private static async Task<Ok<ContentResourceResponse>> CreateCollectionAsync(string id, CreateContentCollectionRequest body, ContentSession session, HttpResponse response, CancellationToken ct)
     {
         await session.OpenAsync(ct);
-        var row = await session.Store.CreateCollectionAsync(session.Actor, id, body.Name, body.Library, body.PublishingEnabled, cancellationToken: ct);
         var typeId = Guid.CreateVersion7().ToString();
-        await session.Store.RecordSchemaAsync(session.Actor, row.Id, row.Version,
-            new EffectiveSchema([], [new SchemaContentType(typeId, "item", "Item", [], true)]), ct);
+        var row = await session.Store.CreateCollectionAsync(session.Actor, id, body.Name,
+            new EffectiveSchema([], [new SchemaContentType(typeId, "item", "Item", [], true)]), body.Library, body.PublishingEnabled, ct);
         Stamp(response, row.Version);
         return TypedResults.Ok(ContentResourceResponse.From(row));
     }

@@ -33,38 +33,71 @@ public sealed partial class ContentStore(ContentDbContext db, IContentAuthorizat
             };
             await authorization.AuthorizeAsync(actor, resource, "manage", ct);
             db.Resources.Add(resource);
-            db.Set<GrantsRow>().Add(new GrantsRow { Id = NewId(), CreatedAt = Now, ResourceId = resource.Id,
-                PrincipalType = "user", PrincipalId = actor, Action = "manage" });
+            db.Set<GrantsRow>().Add(new GrantsRow
+            {
+                Id = NewId(),
+                CreatedAt = Now,
+                ResourceId = resource.Id,
+                PrincipalType = "user",
+                PrincipalId = actor,
+                Action = "manage"
+            });
             return resource;
         }, cancellationToken);
 
     public Task<ResourcesRow> CreateCollectionAsync(string actor, string workspaceId, string name, bool library = false,
         bool publishingEnabled = false, string versioning = "off", long maxVersions = 50, CancellationToken cancellationToken = default) =>
+        WriteAsync(workspaceId, ct => CreateCollectionInTransactionAsync(actor, workspaceId, name, library, publishingEnabled, versioning, maxVersions, ct), cancellationToken);
+
+    /// <summary>Creates the collection and its first effective schema in one transaction.</summary>
+    public Task<ResourcesRow> CreateCollectionAsync(string actor, string workspaceId, string name, EffectiveSchema initialSchema,
+        bool library = false, bool publishingEnabled = false, CancellationToken cancellationToken = default) =>
         WriteAsync(workspaceId, async ct =>
         {
-            ValidateName(name);
-            ValidateHistory(versioning, maxVersions);
-            var workspace = await RequireAsync(actor, workspaceId, "manage", ct);
-            if (workspace.Kind != "workspace") throw new InvalidOperationException("Collections require a workspace.");
-            var resource = new ResourcesRow
+            var collection = await CreateCollectionInTransactionAsync(actor, workspaceId, name, library, publishingEnabled, "off", 50, ct);
+            await db.SaveChangesAsync(ct);
+            var definition = await SaveCatalogAsync(collection, initialSchema, ct);
+            var revision = new SchemaRevisionsRow
             {
                 Id = NewId(),
-                WorkspaceId = workspace.Id,
-                ParentId = workspace.Id,
-                ScopeId = workspace.ScopeId ?? workspace.Id,
-                Kind = library ? "library" : "list",
-                Name = name,
-                PublishingEnabled = publishingEnabled,
-                Versioning = versioning,
-                MaxVersions = maxVersions,
+                ContainerId = collection.Id,
                 CreatedAt = Now,
-                UpdatedAt = Now,
                 CreatedBy = actor,
-                UpdatedBy = actor
+                RevisionNumber = 1,
+                Definition = Encode(definition)
             };
-            db.Resources.Add(resource);
-            return resource;
+            db.SchemaRevisions.Add(revision);
+            await db.SaveChangesAsync(ct);
+            collection.SchemaHeadId = revision.Id;
+            return collection;
         }, cancellationToken);
+
+    private async Task<ResourcesRow> CreateCollectionInTransactionAsync(string actor, string workspaceId, string name, bool library,
+        bool publishingEnabled, string versioning, long maxVersions, CancellationToken ct)
+    {
+        ValidateName(name);
+        ValidateHistory(versioning, maxVersions);
+        var workspace = await RequireAsync(actor, workspaceId, "manage", ct);
+        if (workspace.Kind != "workspace") throw new InvalidOperationException("Collections require a workspace.");
+        var resource = new ResourcesRow
+        {
+            Id = NewId(),
+            WorkspaceId = workspace.Id,
+            ParentId = workspace.Id,
+            ScopeId = workspace.ScopeId ?? workspace.Id,
+            Kind = library ? "library" : "list",
+            Name = name,
+            PublishingEnabled = publishingEnabled,
+            Versioning = versioning,
+            MaxVersions = maxVersions,
+            CreatedAt = Now,
+            UpdatedAt = Now,
+            CreatedBy = actor,
+            UpdatedBy = actor
+        };
+        db.Resources.Add(resource);
+        return resource;
+    }
 
     public Task<SchemaRevisionsRow> RecordSchemaAsync(string actor, string collectionId, long expectedVersion,
         EffectiveSchema definition, CancellationToken cancellationToken = default) =>

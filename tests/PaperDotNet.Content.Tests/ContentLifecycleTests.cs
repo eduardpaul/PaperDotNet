@@ -21,6 +21,21 @@ public sealed class ContentLifecycleTests(ContentFixture fixture) : IClassFixtur
     }
 
     [Fact]
+    public async Task Collection_and_initial_schema_commit_together_or_roll_back_together()
+    {
+        await using var db = await fixture.OpenAsync();
+        var store = new ContentStore(db, new TestAuthorization());
+        var workspace = await store.CreateWorkspaceAsync("admin", "Workspace", Ct);
+        await Assert.ThrowsAsync<ArgumentException>(() => store.CreateCollectionAsync("admin", workspace.Id, "Invalid", new EffectiveSchema([], []), cancellationToken: Ct));
+        Assert.Equal(1, await db.Resources.CountAsync(Ct));
+        Assert.Empty(await db.SchemaRevisions.ToListAsync(Ct));
+        var collection = await store.CreateCollectionAsync("admin", workspace.Id, "Valid", BasicSchema, cancellationToken: Ct);
+        Assert.NotNull(collection.SchemaHeadId);
+        Assert.Equal(1, collection.Version);
+        Assert.Equal(collection.Id, (await db.SchemaRevisions.SingleAsync(Ct)).ContainerId);
+    }
+
+    [Fact]
     public async Task Drafts_publish_edits_unpublish_and_republish_keep_independent_surfaces()
     {
         await using var db = await fixture.OpenAsync();
