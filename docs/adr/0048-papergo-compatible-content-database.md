@@ -59,13 +59,26 @@ records attribution and does not impersonate a user or enforce their grants.
 Consumers of `ContentStore` must supply `IContentAuthorization`, including
 independent `read_draft` and `publish` checks.
 
-The existing HTTP API, UI, search consumers and background jobs still use
-module storage. They have not been rerouted to this database. This change
-provides compatible EF storage and executable lifecycle operations; it does
-not declare complete application interchangeability. An existing installation
-needs an explicit data migration and consumer integration before switching
-its web host. Database compatibility also does not provide a shared blob
-store, extension runtime, deployment configuration, or authentication setup.
+The authenticated `/v1.0/content` API and Content screen use these organization
+databases. They resolve the tenant from the authenticated platform request,
+require an active user, enforce HTTP/token scopes and independent resource
+grants, and require ETags for mutations. Published downloads use the blob and
+filename frozen in the selected revision. Numeric fields cross JavaScript
+boundaries as strings without changing their stored PaperGo types.
+
+Existing module workspaces use a reviewed preview/import flow, preserving IDs,
+metadata history, taxonomy, grants and file references. A source fingerprint and
+provider lock protect cutover; the destination copy commits atomically. Legacy
+readers, search and tracked writers stop serving migrated content. Historical
+schemas that the old store never retained cannot be reconstructed. Other module
+records (comments, tasks, calendars, workflow runs and processing artifacts) are
+retained in module storage and are not connected to imported content.
+
+Organization databases are included in installation backup/restore. Native
+workflow/event dispatch, snapshot/blob reclamation, rich indexed search and
+package/delta integration remain open. This is compatible EF storage with an
+authenticated content application; it does not certify complete application
+interchangeability or shared authentication/deployment/blob-store configuration.
 
 ## Verification
 

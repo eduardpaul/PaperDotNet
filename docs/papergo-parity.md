@@ -22,7 +22,7 @@ Functional parity means a user can accomplish the same job, with equivalent
 visibility, permissions, defaults, lifecycle and failure behavior. It does not
 require identical HTTP paths, JSON names, UUID/subject formats, cursor encoding,
 environment variables or deployment internals. Cross-application package or
-database compatibility is a separate contract. [ADR-0048](adr/0048-papergo-compatible-content-database.md) now pins a compatible EF organization database and lifecycle engine; existing HTTP/UI consumers still use module storage.
+database compatibility is a separate contract. [ADR-0048](adr/0048-papergo-compatible-content-database.md) now pins a compatible EF organization database and lifecycle engine; the Content API/UI use it; older module consumers require explicit migration and further integration.
 
 Statuses: **Implemented** identifies changes delivered by this alignment work;
 **Mapped** means implementations exist in both and still require common
@@ -35,9 +35,10 @@ PaperDotNet. An area marked Mapped is not certified interchangeable.
 The compatible content engine maps all 64 pinned PaperGo tables through EF Core,
 uses exact provider migrations and the reference fingerprint, and implements
 schema/content revisions, optional history, draft/published projections,
-publish/unpublish, metadata restore and archive/unarchive. It is available through
-local administrator commands; the existing modular web API, UI and workers still
-need integration. See [the database guide](papergo-database.md) for the exact
+publish/unpublish, metadata restore and archive/unarchive. It is available through local administrator commands, the authenticated Content
+API and the Content UI. Preview/import switches existing document/list workspaces
+and blocks stale module reads/writes. Native workers, rich search, delta and
+packages still need integration. See [the database guide](papergo-database.md) for the exact
 boundary, tests and interoperability probe. Do not apply module migrations to a
 compatible organization database.
 
@@ -49,10 +50,10 @@ compatible organization database.
 | LIFE-02 | History off by default for new lists/libraries; explicit opt-in (`backlog.md`, ISSUE-09; collection creation) | **Implemented** for metadata history through native creation, Documents templates, Home libraries and XML provisioning. Existing settings and explicit opt-in are retained. File-byte versions remain independent. Tests: `HistoryTests`, `DocumentTests`. |
 | LIFE-03 | Explicit atomic populated-folder deletion (`docs/architecture.md`) | **Implemented**: `DELETE .../items/{id}?recursive=true`; ordinary deletion still rejects populated folders. Every descendant must be writable; a deletion hook veto aborts the complete selection. Tests: `FolderDeletionTests`, `PermissionTests`. |
 | LIFE-04 | Recursive recovery of entries from the same folder-deletion operation (`internal/dms`, recycle bin) | **Partial**: the recycle bin restores individual entries, preserving identity/history; restore ancestors before descendants to retain hierarchy. Add one-operation subtree restore with permission checks and rollback. |
-| LIFE-05 | Draft/published content surfaces for every list and library (`docs/architecture.md`) | **Partial**: compatible EF engine and local commands implement independent surfaces and permission actions (ADR-0048). Existing module HTTP queries, search, files, relationships, permissions and UI still need integration with that engine. |
-| LIFE-06 | Immutable effective schema paired with every content revision (`docs/application-foundation.md`) | **Partial**: compatible EF engine freezes fields, content types and rules with each revision. Existing module history lacks those snapshots; migrate its writers/readers before certifying web behavior. |
-| LIFE-07 | Archive/unarchive without creating a content revision (`docs/archiving.md`) | **Partial**: compatible EF engine implements version checks, idempotency, preserved content stamps and atomic audit/events. Existing HTTP/UI modules, packages and delta consumers still need integration. |
-| LIFE-08 | Global Archive, protected Archived collection view and active/archived/all selection (`docs/archiving.md`) | **Partial**: EF collection browsing applies active/archived/all selection before pagination. Global Archive, protected web views, query totals/facets and search integration remain gaps. |
+| LIFE-05 | Draft/published content surfaces for every list and library (`docs/architecture.md`) | **Partial**: compatible EF engine and local commands implement independent surfaces and permission actions (ADR-0048). The Content API/UI now integrate these surfaces, independent grants and revision-pinned file downloads. Native module search, relationships, workers and other consumers remain separate. |
+| LIFE-06 | Immutable effective schema paired with every content revision (`docs/application-foundation.md`) | **Partial**: compatible EF engine freezes fields, content types and rules with each revision. The Content API/UI use saved schemas; legacy imports use the available schema because older schemas were never retained. |
+| LIFE-07 | Archive/unarchive without creating a content revision (`docs/archiving.md`) | **Partial**: compatible EF engine implements version checks, idempotency, preserved content stamps and atomic audit/events. The Content API/UI provide these operations. Native packages and delta consumers still need integration. |
+| LIFE-08 | Global Archive, protected Archived collection view and active/archived/all selection (`docs/archiving.md`) | **Partial**: EF collection browsing applies active/archived/all selection before pagination. The Content UI offers All collections with archived selection and permission-filtered browsing/search. Protected saved views, query totals/facets and rich indexed search remain gaps. |
 | LIFE-09 | Atomic selected-item/folder moves and rename/replace conflict resolution (`internal/httpapi`, `backlog.md`, ISSUE-05) | **Partial**: identity-preserving item moves and intra-list folder moves exist. Add atomic mixed selections, nested-selection rejection and collision handling; preserve relationships, files, ACL behavior and history. |
 | LIFE-10 | Atomic explicit bulk actions alongside filtered partial-success jobs (`docs/application-foundation.md`) | **Partial**: filtered bulk updates and independent HTTP batch calls exist. Add a separate all-or-nothing explicit selection operation; do not change HTTP batch's independent-result semantics. |
 
@@ -144,8 +145,8 @@ baseline.
 - The actual pinned Go DAL read EF content, archived it and recorded another
   schema; EF then read the Go archive, edited under the Go schema and
   unarchived the item. The round trip passed on both providers.
-- This validates the compatible engine/commands; existing modular web consumers
-  still need integration. See ADR-0048 and the operator guide for the boundary.
+- This validates the compatible engine/commands. The authenticated Content API/UI
+  and explicit import now use it; native module workers and other consumers remain separate. See ADR-0048 and the operator guide for the boundary.
 
 ## Verification commands
 

@@ -1,10 +1,10 @@
 // The main navigation. Built-in screens register here like extension screens will (ADR-0033 §5).
 import type { LucideIcon } from 'lucide-react';
-import { Bell, CalendarDays, House, Inbox, ListChecks, Search, Stamp } from 'lucide-react';
+import { Bell, CalendarDays, House, FolderOpen, Inbox, ListChecks, Search, Stamp } from 'lucide-react';
 
 export interface NavigationEntry {
   /** A route of the app. */
-  to: '/' | '/inbox' | '/tasks' | '/calendar' | '/approvals' | '/search' | '/notifications';
+  to: '/' | '/inbox' | '/tasks' | '/calendar' | '/approvals' | '/search' | '/notifications' | '/content';
   label: string;
   icon: LucideIcon;
   /** Keyboard shortcut after "g" (e.g. g h for Home). */
@@ -15,6 +15,7 @@ export interface NavigationEntry {
 
 export const navigation: NavigationEntry[] = [
   { to: '/', label: 'Home', icon: House, shortcut: 'h', exact: true },
+  { to: '/content', label: 'Content', icon: FolderOpen },
   { to: '/inbox', label: 'Inbox', icon: Inbox, shortcut: 'i' },
   { to: '/tasks', label: 'My tasks', icon: ListChecks, shortcut: 't' },
   { to: '/calendar', label: 'Calendar', icon: CalendarDays, shortcut: 'c' },

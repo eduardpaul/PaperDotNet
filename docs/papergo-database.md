@@ -9,12 +9,64 @@ JSON storage, seed rows and schema fingerprint. Provider-specific operations
 stay in the existing provider assemblies. No additional NuGet packages are
 required.
 
-**The existing web API and UI still use modular multitenant storage.** These
-commands provide the compatible database and lifecycle engine separately;
-they do not convert an existing installation or reroute its API, search,
-workflows or file store. Keep their databases separate. Each compatible
-database belongs to one organization, matching PaperGo. See
-[ADR-0048](adr/0048-papergo-compatible-content-database.md).
+The authenticated `/v1.0/content` API and the **Content** screen use a compatible
+organization database for each tenant. Existing module storage remains separate
+for identity and platform applications. Existing workspaces switch through the
+explicit preview/import flow. Each compatible database belongs to one
+organization, matching PaperGo. See [ADR-0048](adr/0048-papergo-compatible-content-database.md).
+
+## Application use
+
+Open **Content** from the sidebar. Create a workspace, then a list or document
+library. Collection settings control publishing, retained metadata history,
+fields and independent resource grants. Use **Drafts / latest** to edit and
+publish; ordinary readers browse **Published**. Active, archived and all filters
+apply before paging. **All collections** browses/searches the selected surface
+across the organization, with permission checks before paging. Selecting an item
+shows the schema saved with that revision, downloads, metadata history and restore.
+
+The TypeScript SDK's `contentClient` helper retains integer/decimal precision:
+field numbers cross the HTTP boundary as strings. Stored JSON and indexes keep
+the exact PaperGo representations. Generated C#, TypeScript and Python request
+builders cover the same endpoints. Changes require the current quoted `If-Match`
+version (428 if missing, 412 if stale).
+
+SQLite organization files live at `Storage:DataPath/content/{tenant-id}.db`, or
+`Content:DataPath`. PostgreSQL uses `pdn_content_{tenant-id}` databases owned by
+the application role. Pre-provision those databases, or configure
+`Content:ProvisioningConnectionString` with permission to create databases owned
+by that role. Keep this provisioning credential server-side. Ordinary content
+queries and writes use the application connection.
+
+## Existing workspace migration
+
+As an organization administrator, choose **Import workspace**, select a source
+workspace and review its preview. The API equivalents are
+`GET /v1.0/content/migrations/{workspace-id}/preview` and
+`POST /v1.0/content/migrations/{workspace-id}` with its `sourceHash`.
+A changed source requires a new preview. Unsupported schemas block import.
+
+Import preserves resource and content-type identifiers, metadata, retained
+history, file-version references, taxonomy and content grants. The copy commits
+as one destination transaction; it never overwrites existing target resources.
+Source saves and cutover share a provider lock. After cutover, legacy content
+routes reject access and module readers/search exclude the migrated workspace;
+tracked background source writes are rejected too. Use Content as the authority.
+
+The source store never retained immutable historical schemas: imported historical
+metadata uses the available schema. Comments, tasks, calendars, workflow runs,
+preview/OCR artifacts and other module records are not migrated or connected to
+Content. Their original records are retained; their original workspace screens
+are unavailable after cutover. Migrate document/list workspaces only when this
+boundary is appropriate. Full platform consumer integration remains tracked in
+[the parity register](papergo-parity.md).
+
+Installation backups include consistent snapshots of each organization's
+compatible database as well as blob files. Restore requires a stopped server.
+PostgreSQL backup/restore needs `pg_dump`/`pg_restore` at least as new as the server.
+CLI databases created outside the configured organization paths need their own
+backups. Snapshot reclamation, native workflow/event dispatch and rich indexed
+search for compatible content remain separate integration work.
 
 ## Initialize and use
 
@@ -138,9 +190,10 @@ not triggers. Direct SQL and EF `ExecuteUpdate`/`ExecuteDelete` bypass the
 tracked-save guards; use lifecycle operations. Collection-level schema commands reject edits to field definitions or content
 types shared with another collection, so they cannot leave its schema stale;
 use fresh IDs or a coordinated catalog migration for those edits.
-Snapshot garbage collection,
-blob upload/reclamation, directory/grant provisioning, revision-driven search,
-delta/package integration and UI integration are not provided by these commands.
+The local commands do not provision the platform directory or enforce HTTP
+scopes. Snapshot/blob reclamation, native event/workflow dispatch, rich indexed
+search and delta/package integration remain separate work. The authenticated
+application provides file uploads/downloads, resource grants, migration and UI.
 Both applications also need the same blob-store layout and coordinated schema
 upgrades before sharing a production installation. A matching development
 fingerprint does not promise compatibility with every PaperGo release.

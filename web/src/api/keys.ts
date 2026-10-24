@@ -1,6 +1,12 @@
 // Query keys for every server resource the UI caches (TanStack Query). Mutations and live events invalidate by
 // these keys, so a prefix (e.g. keys.workspace(id)) covers everything below it.
 export const keys = {
+  content: ['content'] as const,
+  contentWorkspaces: ['content', 'workspaces'] as const,
+  contentCollections: (id?: string) => ['content', 'workspaces', id, 'collections'] as const,
+  contentCollection: (id?: string) => ['content', 'collections', id] as const,
+  contentItems: (id?: string) => ['content', 'collections', id, 'items'] as const,
+  contentItem: (id?: string) => ['content', 'items', id] as const,
   globalItemResources: ['globalItems'] as const,
   globalItems: (q: string, writable: boolean) => ['globalItems', 'search', q, writable] as const,
   globalItem: (itemId: string) => ['globalItems', itemId] as const,

@@ -22,6 +22,10 @@ Self-hosted with just **one container** (SQLite built in; PostgreSQL optional).
 - **Lists engine:** content types and field types, lists and libraries, items,
   folders, views, OData queries, versions, recycle bin, permission inheritance,
   list templates, taxonomy (managed metadata and keywords), audit log.
+- **Compatible content:** the Content screen and authenticated API use PaperGo-compatible
+  EF organization databases, with immutable content/schema revisions, drafts,
+  publishing, archive, history and explicit workspace import
+  ([guide](docs/papergo-database.md)). Platform modules retain separate storage.
 - **Documents:** upload into libraries or your Inbox, type detection by
   content, file versions, deduplicated storage, OCR (Tesseract, or optional
   GLM-OCR) into searchable PDFs, thumbnails and page images, each a workflow a

@@ -16,6 +16,7 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as AppApprovalsRouteImport } from './routes/_app/approvals'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
+import { Route as AppContentRouteImport } from './routes/_app/content'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppSearchRouteImport } from './routes/_app/search'
@@ -87,6 +88,11 @@ const AppApprovalsRoute = AppApprovalsRouteImport.update({
 const AppCalendarRoute = AppCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppContentRoute = AppContentRouteImport.update({
+  id: '/content',
+  path: '/content',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInboxRoute = AppInboxRouteImport.update({
@@ -302,6 +308,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AppAdminRouteWithChildren
   '/approvals': typeof AppApprovalsRoute
   '/calendar': typeof AppCalendarRoute
+  '/content': typeof AppContentRoute
   '/inbox': typeof AppInboxRoute
   '/notifications': typeof AppNotificationsRoute
   '/search': typeof AppSearchRoute
@@ -346,6 +353,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/approvals': typeof AppApprovalsRoute
   '/calendar': typeof AppCalendarRoute
+  '/content': typeof AppContentRoute
   '/inbox': typeof AppInboxRoute
   '/notifications': typeof AppNotificationsRoute
   '/search': typeof AppSearchRoute
@@ -391,6 +399,7 @@ export interface FileRoutesById {
   '/_app/admin': typeof AppAdminRouteWithChildren
   '/_app/approvals': typeof AppApprovalsRoute
   '/_app/calendar': typeof AppCalendarRoute
+  '/_app/content': typeof AppContentRoute
   '/_app/inbox': typeof AppInboxRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/search': typeof AppSearchRoute
@@ -440,6 +449,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/approvals'
     | '/calendar'
+    | '/content'
     | '/inbox'
     | '/notifications'
     | '/search'
@@ -484,6 +494,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/approvals'
     | '/calendar'
+    | '/content'
     | '/inbox'
     | '/notifications'
     | '/search'
@@ -528,6 +539,7 @@ export interface FileRouteTypes {
     | '/_app/admin'
     | '/_app/approvals'
     | '/_app/calendar'
+    | '/_app/content'
     | '/_app/inbox'
     | '/_app/notifications'
     | '/_app/search'
@@ -624,6 +636,13 @@ declare module '@tanstack/react-router' {
       path: '/calendar'
       fullPath: '/calendar'
       preLoaderRoute: typeof AppCalendarRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/content': {
+      id: '/_app/content'
+      path: '/content'
+      fullPath: '/content'
+      preLoaderRoute: typeof AppContentRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/inbox': {
@@ -1000,6 +1019,7 @@ interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRouteWithChildren
   AppApprovalsRoute: typeof AppApprovalsRoute
   AppCalendarRoute: typeof AppCalendarRoute
+  AppContentRoute: typeof AppContentRoute
   AppInboxRoute: typeof AppInboxRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppSearchRoute: typeof AppSearchRoute
@@ -1020,6 +1040,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRouteWithChildren,
   AppApprovalsRoute: AppApprovalsRoute,
   AppCalendarRoute: AppCalendarRoute,
+  AppContentRoute: AppContentRoute,
   AppInboxRoute: AppInboxRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppSearchRoute: AppSearchRoute,
