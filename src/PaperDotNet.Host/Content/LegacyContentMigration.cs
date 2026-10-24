@@ -54,25 +54,20 @@ internal sealed partial class LegacyContentMigration(ListsDbContext lists, Works
         var sourceSets = await taxonomy.TermSets.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct);
         var terms = await taxonomy.Terms.AsNoTracking().OrderBy(x => x.Id).ToListAsync(ct);
         // Deliberately project non-secret directory data: password hashes/tokens never enter a migration snapshot.
-        var users = await identity.Users.AsNoTracking().OrderBy(x => x.Id).Select(x => new IdentityUsersRow
+        var directoryUsers = await identity.Users.AsNoTracking().OrderBy(x => x.Id).Select(x => new
         {
-            Id = x.Id.ToString(),
-            CreatedAt = x.CreatedAt.UtcDateTime,
-            Active = !x.IsDisabled && x.DeletedAt == null,
-            Service = x.IsServiceAccount,
+            x.Id, x.CreatedAt, x.DeletedAt, Active = !x.IsDisabled && x.DeletedAt == null, Service = x.IsServiceAccount,
             DisplayName = x.DeletedAt != null ? "Deleted user" : x.DisplayName ?? x.UserName ?? "",
-            Email = x.DeletedAt != null ? "" : x.Email ?? "",
-            DeletedAt = x.DeletedAt == null ? null : x.DeletedAt.Value.UtcDateTime
+            Email = x.DeletedAt != null ? "" : x.Email ?? ""
         }).ToListAsync(ct);
-        var groups = await identity.Groups.AsNoTracking().OrderBy(x => x.Id).Select(x => new IdentityGroupsRow
-        {
-            Id = x.Id.ToString(),
-            CreatedAt = x.CreatedAt.UtcDateTime,
-            Name = x.Name,
-            Description = x.Description ?? "",
-            Source = x.Source == GroupSource.Local ? "local" : "oidc",
-            Version = x.Version
-        }).ToListAsync(ct);
+        // Normalize timestamps after materialization: PostgreSQL's DateTimeOffset converter cannot coerce nullable UTC projections.
+        var users = directoryUsers.Select(x => new IdentityUsersRow { Id = x.Id.ToString(), CreatedAt = At(x.CreatedAt),
+            DeletedAt = x.DeletedAt is null ? null : At(x.DeletedAt.Value), Active = x.Active, Service = x.Service,
+            DisplayName = x.DisplayName, Email = x.Email }).ToArray();
+        var directoryGroups = await identity.Groups.AsNoTracking().OrderBy(x => x.Id).Select(x => new
+        { x.Id, x.CreatedAt, x.Name, x.Description, x.Source, x.Version }).ToListAsync(ct);
+        var groups = directoryGroups.Select(x => new IdentityGroupsRow { Id = x.Id.ToString(), CreatedAt = At(x.CreatedAt),
+            Name = x.Name, Description = x.Description ?? "", Source = x.Source == GroupSource.Local ? "local" : "oidc", Version = x.Version }).ToArray();
         var memberships = await identity.GroupMembers.AsNoTracking().OrderBy(x => x.GroupId).ThenBy(x => x.UserId)
             .Select(x => new { x.GroupId, x.UserId }).ToListAsync(ct);
         var nestings = await identity.GroupNestings.AsNoTracking().OrderBy(x => x.GroupId).ThenBy(x => x.MemberGroupId).ToListAsync(ct);
